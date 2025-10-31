@@ -26,14 +26,31 @@ class _ExtendedArtifactsPipeline(PipelineBase):
         )
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
+        # Mimic production pipelines by materialising export metadata during
+        # transformation so ``UnifiedOutputWriter`` receives a fully populated
+        # contract.
+        self.set_export_metadata_from_dataframe(
+            df,
+            pipeline_version=self.config.pipeline.version,
+            source_system=self.config.pipeline.entity,
+            chembl_release=None,
+        )
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:  # type: ignore[override]
         return df
 
+    def close_resources(self) -> None:  # type: ignore[override]
+        """No-op resource cleanup for the test pipeline."""
+        return None
+
 
 def _make_config() -> types.SimpleNamespace:
-    pipeline_section = types.SimpleNamespace(name="integration", entity="integration")
+    pipeline_section = types.SimpleNamespace(
+        name="integration",
+        entity="integration",
+        version="1.2.3",
+    )
     qc_section = types.SimpleNamespace(severity_threshold="error")
     determinism_section = types.SimpleNamespace(
         column_order=[],
@@ -89,9 +106,23 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     with meta_path.open("r", encoding="utf-8") as handle:
         metadata = yaml.safe_load(handle)
 
+    assert metadata["run_id"] == "integration-test"
+    assert metadata["pipeline_version"] == config.pipeline.version
+    assert metadata["source_system"] == config.pipeline.entity
+    assert metadata["chembl_release"] is None
     assert metadata["config_hash"] == config.config_hash
     assert metadata.get("git_commit") is None
     assert metadata["sources"] == ["chembl"]
+    assert metadata["schema_id"] is None
+    assert metadata["schema_version"] is None
+    assert metadata["column_order"] == ["numeric_a", "numeric_b", "category"]
+    assert metadata["column_count"] == 3
+    assert metadata["row_count"] == 4
+    assert metadata["file_checksums"]
+    timestamp = metadata["extraction_timestamp"]
+    assert timestamp.endswith("Z") or timestamp.endswith("+00:00")
+    assert metadata["artifacts"]["dataset"] == str(artifacts.dataset)
+    assert metadata["artifacts"]["quality_report"] == str(artifacts.quality_report)
 
     qc_artifacts = metadata["artifacts"].get("qc", {})
     assert "correlation_report" in qc_artifacts

@@ -44,7 +44,13 @@
 
 `OutputWriter` применён во всех пайплайнах; зафиксированы `column_order`, сортировка по бизнес-ключам, `hash_row` и `hash_business_key` (BLAKE2); диалект CSV, порядок JSON-ключей и поведение по NaN/Null стабильны. Атомарная запись — обязательна. [python-atomicwrites](https://python-atomicwrites.readthedocs.io)
 
-Extended-режим с генерацией `meta.yaml`, correlation и QC отчётов проверяется интеграционным тестом `tests/integration/pipelines/test_extended_mode_outputs.py`, который валидирует содержимое артефактов и ключевые поля метаданных.
+Extended-режим с генерацией `meta.yaml`, correlation и QC отчётов проверяется интеграционным тестом `tests/integration/pipelines/test_extended_mode_outputs.py`, который валидирует содержимое артефактов и ключевые поля метаданных (`run_id`, `pipeline_version`, `source_system`, `file_checksums`, `artifacts.qc`).【F:tests/integration/pipelines/test_extended_mode_outputs.py†L75-L130】 Дополнительно unit-тест `tests/unit/test_output_writer.py::test_unified_output_writer_writes_extended_metadata` страхует `UnifiedOutputWriter._write_metadata()` на уровне прямой сериализации.
+
+**Обязательные проверки IO-контракта:**
+
+- [ ] `pytest tests/integration/pipelines/test_extended_mode_outputs.py tests/unit/test_output_writer.py::test_unified_output_writer_writes_extended_metadata`
+- [ ] Содержимое `meta.yaml` содержит обязательные поля (`run_id`, `pipeline_version`, `source_system`, `extraction_timestamp`, `row_count`, `column_count`, `column_order`, `file_checksums`, `config_hash`, `sources`, `artifacts.qc.*`).【F:tests/integration/pipelines/test_extended_mode_outputs.py†L109-L130】【F:src/bioetl/core/output_writer.py†L992-L1043】
+- [ ] QC-артефакты (`*_correlation_report.csv`, `*_summary_statistics.csv`, `*_dataset_metrics.csv`) присутствуют и непустые; столбцы соответствуют tidy-формату, а датафрейм метрик включает `row_count`.【F:src/bioetl/core/output_writer.py†L695-L743】【F:tests/integration/pipelines/test_extended_mode_outputs.py†L92-L103】
 
 ## I. MergePolicy
 
