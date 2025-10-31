@@ -1,5 +1,7 @@
 # Ввод и вывод: договоры, схемы и конфиг
 
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+
 ## 1) Ввод (Input Contract)
 
 Источник истины ввода — официальные REST-интерфейсы провайдеров. Извлечение выполняется только через client/ с учётом лимитов, ретраев и этикета API.

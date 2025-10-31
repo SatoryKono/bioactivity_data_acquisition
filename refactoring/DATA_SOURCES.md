@@ -1,5 +1,7 @@
 Требования к перечню источников данных
 
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+
 0. Нормативная база
 
 Ключевые слова требований интерпретируются по RFC 2119/BCP 14: MUST, MUST NOT, SHOULD, MAY. 

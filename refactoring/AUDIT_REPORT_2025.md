@@ -1,4 +1,7 @@
 # Аудит плана рефакторинга (test_refactoring_32)
+
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+
 **Дата:** 2025-01-28  
 **Исполнитель:** AI Assistant  
 **Методология:** Структурный, компонентный, документационный и артефактный анализ

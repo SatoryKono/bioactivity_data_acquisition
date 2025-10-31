@@ -1,5 +1,7 @@
 Единый принцип: один внешний источник данных соответствует одному публичному пайплайну с минимальным набором модулей и стабильным контрактом. Все пути и ссылки указываются на ветку @test_refactoring_32.
 
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+
 ## Источники истины (@test_refactoring_32)
 
 - [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32] — детерминированный CSV-слепок пайплайнов.

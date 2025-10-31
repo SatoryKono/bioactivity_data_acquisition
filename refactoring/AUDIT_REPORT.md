@@ -1,5 +1,7 @@
 # BioETL Refactoring Audit (test_refactoring_32)
 
+> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py). Для ChEMBL существует дублирование между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси).
+
 ## Executive summary
 - **P0** — Документы в `refactoring/` предполагают дерево `src/bioetl/sources/<source>/...`, которого нет в текущей кодовой базе: фактические пайплайны расположены в монолитных файлах `src/bioetl/pipelines/*.py`, а конфиги лежат под `src/bioetl/configs`. Это создаёт прямое расхождение между архитектурными критериями и исполняемым кодом. [ref: repo:refactoring/MODULE_RULES.md@test_refactoring_32] [ref: repo:refactoring/PIPELINES.md@test_refactoring_32] [ref: repo:src/bioetl/pipelines/activity.py@test_refactoring_32] [ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
 - **P0** — Обязательная «инвентаризация» и связанные артефакты отсутствуют: в репозитории нет каталога `tools/` и файла `docs/requirements/PIPELINES.inventory.csv`, несмотря на жёсткие требования FAQ. [ref: repo:refactoring/FAQ.md@test_refactoring_32] [ref: repo:refactoring/REFACTOR_PLAN.md@test_refactoring_32]
