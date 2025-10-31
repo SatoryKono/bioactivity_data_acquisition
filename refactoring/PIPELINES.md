@@ -1,6 +1,12 @@
-Единый принцип: один внешний источник данных соответствует одному публичному пайплайну с минимальным набором модулей и стабильным контрактом. Все пути и ссылки указываются на ветку @test_refactoring_32.
+Единый принцип: один внешний источник данных соответствует одному публичному контракту, однако сами внешние обогащения инкапсулированы в адаптерах. Консьюмер-пайплайн `DocumentPipeline` агрегирует адаптеры Crossref, PubMed, OpenAlex и Semantic Scholar и экспонируется единственной CLI-командой `document`. Все пути и ссылки указываются на ветку @test_refactoring_32.
 
-> **Обновление:** Структура `src/bioetl/sources/` остаётся канонической для внешних источников данных. Модульные реализации ChEMBL находятся в `src/bioetl/sources/chembl/<entity>/`, а файлы `src/bioetl/pipelines/*.py` сохранены как совместимые прокси, которые реэкспортируют новые пайплайны.
+> **Обновление:** Структура `src/bioetl/sources/` остаётся канонической для внешних источников данных. Модульные реализации ChEMBL находятся в `src/bioetl/sources/chembl/<entity>/`, а файлы `src/bioetl/pipelines/*.py` сохранены как совместимые прокси, которые реэкспортируют новые пайплайны. Для внешних обогащений каждый адаптер публикует `*_ADAPTER_DEFINITION` (см. `bioetl/sources/{crossref,pubmed,openalex,semantic_scholar}/pipeline.py`), который регистрируется потребителем `bioetl.sources.document.pipeline.DocumentPipeline`.
+
+### Консьюмер документного пайплайна (@test_refactoring_32)
+
+- **Адаптеры:** `CrossrefAdapter`, `PubMedAdapter`, `OpenAlexAdapter`, `SemanticScholarAdapter` живут в `src/bioetl/sources/document/adapters/` и декларируют публичные профили в `src/bioetl/sources/{crossref,pubmed,openalex,semantic_scholar}/pipeline.py`.
+- **Конфигурация:** файл `configs/pipelines/document.yaml` управляет включением/отключением адаптеров (`sources.<adapter>.enabled`) и их параметрами (`batch_size`, `rate_limit_*`, `mailto` и т.д.).
+- **CLI:** реестр `scripts.PIPELINE_COMMAND_REGISTRY` содержит только запись `"document"`, поэтому запуск всех обогащений осуществляется через `python -m bioetl.cli.main document ...` или `src/scripts/run_document.py`. Режим `--mode chembl|all` переключает использование адаптеров.
 
 ## Источники истины (@test_refactoring_32)
 

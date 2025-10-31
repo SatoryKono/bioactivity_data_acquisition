@@ -4,6 +4,12 @@
 - `from bioetl.sources.document.adapters.crossref import CrossrefAdapter`
 - `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
 
+## CLI entrypoint
+- Внешнее обогащение Crossref запускается через публичный пайплайн `document`:
+  `python -m bioetl.cli.main document --config configs/pipelines/document.yaml`.
+  Отдельной команды CLI для Crossref нет; включение контролируется флагом
+  `sources.crossref.enabled` в конфигурации документного пайплайна.
+
 ## Configuration keys (`configs/pipelines/document.yaml`)
 - `sources.crossref.enabled`
 - `sources.crossref.base_url`
