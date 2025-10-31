@@ -1,3 +1,58 @@
+Аннотация: Пошаговый план устранения клонов и нарушений. Изменения батчами ≤ 300 LOC. Ветка: test_refactoring_32. Дата: 2025-10-31.
+
+### Batch 1 — Дерефакторинг клиентов UniProt (≤ 200 LOC)
+- Цель: ликвидировать дубли `sources/uniprot/client.py` vs `sources/uniprot/client/*`.
+- Действия:
+  1) Заменить все импорты монолита на пакетные клиенты `client/search_client.py`, `client/idmapping_client.py`, `client/orthologs_client.py`.
+  2) Добавить временный shim (если нужно) и пометить `client.py` к удалению.
+  3) Обновить доки.
+- Done: нет импортов `sources/uniprot/client.py`; тесты enrichment зелёные.
+
+### Batch 2 — Объединение сервисов UniProt Enrichment (≤ 300 LOC)
+- Цель: слить `normalizer_service.py` и `merge/service.py` в единый сервис.
+- Действия:
+  1) Вынести общий `UniProtEnrichmentResult` в `sources/uniprot/normalizer/types.py`.
+  2) Объединить `enrich_targets` и удалить дубликат.
+  3) Обновить импорты в пайплайнах.
+- Done: один источник истины сервиса; тесты на идентичность результата на фикстурах.
+
+### Batch 3 — Централизация сетевых вызовов ChEMBL status (≤ 120 LOC)
+- Цель: убрать `requests.get` из `utils/chembl.py`.
+- Действия:
+  1) Переписать `_request_status` на использование `UnifiedAPIClient.request_json`.
+  2) Прокинуть конфиг таймаутов/ретраев из core.
+  3) Добавить контракт‑тест на Retry‑After.
+- Done: ноль прямых `requests.get` вне core; тесты зелёные.
+
+### Batch 4 — Атомарный I/O для отчётов и кэша (≤ 300 LOC)
+- Цель: исключить неатомарные записи в `scripts/run_inventory.py`, `utils/validation.py`, кэше activity.
+- Действия:
+  1) Ввести `AtomicTextWriter` в core/output и обёртки JSON/MD.
+  2) Заменить `write_text/open(..., 'w')` на атомарные вызовы.
+  3) Для кэша — сортировать ключи, fsync.
+- Done: все писатели через атомарность; golden‑тесты стабильности.
+
+### Batch 5 — Унификация пагинации (≤ 300 LOC)
+- Цель: источники используют core‑стратегии пагинации.
+- Действия:
+  1) Заменить логику в `sources/*/pagination` на тонкие обёртки над `core/pagination/strategy.py`.
+  2) Удалить дублирующую реализацию.
+  3) Добавить property‑based тесты прогонки токенов/offset.
+- Done: единственная реализация в core; тесты покрывают edge‑cases.
+
+### Batch 6 — Единые билдеры запросов (≤ 200 LOC)
+- Цель: убрать дубли UA/etiquette в билдерах.
+- Действия:
+  1) В `BaseRequestBuilder` — фабрики UA и etiquette.
+  2) Упростить `openalex/crossref/pubmed` билдеры до параметров.
+- Done: минимальная логика в билдерах; юнит‑тесты заголовков.
+
+Зависимости батчей: 1 → 2 → 5; 3 и 4 независимы; 6 независимо.
+
+Критерии приёмки (общие)
+- Все тесты (unit/integration/golden) зелёные; Pandera‑валидация проходит.
+- Нет сетевого/файлового I/O вне разрешённых слоёв; детерминизм сохраняется.
+
 # REFACTOR_PLAN.md
 
 План рефакторинга по «семьям файлов» и по источникам. Все пути — ветка test_refactoring_32.

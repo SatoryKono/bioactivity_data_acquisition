@@ -1,272 +1,55 @@
 # BioETL
 
-Unified ETL framework for bioactivity data extraction from ChEMBL and
-external sources with full determinism and reproducibility.
+## что-это-и-зачем
 
-## Installation
+BioETL — каркас для детерминированного извлечения биоактивностных данных из ChEMBL и внешних источников. Архитектура строится на композиции `PipelineBase`, унифицированных HTTP-клиентов, Pandera-схем и атомарной системы записи ([ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32], [ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]).
+
+## быстрый-старт
 
 ```bash
-
-# Install in development mode
-
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-
-pre-commit install
-
-```
-
-### Install test dependencies only
-
-```bash
-pip install -r requirements.txt
-
-```
-
-> **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
-> for deterministic fixture data. Installing the development extras or the
-> pinned requirements file above ensures the dependency is available before
-> running `pytest`.
-
-## Quick Start
-
-```bash
-
-# Load configuration
-
-python -c "from bioetl.config import load_config; print(load_config('configs/profiles/dev.yaml'))"
-
-# Test logger
-
-python -c "from bioetl.core.logger import UnifiedLogger; \
-UnifiedLogger.setup('development', 'test'); \
-UnifiedLogger.get('test').info('Hello World')"
-
-```
-
-## Environment variables
-
-Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
-комментариями по формату значений. Скопируйте его и заполните реальные данные:
-
-```bash
+# заполните переменные окружения
 cp .env.example .env
-${SHELL:-bash} -lc 'set -a; source .env; set +a'
+# отредактируйте .env и загрузите удобным для вас способом (source/. env, setx и т.д.)
 
-```
-
-Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
-CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
-или встроенные менеджеры секретов) до вызова CLI.
-
-<!-- markdownlint-disable MD013 -->
-| Переменная | Назначение | Обязательность |
-| --- | --- | --- |
-| `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
-| `PUBMED_EMAIL` | Контактный e-mail для PubMed, который указывается в запросах. | Да — требуется документному пайплайну. |
-| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10 запросов/сек. | Необязательная, но рекомендована для production. |
-| `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
-| `OPENALEX_MAILTO` | Контактный e-mail для OpenAlex API. | Да — рекомендуется для документного пайплайна. |
-| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
-| `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
-<!-- markdownlint-enable MD013 -->
-
-Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,
-предотвращая случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
-
-## CLI Usage
-
-<!-- markdownlint-disable MD013 -->
-Команды Typer регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY`,
-поэтому консольный интерфейс всегда отражает актуальные пайплайны. Полный перечень команд,
-дефолтных путей и унифицированных флагов поддерживается в [refactoring/FAQ.md](refactoring/FAQ.md#cli-commands).
-<!-- markdownlint-enable MD013 -->
-
-```bash
-
-# Просмотреть доступные команды и флаги
-
-python -m bioetl.cli.main --help
-
-# Список зарегистрированных пайплайнов
-
-python -m bioetl.cli.main list
-
-# Пример запуска пайплайна в режиме dry-run
-
+# прогон ограниченного пайплайна
 python -m bioetl.cli.main activity \
   --config src/bioetl/configs/pipelines/activity.yaml \
-  --dry-run \
-  --verbose
-
+  --input data/input/activity.csv \
+  --output data/output/activity --sample 10 --dry-run
 ```
 
-## Structure
+Минимальные переменные окружения описаны в `.env.example` (PubMed, Crossref, OpenAlex, Semantic Scholar, IUPHAR). Отсутствие обязательного ключа приводит к ошибке загрузки конфига.
 
-```text
-src/bioetl/
-  ├── core/          # Logger, API client, output writer
-  ├── config/        # Configuration system
-  ├── configs/
-  │   ├── includes/  # Shared YAML fragments for pipelines
-  │   └── pipelines/ # Per-source configs (<source>.yaml)
-  ├── normalizers/   # Data normalizers
-  ├── schemas/       # Pandera schemas
-  ├── pipelines/     # Pipeline implementations
-  ├── sources/
-  │   └── <source>/
-  │       ├── client/       # HTTP clients with retry/backoff
-  │       ├── request/      # Request builders and API etiquette
-  │       ├── pagination/   # Pagination strategies (page, cursor, ...)
-  │       ├── parser/       # Response parsing without side effects
-  │       ├── normalizer/   # Converts payloads to UnifiedSchema
-  │       ├── schema/       # Pandera schemas (optional)
-  │       ├── merge/        # Merge policies (optional)
-  │       ├── output/       # Deterministic writers, hashes, meta.yaml
-  │       └── pipeline.py   # PipelineBase orchestration entrypoint
-  └── cli/           # CLI interface
+## где-искать-документацию
 
-configs/
-  ├── base.yaml      # Base configuration
-  ├── profiles/      # dev.yaml, prod.yaml, test.yaml
-  └── sources/       # Per-source configs (pipeline.yaml, schema.yaml, includes/)
+- `docs/INDEX.md` — оглавление и глоссарий.
+- `docs/requirements/00-architecture-overview.md` — уровни системы и потоки данных.
+- `docs/requirements/03-data-sources-and-spec.md` — требования к источникам, бизнес-ключи и дедуп.
+- `docs/pipelines/PIPELINES.md` — публичные контракты шагов `extract/normalize/validate/write/run`.
+- `docs/configs/CONFIGS.md` — профили, наследование, инварианты конфигураций.
+- `docs/cli/CLI.md` — команды Typer, общие флаги и примеры запуска.
+- `docs/qc/QA.md` — тестовые контуры, golden-наборы и проверки документации.
 
-tests/
-  ├── unit/          # Unit tests
-  ├── integration/   # Integration tests
-  ├── golden/        # Golden tests
-  └── fixtures/      # Test fixtures
+## поддерживаемые-источники
 
-```
+| Команда | Сущность | Основные источники | Статус | Примечания |
+| --- | --- | --- | --- | --- |
+| `activity` | Активности | ChEMBL | production | Fallback-записи и QC по количеству/доле замен. |
+| `assay` | Ассайы | ChEMBL + BAO | production | Нормализация категорий BAO. |
+| `target` | Мишени | ChEMBL + UniProt + IUPHAR | production | Профиль `--mode smoke` для быстрой проверки. |
+| `testitem` | Молекулы | ChEMBL + PubChem | production | Слияние солей/parent, QC на дубли. |
+| `document` | Документы | ChEMBL + PubMed + Crossref + OpenAlex + Semantic Scholar | production | Merge-приоритеты и источники фиксируются в колонках `*_source`. |
+| `pubchem` | Энрихмент PubChem | PubChem PUG REST | beta | Используется для вспомогательных таблиц. |
+| `gtp_iuphar` | Классификации | Guide to Pharmacology | beta | Требует `IUPHAR_API_KEY`. |
+| `uniprot` | Белковые аннотации | UniProt REST | beta | Применяется как обогащение для `target`. |
 
-## API etiquette
+## лицензия-и-обратная-связь
 
-<!-- markdownlint-disable MD013 -->
-Внешние источники накладывают требования на идентификацию клиента. Пакет `src/bioetl/sources/<source>/request/`
-содержит билдеры, которые автоматически применяют эти правила. Конфигурации пайплайнов должны заполнять
-контактные поля через переменные окружения.
+- Лицензия: MIT (см. [ref: repo:pyproject.toml@test_refactoring_32]).
+- Обратная связь и вопросы: создавайте issue в репозитории или используйте почту, указанную в `.env.example` для контактных лиц.
+- Изменения публичных контрактов **MUST** сопровождаться записью в `CHANGELOG.md`.
 
-| Источник   | Требования                                                                 | Конфигурация |
-|------------|-----------------------------------------------------------------------------|--------------|
-| Crossref   | Заголовок `User-Agent` с контактным `mailto`, query-параметр `mailto`.      | `CROSSREF_MAILTO` |
-| OpenAlex   | Заголовок `User-Agent` с контактным `mailto`, query-параметр `mailto`.      | `OPENALEX_MAILTO` |
-| PubMed     | Query-параметры `tool`, `email`, `api_key` (если выдан) и заголовок `User-Agent`. | `PUBMED_TOOL`, `PUBMED_EMAIL`, `PUBMED_API_KEY` |
-<!-- markdownlint-enable MD013 -->
-
-<!-- markdownlint-disable MD013 -->
-Билдеры также сортируют query-параметры для детерминированных URL и прокладывают `request_id` в метаданные
-каждого HTTP-запроса для трассировки.
-<!-- markdownlint-enable MD013 -->
-
-## Development
-
-```bash
-
-# Validate documentation references
-
-python scripts/qa/check_required_docs.py
-
-# Run linting (same as CI)
-
-ruff check src/bioetl src/library tests
-ruff format --check src/bioetl src/library tests
-
-# Run tests
-
-pytest tests/ -v
-
-# Run with coverage
-
-pytest tests/ --cov=src/bioetl --cov-report=html
-
-# Run specific test suite
-
-make test-unit                     # Unit tests only (directory scoped)
-make test-integration              # Integration tests only (directory scoped)
-pytest tests/unit/ -v              # Direct pytest invocation for unit tests
-pytest tests/integration/ -v       # Direct pytest invocation for integration tests
-
-# Lint
-
-ruff check src/ tests/
-
-# Type check
-
-mypy --config-file=pyproject.toml src/bioetl src/library
-
-# Execute the full test matrix
-
-pytest tests/unit tests/integration tests/schemas
-
-# Run every hook locally
-
-pre-commit run --all-files
-
-```
-
-Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
-
-### Continuous Integration setup
-
-CI workflows rely on the same configuration loader that powers the CLI. To
-customise logging or other runtime options in GitHub Actions, use
-double-underscore separated environment variables with the `BIOETL__` prefix.
-For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
-`BIOETL__LOGGING__FILE__ENABLED=true` before running `pytest`. The loader also
-accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
-while pipelines migrate to the new namespace.
-
-Column layout drift is caught automatically in CI by running
-`python -m scripts.validate_columns compare-all`. The helper now raises an
-assertion if a CSV filename does not start with its registered entity prefix or
-if the materialised columns diverge from the Pandera schema, keeping the I/O
-contracts in sync with `bioetl.schemas.*`.
-
-### Extract-stage conventions
-
-1. Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
-
-   Хелпер логирует путь, применяет `limit`/`sample` и возвращает как датафрейм,
-   так и разрешённый путь. Это гарантирует единообразное поведение при
-   отсутствии файла и упрощает написание новых пайплайнов.
-
-### Transform-stage conventions
-
-- `transform()` обязан принимать и возвращать `pd.DataFrame`, сохраняя табличный
-  контракт между стадиями и позволяя повторно применять схемы валидации без
-  дополнительных адаптеров (см. `src/bioetl/pipelines/base.py` строки 785-802).
-
-### Export-stage conventions
-
-<!-- markdownlint-disable MD013 -->
-- `export()` использует `UnifiedOutputWriter` для детерминированной фиксации
-  данных и побочных артефактов QC, поэтому на вход всегда подаётся
-  `pd.DataFrame`, уже прошедший валидацию (см. `src/bioetl/pipelines/base.py` строки 804-880).
-<!-- markdownlint-enable MD013 -->
-
-### Extended output mode
-
-Флаг `--extended` в CLI добавляет к стандартному набору артефактов
-(`dataset.csv`, `qc/<name>_quality_report.csv`, `meta.yaml`) следующие файлы:
-
-1. `qc/<name>_correlation_report.csv` — матрица парных корреляций для всех
-   числовых признаков в длинном формате.
-
-2. `qc/<name>_summary_statistics.csv` — сводка описательных статистик по
-   каждому столбцу (count, mean, top, freq и т. д.).
-
-3. `qc/<name>_dataset_metrics.csv` — агрегированные QC-метрики на уровне всего
-   датасета (количество строк/столбцов, дубликаты, пустые значения, размер в
-   памяти и т. п.).
-
-Все новые файлы сохраняются в каталоге `qc/` рядом с основным датасетом и
-учитываются в `meta.yaml` для контроля целостности.
-
-## Commands
-
-Для быстрого запуска pipeline'ов используйте команды из [docs/COMMANDS.md](docs/COMMANDS.md).
-
-## License
-
-MIT
