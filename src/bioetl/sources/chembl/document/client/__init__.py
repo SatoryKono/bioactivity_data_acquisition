@@ -1,3 +1,5 @@
-"""Document client module namespace."""
+"""Document pipeline client utilities."""
 
-__all__ = []
+from .document_client import DocumentChEMBLClient, DocumentFetchCallbacks
+
+__all__ = ["DocumentChEMBLClient", "DocumentFetchCallbacks"]

@@ -1,20 +1,15 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
-import os
-import re
-from collections.abc import Iterable, Mapping, Sequence
-from concurrent.futures import ThreadPoolExecutor
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
 
 import pandas as pd
 import requests
 from pandera.errors import SchemaErrors
 
-from bioetl.adapters.base import AdapterConfig
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import APIConfig, CircuitBreakerOpenError
+from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -26,7 +21,6 @@ from bioetl.sources.document.merge.policy import merge_with_precedence
 from bioetl.sources.document.pipeline import (
     AdapterDefinition,
     ExternalEnrichmentResult,
-    FieldSpec,
 )
 from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
@@ -38,12 +32,22 @@ from bioetl.schemas.document import (
     DocumentRawSchema,
     DocumentSchema,
 )
-from bioetl.schemas.document_input import DocumentInputSchema
 from bioetl.schemas.registry import schema_registry
-from bioetl.utils.config import coerce_float_config, coerce_int_config
-from bioetl.utils.dtypes import coerce_optional_bool, coerce_retry_after
-from bioetl.utils.fallback import build_fallback_payload
+from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
+
+from .client import DocumentChEMBLClient, DocumentFetchCallbacks
+from .merge import merge_enrichment_results
+from .normalizer import normalize_document_frame
+from .output import append_qc_sections, persist_rejected_inputs
+from .parser import prepare_document_input_ids
+from .request import (
+    build_adapter_configs as request_build_adapter_configs,
+    collect_enrichment_metrics,
+    init_external_adapters,
+    run_enrichment_requests,
+)
+from .schema import build_document_fallback_row
 
 __all__ = ["DocumentPipeline"]
 
@@ -105,13 +109,13 @@ class DocumentPipeline(PipelineBase):
         super().__init__(config, run_id)
         self.primary_schema = DocumentNormalizedSchema
 
-        # Initialize ChEMBL API client
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 10
         default_max_url_length = 1800
         self.max_batch_size = 25
 
-        chembl_context = self._init_chembl_client(
+        self.document_client = DocumentChEMBLClient(
+            config,
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,
@@ -121,12 +125,10 @@ class DocumentPipeline(PipelineBase):
             batch_size_cap=self.max_batch_size,
         )
 
-        self.api_client = chembl_context.client
+        self.api_client = self.document_client.api_client
         self.register_client(self.api_client)
-        self.batch_size = chembl_context.batch_size
-        resolved_max_url = chembl_context.max_url_length or default_max_url_length
-        self.max_url_length = max(1, int(resolved_max_url))
-        self._document_cache: dict[str, dict[str, Any]] = {}
+        self.batch_size = self.document_client.batch_size
+        self.max_url_length = max(1, int(self.document_client.max_url_length))
 
         # Initialize external adapters if enabled
         self.external_adapters: dict[str, Any] = {}
@@ -134,6 +136,7 @@ class DocumentPipeline(PipelineBase):
 
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
+        self.document_client.release = self._chembl_release
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
@@ -182,26 +185,7 @@ class DocumentPipeline(PipelineBase):
     def _init_external_adapters(self) -> None:
         """Initialize external API adapters using structured definitions."""
 
-        self.external_adapters.clear()
-        sources = self.config.sources
-
-        for source_name, definition in _ADAPTER_DEFINITIONS.items():
-            source_cfg = sources.get(source_name)
-            if source_cfg is None:
-                continue
-
-            enabled = bool(self._get_source_attribute(source_cfg, "enabled", True))
-            if not enabled:
-                logger.info("adapter_skipped", source=source_name, reason="disabled")
-                continue
-
-            api_config, adapter_config = self._build_adapter_configs(
-                source_name, source_cfg, definition
-            )
-            adapter = definition.adapter_cls(api_config, adapter_config)
-            self.external_adapters[source_name] = adapter
-
-        logger.info("adapters_initialized", count=len(self.external_adapters))
+        self.external_adapters = init_external_adapters(self.config, _ADAPTER_DEFINITIONS)
 
     def close_resources(self) -> None:
         """Close external adapters and the primary API client."""
@@ -217,201 +201,10 @@ class DocumentPipeline(PipelineBase):
         source_name: str,
         source_cfg: Any,
         definition: AdapterDefinition,
-    ) -> tuple[APIConfig, AdapterConfig]:
-        """Construct API and adapter configuration objects for a source."""
+    ) -> tuple[Any, Any]:
+        """Backward-compatible wrapper around the request helper."""
 
-        def _log(event: str, **kwargs: Any) -> None:
-            logger.warning(event, source=source_name, **kwargs)
-
-        cache_enabled = bool(self.config.cache.enabled)
-        cache_enabled_raw = self._get_source_attribute(source_cfg, "cache_enabled")
-        if cache_enabled_raw is not None:
-            coerced = coerce_optional_bool(cache_enabled_raw)
-            if coerced is not pd.NA:
-                cache_enabled = bool(coerced)
-
-        cache_ttl_default = int(self.config.cache.ttl)
-        cache_ttl_raw = self._get_source_attribute(source_cfg, "cache_ttl")
-        cache_ttl = coerce_int_config(
-            cache_ttl_raw,
-            cache_ttl_default,
-            field="cache_ttl",
-            log=_log,
-            invalid_event="adapter_config_invalid_int",
-        )
-
-        cache_maxsize_default = getattr(self.config.cache, "maxsize", None)
-        if cache_maxsize_default is None:
-            cache_maxsize_default = APIConfig.__dataclass_fields__["cache_maxsize"].default  # type: ignore[index]
-        cache_maxsize_raw = self._get_source_attribute(source_cfg, "cache_maxsize")
-        cache_maxsize = coerce_int_config(
-            cache_maxsize_raw,
-            int(cache_maxsize_default),
-            field="cache_maxsize",
-            log=_log,
-            invalid_event="adapter_config_invalid_int",
-        )
-
-        http_profiles = getattr(self.config, "http", None)
-        global_http = None
-        if isinstance(http_profiles, Mapping):
-            global_http = http_profiles.get("global")
-
-        timeout_default: float | None = None
-        connect_default: float | None = None
-        read_default: float | None = None
-        if global_http is not None:
-            timeout_default = getattr(global_http, "timeout_sec", None)
-            if timeout_default is not None:
-                timeout_default = float(timeout_default)
-            connect_default = getattr(global_http, "connect_timeout_sec", None)
-            if connect_default is not None:
-                connect_default = float(connect_default)
-            read_default = getattr(global_http, "read_timeout_sec", None)
-            if read_default is not None:
-                read_default = float(read_default)
-
-        if connect_default is None:
-            connect_default = (
-                timeout_default
-                if timeout_default is not None
-                else float(APIConfig.__dataclass_fields__["timeout_connect"].default)  # type: ignore[index]
-            )
-
-        if read_default is None:
-            read_default = (
-                timeout_default
-                if timeout_default is not None
-                else float(APIConfig.__dataclass_fields__["timeout_read"].default)  # type: ignore[index]
-            )
-
-        if timeout_default is None:
-            timeout_default = read_default
-
-        timeout_override = self._get_source_attribute(source_cfg, "timeout")
-        if timeout_override is None:
-            timeout_override = self._get_source_attribute(source_cfg, "timeout_sec")
-
-        timeout_value = coerce_float_config(
-            timeout_override,
-            float(timeout_default),
-            field="timeout",
-            log=_log,
-            invalid_event="adapter_config_invalid_float",
-        )
-
-        connect_override = self._get_source_attribute(source_cfg, "connect_timeout_sec")
-        connect_default_final = (
-            float(timeout_value) if timeout_override is not None else float(connect_default)
-        )
-        timeout_connect = coerce_float_config(
-            connect_override,
-            connect_default_final,
-            field="connect_timeout_sec",
-            log=_log,
-            invalid_event="adapter_config_invalid_float",
-        )
-
-        read_override = self._get_source_attribute(source_cfg, "read_timeout_sec")
-        read_default_final = (
-            float(timeout_value) if timeout_override is not None else float(read_default)
-        )
-        timeout_read = coerce_float_config(
-            read_override,
-            read_default_final,
-            field="read_timeout_sec",
-            log=_log,
-            invalid_event="adapter_config_invalid_float",
-        )
-
-        api_kwargs: dict[str, Any] = {
-            "name": source_name,
-            "cache_enabled": cache_enabled,
-            "cache_ttl": cache_ttl,
-            "cache_maxsize": cache_maxsize,
-            "timeout_connect": timeout_connect,
-            "timeout_read": timeout_read,
-        }
-
-        for field_name, spec in definition.api_fields.items():
-            raw_value = self._get_source_attribute(source_cfg, field_name)
-            value = self._resolve_field_value(raw_value, spec)
-            api_kwargs[field_name] = value
-
-        adapter_kwargs: dict[str, Any] = {"enabled": True}
-        for field_name, spec in definition.adapter_fields.items():
-            raw_value = self._get_source_attribute(source_cfg, field_name)
-            value = self._resolve_field_value(raw_value, spec)
-            adapter_kwargs[field_name] = value
-
-        api_config = APIConfig(**api_kwargs)
-        adapter_config = AdapterConfig(**adapter_kwargs)
-        return api_config, adapter_config
-
-    @staticmethod
-    def _get_source_attribute(source_cfg: Any, attr: str, default: Any = None) -> Any:
-        """Retrieve attribute from a TargetSourceConfig or mapping."""
-
-        if isinstance(source_cfg, dict):
-            return source_cfg.get(attr, default)
-        return getattr(source_cfg, attr, default)
-
-    def _resolve_field_value(self, raw_value: Any, spec: FieldSpec) -> Any:
-        """Resolve value from configuration applying env substitutions and defaults."""
-
-        default_value = spec.get_default()
-        value = default_value if raw_value is None else raw_value
-        value = self._apply_env_substitutions(value)
-
-        if (value is None or (isinstance(value, str) and value == "")) and spec.env:
-            env_value = os.getenv(spec.env)
-            if env_value is not None:
-                value = env_value
-
-        if (
-            isinstance(default_value, (int, float))
-            and not isinstance(default_value, bool)
-            and isinstance(value, str)
-            and value
-        ):
-            try:
-                value = type(default_value)(value)
-            except ValueError:
-                pass
-
-        if spec.coalesce_default_on_blank and isinstance(value, str) and not value.strip():
-            value = default_value
-
-        if value is None:
-            value = default_value
-
-        return value
-
-    def _apply_env_substitutions(self, value: Any) -> Any:
-        """Recursively resolve environment placeholders in configuration values."""
-
-        if isinstance(value, str):
-            return self._resolve_env_reference(value)
-        if isinstance(value, dict):
-            return {key: self._apply_env_substitutions(val) for key, val in value.items()}
-        if isinstance(value, list):
-            return [self._apply_env_substitutions(item) for item in value]
-        if isinstance(value, tuple):
-            return tuple(self._apply_env_substitutions(item) for item in value)
-        return value
-
-    @staticmethod
-    def _resolve_env_reference(value: str) -> str:
-        """Resolve env-style placeholders like ``${VAR}`` or ``env:VAR``."""
-
-        candidate = value.strip()
-        if candidate.startswith("env:"):
-            env_name = candidate.split(":", 1)[1]
-            return os.getenv(env_name, "")
-        if candidate.startswith("${") and candidate.endswith("}"):
-            env_name = candidate[2:-1]
-            return os.getenv(env_name, "")
-        return value
+        return request_build_adapter_configs(self.config, source_name, source_cfg, definition)
 
     def _enrich_with_external_sources(
         self, chembl_df: pd.DataFrame
@@ -423,13 +216,12 @@ class DocumentPipeline(PipelineBase):
                 reason="no_external_adapters",
                 chembl_rows=len(chembl_df),
             )
+            self.qc_enrichment_metrics = pd.DataFrame()
             return chembl_df
 
-        # Extract PMIDs and DOIs from ChEMBL data
-        pmids = []
-        dois = []
+        pmids: list[str] = []
+        dois: list[str] = []
 
-        # Check for multiple possible PMID column names
         if "chembl_pmid" in chembl_df.columns:
             pmids = chembl_df["chembl_pmid"].dropna().astype(str).tolist()
         elif "pmid" in chembl_df.columns:
@@ -444,13 +236,14 @@ class DocumentPipeline(PipelineBase):
             for column in doi_columns:
                 for value in chembl_df[column].dropna().tolist():
                     doi_str = str(value)
-                    if not doi_str:
-                        continue
-                    if doi_str in seen_dois:
-                        continue
-                    seen_dois.add(doi_str)
-                    ordered_dois.append(doi_str)
+                    if doi_str and doi_str not in seen_dois:
+                        seen_dois.add(doi_str)
+                        ordered_dois.append(doi_str)
             dois = ordered_dois
+
+        titles: list[str] = []
+        if "_original_title" in chembl_df.columns:
+            titles = chembl_df["_original_title"].dropna().astype(str).tolist()
 
         logger.info(
             "enrichment_data",
@@ -460,78 +253,29 @@ class DocumentPipeline(PipelineBase):
             sample_pmids=pmids[:3] if pmids else [],
         )
 
-        # Fetch from external sources in parallel
-        pubmed_df = None
-        crossref_df = None
-        openalex_df = None
-        semantic_scholar_df = None
-        adapter_errors: dict[str, str] = {}
+        pubmed_df, crossref_df, openalex_df, semantic_scholar_df, adapter_errors = (
+            run_enrichment_requests(
+                self.external_adapters,
+                pmids=pmids,
+                dois=dois,
+                titles=titles,
+            )
+        )
 
-        # Use ThreadPoolExecutor for parallel fetching
-        workers = min(4, len(self.external_adapters))
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {}
+        frames = {
+            "pubmed": pubmed_df,
+            "crossref": crossref_df,
+            "openalex": openalex_df,
+            "semantic_scholar": semantic_scholar_df,
+        }
+        self.qc_enrichment_metrics = collect_enrichment_metrics(frames, adapter_errors)
 
-            if "pubmed" in self.external_adapters and pmids:
-                futures["pubmed"] = executor.submit(self.external_adapters["pubmed"].process, pmids)
-
-            if "crossref" in self.external_adapters and dois:
-                futures["crossref"] = executor.submit(self.external_adapters["crossref"].process, dois)
-
-            if "openalex" in self.external_adapters and dois:
-                futures["openalex"] = executor.submit(self.external_adapters["openalex"].process, dois)
-
-            if "semantic_scholar" in self.external_adapters:
-                if pmids:
-                    # Primary: fetch by PMIDs
-                    logger.info("semantic_scholar_by_pmids", count=len(pmids))
-                    futures["semantic_scholar"] = executor.submit(self.external_adapters["semantic_scholar"].process, pmids)
-                elif "_original_title" in chembl_df.columns:
-                    # Fallback: fetch by titles if no PMIDs
-                    titles = chembl_df["_original_title"].dropna().tolist()
-                    logger.info("semantic_scholar_by_titles_fallback", count=len(titles))
-                    # Call process_titles wrapper method
-                    futures["semantic_scholar"] = executor.submit(
-                        self.external_adapters["semantic_scholar"].process_titles, titles
-                    )
-                else:
-                    logger.warning("semantic_scholar_skipped", reason="no_pmids_or_titles")
-
-            # Collect results
-            for source, future in futures.items():
-                try:
-                    result = future.result(timeout=300)  # 5 min timeout
-                    if source == "pubmed":
-                        pubmed_df = result
-                    elif source == "crossref":
-                        crossref_df = result
-                    elif source == "openalex":
-                        openalex_df = result
-                    elif source == "semantic_scholar":
-                        semantic_scholar_df = result
-                    logger.info("adapter_completed", source=source, rows=len(result) if not result.empty else 0)
-                    # DEBUG: Log returned columns
-                    if not result.empty:
-                        logger.info("adapter_columns", source=source, columns=list(result.columns))
-                except Exception as e:
-                    error_message = str(e) or e.__class__.__name__
-                    adapter_errors[source] = error_message
-                    logger.error("adapter_failed", source=source, error=error_message)
-
-        # DEBUG: Log before merge
-        logger.info("before_merge", chembl_cols=len(chembl_df.columns), chembl_rows=len(chembl_df))
-        if pubmed_df is not None and not pubmed_df.empty:
-            logger.info("pubmed_df_size", rows=len(pubmed_df), cols=len(pubmed_df.columns))
-        if crossref_df is not None and not crossref_df.empty:
-            logger.info("crossref_df_size", rows=len(crossref_df), cols=len(crossref_df.columns))
-        if openalex_df is not None and not openalex_df.empty:
-            logger.info("openalex_df_size", rows=len(openalex_df), cols=len(openalex_df.columns))
-        if semantic_scholar_df is not None and not semantic_scholar_df.empty:
-            logger.info("semantic_scholar_df_size", rows=len(semantic_scholar_df), cols=len(semantic_scholar_df.columns))
-
-        # Merge with precedence
-        enriched_df = merge_with_precedence(
-            chembl_df, pubmed_df, crossref_df, openalex_df, semantic_scholar_df
+        enriched_df = merge_enrichment_results(
+            chembl_df,
+            pubmed_df=pubmed_df,
+            crossref_df=crossref_df,
+            openalex_df=openalex_df,
+            semantic_scholar_df=semantic_scholar_df,
         )
 
         logger.info("after_merge", enriched_cols=len(enriched_df.columns), enriched_rows=len(enriched_df))
@@ -549,71 +293,16 @@ class DocumentPipeline(PipelineBase):
     # ------------------------------------------------------------------
 
     def _prepare_input_ids(self, df: pd.DataFrame) -> tuple[list[str], list[dict[str, str]]]:
-        """Normalize and validate input identifiers using Pandera schema."""
+        """Normalize and validate input identifiers using the parser helper."""
 
-        if "document_chembl_id" not in df.columns:
-            raise ValueError("Input file must contain 'document_chembl_id' column")
-
-        regex = re.compile(r"^CHEMBL\d+$")
-        valid_ids: list[str] = []
-        rejected: list[dict[str, str]] = []
-        seen: set[str] = set()
-
-        for raw_value in df["document_chembl_id"].tolist():
-            normalized, reason = self._normalize_identifier(raw_value, regex)
-            if reason:
-                rejected.append(
-                    {
-                        "document_chembl_id": "" if raw_value is None else str(raw_value),
-                        "reason": reason,
-                    }
-                )
-                continue
-
-            if normalized in seen:
-                logger.debug("duplicate_id_skipped", document_chembl_id=normalized)
-                continue
-
-            if normalized is not None:
-                seen.add(normalized)
-                valid_ids.append(normalized)
-
-        if valid_ids:
-            DocumentInputSchema.validate(pd.DataFrame({"document_chembl_id": valid_ids}))
-
-        return valid_ids, rejected
-
-    def _normalize_identifier(
-        self, value: Any, pattern: re.Pattern[str]
-    ) -> tuple[str | None, str | None]:
-        """Normalize identifier to uppercase CHEMBL format with validation reason."""
-
-        if value is None or pd.isna(value):
-            return None, "missing"
-
-        text = str(value).strip().upper()
-        if not text or text in {"#N/A", "N/A", "NONE", "NULL"}:
-            return None, "missing"
-
-        if not pattern.fullmatch(text):
-            return None, "invalid_format"
-
-        return text, None
+        return prepare_document_input_ids(df)
 
     def _persist_rejected_inputs(self, rows: list[dict[str, str]]) -> None:
         """Persist rejected inputs for auditability."""
 
-        rejected_df = pd.DataFrame(rows).convert_dtypes()
-        relative_output = Path("qc") / "document_rejected_inputs.csv"
-        logger.warning(
-            "rejected_inputs_found",
-            count=len(rejected_df),
-            path=str(relative_output),
-        )
-        self.add_additional_table(
-            "document_rejected_inputs",
-            rejected_df,
-            relative_path=relative_output,
+        persist_rejected_inputs(
+            rows,
+            add_table=self.add_additional_table,
         )
 
     def _validate_raw_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -694,87 +383,16 @@ class DocumentPipeline(PipelineBase):
     def _fetch_documents(self, ids: Sequence[str]) -> list[dict[str, Any]]:
         """Fetch document payloads from ChEMBL with resilient batching."""
 
-        results: list[dict[str, Any]] = []
-        for chunk in self._chunked(ids, max(1, self.batch_size)):
-            cached_records, to_fetch = self._separate_cached(chunk)
-            results.extend(cached_records)
-
-            if not to_fetch:
-                continue
-
-            try:
-                fetched = self._fetch_documents_recursive(to_fetch)
-                for record in fetched:
-                    document_id = record.get("document_chembl_id")
-                    if document_id:
-                        self._document_cache[self._document_cache_key(str(document_id))] = record
-                results.extend(fetched)
-            except Exception as exc:  # noqa: BLE001
-                error_type = self._classify_error(exc)
-                logger.error(
-                    "document_fetch_failed",
-                    chunk=list(to_fetch),
-                    error=str(exc),
-                    error_type=error_type,
-                )
-                for document_id in to_fetch:
-                    fallback = self._create_fallback_row(document_id, error_type, str(exc), exc)
-                    self._document_cache[self._document_cache_key(document_id)] = fallback
-                    results.append(fallback)
-
-        return results
-
-    def _fetch_documents_recursive(self, ids: Sequence[str]) -> list[dict[str, Any]]:
-        """Recursively fetch documents handling URL length and timeouts."""
-
-        if not ids:
-            return []
-
-        if len(ids) > self.max_batch_size:
-            midpoint = max(1, len(ids) // 2)
-            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
-
-        params = {"document_chembl_id__in": ",".join(ids)}
-        full_url = self._build_full_url("/document.json", params)
-
-        if len(full_url) > self.max_url_length and len(ids) > 1:
-            midpoint = max(1, len(ids) // 2)
-            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
-
-        try:
-            response = self.api_client.request_json("/document.json", params=params)
-        except requests.exceptions.ReadTimeout:
-            if len(ids) <= 1:
-                raise
-            midpoint = max(1, len(ids) // 2)
-            return self._fetch_documents_recursive(ids[:midpoint]) + self._fetch_documents_recursive(ids[midpoint:])
-
-        documents = response.get("documents") or response.get("document") or []
-        return [doc for doc in documents if isinstance(doc, dict)]
-
-    def _build_full_url(self, endpoint: str, params: dict[str, Any]) -> str:
-        base = self.api_client.config.base_url.rstrip("/")
-        query = urlencode(params, doseq=False)
-        return f"{base}{endpoint}?{query}" if query else f"{base}{endpoint}"
-
-    def _chunked(self, items: Sequence[str], size: int) -> Iterable[Sequence[str]]:
-        for idx in range(0, len(items), size):
-            yield items[idx : idx + size]
-
-    def _separate_cached(self, ids: Sequence[str]) -> tuple[list[dict[str, Any]], list[str]]:
-        cached: list[dict[str, Any]] = []
-        missing: list[str] = []
-        for document_id in ids:
-            key = self._document_cache_key(document_id)
-            if key in self._document_cache:
-                cached.append(self._document_cache[key])
-            else:
-                missing.append(document_id)
-        return cached, missing
-
-    def _document_cache_key(self, document_id: str) -> str:
-        release = self._chembl_release or "unknown"
-        return f"document:{release}:{document_id}"
+        callbacks = DocumentFetchCallbacks(
+            classify_error=self._classify_error,
+            create_fallback=lambda document_id, error_type, message, error: self._create_fallback_row(
+                document_id,
+                error_type,
+                message,
+                error,
+            ),
+        )
+        return self.document_client.fetch_documents(ids, callbacks)
 
     @staticmethod
     def _normalise_chembl_release_value(value: Any) -> str | None:
@@ -828,17 +446,12 @@ class DocumentPipeline(PipelineBase):
         error_message: str,
         error: Exception | None = None,
     ) -> dict[str, Any]:
-        return build_fallback_payload(
-            entity="document",
-            reason="exception",
+        return build_document_fallback_row(
+            document_id,
+            error_type=error_type,
+            error_message=error_message,
+            chembl_release=self._chembl_release,
             error=error,
-            source="DOCUMENT_FALLBACK",
-            message=error_message,
-            context={
-                "document_chembl_id": document_id,
-                "chembl_release": self._chembl_release,
-                "fallback_error_code": error_type,
-            },
         )
 
     def _get_chembl_release(self) -> str | None:
@@ -865,71 +478,7 @@ class DocumentPipeline(PipelineBase):
 
             return df
 
-        # Map ChEMBL input fields according to schema
-        # Map pubmed_id from CSV to document_pubmed_id
-        if "pubmed_id" in df.columns:
-            df["document_pubmed_id"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
-
-        # Map classification
-        if "classification" in df.columns:
-            df["document_classification"] = df["classification"]
-
-        # Map is_experimental_doc to original_experimental_document (boolean)
-        if "is_experimental_doc" in df.columns:
-            df["original_experimental_document"] = df["is_experimental_doc"].apply(
-                coerce_optional_bool
-            )
-
-        # Map document_contains_external_links to referenses_on_previous_experiments
-        if "document_contains_external_links" in df.columns:
-            df["referenses_on_previous_experiments"] = df[
-                "document_contains_external_links"
-            ].apply(coerce_optional_bool)
-
-        # IMPORTANT: Map pubmed_id to chembl_pmid BEFORE normalization
-        # Map pubmed_id -> chembl_pmid (convert to int)
-        if "pubmed_id" in df.columns:
-            df["chembl_pmid"] = df["pubmed_id"].apply(lambda x: int(x) if pd.notna(x) and str(x).isdigit() else None)
-
-        # Normalize identifiers
-        from bioetl.normalizers import registry
-
-        # Normalize IDs before enrichment (now pubmed_id is safe to normalize)
-        for col in ["document_chembl_id", "doi", "pmid", "pubmed_id"]:
-            if col in df.columns:
-                df[col] = df[col].apply(
-                    lambda x: registry.normalize("identifier", x) if pd.notna(x) else None
-                )
-
-        # Save original title for semantic scholar enrichment BEFORE renaming
-        if "title" in df.columns:
-            df["_original_title"] = df["title"]
-
-        # Rename ChEMBL fields to multi-source naming convention BEFORE enrichment
-        field_mapping = {
-            "title": "chembl_title",
-            "journal": "chembl_journal",
-            "year": "chembl_year",
-            "authors": "chembl_authors",
-            "abstract": "chembl_abstract",
-            "volume": "chembl_volume",
-            "issue": "chembl_issue",
-        }
-
-        for old_col, new_col in field_mapping.items():
-            if old_col in df.columns:
-                df[new_col] = df[old_col].apply(
-                    lambda x: registry.normalize("string", x) if pd.notna(x) else None
-                )
-                if old_col != new_col:
-                    df = df.drop(columns=[old_col])
-
-        # Add chembl_doi from doi (but keep doi for enrichment)
-        if "doi" in df.columns:
-            df["chembl_doi"] = df["doi"]
-
-        # Set chembl_doc_type - default to journal-article for ChEMBL documents
-        df["chembl_doc_type"] = "journal-article"
+        df = normalize_document_frame(df)
 
         # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
 
@@ -992,8 +541,6 @@ class DocumentPipeline(PipelineBase):
 
         return df
 
-    # _coerce_optional_bool заменена на coerce_optional_bool из bioetl.utils.dtype
-
     def _enforce_schema_dtypes(self, df: pd.DataFrame) -> pd.DataFrame:
         """Cast columns to schema-compatible nullable dtypes."""
 
@@ -1014,11 +561,11 @@ class DocumentPipeline(PipelineBase):
         if df.empty:
             logger.info("validation_skipped_empty", rows=0)
             self.set_qc_metrics({})
-            self.add_qc_summary_section("row_counts", {"documents": 0})
-            self.add_qc_summary_section("datasets", {"documents": {"rows": 0}})
-            self.add_qc_summary_section(
-                "duplicates",
-                {"documents": duplicate_summary(0, 0, field="document_chembl_id")},
+            append_qc_sections(
+                self.add_qc_summary_section,
+                dataset_name="documents",
+                row_count=0,
+                duplicates=duplicate_summary(0, 0, field="document_chembl_id"),
             )
             self.refresh_validation_issue_summary()
             return df
@@ -1030,7 +577,17 @@ class DocumentPipeline(PipelineBase):
         if canonical_order:
             missing_columns = [column for column in canonical_order if column not in working_df.columns]
             for column in missing_columns:
-                working_df[column] = pd.NA
+                if column == "fallback_retry_after_sec":
+                    working_df[column] = pd.Series(
+                        pd.NA,
+                        index=working_df.index,
+                        dtype=pd.Float64Dtype(),
+                    )
+                else:
+                    working_df[column] = pd.NA
+
+            if "fallback_retry_after_sec" in working_df.columns:
+                working_df = working_df.astype({"fallback_retry_after_sec": "Float64"})
 
             extra_columns = [column for column in working_df.columns if column not in canonical_order]
             if extra_columns:
@@ -1043,8 +600,17 @@ class DocumentPipeline(PipelineBase):
 
         # Defensive: гарантируем float64 для retry-after перед Pandera-валидацией
         if "fallback_retry_after_sec" in working_df.columns:
-            numeric_retry = pd.to_numeric(working_df["fallback_retry_after_sec"], errors="coerce")
-            working_df.loc[:, "fallback_retry_after_sec"] = numeric_retry.astype(pd.Float64Dtype())
+            numeric_retry = pd.Series(
+                pd.to_numeric(working_df["fallback_retry_after_sec"], errors="coerce"),
+                index=working_df.index,
+                dtype="Float64",
+            )
+            working_df.loc[:, "fallback_retry_after_sec"] = numeric_retry
+
+        if "run_id" in working_df.columns:
+            working_df.loc[:, "run_id"] = working_df["run_id"].fillna(self.run_id)
+        else:
+            working_df.loc[:, "run_id"] = self.run_id
 
         duplicate_count = (
             working_df["document_chembl_id"].duplicated().sum()
@@ -1101,23 +667,24 @@ class DocumentPipeline(PipelineBase):
 
         metrics: dict[str, float] = {}
 
+        duplicates_payload: dict[str, Any] | None = None
+
         def _update_qc_summary(validated_df: pd.DataFrame) -> None:
-            nonlocal metrics
+            nonlocal metrics, duplicates_payload
 
             metrics = self._compute_qc_metrics(validated_df)
             self.set_qc_metrics(metrics)
             row_count = int(len(validated_df))
-            self.add_qc_summary_section("row_counts", {"documents": row_count})
-            self.add_qc_summary_section("datasets", {"documents": {"rows": row_count}})
-            self.add_qc_summary_section(
-                "duplicates",
-                {
-                    "documents": duplicate_summary(
-                        initial_rows,
-                        int(duplicate_count),
-                        field="document_chembl_id",
-                    )
-                },
+            duplicates_payload = duplicate_summary(
+                initial_rows,
+                int(duplicate_count),
+                field="document_chembl_id",
+            )
+            append_qc_sections(
+                self.add_qc_summary_section,
+                dataset_name="documents",
+                row_count=row_count,
+                duplicates=duplicates_payload,
             )
 
         validated_df = self.run_schema_validation(
@@ -1141,7 +708,14 @@ class DocumentPipeline(PipelineBase):
             key: coverage_stats.get(column, 0.0)
             for key, column in coverage_columns.items()
         }
-        self.add_qc_summary_section("coverage", {"documents": coverage_payload})
+        append_qc_sections(
+            self.add_qc_summary_section,
+            dataset_name="documents",
+            row_count=int(len(validated_df)),
+            duplicates=None,
+            coverage=coverage_payload,
+        )
+
         self._enforce_qc_thresholds(metrics)
 
         self.refresh_validation_issue_summary()
