@@ -25,7 +25,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
-from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
+from bioetl.sources.chembl.assay.constants import NULLABLE_INT_COLUMNS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
@@ -787,14 +787,14 @@ class TestAssayPipeline:
         pipeline = AssayPipeline(assay_config, run_id)
 
         row = _build_assay_row("CHEMBLNA", 0, None)
-        for column in _NULLABLE_INT_COLUMNS:
+        for column in NULLABLE_INT_COLUMNS:
             row[column] = pd.NA
 
         df = pd.DataFrame([row]).convert_dtypes()
 
         validated = pipeline.validate(df)
 
-        for column in _NULLABLE_INT_COLUMNS:
+        for column in NULLABLE_INT_COLUMNS:
             assert str(validated[column].dtype) == "Int64"
             assert validated[column].isna().all()
 

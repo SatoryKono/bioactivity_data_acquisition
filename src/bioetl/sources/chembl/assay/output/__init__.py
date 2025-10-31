@@ -1,3 +1,5 @@
 """Assay output module namespace."""
 
-__all__ = []
+from .assay_output import AssayOutputWriter
+
+__all__ = ["AssayOutputWriter"]
