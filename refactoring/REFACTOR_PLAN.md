@@ -229,8 +229,22 @@ Current
 Ручные циклы, разная семантика page/size/cursor.
 
 Target
-[ref: repo:src/bioetl/core/pagination/strategy.py@HEAD]
+`src/bioetl/sources/<source>/pagination` — текущие реализации стратегий пагинации по источникам:
+
+- [ref: repo:src/bioetl/sources/openalex/pagination/__init__.py]
+- [ref: repo:src/bioetl/sources/iuphar/pagination/__init__.py]
+- [ref: repo:src/bioetl/sources/pubmed/pagination/__init__.py]
+- [ref: repo:src/bioetl/sources/crossref/pagination/__init__.py]
+- [ref: repo:src/bioetl/sources/semantic_scholar/pagination/__init__.py]
+
 Стратегии: PageNumber, Cursor, OffsetLimit, Token. Инварианты порядка, дедупликация.
+
+План централизации:
+
+- Сформировать общий интерфейс стратегий в `src/bioetl/core/pagination` и начать выносить туда повторяющиеся реализации.
+- Добавить адаптационный слой в источниках, чтобы сохранить совместимость существующих конфигов и golden-тестов.
+- Зафиксировать единый каталог контрактных тестов для пагинации в `tests/core/test_pagination_strategies.py` и мигрировать текущие тесты источников.
+- После стабилизации — перевести пайплайны на использование `bioetl.core.pagination` и объявить устаревшими локальные реализации.
 
 Steps
 
