@@ -61,10 +61,6 @@ _SCHEMA_EXPORTS: dict[str, str] = {
 from bioetl.schemas.activity import ActivitySchema as _ActivitySchema  # noqa: PLC0415
 from bioetl.schemas.testitem import TestItemSchema as _TestItemSchema  # noqa: PLC0415
 
-# Explicit assignment to module attributes for static type checkers
-ActivitySchema = _ActivitySchema
-TestItemSchema = _TestItemSchema
-
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     # Re-imports for type checking (already imported above at runtime)
     from bioetl.schemas.activity import ActivitySchema

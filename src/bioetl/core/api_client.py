@@ -723,10 +723,10 @@ class UnifiedAPIClient:
         data: Mapping[str, Any] | None = None,
         json: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> Mapping[str, Any]:
         """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback."""
 
-        def _parse_json(response: requests.Response) -> dict[str, Any]:
+        def _parse_json(response: requests.Response) -> Mapping[str, Any]:
             if not response.content:
                 return {}
 
@@ -740,7 +740,7 @@ class UnifiedAPIClient:
             if isinstance(payload, dict):
                 return payload
 
-            return cast(dict[str, Any], payload)
+            return cast(Mapping[str, Any], payload)
 
         return self._request(
             url=url,
