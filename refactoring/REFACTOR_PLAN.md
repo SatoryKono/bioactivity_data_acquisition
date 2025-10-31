@@ -73,11 +73,11 @@ datatracker.ietf.org
 Current
 Разнородные клиенты, локальные ретраи/бэкофф, дублированный rate-limit.
 Примеры:
-[ref: repo:src/bioetl/clients/http_client.py@test_refactoring_32]
-[ref: repo:src/bioetl/sources//client/.py@test_refactoring_32]
+[ref: repo:src/bioetl/sources/pubchem/client/pubchem_client.py]
+[ref: repo:src/bioetl/sources/uniprot/client.py]
 
 Target
-Единый UnifiedAPIClient в [ref: repo:src/bioetl/core/api_client.py@test_refactoring_32] с политиками:
+Единый UnifiedAPIClient в [ref: repo:src/bioetl/core/api_client.py] с политиками:
 
 UnifiedAPIClient — универсальный клиент для работы с внешними API, объединяющий:
 
@@ -214,7 +214,7 @@ Steps
 
 Compatibility
 Реэкспорт временно:
-[ref: repo:src/bioetl/sources/<source>/client/http_client.py@test_refactoring_32] → [ref: repo:src/bioetl/core/api_client.py@test_refactoring_32] с DeprecationWarning.
+[ref: repo:src/bioetl/sources/pubchem/client/pubchem_client.py] → [ref: repo:src/bioetl/core/api_client.py] с DeprecationWarning.
 
 Testing
 Unit: политики и адаптеры.
@@ -243,8 +243,8 @@ Target
 Дальнейшая обработка данных синхронизирована через централизованный `SchemaRegistry`
 (`src/bioetl/schemas/registry.py`).
 
-**Примечание:** централизованные стратегии находятся в `src/bioetl/core/pagination/strategy.py`;
-отсутствуют пакеты `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination` (ChEMBL использует batch IDs).
+**Примечание:** централизованные стратегии находятся в [ref: repo:src/bioetl/core/pagination/strategy.py] (PageNumber, Cursor, OffsetLimit, Token).
+Инварианты порядка и дедупликация. Отсутствуют пакеты `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination` (ChEMBL использует batch IDs).
 
 План централизации:
 
@@ -270,6 +270,7 @@ Cursor-дрифты: хранить последний курсор в meta.yaml
 
 Acceptance
 Ни одного ручного цикла пагинации в коде источников; адаптеры используют стратегии из `bioetl.core.pagination`.
+[ref: repo:src/bioetl/sources/openalex/pagination/__init__.py], [ref: repo:src/bioetl/sources/crossref/pagination/__init__.py]
 
 1.3 Parser/Normalizer
 
@@ -277,8 +278,8 @@ Current
 Дублируемые преобразования, разные ключи, «угадывание» типов.
 
 Target
-Шаблонный парсер; нормализатор на UnifiedSchema.
-[ref: repo:src/bioetl/core/unified_schema.py]
+Шаблонный парсер; нормализатор на Schema Registry.
+[ref: repo:src/bioetl/schemas/registry.py]
 
 UnifiedSchema — система нормализации и валидации, объединяющая:
 
@@ -323,6 +324,7 @@ Schema System (Pandera)
 **NumericNormalizer**: нормализация чисел с точностью
 
 Реестр нормализаторов:
+[ref: repo:src/bioetl/normalizers/registry.py]
 
 ```python
 class NormalizerRegistry:
@@ -371,7 +373,7 @@ Current
 Схемы распылены, расхождения типов/единиц.
 
 Target
-Реестр: [ref: repo:src/bioetl/core/unified_schema.py]
+Реестр: [ref: repo:src/bioetl/schemas/registry.py]
 Сущности: documents, targets, assays, testitems, activities.
 
 Schema Registry:
@@ -492,7 +494,7 @@ Current
 
 Target
 Единый UnifiedOutputWriter: стабильная сортировка, hash_row, hash_business_key, атомарная запись, meta.yaml.
-[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/output_writer.py]
 
 UnifiedOutputWriter — детерминированная система записи данных, объединяющая:
 
@@ -606,7 +608,7 @@ Current
 
 Target
 Структурный логгер с корреляционными ID; единый формат key/value.
-[ref: repo:src/bioetl/core/logging/logger.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/logger.py]
 
 Details
 
@@ -718,7 +720,7 @@ python-atomicwrites.readthedocs.io
 1.8 MergePolicy (добавление)
 
 Target
-[ref: repo:src/bioetl/core/merge/policy.py@test_refactoring_32]
+[ref: repo:src/bioetl/sources/document/merge/policy.py]
 Явные ключи объединения (doi|pmid|cid|uniprot_id|molecule_chembl_id…) и стратегии конфликтов: prefer_source, prefer_fresh, concat_unique, score_based.
 
 1.9 Config & Schema (добавление)
@@ -837,7 +839,7 @@ pandera.readthedocs.io
 
 3) Кластеризация и различия (MUST)
 
-Выход: [ref: repo:docs/requirements/PIPELINES.clusters.csv@test_refactoring_32]
+Выход: [ref: repo:docs/requirements/PIPELINES.inventory.clusters.md@test_refactoring_32]
 cluster_id, source, type{duplicate|alternative|complementary}, similarity_name, similarity_code, files[], common_responsibility, divergence_points
 
 Правила:
@@ -876,7 +878,7 @@ core/http + перевод простого источника.
 
 core/pagination + перевод Crossref.
 
-core/unified_schema + общие трансформеры.
+schemas/registry + общие трансформеры.
 
 schema_registry + Pandera-валидация. 
 pandera.readthedocs.io

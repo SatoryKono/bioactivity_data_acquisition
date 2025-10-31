@@ -210,12 +210,26 @@ docs/requirements/sources/<source>/
 
 Дополнительно для общих компонентов:
 
+```
+src/bioetl/core/
+ api_client.py
+ output_writer.py
+ logger.py
+src/bioetl/schemas/
+ registry.py
+src/bioetl/sources/<source>/
+ pagination/
+```
+
+- [ref: repo:src/bioetl/core/api_client.py@test_refactoring_32]
+- [ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+- [ref: repo:src/bioetl/core/logger.py@test_refactoring_32]
+- [ref: repo:src/bioetl/schemas/registry.py@test_refactoring_32]
 - [ref: repo:src/bioetl/sources/crossref/pagination/__init__.py@test_refactoring_32]
 - [ref: repo:src/bioetl/sources/openalex/pagination/__init__.py@test_refactoring_32]
 - [ref: repo:src/bioetl/sources/pubmed/pagination/__init__.py@test_refactoring_32]
 - [ref: repo:src/bioetl/sources/semantic_scholar/pagination/__init__.py@test_refactoring_32]
 - [ref: repo:src/bioetl/sources/iuphar/pagination/__init__.py@test_refactoring_32]
-- [ref: repo:src/bioetl/schemas/registry.py@test_refactoring_32]
 
 Примечание: централизованная логика пагинации остаётся задачей в дорожной карте; пакеты
 `src/bioetl/sources/{chembl,document,pubchem,uniprot}/pagination` ещё не созданы.
