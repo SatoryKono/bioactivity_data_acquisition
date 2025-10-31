@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 import pandas as pd
 
@@ -58,7 +58,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-__all__: Final[tuple[str, ...]] = ("TargetPipeline",)
+__all__ = ["TargetPipeline"]
 
 logger = UnifiedLogger.get(__name__)
 

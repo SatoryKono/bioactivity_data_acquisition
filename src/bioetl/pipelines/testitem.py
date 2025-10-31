@@ -3,7 +3,7 @@
 import re
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, cast
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -33,7 +33,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-__all__: Final[tuple[str, ...]] = ("TestItemPipeline",)
+__all__ = ["TestItemPipeline"]
 
 logger = UnifiedLogger.get(__name__)
 

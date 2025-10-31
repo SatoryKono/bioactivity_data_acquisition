@@ -8,7 +8,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, cast
 from urllib.parse import urlencode
 
 import numpy as np
@@ -27,7 +27,7 @@ from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.qc import register_fallback_statistics
 
-__all__: Final[tuple[str, ...]] = ("ActivityPipeline",)
+__all__ = ["ActivityPipeline"]
 
 logger = UnifiedLogger.get(__name__)
 
