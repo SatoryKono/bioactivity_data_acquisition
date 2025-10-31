@@ -29,7 +29,12 @@ from bioetl.core.chembl import (
     create_pipeline_output_writer,
 )
 from bioetl.core.unified_schema import get_schema, get_schema_metadata
-from bioetl.utils.chembl import ChemblRelease, SupportsRequestJson, fetch_chembl_release
+from bioetl.utils.chembl import (
+    ChemblRelease,
+    SupportsRequestJson,
+    fetch_chembl_release,
+    _resolve_release_name,
+)
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
@@ -285,7 +290,10 @@ class PipelineBase(ABC):
             return ChemblRelease(version=None, status=None)
 
         status = release.status
-        version = release.version.strip() if isinstance(release.version, str) else None
+        version = release.version if isinstance(release.version, str) else None
+
+        if not version:
+            version = _resolve_release_name(status)
 
         if version:
             release_date = (
