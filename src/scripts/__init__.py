@@ -14,6 +14,7 @@ from bioetl.sources.chembl.assay.pipeline import AssayPipeline
 from bioetl.sources.chembl.document.pipeline import DocumentPipeline
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
+from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
     "activity": PipelineCommandConfig(
@@ -58,6 +59,14 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_input=Path("data/input/testitem.csv"),
         default_output_dir=Path("data/output/testitems"),
         description="ChEMBL molecules + PubChem",
+    ),
+    "uniprot": PipelineCommandConfig(
+        pipeline_name="uniprot",
+        pipeline_factory=lambda: UniProtPipeline,
+        default_config=get_config_path("pipelines/uniprot.yaml"),
+        default_input=Path("data/input/uniprot.csv"),
+        default_output_dir=Path("data/output/uniprot"),
+        description="Standalone UniProt enrichment",
     ),
 }
 

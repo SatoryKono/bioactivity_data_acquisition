@@ -18,6 +18,7 @@ __all__ = (
     "TargetComponentSchema",
     "ProteinClassSchema",
     "XrefSchema",
+    "UniProtSchema",
     "SchemaRegistry",
     "schema_registry",
 )
@@ -35,6 +36,7 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "TargetComponentSchema": "bioetl.schemas.target",
     "ProteinClassSchema": "bioetl.schemas.target",
     "XrefSchema": "bioetl.schemas.target",
+    "UniProtSchema": "bioetl.schemas.uniprot",
     "SchemaRegistry": "bioetl.schemas.registry",
     "schema_registry": "bioetl.schemas.registry",
 }

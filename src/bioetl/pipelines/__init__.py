@@ -12,6 +12,7 @@ __all__ = (
     "TestItemPipeline",
     "TargetPipeline",
     "DocumentPipeline",
+    "UniProtPipeline",
 )
 
 _PIPELINE_EXPORTS: dict[str, str] = {
@@ -21,6 +22,7 @@ _PIPELINE_EXPORTS: dict[str, str] = {
     "TestItemPipeline": "bioetl.pipelines.testitem",
     "TargetPipeline": "bioetl.pipelines.target",
     "DocumentPipeline": "bioetl.pipelines.document",
+    "UniProtPipeline": "bioetl.pipelines.uniprot",
 }
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
@@ -30,6 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
     from bioetl.pipelines.document import DocumentPipeline
     from bioetl.pipelines.target import TargetPipeline
     from bioetl.pipelines.testitem import TestItemPipeline
+    from bioetl.pipelines.uniprot import UniProtPipeline
 
 
 def __getattr__(name: str) -> Any:
