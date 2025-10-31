@@ -61,7 +61,7 @@ schema:
 
 schema:
   name: assay/output
-  primary_key: [assay_chembl_id, row_subtype, row_index]
+  primary_key: [assay_chembl_id, index]
   foreign_keys:
 
 ```text
@@ -72,7 +72,78 @@ schema:
 
 ```
 
-  column_order: [assay_chembl_id, row_subtype, row_index, assay_type, assay_category, assay_cell_type, assay_classifications, assay_group, assay_organism, assay_parameters_json, assay_strain, assay_subcellular_fraction, assay_tax_id, assay_test_type, assay_tissue, assay_type_description, assay_description, bao_endpoint, bao_format, bao_label, cell_chembl_id, confidence_description, confidence_score, document_chembl_id, relationship_description, relationship_type, src_assay_id, src_id, target_chembl_id, tissue_chembl_id, variant_sequence_json, assay_param_type, assay_param_relation, assay_param_value, assay_param_units, assay_param_text_value, assay_param_standard_type, assay_param_standard_value, assay_param_standard_units, assay_class_id, assay_class_bao_id, assay_class_type, assay_class_l1, assay_class_l2, assay_class_l3, assay_class_description, variant_id, variant_base_accession, variant_mutation, variant_sequence, variant_accession_reported, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
+  column_order:
+    - index
+    - hash_row
+    - hash_business_key
+    - pipeline_version
+    - run_id
+    - source_system
+    - chembl_release
+    - extracted_at
+    - fallback_reason
+    - fallback_error_type
+    - fallback_error_code
+    - fallback_error_message
+    - fallback_http_status
+    - fallback_retry_after_sec
+    - fallback_attempt
+    - fallback_timestamp
+    - assay_chembl_id
+    - assay_type
+    - assay_category
+    - assay_cell_type
+    - assay_classifications
+    - assay_group
+    - assay_organism
+    - assay_parameters_json
+    - assay_strain
+    - assay_subcellular_fraction
+    - assay_tax_id
+    - assay_test_type
+    - assay_tissue
+    - assay_type_description
+    - bao_format
+    - bao_label
+    - bao_endpoint
+    - cell_chembl_id
+    - confidence_description
+    - confidence_score
+    - assay_description
+    - document_chembl_id
+    - relationship_description
+    - relationship_type
+    - src_assay_id
+    - src_id
+    - target_chembl_id
+    - tissue_chembl_id
+    - variant_sequence_json
+    - pref_name
+    - organism
+    - target_type
+    - species_group_flag
+    - tax_id
+    - component_count
+    - assay_param_type
+    - assay_param_relation
+    - assay_param_value
+    - assay_param_units
+    - assay_param_text_value
+    - assay_param_standard_type
+    - assay_param_standard_value
+    - assay_param_standard_units
+    - assay_class_id
+    - assay_class_bao_id
+    - assay_class_type
+    - assay_class_l1
+    - assay_class_l2
+    - assay_class_l3
+    - assay_class_description
+    - variant_id
+    - variant_base_accession
+    - variant_mutation
+    - variant_sequence
+    - variant_accession_reported
   fields:
 
 ```text
@@ -87,29 +158,6 @@ schema:
     regex: '^CHEMBL\\d+$'
   na_policy: forbid
   notes: "Первичный ключ ассая из ChEMBL API"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
-
-- name: row_subtype
-
-  dtype: string
-  required: true
-  units: null
-  allowed_values: ["assay", "param", "variant"]
-  constraints: {}
-  na_policy: forbid
-  notes: "Тип развёрнутой строки"
-  evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
-
-- name: row_index
-
-  dtype: int
-  required: true
-  units: null
-  allowed_values: []
-  constraints:
-    min: 0
-  na_policy: forbid
-  notes: "Индекс для детерминизма"
   evidence: "[ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]"
 
 - name: assay_type
@@ -738,21 +786,20 @@ schema:
 
 | output_field | source_field(s) | transform_rule | unit_conversion | validation_rule | evidence |
 |---|---|---|---|---|---|
+| index | pipeline transform | enumerate per assay after explode collapse | none | integer ≥0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 | assay_chembl_id | assay_chembl_id | passthrough | none | regex `^CHEMBL\d+$` | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
-| row_subtype | derived from nested structure type | assign literal per explode stage | none | value in {assay,param,variant} | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
-| row_index | enumerate within subtype | enumerate starting 0 | none | integer >=0 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 | description | ChEMBL assay record.description | whitespace trim | none | optional string | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 | hash_row | canonicalized row dict | SHA256(JSON, sort_keys, ISO8601, %.6f) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 | hash_business_key | assay_chembl_id | SHA256(assay_chembl_id) | none | length 64 | [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32] |
 
-**Note:** Assay schema содержит все поля из data/output/assay/assay_*.csv включая src_id, src_name, assay_type, assay_organism, assay_tax_id и др. Полный список см. в requirements:05-assay-extraction.md
+**Note:** Развёрнутые `row_subtype` и `row_index` используются только внутри transform-стадий для денормализации JSON-структур. Финальный CSV хранит агрегированные строки, порядок которых определяется детерминированным `index` и схемой.
 
 ---
 
 ### F) Контракты и детерминизм (Assay)
 
 - Batch запросы `≤25` ID, при превышении — откат к POST+Override; circuit breaker 5/60, retries уважают `Retry-After`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
-- Сортировка `assay_chembl_id,row_subtype,row_index`, nullable dtypes, NA-policy `""/null`. [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
+- Дет. сортировка `assay_chembl_id,row_subtype,row_index` применяется до агрегации; экспортируемый CSV следует `AssaySchema.Config.column_order` (system + fallback колонки в начале). [ref: repo:docs/requirements/05-assay-extraction.md@test_refactoring_32]
 - AtomicWriter `os.replace`, run-scoped `.tmp_run_{run_id}`, meta.yaml с SHA256. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_32]
 
 ---
@@ -839,7 +886,64 @@ schema:
 
 ```
 
-  column_order: [activity_id, molecule_chembl_id, assay_chembl_id, target_chembl_id, document_chembl_id, published_type, published_relation, published_value, published_units, standard_type, standard_relation, standard_value, standard_units, standard_flag, lower_bound, upper_bound, is_censored, pchembl_value, activity_comment, data_validity_comment, bao_endpoint, bao_format, bao_label, potential_duplicate, uo_units, qudt_units, src_id, action_type, activity_properties_json, bei, sei, le, lle, pipeline_version, source_system, chembl_release, extracted_at, hash_business_key, hash_row, index]
+  column_order:
+    - index
+    - hash_row
+    - hash_business_key
+    - pipeline_version
+    - run_id
+    - source_system
+    - chembl_release
+    - extracted_at
+    - activity_id
+    - molecule_chembl_id
+    - assay_chembl_id
+    - target_chembl_id
+    - document_chembl_id
+    - published_type
+    - published_relation
+    - published_value
+    - published_units
+    - standard_type
+    - standard_relation
+    - standard_value
+    - standard_units
+    - standard_flag
+    - pchembl_value
+    - lower_bound
+    - upper_bound
+    - is_censored
+    - activity_comment
+    - data_validity_comment
+    - bao_endpoint
+    - bao_format
+    - bao_label
+    - potential_duplicate
+    - uo_units
+    - qudt_units
+    - src_id
+    - action_type
+    - canonical_smiles
+    - target_organism
+    - target_tax_id
+    - activity_properties
+    - compound_key
+    - is_citation
+    - high_citation_rate
+    - exact_data_citation
+    - rounded_data_citation
+    - bei
+    - sei
+    - le
+    - lle
+    - fallback_reason
+    - fallback_error_type
+    - fallback_error_code
+    - fallback_error_message
+    - fallback_http_status
+    - fallback_retry_after_sec
+    - fallback_attempt
+    - fallback_timestamp
   fields:
 
 ```text
@@ -1161,7 +1265,7 @@ schema:
   notes: "Тип действия лиганда"
   evidence: "[ref: repo:docs/requirements/06-activity-data-extraction.md@test_refactoring_32]"
 
-- name: activity_properties_json
+- name: activity_properties
 
   dtype: StringDtype
   required: false
@@ -1919,7 +2023,131 @@ schema:
   name: document/output
   primary_key: [document_chembl_id]
   foreign_keys: []
-  column_order: [index, extracted_at, hash_business_key, hash_row, document_chembl_id, document_pubmed_id, document_classification, referenses_on_previous_experiments, original_experimental_document, document_citation, pubmed_mesh_descriptors, pubmed_mesh_qualifiers, pubmed_chemical_list, crossref_subject, chembl_pmid, openalex_pmid, pubmed_pmid, semantic_scholar_pmid, chembl_title, crossref_title, openalex_title, pubmed_article_title, semantic_scholar_title, chembl_abstract, pubmed_abstract, chembl_authors, crossref_authors, openalex_authors, pubmed_authors, semantic_scholar_authors, chembl_doi, crossref_doi, openalex_doi, pubmed_doi, semantic_scholar_doi, chembl_doc_type, crossref_doc_type, openalex_doc_type, openalex_crossref_doc_type, pubmed_doc_type, semantic_scholar_doc_type, openalex_issn, pubmed_issn, semantic_scholar_issn, chembl_journal, pubmed_journal, semantic_scholar_journal, chembl_year, openalex_year, chembl_volume, pubmed_volume, chembl_issue, pubmed_issue, pubmed_first_page, pubmed_last_page, crossref_error, openalex_error, pubmed_error, semantic_scholar_error, pubmed_year_completed, pubmed_month_completed, pubmed_day_completed, pubmed_year_revised, pubmed_month_revised, pubmed_day_revised, publication_date, document_sortorder, valid_doi, valid_journal, valid_year, valid_volume, valid_issue, invalid_doi, invalid_journal, invalid_year, invalid_volume, invalid_issue]
+  column_order:
+    - index
+    - hash_row
+    - hash_business_key
+    - pipeline_version
+    - run_id
+    - source_system
+    - chembl_release
+    - extracted_at
+    - document_chembl_id
+    - document_pubmed_id
+    - document_classification
+    - referenses_on_previous_experiments
+    - original_experimental_document
+    - pmid
+    - pmid_source
+    - doi_clean
+    - doi_clean_source
+    - title
+    - title_source
+    - abstract
+    - abstract_source
+    - journal
+    - journal_source
+    - journal_abbrev
+    - journal_abbrev_source
+    - authors
+    - authors_source
+    - year
+    - year_source
+    - volume
+    - volume_source
+    - issue
+    - issue_source
+    - first_page
+    - first_page_source
+    - last_page
+    - last_page_source
+    - issn_print
+    - issn_print_source
+    - issn_electronic
+    - issn_electronic_source
+    - is_oa
+    - is_oa_source
+    - oa_status
+    - oa_status_source
+    - oa_url
+    - oa_url_source
+    - citation_count
+    - citation_count_source
+    - influential_citations
+    - influential_citations_source
+    - fields_of_study
+    - fields_of_study_source
+    - concepts_top3
+    - concepts_top3_source
+    - mesh_terms
+    - mesh_terms_source
+    - chemicals
+    - chemicals_source
+    - conflict_doi
+    - conflict_pmid
+    - chembl_pmid
+    - pubmed_pmid
+    - openalex_pmid
+    - semantic_scholar_pmid
+    - chembl_title
+    - crossref_title
+    - openalex_title
+    - pubmed_article_title
+    - semantic_scholar_title
+    - chembl_abstract
+    - pubmed_abstract
+    - chembl_authors
+    - crossref_authors
+    - openalex_authors
+    - pubmed_authors
+    - semantic_scholar_authors
+    - chembl_doi
+    - crossref_doi
+    - openalex_doi
+    - pubmed_doi
+    - semantic_scholar_doi
+    - chembl_doc_type
+    - crossref_doc_type
+    - openalex_doc_type
+    - openalex_crossref_doc_type
+    - pubmed_doc_type
+    - semantic_scholar_doc_type
+    - chembl_journal
+    - pubmed_journal
+    - semantic_scholar_journal
+    - chembl_year
+    - openalex_year
+    - chembl_volume
+    - pubmed_volume
+    - chembl_issue
+    - pubmed_issue
+    - pubmed_first_page
+    - pubmed_last_page
+    - openalex_issn
+    - pubmed_issn
+    - semantic_scholar_issn
+    - pubmed_mesh_descriptors
+    - pubmed_mesh_qualifiers
+    - pubmed_chemical_list
+    - pubmed_year_completed
+    - pubmed_month_completed
+    - pubmed_day_completed
+    - pubmed_year_revised
+    - pubmed_month_revised
+    - pubmed_day_revised
+    - crossref_subject
+    - crossref_error
+    - openalex_error
+    - pubmed_error
+    - semantic_scholar_error
+    - fallback_reason
+    - fallback_error_type
+    - fallback_error_code
+    - fallback_error_message
+    - fallback_http_status
+    - fallback_retry_after_sec
+    - fallback_attempt
+    - fallback_timestamp
   fields:
 
 ```text

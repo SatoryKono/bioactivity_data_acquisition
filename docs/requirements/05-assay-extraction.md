@@ -77,8 +77,8 @@ class AssayInputSchema(pa.DataFrameModel):
 | `sources.chembl.batch_size` | 25 | `≤ 25` (жёсткое требование ChEMBL URL) | Проверяется на этапе валидации конфигурации. |
 | `sources.chembl.max_url_length` | 2000 | `≤ 2000` | Используется для предиктивного троттлинга запросов. |
 | `cache.namespace` | `"chembl"` | Не пусто | Обеспечивает release-scoped invalidation. |
-| `determinism.sort.by` | `['assay_chembl_id', 'row_subtype', 'row_index']` | Первый ключ — `assay_chembl_id` | Гарантирует детерминированный экспорт. |
-| `determinism.column_order` | ссылочный список 154+ полей | Полный список обязателен | Нарушение приводит к падению `PipelineConfig`. |
+| `determinism.sort.by` | `['assay_chembl_id', 'row_subtype', 'row_index']` | Первый ключ — `assay_chembl_id` | Сортировка применяется до агрегации; итоговый CSV следует `AssaySchema.Config.column_order`. |
+| `determinism.column_order` | `AssaySchema.Config.column_order` (71 колонка) | Полный список обязателен | Нарушение приводит к падению `PipelineConfig`. |
 
 | `enrichment.target_fields` | см. стандарт | Только whitelisted поля | Дополнение новых полей требует обновления документации. |
 
