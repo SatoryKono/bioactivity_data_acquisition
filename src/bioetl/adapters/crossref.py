@@ -1,6 +1,11 @@
 """Crossref REST API adapter."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any
+from urllib.parse import quote
+
+import pandas as pd
+from requests import HTTPError
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -32,29 +37,177 @@ class CrossrefAdapter(ExternalAdapter):
 
     def _fetch_batch(self, dois: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of DOIs."""
-        # Crossref requires individual queries for multiple DOIs
-        # Fetch each DOI separately
         all_items = []
         for doi in dois:
-            url = f"/works/{doi}"
-            request_spec = self.request_builder.build(url)
-            try:
-                response = self.api_client.request_json(
-                    request_spec.url,
-                    params=request_spec.params,
-                    headers=request_spec.headers,
-                )
-                if isinstance(response, dict) and "message" in response:
-                    all_items.append(response["message"])
-            except Exception as e:
-                self.logger.warning(
-                    "fetch_doi_failed",
-                    doi=doi,
-                    error=str(e),
-                    request_id=request_spec.metadata.get("request_id"),
-                )
-
+            record, _ = self._fetch_work_by_doi(doi)
+            if record:
+                all_items.append(record)
         return all_items
+
+    def process_identifiers(
+        self,
+        *,
+        pmids: Sequence[str] | None = None,
+        dois: Sequence[str] | None = None,
+        titles: Sequence[str] | None = None,
+        records: Sequence[Mapping[str, str]] | None = None,
+    ) -> pd.DataFrame:
+        """Process identifiers with DOI and title fallbacks."""
+
+        normalised_records: list[dict[str, Any]] = []
+        failure_records: list[dict[str, Any]] = []
+
+        doi_titles: dict[str, str] = {}
+        if records:
+            for entry in records:
+                doi = entry.get("doi") or entry.get("chembl_doi")
+                title = entry.get("title")
+                if doi and title and doi not in doi_titles:
+                    doi_titles[str(doi)] = str(title)
+
+        title_iter = iter(titles or [])
+
+        for doi in dict.fromkeys(dois or []):
+            if not doi:
+                continue
+
+            record, error = self._fetch_work_by_doi(doi)
+            if record:
+                normalised = self.normalize_record(record)
+                normalised.setdefault("crossref_doi", doi)
+                normalised.setdefault("crossref_doi_clean", doi)
+                normalised_records.append(normalised)
+                continue
+
+            error_message = error or "not_found"
+            fallback_record = self._fetch_work_by_filter(doi)
+            if fallback_record:
+                normalised = self.normalize_record(fallback_record)
+                normalised.setdefault("crossref_doi", doi)
+                normalised.setdefault("crossref_doi_clean", doi)
+                if error_message:
+                    normalised.setdefault("crossref_error", error_message)
+                normalised_records.append(normalised)
+                continue
+
+            title = doi_titles.get(doi)
+            if title is None:
+                try:
+                    title = next(title_iter)
+                except StopIteration:
+                    title = None
+
+            if title:
+                search_record = self._search_by_title(title)
+                if search_record:
+                    normalised = self.normalize_record(search_record)
+                    normalised.setdefault("crossref_doi", doi)
+                    normalised.setdefault("crossref_doi_clean", doi)
+                    if error_message:
+                        normalised.setdefault("crossref_error", error_message)
+                    normalised_records.append(normalised)
+                    continue
+
+            message = error or "not_found"
+            failure_records.append(
+                {
+                    "crossref_doi": doi,
+                    "crossref_doi_clean": doi,
+                    "crossref_error": message,
+                }
+            )
+
+        if not normalised_records and not failure_records:
+            return pd.DataFrame()
+
+        frames: list[pd.DataFrame] = []
+        if normalised_records:
+            frames.append(self.to_dataframe(normalised_records))
+        if failure_records:
+            frames.append(pd.DataFrame(failure_records))
+
+        combined = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+        return combined.reset_index(drop=True)
+
+    def _fetch_work_by_doi(self, doi: str) -> tuple[dict[str, Any] | None, str | None]:
+        """Fetch a single Crossref work by DOI returning payload and error message."""
+
+        url = f"/works/{doi}"
+        request_spec = self.request_builder.build(url)
+        try:
+            response = self.api_client.request_json(
+                request_spec.url,
+                params=request_spec.params,
+                headers=request_spec.headers,
+            )
+        except HTTPError as exc:
+            self.logger.warning(
+                "fetch_doi_failed",
+                doi=doi,
+                error=str(exc),
+                request_id=request_spec.metadata.get("request_id"),
+            )
+            return None, str(exc)
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning(
+                "fetch_doi_failed",
+                doi=doi,
+                error=str(exc),
+                request_id=request_spec.metadata.get("request_id"),
+            )
+            return None, str(exc)
+
+        message = response.get("message") if isinstance(response, dict) else None
+        if isinstance(message, dict):
+            return message, None
+        return None, "no_message"
+
+    def _fetch_work_by_filter(self, doi: str) -> dict[str, Any] | None:
+        """Fallback to filter query for DOIs that fail direct lookup."""
+
+        encoded = quote(doi, safe="")
+        params = {"filter": f"doi:{encoded}"}
+        spec = self.request_builder.build("/works", params=params)
+        try:
+            response = self.api_client.request_json(
+                spec.url,
+                params=spec.params,
+                headers=spec.headers,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning("crossref_filter_failed", doi=doi, error=str(exc))
+            return None
+
+        if isinstance(response, dict):
+            message = response.get("message")
+            if isinstance(message, dict):
+                items = message.get("items")
+                if isinstance(items, list) and items:
+                    return items[0]
+        return None
+
+    def _search_by_title(self, title: str) -> dict[str, Any] | None:
+        """Fallback search for works using ``query.bibliographic``."""
+
+        params = {"query.bibliographic": title, "rows": 1}
+        spec = self.request_builder.build("/works", params=params)
+        try:
+            response = self.api_client.request_json(
+                spec.url,
+                params=spec.params,
+                headers=spec.headers,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.logger.warning("crossref_title_search_failed", title=title[:80], error=str(exc))
+            return None
+
+        if isinstance(response, dict):
+            message = response.get("message")
+            if isinstance(message, dict):
+                items = message.get("items")
+                if isinstance(items, list) and items:
+                    return items[0]
+        return None
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize Crossref record."""

@@ -1,6 +1,9 @@
 """OpenAlex Works API adapter."""
 
+from collections.abc import Mapping, Sequence
 from typing import Any
+
+import pandas as pd
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -80,6 +83,89 @@ class OpenAlexAdapter(ExternalAdapter):
 
         return all_items
 
+    def process_identifiers(
+        self,
+        *,
+        pmids: Sequence[str] | None = None,
+        dois: Sequence[str] | None = None,
+        titles: Sequence[str] | None = None,
+        records: Sequence[Mapping[str, str]] | None = None,
+    ) -> pd.DataFrame:
+        """Process identifiers using DOI/PMID with title fallbacks."""
+
+        normalized_records: list[dict[str, Any]] = []
+        failure_records: list[dict[str, Any]] = []
+
+        doi_titles: dict[str, str] = {}
+        pmid_titles: dict[str, str] = {}
+        if records:
+            for entry in records:
+                title = entry.get("title")
+                doi = entry.get("doi") or entry.get("chembl_doi")
+                pmid = entry.get("pmid") or entry.get("chembl_pmid")
+                if doi and title and doi not in doi_titles:
+                    doi_titles[str(doi)] = str(title)
+                if pmid and title and pmid not in pmid_titles:
+                    pmid_titles[str(pmid)] = str(title)
+
+        for doi in dict.fromkeys(dois or []):
+            if not doi:
+                continue
+            records_by_doi = self._fetch_works_for_identifier(f"https://doi.org/{doi}")
+            if records_by_doi:
+                normalized_records.extend(self._normalise_records(records_by_doi))
+                continue
+
+            title = doi_titles.get(doi)
+            if title:
+                search_results = self._search_by_title(title)
+                if search_results:
+                    normalized_records.extend(self._normalise_records(search_results))
+                    continue
+
+            failure_records.append({
+                "openalex_doi": doi,
+                "openalex_doi_clean": doi,
+                "openalex_error": "not_found",
+            })
+
+        for pmid in dict.fromkeys(pmids or []):
+            if not pmid or any(
+                record.get("openalex_pmid") == int(pmid)
+                for record in normalized_records
+                if isinstance(record.get("openalex_pmid"), int)
+            ):
+                continue
+
+            records_by_pmid = self._fetch_works_for_identifier(f"pmid:{pmid}")
+            if records_by_pmid:
+                normalized_records.extend(self._normalise_records(records_by_pmid))
+                continue
+
+            title = pmid_titles.get(pmid)
+            if title:
+                search_results = self._search_by_title(title)
+                if search_results:
+                    normalized_records.extend(self._normalise_records(search_results))
+                    continue
+
+            failure_records.append({
+                "openalex_pmid": int(pmid) if str(pmid).isdigit() else pmid,
+                "openalex_error": "not_found",
+            })
+
+        if not normalized_records and not failure_records:
+            return pd.DataFrame()
+
+        frames: list[pd.DataFrame] = []
+        if normalized_records:
+            frames.append(self.to_dataframe(normalized_records))
+        if failure_records:
+            frames.append(pd.DataFrame(failure_records))
+
+        combined = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+        return combined.reset_index(drop=True)
+
     def _fetch_works(self, url: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Fetch works from OpenAlex API."""
         try:
@@ -107,6 +193,40 @@ class OpenAlexAdapter(ExternalAdapter):
                 request_id=spec.metadata.get("request_id"),
             )
             return []
+
+    def _fetch_works_for_identifier(self, identifier: str) -> list[dict[str, Any]]:
+        """Fetch works by DOI/PMID identifier path."""
+
+        url = f"/works/{identifier.split('/')[-1]}"
+        try:
+            items = self._fetch_works(url)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.error("fetch_works_error", error=str(exc), url=url)
+            return []
+        return items
+
+    def _normalise_records(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Normalize raw OpenAlex records."""
+
+        normalized: list[dict[str, Any]] = []
+        for record in records:
+            try:
+                normalized.append(self.normalize_record(record))
+            except Exception as exc:  # pragma: no cover - defensive
+                self.logger.error("openalex_normalize_failed", error=str(exc))
+        return normalized
+
+    def _search_by_title(self, title: str) -> list[dict[str, Any]]:
+        """Search OpenAlex works by title using the search endpoint."""
+
+        params = {"search": title, "per-page": 1, "fields": self.DEFAULT_WORK_FIELDS}
+        results = self._fetch_works("/works", params=params)
+        if results:
+            return results
+
+        # Fallback to title search filter when basic search returns nothing
+        params = {"filter": f"title.search:{title}", "per-page": 1, "fields": self.DEFAULT_WORK_FIELDS}
+        return self._fetch_works("/works", params=params)
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize OpenAlex record."""

@@ -301,6 +301,7 @@ class DocumentPipeline(PipelineBase):
 
         pmids: list[str] = []
         dois: list[str] = []
+        identifier_records: list[dict[str, str]] = []
 
         if "chembl_pmid" in chembl_df.columns:
             pmids = chembl_df["chembl_pmid"].dropna().astype(str).tolist()
@@ -325,6 +326,46 @@ class DocumentPipeline(PipelineBase):
         if "_original_title" in chembl_df.columns:
             titles = chembl_df["_original_title"].dropna().astype(str).tolist()
 
+        if not chembl_df.empty:
+            for record in chembl_df.to_dict("records"):
+                entry: dict[str, str] = {}
+
+                pmid_candidate = None
+                for column in ("chembl_pmid", "pmid", "pubmed_id"):
+                    value = record.get(column)
+                    if value in (None, ""):
+                        continue
+                    if hasattr(pd, "isna") and pd.isna(value):  # type: ignore[attr-defined]
+                        continue
+                    pmid_candidate = str(value)
+                    break
+
+                if pmid_candidate:
+                    entry["pmid"] = pmid_candidate
+
+                doi_candidate = None
+                for column in ("doi", "chembl_doi"):
+                    value = record.get(column)
+                    if value in (None, ""):
+                        continue
+                    if hasattr(pd, "isna") and pd.isna(value):  # type: ignore[attr-defined]
+                        continue
+                    doi_candidate = str(value)
+                    break
+
+                if doi_candidate:
+                    entry["doi"] = doi_candidate
+
+                title_value = record.get("_original_title") or record.get("title")
+                if title_value not in (None, ""):
+                    if hasattr(pd, "isna") and pd.isna(title_value):  # type: ignore[attr-defined]
+                        title_value = None
+                    if title_value is not None:
+                        entry["title"] = str(title_value)
+
+                if entry:
+                    identifier_records.append(entry)
+
         logger.info(
             "enrichment_data",
             pmids_count=len(pmids),
@@ -339,6 +380,7 @@ class DocumentPipeline(PipelineBase):
                 pmids=pmids,
                 dois=dois,
                 titles=titles,
+                records=identifier_records,
             )
         )
 
