@@ -48,6 +48,8 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
+__all__ = ["TargetPipeline"]
+
 logger = UnifiedLogger.get(__name__)
 
 # Register schema
