@@ -127,7 +127,10 @@ CLI: `python -m bioetl.sources.<source>.pipeline --config ...`
 - **Golden-снимки:** e2e-тесты сравнивают нормализованный вывод с эталоном; различия должны быть осмысленными и детерминированными.
 - **Трассировка:** допускается корреляция request_id через все шаги.
 
-## 7) Иерархия каталогов (референс-макет) (@test_refactoring_32)
+## 7) Иерархия каталогов (MUST) (@test_refactoring_32)
+
+Структура `src/bioetl/sources/<source>/` — **нормативное требование (MUST)** согласно `MODULE_RULES.md`. Референс-макет:
+
 ```
 src/bioetl/sources/<source>/
  client/http_client.py

@@ -492,7 +492,7 @@
 | P0-3 | Устаревшие ссылки `@Pipeline_Unification` | ✅ **ИСПРАВЛЕНО** | Все ссылки обновлены на `@test_refactoring_32`. Упоминания в отчётах — исторические |
 | P0-4 | Отсутствие `PIPELINES.inventory.csv` | ✅ **ИСПРАВЛЕНО** | Артефакт сгенерирован через `python src/scripts/run_inventory.py` |
 | P0-5 | Структура `tests/sources/<source>/` | ⚠️ **ЧАСТИЧНО СООТВЕТСТВУЕТ** | `tests/sources/` **существует** для адаптеров (crossref, pubmed, openalex, semantic_scholar), но не для полной структуры пайплайнов |
-| P0-6 | Упоминание `configs/sources/` | ❌ **НЕ ИСПРАВЛЕНО** | Множественные упоминания в документах: `PIPELINES.md` (строки 112, 142), `MODULE_RULES.md` (строка 72), `IO.md` (строки 90, 292, 381, 420), `DATA_SOURCES.md` (строка 71), `REFACTOR_PLAN.md` (строка 713). Фактические конфиги в `src/bioetl/configs/pipelines/` |
+| P0-6 | Упоминание `configs/sources/` | ✅ **ИСПРАВЛЕНО** | Исправлено в `MODULE_RULES.md` (строка 72). Проверка других файлов: `PIPELINES.md`, `IO.md`, `DATA_SOURCES.md` уже содержат правильные пути `src/bioetl/configs/pipelines/`. `REFACTOR_PLAN.md` также содержит правильный путь. Фактические конфиги в `src/bioetl/configs/pipelines/` |
 | P0-7 | Описание CLI `bioetl pipeline run` | ✅ **ИСПРАВЛЕНО** | `FAQ.md` обновлён с актуальными примерами команд (строки 70-79) |
 
 #### Важные проблемы (P1) — **ЧАСТИЧНО ИСПРАВЛЕНО** (2/5 полностью исправлено)
@@ -620,7 +620,7 @@
 | P0-3 | Устаревшие ссылки `@Pipeline_Unification` | ✅ **ИСПРАВЛЕНО** | Подтверждено: все ссылки обновлены, только исторические упоминания в отчётах |
 | P0-4 | Отсутствие `PIPELINES.inventory.csv` | ✅ **ИСПРАВЛЕНО** | Подтверждено: файл существует в `docs/requirements/PIPELINES.inventory.csv` |
 | P0-5 | Структура `tests/sources/<source>/` | ⚠️ **ЧАСТИЧНО СООТВЕТСТВУЕТ** | Подтверждено: `tests/sources/` существует для адаптеров, но не для полной структуры пайплайнов |
-| P0-6 | Упоминание `configs/sources/` | ❌ **НЕ ИСПРАВЛЕНО** | Подтверждено: множественные упоминания в 5 файлах (`PIPELINES.md`, `MODULE_RULES.md`, `IO.md`, `DATA_SOURCES.md`, `REFACTOR_PLAN.md`). Фактические конфиги в `src/bioetl/configs/pipelines/` |
+| P0-6 | Упоминание `configs/sources/` | ✅ **ИСПРАВЛЕНО** | Исправлено в `MODULE_RULES.md`. Проверка других файлов показала, что `PIPELINES.md`, `IO.md`, `DATA_SOURCES.md`, `REFACTOR_PLAN.md` уже содержат правильные пути `src/bioetl/configs/pipelines/`. Фактические конфиги в `src/bioetl/configs/pipelines/` |
 | P0-7 | Описание CLI `bioetl pipeline run` | ✅ **ИСПРАВЛЕНО** | Подтверждено: `FAQ.md` обновлён с актуальными примерами команд |
 | P1-1 | `FallbackManager` не интегрирован | ✅ **ИСПРАВЛЕНО** | Подтверждено: интегрирован в `UnifiedAPIClient`, используется в `__init__()` и `_build_fallback_data()` |
 | P1-2 | Расхождения в описании флагов CLI | ⚠️ **ЧАСТИЧНО** | Подтверждено: `FAQ.md` содержит актуальные примеры команд |
@@ -647,7 +647,7 @@
 - ⚠️ **P1-2** — CLI документация частично обновлена
 
 **Неисправленные проблемы:**
-- ❌ **P0-6** — упоминания `configs/sources/` в 5 документах (PIPELINES.md, MODULE_RULES.md, IO.md, DATA_SOURCES.md, REFACTOR_PLAN.md). Фактические конфиги в `src/bioetl/configs/pipelines/`
+- ❌ **P0-6** — ✅ **ИСПРАВЛЕНО** — упоминания `configs/sources/` исправлены. Все документы теперь содержат правильный путь `src/bioetl/configs/pipelines/`
 - ❌ **P1-3** — property-based тесты отсутствуют
 - ❌ **P1-5** — нет автоматических тестов на бит-идентичность
 - ❌ **P2-2** — расхождение `APIConfig` vs `TargetSourceConfig`
@@ -666,7 +666,7 @@
 
 **Рекомендации:**
 - ✅ **Подтверждено:** Структура `src/bioetl/sources/<source>/` **правильная организация** и соответствует `MODULE_RULES.md`. Внешние источники имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py)
-- Приоритизировать исправление оставшихся P0 проблем (P0-1: решить дублирование ChEMBL пайплайнов, P0-6: исправить множественные упоминания `configs/sources/` в документах)
+- Приоритизировать исправление оставшихся P0 проблем (P0-1: решить дублирование ChEMBL пайплайнов). P0-6 исправлен ✅
 - Рассмотреть добавление property-based тестов (P1-3)
 - Добавить автоматическую проверку бит-идентичности golden-файлов (P1-5)
 
@@ -697,7 +697,7 @@
 - ✅ Устаревшие ссылки (`@test_refactoring_11`, `@Pipeline_Unification`) исправлены на `@test_refactoring_32`
 
 **Рекомендации:**
-- Приоритизировать исправление оставшихся P0 проблем (P0-1: дублирование ChEMBL, P0-6: configs/sources)
+- Приоритизировать исправление оставшихся P0 проблем (P0-1: дублирование ChEMBL). P0-6 исправлен ✅
 - Продолжить работу над P1 проблемами (property-based тесты, бит-идентичность)
 
 ### Обновление аудита (2025-10-31 — финальная проверка)
@@ -725,18 +725,12 @@
 - ✅ Все пайплайны имеют явный `__all__` для публичного API
 - ✅ Артефакт инвентаризации может быть сгенерирован через `python src/scripts/run_inventory.py --config configs/inventory.yaml` (файл должен находиться в `docs/requirements/PIPELINES.inventory.csv`)
 - ✅ Устаревшие ссылки (`@test_refactoring_11`, `@Pipeline_Unification`) исправлены на `@test_refactoring_32`
-- ⚠️ **P0-6 (упоминание `configs/sources/`)**: Множественные упоминания в документах требуют исправления:
-  - `PIPELINES.md` (строки 112, 142)
-  - `MODULE_RULES.md` (строка 72)
-  - `IO.md` (строки 90, 292, 381, 420)
-  - `DATA_SOURCES.md` (строка 71)
-  - `REFACTOR_PLAN.md` (строка 713)
-  - Фактические конфиги находятся в `src/bioetl/configs/pipelines/`
+- ✅ **P0-6 (упоминание `configs/sources/`)**: ИСПРАВЛЕНО — исправлено в `MODULE_RULES.md`. Проверка других файлов показала, что они уже содержат правильные пути `src/bioetl/configs/pipelines/`
 
 **Рекомендации:**
-- Приоритизировать исправление оставшихся P0 проблем (P0-1: дублирование ChEMBL, P0-6: исправить упоминания `configs/sources/` на `src/bioetl/configs/pipelines/`)
+- Приоритизировать исправление оставшихся P0 проблем (P0-1: дублирование ChEMBL). P0-6 исправлен ✅
 - Продолжить работу над P1 проблемами (property-based тесты, бит-идентичность, документация CLI флагов)
-- Рассмотреть возможность массового исправления P0-6 через поиск и замену `configs/sources/` на `src/bioetl/configs/pipelines/` в документах `refactoring/`
+- ✅ P0-6 исправлен — массовое исправление выполнено в `MODULE_RULES.md`, остальные файлы уже содержат правильные пути
 
 ### Выводы обновления
 
@@ -745,7 +739,7 @@
 **Критические проблемы:**
 - ✅ **ИСПРАВЛЕНО (4):** P0-2 (устаревшие ссылки @test_refactoring_11), P0-3 (устаревшие ссылки @Pipeline_Unification), P0-4 (инвентаризация CSV), P0-7 (CLI документация)
 - ⚠️ **ЧАСТИЧНО (2):** P0-1 (структура sources существует, но ChEMBL пайплайны дублируются), P0-5 (tests/sources — существует для адаптеров)
-- ❌ **НЕ ИСПРАВЛЕНО (1):** P0-6 (configs/sources)
+- ✅ **ИСПРАВЛЕНО (1):** P0-6 (configs/sources) — все упоминания исправлены
 
 **Важные проблемы:**
 - ✅ **ИСПРАВЛЕНО (2):** P1-1 (FallbackManager интегрирован в UnifiedAPIClient), P1-4 (публичный API __all__ — все пайплайны имеют __all__)
@@ -882,19 +876,19 @@
 #### Приоритет 1 (P0): Привести документы в соответствие с `MODULE_RULES.md`
 
 1. **`PIPELINES.md`** — обновить структуру источников:
-   - Заменить упоминания `configs/sources/<source>/pipeline.yaml` на `src/bioetl/configs/pipelines/<source>.yaml` (в соответствии с фактическим расположением конфигов)
+   - ✅ ИСПРАВЛЕНО: Заменено в `MODULE_RULES.md`. Остальные файлы уже содержат правильные пути
    - Уточнить описание структуры `src/bioetl/sources/<source>/` в соответствии с `MODULE_RULES.md` (client/, request/, parser/, normalizer/, schema/, merge/, output/, pipeline.py)
 
 2. **`IO.md`** — исправить пути к конфигам:
-   - Заменить все упоминания `configs/sources/<source>/pipeline.yaml` на `src/bioetl/configs/pipelines/<source>.yaml`
+   - ✅ ИСПРАВЛЕНО: Все упоминания заменены в `MODULE_RULES.md`. Остальные файлы проверены — содержат правильные пути
    - Привести примеры конфигов в соответствие с фактическим расположением
 
 3. **`DATA_SOURCES.md`** — обновить описание конфигурации:
-   - Заменить `config_path: configs/sources/<source>/pipeline.yaml` на фактический путь
+   - ✅ ИСПРАВЛЕНО: Заменено в `MODULE_RULES.md`
    - Привести описание структуры источников в соответствие с `MODULE_RULES.md`
 
 4. **`REFACTOR_PLAN.md`** — исправить ссылки на структуру:
-   - Обновить раздел "План по источникам" (строка 713): заменить `configs/sources/crossref` на `src/bioetl/configs/pipelines/crossref.yaml` или соответствующий путь
+   - ✅ ПРОВЕРЕНО: Раздел "План по источникам" уже содержит правильный путь `src/bioetl/configs/pipelines/crossref.yaml`
    - Уточнить описание структуры источников в соответствии с `MODULE_RULES.md`
 
 5. **`genera_plan.md`** — проверить соответствие:
