@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
@@ -17,9 +17,10 @@ class OffsetPaginator:
 
     client: UnifiedAPIClient
     page_size: int = 100
+    _strategy: OffsetPaginationStrategy = field(init=False)
 
     def __post_init__(self) -> None:
-        self._strategy = OffsetPaginationStrategy(self.client)
+        object.__setattr__(self, "_strategy", OffsetPaginationStrategy(self.client))
 
     def fetch_all(
         self,

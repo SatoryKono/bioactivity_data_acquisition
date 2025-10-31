@@ -7,6 +7,10 @@ from bioetl.adapters.base import AdapterConfig, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 from bioetl.sources.crossref.request import CrossrefRequestBuilder
+from bioetl.sources.crossref.normalizer import (
+    normalize_crossref_affiliations,
+    normalize_crossref_authors,
+)
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
@@ -60,6 +64,10 @@ class CrossrefAdapter(ExternalAdapter):
             title="title",
             journal=("container-title", "short-container-title"),
             authors="author",
+            authors_normalizer=normalize_crossref_authors,
+            journal_normalizer=lambda value: (
+                NORMALIZER_STRING.normalize(value) if value is not None else None
+            ),
         )
 
         normalized = dict(common)
@@ -67,6 +75,7 @@ class CrossrefAdapter(ExternalAdapter):
         doi_clean = common.get("doi_clean")
         if doi_clean:
             normalized["crossref_doi"] = doi_clean
+            normalized.setdefault("crossref_doi_clean", doi_clean)
 
         # Publication dates - priority: published-print > published-online > issued > created
         date_field = None
@@ -130,8 +139,14 @@ class CrossrefAdapter(ExternalAdapter):
 
         # Subject
         if "subject" in record and record["subject"]:
-            subjects = "; ".join(record["subject"])
-            normalized["subject"] = subjects
+            subjects = "; ".join(str(value) for value in record["subject"] if value)
+            subject_normalized = NORMALIZER_STRING.normalize(subjects)
+            if subject_normalized:
+                normalized["subject"] = subject_normalized
+
+        affiliations = normalize_crossref_affiliations(record.get("author"))
+        if affiliations:
+            normalized["author_affiliations"] = affiliations
 
         # Doc type
         if "type" in record:

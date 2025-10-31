@@ -280,6 +280,10 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     # Authors fields (5 sources)
     chembl_authors: Series[str] = Field(nullable=True, description="Авторы из ChEMBL")
     crossref_authors: Series[str] = Field(nullable=True, description="Авторы из Crossref")
+    crossref_affiliations: Series[str] = Field(
+        nullable=True,
+        description="Аффилиации авторов из Crossref",
+    )
     openalex_authors: Series[str] = Field(nullable=True, description="Авторы из OpenAlex")
     pubmed_authors: Series[str] = Field(nullable=True, description="Авторы из PubMed")
     semantic_scholar_authors: Series[str] = Field(nullable=True, description="Авторы из Semantic Scholar")
@@ -450,6 +454,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         "pubmed_abstract",
         "chembl_authors",
         "crossref_authors",
+        "crossref_affiliations",
         "openalex_authors",
         "pubmed_authors",
         "semantic_scholar_authors",

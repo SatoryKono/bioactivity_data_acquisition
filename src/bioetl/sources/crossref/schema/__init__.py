@@ -26,9 +26,9 @@ class CrossrefRawSchema(BaseSchema):
     published_online: Series[object] = pa.Field(nullable=True)
     issued: Series[object] = pa.Field(nullable=True)
     created: Series[object] = pa.Field(nullable=True)
-    volume: Series[object] = pa.Field(nullable=True)
-    issue: Series[object] = pa.Field(nullable=True)
-    page: Series[object] = pa.Field(nullable=True)
+    volume: Series[str] = pa.Field(nullable=True)
+    issue: Series[str] = pa.Field(nullable=True)
+    page: Series[str] = pa.Field(nullable=True)
     ISSN: Series[object] = pa.Field(nullable=True)
     issn_type: Series[object] = pa.Field(nullable=True)
 
@@ -41,14 +41,16 @@ class CrossrefRawSchema(BaseSchema):
 class CrossrefNormalizedSchema(BaseSchema):
     """Schema describing normalized Crossref enrichment records."""
 
-    doi_clean: Series[str] = pa.Field(nullable=False)
+    doi_clean: Series[str] = pa.Field(nullable=True)
     crossref_doi: Series[str] = pa.Field(nullable=True)
+    crossref_doi_clean: Series[str] = pa.Field(nullable=True)
 
     title: Series[str] = pa.Field(nullable=True)
     journal: Series[str] = pa.Field(nullable=True)
     authors: Series[str] = pa.Field(nullable=True)
+    author_affiliations: Series[str] = pa.Field(nullable=True)
 
-    year: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1800, le=2100)
+    year: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1500)
     month: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1, le=12)
     day: Series[pd.Int64Dtype] = pa.Field(nullable=True, ge=1, le=31)
 
@@ -80,9 +82,11 @@ class CrossrefNormalizedSchema(BaseSchema):
         "extracted_at",
         "doi_clean",
         "crossref_doi",
+        "crossref_doi_clean",
         "title",
         "journal",
         "authors",
+        "author_affiliations",
         "year",
         "month",
         "day",

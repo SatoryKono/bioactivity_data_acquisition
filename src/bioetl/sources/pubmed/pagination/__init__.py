@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Mapping
 
 from bioetl.core.api_client import UnifiedAPIClient
@@ -22,9 +22,10 @@ class WebEnvPaginator:
 
     client: UnifiedAPIClient
     batch_size: int = 200
+    _strategy: TokenPaginationStrategy = field(init=False)
 
     def __post_init__(self) -> None:
-        self._strategy = TokenPaginationStrategy(self.client)
+        object.__setattr__(self, "_strategy", TokenPaginationStrategy(self.client))
 
     def fetch_all(
         self,

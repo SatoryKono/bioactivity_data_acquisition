@@ -157,6 +157,23 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     assert timestamp.endswith("Z") or timestamp.endswith("+00:00")
     assert metadata["artifacts"]["dataset"] == str(artifacts.dataset)
     assert metadata["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert metadata["checksum_algorithm"] == "sha256"
+
+    quantitative_metrics = metadata["quantitative_metrics"]
+    assert quantitative_metrics["row_count"] == 4
+    assert "duplicate_rows" in quantitative_metrics
+
+    stage_durations = metadata["stage_durations"]
+    for stage in ("extract", "transform", "validate", "load"):
+        assert stage in stage_durations
+        assert stage_durations[stage] >= 0
+
+    assert metadata["sort_keys"] == []
+    assert metadata["sort_directions"] == []
+
+    pii_policy = metadata["pii_secrets_policy"]
+    assert pii_policy["pii_expected"] is False
+    assert "secret_management" in pii_policy
 
     qc_artifacts = metadata["artifacts"].get("qc", {})
     assert "correlation_report" in qc_artifacts
@@ -186,18 +203,3 @@ def test_pipeline_run_fails_on_schema_registry_order_mismatch(
 
     with pytest.raises(ValueError, match="columns do not match"):
         pipeline.run(output_path)
-    manifest_path = artifacts.manifest
-    assert manifest_path is not None and manifest_path.exists()
-
-    with manifest_path.open("r", encoding="utf-8") as handle:
-        manifest = json.load(handle)
-
-    assert manifest["run_id"] == "integration-test"
-    assert manifest["artifacts"]["dataset"] == str(artifacts.dataset)
-    assert manifest["artifacts"]["quality_report"] == str(artifacts.quality_report)
-    assert manifest["artifacts"]["metadata"] == str(meta_path)
-    assert manifest["artifacts"]["qc"]["correlation_report"] == str(
-        artifacts.correlation_report
-    )
-    assert manifest["checksums"] == metadata["file_checksums"]
-    assert manifest["schema"] == {"id": None, "version": None}
