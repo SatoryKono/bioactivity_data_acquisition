@@ -1,63 +1,78 @@
-"""PubMed parser tests."""
+"""PubMed adapter parsing and search tests."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from unittest.mock import MagicMock, patch
+
+import pandas as pd
 
 from tests.sources.pubmed import PubMedAdapterTestCase
 
 
 class TestPubMedParser(PubMedAdapterTestCase):
-    """Validate XML parsing helpers for PubMed."""
+    """Validate interaction between the adapter and parsing helpers."""
 
-    @patch("bioetl.adapters.pubmed.ET.fromstring")
-    def test_parse_xml(self, mock_et):
-        """Test XML parsing into article dictionaries."""
+    def test_fetch_batch_uses_parse_helper(self) -> None:
+        """The adapter should delegate XML parsing to :func:`parse_efetch_response`."""
 
-        xml_content = """
-        <PubmedArticleSet>
-            <PubmedArticle>
-                <MedlineCitation>
-                    <PMID>12345678</PMID>
-                    <Article>
-                        <ArticleTitle>Test Article</ArticleTitle>
-                        <Abstract>
-                            <AbstractText>Test abstract</AbstractText>
-                        </Abstract>
-                    </Article>
-                </MedlineCitation>
-            </PubmedArticle>
-        </PubmedArticleSet>
-        """
+        adapter = self.adapter
 
-        mock_root = MagicMock()
-        mock_article = MagicMock()
-        mock_pmid = MagicMock(text="12345678")
-        mock_title = MagicMock(text="Test Article")
+        with (
+            patch.object(adapter.api_client, "request_text", return_value="<xml/>") as request_mock,
+            patch("bioetl.adapters.pubmed.parse_efetch_response", return_value=[{"pmid": 1}]) as parser_mock,
+        ):
+            records = adapter._fetch_batch(["123"])
 
-        mock_article.findall.return_value = []
-        mock_root.findall.return_value = [mock_article]
+        request_mock.assert_called_once()
+        parser_mock.assert_called_once_with("<xml/>")
+        self.assertEqual(records, [{"pmid": 1}])
 
-        mock_root.find.return_value = mock_pmid
-        mock_article.find.side_effect = lambda x: mock_title if x == ".//PMID" else None
+    def test_fetch_batch_logs_and_swallows_errors(self) -> None:
+        """Network errors should be logged and result in an empty batch."""
 
-        mock_et.return_value = mock_root
+        adapter = self.adapter
 
-        result = self.adapter._parse_xml(xml_content)
-        self.assertIsInstance(result, list)
+        with patch.object(adapter.api_client, "request_text", side_effect=RuntimeError("boom")):
+            records = adapter._fetch_batch(["456"])
 
-    def test_normalize_date(self):
-        """Test date normalization helper."""
+        self.assertEqual(records, [])
 
-        result = self.adapter._normalize_date(2023, "Mar", "15")
-        self.assertEqual(result, "2023-03-15")
 
-        result = self.adapter._normalize_date(2023, None, None)
-        self.assertEqual(result, "2023-00-00")
+class TestPubMedSearch(PubMedAdapterTestCase):
+    """Verify the ``esearch`` + ``efetch`` orchestration helper."""
 
-    def test_month_to_int(self):
-        """Month conversion handles abbreviations and defaults."""
+    def test_search_uses_paginator(self) -> None:
+        """``search`` should instantiate :class:`WebEnvPaginator` with adapter settings."""
 
-        self.assertEqual(self.adapter._month_to_int("Mar"), 3)
-        self.assertEqual(self.adapter._month_to_int("January"), 1)
-        self.assertEqual(self.adapter._month_to_int("unknown"), 1)
+        adapter = self.adapter
+
+        paginator_mock = MagicMock()
+        paginator_mock.fetch_all.return_value = [{"pmid": 1}]
+
+        with patch("bioetl.adapters.pubmed.WebEnvPaginator", return_value=paginator_mock) as paginator_cls:
+            results = adapter.search({"term": "aspirin"})
+
+        paginator_cls.assert_called_once()
+        kwargs = paginator_cls.call_args.kwargs
+        self.assertEqual(kwargs.get("batch_size"), adapter.adapter_config.batch_size)
+        paginator_mock.fetch_all.assert_called_once_with({"term": "aspirin"}, fetch_params=None)
+        self.assertEqual(results, [{"pmid": 1}])
+
+    def test_process_search_returns_dataframe(self) -> None:
+        """``process_search`` normalises search results into a dataframe."""
+
+        adapter = self.adapter
+        raw_record: Mapping[str, object] = {
+            "pmid": 123,
+            "title": "Example",
+            "journal": "Journal",
+            "authors": [{"last_name": "Doe", "fore_name": "Jane"}],
+        }
+
+        with patch.object(adapter, "search", return_value=[raw_record]):
+            frame = adapter.process_search({"term": "example"})
+
+        assert isinstance(frame, pd.DataFrame)
+        assert "title" in frame.columns
+        assert frame.loc[0, "title"] == "Example"

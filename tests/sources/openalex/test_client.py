@@ -26,10 +26,10 @@ class TestOpenAlexClient(OpenAlexAdapterTestCase):
 
         expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
         self.assertEqual(batch_mock.call_count, expected_calls)
-        self.assertEqual(len(batch_mock.call_args_list[0].args[1]), adapter.DEFAULT_BATCH_SIZE)
+        self.assertEqual(len(batch_mock.call_args_list[0].args[-1]), adapter.DEFAULT_BATCH_SIZE)
         remainder = total % adapter.DEFAULT_BATCH_SIZE
         expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
-        self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
+        self.assertEqual(len(batch_mock.call_args_list[-1].args[-1]), expected_last)
 
     def test_fetch_batch_routes_identifiers(self) -> None:
         """Identifiers are routed via DOI, PMID and OpenAlex helpers."""

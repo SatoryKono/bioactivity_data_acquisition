@@ -167,6 +167,7 @@ class SemanticScholarAdapter(ExternalAdapter):
         doi_clean = common.get("doi_clean")
         if doi_clean:
             normalized["doi_clean"] = doi_clean
+            normalized["semantic_scholar_doi"] = doi_clean
 
         if "title" in normalized:
             normalized["_title_for_join"] = normalized["title"]

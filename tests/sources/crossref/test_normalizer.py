@@ -28,6 +28,7 @@ class TestCrossrefNormalizer(CrossrefAdapterTestCase):
                     "given": "John",
                     "family": "Doe",
                     "ORCID": "https://orcid.org/0000-0001-2345-6789",
+                    "affiliation": [{"name": "Example Research Lab"}],
                 }
             ],
         }
@@ -39,6 +40,8 @@ class TestCrossrefNormalizer(CrossrefAdapterTestCase):
         self.assertEqual(normalized["year"], 2023)
         self.assertIn("authors", normalized)
         self.assertIn("Doe, John", normalized["authors"])
+        self.assertIn("author_affiliations", normalized)
+        self.assertIn("Example Research Lab", normalized["author_affiliations"])
 
     @patch("bioetl.adapters.crossref.normalize_common_bibliography", autospec=True)
     def test_common_helper_invoked(self, helper_mock) -> None:
@@ -58,13 +61,14 @@ class TestCrossrefNormalizer(CrossrefAdapterTestCase):
 
         normalized = self.adapter.normalize_record(record)
 
-        helper_mock.assert_called_once_with(
-            record,
-            doi="DOI",
-            title="title",
-            journal=("container-title", "short-container-title"),
-            authors="author",
-        )
+        helper_mock.assert_called_once()
+        _, kwargs = helper_mock.call_args
+        self.assertEqual(kwargs["doi"], "DOI")
+        self.assertEqual(kwargs["title"], "title")
+        self.assertEqual(kwargs["journal"], ("container-title", "short-container-title"))
+        self.assertEqual(kwargs["authors"], "author")
+        self.assertIs(kwargs["authors_normalizer"], crossref_module.normalize_crossref_authors)
+        self.assertTrue(callable(kwargs["journal_normalizer"]))
 
         self.assertEqual(normalized["doi_clean"], "10.1000/common")
         self.assertEqual(normalized["crossref_doi"], "10.1000/common")

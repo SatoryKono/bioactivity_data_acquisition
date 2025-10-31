@@ -64,6 +64,9 @@ def merge_crossref_with_base(
         if column == "doi_clean":
             rename_map[column] = "crossref_doi_clean"
             continue
+        if column == "author_affiliations":
+            rename_map[column] = "crossref_affiliations"
+            continue
         if column.startswith("crossref_"):
             continue
         rename_map[column] = f"crossref_{column}"
