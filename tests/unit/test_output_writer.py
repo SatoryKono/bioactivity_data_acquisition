@@ -233,6 +233,21 @@ def test_unified_output_writer_writes_extended_metadata(tmp_path, monkeypatch):
     assert snapshot["path"] == "configs/base.yaml"
     assert snapshot["sha256"] == f"sha256:{expected_config_digest}"
     assert contents["lineage"] == {"source_files": [], "transformations": []}
+    assert contents["checksum_algorithm"] == "sha256"
+
+    quantitative_metrics = contents["quantitative_metrics"]
+    assert quantitative_metrics["row_count"] == len(df)
+    assert "duplicate_rows" in quantitative_metrics
+
+    stage_durations = contents["stage_durations"]
+    assert stage_durations["load"] >= 0
+
+    assert contents["sort_keys"] == []
+    assert contents["sort_directions"] == []
+
+    pii_policy = contents["pii_secrets_policy"]
+    assert pii_policy["pii_expected"] is False
+    assert "secret_management" in pii_policy
 
     expected_checksums = {
         artifacts.dataset.name: hashlib.sha256(artifacts.dataset.read_bytes()).hexdigest(),
@@ -631,6 +646,9 @@ def test_unified_output_writer_handles_missing_optional_qc_files(tmp_path, monke
     assert "qc_missing_mappings.csv" not in checksums
     assert "qc_enrichment_metrics.csv" not in checksums
     assert "qc_summary.json" in checksums
+
+    assert metadata["pii_secrets_policy"]["pii_expected"] is False
+    assert metadata["sort_keys"] == []
 
     qc_artifacts = metadata["artifacts"].get("qc", {})
     assert "qc_missing_mappings" not in qc_artifacts

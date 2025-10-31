@@ -1,0 +1,10 @@
+# Risk Register
+
+| Risk | Description | Monitoring & Signals | Mitigation & Response |
+| --- | --- | --- | --- |
+| API contract drift | Upstream REST payloads introduce field/shape changes that violate schema expectations. | * Daily contract smoke tests in CI using golden payloads.<br>* Structured logs (`stage="extract"`) emit `api_response_schema_mismatch` counters.<br>* `meta.yaml` captures `file_checksums` and schema ids for auditing. | * Tighten Pandera schema coverage and roll out hotfix releases following PEP 387.<br>* Coordinate with upstream teams; toggle feature flags via config overrides until parity restored. |
+| Cursor drift / pagination gaps | Stateful extractions resume from stale cursors causing skipped/duplicated pages. | * Stage durations plus cursor offsets emitted to `meta.yaml` (`stage_durations`, `quantitative_metrics`).<br>* Prometheus counter on `cursor_rewind_detected` structured log events. | * Persist last-success cursors in metadata + storage.<br>* Auto-replay recent window on detection; raise incident if drift > 1 page. |
+| Unstable measurement units | Data sources switch units (e.g., nM → µM) without notice. | * QC dataset metrics (`*_dataset_metrics.csv`) highlight value distribution shifts.<br>* Outlier detector alerts via weekly Airflow checks. | * Normalize units during transform; maintain mapping table in configs.<br>* Document conversions in CHANGELOG and schedule deprecation warnings per PEP 387. |
+| Atomic write failures | Filesystem hiccups interrupt atomic move/write semantics leading to partial artefacts. | * Writer logs `atomic_write_failure` with structured context.<br>* CI failure budget monitors `meta.yaml` `file_checksums` completeness. | * All writes funnel through `UnifiedOutputWriter` with retries and cleanup.<br>* On failure rerun pipeline, verifying deterministic outputs via hash comparison. |
+
+**Review cadence:** The register is reviewed every trunk-based release (weekly cadence). Acceptance criteria require all risks to have active monitors and rehearsed mitigation steps before a release can be promoted.

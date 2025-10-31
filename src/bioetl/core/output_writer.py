@@ -5,12 +5,13 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
+from time import perf_counter
 from typing import TYPE_CHECKING, Any
 import typing as _typing
 
@@ -206,6 +207,21 @@ class OutputMetadata:
     precision_policy: str | None = None
     hash_policy_version: str | None = None
     hash_summary: dict[str, Any] | None = None
+    quantitative_metrics: dict[str, Any] = field(default_factory=dict)
+    stage_durations: dict[str, float] = field(default_factory=dict)
+    sort_keys: list[str] = field(default_factory=list)
+    sort_directions: list[bool] = field(default_factory=list)
+    pii_secrets_policy: dict[str, Any] | None = None
+
+    @staticmethod
+    def default_pii_policy() -> dict[str, Any]:
+        """Return the standard data-protection policy snapshot for metadata."""
+
+        return {
+            "pii_expected": False,
+            "pii_controls": "Derived from public ChEMBL records; personal identifiers are removed upstream.",
+            "secret_management": "API credentials are provided via environment variables and redacted in structured logs.",
+        }
 
     @classmethod
     def from_dataframe(
@@ -222,6 +238,11 @@ class OutputMetadata:
         sources: Sequence[str] | None = None,
         schema: type[BaseSchema] | None = None,
         hash_policy_version: str | None = None,
+        stage_durations: Mapping[str, float] | None = None,
+        quantitative_metrics: Mapping[str, Any] | None = None,
+        sort_keys: Sequence[str] | None = None,
+        sort_directions: Sequence[bool] | None = None,
+        pii_secrets_policy: Mapping[str, Any] | None = None,
     ) -> OutputMetadata:
         """Создает метаданные из DataFrame."""
 
@@ -269,6 +290,27 @@ class OutputMetadata:
                 na_policy = getattr(schema_cls, "na_policy", None)
                 precision_policy = getattr(schema_cls, "precision_policy", None)
 
+        base_metrics: dict[str, Any] = {
+            "row_count": len(df),
+            "column_count": len(df.columns),
+        }
+        if quantitative_metrics:
+            base_metrics.update({key: value for key, value in quantitative_metrics.items()})
+
+        resolved_stage_durations = {
+            key: float(value)
+            for key, value in (stage_durations.items() if stage_durations else [])
+        }
+
+        resolved_sort_keys = list(sort_keys or [])
+        resolved_sort_directions = [bool(value) for value in (sort_directions or [])]
+
+        resolved_pii_policy = (
+            {key: value for key, value in pii_secrets_policy.items()}
+            if pii_secrets_policy
+            else cls.default_pii_policy()
+        )
+
         return cls(
             pipeline_version=pipeline_version,
             source_system=source_system,
@@ -289,6 +331,11 @@ class OutputMetadata:
             na_policy=na_policy,
             precision_policy=precision_policy,
             hash_policy_version=hash_policy_version,
+            quantitative_metrics=base_metrics,
+            stage_durations=resolved_stage_durations,
+            sort_keys=resolved_sort_keys,
+            sort_directions=resolved_sort_directions,
+            pii_secrets_policy=resolved_pii_policy,
         )
 
 
@@ -685,6 +732,8 @@ class UnifiedOutputWriter:
         Returns:
             OutputArtifacts с путями к созданным файлам
         """
+        load_start = perf_counter()
+
         dataset_df: DataFrame = df.copy()
         if apply_column_order:
             dataset_df = self._apply_column_order(dataset_df, metadata)
@@ -879,6 +928,7 @@ class UnifiedOutputWriter:
         correlation_path: Path | None = None
         summary_statistics_path: Path | None = None
         dataset_metrics_path: Path | None = None
+        dataset_metrics_payload: dict[str, Any] | None = None
 
         if extended:
             correlation_df = self._build_correlation_report(dataset_df)
@@ -929,6 +979,11 @@ class UnifiedOutputWriter:
                     dataset_metrics_path,
                     float_format=float_format,
                 )
+                dataset_metrics_payload = {
+                    str(row.get("metric")): row.get("value")
+                    for row in dataset_metrics_df.to_dict("records")
+                    if "metric" in row and "value" in row
+                }
 
         checksum_targets: list[Path] = [
             dataset_path,
@@ -950,6 +1005,21 @@ class UnifiedOutputWriter:
             dataset_metrics_path,
         )
         checksum_targets.extend(path for path in optional_targets if path is not None)
+
+        if metadata.pii_secrets_policy is None:
+            metadata = replace(
+                metadata, pii_secrets_policy=OutputMetadata.default_pii_policy()
+            )
+
+        quantitative_metrics = dict(metadata.quantitative_metrics)
+        if dataset_metrics_payload:
+            quantitative_metrics.update(dataset_metrics_payload)
+        metadata = replace(metadata, quantitative_metrics=quantitative_metrics)
+
+        load_elapsed = perf_counter() - load_start
+        stage_durations = dict(metadata.stage_durations)
+        stage_durations["load"] = round(load_elapsed, 6)
+        metadata = replace(metadata, stage_durations=stage_durations)
 
         checksums = self._calculate_checksums(*checksum_targets)
         metadata = replace(metadata, checksums=checksums)
@@ -1280,6 +1350,7 @@ class UnifiedOutputWriter:
             "column_count": metadata.column_count,
             "column_order": metadata.column_order,
             "file_checksums": checksums,
+            "checksum_algorithm": "sha256",
             "config_hash": metadata.config_hash,
             "git_commit": metadata.git_commit,
             "sources": sorted(metadata.sources) if metadata.sources else [],
@@ -1288,6 +1359,11 @@ class UnifiedOutputWriter:
             "column_order_source": metadata.column_order_source,
             "na_policy": metadata.na_policy,
             "precision_policy": metadata.precision_policy,
+            "quantitative_metrics": metadata.quantitative_metrics,
+            "stage_durations": metadata.stage_durations,
+            "sort_keys": metadata.sort_keys,
+            "sort_directions": metadata.sort_directions,
+            "pii_secrets_policy": metadata.pii_secrets_policy,
         }
 
         if metadata.hash_policy_version:
