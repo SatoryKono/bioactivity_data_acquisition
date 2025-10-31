@@ -1,3 +1,5 @@
 """Assay normalizer module namespace."""
 
-__all__ = []
+from .assay_normalizer import AssayNormalizer
+
+__all__ = ["AssayNormalizer"]

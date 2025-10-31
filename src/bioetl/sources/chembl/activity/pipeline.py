@@ -2,30 +2,31 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlencode
 
 import numpy as np
 import pandas as pd
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
-from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_float, coerce_nullable_int, coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
-from bioetl.utils.json import normalize_json_list
-from bioetl.utils.qc import register_fallback_statistics
+from .client.activity_client import ActivityChEMBLClient
+from .normalizer.activity_normalizer import ActivityNormalizer
+from .output.activity_output import ActivityOutputWriter
+from .parser.activity_parser import (
+    ACTIVITY_FALLBACK_BUSINESS_COLUMNS,
+    ActivityParser,
+)
+from .request.activity_request import ActivityRequestBuilder
 
 __all__ = ["ActivityPipeline"]
 
@@ -43,62 +44,6 @@ INTEGER_COLUMNS: tuple[str, ...] = (
 )
 INTEGER_COLUMNS_WITH_ID: tuple[str, ...] = ("activity_id",) + INTEGER_COLUMNS
 FLOAT_COLUMNS: tuple[str, ...] = ("fallback_retry_after_sec",)
-NON_NEGATIVE_CACHE_COLUMNS: tuple[str, ...] = ("published_value", "standard_value")
-
-ACTIVITY_FALLBACK_BUSINESS_COLUMNS: tuple[str, ...] = (
-    "activity_id",
-    "molecule_chembl_id",
-    "assay_chembl_id",
-    "target_chembl_id",
-    "document_chembl_id",
-    "published_type",
-    "published_relation",
-    "published_value",
-    "published_units",
-    "standard_type",
-    "standard_relation",
-    "standard_value",
-    "standard_units",
-    "standard_flag",
-    "lower_bound",
-    "upper_bound",
-    "is_censored",
-    "pchembl_value",
-    "activity_comment",
-    "data_validity_comment",
-    "bao_endpoint",
-    "bao_format",
-    "bao_label",
-    "canonical_smiles",
-    "target_organism",
-    "target_tax_id",
-    "activity_properties",
-    "compound_key",
-    "is_citation",
-    "high_citation_rate",
-    "exact_data_citation",
-    "rounded_data_citation",
-    "potential_duplicate",
-    "uo_units",
-    "qudt_units",
-    "src_id",
-    "action_type",
-    "bei",
-    "sei",
-    "le",
-    "lle",
-    "chembl_release",
-    "source_system",
-    "fallback_reason",
-    "fallback_error_type",
-    "fallback_error_code",
-    "fallback_error_message",
-    "fallback_http_status",
-    "fallback_retry_after_sec",
-    "fallback_attempt",
-    "fallback_timestamp",
-    "extracted_at",
-)
 
 
 @lru_cache(maxsize=1)
@@ -112,142 +57,48 @@ def _get_activity_column_order() -> list[str]:
         except AttributeError:  # pragma: no cover - defensive safeguard
             columns = []
     return list(columns)
-def _normalize_int_scalar(value: Any) -> int | None:
-    """Безопасно приводит значение к int либо возвращает None."""
-
-    try:
-        text = str(value).strip()
-        if not text:
-            return None
-        return int(text)
-    except (TypeError, ValueError):
-        return None
-def _derive_compound_key(
-    molecule_id: str | None,
-    standard_type: str | None,
-    target_id: str | None,
-) -> str | None:
-    """Build compound key when all components are available."""
-
-    if molecule_id and standard_type and target_id:
-        return "|".join([molecule_id, standard_type, target_id])
-    return None
-
-
-def _derive_is_citation(
-    document_id: str | None,
-    properties: Sequence[dict[str, Any]],
-) -> bool:
-    """Infer citation flag from document linkage or properties."""
-
-    if document_id:
-        return True
-
-    for prop in properties:
-        label = str(prop.get("name") or prop.get("type") or "").lower()
-        if label.replace(" ", "_") == "is_citation":
-            return registry.normalize("boolean", prop.get("value"), default=False) or False
-    return False
-
-
-def _derive_exact_data_citation(
-    comment: str | None,
-    properties: Sequence[dict[str, Any]],
-) -> bool:
-    """Derive exact data citation flag from comments or properties."""
-
-    text = (comment or "").lower()
-    if "exact" in text and "citation" in text:
-        return True
-
-    for prop in properties:
-        label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
-        if label == "exact_data_citation":
-            return registry.normalize("boolean", prop.get("value"), default=False) or False
-    return False
-
-
-def _derive_rounded_data_citation(
-    comment: str | None,
-    properties: Sequence[dict[str, Any]],
-) -> bool:
-    """Derive rounded data citation flag."""
-
-    text = (comment or "").lower()
-    if "rounded" in text and "citation" in text:
-        return True
-
-    for prop in properties:
-        label = str(prop.get("name") or prop.get("type") or "").lower().replace(" ", "_")
-        if label == "rounded_data_citation":
-            return registry.normalize("boolean", prop.get("value"), default=False) or False
-    return False
-
-
-def _derive_high_citation_rate(properties: Sequence[dict[str, Any]]) -> bool:
-    """Detect high citation rate from property payloads."""
-
-    for prop in properties:
-        label = str(prop.get("name") or prop.get("type") or "").lower()
-        if "citation" not in label:
-            continue
-        numeric = None
-        for candidate in ("value", "num_value", "property_value", "count"):
-            if candidate in prop:
-                numeric = registry.normalize("numeric", prop.get(candidate))
-                if numeric is not None:
-                    break
-        if numeric is not None and numeric >= 50:
-            return True
-        if label.replace(" ", "_") == "high_citation_rate":
-            return registry.normalize("boolean", prop.get("value"), default=False) or False
-    return False
-
-
-def _derive_is_censored(relation: str | None) -> bool | None:
-    """Infer censorship flag from relation symbol."""
-
-    if relation is None:
-        return None
-    return relation != "="
-
-
-# _coerce_nullable_int_columns и _coerce_nullable_float_columns заменены на
-# coerce_nullable_int и coerce_nullable_float из bioetl.utils.dtypes
-
-
 class ActivityPipeline(PipelineBase):  # type: ignore[misc]
     """Pipeline for extracting ChEMBL activity data."""
 
-    def __init__(self, config: PipelineConfig, run_id: str):
+    def __init__(
+        self,
+        config: PipelineConfig,
+        run_id: str,
+        *,
+        client: ActivityChEMBLClient | None = None,
+        parser: ActivityParser | None = None,
+        normalizer: ActivityNormalizer | None = None,
+        request_builder: ActivityRequestBuilder | None = None,
+        output_writer: ActivityOutputWriter | None = None,
+    ) -> None:
         super().__init__(config, run_id)
         self.primary_schema = ActivitySchema
         self._last_validation_report: dict[str, Any] | None = None
         self._fallback_stats: dict[str, Any] = {}
 
-        chembl_context = self._init_chembl_client(
-            defaults={
-                "enabled": True,
-                "base_url": "https://www.ebi.ac.uk/chembl/api/data",
-                "batch_size": 25,
-            },
-            batch_size_cap=25,
+        self.normalizer = normalizer or ActivityNormalizer()
+        self.parser = parser or ActivityParser(normalizer=self.normalizer)
+        self.client = client or ActivityChEMBLClient(
+            self,
+            parser=self.parser,
+            request_builder=request_builder,
         )
-        # ``_init_chembl_client`` materializes a ``UnifiedAPIClient`` via ``APIClientFactory``
-        # so that HTTP profiles, retry policies, rate limiting, circuit breaker tuning and
-        # fallback behaviour from ``PipelineConfig`` are fully honoured.
-        self.api_client = chembl_context.client
-        self.register_client(self.api_client)
-        self.batch_size = chembl_context.batch_size
-        self.configured_max_url_length = chembl_context.max_url_length
+        self.api_client = self.client.api_client
+        self.batch_size = self.client.batch_size
+        self.configured_max_url_length = self.client.max_url_length
 
-        # Status handshake for release metadata
+        self.output_writer = output_writer or ActivityOutputWriter(pipeline=self)
+
         self._status_snapshot: dict[str, Any] | None = None
         self._chembl_release = self._get_chembl_release()
+        self.parser.set_chembl_release(self._chembl_release)
+        self.client.set_release(self._chembl_release)
+
         self._fallback_builder = FallbackRecordBuilder(
             business_columns=ACTIVITY_FALLBACK_BUSINESS_COLUMNS,
             context={"chembl_release": self._chembl_release},
         )
+        self.client.set_fallback_factory(self._create_fallback_record)
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract activity data from input file."""
@@ -284,7 +135,11 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
             return pd.DataFrame(columns=expected_cols if expected_cols else [])
 
         logger.info("fetching_from_chembl_api", count=len(activity_ids))
-        extracted_df = self._extract_from_chembl(activity_ids)
+        extracted_df = self.client.extract(
+            activity_ids,
+            expected_columns=_get_activity_column_order(),
+            integer_columns=INTEGER_COLUMNS_WITH_ID,
+        )
 
         if extracted_df.empty:
             logger.warning("no_api_data_returned")
@@ -293,368 +148,6 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
 
         logger.info("extraction_completed", rows=len(extracted_df), columns=len(extracted_df.columns))
         return extracted_df
-
-    def _extract_from_chembl(self, activity_ids: list[int]) -> pd.DataFrame:
-        """Extract activity data using release-scoped batching with caching."""
-
-        if not activity_ids:
-            return pd.DataFrame()
-
-        success_count = 0
-        fallback_count = 0
-        error_count = 0
-        api_calls = 0
-        cache_hits = 0
-
-        results: list[dict[str, Any]] = []
-
-        for batch_number, batch_ids in enumerate(self._iter_activity_batches(activity_ids), start=1):
-            logger.info("fetching_batch", batch=batch_number, size=len(batch_ids))
-
-            cached_records = self._load_batch_from_cache(batch_ids)
-            if cached_records is not None:
-                logger.info("cache_batch_hit", batch=batch_number, size=len(batch_ids))
-                cache_hits += len(batch_ids)
-                results.extend(cached_records)
-                success_count += sum(
-                    1
-                    for record in cached_records
-                    if record.get("source_system") != "ChEMBL_FALLBACK"
-                )
-                fallback_count += sum(
-                    1
-                    for record in cached_records
-                    if record.get("source_system") == "ChEMBL_FALLBACK"
-                )
-                continue
-
-            try:
-                batch_records, batch_metrics = self._fetch_batch(batch_ids)
-                api_calls += 1
-                success_count += batch_metrics["success"]
-                fallback_count += batch_metrics["fallback"]
-                error_count += batch_metrics["error"]
-                results.extend(batch_records)
-                self._store_batch_in_cache(batch_ids, batch_records)
-            except CircuitBreakerOpenError as error:
-                logger.warning("circuit_breaker_open", batch=batch_number, error=str(error))
-                fallback_records = [
-                    self._create_fallback_record(
-                        activity_id=activity_id,
-                        reason="circuit_breaker_open",
-                        error=error,
-                    )
-                    for activity_id in batch_ids
-                ]
-                results.extend(fallback_records)
-                fallback_count += len(fallback_records)
-            except Exception as error:  # noqa: BLE001 - surfaced for metrics
-                error_count += len(batch_ids)
-                logger.error("batch_fetch_failed", error=str(error), batch_ids=batch_ids)
-                fallback_records = [
-                    self._create_fallback_record(
-                        activity_id=activity_id,
-                        reason="exception",
-                        error=error,
-                    )
-                    for activity_id in batch_ids
-                ]
-                results.extend(fallback_records)
-                fallback_count += len(fallback_records)
-
-        if not results:
-            logger.warning("no_results_from_api")
-            return pd.DataFrame()
-
-        # Ensure deterministic ordering by activity_id
-        results_sorted = sorted(results, key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")))
-
-        logger.info(
-            "chembl_activity_metrics",
-            total_activities=len(activity_ids),
-            success_count=success_count,
-            fallback_count=fallback_count,
-            error_count=error_count,
-            success_rate=
-            ((success_count + fallback_count) / len(activity_ids))
-            if activity_ids
-            else 0.0,
-            api_calls=api_calls,
-            cache_hits=cache_hits,
-        )
-
-        df = pd.DataFrame(results_sorted)
-        if not df.empty:
-            expected_columns = _get_activity_column_order()
-            if expected_columns:
-                extra_columns = [column for column in df.columns if column not in expected_columns]
-
-                for column in expected_columns:
-                    if column not in df.columns:
-                        if column in INTEGER_COLUMNS_WITH_ID:
-                            df[column] = pd.Series(pd.NA, index=df.index, dtype="Int64")
-                        else:
-                            df[column] = pd.Series(pd.NA, index=df.index)
-
-                ordered_columns = [column for column in expected_columns if column in df.columns]
-                df = df[ordered_columns + extra_columns]
-
-            coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
-        logger.info("extraction_completed", rows=len(df), from_api=True)
-        return df
-
-    def _iter_activity_batches(self, activity_ids: Sequence[int]) -> Iterable[list[int]]:
-        """Yield batches constrained by batch size and configured URL length."""
-
-        batch_size = max(1, int(self.batch_size))
-        total = len(activity_ids)
-        for index in range(0, total, batch_size):
-            chunk = list(activity_ids[index : index + batch_size])
-            if not chunk:
-                continue
-            for split_chunk in self._split_activity_ids_by_url_length(chunk):
-                if split_chunk:
-                    yield split_chunk
-
-    def _split_activity_ids_by_url_length(self, candidate_ids: Sequence[int]) -> list[list[int]]:
-        """Recursively split identifiers to satisfy the configured URL limit."""
-
-        ids = list(candidate_ids)
-        if not ids:
-            return []
-
-        limit = self.configured_max_url_length
-        if limit is None:
-            return [ids]
-
-        url = self._build_activity_request_url(ids)
-        if not url:
-            return [ids]
-
-        if len(url) <= limit or len(ids) == 1:
-            if len(url) > limit:
-                logger.warning(
-                    "activity_single_id_exceeds_url_limit",
-                    activity_id=ids[0],
-                    url_length=len(url),
-                    max_length=limit,
-                )
-            return [ids]
-
-        midpoint = max(1, len(ids) // 2)
-        return self._split_activity_ids_by_url_length(ids[:midpoint]) + self._split_activity_ids_by_url_length(
-            ids[midpoint:]
-        )
-
-    def _build_activity_request_url(self, activity_ids: Sequence[int]) -> str:
-        """Return the fully qualified request URL for the provided identifiers."""
-
-        base = str(self.api_client.config.base_url).rstrip("/")
-        query = urlencode({"activity_id__in": ",".join(map(str, activity_ids))})
-        return f"{base}/activity.json?{query}"
-
-    def _fetch_batch(self, batch_ids: Iterable[int]) -> tuple[list[dict[str, Any]], dict[str, int]]:
-        """Fetch a batch of activities from the ChEMBL API."""
-
-        ids_str = ",".join(map(str, batch_ids))
-        url = "/activity.json"
-        params = {"activity_id__in": ids_str}
-
-        response = self.api_client.request_json(url, params=params)
-
-        activities = response.get("activities", [])
-        metrics = {"success": 0, "fallback": 0, "error": 0}
-
-        records: dict[int, dict[str, Any]] = {}
-        for activity in activities:
-            activity_id = activity.get("activity_id")
-            if activity_id is None:
-                continue
-            record = self._normalize_activity(activity)
-            records[int(activity_id)] = record
-
-        missing_ids = [activity_id for activity_id in batch_ids if activity_id not in records]
-        if missing_ids:
-            metrics["error"] += len(missing_ids)
-            for missing_id in missing_ids:
-                records[missing_id] = self._create_fallback_record(
-                    activity_id=missing_id,
-                    reason="not_in_response",
-                )
-
-        metrics["success"] = sum(
-            1 for record in records.values() if record.get("source_system") != "ChEMBL_FALLBACK"
-        )
-        metrics["fallback"] = sum(
-            1 for record in records.values() if record.get("source_system") == "ChEMBL_FALLBACK"
-        )
-
-        ordered_records = [records[activity_id] for activity_id in sorted(records)]
-        return ordered_records, metrics
-
-    def _normalize_activity(self, activity: dict[str, Any]) -> dict[str, Any]:
-        """Normalize raw activity payload into a flat record."""
-
-        activity_id = _normalize_int_scalar(activity.get("activity_id"))
-        molecule_id = registry.normalize("chemistry.chembl_id", activity.get("molecule_chembl_id"))
-        assay_id = registry.normalize("chemistry.chembl_id", activity.get("assay_chembl_id"))
-        target_id = registry.normalize("chemistry.chembl_id", activity.get("target_chembl_id"))
-        document_id = registry.normalize("chemistry.chembl_id", activity.get("document_chembl_id"))
-
-        published_type = registry.normalize(
-            "chemistry.string",
-            activity.get("type") or activity.get("published_type"),
-            uppercase=True,
-        )
-        published_relation = registry.normalize(
-            "chemistry.relation",
-            activity.get("relation") or activity.get("published_relation"),
-            default="=",
-        )
-        published_value = registry.normalize(
-            "chemistry.non_negative_float",
-            activity.get("value") or activity.get("published_value"),
-            column="published_value",
-        )
-        published_units = registry.normalize(
-            "chemistry.units",
-            activity.get("units") or activity.get("published_units"),
-        )
-
-        standard_type = registry.normalize(
-            "chemistry.string",
-            activity.get("standard_type"),
-            uppercase=True,
-        )
-        standard_relation = registry.normalize(
-            "chemistry.relation",
-            activity.get("standard_relation"),
-            default="=",
-        )
-        standard_value = registry.normalize(
-            "chemistry.non_negative_float",
-            activity.get("standard_value"),
-            column="standard_value",
-        )
-        standard_units = registry.normalize(
-            "chemistry.units",
-            activity.get("standard_units"),
-            default="nM",
-        )
-        standard_flag = _normalize_int_scalar(activity.get("standard_flag"))
-
-        lower_bound = registry.normalize("numeric", activity.get("standard_lower_value") or activity.get("lower_value"))
-        upper_bound = registry.normalize("numeric", activity.get("standard_upper_value") or activity.get("upper_value"))
-        is_censored = _derive_is_censored(standard_relation)
-
-        pchembl_value = registry.normalize("numeric", activity.get("pchembl_value"))
-        activity_comment = registry.normalize("chemistry.string", activity.get("activity_comment"))
-        data_validity_comment = registry.normalize("chemistry.string", activity.get("data_validity_comment"))
-
-        bao_endpoint = registry.normalize("chemistry.bao_id", activity.get("bao_endpoint"))
-        bao_format = registry.normalize("chemistry.bao_id", activity.get("bao_format"))
-        bao_label = registry.normalize("chemistry.string", activity.get("bao_label"), max_length=128)
-
-        canonical_smiles = registry.normalize("chemistry.string", activity.get("canonical_smiles"))
-        target_organism = registry.normalize("chemistry.target_organism", activity.get("target_organism"))
-        target_tax_id = _normalize_int_scalar(activity.get("target_tax_id"))
-
-        potential_duplicate = _normalize_int_scalar(activity.get("potential_duplicate"))
-        uo_units = registry.normalize("chemistry.string", activity.get("uo_units"), uppercase=True)
-        qudt_units = registry.normalize("chemistry.string", activity.get("qudt_units"))
-        src_id = _normalize_int_scalar(activity.get("src_id"))
-
-        action_type_raw = activity.get("action_type")
-        action_type_metadata: dict[str, str | None] | None = None
-        if isinstance(action_type_raw, Mapping):
-            action_type_metadata = {
-                "action_type": registry.normalize(
-                    "chemistry.string", action_type_raw.get("action_type")
-                ),
-                "label": registry.normalize(
-                    "chemistry.string", action_type_raw.get("label")
-                ),
-                "description": registry.normalize(
-                    "chemistry.string", action_type_raw.get("description")
-                ),
-            }
-            action_type_raw = action_type_metadata.get("action_type")
-            metadata_payload = {key: value for key, value in action_type_metadata.items() if value}
-            if metadata_payload:
-                logger.debug(
-                    "activity_action_type_payload",
-                    activity_id=activity_id,
-                    **metadata_payload,
-                )
-
-        action_type = registry.normalize("chemistry.string", action_type_raw)
-
-        properties_str, properties = normalize_json_list(activity.get("activity_properties"))
-        ligand_efficiency = activity.get("ligand_efficiency") or activity.get("ligand_eff")
-        bei, sei, le, lle = registry.normalize("chemistry.ligand_efficiency", ligand_efficiency)
-
-        compound_key = _derive_compound_key(molecule_id, standard_type, target_id)
-        is_citation = _derive_is_citation(document_id, properties)
-        exact_citation = _derive_exact_data_citation(data_validity_comment, properties)
-        rounded_citation = _derive_rounded_data_citation(data_validity_comment, properties)
-        high_citation_rate = _derive_high_citation_rate(properties)
-
-        record: dict[str, Any] = {
-            "activity_id": activity_id,
-            "molecule_chembl_id": molecule_id,
-            "assay_chembl_id": assay_id,
-            "target_chembl_id": target_id,
-            "document_chembl_id": document_id,
-            "published_type": published_type,
-            "published_relation": published_relation,
-            "published_value": published_value,
-            "published_units": published_units,
-            "standard_type": standard_type,
-            "standard_relation": standard_relation,
-            "standard_value": standard_value,
-            "standard_units": standard_units,
-            "standard_flag": standard_flag,
-            "lower_bound": lower_bound,
-            "upper_bound": upper_bound,
-            "is_censored": is_censored,
-            "pchembl_value": pchembl_value,
-            "activity_comment": activity_comment,
-            "data_validity_comment": data_validity_comment,
-            "bao_endpoint": bao_endpoint,
-            "bao_format": bao_format,
-            "bao_label": bao_label,
-            "canonical_smiles": canonical_smiles,
-            "target_organism": target_organism,
-            "target_tax_id": target_tax_id,
-            "activity_properties": properties_str,
-            "compound_key": compound_key,
-            "is_citation": is_citation,
-            "high_citation_rate": high_citation_rate,
-            "exact_data_citation": exact_citation,
-            "rounded_data_citation": rounded_citation,
-            "potential_duplicate": potential_duplicate,
-            "uo_units": uo_units,
-            "qudt_units": qudt_units,
-            "src_id": src_id,
-            "action_type": action_type,
-            "bei": bei,
-            "sei": sei,
-            "le": le,
-            "lle": lle,
-            "chembl_release": self._chembl_release,
-            "source_system": "chembl",
-            "fallback_reason": None,
-            "fallback_error_type": None,
-            "fallback_error_code": None,
-            "fallback_error_message": None,
-            "fallback_http_status": None,
-            "fallback_retry_after_sec": None,
-            "fallback_attempt": None,
-            "fallback_timestamp": None,
-            "extracted_at": datetime.now(timezone.utc).isoformat(),
-        }
-
-        return record
 
     def _create_fallback_record(
         self,
@@ -690,147 +183,6 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
         record.update(metadata)
 
         return record
-
-    def _cache_key(self, batch_ids: Iterable[int]) -> str:
-        """Create deterministic cache key for a batch of IDs."""
-
-        normalized = ",".join(map(str, sorted(batch_ids)))
-        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-
-    def _cache_path(self, batch_ids: Iterable[int]) -> Path:
-        """Return the cache file path for a batch."""
-
-        cache_dir = self._cache_base_dir()
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        return cache_dir / f"{self._cache_key(batch_ids)}.json"
-
-    def _cache_base_dir(self) -> Path:
-        """Build the base directory for cached responses."""
-
-        base_dir = Path(self.config.cache.directory)
-        if not base_dir.is_absolute():
-            if self.config.paths.cache_root:
-                base_dir = Path(self.config.paths.cache_root) / base_dir
-            else:
-                base_dir = Path(base_dir)
-
-        entity_dir = base_dir / self.config.pipeline.entity
-        if self.config.cache.release_scoped:
-            release = self._chembl_release or "unknown"
-            return cast(Path, entity_dir / release)
-        return cast(Path, entity_dir)
-
-    def _load_batch_from_cache(self, batch_ids: Iterable[int]) -> list[dict[str, Any]] | None:
-        """Load cached batch if available."""
-
-        if not self.config.cache.enabled:
-            return None
-
-        cache_path = self._cache_path(batch_ids)
-        if not cache_path.exists():
-            return None
-
-        try:
-            with cache_path.open("r", encoding="utf-8") as handle:
-                data = json.load(handle)
-        except json.JSONDecodeError:
-            logger.warning("cache_corrupted", path=str(cache_path))
-            cache_path.unlink(missing_ok=True)
-            return None
-
-        if not isinstance(data, list):
-            logger.warning("cache_payload_unexpected", path=str(cache_path))
-            return None
-
-        ordered_records: list[dict[str, Any]] = []
-        for raw_record in data:
-            if not isinstance(raw_record, dict):
-                logger.warning("cache_record_invalid", path=str(cache_path))
-                return None
-
-            ordered_records.append(dict(raw_record))
-
-        return self._sanitize_cached_records(ordered_records)
-
-    def _sanitize_cached_records(
-        self, records: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Ensure cached payloads respect non-negative numeric constraints."""
-
-        if not records:
-            return records
-
-        sanitized_records: list[dict[str, Any]] = []
-        for record in records:
-            sanitized = dict(record)
-            activity_id = sanitized.get("activity_id")
-
-            for column in NON_NEGATIVE_CACHE_COLUMNS:
-                if column in sanitized:
-                    sanitized[column] = self._sanitize_cached_non_negative(
-                        sanitized.get(column),
-                        column=column,
-                        activity_id=activity_id,
-                    )
-
-            sanitized_records.append(sanitized)
-
-        return sanitized_records
-
-    def _sanitize_cached_non_negative(
-        self,
-        value: Any,
-        *,
-        column: str,
-        activity_id: Any,
-    ) -> float | None:
-        """Normalise cached numeric values and drop negatives with observability."""
-
-        result = registry.normalize("numeric", value)
-        if result is None:
-            return None
-
-        if not isinstance(result, (int, float)):
-            logger.warning(
-                "cached_non_negative_sanitized",
-                column=column,
-                original_value=result,
-                sanitized_value=None,
-                activity_id=activity_id,
-            )
-            return None
-
-        numeric_value = float(result)
-        if numeric_value < 0:
-            logger.warning(
-                "cached_non_negative_sanitized",
-                column=column,
-                original_value=numeric_value,
-                sanitized_value=None,
-                activity_id=activity_id,
-            )
-            return None
-
-        return numeric_value
-
-    def _store_batch_in_cache(self, batch_ids: Iterable[int], records: list[dict[str, Any]]) -> None:
-        """Persist batch records into the local cache."""
-
-        if not self.config.cache.enabled:
-            return
-
-        cache_path = self._cache_path(batch_ids)
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-
-        serializable = [
-            dict(record)
-            for record in sorted(
-                records,
-                key=lambda row: (row.get("activity_id") or 0, row.get("source_system", "")),
-            )
-        ]
-        with cache_path.open("w", encoding="utf-8") as handle:
-            json.dump(serializable, handle, ensure_ascii=False)
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
@@ -882,7 +234,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
             chembl_release=release_value,
         )
 
-        self._update_fallback_artifacts(df)
+        self._fallback_stats = self.output_writer.capture_fallbacks(df)
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 
@@ -914,6 +266,11 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
             return df
 
         df = df.copy()
+
+        if "run_id" not in df.columns:
+            df["run_id"] = self.run_id
+        else:
+            df["run_id"] = df["run_id"].fillna(self.run_id)
 
         expected_columns = _get_activity_column_order()
         if expected_columns:
@@ -1157,49 +514,6 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
         # Здесь нет дополнительных ресурсов кроме зарегистрированных API‑клиентов.
         # Базовый ``close`` их закроет через ``register_client``.
         return None
-
-    def _update_fallback_artifacts(self, df: pd.DataFrame) -> None:
-        """Capture fallback diagnostics for QC reporting and additional outputs."""
-
-        fallback_columns = [
-            "activity_id",
-            "source_system",
-            "fallback_reason",
-            "fallback_error_type",
-            "fallback_error_message",
-            "fallback_http_status",
-            "fallback_error_code",
-            "fallback_retry_after_sec",
-            "fallback_attempt",
-            "fallback_timestamp",
-            "chembl_release",
-            "extracted_at",
-        ]
-        fallback_records = register_fallback_statistics(
-            df,
-            summary=self.qc_summary_data,
-            id_column="activity_id",
-            fallback_columns=fallback_columns,
-        )
-
-        self._fallback_stats = self.qc_summary_data.get("fallbacks", {})
-
-        fallback_count = int(self._fallback_stats.get("fallback_count", 0))
-
-        if fallback_count:
-            logger.warning(
-                "chembl_fallback_records_detected",
-                count=fallback_count,
-                activity_ids=self._fallback_stats.get("ids"),
-                reasons=self._fallback_stats.get("reason_counts"),
-            )
-            self.add_additional_table(
-                "activity_fallback_records",
-                fallback_records,
-                relative_path=Path("qc") / "activity_fallback_records.csv",
-            )
-        else:
-            self.remove_additional_table("activity_fallback_records")
 
     @property
     def last_validation_report(self) -> dict[str, Any] | None:

@@ -25,7 +25,7 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
-from bioetl.pipelines.assay import _NULLABLE_INT_COLUMNS
+from bioetl.sources.chembl.assay.constants import NULLABLE_INT_COLUMNS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
@@ -787,14 +787,14 @@ class TestAssayPipeline:
         pipeline = AssayPipeline(assay_config, run_id)
 
         row = _build_assay_row("CHEMBLNA", 0, None)
-        for column in _NULLABLE_INT_COLUMNS:
+        for column in NULLABLE_INT_COLUMNS:
             row[column] = pd.NA
 
         df = pd.DataFrame([row]).convert_dtypes()
 
         validated = pipeline.validate(df)
 
-        for column in _NULLABLE_INT_COLUMNS:
+        for column in NULLABLE_INT_COLUMNS:
             assert str(validated[column].dtype) == "Int64"
             assert validated[column].isna().all()
 
@@ -1267,11 +1267,11 @@ class TestActivityPipeline:
 
         captured_ids: list[int] = []
 
-        def fake_extract(ids: list[int]) -> pd.DataFrame:
+        def fake_extract(ids: list[int], **_: Any) -> pd.DataFrame:
             captured_ids.extend(ids)
             return pd.DataFrame({"activity_id": ids})
 
-        monkeypatch.setattr(pipeline, "_extract_from_chembl", fake_extract)
+        monkeypatch.setattr(pipeline.client, "extract", fake_extract)
 
         input_df = pd.DataFrame({"activity_id": [1, 2, 3, 4]})
         input_path = tmp_path / "activities.csv"
@@ -1293,8 +1293,8 @@ class TestActivityPipeline:
         pipeline = ActivityPipeline(activity_config, "url-limit")
         pipeline.api_client.config.base_url = "https://chembl.test"
 
-        monkeypatch.setattr(pipeline, "_store_batch_in_cache", lambda *args, **kwargs: None)
-        monkeypatch.setattr(pipeline, "_load_batch_from_cache", lambda batch_ids: None)
+        monkeypatch.setattr(pipeline.client, "_store_batch_in_cache", lambda *args, **kwargs: None)
+        monkeypatch.setattr(pipeline.client, "_load_batch_from_cache", lambda batch_ids: None)
 
         recorded_calls: list[str] = []
 
@@ -1308,7 +1308,7 @@ class TestActivityPipeline:
 
         monkeypatch.setattr(pipeline.api_client, "request_json", fake_request)
 
-        result = pipeline._extract_from_chembl([1, 2, 3, 4])
+        result = pipeline.client.extract([1, 2, 3, 4])
 
         assert recorded_calls == ["1,2", "3,4"]
         assert sorted(result["activity_id"].dropna().astype(int).tolist()) == [1, 2, 3, 4]
@@ -1357,7 +1357,7 @@ class TestActivityPipeline:
             "ligand_efficiency": {"bei": "10", "sei": "2", "le": "0.5", "lle": "4"},
         }
 
-        normalized = pipeline._normalize_activity(raw_activity)
+        normalized = pipeline.parser.parse(raw_activity)
 
         assert normalized["activity_id"] == 123
         assert normalized["molecule_chembl_id"] == "CHEMBL42"
@@ -1407,7 +1407,7 @@ class TestActivityPipeline:
             },
         }
 
-        normalized_api_payload = pipeline._normalize_activity(api_like_activity)
+        normalized_api_payload = pipeline.parser.parse(api_like_activity)
         assert normalized_api_payload["action_type"] == "PARTIAL AGONIST"
 
     def test_normalize_activity_clamps_negative_measurements(self, activity_config, caplog):
@@ -1428,7 +1428,7 @@ class TestActivityPipeline:
         }
 
         caplog.set_level("WARNING")
-        normalized = pipeline._normalize_activity(raw_activity)
+        normalized = pipeline.parser.parse(raw_activity)
 
         assert normalized["published_value"] is None
         assert normalized["standard_value"] is None
@@ -1699,7 +1699,7 @@ class TestActivityPipeline:
         activity_config.paths.cache_root = tmp_path
 
         pipeline = ActivityPipeline(activity_config, "run_cache")
-        cache_path = pipeline._cache_path([10, 20, 30])
+        cache_path = pipeline.client._cache_path([10, 20, 30])
 
         assert cache_path.parent.name == "ChEMBL_99"
         assert cache_path.parent.parent.name == activity_config.pipeline.entity
@@ -1721,7 +1721,7 @@ class TestActivityPipeline:
         pipeline = ActivityPipeline(activity_config, "run_cb")
         pipeline.api_client.request_json = MagicMock(side_effect=CircuitBreakerOpenError("open"))
 
-        df = pipeline._extract_from_chembl([101, 102])
+        df = pipeline.client.extract([101, 102])
 
         assert df["activity_id"].tolist() == [101, 102]
         assert set(df["source_system"].unique()) == {"ChEMBL_FALLBACK"}
@@ -1765,18 +1765,18 @@ class TestActivityPipeline:
 
         pipeline = ActivityPipeline(activity_config, "run_cache_hit")
 
-        first_df = pipeline._extract_from_chembl([555])
+        first_df = pipeline.client.extract([555])
         assert first_df.iloc[0]["molecule_chembl_id"] == "CHEMBL555"
         assert activity_calls == [f"{pipeline.api_client.config.base_url}/activity.json"]
 
-        cache_file = pipeline._cache_path([555])
+        cache_file = pipeline.client._cache_path([555])
         assert cache_file.exists()
 
         def fail_request_json(*args, **kwargs):  # type: ignore[no-untyped-def]
             raise AssertionError("network should not be called when cache is warm")
 
         pipeline.api_client.request_json = fail_request_json  # type: ignore[assignment]
-        second_df = pipeline._extract_from_chembl([555])
+        second_df = pipeline.client.extract([555])
 
         assert second_df.equals(first_df)
 
@@ -1797,7 +1797,7 @@ class TestActivityPipeline:
 
         pipeline = ActivityPipeline(activity_config, "run_cache_sanitize")
 
-        pipeline._store_batch_in_cache(
+        pipeline.client._store_batch_in_cache(
             [777],
             [
                 {
@@ -1815,7 +1815,7 @@ class TestActivityPipeline:
         pipeline.api_client.request_json = fail_request_json  # type: ignore[assignment]
 
         with caplog.at_level("WARNING"):
-            df = pipeline._extract_from_chembl([777])
+            df = pipeline.client.extract([777])
 
         assert len(df) == 1
         assert pd.isna(df.loc[0, "published_value"])

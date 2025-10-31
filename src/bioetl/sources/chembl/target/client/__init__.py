@@ -1,3 +1,5 @@
-"""Target client module namespace."""
+"""Client utilities for the ChEMBL target pipeline."""
 
-__all__ = []
+from .chembl_client import ClientRegistration, TargetClientManager
+
+__all__ = ["ClientRegistration", "TargetClientManager"]

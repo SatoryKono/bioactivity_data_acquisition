@@ -1,3 +1,5 @@
 """Activity client module namespace."""
 
-__all__ = []
+from .activity_client import ActivityChEMBLClient
+
+__all__ = ["ActivityChEMBLClient"]

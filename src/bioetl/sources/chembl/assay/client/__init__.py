@@ -1,3 +1,5 @@
 """Assay client module namespace."""
 
-__all__ = []
+from .assay_client import AssayChEMBLClient
+
+__all__ = ["AssayChEMBLClient"]

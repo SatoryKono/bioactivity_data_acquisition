@@ -1,13 +1,10 @@
 """TestItem Pipeline - ChEMBL molecule data extraction."""
 
 import re
-from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlencode
 
 import pandas as pd
-import requests  # type: ignore[import-untyped]
 
 from bioetl.adapters import PubChemAdapter
 from bioetl.adapters.base import AdapterConfig, ExternalAdapter
@@ -16,22 +13,23 @@ from bioetl.core.api_client import APIConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
+from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
+from bioetl.sources.chembl.testitem.normalizer import (
+    coerce_boolean_and_integer_columns,
+    normalize_smiles_columns,
+)
+from bioetl.sources.chembl.testitem.output import (
+    build_duplicate_summary,
+    calculate_fallback_stats,
+)
+from bioetl.sources.chembl.testitem.parser import TestItemParser
+from bioetl.sources.chembl.testitem.request import TestItemRequestBuilder
 from bioetl.schemas import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.config import coerce_float_config, coerce_int_config
-from bioetl.utils.dtypes import (
-    coerce_nullable_int,
-    coerce_optional_bool,
-    coerce_retry_after,
-)
-from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
-from bioetl.utils.json import canonical_json
-from bioetl.utils.qc import (
-    duplicate_summary,
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
-)
+from bioetl.utils.dtypes import coerce_retry_after
+from bioetl.utils.fallback import FallbackRecordBuilder
+from bioetl.utils.qc import update_summary_metrics, update_summary_section, update_validation_issue_summary
 
 __all__ = ["TestItemPipeline"]
 
@@ -246,204 +244,6 @@ class TestItemPipeline(PipelineBase):
         ordered.extend(cls._PUBCHEM_FIELDS)
         return ordered
 
-    # _canonical_json заменена на canonical_json из bioetl.utils.json
-
-    @classmethod
-    def _empty_molecule_record(cls) -> dict[str, Any]:
-        """Create an empty molecule record with all expected fields."""
-
-        record = dict.fromkeys(cls._expected_columns())
-        return record
-
-    @staticmethod
-    def _normalize_pref_name(pref_name: Any) -> str | None:
-        """Normalize preferred name for deterministic keys."""
-
-        normalized = registry.normalize("chemistry.string", pref_name)
-        if normalized is None:
-            return None
-        lowered = normalized.lower()
-        return lowered or None
-
-    @classmethod
-    def _flatten_molecule_hierarchy(cls, molecule: dict[str, Any]) -> dict[str, Any]:
-        """Flatten molecule_hierarchy node with canonical JSON."""
-
-        flattened: dict[str, Any] = {
-            "parent_chembl_id": None,
-            "parent_molregno": None,
-            "molecule_hierarchy": None,
-        }
-
-        hierarchy = molecule.get("molecule_hierarchy")
-        if isinstance(hierarchy, dict) and hierarchy:
-            flattened["parent_chembl_id"] = hierarchy.get("parent_chembl_id")
-            flattened["parent_molregno"] = hierarchy.get("parent_molregno")
-            flattened["molecule_hierarchy"] = canonical_json(hierarchy)
-
-        return flattened
-
-    @classmethod
-    def _flatten_molecule_properties(cls, molecule: dict[str, Any]) -> dict[str, Any]:
-        """Extract 22 molecular properties with canonical JSON payload."""
-
-        flattened = dict.fromkeys(cls._CHEMBL_PROPERTY_FIELDS)
-        flattened["molecule_properties"] = None
-
-        props = molecule.get("molecule_properties")
-        if isinstance(props, dict) and props:
-            mapping = {
-                "mw_freebase": "mw_freebase",
-                "alogp": "alogp",
-                "hba": "hba",
-                "hbd": "hbd",
-                "psa": "psa",
-                "rtb": "rtb",
-                "ro3_pass": "ro3_pass",
-                "num_ro5_violations": "num_ro5_violations",
-                "acd_most_apka": "acd_most_apka",
-                "acd_most_bpka": "acd_most_bpka",
-                "acd_logp": "acd_logp",
-                "acd_logd": "acd_logd",
-                "molecular_species": "molecular_species",
-                "full_mwt": "full_mwt",
-                "aromatic_rings": "aromatic_rings",
-                "heavy_atoms": "heavy_atoms",
-                "qed_weighted": "qed_weighted",
-                "mw_monoisotopic": "mw_monoisotopic",
-                "full_molformula": "full_molformula",
-                "hba_lipinski": "hba_lipinski",
-                "hbd_lipinski": "hbd_lipinski",
-                "num_lipinski_ro5_violations": "num_lipinski_ro5_violations",
-                "lipinski_ro5_violations": "num_lipinski_ro5_violations",
-                "lipinski_ro5_pass": "lipinski_ro5_pass",
-            }
-            for field, source in mapping.items():
-                flattened[field] = props.get(source)
-
-            if "lipinski_ro5_pass" not in props and "ro3_pass" in props:
-                flattened["lipinski_ro5_pass"] = props.get("ro3_pass")
-
-            # Normalize common truthy/falsey representations to booleans
-            def _to_bool(value: Any) -> Any:
-                if value is None:
-                    return None
-                if isinstance(value, bool):
-                    return value
-                if isinstance(value, (int, float)):
-                    if pd.isna(value):
-                        return None
-                    return bool(int(value))
-                if isinstance(value, str):
-                    v = value.strip().lower()
-                    if v in {"y", "yes", "true", "t", "1"}:
-                        return True
-                    if v in {"n", "no", "false", "f", "0"}:
-                        return False
-                return value
-
-            flattened["ro3_pass"] = _to_bool(flattened.get("ro3_pass"))
-            flattened["lipinski_ro5_pass"] = _to_bool(flattened.get("lipinski_ro5_pass"))
-
-            if flattened["rtb"] is None and "num_rotatable_bonds" in props:
-                flattened["rtb"] = props.get("num_rotatable_bonds")
-
-            flattened["molecule_properties"] = canonical_json(props)
-
-        return flattened
-
-    @classmethod
-    def _flatten_molecule_structures(cls, molecule: dict[str, Any]) -> dict[str, Any]:
-        """Extract canonical molecular structures."""
-
-        flattened: dict[str, Any] = {
-            "standardized_smiles": None,
-            "standard_inchi": None,
-            "standard_inchi_key": None,
-            "molecule_structures": None,
-        }
-
-        structures = molecule.get("molecule_structures")
-        if isinstance(structures, dict) and structures:
-            flattened["standardized_smiles"] = registry.normalize(
-                "chemistry",
-                structures.get("canonical_smiles"),
-            )
-            flattened["standard_inchi"] = registry.normalize(
-                "chemistry",
-                structures.get("standard_inchi"),
-            )
-            flattened["standard_inchi_key"] = registry.normalize(
-                "chemistry.string",
-                structures.get("standard_inchi_key"),
-                uppercase=True,
-            )
-            flattened["molecule_structures"] = canonical_json(structures)
-
-        return flattened
-
-    @staticmethod
-    def _sorted_synonym_entries(synonyms: list[Any]) -> list[Any]:
-        """Sort synonym entries deterministically."""
-
-        def synonym_key(entry: Any) -> str:
-            if isinstance(entry, dict):
-                value = entry.get("molecule_synonym")
-            else:
-                value = entry
-            if not isinstance(value, str):
-                return ""
-            return value.strip().lower()
-
-        return sorted(synonyms, key=synonym_key)
-
-    @classmethod
-    def _flatten_molecule_synonyms(cls, molecule: dict[str, Any]) -> dict[str, Any]:
-        """Extract synonyms with canonical serialization."""
-
-        flattened: dict[str, Any] = {
-            "all_names": None,
-            "molecule_synonyms": None,
-        }
-
-        synonyms = molecule.get("molecule_synonyms")
-        if isinstance(synonyms, list) and synonyms:
-            synonym_names: list[str] = []
-            normalized_entries: list[Any] = []
-
-            for entry in synonyms:
-                if isinstance(entry, dict):
-                    normalized_entry = entry.copy()
-                    value = normalized_entry.get("molecule_synonym")
-                    if isinstance(value, str):
-                        trimmed_value = value.strip()
-                        normalized_entry["molecule_synonym"] = trimmed_value
-                        synonym_names.append(trimmed_value)
-                    normalized_entries.append(normalized_entry)
-                elif isinstance(entry, str):
-                    trimmed = entry.strip()
-                    normalized_entries.append(trimmed)
-                    synonym_names.append(trimmed)
-
-            unique_names = sorted({name.strip() for name in synonym_names if name}, key=str.lower)
-            if unique_names:
-                flattened["all_names"] = "; ".join(unique_names)
-
-            if normalized_entries:
-                sorted_entries = cls._sorted_synonym_entries(normalized_entries)
-                flattened["molecule_synonyms"] = canonical_json(sorted_entries)
-
-        return flattened
-
-    @classmethod
-    def _flatten_nested_json(cls, molecule: dict[str, Any], field_name: str) -> str | None:
-        """Serialize nested JSON structure to canonical string."""
-
-        value = molecule.get(field_name)
-        if value in (None, ""):
-            return None
-        return canonical_json(value)
-
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
 
@@ -492,6 +292,29 @@ class TestItemPipeline(PipelineBase):
             context={"chembl_release": self._chembl_release},
         )
 
+        self.request_builder = TestItemRequestBuilder(
+            api_client=self.api_client,
+            batch_size=self.batch_size,
+            max_url_length=self.configured_max_url_length,
+        )
+        self.parser = TestItemParser(
+            expected_columns=self._expected_columns(),
+            property_fields=self._CHEMBL_PROPERTY_FIELDS,
+            structure_fields=self._CHEMBL_STRUCTURE_FIELDS,
+            json_fields=self._CHEMBL_JSON_FIELDS,
+            text_fields=self._CHEMBL_TEXT_FIELDS,
+            fallback_fields=self._FALLBACK_FIELDS,
+        )
+        self.chembl_client = TestItemChEMBLClient(
+            api_client=self.api_client,
+            batch_size=self.batch_size,
+            chembl_release=self._chembl_release,
+            molecule_cache=self._molecule_cache,
+            request_builder=self.request_builder,
+            parser=self.parser,
+            fallback_builder=self._fallback_builder,
+        )
+
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract molecule data from input file."""
         df, resolved_path = self.read_input_table(
@@ -512,323 +335,22 @@ class TestItemPipeline(PipelineBase):
             logger.warning("no_molecule_ids_provided")
             return pd.DataFrame()
 
-        cache_hits = 0
-        api_success_count = 0
-        fallback_count = 0
-        results: list[dict[str, Any]] = []
-        ids_to_fetch: list[str] = []
+        records, stats = self.chembl_client.fetch_molecules(molecule_ids)
 
-        for molecule_id in molecule_ids:
-            cache_key = self._cache_key(molecule_id)
-            cached_record = self._molecule_cache.get(cache_key)
-            if cached_record is not None:
-                results.append(cached_record.copy())
-                cache_hits += 1
-            else:
-                ids_to_fetch.append(molecule_id)
-
-        batches: list[list[str]] = []
-        for index in range(0, len(ids_to_fetch), self.batch_size):
-            chunk = ids_to_fetch[index : index + self.batch_size]
-            if not chunk:
-                continue
-            batches.extend(self._split_molecule_ids_by_url_length(chunk))
-
-        for batch_index, batch_ids in enumerate(batches, start=1):
-            logger.info("fetching_batch", batch=batch_index, size=len(batch_ids))
-
-            try:
-                params = {
-                    "molecule_chembl_id__in": ",".join(batch_ids),
-                    "limit": min(len(batch_ids), self.batch_size),
-                }
-                response = self.api_client.request_json("/molecule.json", params=params)
-                molecules = response.get("molecules", [])
-
-                returned_ids = {
-                    m.get("molecule_chembl_id") for m in molecules if m.get("molecule_chembl_id")
-                }
-                missing_ids = [mol_id for mol_id in batch_ids if mol_id not in returned_ids]
-
-                for mol in molecules:
-                    record = self._serialize_molecule_record(mol)
-                    results.append(record)
-                    api_success_count += 1
-                    self._store_in_cache(record)
-
-                if missing_ids:
-                    logger.warning(
-                        "incomplete_batch_response",
-                        requested=len(batch_ids),
-                        returned=len(molecules),
-                        missing=missing_ids,
-                    )
-                    for missing_id in missing_ids:
-                        record = self._fetch_single_molecule(missing_id, attempt=2)
-                        if record:
-                            results.append(record)
-                            if record.get("fallback_attempt") is not None:
-                                fallback_count += 1
-                            else:
-                                api_success_count += 1
-
-                logger.info("batch_fetched", count=len(molecules))
-
-            except Exception as exc:  # noqa: BLE001
-                logger.error("batch_fetch_failed", error=str(exc), batch_ids=batch_ids)
-                for missing_id in batch_ids:
-                    record = self._create_fallback_record(
-                        missing_id,
-                        attempt=1,
-                        error=exc,
-                        reason="batch_exception",
-                        message="Batch request failed",
-                    )
-                    results.append(record)
-                    fallback_count += 1
-                    self._store_in_cache(record)
-
-        if not results:
+        if not records:
             logger.warning("no_results_from_api")
             return pd.DataFrame()
 
         logger.info(
             "molecule_fetch_summary",
             requested=len(molecule_ids),
-            fetched=len(results),
-            cache_hits=cache_hits,
-            api_success_count=api_success_count,
-            fallback_count=fallback_count,
+            fetched=len(records),
+            cache_hits=stats.get("cache_hits", 0),
+            api_success_count=stats.get("api_success_count", 0),
+            fallback_count=stats.get("fallback_count", 0),
         )
 
-        return pd.DataFrame(results)
-
-    def _split_molecule_ids_by_url_length(self, candidate_ids: Sequence[str]) -> list[list[str]]:
-        """Recursively split molecule identifiers honoring the configured URL limit."""
-
-        ids = [molid for molid in candidate_ids if molid]
-        if not ids:
-            return []
-
-        limit = self.configured_max_url_length
-        if limit is None:
-            return [ids]
-
-        limit_value = int(limit)
-        url = self._build_molecule_request_url(ids)
-        if not url:
-            return [ids]
-
-        if len(url) <= limit_value or len(ids) == 1:
-            if len(url) > limit_value:
-                logger.warning(
-                    "testitem_single_id_exceeds_url_limit",
-                    molecule_id=ids[0],
-                    url_length=len(url),
-                    max_length=limit_value,
-                )
-            return [ids]
-
-        midpoint = max(1, len(ids) // 2)
-        return self._split_molecule_ids_by_url_length(
-            ids[:midpoint]
-        ) + self._split_molecule_ids_by_url_length(ids[midpoint:])
-
-    def _build_molecule_request_url(self, molecule_ids: Sequence[str]) -> str:
-        """Construct the request URL for the given molecule identifiers."""
-
-        base = str(self.api_client.config.base_url).rstrip("/")
-        url = f"{base}/molecule.json"
-        params = {
-            "molecule_chembl_id__in": ",".join(molecule_ids),
-            "limit": min(len(molecule_ids), self.batch_size),
-        }
-        query_string = urlencode(params)
-        return f"{url}?{query_string}"
-
-    def _cache_key(self, molecule_id: str) -> str:
-        release = self._chembl_release or "unversioned"
-        return f"{release}:{molecule_id}"
-
-    def _store_in_cache(self, record: dict[str, Any]) -> None:
-        molecule_id = record.get("molecule_chembl_id")
-        if not molecule_id:
-            return
-        cache_key = self._cache_key(str(molecule_id))
-        self._molecule_cache[cache_key] = record.copy()
-
-    def _serialize_molecule_record(self, payload: dict[str, Any]) -> dict[str, Any]:
-        record = self._empty_molecule_record()
-
-        record["molecule_chembl_id"] = payload.get("molecule_chembl_id")
-        record["molregno"] = payload.get("molregno")
-        pref_name = payload.get("pref_name")
-        record["pref_name"] = pref_name
-        record["pref_name_key"] = self._normalize_pref_name(pref_name)
-        record["therapeutic_flag"] = payload.get("therapeutic_flag")
-        record["structure_type"] = payload.get("structure_type")
-        record["molecule_type"] = payload.get("molecule_type")
-        record["molecule_type_chembl"] = payload.get("molecule_type")
-        record["max_phase"] = payload.get("max_phase")
-        record["first_approval"] = payload.get("first_approval")
-        record["dosed_ingredient"] = payload.get("dosed_ingredient")
-        record["availability_type"] = payload.get("availability_type")
-        record["chirality"] = payload.get("chirality")
-        record["chirality_chembl"] = payload.get("chirality")
-        record["mechanism_of_action"] = payload.get("mechanism_of_action")
-        record["direct_interaction"] = payload.get("direct_interaction")
-        record["molecular_mechanism"] = payload.get("molecular_mechanism")
-        record["oral"] = payload.get("oral")
-        record["parenteral"] = payload.get("parenteral")
-        record["topical"] = payload.get("topical")
-        record["black_box_warning"] = payload.get("black_box_warning")
-        record["natural_product"] = payload.get("natural_product")
-        record["first_in_class"] = payload.get("first_in_class")
-        record["prodrug"] = payload.get("prodrug")
-        record["inorganic_flag"] = payload.get("inorganic_flag")
-        record["polymer_flag"] = payload.get("polymer_flag")
-        record["usan_year"] = payload.get("usan_year")
-        record["usan_stem"] = payload.get("usan_stem")
-        record["usan_substem"] = payload.get("usan_substem")
-        record["usan_stem_definition"] = payload.get("usan_stem_definition")
-        record["indication_class"] = payload.get("indication_class")
-        record["withdrawn_flag"] = payload.get("withdrawn_flag")
-        record["withdrawn_year"] = payload.get("withdrawn_year")
-        record["withdrawn_country"] = payload.get("withdrawn_country")
-        record["withdrawn_reason"] = payload.get("withdrawn_reason")
-        record["drug_chembl_id"] = payload.get("drug_chembl_id")
-        record["drug_name"] = payload.get("drug_name")
-        record["drug_type"] = payload.get("drug_type")
-        record["drug_substance_flag"] = payload.get("drug_substance_flag")
-        record["drug_indication_flag"] = payload.get("drug_indication_flag")
-        record["drug_antibacterial_flag"] = payload.get("drug_antibacterial_flag")
-        record["drug_antiviral_flag"] = payload.get("drug_antiviral_flag")
-        record["drug_antifungal_flag"] = payload.get("drug_antifungal_flag")
-        record["drug_antiparasitic_flag"] = payload.get("drug_antiparasitic_flag")
-        record["drug_antineoplastic_flag"] = payload.get("drug_antineoplastic_flag")
-        record["drug_immunosuppressant_flag"] = payload.get("drug_immunosuppressant_flag")
-        record["drug_antiinflammatory_flag"] = payload.get("drug_antiinflammatory_flag")
-
-        record.update(self._flatten_molecule_hierarchy(payload))
-        record.update(self._flatten_molecule_properties(payload))
-        record.update(self._flatten_molecule_structures(payload))
-        record.update(self._flatten_molecule_synonyms(payload))
-
-        # Nested JSON blobs
-        for field in [
-            "atc_classifications",
-            "cross_references",
-            "biotherapeutic",
-            "chemical_probe",
-            "orphan",
-            "veterinary",
-            "helm_notation",
-        ]:
-            record[field] = self._flatten_nested_json(payload, field)
-
-        # Reset fallback metadata defaults
-        for field in self._FALLBACK_FIELDS:
-            record[field] = None
-
-        return record
-
-    def _fetch_single_molecule(self, molecule_id: str, attempt: int) -> dict[str, Any]:
-        try:
-            response = self.api_client.request_json(f"/molecule/{molecule_id}.json")
-        except requests.exceptions.HTTPError as exc:
-            record = self._create_fallback_record(
-                molecule_id,
-                attempt=attempt,
-                error=exc,
-                reason="http_error",
-                retry_after=self._extract_retry_after(exc),
-            )
-            fallback_message = record.get("fallback_error_message")
-            logger.warning(
-                "molecule_fallback_http_error",
-                molecule_chembl_id=molecule_id,
-                http_status=record.get("fallback_http_status"),
-                attempt=attempt,
-                message=fallback_message,
-            )
-            self._store_in_cache(record)
-            return record
-        except Exception as exc:  # noqa: BLE001
-            record = self._create_fallback_record(
-                molecule_id,
-                attempt=attempt,
-                error=exc,
-                reason="unexpected_error",
-            )
-            logger.error(
-                "molecule_fallback_unexpected_error",
-                molecule_chembl_id=molecule_id,
-                attempt=attempt,
-                error=str(exc),
-            )
-            self._store_in_cache(record)
-            return record
-
-        if not isinstance(response, dict) or "molecule_chembl_id" not in response:
-            record = self._create_fallback_record(
-                molecule_id,
-                attempt=attempt,
-                reason="missing_from_response",
-                message="Missing molecule in response",
-            )
-            logger.warning(
-                "molecule_missing_in_response", molecule_chembl_id=molecule_id, attempt=attempt
-            )
-            self._store_in_cache(record)
-            return record
-
-        record = self._serialize_molecule_record(response)
-        self._store_in_cache(record)
-        return record
-
-    def _create_fallback_record(
-        self,
-        molecule_id: str,
-        attempt: int,
-        error: Exception | None = None,
-        retry_after: float | None = None,
-        message: str | None = None,
-        reason: str = "exception",
-    ) -> dict[str, Any]:
-        if retry_after is None and isinstance(error, requests.exceptions.HTTPError):
-            retry_after = self._extract_retry_after(error)
-
-        fallback_record = self._fallback_builder.record({"molecule_chembl_id": molecule_id})
-
-        metadata = build_fallback_payload(
-            entity="testitem",
-            reason=reason,
-            error=error,
-            source="TESTITEM_FALLBACK",
-            attempt=attempt,
-            message=message,
-            context=self._fallback_builder.context_with({"molecule_chembl_id": molecule_id}),
-        )
-
-        if retry_after is not None:
-            metadata["fallback_retry_after_sec"] = retry_after
-
-        metadata.setdefault("fallback_error_code", reason if reason else None)
-
-        fallback_record.update(metadata)
-        return fallback_record
-
-    @staticmethod
-    def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:  # type: ignore[valid-type]
-        if not hasattr(error, "response") or error.response is None:  # type: ignore[attr-defined]
-            return None
-        retry_after = error.response.headers.get("Retry-After")  # type: ignore[attr-defined]
-        if retry_after is None:
-            return None
-        try:
-            return float(retry_after)
-        except (TypeError, ValueError):
-            return None
+        return pd.DataFrame(records)
 
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from status endpoint.
@@ -924,23 +446,7 @@ class TestItemPipeline(PipelineBase):
                     )
                     df = pd.concat([remaining_columns, overlay_df], axis=1)
 
-        canonical_column = "canonical_smiles"
-        standardized_column = "standardized_smiles"
-
-        if canonical_column in df.columns:
-            canonical_series = df[canonical_column]
-            normalized_canonical = canonical_series.apply(
-                lambda value: registry.normalize("chemistry", value) if pd.notna(value) else None
-            )
-
-            if standardized_column in df.columns:
-                missing_mask = df[standardized_column].isna()
-                if missing_mask.any():
-                    df.loc[missing_mask, standardized_column] = normalized_canonical[missing_mask]
-            else:
-                df[standardized_column] = normalized_canonical
-
-            df = df.drop(columns=[canonical_column], errors="ignore")
+        df = normalize_smiles_columns(df)
 
         # PubChem enrichment (optional)
         if "pubchem" in self.external_adapters:
@@ -980,14 +486,11 @@ class TestItemPipeline(PipelineBase):
             chembl_release=release_value,
         )
 
-        coerce_optional_bool(df, columns=self._BOOLEAN_COLUMNS, nullable=False)
-
-        default_minimums = dict.fromkeys(self._NULLABLE_INT_COLUMNS, 0)
-        default_minimums.update(self._INT_COLUMN_MINIMUMS)
-        coerce_nullable_int(
+        df = coerce_boolean_and_integer_columns(
             df,
-            self._NULLABLE_INT_COLUMNS,
-            min_values=default_minimums,
+            boolean_columns=self._BOOLEAN_COLUMNS,
+            nullable_int_columns=self._NULLABLE_INT_COLUMNS,
+            int_minimums=self._INT_COLUMN_MINIMUMS,
         )
 
         return df
@@ -1240,7 +743,14 @@ class TestItemPipeline(PipelineBase):
             update_summary_section(
                 self.qc_summary_data,
                 "duplicates",
-                {"testitems": duplicate_summary(0, 0, field="molecule_chembl_id")},
+                {
+                    "testitems": build_duplicate_summary(
+                        df,
+                        field="molecule_chembl_id",
+                        initial_rows=0,
+                        threshold=None,
+                    )
+                },
             )
             update_validation_issue_summary(self.qc_summary_data, self.validation_issues)
             return df
@@ -1322,16 +832,16 @@ class TestItemPipeline(PipelineBase):
                 {"testitems": {"rows": row_count}},
             )
 
-            duplicate_count = int(qc_metrics.get("testitem.duplicate_ratio", {}).get("count", 0) or 0)
+            threshold = qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold")
             update_summary_section(
                 self.qc_summary_data,
                 "duplicates",
                 {
-                    "testitems": duplicate_summary(
-                        initial_rows,
-                        duplicate_count,
+                    "testitems": build_duplicate_summary(
+                        validated_df,
                         field="molecule_chembl_id",
-                        threshold=qc_metrics.get("testitem.duplicate_ratio", {}).get("threshold"),
+                        initial_rows=initial_rows,
+                        threshold=threshold,
                     )
                 },
             )
@@ -1391,11 +901,7 @@ class TestItemPipeline(PipelineBase):
             "details": {"duplicate_values": duplicate_values},
         }
 
-        fallback_count = 0
-        fallback_ratio = 0.0
-        if total_rows > 0 and "fallback_error_code" in df.columns:
-            fallback_count = int(df["fallback_error_code"].notna().sum())
-            fallback_ratio = fallback_count / total_rows
+        fallback_count, fallback_ratio = calculate_fallback_stats(df)
 
         fallback_threshold = float(thresholds.get("testitem.fallback_ratio", 1.0))
         fallback_severity = "warning" if fallback_ratio > fallback_threshold else "info"

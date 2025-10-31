@@ -1,3 +1,5 @@
-"""Document parser module namespace."""
+"""Parser helpers for the ChEMBL document pipeline."""
 
-__all__ = []
+from .input_parser import prepare_document_input_ids
+
+__all__ = ["prepare_document_input_ids"]

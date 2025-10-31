@@ -39,6 +39,7 @@ def _make_target_stub() -> TargetPipeline:
     pipeline.debug_dataset_path = None
     pipeline.uniprot_client = object()
     pipeline.iuphar_client = object()
+    pipeline.iuphar_paginator = object()
     pipeline.config = types.SimpleNamespace(
         qc=types.SimpleNamespace(thresholds={}, severity_threshold="warning"),
         pipeline=types.SimpleNamespace(name="target"),
