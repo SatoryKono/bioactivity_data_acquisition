@@ -19,23 +19,23 @@ __all__ = (
 
 _PIPELINE_EXPORTS: dict[str, str] = {
     "PipelineBase": "bioetl.pipelines.base",
-    "ActivityPipeline": "bioetl.pipelines.activity",
-    "AssayPipeline": "bioetl.pipelines.assay",
-    "TestItemPipeline": "bioetl.pipelines.testitem",
-    "TargetPipeline": "bioetl.pipelines.target",
-    "DocumentPipeline": "bioetl.pipelines.document",
+    "ActivityPipeline": "bioetl.sources.chembl.activity.pipeline",
+    "AssayPipeline": "bioetl.sources.chembl.assay.pipeline",
+    "TestItemPipeline": "bioetl.sources.chembl.testitem.pipeline",
+    "TargetPipeline": "bioetl.sources.chembl.target.pipeline",
+    "DocumentPipeline": "bioetl.sources.chembl.document.pipeline",
     "GtpIupharPipeline": "bioetl.sources.iuphar.pipeline",
     "UniProtPipeline": "bioetl.sources.uniprot.pipeline",
     "PubChemPipeline": "bioetl.pipelines.pubchem",
 }
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
-    from bioetl.pipelines.activity import ActivityPipeline
-    from bioetl.pipelines.assay import AssayPipeline
     from bioetl.pipelines.base import PipelineBase
-    from bioetl.pipelines.document import DocumentPipeline
-    from bioetl.pipelines.target import TargetPipeline
-    from bioetl.pipelines.testitem import TestItemPipeline
+    from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
+    from bioetl.sources.chembl.assay.pipeline import AssayPipeline
+    from bioetl.sources.chembl.document.pipeline import DocumentPipeline
+    from bioetl.sources.chembl.target.pipeline import TargetPipeline
+    from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
     from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
     from bioetl.sources.uniprot.pipeline import UniProtPipeline
     from bioetl.pipelines.pubchem import PubChemPipeline
