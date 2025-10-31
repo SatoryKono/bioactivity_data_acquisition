@@ -7,7 +7,8 @@ import pandas as pd
 import pytest
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.iuphar import GtpIupharPipeline
+from bioetl.sources.iuphar.pagination import PageNumberPaginator
+from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 
 
 class DummyIupharClient:
@@ -47,8 +48,7 @@ def test_iuphar_pipeline_transform_produces_outputs(monkeypatch: pytest.MonkeyPa
     pipeline = GtpIupharPipeline(iuphar_config, run_id)
 
     dummy_client = DummyIupharClient()
-    pipeline.iuphar_client = dummy_client
-    pipeline.iuphar_service.client = dummy_client
+    pipeline._paginator = PageNumberPaginator(dummy_client, page_size=200)  # type: ignore[attr-defined]
 
     outputs: dict[str, pd.DataFrame] = {}
 

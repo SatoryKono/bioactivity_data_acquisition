@@ -38,6 +38,13 @@ from bioetl.schemas import (
     XrefSchema,
 )
 from bioetl.schemas.registry import schema_registry
+from bioetl.sources.iuphar.pagination import PageNumberPaginator
+from bioetl.sources.iuphar.parser import parse_api_response
+from bioetl.sources.iuphar.request import (
+    DEFAULT_PAGE_SIZE,
+    build_families_request,
+    build_targets_request,
+)
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
@@ -80,7 +87,7 @@ class TargetPipeline(PipelineBase):
         "10090": 1,  # Mus musculus
         "10116": 2,  # Rattus norvegicus
     }
-    _IUPHAR_PAGE_SIZE = 200
+    _IUPHAR_PAGE_SIZE = DEFAULT_PAGE_SIZE
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self.primary_schema = TargetSchema
@@ -121,10 +128,20 @@ class TargetPipeline(PipelineBase):
         self.uniprot_idmapping_client = self.api_clients.get("uniprot_idmapping")
         self.uniprot_orthologs_client = self.api_clients.get("uniprot_orthologs")
         self.iuphar_client = self.api_clients.get("iuphar")
+        self.iuphar_paginator: PageNumberPaginator | None = None
+        if self.iuphar_client is not None:
+            iuphar_config = self.source_configs.get("iuphar")
+            batch_size = getattr(iuphar_config, "batch_size", None)
+            if batch_size:
+                try:
+                    page_size = int(batch_size)
+                except (TypeError, ValueError):  # pragma: no cover - defensive
+                    page_size = self._IUPHAR_PAGE_SIZE
+            else:
+                page_size = self._IUPHAR_PAGE_SIZE
+            self.iuphar_paginator = PageNumberPaginator(self.iuphar_client, page_size)
         self.iuphar_service = IupharService(
-            self.iuphar_client,
             config=IupharServiceConfig(
-                page_size=self._IUPHAR_PAGE_SIZE,
                 identifier_column="target_chembl_id",
                 candidate_columns=("pref_name", "target_names"),
                 gene_symbol_columns=("uniprot_gene_primary", "gene_symbol"),
@@ -782,8 +799,28 @@ class TargetPipeline(PipelineBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich target dataframe with IUPHAR classifications."""
 
-        self.iuphar_service.client = self.iuphar_client
-        return self.iuphar_service.enrich_targets(df)
+        if self.iuphar_paginator is None or self.iuphar_client is None:
+            return self.iuphar_service.enrich_targets(df, targets=[], families=[])
+
+        targets = self._fetch_iuphar_collection(
+            "/targets",
+            unique_key="targetId",
+            params=build_targets_request(annotation_status="CURATED"),
+        )
+        families = self._fetch_iuphar_collection(
+            "/targets/families",
+            unique_key="familyId",
+            params=build_families_request(),
+        )
+
+        self.stage_context["raw_targets"] = targets
+        self.stage_context["raw_families"] = families
+
+        return self.iuphar_service.enrich_targets(
+            df,
+            targets=targets,
+            families=families,
+        )
 
     def _fetch_iuphar_collection(
         self,
@@ -793,8 +830,16 @@ class TargetPipeline(PipelineBase):
     ) -> list[dict[str, Any]]:
         """Delegate collection fetches to :class:`IupharService`."""
 
-        self.iuphar_service.client = self.iuphar_client
-        return self.iuphar_service.fetch_collection(path, unique_key=unique_key, params=params or {})
+        if self.iuphar_paginator is None:
+            return []
+
+        parser = lambda payload: parse_api_response(payload, unique_key=unique_key)
+        return self.iuphar_paginator.fetch_all(
+            path,
+            unique_key=unique_key,
+            params=params or {},
+            parser=parser,
+        )
 
     def _build_family_hierarchy(
         self, families: dict[int, dict[str, Any]]
@@ -1814,7 +1859,7 @@ def _target_should_run_iuphar(
     if not with_iuphar:
         return False, "disabled"
 
-    if pipeline.iuphar_client is None:
+    if pipeline.iuphar_client is None or pipeline.iuphar_paginator is None:
         return False, "client_unavailable"
 
     return True, None

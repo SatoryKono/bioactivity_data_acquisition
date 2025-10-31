@@ -1,15 +1,18 @@
-"""Service helpers for interacting with the Guide to Pharmacology (IUPHAR) API."""
+"""Service helpers for enriching Guide to Pharmacology (IUPHAR) payloads."""
 
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.sources.iuphar.normalizer import (
+    normalize_gene_symbol,
+    normalize_target_name,
+    unique_preserving_order,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -18,7 +21,6 @@ logger = UnifiedLogger.get(__name__)
 class IupharServiceConfig:
     """Runtime configuration for :class:`IupharService`."""
 
-    page_size: int = 200
     identifier_column: str = "target_chembl_id"
     output_identifier_column: str | None = None
     candidate_columns: Sequence[str] = (
@@ -32,18 +34,13 @@ class IupharServiceConfig:
 
 
 class IupharService:
-    """Encapsulates the logic required to fetch and enrich IUPHAR payloads."""
-
-    _NAME_CLEAN_RE = re.compile(r"[^a-z0-9]+")
+    """Encapsulates the logic required to enrich IUPHAR payloads."""
 
     def __init__(
         self,
-        client: UnifiedAPIClient | None,
-        *,
         config: IupharServiceConfig | None = None,
         record_missing_mapping: Callable[..., Any] | None = None,
     ) -> None:
-        self.client = client
         self.config = config or IupharServiceConfig()
         if self.config.output_identifier_column:
             self.output_identifier_column = self.config.output_identifier_column
@@ -54,74 +51,6 @@ class IupharService:
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
-    def fetch_collection(
-        self,
-        path: str,
-        *,
-        unique_key: str,
-        params: Mapping[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Fetch a paginated collection from the IUPHAR API."""
-
-        if self.client is None:
-            return []
-
-        collected: list[dict[str, Any]] = []
-        seen: set[Any] = set()
-        page = 1
-
-        while True:
-            query: dict[str, Any] = dict(params or {})
-            query.setdefault("page", page)
-            query.setdefault("pageSize", self.config.page_size)
-            query.setdefault("offset", (page - 1) * self.config.page_size)
-            query.setdefault("limit", self.config.page_size)
-
-            payload = self.client.request_json(path, params=query)
-            items = self._coerce_items(payload, unique_key)
-
-            if not items:
-                break
-
-            new_items = 0
-            for item in items:
-                if not isinstance(item, dict):
-                    continue
-                key_value = item.get(unique_key)
-                if key_value is not None and key_value in seen:
-                    continue
-                if key_value is not None:
-                    seen.add(key_value)
-                collected.append(item)
-                new_items += 1
-
-            if new_items == 0 or len(items) < self.config.page_size:
-                break
-
-            page += 1
-
-        return collected
-
-    def fetch_targets(
-        self,
-        *,
-        params: Mapping[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Retrieve curated targets from the Guide to Pharmacology service."""
-
-        query = dict(params or {})
-        query.setdefault("annotationStatus", "CURATED")
-        return self.fetch_collection("/targets", unique_key="targetId", params=query)
-
-    def fetch_families(
-        self,
-        *,
-        params: Mapping[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
-        """Retrieve target families from the Guide to Pharmacology service."""
-
-        return self.fetch_collection("/targets/families", unique_key="familyId", params=params)
-
     def enrich_targets(
         self,
         df: pd.DataFrame,
@@ -133,8 +62,8 @@ class IupharService:
 
         working_df = df.reset_index(drop=True).copy().convert_dtypes()
 
-        targets_payload = list(targets or self.fetch_targets())
-        families_payload = list(families or self.fetch_families())
+        targets_payload = list(targets or [])
+        families_payload = list(families or [])
 
         if not targets_payload or not families_payload:
             logger.info(
@@ -213,7 +142,7 @@ class IupharService:
                 ),
             }
 
-            normalized_name = self.normalize_name(str(target.get("name")))
+            normalized_name = normalize_target_name(str(target.get("name")))
             if normalized_name:
                 normalized_index.setdefault(normalized_name, []).append(target_id_int)
 
@@ -254,7 +183,7 @@ class IupharService:
 
             matched_id: int | None = None
             for candidate in candidate_names:
-                norm_candidate = self.normalize_name(candidate)
+                norm_candidate = normalize_target_name(candidate)
                 if not norm_candidate:
                     continue
                 candidate_ids = normalized_index.get(norm_candidate)
@@ -340,22 +269,6 @@ class IupharService:
     # ------------------------------------------------------------------
     # Helper methods
     # ------------------------------------------------------------------
-    @staticmethod
-    def _coerce_items(payload: Any, unique_key: str) -> list[Mapping[str, Any]]:
-        if isinstance(payload, list):
-            return [item for item in payload if isinstance(item, Mapping)]
-        if isinstance(payload, Mapping):
-            for key in ("results", "data", "items", "records"):
-                items = payload.get(key)
-                if isinstance(items, list):
-                    return [item for item in items if isinstance(item, Mapping)]
-            if unique_key in payload:
-                return [payload]
-            nested = [value for value in payload.values() if isinstance(value, Mapping)]
-            if nested:
-                return nested
-        return []
-
     def build_family_hierarchy(
         self, families: Mapping[int, Mapping[str, Any]]
     ) -> dict[int, dict[str, list[Any]]]:
@@ -408,10 +321,9 @@ class IupharService:
         return cache
 
     def normalize_name(self, value: str | None) -> str:
-        if value is None:
-            return ""
-        normalized = str(value).lower()
-        return self._NAME_CLEAN_RE.sub("", normalized)
+        """Backwards compatible wrapper around :func:`normalize_target_name`."""
+
+        return normalize_target_name(value)
 
     def candidate_names_from_row(self, row: pd.Series) -> list[str]:
         candidates: list[str] = []
@@ -440,20 +352,11 @@ class IupharService:
             value = row.get(column)
             if value is None or (isinstance(value, float) and pd.isna(value)):
                 continue
-            text = str(value).strip()
+            text = normalize_gene_symbol(str(value))
             if text:
                 candidates.append(text)
 
-        result: list[str] = []
-        seen: set[str] = set()
-        for candidate in candidates:
-            key = candidate.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            result.append(candidate)
-
-        return result
+        return unique_preserving_order(candidates)
 
     def fallback_classification_record(self, row: pd.Series) -> dict[str, Any]:
         return {
