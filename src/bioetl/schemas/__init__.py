@@ -62,9 +62,6 @@ from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
 # ``__getattr__`` fallback, so import it eagerly as well for improved typing
 from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
 
-# Explicit import for TestItemSchema to ensure static type checkers can resolve it
-from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
-
 if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     # ActivitySchema and TestItemSchema are already imported above
     from bioetl.schemas.assay import AssaySchema
