@@ -26,10 +26,12 @@ class TestSemanticScholarClient(SemanticScholarAdapterTestCase):
 
         expected_calls = -(-total // adapter.DEFAULT_BATCH_SIZE)
         self.assertEqual(batch_mock.call_count, expected_calls)
-        self.assertEqual(len(batch_mock.call_args_list[0].args[1]), adapter.DEFAULT_BATCH_SIZE)
+        first_batch_args = batch_mock.call_args_list[0].args
+        self.assertEqual(len(first_batch_args[-1]), adapter.DEFAULT_BATCH_SIZE)
         remainder = total % adapter.DEFAULT_BATCH_SIZE
         expected_last = remainder or adapter.DEFAULT_BATCH_SIZE
-        self.assertEqual(len(batch_mock.call_args_list[-1].args[1]), expected_last)
+        last_batch_args = batch_mock.call_args_list[-1].args
+        self.assertEqual(len(last_batch_args[-1]), expected_last)
 
     def test_format_paper_id(self):
         """Paper IDs are formatted for Semantic Scholar endpoints."""

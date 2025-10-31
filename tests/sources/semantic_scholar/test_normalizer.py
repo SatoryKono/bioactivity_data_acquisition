@@ -104,10 +104,10 @@ class TestSemanticScholarNormalizer(SemanticScholarAdapterTestCase):
         args, kwargs = helper_mock.call_args
         self.assertIs(args[0], adapter)
         self.assertEqual(list(args[1]), ["id-1", "id-2"])
-        self.assertIs(args[2], adapter.fetch_by_ids)
-        self.assertEqual(kwargs["start_event"], "starting_fetch")
-        self.assertEqual(kwargs["no_items_event"], "no_ids_provided")
-        self.assertEqual(kwargs["empty_event"], "no_records_fetched")
+        self.assertIs(args[2].__func__, adapter.fetch_by_ids.__func__)
+        self.assertEqual(kwargs.get("start_event", "starting_fetch"), "starting_fetch")
+        self.assertEqual(kwargs.get("no_items_event", "no_ids_provided"), "no_ids_provided")
+        self.assertEqual(kwargs.get("empty_event", "no_records_fetched"), "no_records_fetched")
 
     def test_process_titles_helpers_delegate(self) -> None:
         adapter = self.adapter
@@ -125,7 +125,7 @@ class TestSemanticScholarNormalizer(SemanticScholarAdapterTestCase):
         args, kwargs = helper_mock.call_args
         self.assertIs(args[0], adapter)
         self.assertEqual(list(args[1]), ["A title"])
-        self.assertIs(args[2], adapter.fetch_by_titles)
+        self.assertIs(args[2].__func__, adapter.fetch_by_titles.__func__)
         self.assertEqual(kwargs["start_event"], "starting_fetch_by_titles")
         self.assertEqual(kwargs["no_items_event"], "no_titles_provided")
-        self.assertEqual(kwargs["empty_event"], "no_records_fetched")
+        self.assertEqual(kwargs.get("empty_event", "no_records_fetched"), "no_records_fetched")

@@ -249,6 +249,22 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         nullable=True,
         description="PMID из Semantic Scholar",
     )
+    semantic_scholar_paper_id: Series[str] = Field(
+        nullable=True,
+        description="Идентификатор публикации в Semantic Scholar",
+    )
+    semantic_scholar_citation_count: Series[pd.Int64Dtype] = Field(
+        nullable=True,
+        description="Количество цитирований из Semantic Scholar",
+    )
+    semantic_scholar_influential_citations: Series[pd.Int64Dtype] = Field(
+        nullable=True,
+        description="Влиятельные цитирования из Semantic Scholar",
+    )
+    semantic_scholar_reference_count: Series[pd.Int64Dtype] = Field(
+        nullable=True,
+        description="Число ссылок из Semantic Scholar",
+    )
 
     # Title fields (5 sources)
     chembl_title: Series[str] = Field(nullable=True, description="Заголовок из ChEMBL")
@@ -424,6 +440,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         "pubmed_pmid",
         "openalex_pmid",
         "semantic_scholar_pmid",
+        "semantic_scholar_paper_id",
         "chembl_title",
         "crossref_title",
         "openalex_title",
@@ -441,6 +458,9 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         "openalex_doi",
         "pubmed_doi",
         "semantic_scholar_doi",
+        "semantic_scholar_citation_count",
+        "semantic_scholar_influential_citations",
+        "semantic_scholar_reference_count",
         "chembl_doc_type",
         "crossref_doc_type",
         "openalex_doc_type",

@@ -8,6 +8,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.sources.crossref.merge import merge_crossref_with_base
 from bioetl.sources.openalex.merge import merge_openalex_with_base
 from bioetl.sources.pubmed.merge import merge_pubmed_with_base
+from bioetl.sources.semantic_scholar.merge import merge_semantic_scholar_with_base
 
 __all__ = [
     "FIELD_PRECEDENCE",
@@ -247,48 +248,17 @@ def merge_with_precedence(
         )
 
     if semantic_scholar_df is not None and not semantic_scholar_df.empty:
-        ss_prefixed = semantic_scholar_df.add_prefix("semantic_scholar_")
-        logger.info("semantic_scholar_columns", columns=list(ss_prefixed.columns))
+        title_column = None
+        if "_original_title" in merged_df.columns:
+            title_column = "_original_title"
+        elif "chembl_title" in merged_df.columns:
+            title_column = "chembl_title"
 
-        has_doi = "semantic_scholar_doi_clean" in ss_prefixed.columns and "chembl_doi" in merged_df.columns
-        has_pmid = "semantic_scholar_pubmed_id" in ss_prefixed.columns and "chembl_pmid" in merged_df.columns
-
-        logger.info("semantic_scholar_merge_check", has_doi=bool(has_doi), has_pmid=bool(has_pmid))
-
-        if has_doi:
-            merged_df = merged_df.merge(
-                ss_prefixed,
-                left_on="chembl_doi",
-                right_on="semantic_scholar_doi_clean",
-                how="left",
-            )
-            matched = (
-                merged_df["semantic_scholar_paper_id"].notna().sum()
-                if "semantic_scholar_paper_id" in merged_df.columns
-                else 0
-            )
-            logger.info("semantic_scholar_merged_by_doi", matched=matched)
-        elif has_pmid:
-            merged_df = merged_df.merge(
-                ss_prefixed,
-                left_on="chembl_pmid",
-                right_on="semantic_scholar_pubmed_id",
-                how="left",
-            )
-            matched = (
-                merged_df["semantic_scholar_paper_id"].notna().sum()
-                if "semantic_scholar_paper_id" in merged_df.columns
-                else 0
-            )
-            logger.info("semantic_scholar_merged_by_pmid", matched=matched)
-        else:
-            logger.warning("semantic_scholar_no_merge_keys")
-
-        if "semantic_scholar_doi_clean" in merged_df.columns:
-            merged_df = merged_df.rename(columns={"semantic_scholar_doi_clean": "semantic_scholar_doi"})
-
-    if "semantic_scholar_pubmed_id" in merged_df.columns:
-        merged_df = merged_df.rename(columns={"semantic_scholar_pubmed_id": "semantic_scholar_pmid"})
+        merged_df = merge_semantic_scholar_with_base(
+            merged_df,
+            semantic_scholar_df,
+            base_title_column=title_column,
+        )
 
     merged_df = _apply_field_precedence(merged_df)
 
