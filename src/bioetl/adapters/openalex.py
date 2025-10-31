@@ -3,7 +3,7 @@
 from typing import Any
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 from bioetl.sources.openalex.request import OpenAlexRequestBuilder
@@ -35,32 +35,23 @@ class OpenAlexAdapter(ExternalAdapter):
         pmids = [id for id in ids if id not in dois and id.isdigit()]
         oa_ids = [id for id in ids if id not in dois and id not in pmids]
 
-        all_items = []
+        all_items: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
 
         # Fetch by DOI - OpenAlex requires single DOI per request
         if dois:
             for doi in dois:
                 clean_doi = doi.replace("https://doi.org/", "")
                 url = f"/works/https://doi.org/{clean_doi}"
-                try:
-                    item = self._fetch_works(url)
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                if not self._collect_records(all_items, failures, doi, url):
                     continue
-                if item:
-                    all_items.extend(item)
 
         # Fetch by PMID - OpenAlex requires single PMID per request
         if pmids:
             for pmid in pmids:
                 url = f"/works/pmid:{pmid}"
-                try:
-                    item = self._fetch_works(url)
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                if not self._collect_records(all_items, failures, pmid, url):
                     continue
-                if item:
-                    all_items.extend(item)
 
         # Fetch by OpenAlex ID
         if oa_ids:
@@ -70,43 +61,69 @@ class OpenAlexAdapter(ExternalAdapter):
                 if not oa_id.startswith("https://"):
                     oa_id = f"https://openalex.org/{oa_id}"
                 url = f"/works/{oa_id.split('/')[-1]}"
-                try:
-                    item = self._fetch_works(url)
-                except Exception as exc:  # pragma: no cover - defensive
-                    self.logger.error("fetch_works_error", error=str(exc), url=url)
+                if not self._collect_records(all_items, failures, oa_id, url):
                     continue
-                if item:
-                    all_items.extend(item)
+
+        if failures:
+            raise AdapterFetchError(
+                "OpenAlex batch experienced network errors",
+                failed_ids=list(failures),
+                partial_records=all_items,
+                errors=failures,
+            )
 
         return all_items
 
+    def _collect_records(
+        self,
+        destination: list[dict[str, Any]],
+        failures: dict[str, str],
+        identifier: str,
+        url: str,
+    ) -> bool:
+        """Helper to fetch a record and store either data or error state."""
+
+        try:
+            items = self._fetch_works(url)
+        except AdapterFetchError as exc:
+            failures[identifier] = str(exc)
+            if exc.partial_records:
+                destination.extend(exc.partial_records)
+            return False
+        except Exception as exc:  # pragma: no cover - defensive
+            failure_message = str(exc)
+            failures[identifier] = failure_message
+            self.logger.error("fetch_works_error", error=failure_message, url=url)
+            return False
+
+        if items:
+            destination.extend(items)
+        return True
+
     def _fetch_works(self, url: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Fetch works from OpenAlex API."""
+        query_params = dict(params or {})
+        query_params.setdefault("fields", self.DEFAULT_WORK_FIELDS)
+        spec = self.request_builder.build(url, params=query_params)
         try:
-            query_params = dict(params or {})
-            query_params.setdefault("fields", self.DEFAULT_WORK_FIELDS)
-            spec = self.request_builder.build(url, params=query_params)
             response = self.api_client.request_json(
                 spec.url,
                 params=spec.params,
                 headers=spec.headers,
             )
-            # OpenAlex returns single object for /works/{id}
-            if isinstance(response, dict):
-                if "results" in response:
-                    return response["results"]
-                else:
-                    # Single work
-                    return [response]
-            return []
-        except Exception as e:
-            self.logger.error(
-                "fetch_works_error",
-                error=str(e),
-                url=url,
-                request_id=spec.metadata.get("request_id"),
-            )
-            return []
+        except Exception as exc:  # pragma: no cover - defensive
+            raise AdapterFetchError(
+                "OpenAlex request failed",
+                failed_ids=[url],
+                errors={url: str(exc)},
+            ) from exc
+
+        if isinstance(response, dict):
+            if "results" in response:
+                return response["results"]
+            # Single work
+            return [response]
+        return []
 
     def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
         """Normalize OpenAlex record."""

@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 from bioetl.sources.pubmed.request import PubMedRequestBuilder
@@ -56,13 +56,18 @@ class PubMedAdapter(ExternalAdapter):
                 headers=request_spec.headers,
             )
         except Exception as exc:
+            error_message = str(exc) or "PubMed request failed"
             self.logger.error(
                 "fetch_batch_error",
-                error=str(exc),
+                error=error_message,
                 pmids=pmids[:3],
                 request_id=request_spec.metadata.get("request_id"),
             )
-            return []
+            raise AdapterFetchError(
+                "PubMed batch request failed",
+                failed_ids=list(pmids),
+                errors={pmid: error_message for pmid in pmids},
+            ) from exc
 
         return parse_efetch_response(payload)
 

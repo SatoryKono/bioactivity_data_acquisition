@@ -3,7 +3,7 @@
 from typing import Any
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 from bioetl.sources.crossref.request import CrossrefRequestBuilder
@@ -34,7 +34,8 @@ class CrossrefAdapter(ExternalAdapter):
         """Fetch a batch of DOIs."""
         # Crossref requires individual queries for multiple DOIs
         # Fetch each DOI separately
-        all_items = []
+        all_items: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
         for doi in dois:
             url = f"/works/{doi}"
             request_spec = self.request_builder.build(url)
@@ -46,13 +47,23 @@ class CrossrefAdapter(ExternalAdapter):
                 )
                 if isinstance(response, dict) and "message" in response:
                     all_items.append(response["message"])
-            except Exception as e:
+            except Exception as exc:
+                error_message = str(exc)
+                failures[doi] = error_message
                 self.logger.warning(
                     "fetch_doi_failed",
                     doi=doi,
-                    error=str(e),
+                    error=error_message,
                     request_id=request_spec.metadata.get("request_id"),
                 )
+
+        if failures:
+            raise AdapterFetchError(
+                "Crossref batch experienced network errors",
+                failed_ids=list(failures),
+                partial_records=all_items,
+                errors=failures,
+            )
 
         return all_items
 

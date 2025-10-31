@@ -1,7 +1,7 @@
 """Base class for external API adapters."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -11,6 +11,31 @@ from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
+
+
+class AdapterFetchError(RuntimeError):
+    """Exception raised when an adapter cannot retrieve requested records."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        failed_ids: Sequence[str] | None = None,
+        partial_records: Sequence[dict[str, Any]] | None = None,
+        errors: Mapping[str, str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.failed_ids = list(failed_ids or [])
+        self.partial_records = list(partial_records or [])
+        self.errors = dict(errors or {})
+
+    def __str__(self) -> str:  # pragma: no cover - formatting helper
+        base_message = super().__str__()
+        if not self.failed_ids:
+            return base_message
+        preview = ", ".join(self.failed_ids[:3])
+        suffix = "" if len(self.failed_ids) <= 3 else ", ..."
+        return f"{base_message} (failed ids: {preview}{suffix})"
 
 
 @dataclass
@@ -95,11 +120,36 @@ class ExternalAdapter(ABC):
         )
 
         all_records: list[dict[str, Any]] = []
+        successful_batches = 0
+        partial_records_collected = False
+        aggregated_failed_ids: list[str] = []
+        aggregated_errors: dict[str, str] = {}
+        last_error: Exception | None = None
         for index, start in enumerate(range(0, len(sanitized_ids), effective_batch_size)):
             batch_ids = sanitized_ids[start : start + effective_batch_size]
             try:
                 batch_records = self._fetch_batch(batch_ids)
+            except AdapterFetchError as exc:
+                last_error = exc
+                if exc.partial_records:
+                    all_records.extend(exc.partial_records)
+                    partial_records_collected = True
+                if exc.failed_ids:
+                    aggregated_failed_ids.extend(exc.failed_ids)
+                if exc.errors:
+                    aggregated_errors.update(exc.errors)
+                self.logger.error(
+                    log_event,
+                    batch=start,
+                    batch_index=index,
+                    error=str(exc),
+                    failed_ids=exc.failed_ids or None,
+                )
+                continue
             except Exception as exc:
+                last_error = exc
+                aggregated_failed_ids.extend(batch_ids)
+                aggregated_errors.update({identifier: str(exc) for identifier in batch_ids})
                 self.logger.error(
                     log_event,
                     batch=start,
@@ -110,6 +160,20 @@ class ExternalAdapter(ABC):
 
             if batch_records:
                 all_records.extend(batch_records)
+            successful_batches += 1
+
+        if successful_batches == 0 and not partial_records_collected:
+            failed_ids = aggregated_failed_ids or sanitized_ids
+            message = (
+                str(last_error)
+                if last_error is not None and str(last_error)
+                else f"{self.__class__.__name__} failed to fetch any records"
+            )
+            raise AdapterFetchError(
+                message,
+                failed_ids=failed_ids,
+                errors=aggregated_errors or None,
+            )
 
         return all_records
 

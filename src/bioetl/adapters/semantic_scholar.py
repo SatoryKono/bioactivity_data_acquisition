@@ -6,7 +6,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 
@@ -35,15 +35,33 @@ class SemanticScholarAdapter(ExternalAdapter):
 
     def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of papers by their IDs."""
-        records = []
+        records: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
 
         for paper_id in ids:
             try:
                 record = self._fetch_paper(paper_id)
-                if record:
-                    records.append(record)
-            except Exception as e:
-                self.logger.error("fetch_paper_error", paper_id=paper_id, error=str(e))
+            except AdapterFetchError as exc:
+                failures[paper_id] = str(exc)
+                if exc.partial_records:
+                    records.extend(exc.partial_records)
+                continue
+            except Exception as exc:  # pragma: no cover - defensive
+                error_message = str(exc)
+                failures[paper_id] = error_message
+                self.logger.error("fetch_paper_error", paper_id=paper_id, error=error_message)
+                continue
+
+            if record:
+                records.append(record)
+
+        if failures:
+            raise AdapterFetchError(
+                "Semantic Scholar batch experienced network errors",
+                failed_ids=list(failures),
+                partial_records=records,
+                errors=failures,
+            )
 
         return records
 
@@ -52,7 +70,8 @@ class SemanticScholarAdapter(ExternalAdapter):
         if not titles:
             return []
 
-        all_records = []
+        all_records: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
 
         for title in titles:
             if not title or pd.isna(title):
@@ -61,11 +80,28 @@ class SemanticScholarAdapter(ExternalAdapter):
             try:
                 # Search for paper by title
                 results = self._search_by_title(title)
-                if results:
-                    # Take first result that matches
-                    all_records.extend(results[:1])  # Take only first match
-            except Exception as e:
-                self.logger.error("search_by_title_error", title=title[:100], error=str(e))
+            except AdapterFetchError as exc:
+                failures[title] = str(exc)
+                if exc.partial_records:
+                    all_records.extend(exc.partial_records)
+                continue
+            except Exception as exc:  # pragma: no cover - defensive
+                error_message = str(exc)
+                failures[title] = error_message
+                self.logger.error("search_by_title_error", title=title[:100], error=error_message)
+                continue
+
+            if results:
+                # Take first result that matches
+                all_records.extend(results[:1])  # Take only first match
+
+        if failures:
+            raise AdapterFetchError(
+                "Semantic Scholar title search experienced network errors",
+                failed_ids=list(failures),
+                partial_records=all_records,
+                errors=failures,
+            )
 
         return all_records
 
@@ -89,13 +125,18 @@ class SemanticScholarAdapter(ExternalAdapter):
 
         try:
             response: dict[str, Any] = self.api_client.request_json(url, params=params)
-            data = response.get("data", [])
-            if isinstance(data, list):
-                return data
-            return []
-        except Exception as e:
-            self.logger.error("search_error", title=title[:100], error=str(e))
-            return []
+        except Exception as exc:  # pragma: no cover - defensive
+            error_message = str(exc) or "Semantic Scholar search failed"
+            raise AdapterFetchError(
+                "Semantic Scholar search request failed",
+                failed_ids=[title],
+                errors={title: error_message},
+            ) from exc
+
+        data = response.get("data", [])
+        if isinstance(data, list):
+            return data
+        return []
 
     def _fetch_paper(self, paper_id: str) -> dict[str, Any] | None:
         """Fetch a single paper by ID (DOI, PMID, or ArXiv)."""
@@ -110,13 +151,17 @@ class SemanticScholarAdapter(ExternalAdapter):
 
         try:
             response = self.api_client.request_json(url, params=params)
-            return response
-        except Exception as e:
-            # Handle 403 Access Denied
-            if "403" in str(e):
+        except Exception as exc:
+            error_message = str(exc) or "Semantic Scholar fetch failed"
+            if "403" in error_message:
                 self.logger.error("access_denied_403", paper_id=paper_id)
-            self.logger.error("fetch_paper_error", paper_id=paper_id, error=str(e))
-            return None
+            self.logger.error("fetch_paper_error", paper_id=paper_id, error=error_message)
+            raise AdapterFetchError(
+                "Semantic Scholar paper request failed",
+                failed_ids=[paper_id],
+                errors={paper_id: error_message},
+            ) from exc
+        return response
 
     def _format_paper_id(self, paper_id: str) -> str:
         """Format paper ID for Semantic Scholar API."""
