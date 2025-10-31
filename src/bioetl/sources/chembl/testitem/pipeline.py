@@ -404,8 +404,9 @@ class TestItemPipeline(PipelineBase):
 
                 deduplicated_input = input_indexed
 
-                if bool(duplicated_mask.any()):
-                    duplicated_ids = duplicated_mask[duplicated_mask].index.unique().tolist()
+                if input_indexed.index.has_duplicates:
+                    duplicated_counts = input_indexed.index.value_counts()
+                    duplicated_ids = duplicated_counts[duplicated_counts > 1].index.tolist()
                     logger.warning(
                         "duplicate_molecule_ids_in_input",
                         count=len(duplicated_ids),
