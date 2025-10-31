@@ -63,7 +63,7 @@
 
 Файлы данных: нормализованные таблицы по сущностям (см. схемы ниже), форматы CSV и/или Parquet. Порядок столбцов фиксирован, сортировка по бизнес-ключам, одинаковые правила сериализации чисел/дат/строк.
 
-Контроль целостности: хеши строк и наборов бизнес-ключей (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта; алгоритм и размер дайджеста стабильны и документированы в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
+Контроль целостности: хеши строк и наборов бизнес-ключей (единственный поддерживаемый алгоритм — SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта; выбор жёстко зафиксирован через `determinism.hash_algorithm` (см. [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml)) и подробно описан в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 
 Атомарная запись: запись во временный файл на той же ФС и атомарная замена целевого файла (replace/move_atomic). На POSIX это rename/replace, на Windows — соответствующий безопасный вызов; библиотека atomicwrites документирует детали.
 
@@ -322,159 +322,116 @@ src/bioetl/configs/pipelines/<source>.yaml
 
 Допускается выносить общие блоки в `src/bioetl/configs/includes/*.yaml` и подключать их через include-директивы (например, `_shared/chembl_source.yaml`). После подстановки всех include-файлов итоговый YAML автоматически валидируется объектом `PipelineConfig`; ошибки схемы или несовместимые ключи MUST прерывать запуск.
 
-### 4.1 JSON Schema для базового конфига
+### 4.1 Pydantic-модель PipelineConfig
 
-Для машинной проверки структура описывается JSON Schema (Draft 2020-12).
+Валидация конфигурации построена на модели `PipelineConfig` и дочерних классах Pydantic, что исключает расхождения между документацией и реальным кодом.【F:src/bioetl/config/models.py†L691-L739】 Основные узлы:
 
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SourceConfig",
-  "type": "object",
-  "required": ["api_base_url", "http", "pagination", "fields", "output", "logging"],
-  "properties": {
-    "api_base_url": { "type": "string", "format": "uri" },
-    "auth": {
-      "type": "object",
-      "properties": {
-        "api_key": { "type": ["string", "null"] },
-        "token": { "type": ["string", "null"] }
-      },
-      "additionalProperties": false
-    },
-    "http": {
-      "type": "object",
-      "required": ["timeout_s", "retries", "backoff", "rate_limit_rps", "headers"],
-      "properties": {
-        "timeout_s": { "type": "number", "minimum": 1 },
-        "retries":   { "type": "integer", "minimum": 0 },
-        "backoff":   { "type": "object", "properties": {
-            "strategy": { "type": "string", "enum": ["exponential", "jittered"] },
-            "base_s":   { "type": "number", "minimum": 0.1 },
-            "max_s":    { "type": "number", "minimum": 0.1 }
-          }, "required": ["strategy","base_s","max_s"], "additionalProperties": false },
-        "rate_limit_rps": { "type": "number", "minimum": 0.1 },
-        "headers": { "type": "object", "additionalProperties": { "type": "string" } }
-      },
-      "additionalProperties": false
-    },
-    "pagination": {
-      "type": "object",
-      "required": ["type"],
-      "properties": {
-        "type": { "type": "string", "enum": ["page", "cursor", "offset_limit", "token"] },
-        "page_size": { "type": ["integer","null"], "minimum": 1 },
-        "cursor_param": { "type": ["string","null"] },
-        "max_pages": { "type": ["integer","null"], "minimum": 1 }
-      },
-      "additionalProperties": false
-    },
-    "filters": { "type": "object", "additionalProperties": true },
-    "fields":  { "type": "array", "items": { "type": "string" } },
-    "output": {
-      "type": "object",
-      "required": ["path", "format", "column_order", "hashing"],
-      "properties": {
-        "path": { "type": "string" },
-        "format": { "type": "string", "enum": ["csv","parquet"] },
-        "column_order": { "type": "array", "items": { "type": "string" } },
-        "hashing": {
-          "type": "object",
-          "required": ["algo","digest_size"],
-          "properties": {
-            "algo": { "type": "string", "enum": ["blake2b","blake2s"] },
-            "digest_size": { "type": "integer", "minimum": 8, "maximum": 64 }
-          },
-          "additionalProperties": false
-        }
-      },
-      "additionalProperties": false
-    },
-    "logging": {
-      "type": "object",
-      "required": ["level"],
-      "properties": {
-        "level": { "type": "string", "enum": ["DEBUG","INFO","WARNING","ERROR"] }
-      },
-      "additionalProperties": false
-    }
-  },
-  "additionalProperties": false
-}
-```
+- `pipeline` — метаданные пайплайна (`PipelineMetadata`), включающие имя, сущность и семантическую версию, прошедшую проверку по PEP 440.【F:src/bioetl/config/models.py†L321-L340】
+- `http.global` — дефолтный профиль HTTP с таймаутами, ретраями и лимитами (`HttpConfig` и связанные `RetryConfig`/`RateLimitConfig`). Конфигурация задаётся словарём профилей, где ключ `global` доступен всем источникам как базовый шаблон.【F:src/bioetl/config/models.py†L44-L101】【F:src/bioetl/config/models.py†L691-L701】
+- `sources` — каталог подключённых источников (`TargetSourceConfig`). Здесь описываются базовые URL, ключи API (с поддержкой `env:` ссылок), лимиты, стратегии резервирования и дополнительные заголовки.【F:src/bioetl/config/models.py†L103-L239】
+- `determinism` — политика воспроизводимости (`DeterminismConfig`), фиксирующая алгоритм хеширования, сортировку, порядок колонок и исключения для валидации колонок.【F:src/bioetl/config/models.py†L248-L289】
+- `materialization` — описание путей материализации артефактов (`MaterializationPaths`) с форматами, стадиями и именованием датасетов.【F:src/bioetl/config/models.py†L321-L492】
 
-### 4.2 YAML-пример конфига (Crossref)
+Дополнительные блоки `cache`, `paths`, `qc`, `postprocess`, `fallbacks` и `cli` также валидируются той же моделью, что гарантирует корректность конфигурации при старте пайплайна.【F:src/bioetl/config/models.py†L240-L320】【F:src/bioetl/config/models.py†L444-L671】
+
+### 4.2 YAML-пример базового конфига
 
 ```yaml
-# src/bioetl/configs/pipelines/document.yaml (секция источника Crossref)
+# src/bioetl/configs/base.yaml (усечённый фрагмент)
+version: 1
+pipeline:
+  name: "base"
+  entity: "abstract"
+  version: "1.0.0"
+  release_scope: true
 
-api_base_url: "https://api.crossref.org/works"
-auth: { api_key: null }
 http:
-  timeout_s: 30
-  retries: 3
-  backoff: { strategy: exponential, base_s: 1.0, max_s: 10.0 }
-  rate_limit_rps: 5
-  headers:
-    User-Agent: "bioetl/0.13 (+https://example.org)"
-    mailto: "[email protected]"    # соответствует этикету Crossref/OpenAlex
-pagination:
-  type: cursor
-  page_size: 200
-  cursor_param: "cursor"
-  max_pages: 500
-filters:
-  from-pub-date: "2018-01-01"
-  type: "journal-article"
-fields: ["DOI","title","author","container-title","issued","link","publisher"]
-output:
-  path: "data/crossref/"
-  format: "csv"
-  column_order: ["document_id","doi","title","venue","year","authors","urls","source","ingest_timestamp"]
-  hashing: { algo: blake2b, digest_size: 32 }
-logging:
-  level: "INFO"
+  global:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 120.0
+      statuses: [408, 425, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 5
+      period: 15.0
+    headers: {}
+
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 86400
+  release_scoped: true
+
+paths:
+  input_root: "data/input"
+  output_root: "data/output"
+
+materialization:
+  root: "data/output"
+  default_format: "parquet"
+  formats:
+    parquet:
+      extension: ".parquet"
+    csv:
+      extension: ".csv"
+  stages:
+    gold:
+      format: "parquet"
+      directory: "."
+      datasets:
+        targets:
+          filename: "targets_final"
+
+determinism:
+  sort:
+    by: []
+    ascending: []
+  column_order: []
+
+sources:
+  pubchem:
+    enabled: true
+    base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-pubchem-default/1.0"
+
+postprocess:
+  qc:
+    enabled: true
+
+qc:
+  enabled: true
+  severity_threshold: "warning"
+  thresholds: {}
+
+cli:
+  default_config: "configs/base.yaml"
+  mode_choices: ["default"]
+  fail_on_schema_drift: true
 ```
 
-**Комментарии:**
-
-headers.mailto обязателен для «политного» доступа в Crossref/OpenAlex.
-
-pagination.type: cursor согласуется с рекомендуемым режимом OpenAlex и курсорными интерфейсами, где применимо.
-
-### 4.3 Пример для PubMed (E-utilities)
+### 4.3 Include для политики детерминизма
 
 ```yaml
-# src/bioetl/configs/pipelines/pubmed.yaml
-
-api_base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-http:
-  timeout_s: 60
-  retries: 5
-  backoff: { strategy: exponential, base_s: 1.0, max_s: 30.0 }
-  rate_limit_rps: 3
-  headers:
-    User-Agent: "bioetl/0.13 (+https://example.org)"
-pagination:
-  type: page
-  page_size: 10000      # retmax
-  max_pages: 100
-filters:
-  db: "pubmed"
-  term: "histamine[tiab] AND 2020:2025[dp]"
-  rettype: "medline"
-  retmode: "xml"
-fields: ["pmid","title","abstract","authors","journal","year"]
-output:
-  path: "data/pubmed/"
-  format: "csv"
-  column_order: ["document_id","pmid","title","venue","year","authors","abstract","source","ingest_timestamp"]
-  hashing: { algo: blake2b, digest_size: 32 }
-logging:
-  level: "INFO"
+# src/bioetl/configs/includes/determinism.yaml
+determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
+  column_validation_ignore_suffixes:
+    - "_quality_report.csv"
+    - "_correlation_report.csv"
+    - "_qc.csv"
+    - "_metadata.csv"
+    - "_qc_summary.json"
+    - "qc_missing_mappings.csv"
+    - "qc_enrichment_metrics.csv"
+    - "_summary_statistics.csv"
+    - "_dataset_metrics.csv"
 ```
-
-Семантика ESearch/EFetch и параметров retmode/rettype соответствует руководству NCBI.
 
 ## 5) Соответствие схемам и проверка на этапе validate()
 
@@ -506,9 +463,9 @@ ChEMBL web services и интерактивные доки.
 
 IUPHAR/BPS GtoP web services.
 
-JSON Schema Draft 2020-12.
+Pydantic BaseModel (`src/bioetl/config/models.py`).
 
 Pandera DataFrameSchema/Checks.
 
-Python hashlib SHA256 (`src/bioetl/core/hashing.py`).
+Python hashlib SHA256 (`src/bioetl/core/hashing.py`) и `determinism.hash_algorithm` (`src/bioetl/configs/includes/determinism.yaml`).
 
