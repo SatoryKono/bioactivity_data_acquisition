@@ -4,6 +4,12 @@
 - `from bioetl.sources.document.adapters.semantic_scholar import SemanticScholarAdapter`
 - `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
 
+## CLI entrypoint
+- Semantic Scholar включается документным пайплайном: `python -m bioetl.cli.main
+  document --config configs/pipelines/document.yaml`. Включите адаптер
+  параметром `sources.semantic_scholar.enabled`; отдельной CLI-команды для него
+  нет.
+
 ## Configuration keys (`configs/pipelines/document.yaml`)
 - `sources.semantic_scholar.enabled`
 - `sources.semantic_scholar.base_url`

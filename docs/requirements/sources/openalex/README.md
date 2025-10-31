@@ -4,6 +4,11 @@
 - `from bioetl.sources.document.adapters.openalex import OpenAlexAdapter`
 - `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
 
+## CLI entrypoint
+- Адаптер OpenAlex исполняется через `python -m bioetl.cli.main document`.
+  Управляйте его активацией настройкой `sources.openalex.enabled` в
+  `configs/pipelines/document.yaml`. Дополнительной команды CLI не требуется.
+
 ## Configuration keys (`configs/pipelines/document.yaml`)
 - `sources.openalex.enabled`
 - `sources.openalex.base_url`
