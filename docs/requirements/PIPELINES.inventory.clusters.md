@@ -1,9 +1,9 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T07:55:46+00:00
+Generated on 2025-10-31T08:11:29+00:00
 
 ## Cluster 1
-Cluster size: 130
+Cluster size: 136
 - src\bioetl\adapters\_normalizer_helpers.py (source: adapters)
 - src\bioetl\adapters\base.py (source: base)
 - src\bioetl\adapters\crossref.py (source: adapters)
@@ -20,6 +20,8 @@ Cluster size: 130
 - src\bioetl\config\models.py (source: config)
 - src\bioetl\config\paths.py (source: config)
 - src\bioetl\core\api_client.py (source: core)
+- src\bioetl\core\chembl\client.py (source: chembl)
+- src\bioetl\core\chembl\output.py (source: chembl)
 - src\bioetl\core\client_factory.py (source: core)
 - src\bioetl\core\hashing.py (source: core)
 - src\bioetl\core\logger.py (source: core)
@@ -56,6 +58,8 @@ Cluster size: 130
 - src\bioetl\schemas\document_input.py (source: document)
 - src\bioetl\schemas\target.py (source: target)
 - src\bioetl\schemas\testitem.py (source: testitem)
+- src\bioetl\sources\document\merge\policy.py (source: document)
+- src\bioetl\sources\document\pipeline.py (source: document)
 - src\bioetl\utils\chembl.py (source: utils)
 - src\bioetl\utils\column_constants.py (source: utils)
 - src\bioetl\utils\config.py (source: utils)
@@ -84,6 +88,7 @@ Cluster size: 130
 - tests\integration\pipelines\test_extended_mode_outputs.py (source: test_extended_mode_outputs)
 - tests\integration\qc\test_unified_qc.py (source: tests)
 - tests\integration\test_document_pipeline_enrichment.py (source: document)
+- tests\integration\test_document_pipeline_merge_policy.py (source: document)
 - tests\perf\test_dataframe_hash.py (source: tests)
 - tests\perf\test_quality_report_generator.py (source: tests)
 - tests\pipelines\test_materialization_manager.py (source: test_materialization_manager)
@@ -91,15 +96,16 @@ Cluster size: 130
 - tests\schemas\test_document_raw_schema.py (source: document)
 - tests\schemas\test_registry.py (source: tests)
 - tests\schemas\test_testitem_schema.py (source: testitem)
+- tests\scripts\test_cli_registry.py (source: tests)
+- tests\sources\_mixins.py (source: tests)
+- tests\sources\crossref\test_adapter.py (source: tests)
+- tests\sources\openalex\test_adapter.py (source: tests)
+- tests\sources\pubmed\test_adapter.py (source: tests)
+- tests\sources\semantic_scholar\test_adapter.py (source: tests)
+- tests\sources\test_base_adapter.py (source: base)
+- tests\sources\test_normalizer_helpers.py (source: tests)
 - tests\test_fixtures_smoke.py (source: tests)
-- tests\unit\adapters\_mixins.py (source: tests)
-- tests\unit\adapters\test_base_adapter.py (source: base)
-- tests\unit\adapters\test_crossref_adapter.py (source: tests)
-- tests\unit\adapters\test_normalizer_helpers.py (source: tests)
-- tests\unit\adapters\test_openalex_adapter.py (source: tests)
 - tests\unit\adapters\test_pubchem_adapter.py (source: tests)
-- tests\unit\adapters\test_pubmed_adapter.py (source: tests)
-- tests\unit\adapters\test_semantic_scholar_adapter.py (source: tests)
 - tests\unit\config\test_pipeline_config.py (source: tests)
 - tests\unit\core\test_client_factory.py (source: tests)
 - tests\unit\docs\test_data_sources_spec.py (source: tests)
@@ -137,3 +143,24 @@ Cluster size: 130
 common n-grams: —
 common imports: —
 avg jaccard=0.01; avg import overlap=0.11
+
+## Cluster 2
+Cluster size: 5
+- src\bioetl\sources\chembl\activity\__init__.py (source: activity)
+- src\bioetl\sources\chembl\assay\__init__.py (source: assay)
+- src\bioetl\sources\chembl\document\__init__.py (source: document)
+- src\bioetl\sources\chembl\target\__init__.py (source: target)
+- src\bioetl\sources\chembl\testitem\__init__.py (source: testitem)
+common n-grams: —
+common imports: .pipeline
+avg jaccard=0.00; avg import overlap=1.00
+
+## Cluster 3
+Cluster size: 4
+- src\bioetl\sources\crossref\pipeline.py (source: crossref)
+- src\bioetl\sources\openalex\pipeline.py (source: openalex)
+- src\bioetl\sources\pubmed\pipeline.py (source: pubmed)
+- src\bioetl\sources\semantic_scholar\pipeline.py (source: semantic_scholar)
+common n-grams: —
+common imports: bioetl.sources.document.pipeline
+avg jaccard=0.00; avg import overlap=0.33
