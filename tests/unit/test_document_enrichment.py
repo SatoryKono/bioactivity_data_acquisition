@@ -2,7 +2,7 @@
 
 import pandas as pd
 
-from bioetl.pipelines.document_enrichment import merge_with_precedence
+from bioetl.sources.document.merge.policy import merge_with_precedence
 
 
 def test_merge_with_precedence_prioritizes_sources():

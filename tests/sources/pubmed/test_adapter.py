@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import bioetl.adapters.pubmed as pubmed_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.pubmed import PubMedAdapter
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class TestPubMedAdapter(AdapterTestMixin, unittest.TestCase):
