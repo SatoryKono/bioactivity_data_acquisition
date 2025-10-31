@@ -1,3 +1,8 @@
 """Test item normalizer module namespace."""
 
-__all__ = []
+from .dataframe import coerce_boolean_and_integer_columns, normalize_smiles_columns
+
+__all__ = [
+    "coerce_boolean_and_integer_columns",
+    "normalize_smiles_columns",
+]

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Any
 
-import pandas as pd
 import requests  # type: ignore[import-untyped]
 
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.sources.chembl.testitem.parser import TestItemParser
+from bioetl.sources.chembl.testitem.request import TestItemRequestBuilder
+from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 
 logger = UnifiedLogger.get(__name__)
 
@@ -22,53 +25,61 @@ class TestItemChEMBLClient:
         batch_size: int,
         chembl_release: str | None,
         molecule_cache: dict[str, dict[str, Any]],
-    ):
-        """Initialize TestItem ChEMBL client.
-
-        Args:
-            api_client: Unified API client instance
-            batch_size: Batch size for API requests
-            chembl_release: ChEMBL release version
-            molecule_cache: In-memory cache for molecule records
-        """
+        request_builder: TestItemRequestBuilder,
+        parser: TestItemParser,
+        fallback_builder: FallbackRecordBuilder,
+    ) -> None:
         self.api_client = api_client
         self.batch_size = batch_size
         self.chembl_release = chembl_release
         self._molecule_cache = molecule_cache
+        self.request_builder = request_builder
+        self.parser = parser
+        self._fallback_builder = fallback_builder
 
-    def _cache_key(self, molecule_id: str) -> str:
-        """Create cache key for molecule ID."""
-        release = self.chembl_release or "unversioned"
-        return f"{release}:{molecule_id}"
+    def fetch_molecules(
+        self, molecule_ids: Sequence[str]
+    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        """Fetch molecules in batches, honoring cache and request limits."""
 
-    def _store_in_cache(self, record: dict[str, Any]) -> None:
-        """Store molecule record in cache."""
-        molecule_id = record.get("molecule_chembl_id")
-        if not molecule_id:
-            return
-        cache_key = self._cache_key(str(molecule_id))
-        self._molecule_cache[cache_key] = record.copy()
+        results: list[dict[str, Any]] = []
+        cache_hits = 0
+        ids_to_fetch: list[str] = []
 
-    def fetch_single_molecule(
-        self,
-        molecule_id: str,
-        attempt: int,
-        create_fallback_record: Any,  # Callable type
-    ) -> dict[str, Any]:
-        """Fetch a single molecule by ID with fallback handling.
+        for molecule_id in molecule_ids:
+            cached = self._get_from_cache(molecule_id)
+            if cached is not None:
+                results.append(cached)
+                cache_hits += 1
+            else:
+                ids_to_fetch.append(molecule_id)
 
-        Args:
-            molecule_id: ChEMBL molecule ID
-            attempt: Attempt number for fallback tracking
-            create_fallback_record: Function to create fallback records
+        stats = {
+            "cache_hits": cache_hits,
+            "api_success_count": 0,
+            "fallback_count": 0,
+        }
 
-        Returns:
-            Molecule record or fallback record
-        """
+        if not ids_to_fetch:
+            return results, stats
+
+        batches = self.request_builder.iter_batches(ids_to_fetch)
+        for batch_index, batch_ids in enumerate(batches, start=1):
+            logger.info("fetching_batch", batch=batch_index, size=len(batch_ids))
+            batch_records, batch_stats = self._fetch_molecule_batch(batch_ids)
+            results.extend(batch_records)
+            stats["api_success_count"] += batch_stats["api_success_count"]
+            stats["fallback_count"] += batch_stats["fallback_count"]
+
+        return results, stats
+
+    def fetch_single_molecule(self, molecule_id: str, attempt: int) -> dict[str, Any]:
+        """Fetch a single molecule by ID with fallback handling."""
+
         try:
             response = self.api_client.request_json(f"/molecule/{molecule_id}.json")
         except requests.exceptions.HTTPError as exc:
-            record = create_fallback_record(
+            record = self._create_fallback_record(
                 molecule_id,
                 attempt=attempt,
                 error=exc,
@@ -86,7 +97,7 @@ class TestItemChEMBLClient:
             self._store_in_cache(record)
             return record
         except Exception as exc:  # noqa: BLE001
-            record = create_fallback_record(
+            record = self._create_fallback_record(
                 molecule_id,
                 attempt=attempt,
                 error=exc,
@@ -102,7 +113,7 @@ class TestItemChEMBLClient:
             return record
 
         if not isinstance(response, dict) or "molecule_chembl_id" not in response:
-            record = create_fallback_record(
+            record = self._create_fallback_record(
                 molecule_id,
                 attempt=attempt,
                 reason="missing_from_response",
@@ -114,11 +125,127 @@ class TestItemChEMBLClient:
             self._store_in_cache(record)
             return record
 
-        return response
+        record = self.parser.parse(response)
+        self._store_in_cache(record)
+        return record
+
+    def _fetch_molecule_batch(
+        self, batch_ids: Sequence[str]
+    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        api_success_count = 0
+        fallback_count = 0
+        records: list[dict[str, Any]] = []
+
+        params = self.request_builder.build_filter_params(batch_ids)
+
+        try:
+            response = self.api_client.request_json("/molecule.json", params=params)
+        except Exception as exc:  # noqa: BLE001
+            logger.error("batch_fetch_failed", error=str(exc), batch_ids=list(batch_ids))
+            for missing_id in batch_ids:
+                record = self._create_fallback_record(
+                    missing_id,
+                    attempt=1,
+                    error=exc,
+                    reason="batch_exception",
+                    message="Batch request failed",
+                )
+                self._store_in_cache(record)
+                records.append(record)
+                fallback_count += 1
+            return records, {"api_success_count": api_success_count, "fallback_count": fallback_count}
+
+        molecules = response.get("molecules", []) if isinstance(response, dict) else []
+        returned_ids = {
+            m.get("molecule_chembl_id") for m in molecules if isinstance(m, dict)
+        }
+        missing_ids = [mol_id for mol_id in batch_ids if mol_id not in returned_ids]
+
+        for payload in molecules:
+            if not isinstance(payload, dict):
+                continue
+            record = self.parser.parse(payload)
+            self._store_in_cache(record)
+            records.append(record)
+            if self._is_fallback_record(record):
+                fallback_count += 1
+            else:
+                api_success_count += 1
+
+        if missing_ids:
+            logger.warning(
+                "incomplete_batch_response",
+                requested=len(batch_ids),
+                returned=len(molecules),
+                missing=missing_ids,
+            )
+            for missing_id in missing_ids:
+                record = self.fetch_single_molecule(missing_id, attempt=2)
+                records.append(record)
+                if self._is_fallback_record(record):
+                    fallback_count += 1
+                else:
+                    api_success_count += 1
+
+        logger.info("batch_fetched", count=len(molecules))
+        return records, {"api_success_count": api_success_count, "fallback_count": fallback_count}
+
+    def _cache_key(self, molecule_id: str) -> str:
+        release = self.chembl_release or "unversioned"
+        return f"{release}:{molecule_id}"
+
+    def _get_from_cache(self, molecule_id: str) -> dict[str, Any] | None:
+        cache_key = self._cache_key(molecule_id)
+        cached = self._molecule_cache.get(cache_key)
+        if cached is None:
+            return None
+        return cached.copy()
+
+    def _store_in_cache(self, record: dict[str, Any]) -> None:
+        molecule_id = record.get("molecule_chembl_id")
+        if not molecule_id:
+            return
+        cache_key = self._cache_key(str(molecule_id))
+        self._molecule_cache[cache_key] = record.copy()
+
+    def _create_fallback_record(
+        self,
+        molecule_id: str,
+        *,
+        attempt: int,
+        error: Exception | None = None,
+        retry_after: float | None = None,
+        message: str | None = None,
+        reason: str = "exception",
+    ) -> dict[str, Any]:
+        fallback_record = self._fallback_builder.record({"molecule_chembl_id": molecule_id})
+
+        metadata = build_fallback_payload(
+            entity="testitem",
+            reason=reason,
+            error=error,
+            source="TESTITEM_FALLBACK",
+            attempt=attempt,
+            message=message,
+            context=self._fallback_builder.context_with({"molecule_chembl_id": molecule_id}),
+        )
+
+        if retry_after is not None:
+            metadata["fallback_retry_after_sec"] = retry_after
+
+        if reason:
+            metadata["fallback_error_code"] = reason
+        else:
+            metadata.setdefault("fallback_error_code", None)
+
+        fallback_record.update(metadata)
+        return fallback_record
+
+    def _is_fallback_record(self, record: dict[str, Any]) -> bool:
+        return bool(record.get("fallback_attempt")) or bool(record.get("fallback_error_code"))
 
     @staticmethod
     def _extract_retry_after(error: requests.exceptions.HTTPError) -> float | None:  # type: ignore[valid-type]
-        """Extract Retry-After header value from HTTP error."""
         if not hasattr(error, "response") or error.response is None:  # type: ignore[attr-defined]
             return None
         retry_after = error.response.headers.get("Retry-After")  # type: ignore[attr-defined]
