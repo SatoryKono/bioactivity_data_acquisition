@@ -1,3 +1,5 @@
-"""Test item client module namespace."""
+"""TestItem client module namespace."""
 
-__all__ = []
+from .client import TestItemChEMBLClient
+
+__all__ = ["TestItemChEMBLClient"]

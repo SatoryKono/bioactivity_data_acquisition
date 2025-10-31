@@ -1,3 +1,5 @@
-"""Test item request module namespace."""
+"""TestItem request module namespace."""
 
-__all__ = []
+from .request import TestItemRequestBuilder
+
+__all__ = ["TestItemRequestBuilder"]

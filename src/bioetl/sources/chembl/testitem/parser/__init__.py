@@ -1,3 +1,5 @@
-"""Test item parser module namespace."""
+"""TestItem parser module namespace."""
 
-__all__ = []
+from .parser import TestItemParser
+
+__all__ = ["TestItemParser"]
