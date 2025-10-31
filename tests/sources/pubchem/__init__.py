@@ -1,26 +1,23 @@
-"""PubChem adapter tests."""
+"""Shared helpers for PubChem source tests."""
 
 from __future__ import annotations
 
-import unittest
-
-from bioetl.adapters.pubchem import PubChemAdapter
-from tests.sources._mixins import AdapterTestMixin
-
-__all__ = ["PubChemAdapterTestCase"]
+from dataclasses import dataclass, field
+from typing import Any, Dict, List
 
 
-class PubChemAdapterTestCase(AdapterTestMixin, unittest.TestCase):
-    """Shared fixture base for PubChem adapter tests."""
+@dataclass
+class StubUnifiedAPIClient:
+    """In-memory stand-in for :class:`bioetl.core.api_client.UnifiedAPIClient`."""
 
-    ADAPTER_CLASS = PubChemAdapter
-    API_CONFIG_OVERRIDES = {
-        "name": "pubchem",
-        "base_url": "https://pubchem.ncbi.nlm.nih.gov/rest/pug",
-        "rate_limit_max_calls": 5,
-        "rate_limit_period": 1.0,
-    }
-    ADAPTER_CONFIG_OVERRIDES = {
-        "batch_size": 50,
-        "workers": 1,
-    }
+    responses: Dict[str, Any] = field(default_factory=dict)
+    requests: List[str] = field(default_factory=list)
+
+    def request_json(self, endpoint: str) -> Any:
+        self.requests.append(endpoint)
+        if endpoint in self.responses:
+            payload = self.responses[endpoint]
+            if isinstance(payload, Exception):
+                raise payload
+            return payload
+        return None
