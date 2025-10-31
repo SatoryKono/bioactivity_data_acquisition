@@ -1,0 +1,14 @@
+title: BioETL Documentation
+nav:
+  - INDEX.md
+  - Requirements:
+      - requirements/00-architecture-overview.md
+      - requirements/03-data-sources-and-spec.md
+  - Pipelines:
+      - pipelines/PIPELINES.md
+  - Configs:
+      - configs/CONFIGS.md
+  - CLI:
+      - cli/CLI.md
+  - Quality:
+      - qc/QA_QC.md
