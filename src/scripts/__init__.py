@@ -11,7 +11,11 @@ from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.config.paths import get_config_path
 from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
 from bioetl.sources.chembl.assay.pipeline import AssayPipeline
-from bioetl.sources.chembl.document.pipeline import DocumentPipeline
+from bioetl.pipelines.document import (
+    DEFAULT_DOCUMENT_PIPELINE_MODE,
+    DOCUMENT_PIPELINE_MODES,
+    DocumentPipeline,
+)
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
@@ -58,8 +62,8 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_config=get_config_path("pipelines/document.yaml"),
         default_input=Path("data/input/document.csv"),
         default_output_dir=Path("data/output/documents"),
-        mode_choices=("chembl", "all"),
-        default_mode="all",
+        mode_choices=DOCUMENT_PIPELINE_MODES,
+        default_mode=DEFAULT_DOCUMENT_PIPELINE_MODE,
         description="ChEMBL + external sources",
     ),
     "testitem": PipelineCommandConfig(

@@ -51,14 +51,22 @@ from .schema import build_document_fallback_row
 
 schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
 
-__all__ = ["DocumentPipeline"]
+__all__ = [
+    "DocumentPipeline",
+    "DOCUMENT_EXTERNAL_ADAPTER_DEFINITIONS",
+    "DOCUMENT_PIPELINE_MODES",
+    "DEFAULT_DOCUMENT_PIPELINE_MODE",
+]
 
 NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
 
 
-_ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
+DOCUMENT_PIPELINE_MODES: tuple[str, ...] = ("chembl", "all")
+DEFAULT_DOCUMENT_PIPELINE_MODE: str = "all"
+
+DOCUMENT_EXTERNAL_ADAPTER_DEFINITIONS: dict[str, AdapterDefinition] = {
     "pubmed": PUBMED_ADAPTER_DEFINITION,
     "crossref": CROSSREF_ADAPTER_DEFINITION,
     "openalex": OPENALEX_ADAPTER_DEFINITION,
@@ -128,9 +136,14 @@ class DocumentPipeline(PipelineBase):
         self.batch_size = self.document_client.batch_size
         self.max_url_length = max(1, int(self.document_client.max_url_length))
 
-        # Initialize external adapters if enabled
+        # Initialize external adapter state; adapters are prepared lazily per mode
         self.external_adapters: dict[str, Any] = {}
-        self._init_external_adapters()
+        self._adapter_initialization_mode: str | None = None
+
+        configured_mode = getattr(self.config.cli, "mode", None)
+        self.mode = self._resolve_mode(configured_mode)
+        self.runtime_options["mode"] = self.mode
+        self._prepare_enrichment_adapters()
 
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
@@ -138,6 +151,8 @@ class DocumentPipeline(PipelineBase):
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
+        self._sync_mode_runtime()
+
         df, resolved_path = self.read_input_table(
             default_filename=Path("document.csv"),
             expected_columns=["document_chembl_id"],
@@ -180,17 +195,82 @@ class DocumentPipeline(PipelineBase):
         logger.info("extraction_completed", rows=len(validated))
         return validated
 
-    def _init_external_adapters(self) -> None:
-        """Initialize external API adapters using structured definitions."""
+    def _sync_mode_runtime(self) -> None:
+        """Synchronise the execution mode with runtime overrides."""
 
-        self.external_adapters = init_external_adapters(self.config, _ADAPTER_DEFINITIONS)
+        runtime_mode = self.runtime_options.get("mode")
+        if runtime_mode is None:
+            runtime_mode = getattr(self.config.cli, "mode", None)
+
+        resolved_mode = self._resolve_mode(runtime_mode)
+        if resolved_mode != self.mode:
+            logger.info(
+                "document_mode_updated",
+                previous=self.mode,
+                current=resolved_mode,
+            )
+            self.mode = resolved_mode
+
+        self.runtime_options["mode"] = self.mode
+        self._prepare_enrichment_adapters()
+
+    def _prepare_enrichment_adapters(self) -> None:
+        """Ensure external adapters reflect the active execution mode."""
+
+        if self.mode != "all":
+            if self._adapter_initialization_mode == "all" and self.external_adapters:
+                logger.info("external_adapters_released", mode=self.mode)
+                self._release_external_adapters()
+            self._adapter_initialization_mode = self.mode
+            return
+
+        if self._adapter_initialization_mode == "all" and self.external_adapters:
+            return
+
+        if self._adapter_initialization_mode not in (None, "all"):
+            self._release_external_adapters()
+
+        self.external_adapters = init_external_adapters(
+            self.config, DOCUMENT_EXTERNAL_ADAPTER_DEFINITIONS
+        )
+        self._adapter_initialization_mode = "all"
+
+    def _release_external_adapters(self) -> None:
+        """Close and clear the currently initialised external adapters."""
+
+        adapters = getattr(self, "external_adapters", {})
+        for name, adapter in list(adapters.items()):
+            self._close_resource(adapter, resource_name=f"external_adapter.{name}")
+        self.external_adapters = {}
+        self._adapter_initialization_mode = None
+
+    def _resolve_mode(self, value: Any) -> str:
+        """Normalise a raw value to a supported document pipeline mode."""
+
+        candidate = ""
+        if isinstance(value, str):
+            candidate = value.strip().lower()
+        elif value is not None:
+            candidate = str(value).strip().lower()
+
+        if not candidate or candidate == "default":
+            return DEFAULT_DOCUMENT_PIPELINE_MODE
+
+        if candidate in DOCUMENT_PIPELINE_MODES:
+            return candidate
+
+        logger.warning(
+            "unsupported_document_mode",
+            requested=value,
+            fallback=DEFAULT_DOCUMENT_PIPELINE_MODE,
+        )
+        return DEFAULT_DOCUMENT_PIPELINE_MODE
 
     def close_resources(self) -> None:
         """Close external adapters and the primary API client."""
 
         try:
-            for name, adapter in getattr(self, "external_adapters", {}).items():
-                self._close_resource(adapter, resource_name=f"external_adapter.{name}")
+            self._release_external_adapters()
         finally:
             super().close_resources()
 
@@ -208,6 +288,8 @@ class DocumentPipeline(PipelineBase):
         self, chembl_df: pd.DataFrame
     ) -> ExternalEnrichmentResult:
         """Enrich ChEMBL data with external sources."""
+        self._sync_mode_runtime()
+        self._prepare_enrichment_adapters()
         if not self.external_adapters:
             logger.info(
                 "external_enrichment_skipped",
@@ -480,13 +562,19 @@ class DocumentPipeline(PipelineBase):
 
         # Keep pubmed_id and doi with original names for enrichment (chembl_pmid already created above)
 
+        self._sync_mode_runtime()
+        self._prepare_enrichment_adapters()
+
         with_pubmed = bool(self.runtime_options.get("with_pubmed", True))
+        if self.mode != "all":
+            with_pubmed = False
         self.runtime_options["with_pubmed"] = with_pubmed
 
         logger.info(
             "external_enrichment_configured",
             with_pubmed=with_pubmed,
             adapters=len(self.external_adapters),
+            mode=self.mode,
         )
 
         self.reset_stage_context()
