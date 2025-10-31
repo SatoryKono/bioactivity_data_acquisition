@@ -145,6 +145,10 @@ jobs:
         run: |
           pytest tests/unit tests/integration tests/golden tests/schemas
 
+      - name: Verify pipeline inventory snapshot
+        run: |
+          python src/scripts/run_inventory.py --check
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
