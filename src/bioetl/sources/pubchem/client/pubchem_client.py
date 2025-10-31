@@ -136,7 +136,58 @@ class PubChemClient:
                     records[int(cid)] = dict(entry)
             except (TypeError, ValueError):
                 continue
+
+        synonyms_map = self._fetch_synonyms_chunk(chunk)
+        for cid, synonyms in synonyms_map.items():
+            if not synonyms:
+                continue
+            records.setdefault(cid, {})["Synonym"] = list(synonyms)
+
+        registry_ids_map = self._fetch_registry_ids_chunk(chunk)
+        for cid, registry_ids in registry_ids_map.items():
+            if not registry_ids:
+                continue
+            first = next((value for value in registry_ids if value is not None), None)
+            if first is None:
+                continue
+            records.setdefault(cid, {})["RegistryID"] = str(first)
+
+        rn_map = self._fetch_rn_chunk(chunk)
+        for cid, rns in rn_map.items():
+            if not rns:
+                continue
+            first = next((value for value in rns if value is not None), None)
+            if first is None:
+                continue
+            records.setdefault(cid, {})["RN"] = str(first)
         return records
+
+    def _fetch_synonyms_chunk(self, chunk: Sequence[int]) -> Mapping[int, list[Any]]:
+        """Fetch synonym lists for the provided CIDs."""
+
+        if not chunk:
+            return {}
+        endpoint = PubChemRequestBuilder.build_synonyms_url(chunk)
+        payload = self._request_json(endpoint)
+        return PubChemParser.parse_synonyms_response(payload)
+
+    def _fetch_registry_ids_chunk(self, chunk: Sequence[int]) -> Mapping[int, list[Any]]:
+        """Fetch RegistryID cross references for the provided CIDs."""
+
+        if not chunk:
+            return {}
+        endpoint = PubChemRequestBuilder.build_registry_ids_url(chunk)
+        payload = self._request_json(endpoint)
+        return PubChemParser.parse_registry_ids_response(payload)
+
+    def _fetch_rn_chunk(self, chunk: Sequence[int]) -> Mapping[int, list[Any]]:
+        """Fetch RN cross references for the provided CIDs."""
+
+        if not chunk:
+            return {}
+        endpoint = PubChemRequestBuilder.build_rn_url(chunk)
+        payload = self._request_json(endpoint)
+        return PubChemParser.parse_rn_response(payload)
 
     def _request_json(self, endpoint: str) -> dict[str, Any] | None:
         """Wrapper around :meth:`UnifiedAPIClient.request_json` with logging."""
