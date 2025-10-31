@@ -48,6 +48,7 @@ class TargetSchema(BaseSchema):
     uniprot_accession: Series[str] = pa.Field(nullable=True)
     uniprot_id_primary: Series[str] = pa.Field(nullable=True)
     uniprot_ids_all: Series[str] = pa.Field(nullable=True)
+    uniprot_all_accessions: Series[str] = pa.Field(nullable=True)  # List of all UniProt accessions (primary, isoforms, secondary)
     # Intermediate UniProt enrichment columns (used for coalesce, may remain in DataFrame)
     uniprot_protein_name: Series[str] = pa.Field(nullable=True)
     uniprot_taxonomy_name: Series[str] = pa.Field(nullable=True)
@@ -56,6 +57,9 @@ class TargetSchema(BaseSchema):
     uniprot_hgnc_id: Series[str] = pa.Field(nullable=True)
     uniprot_lineage: Series[str] = pa.Field(nullable=True)
     uniprot_canonical_accession: Series[str] = pa.Field(nullable=True)
+    # Intermediate ChEMBL columns (used for coalesce, may remain in DataFrame)
+    taxonomy: Series[str] = pa.Field(nullable=True)
+    hgnc: Series[str] = pa.Field(nullable=True)
     isoform_count: Series[int] = pa.Field(nullable=True, ge=0)
     has_alternative_products: Series[pd.BooleanDtype] = pa.Field(nullable=True)
     has_uniprot: Series[pd.BooleanDtype] = pa.Field(nullable=True)
@@ -121,6 +125,7 @@ class TargetSchema(BaseSchema):
         "uniprot_accession",
         "uniprot_id_primary",
         "uniprot_ids_all",
+        "uniprot_all_accessions",
         "uniprot_protein_name",
         "uniprot_taxonomy_name",
         "uniprot_taxonomy_id",
@@ -128,6 +133,8 @@ class TargetSchema(BaseSchema):
         "uniprot_hgnc_id",
         "uniprot_lineage",
         "uniprot_canonical_accession",
+        "taxonomy",
+        "hgnc",
         "isoform_count",
         "has_alternative_products",
         "has_uniprot",
