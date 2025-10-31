@@ -257,4 +257,3 @@ print(f"Created: {artifacts.dataset}")
 - Система готова к расширению
 
 **Статус:** ✅ Production Ready для базовой функциональности
-

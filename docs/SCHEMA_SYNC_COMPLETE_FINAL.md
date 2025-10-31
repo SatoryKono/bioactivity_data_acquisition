@@ -173,4 +173,3 @@ python src/scripts/run_testitem.py --limit 10
 - [x] Assay Pipeline - 10 строк, 58 колонок, API integration
 
 **Вывод:** Все три пайплайна полностью синхронизированы с IO_SCHEMAS_AND_DIAGRAMS.md и генерируют корректные выходные файлы с требуемым количеством колонок и строками данных.
-

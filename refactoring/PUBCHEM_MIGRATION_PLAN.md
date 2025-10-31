@@ -96,12 +96,12 @@ src/bioetl/sources/pubchem/
 ```python
 class PubChemClient:
     def __init__(self, api_client: UnifiedAPIClient, batch_size: int = 100)
-    
+
     def resolve_cid(self, inchikey: str) -> int | None
     def resolve_cids_batch(self, inchikeys: list[str]) -> dict[str, int | None]
     def fetch_properties_batch(self, cids: list[int]) -> list[dict[str, Any]]
     def enrich_batch(self, inchikeys: list[str]) -> list[dict[str, Any]]
-    
+
     @classmethod
     def from_config(cls, config: PipelineConfig) -> PubChemClient | None
 ```
@@ -280,4 +280,3 @@ class PubChemPipeline(PipelineBase):
 1. Создать задачу "PubChem QC & Smoke Tests" (интегрирует пункты backlog).
 2. Подготовить фиктивный входной CSV и golden-выход для smoke/e2e тестов.
 3. Обновить документацию и конфиги после внедрения тестов и расширенного QC.
-

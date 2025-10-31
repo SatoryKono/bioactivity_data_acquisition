@@ -1,7 +1,7 @@
 # План рефакторинга BioETL
 
-> **Ветка:** `@test_refactoring_32`  
-> **Последнее обновление:** 2025-10-31  
+> **Ветка:** `@test_refactoring_32`
+> **Последнее обновление:** 2025-10-31
 **Актуальный аудит:** [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md)
 
 ## Навигация по документам
@@ -175,9 +175,9 @@ REFACTOR_PLAN.md (основной)
 
 ## Контекст проекта
 
-**Ветка:** `@test_refactoring_32`  
-**Репозиторий:** SatoryKono/bioactivity_data_acquisition  
-**Цель:** Рефакторинг ETL системы для биоактивности данных  
+**Ветка:** `@test_refactoring_32`
+**Репозиторий:** SatoryKono/bioactivity_data_acquisition
+**Цель:** Рефакторинг ETL системы для биоактивности данных
 **Основные источники:** ChEMBL, UniProt, PubChem, Crossref, PubMed, OpenAlex, Semantic Scholar, IUPHAR
 
 ## Связь с другими документами
@@ -190,4 +190,3 @@ REFACTOR_PLAN.md (основной)
 ---
 
 **Примечание:** Документы в папке `refactoring/` описывают план рефакторинга проекта. Для актуальной документации компонентов см. `docs/requirements/`.
-

@@ -3373,4 +3373,3 @@ target_performance:
 **Дата создания:** 2024-10-28
 **Авторы:** Synthesis из bioactivity_data_acquisition5 и ChEMBL_data_acquisition6
 **Статус:** Production Ready
-

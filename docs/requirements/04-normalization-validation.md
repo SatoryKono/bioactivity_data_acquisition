@@ -1034,4 +1034,3 @@ assert df_ordered.columns.tolist() == schema.column_order
 ---
 
 **Назад к обзору**: [00-architecture-overview.md](00-architecture-overview.md)
-

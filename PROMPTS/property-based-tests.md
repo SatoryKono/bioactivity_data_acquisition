@@ -212,7 +212,6 @@ from hypothesis import strategies as st
 
 from bioetl.<module> import <Component>
 
-
 @given(<strategy>())
 @settings(max_examples=200, deadline=None)
 def test_<component>_property(<parameter>):
@@ -330,4 +329,3 @@ markers =
 - При отсутствии Hypothesis тесты должны gracefully skip через `pytest.importorskip`
 - Использовать фиксированные стратегии для воспроизводимости
 - Фокусироваться на критических трансформациях согласно ACCEPTANCE_CRITERIA.md
-

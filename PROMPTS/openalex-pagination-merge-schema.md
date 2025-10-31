@@ -73,17 +73,15 @@ from bioetl.core.api_client import UnifiedAPIClient
 
 __all__ = ["CursorPaginator"]
 
-
 PageParser = Callable[[Any], Sequence[Mapping[str, Any]]]
-
 
 @dataclass(slots=True)
 class CursorPaginator:
     """Cursor-based paginator for OpenAlex API.
-    
+
     OpenAlex supports cursor pagination via 'cursor' query parameter
     and returns 'meta.next_cursor' in response for continuation.
-    
+
     Note:
         OpenAlex recommends using email in User-Agent header for
         "polite pool" access with higher rate limits.
@@ -101,16 +99,16 @@ class CursorPaginator:
         parser: PageParser | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all pages for OpenAlex API using cursor pagination.
-        
+
         Args:
             path: API endpoint path (e.g., '/works')
             unique_key: Key to use for duplicate detection (default: 'id')
             params: Base query parameters (filters, sort, select, etc.)
             parser: Function to extract items from API response
-        
+
         Returns:
             List of unique items (by unique_key)
-        
+
         Note:
             OpenAlex API uses 'cursor' parameter for pagination.
             Response contains 'results' array with items and
@@ -127,7 +125,7 @@ class CursorPaginator:
                 query["cursor"] = cursor
 
             payload = self.client.request_json(path, params=query)
-            
+
             if not isinstance(payload, dict):
                 break
 
@@ -141,13 +139,13 @@ class CursorPaginator:
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                
+
                 # Extract unique key value
                 key_value = item.get(unique_key)
                 if key_value is None:
                     # Skip items without unique key
                     continue
-                
+
                 key_str = str(key_value).strip()
                 if key_str and key_str not in seen:
                     seen.add(key_str)
@@ -161,7 +159,7 @@ class CursorPaginator:
             # Check for next cursor
             meta = payload.get("meta", {})
             next_cursor = meta.get("next_cursor")
-            
+
             if not next_cursor or len(filtered) < self.page_size:
                 break
 
@@ -209,15 +207,12 @@ from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["merge_openalex_with_base", "OPENALEX_MERGE_KEYS"]
 
-
 logger = UnifiedLogger.get(__name__)
-
 
 OPENALEX_MERGE_KEYS = {
     "primary": "doi_clean",  # Normalized DOI
     "fallback": ["openalex_doi", "openalex_id"],  # Fallback keys
 }
-
 
 def merge_openalex_with_base(
     base_df: pd.DataFrame,
@@ -228,17 +223,17 @@ def merge_openalex_with_base(
     conflict_detection: bool = True,
 ) -> pd.DataFrame:
     """Merge OpenAlex enrichment data with base document dataframe.
-    
+
     Args:
         base_df: Base dataframe (e.g., ChEMBL documents)
         openalex_df: OpenAlex enrichment dataframe
         base_doi_column: Column name in base_df with DOI for joining
         base_pmid_column: Optional column name in base_df with PMID for fallback join
         conflict_detection: Whether to detect DOI/PMID conflicts
-    
+
     Returns:
         Merged dataframe with OpenAlex data prefixed as 'openalex_*'
-    
+
     Strategy:
         - Primary join on normalized DOI (doi_clean)
         - Fallback join on OpenAlex ID if DOI missing
@@ -274,7 +269,7 @@ def merge_openalex_with_base(
 
     # Primary join on DOI
     merged_df = base_df.copy()
-    
+
     if base_doi_column in base_df.columns:
         merged_df = base_df.merge(
             openalex_prefixed,
@@ -292,12 +287,12 @@ def merge_openalex_with_base(
                 base_df_normalized[base_pmid_column],
                 errors="coerce",
             ).astype("Int64")
-            
+
             openalex_prefixed["openalex_pmid"] = pd.to_numeric(
                 openalex_prefixed["openalex_pmid"],
                 errors="coerce",
             ).astype("Int64")
-            
+
             merged_df = base_df_normalized.merge(
                 openalex_prefixed,
                 left_on=base_pmid_column,
@@ -317,7 +312,6 @@ def merge_openalex_with_base(
         merged_df = _detect_openalex_conflicts(merged_df, base_doi_column, base_pmid_column)
 
     return merged_df
-
 
 def _detect_openalex_conflicts(
     merged_df: pd.DataFrame,
@@ -367,10 +361,9 @@ __all__ = [
     "OpenAlexNormalizedSchema",
 ]
 
-
 class OpenAlexRawSchema(BaseSchema):
     """Schema for raw OpenAlex API response data.
-    
+
     Validates structure of OpenAlex 'results' items before normalization.
     """
 
@@ -393,10 +386,9 @@ class OpenAlexRawSchema(BaseSchema):
         coerce = True
         ordered = False
 
-
 class OpenAlexNormalizedSchema(BaseSchema):
     """Schema for normalized OpenAlex enrichment data.
-    
+
     Validates output of OpenAlexAdapter.normalize_record() and
     integration with document pipeline.
     """
@@ -475,11 +467,10 @@ from unittest.mock import MagicMock
 from bioetl.sources.openalex.pagination import CursorPaginator
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 
-
 def test_cursor_paginator_fetch_all():
     """Test cursor pagination with multiple pages."""
     client = MagicMock(spec=UnifiedAPIClient)
-    
+
     # First page response
     client.request_json.side_effect = [
         {
@@ -492,14 +483,14 @@ def test_cursor_paginator_fetch_all():
             "meta": {"next_cursor": None},  # Last page
         },
     ]
-    
+
     paginator = CursorPaginator(client, page_size=100)
-    
+
     works = paginator.fetch_all(
         "/works",
         params={"filter": "has_doi:true"},
     )
-    
+
     assert len(works) == 150
     assert all("id" in work for work in works)
     assert client.request_json.call_count == 2
@@ -516,27 +507,26 @@ import pandas as pd
 
 from bioetl.sources.openalex.merge import merge_openalex_with_base
 
-
 def test_merge_openalex_with_base():
     """Test merging OpenAlex data with base dataframe."""
     base_df = pd.DataFrame({
         "chembl_doi": ["10.1000/test.1", "10.1000/test.2"],
         "chembl_title": ["Title 1", "Title 2"],
     })
-    
+
     openalex_df = pd.DataFrame({
         "doi_clean": ["10.1000/test.1"],
         "openalex_title": ["OpenAlex Title 1"],
         "openalex_journal": ["Journal 1"],
         "openalex_is_oa": [True],
     })
-    
+
     merged = merge_openalex_with_base(
         base_df,
         openalex_df,
         base_doi_column="chembl_doi",
     )
-    
+
     assert "openalex_title" in merged.columns
     assert merged.loc[0, "openalex_title"] == "OpenAlex Title 1"
     assert pd.isna(merged.loc[1, "openalex_title"])
@@ -557,7 +547,6 @@ from bioetl.sources.openalex.schema import (
     OpenAlexNormalizedSchema,
 )
 
-
 def test_openalex_raw_schema():
     """Test validation of raw OpenAlex data."""
     df = pd.DataFrame({
@@ -565,11 +554,10 @@ def test_openalex_raw_schema():
         "title": ["Test Title"],
         "doi": ["https://doi.org/10.1000/test.1"],
     })
-    
+
     schema = OpenAlexRawSchema()
     validated = schema.validate(df)
     assert len(validated) == 1
-
 
 def test_openalex_normalized_schema():
     """Test validation of normalized OpenAlex data."""
@@ -579,7 +567,7 @@ def test_openalex_normalized_schema():
         "openalex_title": ["Test Title"],
         "openalex_is_oa": [True],
     })
-    
+
     schema = OpenAlexNormalizedSchema()
     validated = schema.validate(df)
     assert len(validated) == 1
@@ -602,4 +590,3 @@ def test_openalex_normalized_schema():
 - Схемы валидируют структуру до и после нормализации
 - OpenAlex-specific поля: concepts_top3, open_access (is_oa, oa_status, oa_url)
 - Рекомендуется использовать email в User-Agent для "polite pool" доступа
-

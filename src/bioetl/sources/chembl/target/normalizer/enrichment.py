@@ -9,11 +9,41 @@ import pandas as pd
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.parser import parse_api_response
 from bioetl.sources.iuphar.service import IupharService
-from bioetl.sources.uniprot.client import (
-    UniProtIdMappingClient,
-    UniProtOrthologsClient,
-    UniProtSearchClient,
-)
+from bioetl.sources.uniprot.client.idmapping_client import UniProtIdMappingClient
+from bioetl.sources.uniprot.client.orthologs_client import UniProtOrthologsClient
+# Import UniProtSearchClient from parent module client.py (not from client package)
+# The client.py version has the correct API (client, fields, batch_size, fetch_entries)
+try:
+    import sys
+    import importlib.util
+    from pathlib import Path
+    
+    # Get the path to client.py
+    # enrichment.py is in normalizer/ subdirectory, so we need one more parent
+    uniprot_dir = Path(__file__).parent.parent.parent.parent / "uniprot"
+    client_py_file = uniprot_dir / "client.py"
+    
+    if client_py_file.exists():
+        module_key = str(client_py_file)
+        if module_key in sys.modules:
+            client_module = sys.modules[module_key]
+        else:
+            spec = importlib.util.spec_from_file_location("bioetl.sources.uniprot.client", client_py_file)
+            if spec and spec.loader:
+                client_module = importlib.util.module_from_spec(spec)
+                client_module.__name__ = "bioetl.sources.uniprot.client"
+                client_module.__package__ = "bioetl.sources.uniprot"
+                client_module.__file__ = str(client_py_file)
+                sys.modules["bioetl.sources.uniprot.client"] = client_module
+                spec.loader.exec_module(client_module)
+            else:
+                raise ImportError("Could not create module spec")
+        UniProtSearchClient = client_module.UniProtSearchClient
+    else:
+        raise FileNotFoundError(f"client.py not found at {client_py_file}")
+except Exception:
+    # Fallback to package import
+    from bioetl.sources.uniprot.client import UniProtSearchClient
 from bioetl.sources.uniprot.normalizer import UniProtNormalizer
 
 __all__ = [

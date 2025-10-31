@@ -895,7 +895,7 @@ class NormalizerRegistry:
 
 SchemaRegistry:
 
-Централизованный реестр Pandera-схем с версионированием. Фасад `bioetl.core.unified_schema` предоставляет официальные точки входа `register_schema()`, `get_schema()`, `get_schema_metadata()` и `is_registered()` — модульный код не должен напрямую обращаться к внутренностям `SchemaRegistry`.(см.src/bioetl/core/unified_schema.py†L19-L82】(см.src/bioetl/schemas/registry.py†L22-L211】
+Централизованный реестр Pandera-схем с версионированием. Фасад `bioetl.core.unified_schema` предоставляет официальные точки входа `register_schema()`, `get_schema()`, `get_schema_metadata()` и `is_registered()` — модульный код не должен напрямую обращаться к внутренностям `SchemaRegistry`.(см. `src/bioetl/core/unified_schema.py` строки 19-82).(см. `src/bioetl/schemas/registry.py` строки 22-211).
 
 ```python
 class SchemaRegistry:
@@ -1071,7 +1071,7 @@ data = client.get("molecule/CHEMBL25.json")
 
 ## Источники норм и практик (минимум)
 
-- **RFC 2119/BCP 14** — трактовка MUST/SHOULD/MAY. 
+- **RFC 2119/BCP 14** — трактовка MUST/SHOULD/MAY.
 - **Pandera** — схемы/валидация датафреймов, fail-fast.
 - **Atomic Writes** — временный файл на той же ФС, fsync, атомарная замена.
 - **structlog** — структурное логирование (JSON/logfmt), интеграция со stdlib logging.

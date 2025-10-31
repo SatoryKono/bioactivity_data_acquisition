@@ -78,4 +78,3 @@
 - [ ] Пройдены: ruff, black, isort, mypy‑strict, pytest (+golden‑files), pandera‑validation.
 - [ ] Добавлены/обновлены QC‑отчёты и `meta.yaml` с lineage.
 - [ ] Все внешние вызовы через унифицированные клиенты; троттлинг/ретраи настроены.
-

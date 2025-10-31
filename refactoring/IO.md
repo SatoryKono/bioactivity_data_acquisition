@@ -26,7 +26,7 @@
     "request_id": "uuid-...",
     "endpoint": "https://api.example/...",
     "page": 3,
-    "cursor": "AoJ...", 
+    "cursor": "AoJ...",
     "status": 200,
     "retry_count": 1,
     "elapsed_ms": 1234
@@ -470,4 +470,3 @@ Pandera DataFrameSchema/Checks.
 Python hashlib SHA256 (`src/bioetl/core/hashing.py`) и `determinism.hash_algorithm` (`src/bioetl/configs/includes/determinism.yaml`).
 
 [^determinism-hash]: Конфигурация алгоритма детерминизма хранится в [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml) и устанавливает значение `sha256` для поля `hash_algorithm`.
-

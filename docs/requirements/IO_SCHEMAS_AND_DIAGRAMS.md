@@ -2604,4 +2604,3 @@ schema:
 - mode=all запускает независимые адаптеры с rate limits (PubMed batch 200, Crossref cursor rows≤1000, OpenAlex per_page≤200, Semantic Scholar graceful degradation). [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
 - QC отчёты: coverage (doi_coverage, pmid_coverage, title_coverage, journal_coverage), conflicts (doi, pmid), duplicates (CHEMBL, DOI+year, PMID), access_denied; meta.yaml фиксирует metrics и checksum. [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
 - AtomicWriter `.tmp` per run, deterministic CSV/Parquet; correlation report опционален. [ref: repo:docs/requirements/02-io-system.md@test_refactoring_32] [ref: repo:docs/requirements/09-document-chembl-extraction.md@test_refactoring_32]
-

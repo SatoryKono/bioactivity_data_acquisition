@@ -1570,4 +1570,3 @@ flowchart LR
 **Автор:** ETL Architecture Team
 
 **Следующий раздел:** Интеграция с другими модулями, см. [00-architecture-overview.md](00-architecture-overview.md)
-

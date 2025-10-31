@@ -73,14 +73,12 @@ from bioetl.core.api_client import UnifiedAPIClient
 
 __all__ = ["CursorPaginator"]
 
-
 PageParser = Callable[[Any], Sequence[Mapping[str, Any]]]
-
 
 @dataclass(slots=True)
 class CursorPaginator:
     """Cursor-based paginator for Crossref API.
-    
+
     Crossref supports cursor pagination via 'cursor' query parameter
     and returns 'next-cursor' in response for continuation.
     """
@@ -97,16 +95,16 @@ class CursorPaginator:
         parser: PageParser | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all pages for Crossref API using cursor pagination.
-        
+
         Args:
             path: API endpoint path (e.g., '/works')
             unique_key: Key to use for duplicate detection (default: 'DOI')
             params: Base query parameters (filters, facets, etc.)
             parser: Function to extract items from API response
-        
+
         Returns:
             List of unique items (by unique_key)
-        
+
         Note:
             Crossref API uses 'cursor' parameter for pagination.
             Response contains 'message' with 'items' array and
@@ -123,12 +121,12 @@ class CursorPaginator:
                 query["cursor"] = cursor
 
             payload = self.client.request_json(path, params=query)
-            
+
             if not isinstance(payload, dict) or "message" not in payload:
                 break
 
             message = payload["message"]
-            
+
             if parser is None:
                 # Default parser for Crossref works endpoint
                 items = message.get("items", [])
@@ -139,13 +137,13 @@ class CursorPaginator:
             for item in items:
                 if not isinstance(item, dict):
                     continue
-                
+
                 # Extract unique key value
                 key_value = item.get(unique_key)
                 if key_value is None:
                     # Skip items without unique key
                     continue
-                
+
                 key_str = str(key_value).strip()
                 if key_str and key_str not in seen:
                     seen.add(key_str)
@@ -201,15 +199,12 @@ from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["merge_crossref_with_base", "CROSSREF_MERGE_KEYS"]
 
-
 logger = UnifiedLogger.get(__name__)
-
 
 CROSSREF_MERGE_KEYS = {
     "primary": "doi_clean",  # Normalized DOI
     "fallback": ["crossref_doi"],  # Fallback keys if doi_clean missing
 }
-
 
 def merge_crossref_with_base(
     base_df: pd.DataFrame,
@@ -219,16 +214,16 @@ def merge_crossref_with_base(
     conflict_detection: bool = True,
 ) -> pd.DataFrame:
     """Merge Crossref enrichment data with base document dataframe.
-    
+
     Args:
         base_df: Base dataframe (e.g., ChEMBL documents)
         crossref_df: Crossref enrichment dataframe
         base_doi_column: Column name in base_df with DOI for joining
         conflict_detection: Whether to detect DOI conflicts
-    
+
     Returns:
         Merged dataframe with Crossref data prefixed as 'crossref_*'
-    
+
     Strategy:
         - Join on normalized DOI (doi_clean)
         - Prefix all Crossref columns with 'crossref_'
@@ -277,13 +272,12 @@ def merge_crossref_with_base(
 
     return merged_df
 
-
 def _detect_crossref_conflicts(
     merged_df: pd.DataFrame,
     base_doi_column: str,
 ) -> pd.DataFrame:
     """Detect DOI conflicts between base and Crossref.
-    
+
     Adds 'conflict_crossref_doi' column indicating when base DOI
     differs from Crossref DOI (should not happen for successful matches).
     """
@@ -302,7 +296,7 @@ def _detect_crossref_conflicts(
     if both_present.any():
         base_values = merged_df.loc[both_present, base_doi_column].astype(str).str.strip()
         crossref_values = merged_df.loc[both_present, "crossref_doi"].astype(str).str.strip()
-        
+
         conflicts = base_values != crossref_values
         merged_df.loc[both_present, "conflict_crossref_doi"] = conflicts
 
@@ -345,10 +339,9 @@ __all__ = [
     "CrossrefNormalizedSchema",
 ]
 
-
 class CrossrefRawSchema(BaseSchema):
     """Schema for raw Crossref API response data.
-    
+
     Validates structure of Crossref 'message' object before normalization.
     """
 
@@ -375,10 +368,9 @@ class CrossrefRawSchema(BaseSchema):
         coerce = True
         ordered = False
 
-
 class CrossrefNormalizedSchema(BaseSchema):
     """Schema for normalized Crossref enrichment data.
-    
+
     Validates output of CrossrefAdapter.normalize_record() and
     integration with document pipeline.
     """
@@ -451,11 +443,10 @@ from unittest.mock import MagicMock
 from bioetl.sources.crossref.pagination import CursorPaginator
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 
-
 def test_cursor_paginator_fetch_all():
     """Test cursor pagination with multiple pages."""
     client = MagicMock(spec=UnifiedAPIClient)
-    
+
     # First page response
     client.request_json.side_effect = [
         {
@@ -472,18 +463,18 @@ def test_cursor_paginator_fetch_all():
             }
         },
     ]
-    
+
     paginator = CursorPaginator(client, page_size=100)
-    
+
     def parse_works(message):
         return message.get("items", [])
-    
+
     works = paginator.fetch_all(
         "/works",
         params={"filter": "has-abstract:true"},
         parser=parse_works,
     )
-    
+
     assert len(works) == 150
     assert all("DOI" in work for work in works)
     assert client.request_json.call_count == 2
@@ -500,26 +491,25 @@ import pandas as pd
 
 from bioetl.sources.crossref.merge import merge_crossref_with_base
 
-
 def test_merge_crossref_with_base():
     """Test merging Crossref data with base dataframe."""
     base_df = pd.DataFrame({
         "chembl_doi": ["10.1000/test.1", "10.1000/test.2"],
         "chembl_title": ["Title 1", "Title 2"],
     })
-    
+
     crossref_df = pd.DataFrame({
         "doi_clean": ["10.1000/test.1"],
         "crossref_title": ["Crossref Title 1"],
         "crossref_journal": ["Journal 1"],
     })
-    
+
     merged = merge_crossref_with_base(
         base_df,
         crossref_df,
         base_doi_column="chembl_doi",
     )
-    
+
     assert "crossref_title" in merged.columns
     assert merged.loc[0, "crossref_title"] == "Crossref Title 1"
     assert pd.isna(merged.loc[1, "crossref_title"])
@@ -540,7 +530,6 @@ from bioetl.sources.crossref.schema import (
     CrossrefNormalizedSchema,
 )
 
-
 def test_crossref_raw_schema():
     """Test validation of raw Crossref data."""
     df = pd.DataFrame({
@@ -548,11 +537,10 @@ def test_crossref_raw_schema():
         "title": ["Test Title"],
         "container_title": ["Test Journal"],
     })
-    
+
     schema = CrossrefRawSchema()
     validated = schema.validate(df)
     assert len(validated) == 1
-
 
 def test_crossref_normalized_schema():
     """Test validation of normalized Crossref data."""
@@ -561,7 +549,7 @@ def test_crossref_normalized_schema():
         "crossref_doi": ["10.1000/test.1"],
         "crossref_title": ["Test Title"],
     })
-    
+
     schema = CrossrefNormalizedSchema()
     validated = schema.validate(df)
     assert len(validated) == 1
@@ -583,4 +571,3 @@ def test_crossref_normalized_schema():
 - Merge политика: join по `doi_clean` (нормализованный DOI)
 - Схемы валидируют структуру до и после нормализации
 - Все модули опциональны (SHOULD) согласно MODULE_RULES.md
-

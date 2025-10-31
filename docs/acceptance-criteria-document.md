@@ -47,4 +47,3 @@
 - **Metadata contract** — `tests/unit/test_output_writer.py` и `tests/integration/
   pipelines/test_extended_mode_outputs.py` валидируют наличие новых полей
   `stage_durations_ms`, `sort_keys`, `pii_secrets_policy` и `config_version`.
-

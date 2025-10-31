@@ -68,15 +68,14 @@ from bioetl.core.api_client import UnifiedAPIClient
 
 __all__ = ["WebEnvPaginator"]
 
-
 @dataclass(slots=True)
 class WebEnvPaginator:
     """Paginator for PubMed E-utilities using WebEnv/QueryKey pattern.
-    
+
     PubMed uses a two-step process:
     1. esearch: Get WebEnv and QueryKey for a search query
     2. efetch: Fetch records using WebEnv/QueryKey in batches
-    
+
     This paginator handles the WebEnv/QueryKey lifecycle.
     """
 
@@ -90,41 +89,41 @@ class WebEnvPaginator:
         fetch_params: Mapping[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all records for a PubMed search using WebEnv/QueryKey.
-        
+
         Args:
             search_params: Parameters for esearch (query, db='pubmed', retmax, etc.)
             fetch_params: Parameters for efetch (retmode, rettype, etc.)
-        
+
         Returns:
             List of PubMed records
-        
+
         Process:
             1. Call esearch to get WebEnv and QueryKey
             2. Call efetch in batches using WebEnv/QueryKey
             3. Parse and return all records
         """
         from bioetl.sources.pubmed.parser import parse_esearch_response, parse_efetch_response
-        
+
         # Step 1: esearch to get WebEnv and QueryKey
         esearch_path = "/esearch.fcgi"
         esearch_params = dict(search_params)
         esearch_params.setdefault("db", "pubmed")
         esearch_params.setdefault("retmax", 10000)  # Max records per query
         esearch_params.setdefault("usehistory", "y")  # Enable WebEnv
-        
+
         esearch_response = self.client.request_json(esearch_path, params=esearch_params)
         web_env, query_key, total_count = parse_esearch_response(esearch_response)
-        
+
         if not web_env or not query_key:
             return []
-        
+
         # Step 2: efetch in batches
         all_records = []
         fetch_defaults = dict(fetch_params or {})
         fetch_defaults.setdefault("db", "pubmed")
         fetch_defaults.setdefault("retmode", "xml")
         fetch_defaults.setdefault("rettype", "abstract")
-        
+
         offset = 0
         while offset < total_count:
             fetch_params_batch = dict(fetch_defaults)
@@ -132,21 +131,21 @@ class WebEnvPaginator:
             fetch_params_batch["query_key"] = query_key
             fetch_params_batch["retstart"] = offset
             fetch_params_batch["retmax"] = min(self.batch_size, total_count - offset)
-            
+
             efetch_path = "/efetch.fcgi"
             efetch_response = self.client.request_text(efetch_path, params=fetch_params_batch)
-            
+
             # Parse XML response
             records = parse_efetch_response(efetch_response)
             if not records:
                 break
-            
+
             all_records.extend(records)
             offset += len(records)
-            
+
             if len(records) < self.batch_size:
                 break
-        
+
         return all_records
 ```
 
@@ -167,15 +166,12 @@ from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["merge_pubmed_with_base", "PUBMED_MERGE_KEYS"]
 
-
 logger = UnifiedLogger.get(__name__)
-
 
 PUBMED_MERGE_KEYS = {
     "primary": "pmid",  # PubMed ID (integer)
     "fallback": ["pubmed_pmid", "doi_clean"],  # Fallback keys
 }
-
 
 def merge_pubmed_with_base(
     base_df: pd.DataFrame,
@@ -186,17 +182,17 @@ def merge_pubmed_with_base(
     conflict_detection: bool = True,
 ) -> pd.DataFrame:
     """Merge PubMed enrichment data with base document dataframe.
-    
+
     Args:
         base_df: Base dataframe (e.g., ChEMBL documents)
         pubmed_df: PubMed enrichment dataframe
         base_pmid_column: Column name in base_df with PMID for joining
         base_doi_column: Optional column name in base_df with DOI for fallback join
         conflict_detection: Whether to detect PMID/DOI conflicts
-    
+
     Returns:
         Merged dataframe with PubMed data prefixed as 'pubmed_*'
-    
+
     Strategy:
         - Primary join on PMID (integer)
         - Fallback join on DOI if PMID missing
@@ -229,7 +225,7 @@ def merge_pubmed_with_base(
 
     # Primary join on PMID
     merged_df = base_df.copy()
-    
+
     if base_pmid_column in base_df.columns:
         # Normalize base PMID to integer
         base_df_normalized = base_df.copy()
@@ -237,7 +233,7 @@ def merge_pubmed_with_base(
             base_df_normalized[base_pmid_column],
             errors="coerce",
         ).astype("Int64")
-        
+
         merged_df = base_df_normalized.merge(
             pubmed_prefixed,
             left_on=base_pmid_column,
@@ -267,7 +263,6 @@ def merge_pubmed_with_base(
         merged_df = _detect_pubmed_conflicts(merged_df, base_pmid_column, base_doi_column)
 
     return merged_df
-
 
 def _detect_pubmed_conflicts(
     merged_df: pd.DataFrame,
@@ -314,10 +309,9 @@ __all__ = [
     "PubMedNormalizedSchema",
 ]
 
-
 class PubMedRawSchema(BaseSchema):
     """Schema for raw PubMed XML parsed data.
-    
+
     Validates structure of parsed PubMed article elements.
     """
 
@@ -343,7 +337,6 @@ class PubMedRawSchema(BaseSchema):
         strict = True
         coerce = True
         ordered = False
-
 
 class PubMedNormalizedSchema(BaseSchema):
     """Schema for normalized PubMed enrichment data."""
@@ -429,4 +422,3 @@ class PubMedNormalizedSchema(BaseSchema):
 - Merge политика: primary join на PMID, fallback на DOI
 - Схемы валидируют структуру до и после нормализации
 - PMID должен быть integer (Int64) для корректного join
-

@@ -104,4 +104,3 @@ molecule_chembl_id,molregno,pref_name,parent_chembl_id,max_phase,structure_type,
 ---
 
 **Финальный статус:** ✅ Полное соответствие схем достигнуто для всех трех пайплайнов
-

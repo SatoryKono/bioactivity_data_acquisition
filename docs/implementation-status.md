@@ -285,4 +285,3 @@ python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; confi
 ## Заключение
 
 Базовая инфраструктура полностью готова и протестирована. Основные компоненты (logger, config, API client, normalizers) работают корректно. Следующий шаг - реализация Pandera схем и Schema Registry для валидации данных.
-

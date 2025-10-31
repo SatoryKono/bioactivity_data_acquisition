@@ -18,8 +18,6 @@
 **Backoff/Retry**: клиенты обязаны уважать HTTP Retry-After и корректно обрабатывать 429/503 при троттлинге и деградации сервиса.
 [datatracker.ietf.org @test_refactoring_32](https://datatracker.ietf.org/doc/html/rfc7231#section-7.1.3)
 
-
-
 ## Источники истины (@test_refactoring_32)
 
 - [ref: repo:docs/requirements/PIPELINES.inventory.csv@test_refactoring_32] — актуальный CSV-слепок пайплайнов.
@@ -39,7 +37,6 @@
 **SHOULD**: модульные тесты на каждый слой и интеграционные тесты на пайплайн.
 
 **MUST NOT**: дублирующие реализации client/adapter/normalizer/schema/output за пределами `core/` и шаблона источника.
-
 
 # 3. Базовая структура каждого пайплайна (@test_refactoring_32)
 
@@ -72,7 +69,6 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.output_writer import OutputArtifacts
-
 
 class PipelineBase(ABC):
     @abstractmethod
@@ -277,7 +273,6 @@ class PipelineBase(ABC):
 
 # 11. Шаблоны разделов (@test_refactoring_32)
 
-
 ## 11.1 Карта источников (@test_refactoring_32)
 
 ```markdown
@@ -287,7 +282,6 @@ class PipelineBase(ABC):
 | Crossref | publications | metadata | /works, /funders | RPS=N | none | ... |
 ...
 ```
-
 
 ## 11.2 Спецификация пайплайна <source> (@test_refactoring_32)
 
@@ -302,7 +296,6 @@ Risks: <лимиты, нестабильные поля, схемные расх
 Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
     [ref: repo:tests/bioetl/sources/<source>/@test_refactoring_32]
 ```
-
 
 ## 11.3 Единые правила именования и раскладки (@test_refactoring_32)
 
@@ -328,7 +321,6 @@ Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
 
 Все пайплайны используют унифицированные компоненты из `src/bioetl/core/`:
 
-
 ## 13.1 UnifiedLogger (@test_refactoring_32)
 
 **Назначение**: структурированное, безопасное, воспроизводимое логирование.
@@ -350,7 +342,6 @@ Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
 - testing: text, WARNING, telemetry off
 
 📄 **Полное описание**: [docs/requirements/01-logging-system.md @test_refactoring_32](../docs/requirements/01-logging-system.md)
-
 
 ## 13.2 UnifiedOutputWriter (@test_refactoring_32)
 
@@ -378,7 +369,6 @@ Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
 
 📄 **Полное описание**: [docs/requirements/02-io-system.md @test_refactoring_32](../docs/requirements/02-io-system.md)
 
-
 ## 13.3 UnifiedAPIClient (@test_refactoring_32)
 
 **Назначение**: надежный, масштабируемый доступ к внешним API.
@@ -398,7 +388,6 @@ Links: [ref: repo:src/bioetl/sources/<source>/@test_refactoring_32],
 - 5xx: exponential backoff, retry
 
 📄 **Полное описание**: [docs/requirements/03-data-extraction.md @test_refactoring_32](../docs/requirements/03-data-extraction.md)
-
 
 ## 13.4 UnifiedSchema (@test_refactoring_32)
 

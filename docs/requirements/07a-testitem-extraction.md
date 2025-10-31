@@ -1966,4 +1966,3 @@ determinism:
 - [03-data-extraction.md](./03-data-extraction.md) — Паттерны извлечения данных
 
 - [04-normalization-validation.md](./04-normalization-validation.md) — QC и валидация
-

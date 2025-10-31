@@ -79,11 +79,10 @@ from bioetl.core.api_client import UnifiedAPIClient
 
 __all__ = ["OffsetPaginator"]
 
-
 @dataclass(slots=True)
 class OffsetPaginator:
     """Offset-based paginator for Semantic Scholar search endpoint.
-    
+
     Note:
         Semantic Scholar search endpoint supports limit/offset pagination.
         Maximum limit is typically 1000 per request.
@@ -101,15 +100,15 @@ class OffsetPaginator:
         max_items: int | None = None,
     ) -> list[dict[str, Any]]:
         """Fetch all pages for Semantic Scholar search endpoint.
-        
+
         Args:
             path: API endpoint path (e.g., '/paper/search')
             params: Base query parameters (query, fields, etc.)
             max_items: Maximum number of items to fetch (None = all)
-        
+
         Returns:
             List of items from search results
-        
+
         Note:
             Semantic Scholar search uses offset/limit pagination.
             Response contains 'data' array with items.
@@ -124,12 +123,12 @@ class OffsetPaginator:
             query["offset"] = offset
 
             payload = self.client.request_json(path, params=query)
-            
+
             if not isinstance(payload, dict):
                 break
 
             items = payload.get("data", [])
-            
+
             if not items:
                 break
 
@@ -166,15 +165,12 @@ from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["merge_semantic_scholar_with_base", "SEMANTIC_SCHOLAR_MERGE_KEYS"]
 
-
 logger = UnifiedLogger.get(__name__)
-
 
 SEMANTIC_SCHOLAR_MERGE_KEYS = {
     "primary": "doi_clean",  # Normalized DOI
     "fallback": ["semantic_scholar_doi", "semantic_scholar_pmid", "semantic_scholar_paper_id"],
 }
-
 
 def merge_semantic_scholar_with_base(
     base_df: pd.DataFrame,
@@ -185,17 +181,17 @@ def merge_semantic_scholar_with_base(
     conflict_detection: bool = True,
 ) -> pd.DataFrame:
     """Merge Semantic Scholar enrichment data with base document dataframe.
-    
+
     Args:
         base_df: Base dataframe (e.g., ChEMBL documents)
         semantic_scholar_df: Semantic Scholar enrichment dataframe
         base_doi_column: Column name in base_df with DOI for joining
         base_pmid_column: Optional column name in base_df with PMID for joining
         conflict_detection: Whether to detect DOI/PMID conflicts
-    
+
     Returns:
         Merged dataframe with Semantic Scholar data prefixed as 'semantic_scholar_*'
-    
+
     Strategy:
         - Primary join on normalized DOI (doi_clean)
         - Fallback join on PMID (pubmed_id) if DOI missing
@@ -233,7 +229,7 @@ def merge_semantic_scholar_with_base(
 
     # Primary join on DOI
     merged_df = base_df.copy()
-    
+
     if base_doi_column in base_df.columns:
         merged_df = base_df.merge(
             ss_prefixed,
@@ -251,12 +247,12 @@ def merge_semantic_scholar_with_base(
                 base_df_normalized[base_pmid_column],
                 errors="coerce",
             ).astype("Int64")
-            
+
             ss_prefixed["semantic_scholar_pmid"] = pd.to_numeric(
                 ss_prefixed["semantic_scholar_pubmed_id"],
                 errors="coerce",
             ).astype("Int64")
-            
+
             merged_df = base_df_normalized.merge(
                 ss_prefixed,
                 left_on=base_pmid_column,
@@ -276,7 +272,6 @@ def merge_semantic_scholar_with_base(
         merged_df = _detect_semantic_scholar_conflicts(merged_df, base_doi_column, base_pmid_column)
 
     return merged_df
-
 
 def _detect_semantic_scholar_conflicts(
     merged_df: pd.DataFrame,
@@ -323,10 +318,9 @@ __all__ = [
     "SemanticScholarNormalizedSchema",
 ]
 
-
 class SemanticScholarRawSchema(BaseSchema):
     """Schema for raw Semantic Scholar API response data.
-    
+
     Validates structure of Semantic Scholar paper objects before normalization.
     """
 
@@ -350,10 +344,9 @@ class SemanticScholarRawSchema(BaseSchema):
         coerce = True
         ordered = False
 
-
 class SemanticScholarNormalizedSchema(BaseSchema):
     """Schema for normalized Semantic Scholar enrichment data.
-    
+
     Validates output of SemanticScholarAdapter.normalize_record() and
     integration with document pipeline.
     """
@@ -438,4 +431,3 @@ class SemanticScholarNormalizedSchema(BaseSchema):
 - Схемы валидируют структуру до и после нормализации
 - Semantic Scholar-specific поля: citation_count, influential_citations, fields_of_study
 - API key рекомендуется для production использования (более высокие rate limits)
-

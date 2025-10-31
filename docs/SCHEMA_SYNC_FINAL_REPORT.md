@@ -255,4 +255,3 @@ index: 0
 
 - ❌ Target schemas (4 таблицы)
 - ❌ DocumentSchema (unified multi-source)
-

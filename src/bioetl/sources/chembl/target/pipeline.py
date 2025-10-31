@@ -27,8 +27,44 @@ from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 from bioetl.sources.uniprot.client import (
     UniProtIdMappingClient,
     UniProtOrthologsClient,
-    UniProtSearchClient,
 )
+# Import UniProtSearchClient directly from client.py module (not from client package)
+# The client package __init__.py exports from search_client.py which has different API
+# We need the version from client.py which has (client, fields, batch_size) API
+try:
+    import sys
+    import importlib.util
+
+    # Get the path to client.py
+    uniprot_dir = Path(__file__).parent.parent.parent / "uniprot"
+    client_py_file = uniprot_dir / "client.py"
+
+    if client_py_file.exists():
+        # Check if already loaded
+        module_key = str(client_py_file)
+        if module_key in sys.modules:
+            client_module = sys.modules[module_key]
+        else:
+            # Load the module directly from the file
+            spec = importlib.util.spec_from_file_location("bioetl.sources.uniprot.client", client_py_file)
+            if spec and spec.loader:
+                client_module = importlib.util.module_from_spec(spec)
+                # Set proper module attributes for imports to work
+                client_module.__name__ = "bioetl.sources.uniprot.client"
+                client_module.__package__ = "bioetl.sources.uniprot"
+                client_module.__file__ = str(client_py_file)
+                # Register in sys.modules so imports work
+                sys.modules["bioetl.sources.uniprot.client"] = client_module
+                # Execute the module
+                spec.loader.exec_module(client_module)
+            else:
+                raise ImportError("Could not create module spec")
+        UniProtSearchClient = client_module.UniProtSearchClient
+    else:
+        raise FileNotFoundError(f"client.py not found at {client_py_file}")
+except Exception:
+    # Fallback to package import (will use search_client.py version)
+    from bioetl.sources.uniprot.client import UniProtSearchClient
 from bioetl.utils.qc import (
     prepare_missing_mappings,
     update_summary_metrics,

@@ -3240,4 +3240,3 @@ python -m scripts.get_document_data \
 - [Semantic Scholar API](https://api.semanticscholar.org/)
 
 - [Semantic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)
-

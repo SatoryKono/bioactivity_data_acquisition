@@ -312,4 +312,3 @@ git push origin hotfix/pr-X-rollback
 - [implementation-examples.md](implementation-examples.md) — патчи кода
 
 - `CHANGELOG.md` — фиксация изменений
-

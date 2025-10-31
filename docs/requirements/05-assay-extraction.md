@@ -1084,4 +1084,3 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 8. **Atomic writes:** Run-scoped temp dirs, os.replace() для Windows compatibility
 
 Все изменения направлены на обеспечение **детерминизма**, **воспроизводимости** и **полной прослеживаемости** данных.
-

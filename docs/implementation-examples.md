@@ -568,4 +568,3 @@ def test_atomic_write_no_partial(mocker):
 - [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
 
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift
-

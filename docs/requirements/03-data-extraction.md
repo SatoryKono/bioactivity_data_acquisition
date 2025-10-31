@@ -1321,4 +1321,3 @@ assert "Client error, giving up" in log_output
 ---
 
 **Следующий раздел**: [04-normalization-validation.md](04-normalization-validation.md)
-

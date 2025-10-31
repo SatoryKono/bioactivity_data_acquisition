@@ -89,7 +89,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         self.parser = AssayParser()
         self.normalizer = AssayNormalizer()
         self.merge_service = AssayMergeService()
-        self.output_writer = AssayOutputWriter(
+        self.assay_output_writer = AssayOutputWriter(
             {
                 "chembl_release": self.chembl_release,
                 "run_id": self.run_id,
@@ -150,7 +150,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         if release:
             self.chembl_release = release
             self.run_metadata["chembl_release"] = release
-            self.output_writer.update_release(release)
+            self.assay_output_writer.update_release(release)
             logger.info("chembl_status_captured", chembl_release=release, base_url=self.chembl_base_url)
         else:
             logger.warning("chembl_status_missing_release", base_url=self.chembl_base_url)
@@ -210,7 +210,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
                 payload,
                 self.chembl_release,
             ),
-            fallback_factory=self.output_writer.register_fallback,
+            fallback_factory=self.assay_output_writer.register_fallback,
         )
 
         if not records:
@@ -380,7 +380,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         base_df = df.copy()
         base_df["row_subtype"] = "assay"
         base_df["row_index"] = 0
-        base_df = self.output_writer.materialize_base(base_df)
+        base_df = self.assay_output_writer.materialize_base(base_df)
 
         target_ids_series = base_df.get("target_chembl_id")
         if target_ids_series is not None:
@@ -389,7 +389,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
                 target_reference = self._fetch_target_reference_data(target_id_list)
                 base_df = self.normalizer.enrich_targets(base_df, target_reference)
 
-        params_df = self.output_writer.materialize_parameters(
+        params_df = self.assay_output_writer.materialize_parameters(
             self.parser.expand_parameters(base_df)
         )
 
@@ -400,7 +400,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
                 class_reference = self._fetch_assay_class_reference_data(class_ids)
                 classes_df = self.normalizer.enrich_assay_classes(classes_df, class_reference)
 
-        classes_df = self.output_writer.materialize_classifications(classes_df)
+        classes_df = self.assay_output_writer.materialize_classifications(classes_df)
 
         df = self.merge_service.merge_frames(base_df, params_df, classes_df)
 

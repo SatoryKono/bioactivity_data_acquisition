@@ -4,7 +4,7 @@
 
 0. Нормативная база
 
-Ключевые слова требований интерпретируются по RFC 2119/BCP 14: MUST, MUST NOT, SHOULD, MAY. 
+Ключевые слова требований интерпретируются по RFC 2119/BCP 14: MUST, MUST NOT, SHOULD, MAY.
 datatracker.ietf.org
 +1
 
@@ -168,7 +168,7 @@ merge_policy: join по doi_norm
 tests_required: unit (client/parser/normalizer/schema), e2e с golden
 
 risks: вариативный container-title, неоднородные авторские форматы
-Подтверждающие спецификации: Crossref REST API, Swagger, рекомендации по использованию. 
+Подтверждающие спецификации: Crossref REST API, Swagger, рекомендации по использованию.
 GitHub
 +4
 www.crossref.org
@@ -189,7 +189,7 @@ merge_policy: pmid → document_id и/или join с doi_norm
 tests_required: unit+e2e; проверка батч-паттерна esearch → efetch
 
 risks: лимиты, пагинация, неполные DOI
-Опора: страницы NCBI об E-utilities и обзорные материалы. 
+Опора: страницы NCBI об E-utilities и обзорные материалы.
 joshuadull.github.io
 +4
 ncbi.nlm.nih.gov
@@ -210,7 +210,7 @@ merge_policy: join по doi_norm/openalex_id
 tests_required: unit+e2e; проверка курсорной пагинации и стабилизации ID
 
 risks: неполные/рассинхроненные DOI
-Опора: OpenAlex overview, API overview, Works/Authors объекты. 
+Опора: OpenAlex overview, API overview, Works/Authors объекты.
 OpenAlex
 +4
 OpenAlex
@@ -231,7 +231,7 @@ merge_policy: join по doi_norm/paperId
 tests_required: unit+e2e; проверка лимитов и усечения полей
 
 risks: нестабильные поля ссылок, ограничения размера ответа
-Опора: официальные API-страницы и лимиты/ограничения. 
+Опора: официальные API-страницы и лимиты/ограничения.
 Semantic Scholar API
 +2
 Semantic Scholar
@@ -250,7 +250,7 @@ merge_policy: molecule_chembl_id/assay_id
 tests_required: unit+e2e; golden на свод единиц и преобразования standard_value
 
 risks: неоднородность единиц активностей, большие ответы
-Опора: ChEMBL Web Services и training-материалы. 
+Опора: ChEMBL Web Services и training-материалы.
 chembl.gitbook.io
 +2
 chembl.github.io
@@ -269,7 +269,7 @@ merge_policy: по uniprot_ac (c отделением версии) и/или м
 tests_required: unit+e2e; проверка полей и HTTP-заголовков/статусов
 
 risks: различия версий AC, изменение схемы полей
-Опора: UniProt REST API и справка по query/headers/id-mapping. 
+Опора: UniProt REST API и справка по query/headers/id-mapping.
 UniProt
 +3
 UniProt
@@ -290,7 +290,7 @@ merge_policy: по cid/sid
 tests_required: unit+e2e; проверка пакетных запросов и стабильности полей
 
 risks: объём ответов, ограничения по структурам/поиску
-Опора: PUG-REST и PUG-View. 
+Опора: PUG-REST и PUG-View.
 PubChem
 +2
 PubChem
@@ -309,7 +309,7 @@ merge_policy: ligand_id/target_id и маппинги на UniProt/HGNC
 tests_required: unit+e2e; проверка целостности маппингов
 
 risks: частичные поля, обновления структуры JSON
-Опора: веб-сервисы GtoP и публикации-описания. 
+Опора: веб-сервисы GtoP и публикации-описания.
 pmc.ncbi.nlm.nih.gov
 +3
 guidetopharmacology.org
@@ -495,7 +495,7 @@ Merge-ключи и приоритизация источников опреде
 
 11. Примечания по API-лимитам и пагинации (SHOULD)
 
-Карточки источников SHOULD фиксировать лимиты и пагинацию, если они документированы провайдерами: OpenAlex лимиты в техдоке; Semantic Scholar ограничения размера и частоты; ChEMBL пагинация; PubMed паттерн esearch/efetch. Эти сведения обязательны для настройки retries, backoff и rate_limit_rps в config_keys. 
+Карточки источников SHOULD фиксировать лимиты и пагинацию, если они документированы провайдерами: OpenAlex лимиты в техдоке; Semantic Scholar ограничения размера и частоты; ChEMBL пагинация; PubMed паттерн esearch/efetch. Эти сведения обязательны для настройки retries, backoff и rate_limit_rps в config_keys.
 ncbi.nlm.nih.gov
 +4
 OpenAlex
@@ -505,5 +505,5 @@ Semantic Scholar API
 
 12. Язык требований
 
-В тексте перечня допускается только терминология из спецификаций соответствующих API и RFC 2119. Любые «вольные» поля и незафиксированные преобразования запрещены (MUST NOT). 
+В тексте перечня допускается только терминология из спецификаций соответствующих API и RFC 2119. Любые «вольные» поля и незафиксированные преобразования запрещены (MUST NOT).
 ietf.org

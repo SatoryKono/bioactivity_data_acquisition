@@ -285,4 +285,3 @@ qc_report = {
 - Зелёный CI pipeline
 
 - Golden-run проходит бит-в-бит
-

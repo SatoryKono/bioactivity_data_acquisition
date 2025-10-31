@@ -469,4 +469,3 @@ def test_atomic_write_failure():
 - [04-normalization-validation.md](requirements/04-normalization-validation.md) — тесты schema drift
 
 - [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md) — тесты activity пайплайна
-

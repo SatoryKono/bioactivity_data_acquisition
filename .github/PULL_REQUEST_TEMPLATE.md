@@ -14,4 +14,3 @@
 
 - Issue/Task:
 - Preview (если есть):
-

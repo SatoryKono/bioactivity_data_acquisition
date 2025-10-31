@@ -795,4 +795,3 @@ python scripts/verify_golden_checksums.py
 - ✓ NA-policy: строки→"", числа→pd.NA
 - ✓ Precision-policy: %.6f для standard_value
 - ✓ Checksums совпадают при повторных прогонах
-

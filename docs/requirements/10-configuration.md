@@ -329,4 +329,3 @@ bioetl pipeline run --config configs/pipelines/testitem.yaml \
 - Набор линтеров (`ruff`, `mypy`) должен проверять, что `PipelineConfig` не допускает неизвестных полей (`model_config = ConfigDict(extra="forbid")`).
 
 Применение этого стандарта обеспечивает единообразие конфигураций, избавляет от копипасты YAML и упрощает сопровождение CLI/CI-переопределений.
-

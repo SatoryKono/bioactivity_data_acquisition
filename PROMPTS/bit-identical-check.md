@@ -109,16 +109,13 @@ from bioetl.pipelines.base import PipelineBase
 
 pytestmark = pytest.mark.integration
 
-
 def _file_sha256(path: Path) -> str:
     """Calculate SHA256 hash of file contents."""
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
-
 def _compare_files_bitwise(path1: Path, path2: Path) -> bool:
     """Compare two files byte-by-byte."""
     return path1.read_bytes() == path2.read_bytes()
-
 
 @pytest.mark.determinism
 def test_pipeline_output_is_bit_identical_on_repeated_runs(
@@ -128,37 +125,37 @@ def test_pipeline_output_is_bit_identical_on_repeated_runs(
     input_file: Path | None = None,
 ) -> None:
     """Two consecutive runs with same input should produce bit-identical outputs."""
-    
+
     config = load_config(config_path)
-    
+
     # Первый запуск
     run1_dir = tmp_path / "run1"
     run1_dir.mkdir()
     pipeline1 = pipeline_class(config, "run1")
     artifacts1 = pipeline1.run(run1_dir / "output.csv", input_file=input_file)
-    
+
     # Второй запуск
     run2_dir = tmp_path / "run2"
     run2_dir.mkdir()
     pipeline2 = pipeline_class(config, "run2")
     artifacts2 = pipeline2.run(run2_dir / "output.csv", input_file=input_file)
-    
+
     # Проверка бит-идентичности основных файлов
     assert _compare_files_bitwise(artifacts1.dataset, artifacts2.dataset), \
         "Dataset files must be bit-identical"
-    
+
     # Проверка хэшей
     hash1 = _file_sha256(artifacts1.dataset)
     hash2 = _file_sha256(artifacts2.dataset)
     assert hash1 == hash2, f"Dataset SHA256 mismatch: {hash1} != {hash2}"
-    
+
     # Проверка quality_report (если есть)
     if artifacts1.quality_report and artifacts2.quality_report:
         assert _compare_files_bitwise(
-            artifacts1.quality_report, 
+            artifacts1.quality_report,
             artifacts2.quality_report
         ), "Quality report files must be bit-identical"
-    
+
     # Проверка metadata (исключая поля времени)
     # См. helper для нормализации meta.yaml
 ```
@@ -177,14 +174,13 @@ from typing import Any
 
 import yaml
 
-
 def calculate_file_hash(path: Path, algorithm: str = "sha256") -> str:
     """Calculate hash of file contents.
-    
+
     Args:
         path: Path to file
         algorithm: Hash algorithm (sha256, md5, etc.)
-    
+
     Returns:
         Hex digest of file hash
     """
@@ -192,79 +188,76 @@ def calculate_file_hash(path: Path, algorithm: str = "sha256") -> str:
     hasher.update(path.read_bytes())
     return hasher.hexdigest()
 
-
 def compare_files_bitwise(path1: Path, path2: Path) -> tuple[bool, str | None]:
     """Compare two files byte-by-byte.
-    
+
     Returns:
         Tuple of (are_identical, error_message)
     """
     bytes1 = path1.read_bytes()
     bytes2 = path2.read_bytes()
-    
+
     if bytes1 == bytes2:
         return True, None
-    
+
     # Найти первое различие
     min_len = min(len(bytes1), len(bytes2))
     for i in range(min_len):
         if bytes1[i] != bytes2[i]:
             return False, f"Files differ at byte offset {i}: 0x{bytes1[i]:02x} != 0x{bytes2[i]:02x}"
-    
+
     if len(bytes1) != len(bytes2):
         return False, f"Files differ in length: {len(bytes1)} != {len(bytes2)}"
-    
-    return False, "Unknown difference"
 
+    return False, "Unknown difference"
 
 def normalize_meta_yaml_for_comparison(path: Path) -> dict[str, Any]:
     """Load meta.yaml and normalize time fields for comparison.
-    
+
     Removes or normalizes fields that may differ between runs:
     - generated_at
     - extracted_at (если отличается только время)
     - run_id (может отличаться)
-    
+
     Args:
         path: Path to meta.yaml file
-    
+
     Returns:
         Normalized metadata dict
     """
     with path.open(encoding="utf-8") as f:
         meta = yaml.safe_load(f)
-    
+
     # Удалить поля времени для сравнения
     meta_normalized = meta.copy()
     meta_normalized.pop("generated_at", None)
-    
+
     # Нормализовать extracted_at (если нужно, оставить только дату)
     if "extracted_at" in meta_normalized:
         # Можно оставить только дату или удалить полностью
         pass
-    
+
     # Удалить run_id если он разный
     meta_normalized.pop("run_id", None)
-    
-    return meta_normalized
 
+    return meta_normalized
 
 def compare_meta_yaml(path1: Path, path2: Path) -> tuple[bool, str | None]:
     """Compare two meta.yaml files excluding time fields.
-    
+
     Returns:
         Tuple of (are_identical, error_message)
     """
     meta1 = normalize_meta_yaml_for_comparison(path1)
     meta2 = normalize_meta_yaml_for_comparison(path2)
-    
+
     if meta1 == meta2:
         return True, None
-    
+
     # Найти различия
     keys1 = set(meta1.keys())
     keys2 = set(meta2.keys())
-    
+
     missing_in_2 = keys1 - keys2
     missing_in_1 = keys2 - keys1
     different_values = {
@@ -272,7 +265,7 @@ def compare_meta_yaml(path1: Path, path2: Path) -> tuple[bool, str | None]:
         for k in keys1 & keys2
         if meta1[k] != meta2[k]
     }
-    
+
     errors = []
     if missing_in_2:
         errors.append(f"Keys missing in file2: {missing_in_2}")
@@ -280,9 +273,8 @@ def compare_meta_yaml(path1: Path, path2: Path) -> tuple[bool, str | None]:
         errors.append(f"Keys missing in file1: {missing_in_1}")
     if different_values:
         errors.append(f"Different values: {different_values}")
-    
-    return False, "; ".join(errors)
 
+    return False, "; ".join(errors)
 
 def verify_bit_identical_outputs(
     artifacts1: Any,  # OutputArtifacts
@@ -290,22 +282,22 @@ def verify_bit_identical_outputs(
     ignore_meta_time: bool = True,
 ) -> tuple[bool, list[str]]:
     """Verify that two pipeline outputs are bit-identical.
-    
+
     Args:
         artifacts1: First run artifacts
         artifacts2: Second run artifacts
         ignore_meta_time: Whether to ignore time fields in meta.yaml
-    
+
     Returns:
         Tuple of (are_identical, list_of_errors)
     """
     errors = []
-    
+
     # Проверка dataset
     identical, error = compare_files_bitwise(artifacts1.dataset, artifacts2.dataset)
     if not identical:
         errors.append(f"Dataset mismatch: {error}")
-    
+
     # Проверка quality_report (если есть)
     if artifacts1.quality_report and artifacts2.quality_report:
         identical, error = compare_files_bitwise(
@@ -314,17 +306,17 @@ def verify_bit_identical_outputs(
         )
         if not identical:
             errors.append(f"Quality report mismatch: {error}")
-    
+
     # Проверка metadata
     if artifacts1.metadata and artifacts2.metadata:
         if ignore_meta_time:
             identical, error = compare_meta_yaml(artifacts1.metadata, artifacts2.metadata)
         else:
             identical, error = compare_files_bitwise(artifacts1.metadata, artifacts2.metadata)
-        
+
         if not identical:
             errors.append(f"Metadata mismatch: {error}")
-    
+
     # Проверка correlation_report (если есть)
     if hasattr(artifacts1, "correlation_report") and artifacts1.correlation_report:
         if hasattr(artifacts2, "correlation_report") and artifacts2.correlation_report:
@@ -334,9 +326,8 @@ def verify_bit_identical_outputs(
             )
             if not identical:
                 errors.append(f"Correlation report mismatch: {error}")
-    
-    return len(errors) == 0, errors
 
+    return len(errors) == 0, errors
 
 def update_golden_file(
     actual_path: Path,
@@ -344,12 +335,12 @@ def update_golden_file(
     force: bool = False,
 ) -> bool:
     """Update golden file with actual output.
-    
+
     Args:
         actual_path: Path to actual output file
         golden_path: Path to golden reference file
         force: Force update even if files differ
-    
+
     Returns:
         True if updated, False if skipped
     """
@@ -358,19 +349,19 @@ def update_golden_file(
             identical, _ = compare_files_bitwise(actual_path, golden_path)
             if identical:
                 return False  # Файлы идентичны, обновление не нужно
-    
+
     # Создать директорию если нужно
     golden_path.parent.mkdir(parents=True, exist_ok=True)
-    
+
     # Скопировать файл
     import shutil
     shutil.copy2(actual_path, golden_path)
-    
+
     # Записать хэш в отдельный файл
     hash_path = golden_path.with_suffix(golden_path.suffix + ".sha256")
     hash_value = calculate_file_hash(golden_path)
     hash_path.write_text(f"{hash_value}  {golden_path.name}\n", encoding="utf-8")
-    
+
     return True
 ```
 
@@ -387,27 +378,26 @@ from pathlib import Path
 
 from tests.golden.helpers import verify_bit_identical_outputs
 
-
 @pytest.mark.integration
 @pytest.mark.determinism
 def test_activity_pipeline_bit_identical_output(tmp_path, activity_config):
     """Activity pipeline should produce bit-identical outputs on repeated runs."""
-    
+
     from bioetl.pipelines.activity import ActivityPipeline
-    
+
     # Первый запуск
     run1_dir = tmp_path / "run1"
     pipeline1 = ActivityPipeline(activity_config, "run1")
     artifacts1 = pipeline1.run(run1_dir / "activity.csv")
-    
+
     # Второй запуск (тот же конфиг, тот же input)
     run2_dir = tmp_path / "run2"
     pipeline2 = ActivityPipeline(activity_config, "run2")
     artifacts2 = pipeline2.run(run2_dir / "activity.csv")
-    
+
     # Проверка бит-идентичности
     identical, errors = verify_bit_identical_outputs(artifacts1, artifacts2)
-    
+
     assert identical, f"Outputs not bit-identical: {'; '.join(errors)}"
 ```
 
@@ -502,4 +492,3 @@ def frozen_time(monkeypatch):
 - Проверять все артефакты: dataset, quality_report, metadata, correlation_report (если есть)
 - Использовать SHA256 для проверки целостности файлов
 - Golden файлы должны храниться в `tests/golden/` или `tests/integration/pipelines/golden/`
-

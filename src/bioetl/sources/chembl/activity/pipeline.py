@@ -72,7 +72,7 @@ class ActivityPipeline(PipelineBase):
         parser: ActivityParser | None = None,
         normalizer: ActivityNormalizer | None = None,
         request_builder: ActivityRequestBuilder | None = None,
-        output_writer: ActivityOutputWriter | None = None,
+        activity_output_writer: ActivityOutputWriter | None = None,
     ) -> None:
         super().__init__(config, run_id)
         self.primary_schema = ActivitySchema
@@ -90,7 +90,7 @@ class ActivityPipeline(PipelineBase):
         self.batch_size = self.client.batch_size
         self.configured_max_url_length = self.client.max_url_length
 
-        self.output_writer = output_writer or ActivityOutputWriter(pipeline=self)
+        self.activity_output_writer = activity_output_writer or ActivityOutputWriter(pipeline=self)
 
         self._status_snapshot: dict[str, Any] | None = None
         self._chembl_release = self._get_chembl_release()
@@ -235,7 +235,7 @@ class ActivityPipeline(PipelineBase):
             chembl_release=release_value,
         )
 
-        self._fallback_stats = self.output_writer.capture_fallbacks(df)
+        self._fallback_stats = self.activity_output_writer.capture_fallbacks(df)
 
         coerce_nullable_int(df, INTEGER_COLUMNS_WITH_ID)
 

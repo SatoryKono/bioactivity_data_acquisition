@@ -227,4 +227,3 @@ Add all missing UniProt, IUPHAR, and classification fields.
 2. Implement full Document schema
 3. Complete Target enrichment fields
 4. Add exploded fields to Assay
-

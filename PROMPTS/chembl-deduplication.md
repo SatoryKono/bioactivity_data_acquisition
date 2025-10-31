@@ -102,7 +102,7 @@ class ActivityPipeline(PipelineBase):
         client = ChEMBLClient(...)
         response = client.fetch_activities(...)
         return self.parse_activities(response)
-    
+
     def parse_activities(self, response):
         # Логика парсинга
         ...
@@ -118,11 +118,11 @@ class ActivityPipeline(PipelineBase):
         self.client = ActivityClient(config)
         self.parser = ActivityParser()
         self.normalizer = ActivityNormalizer()
-    
+
     def extract(self):
         response = self.client.fetch_activities(...)
         return self.parser.parse(response)
-    
+
     def transform(self, df):
         return self.normalizer.normalize(df)
 ```
@@ -207,7 +207,7 @@ class ActivityPipeline(PipelineBase):
 ## Риски и митигация
 
 ### Риск 1: Ломающие изменения в импортах
-**Митигация:** 
+**Митигация:**
 - Создать реэкспорт в `pipelines/__init__.py` для обратной совместимости
 - Добавить DeprecationWarning
 - Постепенная миграция
@@ -230,4 +230,3 @@ class ActivityPipeline(PipelineBase):
 - Структура должна соответствовать: `refactoring/MODULE_RULES.md`
 - Все изменения должны быть задокументированы в CHANGELOG.md
 - Тесты должны покрывать все компоненты модульной структуры
-

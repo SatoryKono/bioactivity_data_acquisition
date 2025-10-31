@@ -1020,4 +1020,3 @@ print(f"Errors: {result.errors}")
 - [08c-target-iuphar-extraction.md](./08c-target-iuphar-extraction.md) - IUPHAR/GtoPdb классификация
 
 - [08d-target-orthologs-isoforms.md](./08d-target-orthologs-isoforms.md) - Ортологи и изоформы
-

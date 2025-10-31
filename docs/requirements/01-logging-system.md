@@ -748,4 +748,3 @@ logger.info("message")  # Та же API
 ---
 
 **Следующий раздел**: [02-io-system.md](02-io-system.md)
-

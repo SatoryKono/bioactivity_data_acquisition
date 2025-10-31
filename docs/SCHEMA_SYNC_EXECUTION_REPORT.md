@@ -245,4 +245,3 @@ Has standardized_smiles: False
 - Тесты отсутствуют
 
 **Следующий шаг:** Исправить column_order для Activity и TestItem, добавив системные поля и все поля схемы.
-
