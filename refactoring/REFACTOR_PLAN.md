@@ -82,7 +82,7 @@ UnifiedAPIClient — универсальный клиент для работы
 ```
 UnifiedAPIClient
 ├── Cache Layer (опционально)
-│   └── TTLCache (thread-safe, cachetools)
+│   └── TTLCache (cachetools; НЕ потокобезопасен, использовать из одного потока или под внешним lock)
 ├── Circuit Breaker Layer
 │   └── CircuitBreaker (half-open state, timeout tracking)
 ├── Fallback Layer
@@ -97,6 +97,9 @@ UnifiedAPIClient
     ├── Response parsing (JSON/XML)
     └── Pagination handling
 ```
+
+**Важно:** cachetools.TTLCache по умолчанию не потокобезопасен. Мы используем его только из одного потока или оборачиваем каждое
+обращение внешним `lock` в клиенте.
 
 APIConfig (dataclass):
 
