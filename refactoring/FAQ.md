@@ -1,7 +1,7 @@
 Инвентаризация (src/scripts/run_inventory.py)
 
 MUST: автоматизированный инструмент инвентаризации должен существовать. Ручной отчёт допустим единожды для бутстрапа, но артефакт инвентаризации обязан генерироваться детерминированно и повторяемо.
-Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:src/scripts/run_inventory.py@Pipeline_Unification]; конфигурация: [ref: repo:configs/inventory.yaml@Pipeline_Unification].
+Артефакт: docs/requirements/PIPELINES.inventory.csv. Путь исходника: [ref: repo:src/scripts/run_inventory.py@test_refactoring_32]; конфигурация: [ref: repo:configs/inventory.yaml@test_refactoring_32].
 Запись файла — атомарная: tmp → os.replace. 
 Python documentation
 
@@ -63,14 +63,30 @@ Project README
 
 SHOULD: приведённые примеры команд проходят дымовую проверку `python -m bioetl.cli.main list` в отдельном CI-джобе.
 
-Примеры вызовов:
-`python -m bioetl.cli.main list`
-`python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --mode ci`
+**Фактическая структура команд:**
 
-MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, и т.д.) обязаны совпадать с выводом Typer.
-MUST: единая команда запуска — bioetl pipeline run с унифицированными флагами (--golden, --fail-on-schema-drift, --extended, и т.п.).
-Старые CLI-входы допускаются только как временные совместимые «шины» с DeprecationWarning и снимаются по графику депрекаций; финальное удаление — в ближайшем MAJOR релизе по SemVer. Процесс обновления SemVer: синхронное обновление версии в `pyproject.toml`, записи в `CHANGELOG.md` и строки в [DEPRECATIONS.md](../DEPRECATIONS.md) в рамках одного PR.
-Semantic Versioning
+Все команды доступны через единый вход `python -m bioetl.cli.main`:
+
+```bash
+# Список доступных пайплайнов
+python -m bioetl.cli.main list
+
+# Запуск конкретного пайплайна
+python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml
+python -m bioetl.cli.main assay --config configs/pipelines/assay.yaml
+python -m bioetl.cli.main target --config configs/pipelines/target.yaml
+python -m bioetl.cli.main document --config configs/pipelines/document.yaml
+python -m bioetl.cli.main testitem --config configs/pipelines/testitem.yaml
+```
+
+**Примеры вызовов:**
+```bash
+python -m bioetl.cli.main list
+python -m bioetl.cli.main activity --config configs/pipelines/activity.yaml --dry-run --mode ci
+python -m bioetl.cli.main assay --config configs/pipelines/assay.yaml
+```
+
+MAY: флаги, специфичные для пайплайнов, документируются локально, но базовые команды (`--help`, `list`, `activity`, `assay`, `target`, `document`, `testitem`) обязаны совпадать с выводом Typer.
 
 SHOULD: единый механизм overrides: --set key=value и ENV-переменные; приоритет разрешений CLI > ENV > config. Хранить конфиг в окружении соответствует 12-Factor.
 12factor.net

@@ -52,8 +52,8 @@ docs/requirements/REFACTOR_PLAN.md
 
 Сформировать таблицу по каталогам src/, configs/, docs/requirements/, tests/ со столбцами:
 path | module | size_kb | loc | mtime | top_symbols | imports_top | docstring_first_line.
-Каждый путь указывать ссылкой вида [ref: repo:<path>@test_refactoring_11]. Результат вкладывается в SOURCES_AND_INTERFACES.md и при изменениях зеркалируется в REFACTOR_PLAN.md.
-Снимок формируется скриптом [ref: repo:src/scripts/run_inventory.py@test_refactoring_11] с конфигурацией [ref: repo:configs/inventory.yaml@test_refactoring_11].
+Каждый путь указывать ссылкой вида [ref: repo:<path>@test_refactoring_32]. Результат вкладывается в SOURCES_AND_INTERFACES.md и при изменениях зеркалируется в REFACTOR_PLAN.md.
+Снимок формируется скриптом [ref: repo:src/scripts/run_inventory.py@test_refactoring_32] с конфигурацией [ref: repo:configs/inventory.yaml@test_refactoring_32].
 Каждый путь указывать ссылкой вида [ref: repo:<path>@test_refactoring_32]. Результат вкладывается в SOURCES_AND_INTERFACES.md и при изменениях зеркалируется в REFACTOR_PLAN.md.
 
 4. Стандарт «карточки источника» (MUST)
