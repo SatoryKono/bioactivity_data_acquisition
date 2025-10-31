@@ -24,8 +24,12 @@ def collect_inventory(config: InventoryConfig) -> list[InventoryRecord]:
     config_index = _build_config_index(config)
     project_root = config.csv_output.parents[2]
 
+    excluded_paths = {config.csv_output.resolve(), config.cluster_report.resolve()}
+
     records: list[InventoryRecord] = []
     for file_path in _iter_files(config):
+        if file_path.resolve() in excluded_paths:
+            continue
         source = _infer_source(file_path, pipeline_names)
         module = _module_name(file_path)
         size_kb = file_path.stat().st_size / 1024
@@ -125,7 +129,7 @@ def _infer_source(path: Path, pipeline_names: set[str]) -> str:
         if part == "pipelines" and idx + 1 < len(parts):
             return Path(parts[idx + 1]).stem.lower()
     stem_lower = path.stem.lower()
-    for name in pipeline_names:
+    for name in sorted(pipeline_names):
         if name in lowered_parts or name in stem_lower:
             return name
     if "requirements" in lowered_parts:
