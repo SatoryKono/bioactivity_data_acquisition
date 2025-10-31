@@ -6,7 +6,11 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.pagination import TokenInitialization, TokenPaginationStrategy
+from bioetl.core.pagination import (
+    TokenInitialization,
+    TokenPaginationStrategy,
+    TokenRequest,
+)
 from bioetl.sources.pubmed.parser import parse_efetch_response, parse_esearch_response
 
 __all__ = ["WebEnvPaginator"]
@@ -73,8 +77,9 @@ class WebEnvPaginator:
             xml_payload = client.request_text("/efetch.fcgi", params=query)
             return parse_efetch_response(xml_payload)
 
-        return self._strategy.collect(
+        request: TokenRequest[Mapping[str, Any]] = TokenRequest(
             initializer=initializer,
             fetcher=fetcher,
             batch_size=self.batch_size,
         )
+        return self._strategy.paginate(request)
