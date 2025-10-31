@@ -1,3 +1,5 @@
 """Activity output module namespace."""
 
-__all__ = []
+from .activity_output import ActivityOutputWriter
+
+__all__ = ["ActivityOutputWriter"]

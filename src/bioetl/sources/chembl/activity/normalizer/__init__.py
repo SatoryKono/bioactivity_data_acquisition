@@ -1,3 +1,5 @@
 """Activity normalizer module namespace."""
 
-__all__ = []
+from .activity_normalizer import ActivityNormalizer
+
+__all__ = ["ActivityNormalizer"]
