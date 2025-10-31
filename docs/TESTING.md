@@ -58,6 +58,12 @@ pytest tests/golden/ -v -m golden
 
 ```
 
+### Determinism тесты
+
+```bash
+pytest tests/ -v -m determinism
+```
+
 ### Конкретный тест
 
 ```bash
@@ -131,7 +137,7 @@ tests/
 
 - Минимальное покрытие кода: 85%
 - Все тесты должны проходить без ошибок
-- Использовать маркеры: `unit`, `integration`, `golden`, `slow`
+- Использовать маркеры: `unit`, `integration`, `golden`, `determinism`, `slow`
 - Golden тесты проверяют детерминированные CSV, полученные через CLI
 - Установите зависимость `faker` (через `pip install -e ".[dev]"` или `pip install -r requirements.txt`),
 
