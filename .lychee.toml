@@ -1,0 +1,19 @@
+# Link checking configuration scoped to refactoring docs
+inputs = [
+  "refactoring/PIPELINES.md",
+  "refactoring/DATA_SOURCES.md",
+  "refactoring/genera_plan.md"
+]
+
+exclude = [
+  "mailto:*"
+]
+
+max_retries = 3
+retry_wait_time = "2s"
+max_redirects = 5
+user_agent = "bioactivity-data-acquisition-link-checker/@test_refactoring_32"
+accept = [
+  "200..299",
+  "403"
+]

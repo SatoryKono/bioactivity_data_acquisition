@@ -18,6 +18,8 @@
 | AC9 | QC duplicates=0 | Проверка | df["activity_id"].duplicated().sum()==0 | 0 | qc_summary [ref: 06-activity-data-extraction.md](requirements/06-activity-data-extraction.md#11-quality-control) |
 | AC10 | Schema drift fail-fast | Запуск с несовместимой major | --fail-on-schema-drift | exit!=0 | лог [ref: 04-normalization-validation.md](requirements/04-normalization-validation.md#ac-08-schema-drift-detection) |
 
+> При каждом релизе, затрагивающем публичный API, обновляйте версию по SemVer синхронно в `pyproject.toml`, фиксируйте изменения в `CHANGELOG.md` и актуализируйте [DEPRECATIONS.md](../DEPRECATIONS.md) (дата объявления, окно удаления, релиз-цель).
+
 ## Новые AC (AUD-5)
 
 ### AC11: Обязательные поля логов
