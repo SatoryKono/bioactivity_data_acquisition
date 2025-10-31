@@ -39,9 +39,9 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "TargetComponentSchema": "bioetl.schemas.target",
     "ProteinClassSchema": "bioetl.schemas.target",
     "XrefSchema": "bioetl.schemas.target",
-    "IupharTargetSchema": "bioetl.schemas.iuphar",
-    "IupharClassificationSchema": "bioetl.schemas.iuphar",
-    "IupharGoldSchema": "bioetl.schemas.iuphar",
+    "IupharTargetSchema": "bioetl.sources.iuphar.schema",
+    "IupharClassificationSchema": "bioetl.sources.iuphar.schema",
+    "IupharGoldSchema": "bioetl.sources.iuphar.schema",
     "UniProtSchema": "bioetl.schemas.uniprot",
     "SchemaRegistry": "bioetl.schemas.registry",
     "schema_registry": "bioetl.schemas.registry",
@@ -65,7 +65,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
         XrefSchema,
     )
     from bioetl.schemas.testitem import TestItemSchema
-    from bioetl.schemas.iuphar import (
+    from bioetl.sources.iuphar.schema import (
         IupharClassificationSchema,
         IupharGoldSchema,
         IupharTargetSchema,
@@ -88,4 +88,3 @@ def __dir__() -> list[str]:  # pragma: no cover - trivial helper.
     """Ensure ``dir(bioetl.schemas)`` surfaces the documented exports."""
 
     return sorted(set(__all__))
-

@@ -1,4 +1,4 @@
-"""Pandera schemas for IUPHAR pipeline outputs."""
+"""Pandera schemas for the IUPHAR source."""
 
 from __future__ import annotations
 
@@ -7,6 +7,12 @@ import pandas as pd
 from bioetl.pandera_pandas import pa
 from bioetl.pandera_typing import Series
 from bioetl.schemas.base import BaseSchema
+
+__all__ = [
+    "IupharTargetSchema",
+    "IupharClassificationSchema",
+    "IupharGoldSchema",
+]
 
 
 class IupharTargetSchema(BaseSchema):
@@ -91,10 +97,3 @@ class IupharGoldSchema(BaseSchema):
         strict = True
         coerce = True
         ordered = False
-
-
-__all__ = [
-    "IupharTargetSchema",
-    "IupharClassificationSchema",
-    "IupharGoldSchema",
-]

@@ -6,24 +6,8 @@ import pytest
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
 
 
-class DummyClient:
-    def __init__(self, responses: dict[str, list[dict[str, object]]]):
-        self._responses = responses
-        self.calls: list[str] = []
-
-    def request_json(self, path: str, params: dict[str, object] | None = None):  # noqa: D401 - test stub
-        self.calls.append(path)
-        payloads = self._responses.get(path, [])
-        if not payloads:
-            return []
-        if len(payloads) == 1:
-            return payloads[0]
-        return payloads.pop(0)
-
-
 def test_enrich_targets_produces_classification() -> None:
     service = IupharService(
-        client=None,
         config=IupharServiceConfig(
             identifier_column="target_chembl_id",
             output_identifier_column="target_chembl_id",
@@ -65,7 +49,6 @@ def test_enrich_targets_records_missing_mappings() -> None:
         captured.append(payload)
 
     service = IupharService(
-        client=None,
         config=IupharServiceConfig(
             identifier_column="target_chembl_id",
             output_identifier_column="target_chembl_id",
@@ -92,21 +75,3 @@ def test_enrich_targets_records_missing_mappings() -> None:
     assert gold_df.empty
     assert captured
     assert captured[0]["status"] in {"no_candidate_names", "fallback", "no_match"}
-
-
-def test_fetch_collection_handles_pagination() -> None:
-    client = DummyClient(
-        {
-            "/targets": [
-                {"results": [{"targetId": 1}, {"targetId": 1}]},
-                {"results": [{"targetId": 2}]},
-            ]
-        }
-    )
-
-    service = IupharService(client, config=IupharServiceConfig(page_size=1))
-
-    items = service.fetch_collection("/targets", unique_key="targetId")
-
-    assert [item["targetId"] for item in items] == [1, 2]
-    assert client.calls.count("/targets") >= 2

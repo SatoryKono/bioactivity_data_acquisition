@@ -6,7 +6,7 @@ import pytest
 from pytest_httpserver import HTTPServer
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.iuphar import GtpIupharPipeline
+from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +45,6 @@ def test_iuphar_pipeline_end_to_end(httpserver: HTTPServer, tmp_path: Path, monk
     )
 
     pipeline = GtpIupharPipeline(config, run_id="integration-test")
-    pipeline.iuphar_service.client = pipeline.iuphar_client
 
     extracted = pipeline.extract()
     assert not extracted.empty

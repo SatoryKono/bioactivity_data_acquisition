@@ -23,7 +23,7 @@ _PIPELINE_EXPORTS: dict[str, str] = {
     "TestItemPipeline": "bioetl.pipelines.testitem",
     "TargetPipeline": "bioetl.pipelines.target",
     "DocumentPipeline": "bioetl.pipelines.document",
-    "GtpIupharPipeline": "bioetl.pipelines.iuphar",
+    "GtpIupharPipeline": "bioetl.sources.iuphar.pipeline",
     "UniProtPipeline": "bioetl.pipelines.uniprot",
 }
 
@@ -32,7 +32,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
     from bioetl.pipelines.assay import AssayPipeline
     from bioetl.pipelines.base import PipelineBase
     from bioetl.pipelines.document import DocumentPipeline
-    from bioetl.pipelines.iuphar import GtpIupharPipeline
+    from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
     from bioetl.pipelines.target import TargetPipeline
     from bioetl.pipelines.testitem import TestItemPipeline
     from bioetl.pipelines.uniprot import UniProtPipeline
@@ -59,4 +59,3 @@ def __dir__() -> list[str]:  # pragma: no cover - trivial helper.
     """Ensure ``dir(bioetl.pipelines)`` exposes public exports."""
 
     return sorted(set(__all__))
-
