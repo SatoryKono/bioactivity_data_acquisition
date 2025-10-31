@@ -42,7 +42,7 @@
 
 ## H. Вывод и форматы
 
-`OutputWriter` применён во всех пайплайнах; зафиксированы `column_order`, сортировка по бизнес-ключам, `hash_row` и `hash_business_key` (BLAKE2); диалект CSV, порядок JSON-ключей и поведение по NaN/Null стабильны. Атомарная запись — обязательна. [python-atomicwrites](https://python-atomicwrites.readthedocs.io)
+`OutputWriter` применён во всех пайплайнах; зафиксированы `column_order`, сортировка по бизнес-ключам, `hash_row` и `hash_business_key` (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)); диалект CSV, порядок JSON-ключей и поведение по NaN/Null стабильны. Атомарная запись — обязательна. [python-atomicwrites](https://python-atomicwrites.readthedocs.io) Дополнительные детали канонической политики хеширования описаны в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 
 Extended-режим с генерацией `meta.yaml`, correlation и QC отчётов проверяется интеграционным тестом `tests/integration/pipelines/test_extended_mode_outputs.py`, который валидирует содержимое артефактов и ключевые поля метаданных (`run_id`, `pipeline_version`, `source_system`, `file_checksums`, `artifacts.qc`).【F:tests/integration/pipelines/test_extended_mode_outputs.py†L75-L130】 Дополнительно unit-тест `tests/unit/test_output_writer.py::test_unified_output_writer_writes_extended_metadata` страхует `UnifiedOutputWriter._write_metadata()` на уровне прямой сериализации.
 

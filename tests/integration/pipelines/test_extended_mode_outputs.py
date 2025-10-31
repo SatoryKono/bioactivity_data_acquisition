@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import types
 from pathlib import Path
 
@@ -185,3 +186,18 @@ def test_pipeline_run_fails_on_schema_registry_order_mismatch(
 
     with pytest.raises(ValueError, match="columns do not match"):
         pipeline.run(output_path)
+    manifest_path = artifacts.manifest
+    assert manifest_path is not None and manifest_path.exists()
+
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+
+    assert manifest["run_id"] == "integration-test"
+    assert manifest["artifacts"]["dataset"] == str(artifacts.dataset)
+    assert manifest["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert manifest["artifacts"]["metadata"] == str(meta_path)
+    assert manifest["artifacts"]["qc"]["correlation_report"] == str(
+        artifacts.correlation_report
+    )
+    assert manifest["checksums"] == metadata["file_checksums"]
+    assert manifest["schema"] == {"id": None, "version": None}

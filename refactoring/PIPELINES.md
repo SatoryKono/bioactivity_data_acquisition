@@ -68,7 +68,7 @@
 
 **Требования:**
 - Фиксированный column_order, стабильная сортировка по бизнес-ключам, форматы чисел/дат и сериализация строк без неоднозначности.
-- Контрольные хеши на строку и бизнес-ключ (например, BLAKE2) включаются в метаданные.
+- Контрольные хеши на строку и бизнес-ключ (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) включаются в метаданные; см. каноническое описание в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 - Запись выполняется атомарно: временный файл на той же ФС, затем атомарная замена (replace/move_atomic); синхронизация буферов перед коммитом. [python-atomicwrites.readthedocs.io @test_refactoring_32](https://python-atomicwrites.readthedocs.io)
 - Вызов `export()` использует `UnifiedOutputWriter` и ожидает `pd.DataFrame` на вход, обеспечивая детерминированный экспорт и генерацию QC-артефактов из единого места.
 
@@ -198,6 +198,10 @@ docs/requirements/sources/<source>/
  README.md
 ```
 
+`tests/integration/pipelines/` хранит только общие сквозные сценарии (bit-identical, QC, golden) для нескольких источников.
+Повторение тестов конкретного источника внутри `tests/integration/` запрещено — соответствующие проверки располагаются в
+`tests/sources/<source>/`.
+
 Дополнительно для общих компонентов:
 ```
 src/bioetl/core/
@@ -314,7 +318,8 @@ UnifiedAPIClient объединяет следующие слои защиты:
   - Giveup условия для невосстановимых ошибок
 
 4. **FallbackManager** — стратегии отката
-  - Обработка network errors, timeouts, 5xx
+  - Единый список стратегий: `cache`, `partial_retry`, `network`, `timeout`, `5xx`
+  - Обработка network errors, timeouts, 5xx + делегирование `cache`/`partial_retry` в UnifiedAPIClient
   - Использование кэшированных или fallback данных
 
 5. **TTL-кэш** (опционально)
@@ -364,6 +369,10 @@ if response.status_code == 429:
 
 **Extended (+ metadata и manifest):**
 - Добавляет `meta.yaml`, `run_manifest.json`
+  - Структура manifest: `run_id`, `artifacts`, `checksums`, `schema`
+  - `artifacts` охватывает основные (dataset/quality_report/metadata) и условные (`qc`, `additional_datasets`, `debug_dataset`) файлы
+  - `checksums` — SHA256 по каждому сгенерированному файлу (ключ — имя файла)
+  - `schema` хранит идентификатор и версию схемы (`null`, если не применимо)
 - Полные метаданные: lineage, checksums, git_commit
 
 **Инварианты детерминизма:**

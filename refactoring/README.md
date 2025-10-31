@@ -1,7 +1,8 @@
 # План рефакторинга BioETL
 
 > **Ветка:** `@test_refactoring_32`  
-> **Последнее обновление:** 2025-01-29
+> **Последнее обновление:** 2025-10-31  
+**Актуальный аудит:** [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md)
 
 ## Навигация по документам
 
@@ -69,7 +70,13 @@
     - Критические, важные и средние проблемы
     - Рекомендации по приоритетам
 
-12. **[genera_plan.md](genera_plan.md)** — общий план
+12. **[AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md)** — финальный аудит (2025-10-31) ⭐ **АКТУАЛЬНЫЙ**
+    - Комплексный аудит всех документов
+    - Статус критических проблем
+    - Метрики соответствия компонентов
+    - Рекомендации по исправлениям
+
+13. **[genera_plan.md](genera_plan.md)** — общий план
     - Цели унификации
     - Базовая структура пайплайнов
     - Единый публичный API
@@ -120,31 +127,25 @@
 
 ## Ключевые проблемы и статус
 
+> **Актуальный статус:** см. [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md) (2025-10-31)
+
 ### Критические проблемы (P0)
 
 | ID | Проблема | Статус | Документ |
 |----|----------|--------|----------|
-| P0-1 | Дублирование ChEMBL пайплайнов | Требует решения | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-1) |
-| P0-2 | Отсутствие артефакта инвентаризации | Требует исправления | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-2) |
-| P0-3 | Противоречие в структуре тестов | Требует синхронизации | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-3) |
-| P0-4 | Противоречия в описании CLI | Частично исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-4) |
-| P0-5 | Несогласованность путей к конфигам | Частично исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-5) |
-| P0-6 | Отсутствие единой точки входа | ✅ **ИСПРАВЛЕНО** | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p0-6) |
+| P0-1 | Неразрешенный конфликт слияния | ✅ **ИСПРАВЛЕНО** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p0-1) |
+| P0-2 | Отсутствие артефакта инвентаризации | ✅ **ИСПРАВЛЕНО** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p0-2) |
+| P0-3 | Расхождения в структуре тестов | ⚠️ **ЧАСТИЧНО** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p0-3) |
 
 ### Важные проблемы (P1)
 
 | ID | Проблема | Статус | Документ |
 |----|----------|--------|----------|
-| P1-1 | Противоречия в описании FallbackManager | Частично синхронизировано | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-1) |
-| P1-2 | Отсутствие property-based тестов | Не исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-2) |
-| P1-3 | Противоречия в описании APIConfig vs TargetSourceConfig | Не исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-3) |
-| P1-4 | Неполное описание PubChem миграции | Частично исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-4) |
-| P1-5 | Отсутствие автоматической проверки бит-идентичности | Не исправлено | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-5) |
-| P1-6 | Противоречия в описании UnifiedOutputWriter режимов | Частично синхронизировано | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-6) |
-| P1-7 | Неполное описание нормализаторов | Требует синхронизации | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-7) |
-| P1-8 | Противоречия в описании NA-policy и precision-policy | Частично синхронизировано | [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md#p1-8) |
+| P1-1 | Отсутствие property-based тестов | ❌ **НЕ ИСПРАВЛЕНО** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p1-1) |
+| P1-2 | Отсутствие проверки бит-идентичности | ❌ **НЕ ИСПРАВЛЕНО** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p1-2) |
+| P1-3 | APIConfig vs TargetSourceConfig | ⚠️ **ТРЕБУЕТ ДОКУМЕНТИРОВАНИЯ** | [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md#p1-3) |
 
-**Полный список проблем:** см. [AUDIT_PLAN_REPORT_2025.md](AUDIT_PLAN_REPORT_2025.md)
+**Полный список проблем:** см. [AUDIT_REPORT_FINAL_2025.md](AUDIT_REPORT_FINAL_2025.md)
 
 ## Зависимости между документами
 
