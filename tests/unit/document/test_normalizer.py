@@ -24,6 +24,8 @@ def test_normalize_document_frame_applies_expected_mappings() -> None:
             "abstract": ["Lorem"],
             "volume": ["1"],
             "issue": ["2"],
+            "first_page": [" 101 "],
+            "last_page": [" 110 "],
             "doi": ["10.1000/xyz"],
         }
     )
@@ -38,6 +40,8 @@ def test_normalize_document_frame_applies_expected_mappings() -> None:
     assert normalised.loc[0, "chembl_year"] == "2020"
     assert normalised.loc[0, "chembl_journal"] == "Journal"
     assert normalised.loc[0, "chembl_doi"] == "10.1000/xyz"
+    assert normalised.loc[0, "chembl_first_page"] == "101"
+    assert normalised.loc[0, "chembl_last_page"] == "110"
     assert "title" not in normalised.columns
     assert normalised.loc[0, "_original_title"] == "Title with Spaces"
 
