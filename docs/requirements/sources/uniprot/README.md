@@ -5,6 +5,13 @@
 - `from bioetl.sources.uniprot import UniProtEnrichmentResult`
 - `from bioetl.pipelines.uniprot import UniProtPipeline`
 
+### UniProt HTTP клиенты (package)
+- `from bioetl.sources.uniprot.client.search_client import UniProtSearchClient`
+- `from bioetl.sources.uniprot.client.idmapping_client import UniProtIdMappingClient`
+- `from bioetl.sources.uniprot.client.orthologs_client import UniProtOrthologsClient`
+
+Примечание: монолит `sources/uniprot/client.py` помечен к удалению. Для совместимости в пакетных клиентах добавлены шины: `search_client.UniProtSearchClient.fetch_entries(...)` и `idmapping_client.UniProtIdMappingClient.map_accessions(...)`. Для ортологов используйте адаптер `UniProtOrthologClientAdapter` из `client/orthologs_client.py`, если требуется датафрейм с приоритезацией.
+
 ## Module layout
 - `src/bioetl/sources/uniprot/service.py` — enrichment orchestration (client calls, parsing, normalisation helpers)
 - `src/bioetl/pipelines/uniprot.py` — standalone CLI pipeline wrapper
