@@ -63,7 +63,7 @@
 
 Файлы данных: нормализованные таблицы по сущностям (см. схемы ниже), форматы CSV и/или Parquet. Порядок столбцов фиксирован, сортировка по бизнес-ключам, одинаковые правила сериализации чисел/дат/строк.
 
-Контроль целостности: хеши строк и наборов бизнес-ключей (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта; алгоритм и размер дайджеста стабильны и документированы в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
+Контроль целостности: хеши строк и наборов бизнес-ключей (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта. Активный алгоритм определяется конфигурацией `determinism.hash_algorithm` и по умолчанию равен `"sha256"`, что синхронизирует политику сериализации и проверку целостности в пайплайне.[^determinism-hash]
 
 Атомарная запись: запись во временный файл на той же ФС и атомарная замена целевого файла (replace/move_atomic). На POSIX это rename/replace, на Windows — соответствующий безопасный вызов; библиотека atomicwrites документирует детали.
 
@@ -373,20 +373,11 @@ src/bioetl/configs/pipelines/<source>.yaml
     "fields":  { "type": "array", "items": { "type": "string" } },
     "output": {
       "type": "object",
-      "required": ["path", "format", "column_order", "hashing"],
+      "required": ["path", "format", "column_order"],
       "properties": {
         "path": { "type": "string" },
         "format": { "type": "string", "enum": ["csv","parquet"] },
-        "column_order": { "type": "array", "items": { "type": "string" } },
-        "hashing": {
-          "type": "object",
-          "required": ["algo","digest_size"],
-          "properties": {
-            "algo": { "type": "string", "enum": ["blake2b","blake2s"] },
-            "digest_size": { "type": "integer", "minimum": 8, "maximum": 64 }
-          },
-          "additionalProperties": false
-        }
+        "column_order": { "type": "array", "items": { "type": "string" } }
       },
       "additionalProperties": false
     },
@@ -431,7 +422,7 @@ output:
   path: "data/crossref/"
   format: "csv"
   column_order: ["document_id","doi","title","venue","year","authors","urls","source","ingest_timestamp"]
-  hashing: { algo: blake2b, digest_size: 32 }
+  # Хеширование контролируется через determinism.hash_algorithm (sha256).
 logging:
   level: "INFO"
 ```
@@ -469,7 +460,7 @@ output:
   path: "data/pubmed/"
   format: "csv"
   column_order: ["document_id","pmid","title","venue","year","authors","abstract","source","ingest_timestamp"]
-  hashing: { algo: blake2b, digest_size: 32 }
+  # Хеширование контролируется через determinism.hash_algorithm (sha256).
 logging:
   level: "INFO"
 ```
@@ -511,4 +502,6 @@ JSON Schema Draft 2020-12.
 Pandera DataFrameSchema/Checks.
 
 Python hashlib SHA256 (`src/bioetl/core/hashing.py`).
+
+[^determinism-hash]: Конфигурация алгоритма детерминизма хранится в [src/bioetl/configs/includes/determinism.yaml](../src/bioetl/configs/includes/determinism.yaml) и устанавливает значение `sha256` для поля `hash_algorithm`.
 
