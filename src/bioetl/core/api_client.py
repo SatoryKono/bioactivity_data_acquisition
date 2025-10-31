@@ -546,6 +546,7 @@ class UnifiedAPIClient:
             for strategy in self._fallback_strategies
             if strategy in FALLBACK_MANAGER_SUPPORTED_STRATEGIES
         ]
+        self._manager_strategies: tuple[str, ...] = tuple(manager_strategies)
         self.fallback_manager: FallbackManager | None = None
         if manager_strategies:
             self.fallback_manager = FallbackManager(strategies=manager_strategies)
@@ -798,10 +799,15 @@ class UnifiedAPIClient:
                     continue
 
             if strategy in FALLBACK_MANAGER_SUPPORTED_STRATEGIES:
+                resolved_strategy = self._manager_strategy_for_error(
+                    context=context,
+                    error=context.last_exc or last_error,
+                )
                 payload = self._fallback_via_manager(
                     strategy=strategy,
                     context=context,
                     last_exception=last_error,
+                    resolved_strategy=resolved_strategy,
                 )
                 if payload is not None:
                     return payload
@@ -910,12 +916,50 @@ class UnifiedAPIClient:
 
         raise RequestException("partial retry failed without exception")
 
+    def _manager_strategy_for_error(
+        self,
+        *,
+        context: _RequestRetryContext,
+        error: RequestException | None,
+    ) -> str | None:
+        """Resolve manager fallback strategy for provided error if possible."""
+
+        manager = self.fallback_manager
+        if manager is None or error is None:
+            return None
+
+        try:
+            resolved = manager.get_strategy_for_error(error)
+        except Exception:  # pragma: no cover - defensive guard
+            logger.exception(
+                "fallback_manager_resolution_failed",
+                url=context.url,
+                method=context.method,
+            )
+            return None
+
+        if resolved is None:
+            return None
+
+        if resolved not in self._manager_strategies:
+            logger.debug(
+                "fallback_manager_strategy_disabled",
+                resolved_strategy=resolved,
+                configured=list(self._fallback_strategies),
+                url=context.url,
+                method=context.method,
+            )
+            return None
+
+        return resolved
+
     def _fallback_via_manager(
         self,
         *,
         strategy: str,
         context: _RequestRetryContext,
         last_exception: RequestException,
+        resolved_strategy: str | None = None,
     ) -> PayloadT | None:
         """Delegate fallback creation to :class:`FallbackManager` when configured."""
 
@@ -930,8 +974,11 @@ class UnifiedAPIClient:
             return None
 
         error = context.last_exc or last_exception
-        resolved_strategy = manager.get_strategy_for_error(error)
-        if resolved_strategy is None:
+        strategy_from_error = resolved_strategy
+        if strategy_from_error is None:
+            strategy_from_error = manager.get_strategy_for_error(error)
+
+        if strategy_from_error is None:
             logger.debug(
                 "fallback_manager_strategy_not_applicable",
                 configured=list(manager.strategies),
@@ -941,10 +988,10 @@ class UnifiedAPIClient:
             )
             return None
 
-        if resolved_strategy != strategy:
+        if strategy_from_error != strategy:
             logger.debug(
                 "fallback_manager_strategy_mismatch",
-                resolved_strategy=resolved_strategy,
+                resolved_strategy=strategy_from_error,
                 requested_strategy=strategy,
                 url=context.url,
                 method=context.method,
