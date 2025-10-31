@@ -2,7 +2,10 @@
 inputs = [
   "refactoring/PIPELINES.md",
   "refactoring/DATA_SOURCES.md",
-  "refactoring/genera_plan.md"
+  "refactoring/genera_plan.md",
+  "refactoring/REFACTOR_PLAN.md",
+  "refactoring/MODULE_RULES.md",
+  "docs/requirements/02-io-system.md"
 ]
 
 exclude = [

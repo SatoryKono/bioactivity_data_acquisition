@@ -382,7 +382,7 @@ if response.status_code == 429:
 - Checksums стабильны при одинаковом вводе (SHA256)
 - Порядок строк фиксирован (deterministic sort)
 - Column order **только** из Schema Registry
-- NA-policy: `""` для строк, `null` для чисел
+- NA/precision policy следует [docs/requirements/02-io-system.md](../docs/requirements/02-io-system.md#na-precision-policy): строковые → `""`, остальные типы → `null`, precision из схемы
 - Каноническая сериализация (JSON+ISO8601, float=%.6f)
 
 **Атомарная запись:**
