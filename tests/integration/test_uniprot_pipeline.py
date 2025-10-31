@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config.loader import load_config
-from bioetl.pipelines.uniprot import UniProtPipeline
+from bioetl.sources.uniprot import UniProtPipeline
 
 
 class _ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
