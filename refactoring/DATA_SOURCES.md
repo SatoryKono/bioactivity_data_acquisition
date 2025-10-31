@@ -57,6 +57,9 @@ public_api: имя публичного класса/фасада и файл pi
 
 config_keys: список ключей конфигурации
 
+config_path: `src/bioetl/configs/pipelines/<source>.yaml` (MUST). Допускается подключать include-модули вроде
+`includes/chembl_source.yaml` для общих параметров; итоговая конфигурация проходит автоматическую валидацию `PipelineConfig`.
+
 entities: извлекаемые сущности и обязательные поля
 
 merge_policy: ключи join/merge и приоритеты конфликтов
