@@ -33,7 +33,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+schema_registry.register("testitem", "1.0.0", TestItemSchema)
 
 __all__ = ["TestItemPipeline"]
 
@@ -399,9 +399,8 @@ class TestItemPipeline(PipelineBase):
                 deduplicated_input = input_indexed
 
                 if input_indexed.index.has_duplicates:
-                    duplicated_ids = (
-                        input_indexed.index[input_indexed.index.duplicated()].unique().tolist()
-                    )
+                    duplicated_counts = input_indexed.index.value_counts()
+                    duplicated_ids = duplicated_counts[duplicated_counts > 1].index.tolist()
                     logger.warning(
                         "duplicate_molecule_ids_in_input",
                         count=len(duplicated_ids),
