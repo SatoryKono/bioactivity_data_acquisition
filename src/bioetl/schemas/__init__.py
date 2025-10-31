@@ -91,6 +91,11 @@ def __getattr__(name: str) -> Any:
         from bioetl.schemas.activity import ActivitySchema
         return ActivitySchema
 
+    # AssaySchema - ensure it's available for static analyzers
+    if name == "AssaySchema":
+        from bioetl.schemas.assay import AssaySchema
+        return AssaySchema
+
     try:
         module_name = _SCHEMA_EXPORTS[name]
     except KeyError as exc:  # pragma: no cover - mirrors normal attribute error behaviour.
