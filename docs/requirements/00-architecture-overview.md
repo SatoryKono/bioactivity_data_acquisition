@@ -75,6 +75,10 @@
 - Валидация через Pandera схемы
 
 - Run manifests для отслеживания
+  - JSON структура фиксирована: `run_id`, `artifacts`, `checksums`, `schema`
+  - `artifacts` перечисляет основные (dataset, quality_report, metadata) и условные (`qc`, `additional_datasets`, `debug_dataset`) файлы
+  - `checksums` — SHA256 хэши по каждому артефакту (ключ соответствует имени файла)
+  - `schema` указывает `id` и `version` применённой Pandera-схемы (`null`, если не назначена)
 
 - Каноническая сериализация для воспроизводимых хешей
 
@@ -97,7 +101,7 @@
 
 **Extended (+ metadata и manifest)**:
 
-- Добавляет `meta.yaml`, `run_manifest.json`
+- Добавляет `meta.yaml`, `run_manifest.json` со структурой `run_id`/`artifacts`/`checksums`/`schema`
 
 - Инварианты:
   - `meta.yaml` валиден по YAML schema

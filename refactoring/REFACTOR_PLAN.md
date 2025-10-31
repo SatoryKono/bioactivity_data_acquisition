@@ -458,6 +458,10 @@ UnifiedOutputWriter — детерминированная система зап
 - Трехфайловую систему с QC отчетами (ChEMBL_data_acquisition6)
 - Автоматическую валидацию через Pandera
 - Run manifests для отслеживания пайплайнов
+  - JSON документ фиксированной структуры: `run_id`, `artifacts`, `checksums`, `schema`
+  - `artifacts` перечисляет `dataset`, `quality_report`, `metadata`, а также `qc`/`additional_datasets`/`debug_dataset` при наличии
+  - `checksums` содержит SHA256 хэши артефактов (ключ — имя файла)
+  - `schema` — словарь с `id` и `version` (значения `null`, если схема не привязана)
 
 Архитектура:
 
@@ -524,7 +528,7 @@ class AtomicWriter:
 - Correlation отчёт **только** при явном `postprocess.correlation.enabled: true`
 
 **Extended (+ metadata и manifest):**
-- Добавляет `meta.yaml`, `run_manifest.json`
+- Добавляет `meta.yaml`, `run_manifest.json` с описанной выше структурой `run_id`/`artifacts`/`checksums`/`schema`
 - Полные метаданные: lineage, checksums, git_commit
 
 Инварианты детерминизма:

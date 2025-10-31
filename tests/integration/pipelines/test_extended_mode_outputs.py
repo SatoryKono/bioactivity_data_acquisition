@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import types
 from pathlib import Path
 
@@ -128,3 +129,19 @@ def test_pipeline_run_emits_extended_artifacts(tmp_path: Path) -> None:
     assert "correlation_report" in qc_artifacts
     assert "summary_statistics" in qc_artifacts
     assert "dataset_metrics" in qc_artifacts
+
+    manifest_path = artifacts.manifest
+    assert manifest_path is not None and manifest_path.exists()
+
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        manifest = json.load(handle)
+
+    assert manifest["run_id"] == "integration-test"
+    assert manifest["artifacts"]["dataset"] == str(artifacts.dataset)
+    assert manifest["artifacts"]["quality_report"] == str(artifacts.quality_report)
+    assert manifest["artifacts"]["metadata"] == str(meta_path)
+    assert manifest["artifacts"]["qc"]["correlation_report"] == str(
+        artifacts.correlation_report
+    )
+    assert manifest["checksums"] == metadata["file_checksums"]
+    assert manifest["schema"] == {"id": None, "version": None}
