@@ -537,9 +537,13 @@ class UnifiedAPIClient:
             status_codes=config.retry_status_codes,
         )
 
+        self._fallback_strategies: tuple[str, ...] = self._normalise_fallback_strategies(
+            config.fallback_strategies
+        )
+
         manager_strategies = [
             strategy
-            for strategy in config.fallback_strategies
+            for strategy in self._fallback_strategies
             if strategy in FALLBACK_MANAGER_SUPPORTED_STRATEGIES
         ]
         self.fallback_manager: FallbackManager | None = None
@@ -757,7 +761,7 @@ class UnifiedAPIClient:
     ) -> PayloadT:
         """Execute configured fallback strategies in order."""
 
-        strategies: Sequence[str] = self.config.fallback_strategies
+        strategies: Sequence[str] = self._fallback_strategies
         cache: TTLCache[str, Any] | None = self.cache
         last_error: RequestException = last_exception
 
@@ -811,6 +815,26 @@ class UnifiedAPIClient:
             )
 
         raise last_error
+
+    @staticmethod
+    def _normalise_fallback_strategies(strategies: Sequence[str]) -> tuple[str, ...]:
+        """Normalise fallback strategies for case-insensitive comparison."""
+
+        seen: set[str] = set()
+        normalised: list[str] = []
+
+        for strategy in strategies:
+            if not isinstance(strategy, str):
+                continue
+
+            candidate = strategy.strip().lower()
+            if not candidate or candidate in seen:
+                continue
+
+            seen.add(candidate)
+            normalised.append(candidate)
+
+        return tuple(normalised)
 
     def _fallback_partial_retry(
         self,
