@@ -11,6 +11,22 @@ import pandas as pd
 
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.normalizers.identifier import IdentifierNormalizer
+from bioetl.sources.uniprot.normalizer import apply_enrichment
+from bioetl.sources.uniprot.parser import (
+    _extract_gene_primary,
+    _extract_gene_synonyms,
+    _extract_lineage,
+    _extract_organism,
+    _extract_protein_name,
+    _extract_secondary,
+    _extract_sequence_length,
+    _extract_taxonomy_id,
+    parse_idmapping_results,
+    parse_idmapping_status,
+    parse_isoforms,
+    parse_search_response,
+)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -44,6 +60,7 @@ class UniProtService:
     )
     ortholog_fields: str = "accession,organism_name,organism_id,protein_name"
     ortholog_priority: dict[str, int] | None = None
+    identifier_normalizer: IdentifierNormalizer = field(default_factory=IdentifierNormalizer)
 
     def enrich_targets(
         self,
@@ -140,7 +157,13 @@ class UniProtService:
             canonical = entry.get("primaryAccession") or entry.get("accession")
             if canonical:
                 used_entries[str(canonical)] = entry
-            self._apply_entry_enrichment(working_df, int(idx), entry, merge_strategy)
+            apply_enrichment(
+                working_df,
+                int(idx),
+                entry,
+                merge_strategy=merge_strategy,
+                identifier_normalizer=self.identifier_normalizer,
+            )
 
         if unresolved:
             mapping_df = self.run_id_mapping(unresolved.values())
@@ -173,7 +196,13 @@ class UniProtService:
                             status="resolved",
                         )
                     )
-                    self._apply_entry_enrichment(working_df, idx, entry, "idmapping")
+                    apply_enrichment(
+                        working_df,
+                        idx,
+                        entry,
+                        merge_strategy="idmapping",
+                        identifier_normalizer=self.identifier_normalizer,
+                    )
                     resolved_rows += 1
                     unresolved.pop(idx, None)
 
@@ -206,7 +235,13 @@ class UniProtService:
                         details={"gene_symbol": gene_symbol, "organism": organism},
                     )
                 )
-                self._apply_entry_enrichment(working_df, idx, entry, "gene_symbol")
+                apply_enrichment(
+                    working_df,
+                    idx,
+                    entry,
+                    merge_strategy="gene_symbol",
+                    identifier_normalizer=self.identifier_normalizer,
+                )
                 resolved_rows += 1
                 unresolved.pop(idx, None)
 
@@ -245,7 +280,13 @@ class UniProtService:
                         details={"ortholog_source": best.get("organism")},
                     )
                 )
-                self._apply_entry_enrichment(working_df, int(idx), entry, "ortholog")
+                apply_enrichment(
+                    working_df,
+                    int(idx),
+                    entry,
+                    merge_strategy="ortholog",
+                    identifier_normalizer=self.identifier_normalizer,
+                )
                 working_df.at[idx, "ortholog_source"] = best.get("organism")
                 resolved_rows += 1
                 unresolved.pop(idx, None)
@@ -302,14 +343,14 @@ class UniProtService:
         for canonical, entry in used_entries.items():
             record = {
                 "canonical_accession": canonical,
-                "protein_name": self._extract_protein_name(entry),
-                "gene_primary": self._extract_gene_primary(entry),
-                "gene_synonyms": "; ".join(self._extract_gene_synonyms(entry)),
-                "organism_name": self._extract_organism(entry),
-                "organism_id": self._extract_taxonomy_id(entry),
-                "lineage": "; ".join(self._extract_lineage(entry)),
-                "sequence_length": self._extract_sequence_length(entry),
-                "secondary_accessions": "; ".join(self._extract_secondary(entry)),
+                "protein_name": _extract_protein_name(entry),
+                "gene_primary": _extract_gene_primary(entry),
+                "gene_synonyms": "; ".join(_extract_gene_synonyms(entry)),
+                "organism_name": _extract_organism(entry),
+                "organism_id": _extract_taxonomy_id(entry),
+                "lineage": "; ".join(_extract_lineage(entry)),
+                "sequence_length": _extract_sequence_length(entry),
+                "secondary_accessions": "; ".join(_extract_secondary(entry)),
             }
             silver_records.append(record)
 
@@ -350,12 +391,8 @@ class UniProtService:
                 logger.warning("uniprot_search_failed", error=str(exc), query=params["query"])
                 continue
 
-            results = payload.get("results") or payload.get("entries") or []
-            for result in results:
-                primary = result.get("primaryAccession") or result.get("accession")
-                if not primary:
-                    continue
-                entries[str(primary)] = result
+            parsed = parse_search_response(payload)
+            entries.update(parsed)
 
         return entries
 
@@ -389,23 +426,7 @@ class UniProtService:
             if not job_result:
                 continue
 
-            results = job_result.get("results") or job_result.get("mappedTo") or []
-            for item in results:
-                submitted = item.get("from") or item.get("accession") or item.get("input")
-                to_entry = item.get("to") or item.get("mappedTo") or {}
-                if isinstance(to_entry, dict):
-                    canonical = to_entry.get("primaryAccession") or to_entry.get("accession")
-                    isoform = to_entry.get("isoformAccession") or to_entry.get("isoform")
-                else:
-                    canonical = to_entry
-                    isoform = None
-                rows.append(
-                    {
-                        "submitted_id": submitted,
-                        "canonical_accession": canonical,
-                        "isoform_accession": isoform,
-                    }
-                )
+            rows.extend(parse_idmapping_results(job_result))
 
         return pd.DataFrame(rows).convert_dtypes()
 
@@ -497,57 +518,7 @@ class UniProtService:
     def expand_isoforms(self, entry: dict[str, Any]) -> pd.DataFrame:
         """Expand isoform records from a UniProt entry."""
 
-        canonical = entry.get("primaryAccession") or entry.get("accession")
-        sequence_length = self._extract_sequence_length(entry)
-        records: list[dict[str, Any]] = [
-            {
-                "canonical_accession": canonical,
-                "isoform_accession": canonical,
-                "isoform_name": self._extract_protein_name(entry),
-                "is_canonical": True,
-                "sequence_length": sequence_length,
-                "source": "canonical",
-            }
-        ]
-
-        comments = entry.get("comments", []) or []
-        for comment in comments:
-            if comment.get("commentType") != "ALTERNATIVE PRODUCTS":
-                continue
-            for isoform in comment.get("isoforms", []) or []:
-                isoform_ids = isoform.get("isoformIds") or isoform.get("isoformId")
-                if isinstance(isoform_ids, list) and isoform_ids:
-                    isoform_acc = isoform_ids[0]
-                else:
-                    isoform_acc = isoform_ids
-                if not isoform_acc:
-                    continue
-                names = isoform.get("names") or []
-                if isinstance(names, list):
-                    iso_name = next(
-                        (n.get("value") for n in names if isinstance(n, dict) and n.get("value")),
-                        None,
-                    )
-                elif isinstance(names, dict):
-                    iso_name = names.get("value")
-                else:
-                    iso_name = None
-                sequence = isoform.get("sequence")
-                if isinstance(sequence, dict):
-                    length = sequence.get("length")
-                else:
-                    length = None
-                records.append(
-                    {
-                        "canonical_accession": canonical,
-                        "isoform_accession": isoform_acc,
-                        "isoform_name": iso_name,
-                        "is_canonical": False,
-                        "sequence_length": length,
-                        "source": "isoform",
-                    }
-                )
-
+        records = parse_isoforms(entry)
         return pd.DataFrame(records).convert_dtypes()
 
     @staticmethod
@@ -568,18 +539,18 @@ class UniProtService:
         elapsed = 0.0
         while elapsed < self.id_mapping_max_wait:
             try:
-                status = self.id_mapping_client.request_json(f"/status/{job_id}")
+                status_payload = self.id_mapping_client.request_json(f"/status/{job_id}")
             except Exception as exc:  # pragma: no cover - defensive logging
                 logger.warning("uniprot_idmapping_status_failed", job_id=job_id, error=str(exc))
                 return None
 
-            job_status = status.get("jobStatus") or status.get("status")
-            if job_status in {"RUNNING", "PENDING"}:
+            job_status = parse_idmapping_status(status_payload)
+            if job_status in {"running", "pending", "unknown"}:
                 time.sleep(self.id_mapping_poll_interval)
                 elapsed += self.id_mapping_poll_interval
                 continue
 
-            if job_status not in {"FINISHED", "finished", "SUCCESS"}:
+            if job_status != "finished":
                 logger.warning("uniprot_idmapping_failed", job_id=job_id, status=job_status)
                 return None
 
@@ -591,25 +562,6 @@ class UniProtService:
 
         logger.warning("uniprot_idmapping_timeout", job_id=job_id)
         return None
-
-    def _apply_entry_enrichment(
-        self,
-        df: pd.DataFrame,
-        idx: int,
-        entry: dict[str, Any],
-        strategy: str,
-    ) -> None:
-        canonical = entry.get("primaryAccession") or entry.get("accession")
-        df.at[idx, "uniprot_canonical_accession"] = canonical
-        df.at[idx, "uniprot_merge_strategy"] = strategy
-        df.at[idx, "uniprot_gene_primary"] = self._extract_gene_primary(entry)
-        df.at[idx, "uniprot_gene_synonyms"] = "; ".join(self._extract_gene_synonyms(entry))
-        df.at[idx, "uniprot_protein_name"] = self._extract_protein_name(entry)
-        df.at[idx, "uniprot_sequence_length"] = self._extract_sequence_length(entry)
-        df.at[idx, "uniprot_taxonomy_id"] = self._extract_taxonomy_id(entry)
-        df.at[idx, "uniprot_taxonomy_name"] = self._extract_organism(entry)
-        df.at[idx, "uniprot_lineage"] = "; ".join(self._extract_lineage(entry))
-        df.at[idx, "uniprot_secondary_accessions"] = "; ".join(self._extract_secondary(entry))
 
     @staticmethod
     def _row_value(row: pd.Series, column: str | None) -> Any:
@@ -648,95 +600,6 @@ class UniProtService:
             except TypeError:
                 record["details"] = str(details)
         return record
-
-    @staticmethod
-    def _extract_gene_primary(entry: dict[str, Any]) -> str | None:
-        genes = entry.get("genes") or []
-        if isinstance(genes, list):
-            for gene in genes:
-                primary = gene.get("geneName") if isinstance(gene, dict) else None
-                if isinstance(primary, dict):
-                    value = primary.get("value")
-                    if value:
-                        return str(value)
-        return None
-
-    @staticmethod
-    def _extract_gene_synonyms(entry: dict[str, Any]) -> list[str]:
-        genes = entry.get("genes") or []
-        synonyms: list[str] = []
-        if isinstance(genes, list):
-            for gene in genes:
-                names = gene.get("synonyms") if isinstance(gene, dict) else None
-                if not names:
-                    continue
-                if isinstance(names, list):
-                    for name in names:
-                        value = name.get("value") if isinstance(name, dict) else name
-                        if value:
-                            synonyms.append(str(value))
-        return synonyms
-
-    @staticmethod
-    def _extract_secondary(entry: dict[str, Any]) -> list[str]:
-        secondary = entry.get("secondaryAccessions") or entry.get("secondaryAccession")
-        if isinstance(secondary, list):
-            return [str(value) for value in secondary if value]
-        if secondary:
-            return [str(secondary)]
-        return []
-
-    @staticmethod
-    def _extract_protein_name(entry: dict[str, Any]) -> str | None:
-        protein = entry.get("proteinDescription") or entry.get("protein")
-        if isinstance(protein, dict):
-            recommended = protein.get("recommendedName") or protein.get("recommendedname")
-            if isinstance(recommended, dict):
-                value = recommended.get("fullName") or recommended.get("fullname")
-                if isinstance(value, dict):
-                    return str(value.get("value") or value.get("text") or value.get("label"))
-                if value:
-                    return str(value)
-        return None
-
-    @staticmethod
-    def _extract_sequence_length(entry: dict[str, Any]) -> int | None:
-        sequence = entry.get("sequence")
-        if isinstance(sequence, dict):
-            length = sequence.get("length")
-            try:
-                return int(length) if length is not None else None
-            except (TypeError, ValueError):
-                return None
-        return None
-
-    @staticmethod
-    def _extract_taxonomy_id(entry: dict[str, Any]) -> int | None:
-        organism = entry.get("organism", {})
-        if isinstance(organism, dict):
-            taxon = organism.get("taxonId") or organism.get("taxonIdentifier")
-            try:
-                return int(taxon) if taxon is not None else None
-            except (TypeError, ValueError):
-                return None
-        return None
-
-    @staticmethod
-    def _extract_organism(entry: dict[str, Any]) -> str | None:
-        organism = entry.get("organism", {})
-        if isinstance(organism, dict):
-            name = organism.get("scientificName") or organism.get("commonName")
-            if name:
-                return str(name)
-        return None
-
-    @staticmethod
-    def _extract_lineage(entry: dict[str, Any]) -> list[str]:
-        organism = entry.get("organism", {})
-        lineage = organism.get("lineage") if isinstance(organism, dict) else None
-        if isinstance(lineage, list):
-            return [str(value) for value in lineage if value]
-        return []
 
     def _ortholog_priority(self) -> dict[str, int]:
         if self.ortholog_priority is not None:
