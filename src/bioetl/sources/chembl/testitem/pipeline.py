@@ -10,7 +10,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import TestItemSchema
+from bioetl.schemas.testitem import TestItemSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
 from bioetl.sources.chembl.testitem.normalizer import (
@@ -33,7 +33,7 @@ from bioetl.utils.qc import (
     update_validation_issue_summary,
 )
 
-schema_registry.register("testitem", "1.0.0", TestItemSchema)  # type: ignore[arg-type]
+schema_registry.register("testitem", "1.0.0", TestItemSchema)
 
 __all__ = ["TestItemPipeline"]
 
@@ -396,20 +396,22 @@ class TestItemPipeline(PipelineBase):
                 )
 
                 input_indexed = df.set_index("molecule_chembl_id")
+                duplicated_mask = pd.Series(
+                    input_indexed.index.duplicated(),
+                    index=input_indexed.index,
+                    dtype="bool",
+                )
+
                 deduplicated_input = input_indexed
 
-                if input_indexed.index.has_duplicates:
-                    duplicated_ids = (
-                        input_indexed.index[input_indexed.index.duplicated()].unique().tolist()
-                    )
+                if bool(duplicated_mask.any()):
+                    duplicated_ids = duplicated_mask[duplicated_mask].index.unique().tolist()
                     logger.warning(
                         "duplicate_molecule_ids_in_input",
                         count=len(duplicated_ids),
                         sample=[str(mol_id) for mol_id in duplicated_ids[:5]],
                     )
-                    deduplicated_input = input_indexed[
-                        ~input_indexed.index.duplicated(keep="first")
-                    ]
+                    deduplicated_input = input_indexed.loc[~duplicated_mask]
 
                 # Overlay normalized values while falling back to the original input when needed
                 normalized_columns = [
