@@ -20,7 +20,7 @@
 | `refactoring/DATA_SOURCES.md` | Жёстко привязан к ветке `@test_refactoring_32`, перечисляет артефакты, которых нет | [ref: repo:refactoring/DATA_SOURCES.md@test_refactoring_32] | Привести описание к текущей ветке и реальным артефактам, зафиксировать актуальную матрицу источников | Высокий — риски несогласованной нормализации
 | `refactoring/FAQ.md` | Требует `tools/inventory/...` и CLI `bioetl pipeline run`, которых нет | [ref: repo:refactoring/FAQ.md@test_refactoring_32] | Сформировать новый FAQ с отражением актуального CLI и roadmap по инвентаризации | Средний — операционные регламенты недостоверны
 | `refactoring/ACCEPTANCE_CRITERIA.md` | Гарантии детерминизма и тестов не сопоставлены с существующими инструментами | [ref: repo:refactoring/ACCEPTANCE_CRITERIA.md@test_refactoring_32] | Добавить кросс-ссылки на `UnifiedOutputWriter`, существующие тесты и планы по недостающим проверкам | Средний — сложно подтвердить готовность
-| `refactoring/IO.md` | Требует JSON Schema/YAML в `configs/sources`, тогда как конфиги — в `src/bioetl/configs` | [ref: repo:refactoring/IO.md@test_refactoring_32] | Обновить раздел конфигов и схем под реальную систему Pydantic + YAML includes | Средний — документация не помогает интеграции
+| `refactoring/IO.md` | Требует JSON Schema/YAML в `src/bioetl/configs/pipelines`, тогда как конфиги — в `src/bioetl/configs` | [ref: repo:refactoring/IO.md@test_refactoring_32] | Обновить раздел конфигов и схем под реальную систему Pydantic + YAML includes | Средний — документация не помогает интеграции
 | `refactoring/REFACTOR_PLAN.md` | Описывает UnifiedAPIClient/инвентаризацию как уже существующие шаги без артефактов | [ref: repo:refactoring/REFACTOR_PLAN.md@test_refactoring_32] | Синхронизировать план с фактическим состоянием и декомпозировать на PR/вехи | Средний — потеря управляемости roadmap
 
 ## Список противоречий
@@ -29,7 +29,7 @@
 3. Документы ссылаются на ветки `@test_refactoring_32` и `@test_refactoring_32`, что противоречит указанию «источник истины — test_refactoring_32». Требуется очистить внешние ссылки и заменить их на актуальные пути. [ref: repo:refactoring/PIPELINES.md@test_refactoring_32] [ref: repo:refactoring/DATA_SOURCES.md@test_refactoring_32]
 4. CLI в FAQ фиксирован как `bioetl pipeline run`, хотя реальная реализация — отдельные команды Typer, регистрируемые из `PIPELINE_COMMAND_REGISTRY`. Нужно скорректировать документацию и описать существующий интерфейс. [ref: repo:refactoring/FAQ.md@test_refactoring_32] [ref: repo:src/bioetl/cli/main.py@test_refactoring_32] [ref: repo:src/scripts/__init__.py@test_refactoring_32]
 5. Требования к депрекациям указывают на `DEPRECATIONS.md`, но файл отсутствует. Следует создать артефакт и завести регистр предупреждений или скорректировать требования. [ref: repo:refactoring/FAQ.md@test_refactoring_32]
-6. Раздел `IO.md` описывает конфиги в `configs/sources/<source>`, тогда как YAML-файлы находятся в `src/bioetl/configs/...`. Нужно обновить путь и схему, чтобы избежать путаницы. [ref: repo:refactoring/IO.md@test_refactoring_32] [ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
+6. Раздел `IO.md` описывает конфиги в `src/bioetl/configs/pipelines/<source>.yaml`, тогда как YAML-файлы находятся в `src/bioetl/configs/pipelines/...`. Нужно обновить путь и схему, чтобы избежать путаницы. [ref: repo:refactoring/IO.md@test_refactoring_32] [ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
 7. Acceptance Criteria требуют Pandera-схем и детерминизма, но документы не ссылаются на `UnifiedOutputWriter` и Pydantic-конфиги, которые уже реализованы. Нужно добавить ссылки на текущие реализации и выделить пробелы (например, отсутствие property-based тестов). [ref: repo:refactoring/ACCEPTANCE_CRITERIA.md@test_refactoring_32] [ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32] [ref: repo:src/bioetl/config/models.py@test_refactoring_32]
 8. План рефакторинга декларирует наличие единого клиента и артефактов, хотя шаги ещё не завершены. Требуется переработка плана с указанием статуса и приоритетов. [ref: repo:refactoring/REFACTOR_PLAN.md@test_refactoring_32]
 
@@ -132,6 +132,6 @@
 -Все пути и ссылки указываются на ветку @test_refactoring_32.
 +Все пути и ссылки указываются на ветку test_refactoring_32.
 @@
--Конфиг каждого источника: `configs/sources/<source>/<source>.yaml`.
+-Конфиг каждого источника: `src/bioetl/configs/pipelines/<source>.yaml`.
 +Конфиг каждого пайплайна: `src/bioetl/configs/pipelines/<pipeline>.yaml`.
 ```
