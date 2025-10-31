@@ -2,11 +2,17 @@
 
 from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
+from pandas import Float64Dtype
+import pandera.errors as pa_errors
 import requests
-from pandera.errors import SchemaErrors
+
+if TYPE_CHECKING:
+    from pandera.errors import SchemaError as SchemaErrors
+else:  # pragma: no cover - runtime compatibility for older Pandera releases
+    SchemaErrors = cast(type[Exception], getattr(pa_errors, "SchemaErrors", pa_errors.SchemaError))
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -27,12 +33,14 @@ from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from bioetl.sources.semantic_scholar.pipeline import (
     SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 )
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
     DocumentRawSchema,
     DocumentSchema,
 )
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -49,7 +57,11 @@ from .request import (
 )
 from .schema import build_document_fallback_row
 
-schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
+schema_registry.register(
+    "document",
+    "1.0.0",
+    cast(DataFrameModel, DocumentNormalizedSchema),
+)
 
 __all__ = [
     "DocumentPipeline",
@@ -57,8 +69,6 @@ __all__ = [
     "DOCUMENT_PIPELINE_MODES",
     "DEFAULT_DOCUMENT_PIPELINE_MODE",
 ]
-
-NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -269,10 +279,7 @@ class DocumentPipeline(PipelineBase):
     def close_resources(self) -> None:
         """Close external adapters and the primary API client."""
 
-        try:
-            self._release_external_adapters()
-        finally:
-            super().close_resources()
+        self._release_external_adapters()
 
     def _build_adapter_configs(
         self,
@@ -297,7 +304,7 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
-            return chembl_df
+            return ExternalEnrichmentResult(chembl_df, "skipped", {})
 
         pmids: list[str] = []
         dois: list[str] = []
@@ -481,9 +488,6 @@ class DocumentPipeline(PipelineBase):
         if value is None:
             return None
 
-        if value is pd.NA:  # type: ignore[comparison-overlap]
-            return None
-
         try:
             if pd.isna(value):
                 return None
@@ -540,7 +544,8 @@ class DocumentPipeline(PipelineBase):
         Returns:
             Version string (e.g., 'ChEMBL_36') or None
         """
-        release = self._fetch_chembl_release_info(self.api_client)
+        client = cast(SupportsRequestJson, self.api_client)
+        release = self._fetch_chembl_release_info(client)
         return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -667,7 +672,7 @@ class DocumentPipeline(PipelineBase):
                     working_df[column] = pd.Series(
                         pd.NA,
                         index=working_df.index,
-                        dtype=pd.Float64Dtype(),
+                        dtype=Float64Dtype(),
                     )
                 else:
                     working_df[column] = pd.NA
@@ -789,7 +794,10 @@ class DocumentPipeline(PipelineBase):
             "journal": "journal",
             "authors": "authors",
         }
-        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
+        coverage_stats = compute_field_coverage(
+            validated_df,
+            tuple(coverage_columns.values()),
+        )
         coverage_payload = {
             key: coverage_stats.get(column, 0.0)
             for key, column in coverage_columns.items()
@@ -880,21 +888,23 @@ class DocumentPipeline(PipelineBase):
             if value is None:
                 continue
 
-            min_threshold = config.get("min")
-            max_threshold = config.get("max")
+            min_raw = config.get("min")
+            max_raw = config.get("max")
+            min_threshold = float(min_raw) if min_raw is not None else None
+            max_threshold = float(max_raw) if max_raw is not None else None
             severity = str(config.get("severity", "warning"))
 
             passed = True
-            if min_threshold is not None and value < float(min_threshold):
+            if min_threshold is not None and value < min_threshold:
                 passed = False
-            if max_threshold is not None and value > float(max_threshold):
+            if max_threshold is not None and value > max_threshold:
                 passed = False
 
             issue_payload = {
                 "metric": metric_name,
                 "value": value,
-                "threshold_min": float(min_threshold) if min_threshold is not None else None,
-                "threshold_max": float(max_threshold) if max_threshold is not None else None,
+                "threshold_min": min_threshold,
+                "threshold_max": max_threshold,
                 "severity": severity if not passed else "info",
                 "passed": passed,
             }
