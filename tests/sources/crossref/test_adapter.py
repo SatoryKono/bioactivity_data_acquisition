@@ -6,7 +6,7 @@ from unittest.mock import patch
 import bioetl.adapters.crossref as crossref_module
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.crossref import CrossrefAdapter
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class TestCrossrefAdapter(AdapterTestMixin, unittest.TestCase):

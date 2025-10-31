@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from bioetl.adapters.pubchem import PubChemAdapter
 from bioetl.utils.json import canonical_json
-from tests.unit.adapters._mixins import AdapterTestMixin
+from tests.sources._mixins import AdapterTestMixin
 
 
 class TestPubChemAdapter(AdapterTestMixin, unittest.TestCase):
