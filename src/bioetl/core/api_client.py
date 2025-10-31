@@ -869,11 +869,8 @@ class UnifiedAPIClient:
                 data=data_payload,
                 json=json_payload,
                 stream=stream,
-<<<<<<< HEAD
                 headers=headers,
-=======
                 context=context,
->>>>>>> origin/codex/develop-logger-with-structlog-support
             )
 
         def _request_operation() -> PayloadT:
@@ -1293,11 +1290,8 @@ class UnifiedAPIClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         stream: bool = False,
-<<<<<<< HEAD
         headers: Mapping[str, str] | None = None,
-=======
         context: _RequestRetryContext | None = None,
->>>>>>> origin/codex/develop-logger-with-structlog-support
     ) -> requests.Response:
         """Execute a single HTTP request respecting Retry-After semantics."""
 
