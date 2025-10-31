@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.pagination import OffsetPaginationStrategy
+from bioetl.core.pagination import OffsetPaginationStrategy, OffsetRequest
 
 __all__ = ["OffsetPaginator"]
 
@@ -36,10 +36,11 @@ class OffsetPaginator:
                 return [item for item in items if isinstance(item, Mapping)]
             return []
 
-        return self._strategy.collect(
-            path,
+        request = OffsetRequest(
+            path=path,
             page_size=self.page_size,
             params=params,
             max_items=max_items,
             extract_items=extract_items,
         )
+        return self._strategy.paginate(request)

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.pagination import CursorPaginationStrategy
+from bioetl.core.pagination import CursorPaginationStrategy, CursorRequest
 
 __all__ = ["CursorPaginator"]
 
@@ -60,11 +60,12 @@ class CursorPaginator:
                 return next_cursor
             return None
 
-        return self._strategy.collect(
-            path,
+        request = CursorRequest(
+            path=path,
             page_size=self.page_size,
             unique_key=unique_key,
             parse_items=parse_items,
             extract_cursor=extract_cursor,
             params=params,
         )
+        return self._strategy.paginate(request)

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Sequence
 
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.pagination import PageNumberPaginationStrategy
+from bioetl.core.pagination import PageNumberPaginationStrategy, PageNumberRequest
 
 __all__ = ["PageNumberPaginator"]
 
@@ -37,10 +37,11 @@ class PageNumberPaginator:
             msg = "parser must be provided for IUPHAR pagination"
             raise ValueError(msg)
 
-        return self._strategy.collect(
-            path,
+        request = PageNumberRequest(
+            path=path,
             page_size=self.page_size,
             unique_key=unique_key,
             parser=parser,
             params=params,
         )
+        return self._strategy.paginate(request)

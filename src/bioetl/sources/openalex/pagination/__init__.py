@@ -8,7 +8,7 @@ from typing import Any
 
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.pagination import CursorPaginationStrategy
+from bioetl.core.pagination import CursorPaginationStrategy, CursorRequest
 
 __all__ = ["CursorPaginator", "PageParser"]
 
@@ -65,8 +65,8 @@ class CursorPaginator:
         def handle_page_limit(page_index: int) -> None:
             logger.warning("openalex_cursor_page_limit", path=path, pages=page_index)
 
-        return self._strategy.collect(
-            path,
+        request = CursorRequest(
+            path=path,
             page_size=self.page_size,
             unique_key=unique_key,
             parse_items=parse_items,
@@ -77,3 +77,4 @@ class CursorPaginator:
             on_empty_page=handle_empty_page,
             on_page_limit=handle_page_limit,
         )
+        return self._strategy.paginate(request)
