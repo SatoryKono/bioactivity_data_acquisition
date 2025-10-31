@@ -710,7 +710,7 @@ Target
 
 Current
 [ref: repo:src/bioetl/sources/crossref/@test_refactoring_32]
-[ref: repo:src/bioetl/configs/pipelines/crossref.yaml@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
 [ref: repo:tests/sources/crossref/*@test_refactoring_32]
 
 Target
