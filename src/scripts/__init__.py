@@ -13,6 +13,7 @@ from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
 from bioetl.sources.chembl.assay.pipeline import AssayPipeline
 from bioetl.sources.chembl.document.pipeline import DocumentPipeline
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
+from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
@@ -58,6 +59,14 @@ PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
         default_input=Path("data/input/testitem.csv"),
         default_output_dir=Path("data/output/testitems"),
         description="ChEMBL molecules + PubChem",
+    ),
+    "gtp_iuphar": PipelineCommandConfig(
+        pipeline_name="gtp_iuphar",
+        pipeline_factory=lambda: GtpIupharPipeline,
+        default_config=get_config_path("pipelines/iuphar.yaml"),
+        default_input=Path("data/input/iuphar_targets.csv"),
+        default_output_dir=Path("data/output/iuphar"),
+        description="Guide to Pharmacology targets",
     ),
 }
 
