@@ -43,9 +43,9 @@ class DocumentChEMBLClient:
             batch_size_cap=batch_size_cap,
         )
         self.api_client: UnifiedAPIClient = context.client
-        self.batch_size = context.batch_size
-        self.max_url_length = int(context.max_url_length or 0) or 1
-        self.max_batch_size = int(batch_size_cap or 0) or self.batch_size
+        self.batch_size: int = int(context.batch_size)
+        self.max_url_length: int = int(context.max_url_length or 0) or 1
+        self.max_batch_size: int = int(batch_size_cap or 0) or self.batch_size
         self._document_cache: dict[str, dict[str, Any]] = {}
         self._chembl_release: str | None = None
 

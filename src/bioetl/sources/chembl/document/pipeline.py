@@ -1,15 +1,36 @@
 """Document Pipeline - ChEMBL document extraction with external enrichment."""
 
 from collections.abc import Mapping, Sequence
+from dataclasses import MISSING
+from numbers import Real
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
+import pandera.errors as pa_errors
 import requests
-from pandera.errors import SchemaErrors
+
+if TYPE_CHECKING:
+    from pandera.errors import SchemaError as SchemaErrors
+else:  # pragma: no cover - runtime compatibility for older Pandera releases
+
+    def _resolve_schema_errors_type() -> type[Exception]:
+        """Return the most specific Pandera schema error type available."""
+
+        candidate = getattr(pa_errors, "SchemaErrors", None)
+        if isinstance(candidate, type) and issubclass(candidate, Exception):
+            return candidate
+
+        fallback = getattr(pa_errors, "SchemaError", None)
+        if isinstance(fallback, type) and issubclass(fallback, Exception):
+            return fallback
+
+        return Exception
+
+    SchemaErrors = _resolve_schema_errors_type()
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -27,12 +48,14 @@ from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from bioetl.sources.semantic_scholar.pipeline import (
     SEMANTIC_SCHOLAR_ADAPTER_DEFINITION,
 )
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.schemas.document import (
     DocumentNormalizedSchema,
     DocumentRawSchema,
     DocumentSchema,
 )
 from bioetl.schemas.registry import schema_registry
+from bioetl.utils.chembl import SupportsRequestJson
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -49,7 +72,11 @@ from .request import (
 )
 from .schema import build_document_fallback_row
 
-schema_registry.register("document", "1.0.0", DocumentNormalizedSchema)  # type: ignore[arg-type]
+schema_registry.register(
+    "document",
+    "1.0.0",
+    cast(DataFrameModel, DocumentNormalizedSchema),
+)
 
 __all__ = [
     "DocumentPipeline",
@@ -57,8 +84,6 @@ __all__ = [
     "DOCUMENT_PIPELINE_MODES",
     "DEFAULT_DOCUMENT_PIPELINE_MODE",
 ]
-
-NAType = type(pd.NA)
 
 logger = UnifiedLogger.get(__name__)
 
@@ -120,7 +145,7 @@ class DocumentPipeline(PipelineBase):
         default_max_url_length = 1800
         self.max_batch_size = 25
 
-        self.document_client = DocumentChEMBLClient(
+        self.document_client: DocumentChEMBLClient = DocumentChEMBLClient(
             config,
             defaults={
                 "enabled": True,
@@ -131,10 +156,10 @@ class DocumentPipeline(PipelineBase):
             batch_size_cap=self.max_batch_size,
         )
 
-        self.api_client = self.document_client.api_client
+        self.api_client: UnifiedAPIClient = self.document_client.api_client
         self.register_client(self.api_client)
-        self.batch_size = self.document_client.batch_size
-        self.max_url_length = max(1, int(self.document_client.max_url_length))
+        self.batch_size: int = int(self.document_client.batch_size)
+        self.max_url_length: int = max(1, int(self.document_client.max_url_length))
 
         # Initialize external adapter state; adapters are prepared lazily per mode
         self.external_adapters: dict[str, Any] = {}
@@ -269,10 +294,7 @@ class DocumentPipeline(PipelineBase):
     def close_resources(self) -> None:
         """Close external adapters and the primary API client."""
 
-        try:
-            self._release_external_adapters()
-        finally:
-            super().close_resources()
+        self._release_external_adapters()
 
     def _build_adapter_configs(
         self,
@@ -297,7 +319,7 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
-            return chembl_df
+            return ExternalEnrichmentResult(chembl_df, "skipped", {})
 
         pmids: list[str] = []
         dois: list[str] = []
@@ -481,9 +503,6 @@ class DocumentPipeline(PipelineBase):
         if value is None:
             return None
 
-        if value is pd.NA:  # type: ignore[comparison-overlap]
-            return None
-
         try:
             if pd.isna(value):
                 return None
@@ -540,7 +559,8 @@ class DocumentPipeline(PipelineBase):
         Returns:
             Version string (e.g., 'ChEMBL_36') or None
         """
-        release = self._fetch_chembl_release_info(self.api_client)
+        client = cast(SupportsRequestJson, self.api_client)
+        release = self._fetch_chembl_release_info(client)
         return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -667,7 +687,7 @@ class DocumentPipeline(PipelineBase):
                     working_df[column] = pd.Series(
                         pd.NA,
                         index=working_df.index,
-                        dtype=pd.Float64Dtype(),
+                        dtype="Float64",
                     )
                 else:
                     working_df[column] = pd.NA
@@ -789,7 +809,10 @@ class DocumentPipeline(PipelineBase):
             "journal": "journal",
             "authors": "authors",
         }
-        coverage_stats = compute_field_coverage(validated_df, coverage_columns.values())
+        coverage_stats = compute_field_coverage(
+            validated_df,
+            tuple(coverage_columns.values()),
+        )
         coverage_payload = {
             key: coverage_stats.get(column, 0.0)
             for key, column in coverage_columns.items()
@@ -864,6 +887,33 @@ class DocumentPipeline(PipelineBase):
         logger.debug("qc_metrics_computed", metrics=metrics)
         return metrics
 
+    @staticmethod
+    def _coerce_threshold_value(raw_value: Any) -> float | None:
+        """Normalize a configuration threshold to a float or ``None``."""
+
+        if raw_value is None or raw_value is MISSING:
+            return None
+
+        if isinstance(raw_value, Real):
+            return float(raw_value)
+
+        if isinstance(raw_value, str):
+            candidate = raw_value.strip()
+            if not candidate:
+                return None
+            try:
+                return float(candidate)
+            except ValueError as exc:  # pragma: no cover - configuration error
+                raise ValueError(f"Invalid QC threshold value: {raw_value!r}") from exc
+
+        try:
+            if pd.isna(raw_value):
+                return None
+        except TypeError:
+            pass
+
+        raise TypeError(f"Unsupported QC threshold type: {type(raw_value)!r}")
+
     def _enforce_qc_thresholds(self, metrics: dict[str, float]) -> None:
         """Validate QC metrics against configured thresholds."""
 
@@ -880,21 +930,21 @@ class DocumentPipeline(PipelineBase):
             if value is None:
                 continue
 
-            min_threshold = config.get("min")
-            max_threshold = config.get("max")
+            min_threshold = self._coerce_threshold_value(config.get("min"))
+            max_threshold = self._coerce_threshold_value(config.get("max"))
             severity = str(config.get("severity", "warning"))
 
             passed = True
-            if min_threshold is not None and value < float(min_threshold):
+            if min_threshold is not None and value < min_threshold:
                 passed = False
-            if max_threshold is not None and value > float(max_threshold):
+            if max_threshold is not None and value > max_threshold:
                 passed = False
 
             issue_payload = {
                 "metric": metric_name,
                 "value": value,
-                "threshold_min": float(min_threshold) if min_threshold is not None else None,
-                "threshold_max": float(max_threshold) if max_threshold is not None else None,
+                "threshold_min": min_threshold,
+                "threshold_max": max_threshold,
                 "severity": severity if not passed else "info",
                 "passed": passed,
             }
