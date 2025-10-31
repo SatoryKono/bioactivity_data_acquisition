@@ -12,17 +12,17 @@ class PubChemRequestBuilder:
 
     _CID_LOOKUP_TEMPLATE: Final[str] = "/compound/inchikey/{inchikey}/cids/JSON"
     _PROPERTIES_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/property/{properties}/JSON"
+    _SYNONYMS_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/synonyms/JSON"
+    _REGISTRY_IDS_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/xrefs/RegistryID/JSON"
+    _RN_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/xrefs/RN/JSON"
     _DEFAULT_PROPERTIES: Final[tuple[str, ...]] = (
         "MolecularFormula",
         "MolecularWeight",
-        "SMILES",
-        "ConnectivitySMILES",
+        "CanonicalSMILES",
+        "IsomericSMILES",
         "InChI",
         "InChIKey",
         "IUPACName",
-        "RegistryID",
-        "RN",
-        "Synonym",
     )
 
     @classmethod
@@ -45,6 +45,30 @@ class PubChemRequestBuilder:
         property_tokens = list(properties or cls._DEFAULT_PROPERTIES)
         property_list = ",".join(property_tokens)
         return cls._PROPERTIES_TEMPLATE.format(cid_list=cid_list, properties=property_list)
+
+    @classmethod
+    def build_synonyms_url(cls, cids: Sequence[int | str]) -> str:
+        """Return the endpoint for retrieving synonym data for the provided CIDs."""
+
+        cid_tokens = [str(cid) for cid in cids if str(cid)]
+        cid_list = ",".join(cid_tokens)
+        return cls._SYNONYMS_TEMPLATE.format(cid_list=cid_list)
+
+    @classmethod
+    def build_registry_ids_url(cls, cids: Sequence[int | str]) -> str:
+        """Return the endpoint for retrieving registry identifiers."""
+
+        cid_tokens = [str(cid) for cid in cids if str(cid)]
+        cid_list = ",".join(cid_tokens)
+        return cls._REGISTRY_IDS_TEMPLATE.format(cid_list=cid_list)
+
+    @classmethod
+    def build_rn_url(cls, cids: Sequence[int | str]) -> str:
+        """Return the endpoint for retrieving RN (CAS) identifiers."""
+
+        cid_tokens = [str(cid) for cid in cids if str(cid)]
+        cid_list = ",".join(cid_tokens)
+        return cls._RN_TEMPLATE.format(cid_list=cid_list)
 
     @classmethod
     def get_default_properties(cls) -> tuple[str, ...]:

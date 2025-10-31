@@ -56,13 +56,19 @@ class PubChemNormalizer:
 
         normalized["pubchem_molecular_formula"] = self._coerce_string(record.get("MolecularFormula"))
         normalized["pubchem_molecular_weight"] = self._coerce_float(record.get("MolecularWeight"))
-        normalized["pubchem_canonical_smiles"] = self._coerce_string(record.get("ConnectivitySMILES"))
-        normalized["pubchem_isomeric_smiles"] = self._coerce_string(record.get("SMILES"))
+        normalized["pubchem_canonical_smiles"] = self._coerce_string(
+            record.get("CanonicalSMILES")
+            or record.get("ConnectivitySMILES")
+            or record.get("SMILES")
+        )
+        normalized["pubchem_isomeric_smiles"] = self._coerce_string(
+            record.get("IsomericSMILES") or record.get("SMILES")
+        )
         normalized["pubchem_inchi"] = self._coerce_string(record.get("InChI"))
         normalized["pubchem_inchi_key"] = self._coerce_string(record.get("InChIKey"))
         normalized["pubchem_iupac_name"] = self._coerce_string(record.get("IUPACName"))
-        normalized["pubchem_registry_id"] = self._coerce_string(record.get("RegistryID"))
-        normalized["pubchem_rn"] = self._coerce_string(record.get("RN"))
+        normalized["pubchem_registry_id"] = self._coerce_string(self._first_value(record.get("RegistryID")))
+        normalized["pubchem_rn"] = self._coerce_string(self._first_value(record.get("RN")))
 
         synonyms = record.get("Synonym") or record.get("Synonyms")
         if synonyms is not None:
@@ -104,6 +110,12 @@ class PubChemNormalizer:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    @staticmethod
+    def _first_value(value: Any) -> Any:
+        if isinstance(value, (list, tuple)):
+            return value[0] if value else None
+        return value
 
     def normalize_types(self, df: pd.DataFrame) -> pd.DataFrame:
         """Coerce DataFrame columns to their canonical dtypes."""
