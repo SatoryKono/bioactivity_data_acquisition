@@ -895,7 +895,7 @@ class NormalizerRegistry:
 
 SchemaRegistry:
 
-Централизованный реестр Pandera-схем с версионированием. Фасад `bioetl.core.unified_schema` предоставляет официальные точки входа `register_schema()`, `get_schema()`, `get_schema_metadata()` и `is_registered()` — модульный код не должен напрямую обращаться к внутренностям `SchemaRegistry`.【F:src/bioetl/core/unified_schema.py†L19-L82】【F:src/bioetl/schemas/registry.py†L22-L211】
+Централизованный реестр Pandera-схем с версионированием. Фасад `bioetl.core.unified_schema` предоставляет официальные точки входа `register_schema()`, `get_schema()`, `get_schema_metadata()` и `is_registered()` — модульный код не должен напрямую обращаться к внутренностям `SchemaRegistry`.(см.src/bioetl/core/unified_schema.py†L19-L82】(см.src/bioetl/schemas/registry.py†L22-L211】
 
 ```python
 class SchemaRegistry:

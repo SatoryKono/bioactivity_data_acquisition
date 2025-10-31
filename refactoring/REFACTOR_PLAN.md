@@ -1264,7 +1264,7 @@ def is_compatible(from_version: str, to_version: str) -> bool:
 
 **Хранение column_order в схеме (источник истины):**
 
-**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме фиксируется в `PipelineBase.export()` как fail-fast до записи; NA-policy обязательна для всех таблиц.【F:src/bioetl/pipelines/base.py†L826-L855】
+**Инвариант:** column_order — единственный источник истины в схеме; meta.yaml содержит копию; несоответствие column_order схеме фиксируется в `PipelineBase.export()` как fail-fast до записи; NA-policy обязательна для всех таблиц.(см. `src/bioetl/pipelines/base.py` строки 826-855).
 
 ```python
 # schema.py (Schema Registry) — источник истины

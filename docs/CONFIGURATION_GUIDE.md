@@ -78,12 +78,12 @@ Configuration loading resolves all `extends` entries recursively. Unit tests und
 Некоторые адаптеры не работают без заранее экспортированных переменных окружения.
 Полный список и формат значений задокументирован в [`.env.example`](../.env.example).
 
-\1- `PUBMED_TOOL` и `PUBMED_EMAIL` подставляются в конфиг документного пайплайна и
-  передаются в PubMed E-utilities (`sources.pubmed.tool/email`).
-\1- `CROSSREF_MAILTO` требуется Crossref для polite-пула (`sources.crossref.mailto`).
-\1- `SEMANTIC_SCHOLAR_API_KEY` и `PUBMED_API_KEY` опциональны, но расширяют лимиты
-  соответствующих API (`sources.semantic_scholar.api_key`, `sources.pubmed.api_key`).
-\1- `IUPHAR_API_KEY` обязателен для обогащения целевых сущностей (`sources.iuphar`).
+1. `PUBMED_TOOL` и `PUBMED_EMAIL` подставляются в конфиг документного пайплайна и
+   передаются в PubMed E-utilities (`sources.pubmed.tool/email`).
+2. `CROSSREF_MAILTO` требуется Crossref для polite-пула (`sources.crossref.mailto`).
+3. `SEMANTIC_SCHOLAR_API_KEY` и `PUBMED_API_KEY` опциональны, но расширяют лимиты
+   соответствующих API (`sources.semantic_scholar.api_key`, `sources.pubmed.api_key`).
+4. `IUPHAR_API_KEY` обязателен для обогащения целевых сущностей (`sources.iuphar`).
 
 Рекомендуемый порядок загрузки секретов:
 
