@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -30,7 +30,7 @@ from .parser.activity_parser import (
 )
 from .request.activity_request import ActivityRequestBuilder
 
-schema_registry.register("activity", "1.0.0", ActivitySchema)  # type: ignore[arg-type]
+schema_registry.register("activity", "1.0.0", ActivitySchema)
 
 __all__ = ["ActivityPipeline"]
 
@@ -84,7 +84,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
             parser=self.parser,
             request_builder=request_builder,
         )
-        self.api_client = self.client.api_client
+        self.api_client: SupportsRequestJson = self.client.api_client
         self.batch_size = self.client.batch_size
         self.configured_max_url_length = self.client.max_url_length
 
@@ -158,9 +158,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
     ) -> dict[str, Any]:
         """Create deterministic fallback record enriched with error metadata."""
 
-        record = cast(
-            dict[str, Any],
-            self._fallback_builder.record(
+        record = self._fallback_builder.record(
             overrides={
                 "activity_id": activity_id,
                 "published_relation": "=",
@@ -171,8 +169,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
                 "exact_data_citation": False,
                 "rounded_data_citation": False,
                 "extracted_at": datetime.now(timezone.utc).isoformat(),
-                },
-            ),
+            },
         )
         metadata = build_fallback_payload(
             entity="activity",
@@ -188,7 +185,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        client = cast(SupportsRequestJson, self.api_client)
+        client = self.api_client
         release = self._fetch_chembl_release_info(client)
         status = release.status
         if isinstance(status, Mapping):
@@ -196,7 +193,7 @@ class ActivityPipeline(PipelineBase):  # type: ignore[misc]
         else:
             self._status_snapshot = None
 
-        return cast(str | None, release.version)
+        return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform activity data."""
