@@ -226,7 +226,7 @@ class DocumentPipeline(PipelineBase):
     def _prepare_enrichment_adapters(self) -> None:
         """Ensure external adapters reflect the active execution mode."""
 
-        if self.mode != "all":
+        if isinstance(self.mode, str) and self.mode != "all":
             if self._adapter_initialization_mode == "all" and self.external_adapters:
                 logger.info("external_adapters_released", mode=self.mode)
                 self._release_external_adapters()
@@ -488,9 +488,10 @@ class DocumentPipeline(PipelineBase):
             return None
 
         try:
-            if pd.isna(value):
+            # Check for pandas NA values
+            if hasattr(value, '__class__') and pd.isna(value):
                 return None
-        except TypeError:
+        except (TypeError, ValueError):
             pass
 
         if isinstance(value, str):
@@ -893,12 +894,14 @@ class DocumentPipeline(PipelineBase):
             max_threshold: float | None = None
             if min_raw is not None:
                 try:
-                    min_threshold = float(min_raw)  # type: ignore[arg-type]
+                    if isinstance(min_raw, (int, float, str)):
+                        min_threshold = float(min_raw)
                 except (TypeError, ValueError):
                     pass
             if max_raw is not None:
                 try:
-                    max_threshold = float(max_raw)  # type: ignore[arg-type]
+                    if isinstance(max_raw, (int, float, str)):
+                        max_threshold = float(max_raw)
                 except (TypeError, ValueError):
                     pass
             severity = str(config.get("severity", "warning"))
