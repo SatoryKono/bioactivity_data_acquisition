@@ -1,7 +1,6 @@
 # Acceptance Criteria
 
-> **Примечание:** Структура `src/bioetl/sources/` — правильная организация для внешних источников данных. Внешние источники (crossref, pubmed, openalex, semantic_scholar, iuphar, uniprot) имеют правильную структуру с подпапками (client/, request/, parser/, normalizer/, output/, pipeline.py; дополнительно schema/, merge/, pagination/ при необходимости).
-> Для ChEMBL исторические файлы в `src/bioetl/pipelines/*.py` выступают совместимыми реэкспортами (например, `src/bioetl/pipelines/activity.py` перенаправляет на `src/bioetl/sources/chembl/activity/pipeline.py`, `src/bioetl/pipelines/document.py` — на `src/bioetl/sources/chembl/document/pipeline.py`). Целевая структура закреплена в `src/bioetl/sources/chembl/<entity>/pipeline.py`.
+> **Обновление:** Структура `src/bioetl/sources/` остаётся канонической для внешних источников данных. Модульные реализации ChEMBL находятся в `src/bioetl/sources/chembl/<entity>/`, а файлы `src/bioetl/pipelines/*.py` сохранены как совместимые прокси, которые реэкспортируют новые пайплайны.
 
 ## A. Архитектура и раскладка
 
