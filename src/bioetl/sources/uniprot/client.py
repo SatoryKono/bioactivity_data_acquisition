@@ -9,9 +9,12 @@ from typing import Any, Iterable
 import pandas as pd
 
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.deprecation import warn_legacy_client
 from bioetl.core.logger import UnifiedLogger
 
 logger = UnifiedLogger.get(__name__)
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.uniprot")
 
 
 def _chunked(values: Iterable[str], size: int) -> Iterable[list[str]]:

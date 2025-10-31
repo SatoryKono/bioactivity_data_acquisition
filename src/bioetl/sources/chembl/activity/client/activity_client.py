@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.deprecation import warn_legacy_client
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
@@ -20,6 +21,8 @@ from ..parser.activity_parser import ActivityParser
 from ..request.activity_request import ActivityRequestBuilder
 
 __all__ = ["ActivityChEMBLClient"]
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.chembl.activity")
 
 logger = UnifiedLogger.get(__name__)
 

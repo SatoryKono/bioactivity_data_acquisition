@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlparse
 from typing import Any, Mapping, TypeVar, cast
 
 import backoff
@@ -126,6 +127,151 @@ class APIConfig:
             "5xx",
         ]
     )
+
+    def __post_init__(self) -> None:
+        self.name = self._validate_non_empty_str(self.name, "name")
+        self.base_url = self._validate_base_url(self.base_url)
+        self.headers = self._normalise_headers(self.headers)
+        self.cache_enabled = bool(self.cache_enabled)
+        self.cache_ttl = self._validate_int(self.cache_ttl, "cache_ttl", minimum=0)
+        self.cache_maxsize = self._validate_int(
+            self.cache_maxsize, "cache_maxsize", minimum=1
+        )
+        self.rate_limit_max_calls = self._validate_int(
+            self.rate_limit_max_calls, "rate_limit_max_calls", minimum=1
+        )
+        self.rate_limit_period = self._validate_float(
+            self.rate_limit_period, "rate_limit_period", minimum=0.0, allow_zero=False
+        )
+        self.rate_limit_jitter = bool(self.rate_limit_jitter)
+        self.retry_total = self._validate_int(
+            self.retry_total, "retry_total", minimum=0
+        )
+        self.retry_backoff_factor = self._validate_float(
+            self.retry_backoff_factor,
+            "retry_backoff_factor",
+            minimum=0.0,
+            allow_zero=True,
+        )
+        if self.retry_backoff_max is not None:
+            self.retry_backoff_max = self._validate_float(
+                self.retry_backoff_max,
+                "retry_backoff_max",
+                minimum=0.0,
+                allow_zero=True,
+            )
+        self.retry_giveup_on = [
+            self._validate_exception_type(exc, index)
+            for index, exc in enumerate(self.retry_giveup_on)
+        ]
+        self.retry_status_codes = self._normalise_status_codes(self.retry_status_codes)
+        self.partial_retry_max = self._validate_int(
+            self.partial_retry_max, "partial_retry_max", minimum=0
+        )
+        self.timeout_connect = self._validate_float(
+            self.timeout_connect, "timeout_connect", minimum=0.0, allow_zero=False
+        )
+        self.timeout_read = self._validate_float(
+            self.timeout_read, "timeout_read", minimum=0.0, allow_zero=False
+        )
+        self.cb_failure_threshold = self._validate_int(
+            self.cb_failure_threshold, "cb_failure_threshold", minimum=1
+        )
+        self.cb_timeout = self._validate_float(
+            self.cb_timeout, "cb_timeout", minimum=0.0, allow_zero=False
+        )
+        self.fallback_enabled = bool(self.fallback_enabled)
+        self.fallback_strategies = [
+            self._validate_non_empty_str(strategy, f"fallback_strategies[{index}]")
+            for index, strategy in enumerate(self.fallback_strategies)
+        ]
+
+    @staticmethod
+    def _validate_non_empty_str(value: Any, field_name: str) -> str:
+        if not isinstance(value, str):
+            raise TypeError(f"{field_name} must be a string")
+        candidate = value.strip()
+        if not candidate:
+            raise ValueError(f"{field_name} must not be blank")
+        return candidate
+
+    @classmethod
+    def _validate_base_url(cls, value: Any) -> str:
+        url = cls._validate_non_empty_str(value, "base_url")
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"}:
+            raise ValueError("base_url must start with http:// or https://")
+        if not parsed.netloc:
+            raise ValueError("base_url must include a network location")
+        return url.rstrip("/") if url.endswith("//") else url
+
+    @staticmethod
+    def _normalise_headers(headers: dict[str, Any]) -> dict[str, str]:
+        if not isinstance(headers, dict):
+            raise TypeError("headers must be a mapping of string keys to values")
+        normalised: dict[str, str] = {}
+        for raw_key, raw_value in headers.items():
+            if raw_value is None:
+                continue
+            if not isinstance(raw_key, str):
+                raw_key = str(raw_key)
+            key = raw_key.strip()
+            if not key:
+                raise ValueError("header keys must not be blank")
+            value = str(raw_value)
+            normalised[key] = value
+        return normalised
+
+    @staticmethod
+    def _validate_int(value: Any, field_name: str, *, minimum: int) -> int:
+        if isinstance(value, bool):
+            raise TypeError(f"{field_name} must be an integer, not bool")
+        try:
+            result = int(value)
+        except (TypeError, ValueError):
+            raise TypeError(f"{field_name} must be an integer") from None
+        if result < minimum:
+            raise ValueError(f"{field_name} must be >= {minimum}")
+        return result
+
+    @staticmethod
+    def _validate_float(
+        value: Any,
+        field_name: str,
+        *,
+        minimum: float,
+        allow_zero: bool,
+    ) -> float:
+        try:
+            result = float(value)
+        except (TypeError, ValueError):
+            raise TypeError(f"{field_name} must be a number") from None
+        if result < minimum:
+            raise ValueError(f"{field_name} must be >= {minimum}")
+        if not allow_zero and result == 0:
+            raise ValueError(f"{field_name} must be greater than 0")
+        return result
+
+    @staticmethod
+    def _validate_exception_type(value: Any, index: int) -> type[Exception]:
+        if not isinstance(value, type) or not issubclass(value, Exception):
+            raise TypeError(
+                f"retry_giveup_on[{index}] must be an Exception subclass"
+            )
+        return value
+
+    @staticmethod
+    def _normalise_status_codes(codes: Iterable[int]) -> list[int]:
+        normalised: set[int] = set()
+        for raw in codes:
+            try:
+                code = int(raw)
+            except (TypeError, ValueError):
+                raise TypeError("retry_status_codes must contain integers") from None
+            if code < 100 or code > 599:
+                raise ValueError("retry_status_codes entries must be valid HTTP codes")
+            normalised.add(code)
+        return sorted(normalised)
 
 
 class CircuitBreaker:
@@ -575,9 +721,19 @@ class UnifiedAPIClient:
         """Выполняет JSON-запрос с защитами: CB, rate-limit, retry, Retry-After и fallback."""
 
         def _parse_json(response: requests.Response) -> dict[str, Any]:
-            payload = response.json()
+            if not response.content:
+                return {}
+
+            try:
+                payload = response.json()
+            except ValueError:
+                if not response.text.strip():
+                    return {}
+                raise
+
             if isinstance(payload, dict):
                 return payload
+
             return cast(dict[str, Any], payload)
 
         return self._request(

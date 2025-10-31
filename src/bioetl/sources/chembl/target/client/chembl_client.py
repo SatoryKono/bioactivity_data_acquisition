@@ -9,8 +9,11 @@ from bioetl.config.models import TargetSourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.chembl import ChemblClientContext, create_chembl_client
 from bioetl.core.client_factory import APIClientFactory, ensure_target_source_config
+from bioetl.core.deprecation import warn_legacy_client
 
 __all__ = ["TargetClientManager", "ClientRegistration"]
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.chembl.target")
 
 
 @dataclass(frozen=True)

@@ -7,9 +7,13 @@ from collections.abc import Iterable
 from typing import Any
 
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.deprecation import warn_legacy_client
 from bioetl.sources.uniprot.request import build_idmapping_payload
 
 __all__ = ["UniProtIdMappingClient"]
+
+
+warn_legacy_client(__name__, replacement="bioetl.adapters.uniprot")
 
 
 @dataclass(slots=True)
