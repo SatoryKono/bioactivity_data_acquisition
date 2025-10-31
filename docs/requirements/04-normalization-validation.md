@@ -471,7 +471,7 @@ class PubChemTestItemSchema(BaseSchema):
 
 ```python
 
-from unified_schema import NormalizerRegistry
+from bioetl.normalizers.registry import NormalizerRegistry
 
 registry = NormalizerRegistry()
 
@@ -499,17 +499,17 @@ result = registry.normalize("identifier", "10.1234/example")
 
 ```python
 
-from unified_schema import ChEMBLDocumentSchema, PubMedDocumentSchema
+from bioetl.schemas.registry import schema_registry
 
-# Валидация ChEMBL документа
+# Валидация нормализованных документов из реестра схем
 
-schema = ChEMBLDocumentSchema
-validated_df = schema.validate(df, lazy=True)
+document_schema = schema_registry.get("document")
+validated_df = document_schema.validate(df, lazy=True)
 
-# Валидация PubMed документа
+# Валидация других сущностей (например, PubChem)
 
-schema = PubMedDocumentSchema
-validated_df = schema.validate(df, lazy=True)
+pubchem_schema = schema_registry.get("pubchem")
+validated_df = pubchem_schema.validate(df, lazy=True)
 
 ```
 
