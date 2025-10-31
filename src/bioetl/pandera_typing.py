@@ -13,7 +13,7 @@ keep downstream schema modules clean and type-checker friendly.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, TypeAlias, cast
 
 
 def _resolve_alias(name: str) -> type[Any]:
@@ -28,7 +28,16 @@ def _resolve_alias(name: str) -> type[Any]:
     return cast("type[Any]", getattr(pandas_typing, name))
 
 
-Series = _resolve_alias("Series")
-DataFrame = _resolve_alias("DataFrame")
+if TYPE_CHECKING:
+    # Explicit type aliases for static type checkers
+    from pandera.typing import DataFrame as _DataFrameAlias
+    from pandera.typing import Series as _SeriesAlias
+
+    Series: TypeAlias = _SeriesAlias
+    DataFrame: TypeAlias = _DataFrameAlias
+else:
+    # Runtime resolution for compatibility across Pandera versions
+    Series = _resolve_alias("Series")
+    DataFrame = _resolve_alias("DataFrame")
 
 __all__ = ["Series", "DataFrame"]

@@ -115,10 +115,6 @@ module = [
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "requests"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
 module = [
     "bioetl.sources.*",
     "bioetl.schemas.*",
