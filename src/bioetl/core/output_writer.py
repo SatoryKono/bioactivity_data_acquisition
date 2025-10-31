@@ -293,10 +293,10 @@ class OutputMetadata:
             "column_count": len(df.columns),
         }
         if quantitative_metrics:
-            base_metrics.update({key: value for key, value in quantitative_metrics.items()})
+            base_metrics.update(dict(quantitative_metrics))
 
         resolved_pii_policy = (
-            {key: value for key, value in pii_secrets_policy.items()}
+            dict(pii_secrets_policy)
             if pii_secrets_policy
             else cls.default_pii_policy()
         )
