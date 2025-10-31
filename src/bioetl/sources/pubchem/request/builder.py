@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Final, Iterable, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Final
 
 __all__ = ["PubChemRequestBuilder"]
 
@@ -12,9 +13,8 @@ class PubChemRequestBuilder:
 
     _CID_LOOKUP_TEMPLATE: Final[str] = "/compound/inchikey/{inchikey}/cids/JSON"
     _PROPERTIES_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/property/{properties}/JSON"
-    _SYNONYMS_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/synonyms/JSON"
-    _REGISTRY_IDS_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/xrefs/RegistryID/JSON"
-    _RN_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/xrefs/RN/JSON"
+    _SYNONYMS_TEMPLATE: Final[str] = "/compound/cid/{cid}/synonyms/JSON"
+    _REGISTRY_XREFS_TEMPLATE: Final[str] = "/compound/cid/{cid}/xrefs/RegistryID,RN/JSON"
     _DEFAULT_PROPERTIES: Final[tuple[str, ...]] = (
         "MolecularFormula",
         "MolecularWeight",
@@ -47,28 +47,18 @@ class PubChemRequestBuilder:
         return cls._PROPERTIES_TEMPLATE.format(cid_list=cid_list, properties=property_list)
 
     @classmethod
-    def build_synonyms_url(cls, cids: Sequence[int | str]) -> str:
-        """Return the endpoint for retrieving synonym data for the provided CIDs."""
+    def build_synonyms_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving synonym data for a single CID."""
 
-        cid_tokens = [str(cid) for cid in cids if str(cid)]
-        cid_list = ",".join(cid_tokens)
-        return cls._SYNONYMS_TEMPLATE.format(cid_list=cid_list)
-
-    @classmethod
-    def build_registry_ids_url(cls, cids: Sequence[int | str]) -> str:
-        """Return the endpoint for retrieving registry identifiers."""
-
-        cid_tokens = [str(cid) for cid in cids if str(cid)]
-        cid_list = ",".join(cid_tokens)
-        return cls._REGISTRY_IDS_TEMPLATE.format(cid_list=cid_list)
+        cid_token = str(cid).strip()
+        return cls._SYNONYMS_TEMPLATE.format(cid=cid_token)
 
     @classmethod
-    def build_rn_url(cls, cids: Sequence[int | str]) -> str:
-        """Return the endpoint for retrieving RN (CAS) identifiers."""
+    def build_registry_xrefs_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving registry and RN identifiers."""
 
-        cid_tokens = [str(cid) for cid in cids if str(cid)]
-        cid_list = ",".join(cid_tokens)
-        return cls._RN_TEMPLATE.format(cid_list=cid_list)
+        cid_token = str(cid).strip()
+        return cls._REGISTRY_XREFS_TEMPLATE.format(cid=cid_token)
 
     @classmethod
     def get_default_properties(cls) -> tuple[str, ...]:

@@ -65,22 +65,13 @@ def test_enrich_batch_combines_resolution_and_properties() -> None:
                     ]
                 }
             },
-            "/compound/cid/111/xrefs/RegistryID/JSON": {
-                "InformationList": {
-                    "Information": [
-                        {
-                            "CID": 111,
-                            "RegistryID": ["64-17-5"],
-                        }
-                    ]
-                }
-            },
-            "/compound/cid/111/xrefs/RN/JSON": {
+            "/compound/cid/111/xrefs/RegistryID,RN/JSON": {
                 "InformationList": {
                     "Information": [
                         {
                             "CID": 111,
                             "RN": ["64-17-5"],
+                            "RegistryID": ["64-17-5"],
                         }
                     ]
                 }
