@@ -584,7 +584,7 @@
 
 2. **Приоритет 2 (P0):** Очистить отчёты от устаревших ссылок или пометить их как исторические
 
-3. **Приоритет 3 (P0):** Сгенерировать `docs/requirements/PIPELINES.inventory.csv` через `python src/scripts/run_inventory.py`
+3. **Приоритет 3 (P0):** ✅ **ВЫПОЛНЕНО** — `docs/requirements/PIPELINES.inventory.csv` сгенерирован через `python src/scripts/run_inventory.py`
 
 4. **Приоритет 4 (P1):** Реализовать `FallbackManager` или удалить из документации
 
