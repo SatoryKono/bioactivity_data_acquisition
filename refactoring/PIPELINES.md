@@ -211,17 +211,20 @@ docs/requirements/sources/<source>/
 Дополнительно для общих компонентов:
 ```
 src/bioetl/core/
- http/...
- pagination/...
- schema_registry.py
- unified_schema.py
- output/writer.py
- logging/logger.py
+ api_client.py
+ output_writer.py
+ logger.py
+src/bioetl/schemas/
+ registry.py
+src/bioetl/sources/<source>/
+ pagination/
 ```
 
-[ref: repo:src/bioetl/core/output/writer.py@test_refactoring_32]
-[ref: repo:src/bioetl/core/pagination/strategy.py@test_refactoring_32]
-[ref: repo:src/bioetl/core/schema_registry.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/api_client.py]
+[ref: repo:src/bioetl/core/output_writer.py]
+[ref: repo:src/bioetl/core/logger.py]
+[ref: repo:src/bioetl/schemas/registry.py]
+[ref: repo:src/bioetl/sources/openalex/pagination/__init__.py]
 
 ## 8) Инварианты (MUST) (@test_refactoring_32)
 

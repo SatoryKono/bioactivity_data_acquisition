@@ -105,12 +105,11 @@ class PipelineBase(ABC):
 **Обязательные общие компоненты**:
 
 - **Writer** с атомарной записью и стабильной сортировкой:
- [ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32],
- [ref: repo:src/bioetl/core/io_atomic.py@test_refactoring_32].
+ [ref: repo:src/bioetl/core/output_writer.py].
  [Python documentation @test_refactoring_32](https://docs.python.org/3/library/os.html#os.replace)
 
 - **Логгер** с run_id и структурированными событиями:
- [ref: repo:src/bioetl/core/logger.py@test_refactoring_32].
+ [ref: repo:src/bioetl/core/logger.py].
 
 # 5. Таблица источников и целевой модульный состав (@test_refactoring_32)
 
