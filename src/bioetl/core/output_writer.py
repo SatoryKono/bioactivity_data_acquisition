@@ -376,6 +376,38 @@ class AtomicWriter:
 
         raise ValueError(f"Unsupported output format: {format}")
 
+    def write_json(
+        self,
+        payload: Any,
+        path: Path,
+        *,
+        indent: int = 2,
+        ensure_ascii: bool = False,
+        sort_keys: bool = True,
+    ) -> None:
+        """Atomically serialise ``payload`` to JSON using the writer's temp dir."""
+
+        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
+
+        def write_payload() -> None:
+            temp_path = _get_active_atomic_temp_path()
+            with temp_path.open("w", encoding="utf-8") as handle:
+                if isinstance(payload, str):
+                    handle.write(payload)
+                else:
+                    json.dump(
+                        payload,
+                        handle,
+                        indent=indent,
+                        ensure_ascii=ensure_ascii,
+                        sort_keys=sort_keys,
+                    )
+
+        try:
+            _atomic_write(path, write_payload)
+        finally:
+            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
+
 
 class QualityReportGenerator:
     """Генератор quality report."""
@@ -794,6 +826,46 @@ class UnifiedOutputWriter:
             runtime_options=runtime_options,
         )
 
+        manifest_path = run_directory / "run_manifest.json"
+        manifest_artifacts: dict[str, Any] = {
+            "dataset": str(dataset_path),
+            "quality_report": str(quality_path),
+            "metadata": str(metadata_path),
+        }
+
+        if additional_paths:
+            additional_listing: dict[str, Any] = {}
+            for name, value in additional_paths.items():
+                if isinstance(value, dict):
+                    additional_listing[name] = {fmt: str(path) for fmt, path in value.items()}
+                else:
+                    additional_listing[name] = str(value)
+            if additional_listing:
+                manifest_artifacts["additional_datasets"] = additional_listing
+
+        manifest_qc_artifacts = {
+            name: str(path)
+            for name, path in qc_artifact_paths.items()
+            if path is not None
+        }
+        if manifest_qc_artifacts:
+            manifest_artifacts["qc"] = manifest_qc_artifacts
+
+        if debug_dataset is not None:
+            manifest_artifacts["debug_dataset"] = str(debug_dataset)
+
+        manifest_payload = {
+            "run_id": metadata.run_id or self.run_id,
+            "artifacts": manifest_artifacts,
+            "checksums": checksums,
+            "schema": {
+                "id": metadata.schema_id,
+                "version": metadata.schema_version,
+            },
+        }
+
+        self.atomic_writer.write_json(manifest_payload, manifest_path)
+
         return OutputArtifacts(
             dataset=dataset_path,
             quality_report=quality_path,
@@ -801,6 +873,7 @@ class UnifiedOutputWriter:
             additional_datasets=additional_paths,
             correlation_report=correlation_path,
             metadata=metadata_path,
+            manifest=manifest_path,
             qc_summary=qc_summary_path,
             qc_missing_mappings=missing_mappings_path,
             qc_enrichment_metrics=enrichment_metrics_path,
@@ -1150,18 +1223,5 @@ class UnifiedOutputWriter:
 
     def _write_json_atomic(self, path: Path, payload: Any) -> None:
         """Atomically write JSON payload to disk."""
-        temp_dir_token = _ATOMIC_TEMP_DIR_NAME.set(f".tmp_run_{self.run_id}")
-
-        def write_payload() -> None:
-            temp_path = _get_active_atomic_temp_path()
-            with temp_path.open("w", encoding="utf-8") as handle:
-                if isinstance(payload, str):
-                    handle.write(payload)
-                else:
-                    json.dump(payload, handle, indent=2, ensure_ascii=False, sort_keys=True)
-
-        try:
-            _atomic_write(path, write_payload)
-        finally:
-            _ATOMIC_TEMP_DIR_NAME.reset(temp_dir_token)
+        self.atomic_writer.write_json(payload, path)
 

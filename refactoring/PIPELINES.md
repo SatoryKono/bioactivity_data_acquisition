@@ -369,6 +369,10 @@ if response.status_code == 429:
 
 **Extended (+ metadata и manifest):**
 - Добавляет `meta.yaml`, `run_manifest.json`
+  - Структура manifest: `run_id`, `artifacts`, `checksums`, `schema`
+  - `artifacts` охватывает основные (dataset/quality_report/metadata) и условные (`qc`, `additional_datasets`, `debug_dataset`) файлы
+  - `checksums` — SHA256 по каждому сгенерированному файлу (ключ — имя файла)
+  - `schema` хранит идентификатор и версию схемы (`null`, если не применимо)
 - Полные метаданные: lineage, checksums, git_commit
 
 **Инварианты детерминизма:**

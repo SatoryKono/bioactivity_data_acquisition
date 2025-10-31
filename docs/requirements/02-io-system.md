@@ -358,46 +358,63 @@ def maybe_write_correlation(
 
 Такое ветвление делает зависимость от конфигурации явной, подчёркивая влияние на детерминизм (константный набор артефактов) и соответствие AC «всё или ничего»: если отчёт выключен, он не появляется вовсе, что предотвращает дрейф структуры выпуска.
 
-### 7. ManifestWriter
+### 7. Run manifest
 
-Запись run manifest для отслеживания:
+Run manifest фиксирует состав и контрольные суммы артефактов одного запуска. Файл сохраняется как `run_manifest.json` в каталоге
+запуска.
+
+**Структура JSON:**
+
+```json
+{
+  "run_id": "chembl-targets-2024-02-01",
+  "artifacts": {
+    "dataset": ".../datasets/targets.csv",
+    "quality_report": ".../qc/targets_quality_report.csv",
+    "metadata": ".../targets_meta.yaml",
+    "qc": {
+      "correlation_report": ".../qc/targets_correlation_report.csv",
+      "summary_statistics": ".../qc/targets_summary_statistics.csv"
+    },
+    "additional_datasets": {
+      "normalized": {
+        "csv": ".../normalized.csv",
+        "parquet": ".../normalized.parquet"
+      }
+    },
+    "debug_dataset": ".../targets_debug.json"
+  },
+  "checksums": {
+    "targets.csv": "88ff…",
+    "targets_quality_report.csv": "0b1c…"
+  },
+  "schema": {
+    "id": "targets",
+    "version": "1.4.0"
+  }
+}
+```
+
+- `run_id` совпадает с идентификатором запуска пайплайна.
+- `artifacts` всегда содержит пути к `dataset`, `quality_report`, `metadata`; дополнительные ключи (`qc`, `additional_datasets`,
+  `debug_dataset`) появляются только при наличии соответствующих файлов.
+- `checksums` — словарь SHA256 по каждому сгенерированному файлу (ключ — имя файла без пути).
+- `schema` описывает привязанную Pandera-схему (`null`, если идентификатор/версия отсутствуют).
+
+**Процедура записи:**
 
 ```python
-
-@dataclass
-class RunManifest:
-    """Manifest выполнения пайплайна."""
-
-    run_id: str
-    timestamp: str  # UTC ISO8601
-
-    exit_code: int
-    duration_sec: float
-    steps: list[StepManifest]
-    config: dict  # Resolved configuration
-
-@dataclass
-class StepManifest:
-    """Manifest отдельного шага."""
-
-    step_name: str
-    status: str  # success, failed, skipped
-
-    exit_code: int
-    duration_sec: float
-    artifacts: list[str]  # Paths to output files
-
-    stats: dict  # row_count, column_count, etc.
-
-class ManifestWriter:
-    """Записывает run manifest."""
-
-    def write(self, manifest: RunManifest, path: Path):
-        """Записывает manifest в JSON."""
-        with path.open("w") as f:
-            json.dump(asdict(manifest), f, indent=2, ensure_ascii=False)
-
+manifest_payload = {
+    "run_id": run_id,
+    "artifacts": artifacts_map,
+    "checksums": checksums,
+    "schema": {"id": schema_id, "version": schema_version},
+}
+atomic_writer.write_json(manifest_payload, run_dir / "run_manifest.json")
 ```
+
+`AtomicWriter.write_json` использует ту же временную директорию, что и запись датасетов, обеспечивая атомарность и восстановление
+после сбоев.
 
 ## Основной класс: UnifiedOutputWriter
 
