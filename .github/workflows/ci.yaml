@@ -85,7 +85,7 @@ jobs:
 
       - name: Verify pipeline inventory snapshot is current
         run: |
-          python src/scripts/run_inventory.py --config configs/inventory.yaml --check
+          python src/scripts/run_inventory.py --check --config configs/inventory.yaml
 
   type-check:
     runs-on: ubuntu-latest

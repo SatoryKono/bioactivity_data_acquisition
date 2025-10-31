@@ -1,9 +1,9 @@
 # Pipeline Inventory Clusters
 
-Generated on 2025-10-31T14:38:34+00:00
+Generated on 2025-10-31T15:15:32+00:00
 
 ## Cluster 1
-Cluster size: 303
+Cluster size: 306
 - src/bioetl/adapters/__init__.py (source: adapters)
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
@@ -184,6 +184,7 @@ Cluster size: 303
 - tests/schemas/test_registry.py (source: tests)
 - tests/schemas/test_testitem_schema.py (source: testitem)
 - tests/scripts/test_cli_registry.py (source: tests)
+- tests/scripts/test_doc_link_checker.py (source: tests)
 - tests/sources/_mixins.py (source: tests)
 - tests/sources/chembl/test_client.py (source: tests)
 - tests/sources/chembl/test_normalizer.py (source: tests)
