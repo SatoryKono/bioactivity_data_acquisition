@@ -877,24 +877,91 @@
 
 ### Рекомендации по дальнейшим исправлениям
 
-1. **Приоритет 1 (P0):** Обновить `MODULE_RULES.md` под фактическую структуру:
-   - Описать реальную структуру `src/bioetl/pipelines/` для пайплайнов
-   - Описать `src/bioetl/adapters/` для адаптеров внешних источников
-   - Уточнить, что `tests/sources/` используется для тестов адаптеров, а не пайплайнов
+**Источник истины:** `MODULE_RULES.md` содержит правильную структуру и является нормативным документом. Все остальные документы и код должны быть приведены в соответствие с `MODULE_RULES.md`.
 
-2. **Приоритет 2 (P0):** Очистить отчёты от устаревших ссылок или пометить их как исторические
+#### Приоритет 1 (P0): Привести документы в соответствие с `MODULE_RULES.md`
 
-3. **Приоритет 3 (P0):** ✅ **ВЫПОЛНЕНО** — `docs/requirements/PIPELINES.inventory.csv` сгенерирован через `python src/scripts/run_inventory.py`
+1. **`PIPELINES.md`** — обновить структуру источников:
+   - Заменить упоминания `configs/sources/<source>/pipeline.yaml` на `src/bioetl/configs/pipelines/<source>.yaml` (в соответствии с фактическим расположением конфигов)
+   - Уточнить описание структуры `src/bioetl/sources/<source>/` в соответствии с `MODULE_RULES.md` (client/, request/, parser/, normalizer/, schema/, merge/, output/, pipeline.py)
 
-4. **Приоритет 4 (P1):** ✅ **ВЫПОЛНЕНО** — `FallbackManager` реализован в `src/bioetl/core/fallback_manager.py` (112 строк), экспортируется через `core/__init__.py`
+2. **`IO.md`** — исправить пути к конфигам:
+   - Заменить все упоминания `configs/sources/<source>/pipeline.yaml` на `src/bioetl/configs/pipelines/<source>.yaml`
+   - Привести примеры конфигов в соответствие с фактическим расположением
 
-5. **Приоритет 5 (P1):** Добавить явный `__all__` в файлы пайплайнов:
-   - `pipelines/activity.py` — добавить `__all__ = ["ActivityPipeline"]`
-   - `pipelines/assay.py` — добавить `__all__ = ["AssayPipeline"]`
-   - `pipelines/document.py` — добавить `__all__ = ["DocumentPipeline"]`
-   - `pipelines/target.py` — добавить `__all__ = ["TargetPipeline"]`
-   - `pipelines/testitem.py` — добавить `__all__ = ["TestItemPipeline"]`
-   - Убедиться, что в `__all__` указаны только публичные классы/функции
+3. **`DATA_SOURCES.md`** — обновить описание конфигурации:
+   - Заменить `config_path: configs/sources/<source>/pipeline.yaml` на фактический путь
+   - Привести описание структуры источников в соответствие с `MODULE_RULES.md`
+
+4. **`REFACTOR_PLAN.md`** — исправить ссылки на структуру:
+   - Обновить раздел "План по источникам" (строка 713): заменить `configs/sources/crossref` на `src/bioetl/configs/pipelines/crossref.yaml` или соответствующий путь
+   - Уточнить описание структуры источников в соответствии с `MODULE_RULES.md`
+
+5. **`genera_plan.md`** — проверить соответствие:
+   - Убедиться, что описание структуры `src/bioetl/sources/<source>/` соответствует `MODULE_RULES.md`
+
+#### Приоритет 2 (P0): Решить дублирование ChEMBL пайплайнов (P0-1)
+
+Согласно `MODULE_RULES.md`, структура `src/bioetl/sources/<source>/` — правильная организация. Текущая проблема: ChEMBL пайплайны дублируются между `src/bioetl/pipelines/` (монолитные файлы) и `src/bioetl/sources/chembl/` (прокси-файлы).
+
+**Рекомендации:**
+- **Вариант А (предпочтительно):** Мигрировать полную реализацию ChEMBL пайплайнов из `pipelines/` в `sources/chembl/<entity>/` с полной структурой согласно `MODULE_RULES.md`:
+  - `sources/chembl/<entity>/client/` — сетевые вызовы
+  - `sources/chembl/<entity>/request/` — сборка запросов
+  - `sources/chembl/<entity>/parser/` — разбор ответов
+  - `sources/chembl/<entity>/normalizer/` — нормализация
+  - `sources/chembl/<entity>/schema/` — Pandera-схемы
+  - `sources/chembl/<entity>/merge/` — стратегии объединения
+  - `sources/chembl/<entity>/output/` — запись результатов
+  - `sources/chembl/<entity>/pipeline.py` — координация шагов
+- **Вариант Б (временное решение):** Если миграция не может быть выполнена немедленно, обновить документацию, явно указав:
+  - `src/bioetl/pipelines/` — монолитные файлы для ChEMBL (legacy, планируется миграция)
+  - `src/bioetl/sources/<source>/` — правильная структура согласно `MODULE_RULES.md` для всех источников
+
+#### Приоритет 3 (P0): Обновить структуру тестов
+
+Согласно `MODULE_RULES.md` (строка 32), структура тестов должна быть `tests/sources/<source>/`.
+
+**Текущее состояние:** `tests/sources/` существует для адаптеров (crossref, pubmed, openalex, semantic_scholar), но не для полной структуры пайплайнов.
+
+**Рекомендации:**
+- Привести структуру тестов в соответствие с `MODULE_RULES.md`:
+  - Создать `tests/sources/<source>/` для всех источников из `src/bioetl/sources/`
+  - Добавить тесты: `test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`
+  - Обновить существующие тесты адаптеров, чтобы они соответствовали структуре `MODULE_RULES.md`
+
+#### Приоритет 4 (P1): Документация CLI флагов (P1-2)
+
+**Рекомендации:**
+- Обновить `FAQ.md` с полным описанием всех доступных CLI флагов из `PIPELINE_COMMAND_REGISTRY`
+- Привести примеры команд в соответствие с фактической реализацией в `src/bioetl/cli/main.py`
+
+#### Приоритет 5 (P1): Property-based тесты (P1-3)
+
+**Рекомендации:**
+- Добавить property-based тесты с использованием Hypothesis
+- Покрыть критичные трансформации (парсинг, нормализация, валидация)
+
+#### Приоритет 6 (P1): Автоматическая проверка бит-идентичности (P1-5)
+
+**Рекомендации:**
+- Добавить автоматические тесты для проверки бит-идентичности golden-файлов
+- Обеспечить детерминизм вывода через фиксированный порядок строк и столбцов
+
+#### Приоритет 7 (P2): Документирование APIConfig vs TargetSourceConfig (P2-2)
+
+**Рекомендации:**
+- Документировать различия между `APIConfig` и `TargetSourceConfig` в планах
+- Уточнить, когда использовать каждый из них
+
+#### Уже выполнено
+
+- ✅ **P0-2, P0-3:** Устаревшие ссылки (`@test_refactoring_11`, `@Pipeline_Unification`) исправлены на `@test_refactoring_32`
+- ✅ **P0-4:** Артефакт инвентаризации может быть сгенерирован через `python src/scripts/run_inventory.py --config configs/inventory.yaml`
+- ✅ **P0-7:** Описание CLI обновлено в `FAQ.md`
+- ✅ **P1-1:** `FallbackManager` интегрирован в `UnifiedAPIClient`
+- ✅ **P1-4:** Все пайплайны имеют явный `__all__` для публичного API
+- ✅ **P2-1:** Расхождения в fallback стратегиях исправлены
 
 **Примечание:** `DEPRECATIONS.md` был создан между старым и новым аудитом, поэтому в новом аудите он уже не проблема.
 
