@@ -8,6 +8,7 @@ from pandera.errors import SchemaErrors
 from bioetl.config.loader import load_config
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.schemas.document import DocumentNormalizedSchema, DocumentRawSchema, DocumentSchema
+from bioetl.sources.document.pipeline import ExternalEnrichmentResult
 
 
 class _DummySchema:
@@ -193,7 +194,10 @@ def test_enrich_skips_when_no_external_adapters(document_pipeline):
 
     enriched = document_pipeline._enrich_with_external_sources(chembl_df)
 
-    pd.testing.assert_frame_equal(enriched, chembl_df)
+    assert isinstance(enriched, ExternalEnrichmentResult)
+    pd.testing.assert_frame_equal(enriched.dataframe, chembl_df)
+    assert enriched.status == "skipped"
+    assert enriched.errors == {}
 
 
 def test_validate_enforces_qc_thresholds(document_pipeline, monkeypatch):
