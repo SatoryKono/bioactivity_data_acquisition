@@ -162,6 +162,7 @@ markers = [
     "unit: Unit tests",
     "integration: Integration tests",
     "golden: Golden tests for deterministic output verification",
+    "determinism: Bit-identical determinism verification tests",
     "slow: Slow tests (>5s)",
     "property: Property-based tests",
     "qc: Quality control tests",
