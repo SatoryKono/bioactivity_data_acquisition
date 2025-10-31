@@ -11,28 +11,22 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas.testitem import TestItemSchema
 from bioetl.schemas.registry import schema_registry
+from bioetl.schemas.testitem import TestItemSchema
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
 from bioetl.sources.chembl.testitem.normalizer import (
-    coerce_boolean_and_integer_columns,
-    normalize_smiles_columns,
-)
-from bioetl.sources.chembl.testitem.output import (
-    build_duplicate_summary,
-    calculate_fallback_stats,
-)
+    coerce_boolean_and_integer_columns, normalize_smiles_columns)
+from bioetl.sources.chembl.testitem.output import (build_duplicate_summary,
+                                                   calculate_fallback_stats)
 from bioetl.sources.chembl.testitem.parser import TestItemParser
 from bioetl.sources.chembl.testitem.request import TestItemRequestBuilder
 from bioetl.sources.pubchem.client.pubchem_client import PubChemClient
-from bioetl.sources.pubchem.normalizer.pubchem_normalizer import PubChemNormalizer
+from bioetl.sources.pubchem.normalizer.pubchem_normalizer import \
+    PubChemNormalizer
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.fallback import FallbackRecordBuilder
-from bioetl.utils.qc import (
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
-)
+from bioetl.utils.qc import (update_summary_metrics, update_summary_section,
+                             update_validation_issue_summary)
 
 schema_registry.register("testitem", "1.0.0", TestItemSchema)
 

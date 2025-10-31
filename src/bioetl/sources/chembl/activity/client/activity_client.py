@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -15,8 +15,8 @@ from bioetl.core.deprecation import warn_legacy_client
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.utils.dtypes import coerce_nullable_int
 from bioetl.utils.chembl import SupportsRequestJson
+from bioetl.utils.dtypes import coerce_nullable_int
 
 from ..parser.activity_parser import ActivityParser
 from ..request.activity_request import ActivityRequestBuilder
@@ -50,7 +50,7 @@ class ActivityChEMBLClient:
             },
             batch_size_cap=25,
         )
-        self.api_client: SupportsRequestJson = chembl_context.client
+        self.api_client: SupportsRequestJson = cast(SupportsRequestJson, chembl_context.client)
         self.batch_size = chembl_context.batch_size
         self.max_url_length = chembl_context.max_url_length
         self._chembl_release: str | None = None

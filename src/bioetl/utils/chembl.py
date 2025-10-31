@@ -22,6 +22,7 @@ class SupportsRequestJson(Protocol):
         method: str = ...,
         data: Mapping[str, Any] | None = ...,
         json: Mapping[str, Any] | None = ...,
+        headers: Mapping[str, str] | None = ...,
     ) -> Mapping[str, Any]:
         """Perform an HTTP request and return the parsed JSON payload."""
 
