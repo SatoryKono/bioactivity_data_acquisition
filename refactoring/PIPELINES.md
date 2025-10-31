@@ -105,6 +105,7 @@ CLI: `python -m bioetl.cli.main <pipeline> --config ...` (Typer формируе
 | Команда | Описание | Конфигурация по умолчанию | Входные данные | Каталог вывода | Допустимые `--mode` |
 | --- | --- | --- | --- | --- | --- |
 | `activity` | ChEMBL activity data | `src/bioetl/configs/pipelines/activity.yaml` | `data/input/activity.csv` | `data/output/activity` | `default` |
+| `pubchem` | Standalone PubChem enrichment dataset | `src/bioetl/configs/pipelines/pubchem.yaml` | `data/input/pubchem_lookup.csv` | `data/output/pubchem` | `default` |
 | `assay` | ChEMBL assay data | `src/bioetl/configs/pipelines/assay.yaml` | `data/input/assay.csv` | `data/output/assay` | `default` |
 | `target` | ChEMBL + UniProt + IUPHAR | `src/bioetl/configs/pipelines/target.yaml` | `data/input/target.csv` | `data/output/target` | `default`, `smoke` |
 | `document` | ChEMBL + external sources | `src/bioetl/configs/pipelines/document.yaml` | `data/input/document.csv` | `data/output/documents` | `chembl`, `all` (по умолчанию `all`) |
