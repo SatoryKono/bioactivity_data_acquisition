@@ -53,6 +53,10 @@ source: из дерева src/bioetl/sources/<source>/… или имени фа
 datatracker.ietf.org
 +1
 
+Тестовая иерархия синхронизирована с `MODULE_RULES.md`: обязательные проверки для каждого источника находятся в
+`tests/sources/<source>/`, а каталог `tests/integration/pipelines/` зарезервирован для общих многоисточниковых E2E-сценариев
+(golden, QC, bit-identical).
+
 1) Семьи файлов и целевые объединения
 1.1 HTTP-клиенты
 
@@ -82,8 +86,8 @@ UnifiedAPIClient
 ├── Circuit Breaker Layer
 │   └── CircuitBreaker (half-open state, timeout tracking)
 ├── Fallback Layer
-│   └── Fallback strategies (strategies: cache, partial_retry)
-│       └── FallbackManager (отдельный компонент, strategies: network, timeout, 5xx; не интегрирован)
+│   ├── Strategy registry (`cache`, `partial_retry`, `network`, `timeout`, `5xx`)
+│   └── FallbackManager (интегрирован, классифицирует ошибки и подбирает стратегию)
 ├── Rate Limiting Layer
 │   └── TokenBucketLimiter (with jitter, per-API)
 ├── Retry Layer
@@ -118,23 +122,27 @@ class APIConfig:
     cb_failure_threshold: int = 5
     cb_timeout: float = 60.0
     fallback_enabled: bool = True
-    fallback_strategies: list[str] = field(default_factory=lambda: ["cache", "partial_retry"])
+    fallback_strategies: list[str] = field(
+        default_factory=lambda: [
+            "cache",
+            "partial_retry",
+            "network",
+            "timeout",
+            "5xx",
+        ]
+    )
 ```
 
 **Примечание о fallback стратегиях:**
 
-В системе существуют два уровня fallback стратегий:
+В системе существуют два уровня fallback стратегий, объединённых общей конфигурацией:
 
-1. **Стратегии поведения в UnifiedAPIClient** (`fallback_strategies` в `APIConfig`):
-   - `"cache"` — использование кэшированных данных при ошибках запроса
-   - `"partial_retry"` — частичный повтор запроса с уменьшением объёма данных
+| Уровень | Компонент | Стратегии | Назначение |
+|---------|-----------|-----------|------------|
+| 1 | UnifiedAPIClient (`_apply_fallback_strategies`) | `"cache"`, `"partial_retry"` | Поведенческие стратегии, управляющие повторными запросами и использованием кэша |
+| 2 | FallbackManager (`src/bioetl/core/fallback_manager.py`) | `"network"`, `"timeout"`, `"5xx"` | Классификация типов ошибок и генерация детерминированных fallback-плейсхолдеров |
 
-2. **FallbackManager** (отдельный компонент в `src/bioetl/core/fallback_manager.py`, не интегрирован):
-   - Стратегии типов ошибок: `"network"`, `"timeout"`, `"5xx"`
-   - Определяет, на какие типы ошибок реагировать (ConnectionError, Timeout, HTTP 5xx)
-   - В настоящее время не используется в UnifiedAPIClient
-
-Реализация: UnifiedAPIClient использует встроенные стратегии `["cache", "partial_retry"]` через метод `_apply_fallback_strategies()`.
+`APIConfig.fallback_strategies` и YAML-конфигурации обязаны перечислять **все** стратегии (`cache`, `partial_retry`, `network`, `timeout`, `5xx`). UnifiedAPIClient и FallbackManager читают единый список и распределяют стратегии по соответствующим уровням.
 
 RetryPolicy:
 
@@ -458,6 +466,10 @@ UnifiedOutputWriter — детерминированная система зап
 - Трехфайловую систему с QC отчетами (ChEMBL_data_acquisition6)
 - Автоматическую валидацию через Pandera
 - Run manifests для отслеживания пайплайнов
+  - JSON документ фиксированной структуры: `run_id`, `artifacts`, `checksums`, `schema`
+  - `artifacts` перечисляет `dataset`, `quality_report`, `metadata`, а также `qc`/`additional_datasets`/`debug_dataset` при наличии
+  - `checksums` содержит SHA256 хэши артефактов (ключ — имя файла)
+  - `schema` — словарь с `id` и `version` (значения `null`, если схема не привязана)
 
 Архитектура:
 
@@ -524,7 +536,7 @@ class AtomicWriter:
 - Correlation отчёт **только** при явном `postprocess.correlation.enabled: true`
 
 **Extended (+ metadata и manifest):**
-- Добавляет `meta.yaml`, `run_manifest.json`
+- Добавляет `meta.yaml`, `run_manifest.json` с описанной выше структурой `run_id`/`artifacts`/`checksums`/`schema`
 - Полные метаданные: lineage, checksums, git_commit
 
 Инварианты детерминизма:

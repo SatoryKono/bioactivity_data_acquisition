@@ -63,7 +63,7 @@
 
 Файлы данных: нормализованные таблицы по сущностям (см. схемы ниже), форматы CSV и/или Parquet. Порядок столбцов фиксирован, сортировка по бизнес-ключам, одинаковые правила сериализации чисел/дат/строк.
 
-Контроль целостности: хеши строк и наборов бизнес-ключей (например, BLAKE2b) фиксируются в метаданых экспорта; алгоритм и размер дайджеста стабильны.
+Контроль целостности: хеши строк и наборов бизнес-ключей (SHA256 из [src/bioetl/core/hashing.py](../src/bioetl/core/hashing.py)) фиксируются в метаданых экспорта; алгоритм и размер дайджеста стабильны и документированы в [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md).
 
 Атомарная запись: запись во временный файл на той же ФС и атомарная замена целевого файла (replace/move_atomic). На POSIX это rename/replace, на Windows — соответствующий безопасный вызов; библиотека atomicwrites документирует детали.
 
@@ -510,5 +510,5 @@ JSON Schema Draft 2020-12.
 
 Pandera DataFrameSchema/Checks.
 
-Python hashlib BLAKE2.
+Python hashlib SHA256 (`src/bioetl/core/hashing.py`).
 
