@@ -2,7 +2,7 @@
 
 ## Public API
 - `from bioetl.sources.document.adapters.semantic_scholar import SemanticScholarAdapter`
-- `from bioetl.sources.document.pipeline import DocumentPipeline` (enrichment stage integration)
+- `from bioetl.sources.chembl.document.pipeline import DocumentPipeline` (enrichment stage integration; совместимость старого API — `bioetl.pipelines.document.DocumentPipeline`)
 
 ## CLI entrypoint
 - Semantic Scholar включается документным пайплайном: `python -m bioetl.cli.main
