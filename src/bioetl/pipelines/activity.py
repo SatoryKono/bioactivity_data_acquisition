@@ -27,7 +27,7 @@ from bioetl.utils.fallback import FallbackRecordBuilder, build_fallback_payload
 from bioetl.utils.json import normalize_json_list
 from bioetl.utils.qc import register_fallback_statistics
 
-__all__ = ["ActivityPipeline"]
+__all__ = ("ActivityPipeline",)
 
 logger = UnifiedLogger.get(__name__)
 
