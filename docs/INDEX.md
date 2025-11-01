@@ -2,12 +2,19 @@
 
 ## навигация
 
-- [Архитектура](architecture/00-architecture-overview.md)
-- [Требования к источникам и схемам](architecture/03-data-sources-and-spec.md)
-- [Контракты пайплайнов](pipelines/PIPELINES.md)
-- [Конфигурации](configs/CONFIGS.md)
-- [CLI](cli/CLI.md)
-- [Валидация и QC](qc/QA_QC.md)
+### Основные разделы
+
+- [Архитектура и требования](requirements/00-architecture-overview.md) — архитектура уровней, поток данных, компоненты и глоссарий
+- [Источники данных и схемы](requirements/03-data-sources-and-spec.md) — референтный документ по источникам, сущностям и бизнес-ключам
+- [Контракты пайплайнов](pipelines/PIPELINES.md) — интерфейсы пайплайнов, примеры конфигов
+- [Конфигурации](configs/CONFIGS.md) — структура конфигов, профили, наследование
+- [CLI](cli/CLI.md) — команды, флаги, примеры использования
+- [Валидация и QC](qc/QA_QC.md) — тесты, golden-сеты, QC-метрики
+
+### Дополнительные материалы
+
+- [Архитектурные документы](architecture/00-architecture-overview.md) — детальные архитектурные документы (дублируют [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32])
+- [Устаревшие материалы](architecture/refactoring/README.md) — указатели на актуальную документацию в [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32]
 
 ## карта-документации
 
@@ -27,9 +34,7 @@ graph TD
 
    `npx markdownlint-cli2 "**/*.md"`.
 
-3. Если добавляете новый источник, расширьте таблицы в
-
-   `architecture/03-data-sources-and-spec.md` и `pipelines/PIPELINES.md`.
+3. Если добавляете новый источник, расширьте таблицы в [`requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32] и [`pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32].
 
 4. Refactoring-документы теперь служат указателями и дублировать данные в них
 

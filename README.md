@@ -18,11 +18,11 @@ README.
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 python -m bioetl.cli.main list
 python -m bioetl.cli.main activity \
-  --config src/bioetl/configs/pipelines/activity.yaml \
+  --config src/bioetl/configs/pipelines/chembl/activity.yaml \
   --input-file data/input/activity.csv \
   --output-dir data/output/activity \
   --dry-run
@@ -42,11 +42,11 @@ python -m bioetl.cli.main activity \
 
 - Архитектура уровней и глоссарий:
 
-  [`docs/architecture/00-architecture-overview.md`][ref: repo:docs/architecture/00-architecture-overview.md@test_refactoring_32]
+  [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32]
 
 - Источники данных и схемы:
 
-  [`docs/architecture/03-data-sources-and-spec.md`][ref: repo:docs/architecture/03-data-sources-and-spec.md@test_refactoring_32]
+  [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32]
 
 - Контракты пайплайнов:
   [`docs/pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32]
@@ -66,19 +66,19 @@ python -m bioetl.cli.main activity \
 
 | Пайплайн | Основной источник | Целевые сущности | CLI команда | Конфигурация | Статус |
 | --- | --- | --- | --- | --- | --- |
-| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity` | [`pipelines/activity.yaml`][ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32] | Production |
-| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay` | [`pipelines/assay.yaml`][ref: repo:src/bioetl/configs/pipelines/assay.yaml@test_refactoring_32] | Production |
-| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/target.yaml`][ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32] | Production |
-| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] | Production |
-| TestItem | ChEMBL молекулы с обогащением PubChem | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/testitem.yaml@test_refactoring_32] | Production |
+| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity` | [`pipelines/chembl/activity.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32] | Production |
+| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay` | [`pipelines/chembl/assay.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@test_refactoring_32] | Production |
+| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/chembl/target.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32] | Production |
+| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/chembl/document.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32] | Production |
+| TestItem | ChEMBL молекулы с обогащением PubChem | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/chembl/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@test_refactoring_32] | Production |
 
 ### Внешние энричеры и standalone источники
 
 | Пайплайн | Источник | Целевые сущности | CLI команда | Конфигурация | Статус |
 | --- | --- | --- | --- | --- | --- |
 | PubChem | PubChem PUG REST | Свойства молекул | `bioetl.cli.main pubchem` | [`pipelines/pubchem.yaml`][ref: repo:src/bioetl/configs/pipelines/pubchem.yaml@test_refactoring_32] | Production |
-| UniProt | UniProt REST API | Белковые записи | `bioetl.cli.main uniprot` | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@test_refactoring_32] | Beta |
-| GtP IUPHAR | Guide to Pharmacology API | Таргеты и классификации | `bioetl.cli.main gtp_iuphar` | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@test_refactoring_32] | Beta |
+| UniProt | UniProt REST API | Белковые записи | `bioetl.cli.main uniprot` | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@test_refactoring_32] | Production |
+| GtP IUPHAR | Guide to Pharmacology API | Таргеты и классификации | `bioetl.cli.main gtp_iuphar` | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@test_refactoring_32] | Production |
 
 ### Внешние адаптеры
 
@@ -93,10 +93,4 @@ python -m bioetl.cli.main activity \
 
 ## Лицензия и обратная связь {#license-and-feedback}
 
-Проект распространяется по лицензии MIT, указанной в
-[`pyproject.toml`][ref: repo:pyproject.toml@test_refactoring_32]. Ошибки и
-предложения отправляйте через задачи в репозитории или по контактам команды
-BioETL. Вопросы и предложения по качеству данных и пайплайнам направляйте через
-issues или PR, соблюдая правила из PROJECT_RULES.md и USER_RULES.md. Для срочных
-вопросов используйте e-mail, указанный в `CROSSREF_MAILTO`/`OPENALEX_MAILTO` в
-локальной конфигурации.
+Проект распространяется по лицензии MIT (см. [`pyproject.toml`][ref: repo:pyproject.toml@test_refactoring_32], секция `project.license`). Ошибки и предложения отправляйте через задачи в репозитории или по контактам команды BioETL. Вопросы и предложения по качеству данных и пайплайнам направляйте через issues или PR, соблюдая правила из [`tools/PROJECT_RULES.md`][ref: repo:tools/PROJECT_RULES.md@test_refactoring_32] и [`tools/USER_RULES.md`][ref: repo:tools/USER_RULES.md@test_refactoring_32]. Для срочных вопросов используйте e-mail, указанный в `CROSSREF_MAILTO`/`OPENALEX_MAILTO` в локальной конфигурации.
