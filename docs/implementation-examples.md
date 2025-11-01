@@ -69,7 +69,7 @@
 
 - NA-policy: None→null
 
-**См. также**: [00-architecture-overview.md → Каноническая сериализация](requirements/00-architecture-overview.md)
+**См. также**: [00-architecture-overview.md → Каноническая сериализация](architecture/00-architecture-overview.md)
 
 ---
 
@@ -215,7 +215,7 @@ df_long = pd.concat([df_parameters, df_variants, df_classes], ignore_index=True)
 
 ```
 
-**См. также**: [00-architecture-overview.md → Long format](requirements/00-architecture-overview.md)
+**См. также**: [00-architecture-overview.md → Long format](architecture/00-architecture-overview.md)
 
 ---
 
@@ -332,7 +332,7 @@ def test_respect_retry_after(mocker, caplog):
 
 ```
 
-**См. также**: [03-data-extraction.md → AC-07 Retry-After](requirements/03-data-extraction.md#ac-07-respect-retry-after-429)
+**См. также**: [03-data-extraction.md → AC-07 Retry-After](pipelines/03-data-extraction.md#ac-07-respect-retry-after-429)
 
 ---
 
@@ -373,7 +373,7 @@ python -m pipeline run --no-fail-on-schema-drift --no-strict-enrichment
 
 ```
 
-**См. также**: [04-normalization-validation.md → Schema drift](requirements/04-normalization-validation.md#ac-08-schema-drift-detection)
+**См. также**: [04-normalization-validation.md → Schema drift](architecture/04-normalization-validation.md#ac-08-schema-drift-detection)
 
 ---
 
@@ -527,7 +527,7 @@ def test_atomic_write_no_partial(mocker):
 
 ```
 
-**См. также**: [02-io-system.md → Atomic Write](requirements/02-io-system.md#протокол-atomic-write)
+**См. также**: [02-io-system.md → Atomic Write](architecture/02-io-system.md#протокол-atomic-write)
 
 ---
 
@@ -563,8 +563,8 @@ def test_atomic_write_no_partial(mocker):
 
 - [acceptance-criteria.md](acceptance-criteria.md) — критерии проверки патчей
 
-- [02-io-system.md](requirements/02-io-system.md) — протокол atomic write
+- [02-io-system.md](architecture/02-io-system.md) — протокол atomic write
 
-- [03-data-extraction.md](requirements/03-data-extraction.md) — Retry-After стратегия
+- [03-data-extraction.md](pipelines/03-data-extraction.md) — Retry-After стратегия
 
-- [04-normalization-validation.md](requirements/04-normalization-validation.md) — schema drift
+- [04-normalization-validation.md](architecture/04-normalization-validation.md) — schema drift

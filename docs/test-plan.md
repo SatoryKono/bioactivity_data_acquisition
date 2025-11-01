@@ -189,7 +189,7 @@ def test_chembl_post_override():
 
 ```
 
-**Покрытие**: [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md)
+**Покрытие**: [06-activity-data-extraction.md](pipelines/06-activity-data-extraction.md)
 
 ### 3. Golden-run тесты
 
@@ -462,10 +462,10 @@ def test_atomic_write_failure():
 
 - [gaps.md](gaps.md) — пробелы, которые закрывают тесты
 
-- [02-io-system.md](requirements/02-io-system.md) — тесты atomic write
+- [02-io-system.md](architecture/02-io-system.md) — тесты atomic write
 
-- [03-data-extraction.md](requirements/03-data-extraction.md) — тесты pagination и retry
+- [03-data-extraction.md](pipelines/03-data-extraction.md) — тесты pagination и retry
 
-- [04-normalization-validation.md](requirements/04-normalization-validation.md) — тесты schema drift
+- [04-normalization-validation.md](architecture/04-normalization-validation.md) — тесты schema drift
 
-- [06-activity-data-extraction.md](requirements/06-activity-data-extraction.md) — тесты activity пайплайна
+- [06-activity-data-extraction.md](pipelines/06-activity-data-extraction.md) — тесты activity пайплайна

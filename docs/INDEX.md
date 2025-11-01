@@ -2,8 +2,8 @@
 
 ## навигация
 
-- [Архитектура](requirements/00-architecture-overview.md)
-- [Требования к источникам и схемам](requirements/03-data-sources-and-spec.md)
+- [Архитектура](architecture/00-architecture-overview.md)
+- [Требования к источникам и схемам](architecture/03-data-sources-and-spec.md)
 - [Контракты пайплайнов](pipelines/PIPELINES.md)
 - [Конфигурации](configs/CONFIGS.md)
 - [CLI](cli/CLI.md)
@@ -23,13 +23,13 @@ graph TD
 ## как-поддерживать-согласованность
 
 1. При изменении кода обновляйте соответствующие разделы и ссылку на файл.
-2. Перед коммитом запускайте `python -m scripts.qa.check_required_docs` и
+2. Перед коммитом запускайте `python -m tools.qa.check_required_docs` и
 
    `npx markdownlint-cli2 "**/*.md"`.
 
 3. Если добавляете новый источник, расширьте таблицы в
 
-   `requirements/03-data-sources-and-spec.md` и `pipelines/PIPELINES.md`.
+   `architecture/03-data-sources-and-spec.md` и `pipelines/PIPELINES.md`.
 
 4. Refactoring-документы теперь служат указателями и дублировать данные в них
 

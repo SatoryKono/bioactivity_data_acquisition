@@ -7,7 +7,7 @@
     "**/__pycache__",
     "**/.*"
   ],
-  "stubPath": "stubs",
+  "stubPath": "tools/typecheck/stubs",
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
