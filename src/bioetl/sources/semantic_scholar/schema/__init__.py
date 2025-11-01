@@ -6,6 +6,7 @@ import pandas as pd
 
 from bioetl.pandera_pandas import DataFrameModel, pa
 from bioetl.pandera_typing import Series
+from bioetl.schemas.base import BaseSchema
 
 __all__ = [
     "SemanticScholarRawSchema",
@@ -37,7 +38,7 @@ class SemanticScholarRawSchema(DataFrameModel):
         ordered = False
 
 
-class SemanticScholarNormalizedSchema(DataFrameModel):
+class SemanticScholarNormalizedSchema(BaseSchema):
     """Schema describing normalized Semantic Scholar enrichment records."""
 
     doi_clean: Series[str] = pa.Field(nullable=True)
@@ -63,6 +64,14 @@ class SemanticScholarNormalizedSchema(DataFrameModel):
         ordered = False
 
     _column_order = [
+        "index",
+        "hash_row",
+        "hash_business_key",
+        "pipeline_version",
+        "run_id",
+        "source_system",
+        "chembl_release",
+        "extracted_at",
         "doi_clean",
         "paper_id",
         "pubmed_id",
