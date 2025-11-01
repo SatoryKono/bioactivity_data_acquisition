@@ -194,9 +194,9 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 apply_sample_limit(pipeline, sample_limit)
 
             if dry_run:
-                typer.echo(  # type: ignore[misc]"[DRY-RUN] Configuration loaded successfully.")
-                typer.echo(  # type: ignore[misc]f"Config path: {config_path}")
-                typer.echo(  # type: ignore[misc]f"Config hash: {config_obj.config_hash}")
+                typer.echo("[DRY-RUN] Configuration loaded successfully.")  # type: ignore[misc]
+                typer.echo(f"Config path: {config_path}")  # type: ignore[misc]
+                typer.echo(f"Config hash: {config_obj.config_hash}")  # type: ignore[misc]
                 return
 
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -205,17 +205,17 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
             artifacts = pipeline.run(output_path, extended=extended, input_file=input_file)
 
-            typer.echo(  # type: ignore[misc]"=== Pipeline Execution Summary ===")
-            typer.echo(  # type: ignore[misc]f"Dataset: {artifacts.dataset}")
-            typer.echo(  # type: ignore[misc]f"Quality report: {artifacts.quality_report}")
+            typer.echo("=== Pipeline Execution Summary ===")  # type: ignore[misc]
+            typer.echo(f"Dataset: {artifacts.dataset}")  # type: ignore[misc]
+            typer.echo(f"Quality report: {artifacts.quality_report}")  # type: ignore[misc]
             if artifacts.correlation_report:
-                typer.echo(  # type: ignore[misc]f"Correlation report: {artifacts.correlation_report}")
+                typer.echo(f"Correlation report: {artifacts.correlation_report}")  # type: ignore[misc]
             if artifacts.metadata:
-                typer.echo(  # type: ignore[misc]f"Metadata: {artifacts.metadata}")
+                typer.echo(f"Metadata: {artifacts.metadata}")  # type: ignore[misc]
             if artifacts.debug_dataset:
-                typer.echo(  # type: ignore[misc]f"Debug dataset: {artifacts.debug_dataset}")
+                typer.echo(f"Debug dataset: {artifacts.debug_dataset}")  # type: ignore[misc]
             if artifacts.qc_summary:
-                typer.echo(  # type: ignore[misc]f"QC summary: {artifacts.qc_summary}")
+                typer.echo(f"QC summary: {artifacts.qc_summary}")  # type: ignore[misc]
             if artifacts.qc_missing_mappings:
                 typer.echo(  # type: ignore[misc]
                     f"QC missing mappings: {artifacts.qc_missing_mappings}"
@@ -235,8 +235,8 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
             # Валидация колонок
             if validate_columns:
-                typer.echo(  # type: ignore[misc])
-                typer.echo(  # type: ignore[misc]"Валидация колонок...")
+                typer.echo()  # type: ignore[misc]
+                typer.echo("Валидация колонок...")  # type: ignore[misc]
 
                 try:
                     from bioetl.utils.validation import ColumnValidator
@@ -257,50 +257,50 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                         )
 
                         if result.overall_match:
-                            typer.echo(  # type: ignore[misc]"Колонки соответствуют требованиям")
+                            typer.echo("Колонки соответствуют требованиям")  # type: ignore[misc]
                         else:
-                            typer.echo(  # type: ignore[misc]"Обнаружены несоответствия в колонках:")
+                            typer.echo("Обнаружены несоответствия в колонках:")  # type: ignore[misc]
                             if result.missing_columns:
-                                typer.echo(  # type: ignore[misc]f"   Отсутствуют: {', '.join(result.missing_columns)}")
+                                typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")  # type: ignore[misc]
                             if result.extra_columns:
-                                typer.echo(  # type: ignore[misc]f"   Лишние: {', '.join(result.extra_columns)}")
+                                typer.echo(f"   Лишние: {', '.join(result.extra_columns)}")  # type: ignore[misc]
                             if not result.order_matches:
-                                typer.echo(  # type: ignore[misc]"   Порядок колонок не соответствует требованиям")
+                                typer.echo("   Порядок колонок не соответствует требованиям")  # type: ignore[misc]
 
                         # Показать информацию о пустых колонках
                         if result.empty_columns:
-                            typer.echo(  # type: ignore[misc]f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
+                            typer.echo(f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")  # type: ignore[misc]
                         else:
-                            typer.echo(  # type: ignore[misc]"Все колонки содержат данные")
+                            typer.echo("Все колонки содержат данные")  # type: ignore[misc]
 
                         # Создать отчет о валидации
                         validation_report_dir = output_dir / "validation_reports"
                         validation_report_dir.mkdir(parents=True, exist_ok=True)
                         report_path = validator.generate_report([result], validation_report_dir)
-                        typer.echo(  # type: ignore[misc]f"Отчет о валидации: {report_path}")
+                        typer.echo(f"Отчет о валидации: {report_path}")  # type: ignore[misc]
 
                         # Если есть критические несоответствия, завершить с ошибкой
                         if result.missing_columns or result.extra_columns:
                             typer.secho(  # type: ignore[misc]
                                 "Критические несоответствия в колонках обнаружены!",
-                                fg=typer.colors.RED,
+                                fg=typer.colors.RED,  # type: ignore[misc]
                             )
-                            raise typer.Exit(1)
+                            raise typer.Exit(1)  # type: ignore[misc]
                     else:
-                        typer.echo(  # type: ignore[misc]"Выходной файл не найден для валидации")
+                        typer.echo("Выходной файл не найден для валидации")  # type: ignore[misc]
 
                 except ImportError:
-                    typer.echo(  # type: ignore[misc]"Модуль валидации колонок недоступен")
+                    typer.echo("Модуль валидации колонок недоступен")  # type: ignore[misc]
                 except Exception as e:
-                    typer.echo(  # type: ignore[misc]f"Ошибка валидации колонок: {e}")
+                    typer.echo(f"Ошибка валидации колонок: {e}")  # type: ignore[misc]
                     logger.warning("column_validation_failed", error=str(e))
 
         except typer.BadParameter:
             raise
         except Exception as exc:  # noqa: BLE001 - surface pipeline errors to CLI
             logger.error("pipeline_failed", error=str(exc))
-            typer.secho(  # type: ignore[misc]f"[ERROR] Pipeline failed: {exc}", fg=typer.colors.RED, err=True)
-            raise typer.Exit(1) from exc
+            typer.secho(f"[ERROR] Pipeline failed: {exc}", fg=typer.colors.RED, err=True)  # type: ignore[misc]
+            raise typer.Exit(1) from exc  # type: ignore[misc]
 
     return command
 

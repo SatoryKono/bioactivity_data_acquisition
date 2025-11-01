@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-"""ChEMBL client wrapper tailored for the Assay pipeline."""
-
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Any, Callable

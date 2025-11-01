@@ -211,7 +211,7 @@ class DocumentPipeline(PipelineBase):
                 previous=self.mode,
                 current=resolved_mode,
             )
-            self.mode: str = resolved_mode
+            self.mode = resolved_mode
 
         self.runtime_options["mode"] = self.mode
         self._prepare_enrichment_adapters()

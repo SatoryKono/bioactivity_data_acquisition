@@ -3,9 +3,17 @@ from __future__ import annotations
 import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
+
+if TYPE_CHECKING:
+    from bioetl.sources.chembl.target.request import IupharRequestBuilder
+    from bioetl.sources.uniprot.client import (
+        UniProtIdMappingClient,
+        UniProtOrthologsClient,
+        UniProtSearchClient,
+    )
 
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.parser import parse_api_response
@@ -108,9 +116,9 @@ class MissingMappingRecorder:
 class TargetEnricher:
     """Coordinate external enrichment services for the target pipeline."""
 
-    uniprot_search_client: UniProtSearchClient | None
-    uniprot_id_mapping_client: UniProtIdMappingClient | None
-    uniprot_ortholog_client: UniProtOrthologsClient | None
+    uniprot_search_client: UniProtSearchClient | None  # type: ignore[misc]
+    uniprot_id_mapping_client: type[UniProtIdMappingClient] | None  # type: ignore[misc]
+    uniprot_ortholog_client: UniProtOrthologsClient | None  # type: ignore[misc]
     iuphar_service: IupharService
     iuphar_paginator: PageNumberPaginator | None = None
     uniprot_normalizer: UniProtNormalizer | None = field(init=False, default=None)
@@ -130,6 +138,10 @@ class TargetEnricher:
         record_validation_issue: Callable[[dict[str, Any]], None],
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich the dataframe using UniProt datasets."""
+
+        if self.uniprot_normalizer is None:
+            # Return empty results if normalizer not initialized
+            return df, pd.DataFrame(), pd.DataFrame(), {}
 
         result = self.uniprot_normalizer.enrich_targets(
             df,
@@ -152,7 +164,7 @@ class TargetEnricher:
         self,
         df: pd.DataFrame,
         *,
-        request_builder,
+        request_builder: "IupharRequestBuilder",
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
         """Enrich dataframe using IUPHAR targets and families."""
 

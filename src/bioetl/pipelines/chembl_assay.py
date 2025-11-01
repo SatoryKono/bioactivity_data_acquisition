@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-"""Assay Pipeline - ChEMBL assay data extraction."""
-
 import subprocess
 from collections.abc import Iterable
 from datetime import datetime, timezone

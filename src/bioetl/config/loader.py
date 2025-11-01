@@ -186,15 +186,17 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
     if "extends" in data:
         extends_value = data.pop("extends")
         if isinstance(extends_value, (str, Path)):
-            extends_iterable = [extends_value]
+            extends_iterable: list[str | Path] = [extends_value]
         elif isinstance(extends_value, list):
-            extends_iterable = extends_value
+            extends_iterable = cast(list[str | Path], extends_value)
         else:
             raise TypeError("'extends' must be a string, Path, or list of those values")
 
         base_data: dict[str, Any] = {}
-        for extends_entry in extends_iterable:
-            extends_path = Path(extends_entry)
+        for entry in extends_iterable:
+            if not isinstance(entry, (str, Path)):
+                raise TypeError(f"Expected str or Path, got {type(entry)}")
+            extends_path = Path(entry)
             if not extends_path.is_absolute():
                 extends_path = path.parent / extends_path
 
