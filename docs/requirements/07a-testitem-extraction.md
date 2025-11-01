@@ -264,7 +264,7 @@ chembl_base_url: str  # URL для воспроизводимости
 ```bash
 
 curl -H "Accept: application/json" \
-  https://www.ebi.ac.uk/chembl/api/data/status.json
+  <https://www.ebi.ac.uk/chembl/api/data/status.json>
 
 ```
 
@@ -340,7 +340,7 @@ curl -H "Accept: application/json" \
 ```bash
 
 curl -H "Accept: application/json" \
-  "https://www.ebi.ac.uk/chembl/api/data/molecule/CHEMBL25.json"
+  "<https://www.ebi.ac.uk/chembl/api/data/molecule/CHEMBL25.json>"
 
 ```
 
@@ -349,7 +349,7 @@ curl -H "Accept: application/json" \
 ```bash
 
 curl -H "Accept: application/json" \
-  "https://www.ebi.ac.uk/chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL25,CHEMBL192,CHEMBL941&fields=molecule_chembl_id,molregno,pref_name,max_phase,molecule_hierarchy,molecule_properties,molecule_structures,molecule_synonyms&limit=1000"
+  "<https://www.ebi.ac.uk/chembl/api/data/molecule.json?molecule_chembl_id__in=CHEMBL25,CHEMBL192,CHEMBL941&fields=molecule_chembl_id,molregno,pref_name,max_phase,molecule_hierarchy,molecule_properties,molecule_structures,molecule_synonyms&limit=1000>"
 
 ```
 
@@ -627,7 +627,7 @@ def _create_fallback_record(
 
 > **📖 Детальное описание:** См. полную спецификацию PubChem integration в документе [`07b-testitem-data-extraction.md`](./07b-testitem-data-extraction.md) — "Оптимальный подход к извлечению данных testitem из PubChem"
 
-**Base URL:** `https://pubchem.ncbi.nlm.nih.gov/rest/pug`
+**Base URL:** `<https://pubchem.ncbi.nlm.nih.gov/rest/pug>`
 
 **Ключевые архитектурные принципы:**
 
@@ -698,14 +698,14 @@ pref_name                  ↓
 # Step 1: Resolve InChIKey → CID
 
 curl -H "Accept: application/json" \
-  "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/BSYNRYMUTXBXSQ-UHFFFAOYSA-N/cids/JSON"
+  "<https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/inchikey/BSYNRYMUTXBXSQ-UHFFFAOYSA-N/cids/JSON>"
 
 # Response: {"IdentifierList": {"CID": [2244]}}
 
 # Step 2: Fetch properties for CID
 
 curl -H "Accept: application/json" \
-  "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChI,InChIKey,IUPACName/JSON"
+  "<https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244/property/MolecularFormula,MolecularWeight,CanonicalSMILES,InChI,InChIKey,IUPACName/JSON>"
 
 ```
 
@@ -714,7 +714,7 @@ curl -H "Accept: application/json" \
 ```bash
 
 curl -H "Accept: application/json" \
-  "https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON"
+  "<https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/2244,3672,5353740/property/MolecularFormula,MolecularWeight,CanonicalSMILES,IsomericSMILES,InChI,InChIKey,IUPACName/JSON>"
 
 ```
 
@@ -1434,7 +1434,7 @@ python_version: "3.11.5"
 deps_fingerprint: "ghi789..."
 
 chembl_release: "CHEMBL_36"
-chembl_base_url: "https://www.ebi.ac.uk/chembl/api/data"
+chembl_base_url: "<https://www.ebi.ac.uk/chembl/api/data>"
 
 extracted_at: "2025-10-28T12:00:00Z"
 processing_time_s: 145.67

@@ -178,7 +178,7 @@ class CursorPaginator:
 from bioetl.sources.openalex.pagination import CursorPaginator
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 
-client = UnifiedAPIClient(APIConfig(base_url="https://api.openalex.org"))
+client = UnifiedAPIClient(APIConfig(base_url="<https://api.openalex.org>"))
 paginator = CursorPaginator(client, page_size=100)
 
 def parse_works(response: dict[str, Any]) -> list[dict[str, Any]]:
@@ -481,12 +481,12 @@ def test_cursor_paginator_fetch_all():
     # First page response
     client.request_json.side_effect = [
         {
-            "results": [{"id": f"https://openalex.org/W{i}"} for i in range(100)],
+            "results": [{"id": f"<https://openalex.org/W>{i}"} for i in range(100)],
             "meta": {"next_cursor": "abc123"},
         },
         # Second page response
         {
-            "results": [{"id": f"https://openalex.org/W{i}"} for i in range(100, 150)],
+            "results": [{"id": f"<https://openalex.org/W>{i}"} for i in range(100, 150)],
             "meta": {"next_cursor": None},  # Last page
         },
     ]
@@ -557,9 +557,9 @@ from bioetl.sources.openalex.schema import (
 def test_openalex_raw_schema():
     """Test validation of raw OpenAlex data."""
     df = pd.DataFrame({
-        "id": ["https://openalex.org/W1"],
+        "id": ["<https://openalex.org/W1>"],
         "title": ["Test Title"],
-        "doi": ["https://doi.org/10.1000/test.1"],
+        "doi": ["<https://doi.org/10.1000/test.1>"],
     })
 
     schema = OpenAlexRawSchema()

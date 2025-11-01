@@ -189,7 +189,7 @@ pytest tests/integration/test_api_client.py -v --log-cli-level=DEBUG
 python -c "
 from bioetl.core.api_client import UnifiedAPIClient
 client = UnifiedAPIClient(config, cache_dir='data/cache/test')
-resp = client.request_json('https://httpbin.org/get')
+resp = client.request_json('<https://httpbin.org/get')>
 print(resp)
 "
 
@@ -237,7 +237,7 @@ print(resp)
 
 **Файл:** `tests/unit/test_normalizers.py`
 
-- Тест DOI: `https://doi.org/10.1234/test` → `10.1234/test`
+- Тест DOI: `<https://doi.org/10.1234/test>` → `10.1234/test`
 - Тест SMILES canonicalization (если RDKit доступен)
 - Тест StringNormalizer: ` Test ` → `test`
 
@@ -665,7 +665,7 @@ pytest tests/unit/test_target_pipeline.py tests/integration/test_target_multi_so
 **Файл:** `tests/unit/test_document_pipeline.py`
 
 - Тест priority merge (ChEMBL abstract > PubMed abstract)
-- Тест DOI normalization (`https://doi.org/10.1234/test` → `10.1234/test`)
+- Тест DOI normalization (`<https://doi.org/10.1234/test>` → `10.1234/test`)
 - Тест author flatten (list → semicolon-separated)
 
 ### 12.5 Интеграционные тесты адаптеров

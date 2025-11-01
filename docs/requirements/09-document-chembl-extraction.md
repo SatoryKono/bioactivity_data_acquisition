@@ -98,7 +98,7 @@ flowchart LR
 
 ```text
 
-https://www.ebi.ac.uk/chembl/api/data
+<https://www.ebi.ac.uk/chembl/api/data>
 
 ```
 
@@ -126,7 +126,7 @@ https://www.ebi.ac.uk/chembl/api/data
 
 ```bash
 
-curl -sS "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
+curl -sS "<https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50>"
 
 ```
 
@@ -134,7 +134,7 @@ curl -sS "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id
 
 ```bash
 
-curl -sS "https://www.ebi.ac.uk/chembl/api/data/status.json"
+curl -sS "<https://www.ebi.ac.uk/chembl/api/data/status.json>"
 
 ```
 
@@ -443,7 +443,7 @@ def normalize_doi(doi: str | None) -> tuple[str, bool]:
     # Удалить префиксы
 
     doi = doi.strip().lower()
-    for prefix in ["doi:", "https://doi.org/", "http://dx.doi.org/"]:
+    for prefix in ["doi:", "<https://doi.org/>", "<http://dx.doi.org/>"]:
         if doi.startswith(prefix):
             doi = doi[len(prefix):]
 
@@ -898,7 +898,7 @@ def classify_error(exc: Exception) -> tuple[str, bool]:
 
 ```text
 
-https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?
+<https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?>
   db=pubmed
   &term=<query>
   &retmax=<n>
@@ -914,7 +914,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?
 
 ```text
 
-POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed
+POST <https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed>
 Body: id=PMID1,PMID2,...
 
 Возвращает: WebEnv + query_key
@@ -927,7 +927,7 @@ Body: id=PMID1,PMID2,...
 
 ```text
 
-https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
+<https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?>
   db=pubmed
   &query_key=<key>
   &WebEnv=<env>
@@ -945,7 +945,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
 
 ```text
 
-POST https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?
+POST <https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?>
   db=pubmed
   &retmode=xml
   &rettype=abstract
@@ -1135,7 +1135,7 @@ def normalize_pubmed_date(year, month, day):
 
 ```bash
 
-curl "https://api.crossref.org/works/10.1371/journal.pone.0000000" \
+curl "<https://api.crossref.org/works/10.1371/journal.pone.0000000>" \
   -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)"
 
 ```
@@ -1144,7 +1144,7 @@ curl "https://api.crossref.org/works/10.1371/journal.pone.0000000" \
 
 ```bash
 
-curl "https://api.crossref.org/works?filter=doi:10.1371/journal.pone.0000000,10.1038/nature12345&rows=100" \
+curl "<https://api.crossref.org/works?filter=doi:10.1371/journal.pone.0000000,10.1038/nature12345&rows=100>" \
   -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)"
 
 ```
@@ -1155,11 +1155,11 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/journal.pone.0000000,10.
 
 # Первый запрос
 
-curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=*"
+curl "<https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=*>"
 
 # Следующая страница (cursor из previous response)
 
-curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/..."
+curl "<https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/...>"
 
 ```
 
@@ -1198,7 +1198,7 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=AoJ/.
       "family": "Doe",
       "sequence": "first",
       "affiliation": [{"name": "Department of Biology"}],
-      "ORCID": "https://orcid.org/0000-0001-2345-6789"
+      "ORCID": "<https://orcid.org/0000-0001-2345-6789>"
     }
   ]
 }
@@ -1257,8 +1257,8 @@ def normalize_orcid(orcid_value):
     if not orcid_value:
         return None
 
-    orcid = orcid_value.replace('https://orcid.org/', '')
-    orcid = orcid.replace('http://orcid.org/', '')
+    orcid = orcid_value.replace('<https://orcid.org/',> '')
+    orcid = orcid.replace('<http://orcid.org/',> '')
 
     if re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         return orcid
@@ -1304,7 +1304,7 @@ OpenAlex — полностью открытый сервис:
 
 ```bash
 
-curl "https://api.openalex.org/works/W1234567890"
+curl "<https://api.openalex.org/works/W1234567890>"
 
 ```
 
@@ -1314,7 +1314,7 @@ curl "https://api.openalex.org/works/W1234567890"
 
 ```bash
 
-curl "https://api.openalex.org/works?filter=doi:10.1371/journal.pone.0000000"
+curl "<https://api.openalex.org/works?filter=doi:10.1371/journal.pone.0000000>"
 
 ```
 
@@ -1322,7 +1322,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/journal.pone.0000000"
 
 ```bash
 
-curl "https://api.openalex.org/works?filter=pmid:12345678"
+curl "<https://api.openalex.org/works?filter=pmid:12345678>"
 
 ```
 
@@ -1330,7 +1330,7 @@ curl "https://api.openalex.org/works?filter=pmid:12345678"
 
 ```bash
 
-curl "https://api.openalex.org/works?filter=title.search:prostaglandin"
+curl "<https://api.openalex.org/works?filter=title.search:prostaglandin>"
 
 ```
 
@@ -1340,11 +1340,11 @@ curl "https://api.openalex.org/works?filter=title.search:prostaglandin"
 
 # Первый запрос (continued 1)
 
-curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=*"
+curl "<https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=*>"
 
 # Следующая страница
 
-curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=MjAyM..."
+curl "<https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=MjAyM...>"
 
 ```
 
@@ -1371,8 +1371,8 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
 ```json
 
 {
-  "id": "https://openalex.org/W1234567890",
-  "doi": "https://doi.org/10.1371/journal.pone.0000000",
+  "id": "<https://openalex.org/W1234567890>",
+  "doi": "<https://doi.org/10.1371/journal.pone.0000000>",
   "title": "Article Title Here",
   "publication_date": "2023-03-15",
   "publication_year": 2023,
@@ -1383,11 +1383,11 @@ curl "https://api.openalex.org/works?filter=doi:10.1371/*&per-page=100&cursor=Mj
   "open_access": {
     "is_oa": true,
     "oa_status": "gold",
-    "oa_url": "https://journals.plos.org/..."
+    "oa_url": "<https://journals.plos.org/...>"
   },
   "concepts": [
     {
-      "id": "https://openalex.org/C1234567890",
+      "id": "<https://openalex.org/C1234567890>",
       "display_name": "Medicine",
       "score": 0.9234,
       "level": 0
@@ -1436,7 +1436,7 @@ def normalize_openalex_id(openalex_url):
     if not openalex_url:
         return None
 
-    pattern = r'https://openalex\.org/([A-Z]\d+)'
+    pattern = r'<https://openalex>\.org/([A-Z]\d+)'
     match = re.match(pattern, openalex_url)
 
     return match.group(1) if match else None
@@ -1489,7 +1489,7 @@ def normalize_openalex_id(openalex_url):
 
 ```bash
 
-curl "https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.0000000" \
+curl "<https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.0000000>" \
   -H "x-api-key: <your_key>"
 
 ```
@@ -1506,7 +1506,7 @@ curl "https://api.semanticscholar.org/graph/v1/paper/10.1371/journal.pone.000000
 
 ```bash
 
-curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&limit=10" \
+curl "<https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&limit=10>" \
   -H "x-api-key: <your_key>"
 
 ```
@@ -1552,7 +1552,7 @@ curl "https://api.semanticscholar.org/graph/v1/paper/search?query=prostaglandin&
 
 def search_by_title(title, max_results=10):
     """Поиск по заголовку через Search API"""
-    url = "https://api.semanticscholar.org/graph/v1/paper/search"
+    url = "<https://api.semanticscholar.org/graph/v1/paper/search>"
     params = {
         'query': title,
         'limit': max_results,
@@ -2907,7 +2907,7 @@ def atomic_write(df: pd.DataFrame, output_path: Path, run_id: str):
 ```bash
 
 curl -sS \
-  "https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50"
+  "<https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_id__in=CHEMBL1123,CHEMBL1124&limit=50>"
 
 ```
 

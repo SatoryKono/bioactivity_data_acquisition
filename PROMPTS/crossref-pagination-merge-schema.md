@@ -174,7 +174,7 @@ class CursorPaginator:
 from bioetl.sources.crossref.pagination import CursorPaginator
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
 
-client = UnifiedAPIClient(APIConfig(base_url="https://api.crossref.org"))
+client = UnifiedAPIClient(APIConfig(base_url="<https://api.crossref.org>"))
 paginator = CursorPaginator(client, page_size=100)
 
 def parse_works(message: dict[str, Any]) -> list[dict[str, Any]]:

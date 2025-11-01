@@ -851,7 +851,7 @@ python_version: "3.11.5"
 deps_fingerprint: "ghi789..."
 
 chembl_release: "CHEMBL_36"
-chembl_base_url: "https://www.ebi.ac.uk/chembl/api/data"
+chembl_base_url: "<https://www.ebi.ac.uk/chembl/api/data>"
 
 extracted_at: "2025-10-28T12:00:00Z"
 processing_time_s: 123.45

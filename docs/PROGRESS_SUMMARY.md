@@ -193,7 +193,7 @@ log.info('Hello World')
 ```python
 
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
-config = APIConfig(name='test', base_url='https://api.example.com')
+config = APIConfig(name='test', base_url='<https://api.example.com')>
 client = UnifiedAPIClient(config)
 result = client.request_json('/endpoint')
 

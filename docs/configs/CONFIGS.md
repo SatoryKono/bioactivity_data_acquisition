@@ -49,7 +49,7 @@ materialization:
 sources:
   chembl:
     enabled: true
-    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    base_url: "<https://www.ebi.ac.uk/chembl/api/data>"
     batch_size: 20
     max_url_length: 2000
     headers:

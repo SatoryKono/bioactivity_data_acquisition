@@ -140,7 +140,7 @@ def test_respect_retry_after(mocker):
 
     start = time.time()
     with pytest.raises(RateLimitError):
-        client.request("https://example.com/api/test")
+        client.request("<https://example.com/api/test>")
     elapsed = time.time() - start
 
     assert elapsed >= 2.0, f"Did not wait Retry-After, elapsed={elapsed}"
@@ -157,7 +157,7 @@ def test_no_retry_on_4xx_except_429():
     mocker.patch('requests.get', return_value=mock_400)
 
     with pytest.raises(ValueError):
-        client.request("https://example.com/api/test")
+        client.request("<https://example.com/api/test>")
 
     # Не должно быть ретраев
 
@@ -311,7 +311,7 @@ def test_track_429_rate():
 
     for i in range(1000):
         try:
-            client.request("https://chembl.example.com/activity")
+            client.request("<https://chembl.example.com/activity>")
         except RateLimitError:
             pass
 

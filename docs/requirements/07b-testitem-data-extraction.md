@@ -195,7 +195,7 @@ PubChem PUG-REST API предоставляет несколько endpoints д�
 
 ```text
 
-https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/{cids}/property/{properties}/JSON
+<https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/>{cids}/property/{properties}/JSON
 
 ```
 
@@ -342,7 +342,7 @@ class OptimalPubChemClient:
 
     def __init__(
         self,
-        base_url: str = "https://pubchem.ncbi.nlm.nih.gov/rest/pug",
+        base_url: str = "<https://pubchem.ncbi.nlm.nih.gov/rest/pug>",
         timeout: float = 30.0,
         max_retries: int = 3,
         backoff_factor: float = 2.0,
@@ -1946,7 +1946,7 @@ def enrich_testitem_with_pubchem(
         # Initialize components
 
         client = OptimalPubChemClient(
-            base_url=config.get('base_url', 'https://pubchem.ncbi.nlm.nih.gov/rest/pug'),
+            base_url=config.get('base_url', '<https://pubchem.ncbi.nlm.nih.gov/rest/pug'),>
             timeout=config.get('timeout', 30.0),
             max_retries=config.get('max_retries', 3),
             cache_dir=config.get('http_cache_dir')
@@ -3228,7 +3228,7 @@ performance_targets:
 | Путь | Значение по умолчанию | Ограничения | Назначение |
 |------|-----------------------|-------------|------------|
 | `sources.pubchem.enabled` | `true` | Можно отключить только через CLI/env | Фича-флаг enrichment. |
-| `sources.pubchem.http.base_url` | `https://pubchem.ncbi.nlm.nih.gov/rest/pug` | Строка URL | Основной REST endpoint. |
+| `sources.pubchem.http.base_url` | `<https://pubchem.ncbi.nlm.nih.gov/rest/pug>` | Строка URL | Основной REST endpoint. |
 | `sources.pubchem.http.retries.total` | `3` | `1–5` | Ограничение для backoff (PubChem penalizes >5). |
 | `sources.pubchem.batch.size` | `100` | `≤ 100` | Верхний предел API batch. |
 | `sources.pubchem.cache.cid_mapping.ttl_hours` | `720` | `≥ 0` | Стабильность соответствий CID↔molecule. |

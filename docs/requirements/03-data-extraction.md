@@ -758,7 +758,7 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 
 chembl_config = APIConfig(
     name="chembl",
-    base_url="https://www.ebi.ac.uk/chembl/api/data",
+    base_url="<https://www.ebi.ac.uk/chembl/api/data>",
     headers={"Accept": "application/json"},
     cache_enabled=True,
     cache_ttl=3600,
@@ -777,7 +777,7 @@ chembl_config = APIConfig(
 
 pubmed_config = APIConfig(
     name="pubmed",
-    base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+    base_url="<https://eutils.ncbi.nlm.nih.gov/entrez/eutils>",
     rate_limit_max_calls=2,
     rate_limit_period=1.0,
     retry_total=10,
@@ -794,7 +794,7 @@ pubmed_config = APIConfig(
 
 semantic_scholar_config = APIConfig(
     name="semantic_scholar",
-    base_url="https://api.semanticscholar.org/graph/v1/paper",
+    base_url="<https://api.semanticscholar.org/graph/v1/paper>",
     headers={"x-api-key": "{API_KEY}"},
     rate_limit_max_calls=1,
     rate_limit_period=10.0,  # Консервативно: 1 запрос в 10 сек
@@ -812,7 +812,7 @@ semantic_scholar_config = APIConfig(
 
 pubchem_config = APIConfig(
     name="pubchem",
-    base_url="https://pubchem.ncbi.nlm.nih.gov/rest/pug",
+    base_url="<https://pubchem.ncbi.nlm.nih.gov/rest/pug>",
     cache_enabled=True,
     cache_ttl=7200,  # 2 часа
 
@@ -830,7 +830,7 @@ pubchem_config = APIConfig(
 
 uniprot_config = APIConfig(
     name="uniprot",
-    base_url="https://rest.uniprot.org",
+    base_url="<https://rest.uniprot.org>",
     cache_enabled=True,
     cache_ttl=3600,
     timeout_connect=10.0,
@@ -845,7 +845,7 @@ uniprot_config = APIConfig(
 
 iuphar_config = APIConfig(
     name="iuphar",
-    base_url="https://www.guidetopharmacology.org/DATA",
+    base_url="<https://www.guidetopharmacology.org/DATA>",
     cache_enabled=True,
     cache_ttl=3600,
     rate_limit_max_calls=10,
@@ -864,7 +864,7 @@ from unified_client import UnifiedAPIClient, APIConfig
 
 config = APIConfig(
     name="chembl",
-    base_url="https://www.ebi.ac.uk/chembl/api/data",
+    base_url="<https://www.ebi.ac.uk/chembl/api/data>",
     cache_enabled=True
 )
 client = UnifiedAPIClient(config)

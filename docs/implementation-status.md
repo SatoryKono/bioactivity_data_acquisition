@@ -278,7 +278,7 @@ python -c "from bioetl.normalizers import registry; print(registry.normalize('st
 
 # Проверка api client
 
-python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; config = APIConfig(name='test', base_url='https://api.github.com'); client = UnifiedAPIClient(config); print(client.request_json('/zen'))"
+python -c "from bioetl.core.api_client import UnifiedAPIClient, APIConfig; config = APIConfig(name='test', base_url='<https://api.github.com');> client = UnifiedAPIClient(config); print(client.request_json('/zen'))"
 
 ```
 

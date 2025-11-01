@@ -40,7 +40,7 @@ export SEMANTIC_SCHOLAR_API_KEY="your-s2-api-key"  # обязателен для
 sources:
   pubmed:
     enabled: true
-    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    base_url: "<https://eutils.ncbi.nlm.nih.gov/entrez/eutils>"
     tool: "bioactivity_etl"
     email: "${PUBMED_EMAIL}"
     api_key: "${PUBMED_API_KEY:}"
@@ -51,7 +51,7 @@ sources:
 
   crossref:
     enabled: true
-    base_url: "https://api.crossref.org"
+    base_url: "<https://api.crossref.org>"
     mailto: "${CROSSREF_MAILTO}"
     batch_size: 100
     rate_limit_max_calls: 2
@@ -60,7 +60,7 @@ sources:
 
   openalex:
     enabled: true
-    base_url: "https://api.openalex.org"
+    base_url: "<https://api.openalex.org>"
     batch_size: 100
     rate_limit_max_calls: 10
     rate_limit_period: 1.0
@@ -68,7 +68,7 @@ sources:
 
   semantic_scholar:
     enabled: true
-    base_url: "https://api.semanticscholar.org/graph/v1"
+    base_url: "<https://api.semanticscholar.org/graph/v1>"
     api_key: "${SEMANTIC_SCHOLAR_API_KEY:}"
     batch_size: 50
     rate_limit_max_calls: 1  # 10 with API key
@@ -112,7 +112,7 @@ from bioetl.core.api_client import APIConfig
 
 pubmed_config = APIConfig(
     name="pubmed",
-    base_url="https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+    base_url="<https://eutils.ncbi.nlm.nih.gov/entrez/eutils>",
     rate_limit_max_calls=3,
     rate_limit_period=1.0,
 )
@@ -159,7 +159,7 @@ pubmed.close()
 
 ### PubMed API Key
 
-1. Зарегистрироваться на https://www.ncbi.nlm.nih.gov/account/settings/
+1. Зарегистрироваться на <https://www.ncbi.nlm.nih.gov/account/settings/>
 2. Найти API Key в настройках аккаунта
 
 ### Crossref (не требуется)
@@ -168,7 +168,7 @@ Crossref не требует API ключ, но рекомендуется ук�
 
 ### Semantic Scholar API Key
 
-1. Зарегистрироваться на https://www.semanticscholar.org/
+1. Зарегистрироваться на <https://www.semanticscholar.org/>
 2. Перейти в Developer API settings
 3. Создать API ключ
 

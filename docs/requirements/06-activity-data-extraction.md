@@ -34,7 +34,7 @@
 
 **ChEMBL Data Web Services:**
 
-- Base URL: `https://www.ebi.ac.uk/chembl/api/data`
+- Base URL: `<https://www.ebi.ac.uk/chembl/api/data>`
 
 - Ресурс: `activity` (с пагинацией и фильтрацией)
 
@@ -73,7 +73,7 @@
 
 ```bash
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5>"
 
 ```
 
@@ -84,7 +84,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=
 import requests
 
 r = requests.get(
-    "https://www.ebi.ac.uk/chembl/api/data/activity.json",
+    "<https://www.ebi.ac.uk/chembl/api/data/activity.json>",
     params={"molecule_chembl_id": "CHEMBL998", "limit": 5},
     timeout=30
 )
@@ -109,7 +109,7 @@ data = r.json()
 
 ### Base URL и endpoints
 
-**Base URL:** `https://www.ebi.ac.uk/chembl/api/data`
+**Base URL:** `<https://www.ebi.ac.uk/chembl/api/data>`
 
 **Endpoints:**
 
@@ -281,7 +281,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
 ```bash
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity/31863.json>"
 
 ```
 
@@ -312,7 +312,7 @@ curl -s "https://www.ebi.ac.uk/chembl/api/data/activity/31863.json"
 
 ```bash
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=3>"
 
 ```
 
@@ -322,7 +322,7 @@ Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `t
 
 ```bash
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=CHEMBL240&assay_type=B&pchembl_value__gte=6&only=molecule_chembl_id,pchembl_value,assay_chembl_id&order_by=-pchembl_value&limit=5>"
 
 ```
 
@@ -669,7 +669,7 @@ from unified_client import APIConfig
 
 chembl_activity_config = APIConfig(
     name="chembl_activity",
-    base_url="https://www.ebi.ac.uk/chembl/api/data",
+    base_url="<https://www.ebi.ac.uk/chembl/api/data>",
     headers={"Accept": "application/json"},
     cache_enabled=True,
     cache_ttl=3600,  # 1 час
@@ -742,7 +742,7 @@ while True:
 {
   "limit": 1000,
   "offset": 0,
-  "next": "https://www.ebi.ac.uk/chembl/api/data/activity.json?limit=1000&offset=1000",
+  "next": "<https://www.ebi.ac.uk/chembl/api/data/activity.json?limit=1000&offset=1000>",
   "previous": null,
   "total_count": 123456
 }
@@ -778,15 +778,15 @@ while True:
 
 # Низкий лимит (должен работать)
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=100"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=100>"
 
 # Средний лимит
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=1000"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=1000>"
 
 # Высокий лимит
 
-curl -s "https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000"
+curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id=CHEMBL998&limit=5000>"
 
 ```
 
@@ -1058,7 +1058,7 @@ pipeline_version: "activity_etl_1.0.0"
 chembl_release: "unknown"  # извлекается из /status
 
 source:
-  base_url: "https://www.ebi.ac.uk/chembl/api/data"
+  base_url: "<https://www.ebi.ac.uk/chembl/api/data>"
   resource: "activity"
   filters:
     molecule_chembl_id: "CHEMBL998"
@@ -1143,7 +1143,7 @@ import json
 import time
 import requests
 
-BASE = "https://www.ebi.ac.uk/chembl/api/data"
+BASE = "<https://www.ebi.ac.uk/chembl/api/data>"
 
 def stable_params(d):
     """Стабильная сериализация параметров."""

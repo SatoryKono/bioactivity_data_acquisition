@@ -101,11 +101,11 @@ pipeline:
   entity: document
 sources:
   pubmed:
-    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    base_url: "<https://eutils.ncbi.nlm.nih.gov/entrez/eutils>"
     tool: "${PUBMED_TOOL}"
     email: "${PUBMED_EMAIL}"
   crossref:
-    base_url: "https://api.crossref.org"
+    base_url: "<https://api.crossref.org>"
     mailto: "${CROSSREF_MAILTO}"
 ```
 [ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
