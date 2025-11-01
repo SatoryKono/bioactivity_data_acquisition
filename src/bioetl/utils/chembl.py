@@ -37,6 +37,7 @@ class SupportsRequestJson(Protocol):
         headers: Mapping[str, str] | None = ...,
     ) -> Mapping[str, Any]:
         """Perform an HTTP request and return the parsed JSON payload."""
+        ...
 
 
 @dataclass(frozen=True)
