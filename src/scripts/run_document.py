@@ -1,12 +1,7 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the document pipeline."""
 
-from bioetl.cli.app import create_pipeline_app
-
-app = create_pipeline_app(
-    "document",
-    "Run document pipeline to extract and transform document data",
-)
+from scripts.run_chembl_document import app  # re-export for backwards compatibility
 
 
 if __name__ == "__main__":
