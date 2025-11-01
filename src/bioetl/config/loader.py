@@ -29,8 +29,8 @@ def _config_loader_factory(
     class ConfigLoader(yaml.SafeLoader):
         def __init__(self, stream: IO[str] | IO[bytes]) -> None:
             super().__init__(stream)
-            self._root = base_path
-            self._include_stack = include_stack
+            self.root = base_path
+            self.include_stack = include_stack
 
     def construct_include(loader: yaml.Loader, node: "YamlNode") -> Any:
         """Load referenced YAML content relative to the current file."""
@@ -40,7 +40,8 @@ def _config_loader_factory(
 
         # Используем yaml.nodes.ScalarNode напрямую для проверки типа
         # После проверки isinstance приводим к Any для устранения ошибки типизации
-        if isinstance(node, yaml.nodes.ScalarNode):  # type: ignore[attr-defined]
+        ScalarNode = getattr(yaml.nodes, "ScalarNode")
+        if isinstance(node, ScalarNode):
             scalar_node = cast(Any, node)
             relative_path = loader.construct_scalar(scalar_node)
         else:
@@ -48,13 +49,13 @@ def _config_loader_factory(
 
         include_path = Path(relative_path)
         if not include_path.is_absolute():
-            include_path = loader._root / include_path  # type: ignore[attr-defined]
+            include_path = loader.root / include_path
 
         resolved_include = include_path.resolve()
-        if resolved_include in loader._include_stack:  # type: ignore[attr-defined]
+        if resolved_include in loader.include_stack:
             raise ValueError(f"Circular !include detected involving {resolved_include}")
 
-        value = load_yaml(include_path, _include_stack=loader._include_stack)  # type: ignore[attr-defined]
+        value = load_yaml(include_path, _include_stack=loader.include_stack)
         if isinstance(value, list):
             return _IncludedList(cast(list[Any], value))  # type: ignore[redundant-cast]
         return value
@@ -71,20 +72,20 @@ def _resolve_includes(data: Any) -> Any:
 
     if isinstance(data, list):
         resolved_list: list[Any] = []
-        for item in cast(list[Any], data):
+        for item in cast(list[Any], data):  # type: ignore[redundant-cast]
             if isinstance(item, _IncludedList):
                 included_values = _resolve_includes(list(item))
                 if not isinstance(included_values, list):
                     raise TypeError(
                         "Included value must resolve to a list when used in a list context"
                     )
-                resolved_list.extend(cast(list[Any], included_values))
+                resolved_list.extend(cast(list[Any], included_values))  # type: ignore[redundant-cast]
             else:
                 resolved_list.append(_resolve_includes(item))
         return resolved_list
 
     if isinstance(data, dict):
-        return cast(dict[str, Any], {cast(str, key): _resolve_includes(value) for key, value in cast(dict[Any, Any], data).items()})
+        return {cast(str, key): _resolve_includes(value) for key, value in cast(dict[Any, Any], data).items()}  # type: ignore[redundant-cast]
 
     return data
 
@@ -98,7 +99,7 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     result = base.copy()
     for key, value in override.items():
         if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = deep_merge(result[key], value)
+            result[key] = deep_merge(cast(dict[str, Any], result[key]), cast(dict[str, Any], value))
         else:
             result[key] = value
     return result

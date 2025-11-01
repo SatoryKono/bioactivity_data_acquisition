@@ -6,7 +6,7 @@ import subprocess
 from collections.abc import Iterable
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -31,7 +31,7 @@ from bioetl.transform.adapters.chembl_assay import AssayNormalizer
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 
-schema_registry.register("assay", "1.0.0", AssaySchema)
+schema_registry.register("assay", "1.0.0", AssaySchema)  # type: ignore[arg-type]
 
 __all__ = ["AssayPipeline"]
 
@@ -299,8 +299,9 @@ class AssayPipeline(PipelineBase):
                 if not isinstance(target_data, dict):
                     continue
 
-                record = {
-                    field: target_data.get(field)
+                typed_target_data = cast(dict[str, Any], target_data)
+                record: dict[str, Any] = {
+                    field: typed_target_data.get(field)
                     for field in TARGET_ENRICHMENT_WHITELIST
                 }
                 records.append(record)
@@ -315,7 +316,7 @@ class AssayPipeline(PipelineBase):
     def _fetch_assay_class_reference_data(self, class_ids: Iterable[int | str]) -> pd.DataFrame:
         """Fetch whitelisted assay class reference data for enrichment."""
 
-        normalized_ids = [class_id for class_id in sorted(set(class_ids)) if class_id is not None]
+        normalized_ids = [class_id for class_id in sorted(set(class_ids))]
         if not normalized_ids:
             return pd.DataFrame(columns=ASSAY_CLASS_ENRICHMENT_WHITELIST.values())
 
@@ -334,8 +335,9 @@ class AssayPipeline(PipelineBase):
                 if not isinstance(class_data, dict):
                     continue
 
-                record = {
-                    output_field: class_data.get(input_field)
+                typed_class_data = cast(dict[str, Any], class_data)
+                record: dict[str, Any] = {
+                    output_field: typed_class_data.get(input_field)
                     for input_field, output_field in ASSAY_CLASS_ENRICHMENT_WHITELIST.items()
                 }
                 records.append(record)
@@ -368,14 +370,14 @@ class AssayPipeline(PipelineBase):
 
         # Normalize strings
         if "assay_description" in df.columns:
-            df["assay_description"] = df["assay_description"].apply(
-                lambda x: registry.normalize("string", x) if pd.notna(x) else None
-            )
+            def _normalize_assay_description(x: Any) -> str | None:
+                return registry.normalize("string", x) if pd.notna(x) else None
+            df["assay_description"] = df["assay_description"].apply(_normalize_assay_description)
 
         if "assay_type" in df.columns:
-            df["assay_type"] = df["assay_type"].apply(
-                lambda x: registry.normalize("string", x) if pd.notna(x) else None
-            )
+            def _normalize_assay_type(x: Any) -> str | None:
+                return registry.normalize("string", x) if pd.notna(x) else None
+            df["assay_type"] = df["assay_type"].apply(_normalize_assay_type)
 
         base_df = df.copy()
         base_df["row_subtype"] = "assay"
@@ -551,15 +553,12 @@ class AssayPipeline(PipelineBase):
             )
             return set()
 
+        def _normalize_target_id(raw: Any) -> str | None:
+            return registry.normalize("chemistry.chembl_id", raw) if pd.notna(raw) else None
+
         values = (
             target_df["target_chembl_id"]
-            .apply(
-                lambda raw: (
-                    registry.normalize("chemistry.chembl_id", raw)
-                    if pd.notna(raw)
-                    else None
-                )
-            )
+            .apply(_normalize_target_id)
             .dropna()
         )
         reference_ids = {value for value in values.tolist() if value}
@@ -581,13 +580,10 @@ class AssayPipeline(PipelineBase):
         if not reference_ids:
             return
 
-        target_series = df["target_chembl_id"].apply(
-            lambda raw: (
-                registry.normalize("chemistry.chembl_id", raw)
-                if pd.notna(raw)
-                else None
-            )
-        )
+        def _normalize_target_id(raw: Any) -> str | None:
+            return registry.normalize("chemistry.chembl_id", raw) if pd.notna(raw) else None
+
+        target_series = df["target_chembl_id"].apply(_normalize_target_id)
         missing_mask = target_series.notna() & ~target_series.isin(reference_ids)
         missing_count = int(missing_mask.sum())
 

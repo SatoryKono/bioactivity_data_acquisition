@@ -1,6 +1,7 @@
 {
   "include": [
-    "src"
+    "src",
+    "tools/typecheck/stubs"
   ],
   "exclude": [
     "**/node_modules",
@@ -11,5 +12,7 @@
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
-  "pythonVersion": "3.10"
+  "pythonVersion": "3.10",
+  "venvPath": ".",
+  "venv": ".venv"
 }

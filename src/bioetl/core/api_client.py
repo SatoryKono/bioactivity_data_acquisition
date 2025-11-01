@@ -729,7 +729,7 @@ class UnifiedAPIClient:
                 raise
 
             if isinstance(payload, dict):
-                return payload
+                return cast(Mapping[str, Any], payload)
 
             return cast(Mapping[str, Any], payload)
 
@@ -1388,18 +1388,21 @@ class UnifiedAPIClient:
                     return value.isoformat()
 
                 if isinstance(value, set):
+                    typed_set = cast(set[Any], value)  # type: ignore[redundant-cast]
                     try:
-                        sorted_items = sorted(value, key=lambda item: repr(item))
+                        sorted_items = cast(list[Any], sorted(typed_set, key=lambda item: repr(item)))  # type: ignore[redundant-cast]
                     except Exception:
-                        return repr(value)
+                        return repr(typed_set)
                     return [_stringify(item) for item in sorted_items]
 
                 if isinstance(value, (list, tuple)):
-                    return [_stringify(item) for item in value]
+                    typed_sequence = cast(Sequence[Any], value)
+                    return [_stringify(item) for item in typed_sequence]
 
                 if isinstance(value, Mapping):
+                    typed_mapping = cast(Mapping[Any, Any], value)  # type: ignore[redundant-cast]
                     normalized_items = [
-                        [_stringify(k), _stringify(v)] for k, v in value.items()
+                        [_stringify(k), _stringify(v)] for k, v in typed_mapping.items()
                     ]
                     normalized_items.sort(
                         key=lambda pair: (type(pair[0]).__name__, repr(pair[0]))
@@ -1408,7 +1411,7 @@ class UnifiedAPIClient:
 
                 return value
             except Exception:
-                return repr(value)
+                return repr(cast(Any, value))
 
         key_parts = [url]
         if params:
@@ -1420,7 +1423,7 @@ class UnifiedAPIClient:
             normalized_params = [
                 (_stringify(key), _stringify(value)) for key, value in params.items()
             ]
-            normalized_params.sort(key=lambda item: (type(item[0]).__name__, repr(item[0])))
+            normalized_params.sort(key=_sort_key_top)
             params_str = json.dumps(normalized_params, sort_keys=True, separators=(",", ":"))
             key_parts.append(params_str)
         return hashlib.sha256("|".join(key_parts).encode()).hexdigest()

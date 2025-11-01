@@ -167,7 +167,8 @@ def _coerce_http_context(candidate: Any) -> dict[str, Any]:
         return candidate.to_dict()
     if isinstance(candidate, Mapping):
         payload: dict[str, Any] = {}
-        for key, value in candidate.items():
+        typed_mapping = cast(Mapping[str, Any], candidate)
+        for key, value in typed_mapping.items():
             if key not in HTTP_CONTEXT_FIELDS:
                 continue
             if key == "params" and value is not None:
@@ -256,7 +257,7 @@ def _extract_http_updates(updates: MutableMapping[str, Any]) -> dict[str, Any]:
             if value is None:
                 continue
             if key == "params" and isinstance(value, Mapping):
-                http_payload[key] = _copy_mapping(value)
+                http_payload[key] = _copy_mapping(cast(Mapping[str, Any], value))
             else:
                 http_payload[key] = value
     return http_payload

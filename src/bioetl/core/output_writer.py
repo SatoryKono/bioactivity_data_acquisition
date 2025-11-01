@@ -879,17 +879,17 @@ class UnifiedOutputWriter:
                     table_path = dataset_dir / safe_name
 
                 resolved_formats = table_spec.formats or ("csv",)
-                normalised_formats = []
+                normalised_formats: list[str] = []
                 for fmt in resolved_formats:
                     normalised = normalise_output_format(fmt)
                     if normalised is None:
                         continue
                     if normalised not in normalised_formats:
-                        normalised_formats.append(normalised)
+                        normalised_formats.append(cast(str, normalised))  # type: ignore[redundant-cast]
 
                 table_artifacts: dict[str, Path] = {}
                 for fmt in normalised_formats:
-                    extension = extension_for_format(fmt)
+                    extension = extension_for_format(cast(str, fmt))  # type: ignore[redundant-cast]
                     target_path = table_path
                     if target_path.suffix:
                         target_path = target_path.with_suffix(extension)
@@ -983,8 +983,9 @@ class UnifiedOutputWriter:
                 dataset_metrics_payload = {}
                 for row in dataset_metrics_df.to_dict("records"):
                     if isinstance(row, dict) and "metric" in row and "value" in row:
-                        metric_key = str(row.get("metric", ""))
-                        value = row.get("value")
+                        typed_row = cast(dict[str, Any], row)
+                        metric_key = str(typed_row.get("metric", ""))
+                        value = typed_row.get("value")
                         dataset_metrics_payload[metric_key] = value
 
         checksum_targets: list[Path] = [
@@ -995,7 +996,7 @@ class UnifiedOutputWriter:
         for value in additional_paths.values():
             if isinstance(value, dict):
                 checksum_targets.extend(list(value.values()))
-            elif isinstance(value, Path):
+            else:
                 checksum_targets.append(value)
 
         optional_targets: tuple[Path | None, ...] = (
@@ -1167,14 +1168,18 @@ class UnifiedOutputWriter:
                     datetime_columns
                 ) > 0:
                     dataframe_to_serialize = df.copy()
+
+                    def _isoformat_datetime(value: Any) -> str | None:
+                        """Convert datetime value to ISO format string or None."""
+                        if pd.notna(value) and hasattr(value, "isoformat"):
+                            result = value.isoformat()
+                            return str(result) if result is not None else None
+                        return None
+
                     for column in datetime_columns:
                         dataframe_to_serialize[column] = dataframe_to_serialize[
                             column
-                        ].apply(
-                            lambda value: value.isoformat()
-                            if pd.notna(value)
-                            else None
-                        )
+                        ].apply(_isoformat_datetime)
                 pandas_date_format = None
             else:
                 if len(datetime_columns) > 0:
@@ -1242,7 +1247,7 @@ class UnifiedOutputWriter:
 
     def _calculate_checksums(self, *paths: Path | None) -> dict[str, str]:
         """Вычисляет checksums для файлов."""
-        checksums = {}
+        checksums: dict[str, str] = {}
         for path in paths:
             if path is None:
                 continue
@@ -1500,14 +1505,17 @@ class UnifiedOutputWriter:
 
         if relative_path is None:
             relative_accessor = getattr(config, "relative_source_path", None)
-            relative: Path | str | None
+            relative: Path | str | None = None
             if callable(relative_accessor):
                 try:
-                    relative = relative_accessor()
+                    result: Any = relative_accessor()
+                    relative = cast(Path | str | None, result)
                 except TypeError:  # pragma: no cover - defensive guard
-                    relative = relative_accessor(source_path)
+                    result = relative_accessor(source_path)
+                    relative = cast(Path | str | None, result)
             elif hasattr(config, "source_path_relative"):
-                relative = config.source_path_relative
+                attr_value: Any = getattr(config, "source_path_relative", None)
+                relative = cast(Path | str | None, attr_value)
             else:
                 relative = None
 

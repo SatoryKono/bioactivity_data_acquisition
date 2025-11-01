@@ -586,9 +586,9 @@ class CliConfig(BaseModel):
             return None
 
         if isinstance(value, (list, tuple, set)):
-            sequence: list[Any] = list(value)
+            sequence: list[Any] = list(cast(Iterable[Any], value))
         elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-            sequence = list(value)
+            sequence = list(cast(Iterable[Any], value))  # type: ignore[redundant-cast]
         else:
             raise TypeError("cli.mode_choices must be a sequence of strings")
 
@@ -614,16 +614,15 @@ class CliConfig(BaseModel):
             raise TypeError("cli.stages must be a mapping")
 
         normalised: dict[str, bool] = {}
-        for key, raw in value.items():
-            if not isinstance(key, str):
-                raise TypeError("cli.stages keys must be strings")
+        typed_mapping = cast(Mapping[str, Any], value)
+        for key, raw in typed_mapping.items():
             normalised[key] = bool(raw)
         return normalised
 
     def __getitem__(self, key: str) -> Any:
         """Dictionary-style access for compatibility with legacy consumers."""
 
-        if hasattr(self, key) and key in getattr(self, "model_fields_set", set()):
+        if hasattr(self, key) and key in getattr(self, "model_fields_set", set[str]()):
             return getattr(self, key)
 
         extras = getattr(self, "__pydantic_extra__", None)
@@ -641,7 +640,7 @@ class CliConfig(BaseModel):
         if not isinstance(key, str):  # pragma: no cover - defensive branch
             return False
 
-        if key in getattr(self, "model_fields_set", set()):
+        if key in getattr(self, "model_fields_set", set[str]()):
             return True
 
         extras = getattr(self, "__pydantic_extra__", None)

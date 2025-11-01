@@ -86,7 +86,11 @@ def coalesce_by_priority(
             column_names.append(column_name)
             column_sources.append(label)
 
-        candidate_frame = result[column_names].apply(lambda col: col.map(_normalise_value))
+        def normalize_column(col: Any) -> Any:
+            """Normalize a single column."""
+            return col.map(_normalise_value)
+
+        candidate_frame = result[column_names].apply(normalize_column)
         if not candidate_frame.empty:
             merged = candidate_frame.bfill(axis=1).iloc[:, 0]
         else:
@@ -155,11 +159,15 @@ def _resolve_target_lookup(
 
     lookup: dict[str, list[str]] = {}
 
+    def aggregate_targets(items: Any) -> list[str]:
+        """Aggregate target IDs from grouped items."""
+        return sorted({str(value) for value in items if value not in {PD_NA, None}})
+
     if not chembl_components.empty and canonical_column in chembl_components.columns:
         grouped = (
             chembl_components.dropna(subset=[canonical_column, "target_chembl_id"])
             .groupby(canonical_column)["target_chembl_id"]
-            .agg(lambda items: sorted({str(value) for value in items if value not in {PD_NA, None}}))
+            .agg(aggregate_targets)
         )
         lookup.update(grouped.to_dict())
 
@@ -176,7 +184,7 @@ def _resolve_target_lookup(
             grouped = (
                 targets.dropna(subset=[canonical_col, "target_chembl_id"])
                 .groupby(canonical_col)["target_chembl_id"]
-                .agg(lambda items: sorted({str(value) for value in items if value not in {PD_NA, None}}))
+                .agg(aggregate_targets)
             )
             for key, values in grouped.to_dict().items():
                 existing = lookup.setdefault(str(key), [])
@@ -371,12 +379,12 @@ def expand_xrefs(
 
         if isinstance(raw, str):
             try:
-                payload = json.loads(raw)
+                payload: Any = json.loads(raw)
             except json.JSONDecodeError:
                 logger.debug("expand_xrefs_invalid_json", target=target_id, value=raw)
                 continue
         else:
-            payload = raw
+            payload: Any = raw
 
         if isinstance(payload, dict):
             payload = [payload]
@@ -384,7 +392,8 @@ def expand_xrefs(
         if not isinstance(payload, list):
             continue
 
-        for item in payload:
+        typed_payload: list[Any] = cast(list[Any], payload)
+        for item in typed_payload:
             if not isinstance(item, dict):
                 continue
             record = {

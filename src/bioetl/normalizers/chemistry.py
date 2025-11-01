@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, cast
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
@@ -274,10 +274,11 @@ class LigandEfficiencyNormalizer(BaseNormalizer):
         if not isinstance(value, dict):
             return None, None, None, None
 
-        bei = self._numeric_normalizer.normalize(value.get("bei"))
-        sei = self._numeric_normalizer.normalize(value.get("sei"))
-        le = self._numeric_normalizer.normalize(value.get("le"))
-        lle = self._numeric_normalizer.normalize(value.get("lle"))
+        value_dict = cast(dict[str, Any], value)
+        bei = self._numeric_normalizer.normalize(value_dict.get("bei"))
+        sei = self._numeric_normalizer.normalize(value_dict.get("sei"))
+        le = self._numeric_normalizer.normalize(value_dict.get("le"))
+        lle = self._numeric_normalizer.normalize(value_dict.get("lle"))
         return bei, sei, le, lle
 
     def validate(self, value: Any) -> bool:

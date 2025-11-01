@@ -941,16 +941,19 @@ class PipelineBase(ABC):
                 )
 
                 if not isinstance(primary_schema, type):
-                    schema_cls = type(primary_schema)
+                    schema_cls_raw = cast(type[Any], type(primary_schema))  # type: ignore[redundant-cast]
                 else:
-                    schema_cls = primary_schema
+                    schema_cls_raw = primary_schema
 
                 # Convert schema class to DataFrameModel for registry lookup
+                schema_cls = cast(type[DataFrameModel], schema_cls_raw)
                 schema_for_registry = cast(DataFrameModel, schema_cls)
                 registration = SchemaRegistry.find_registration(schema_for_registry)
-                target_schema = (
+                target_schema_raw = (
                     registration.schema if registration is not None else schema_cls
                 )
+                # Normalize target_schema to consistent type
+                target_schema = cast(type[DataFrameModel], target_schema_raw)
                 if resolve_schema_column_order is not None:
                     from bioetl.schemas.base import BaseSchema  # noqa: PLC0415
                     # Convert target_schema to BaseSchema type for resolve_schema_column_order
@@ -1183,8 +1186,6 @@ class PipelineBase(ABC):
                 _close_client(attribute_value, label=f"api_client.{attribute_name}")
 
         for index, client in enumerate(self._clients):
-            if client is None:
-                continue
             _close_client(client, label=f"api_client.registered[{index}]")
 
         try:
