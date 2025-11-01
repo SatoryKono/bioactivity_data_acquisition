@@ -37,6 +37,7 @@ _PIPELINE_ENTRYPOINTS: dict[str, tuple[str, str]] = {
     "chembl_testitem": ("testitem", "scripts.run_chembl_testitem"),
     "chembl_target": ("target", "scripts.run_target"),
     "chembl_document": ("document", "scripts.run_chembl_document"),
+    "gtp_iuphar": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
     "iuphar_target": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
     "uniprot_protein": ("uniprot", "scripts.run_uniprot"),
 }
@@ -50,7 +51,7 @@ def _build_registry_entrypoints() -> list[EntryPoint]:
         "chembl_testitem",
         "chembl_target",
         "chembl_document",
-        "iuphar_target",
+        "gtp_iuphar",
         "uniprot_protein",
     ):
         legacy_name, module_path = _PIPELINE_ENTRYPOINTS[name]
