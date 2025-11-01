@@ -4,8 +4,8 @@
 
 | Источник | Каталог | Основные конечные точки | Пагинация | Лимиты и квоты | Ретраи и таймауты | Примечания |
 | --- | --- | --- | --- | --- | --- | --- |
-| ChEMBL Activity | `sources/chembl/activity` | `/activity.json?activity_id__in=` | Батчи по ID, деление по длине URL | batch_size 20, `max_url_length=2000` | Глобальные ретраи из `base.yaml`, 5 попыток | Fallback-записи формируются при отказах.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
-| ChEMBL Assay | `sources/chembl/assay` | `/assay.json`, `/assay_type.json` | Смещение по offset/limit | batch_size 50 (по умолчанию) | Ретраи 5 попыток, rate limit 12 req/s | BAO-нормализация через словари.[ref: repo:src/bioetl/sources/chembl/assay/pipeline.py@test_refactoring_32]
+| ChEMBL Activity | `sources/chembl/activity` | `/activity.json?activity_id__in=` | Батчи по ID, деление по длине URL | batch_size 20, `max_url_length=2000` | Глобальные ретраи из `base.yaml`, 5 попыток | Fallback-записи формируются при отказах.[ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
+| ChEMBL Assay | `sources/chembl/assay` | `/assay.json`, `/assay_type.json` | Смещение по offset/limit | batch_size 50 (по умолчанию) | Ретраи 5 попыток, rate limit 12 req/s | BAO-нормализация через словари.[ref: repo:src/bioetl/pipelines/chembl_assay.py@test_refactoring_32]
 | ChEMBL Target | `sources/chembl/target` | `/target.json`, `/target_component.json` | Постраничная пагинация | batch_size 25 | Персональные таймауты и circuit breaker в `target.yaml` | Обогащение UniProt/IUPHAR в отдельных стадиях.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
 | ChEMBL Document | `sources/chembl/document` | `/document.json` | Батчи по `document_chembl_id` | batch_size 10 | Таймауты 60s, ретраи 5 | Поддерживает режимы `chembl`/`all` и внешние адаптеры.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 | ChEMBL Test Item | `sources/chembl/testitem` | `/molecule.json`, `/compound_records.json` | Батчи по molecule ID | batch_size 25 | Ретраи 5, rate limit 12 req/s | Пайплайн активирует PubChem для синонимов.[ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32]
@@ -22,8 +22,8 @@
 
 | Сущность | Основной источник | Целевая схема | Обогащение | Обязательные поля | Формат вывода |
 | --- | --- | --- | --- | --- | --- |
-| `activity` | ChEMBL | `ActivitySchema` | — | `activity_id`, `assay_chembl_id`, `molecule_chembl_id`, измерения | CSV + JSON отладочный дамп |[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
-| `assay` | ChEMBL | `AssaySchema` | BAO lookup | `assay_chembl_id`, `assay_type`, `assay_category` | CSV/Parquet |[ref: repo:src/bioetl/sources/chembl/assay/pipeline.py@test_refactoring_32]
+| `activity` | ChEMBL | `ActivitySchema` | — | `activity_id`, `assay_chembl_id`, `molecule_chembl_id`, измерения | CSV + JSON отладочный дамп |[ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
+| `assay` | ChEMBL | `AssaySchema` | BAO lookup | `assay_chembl_id`, `assay_type`, `assay_category` | CSV/Parquet |[ref: repo:src/bioetl/pipelines/chembl_assay.py@test_refactoring_32]
 | `target` | ChEMBL | `TargetSchema` | UniProt, IUPHAR | `target_chembl_id`, `organism`, `gene_symbol` | Parquet (gold), CSV (qc) |[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
 | `document` | ChEMBL | `DocumentNormalizedSchema` | PubMed, Crossref, OpenAlex, Semantic Scholar | `document_chembl_id`, `title`, `doi_clean` или `pmid` | CSV с QC-отчётами |[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 | `testitem` | ChEMBL | `TestItemSchema` | PubChem | `molecule_chembl_id`, связи с родителями/солями | CSV |[ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32]
@@ -50,7 +50,7 @@
 
 - Единицы измерения активностей нормализуются в `ActivityNormalizer`; неизвестные
 
-  единицы MUST приводить к ошибке валидации.[ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32]
+  единицы MUST приводить к ошибке валидации.[ref: repo:src/bioetl/transform/adapters/chembl_activity.py@test_refactoring_32]
 
 - DOI и идентификаторы документов нормализуются в lowercase и без префиксов
 

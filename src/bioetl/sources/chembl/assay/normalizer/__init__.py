@@ -1,5 +1,5 @@
 """Assay normalizer module namespace."""
 
-from .assay_normalizer import AssayNormalizer
+from bioetl.transform.adapters.chembl_assay import AssayNormalizer
 
 __all__ = ["AssayNormalizer"]

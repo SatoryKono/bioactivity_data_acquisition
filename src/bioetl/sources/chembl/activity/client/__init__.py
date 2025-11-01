@@ -2,8 +2,8 @@
 
 from bioetl.core.deprecation import warn_legacy_client
 
-from .activity_client import ActivityChEMBLClient
+from bioetl.clients.chembl_activity import ActivityChEMBLClient
 
-warn_legacy_client(__name__, replacement="bioetl.adapters.chembl.activity")
+warn_legacy_client(__name__, replacement="bioetl.clients.chembl_activity")
 
 __all__ = ["ActivityChEMBLClient"]

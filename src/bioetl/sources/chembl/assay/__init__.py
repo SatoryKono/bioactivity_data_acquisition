@@ -1,5 +1,5 @@
 """Assay pipeline namespace for ChEMBL source."""
 
-from .pipeline import AssayPipeline
+from bioetl.pipelines.chembl_assay import AssayPipeline
 
 __all__ = ["AssayPipeline"]

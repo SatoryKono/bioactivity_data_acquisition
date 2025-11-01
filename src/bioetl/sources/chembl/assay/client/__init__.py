@@ -2,8 +2,8 @@
 
 from bioetl.core.deprecation import warn_legacy_client
 
-from .assay_client import AssayChEMBLClient
+from bioetl.clients.chembl_assay import AssayChEMBLClient
 
-warn_legacy_client(__name__, replacement="bioetl.adapters.chembl.assay")
+warn_legacy_client(__name__, replacement="bioetl.clients.chembl_assay")
 
 __all__ = ["AssayChEMBLClient"]

@@ -11,8 +11,8 @@
 
 ## Public API
 
-- `bioetl.sources.chembl.activity.pipeline.ActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/sources/chembl/activity/pipeline.py†L219-L256】
-- `bioetl.sources.chembl.assay.pipeline.AssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/sources/chembl/assay/pipeline.py†L90-L138】
+- `bioetl.pipelines.chembl_activity.ActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/chembl_activity.py†L1-L210】
+- `bioetl.pipelines.chembl_assay.AssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/chembl_assay.py†L1-L210】
 - `bioetl.sources.chembl.document.pipeline.DocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/sources/chembl/document/pipeline.py†L66-L140】
 - `bioetl.sources.chembl.target.pipeline.TargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.
 
@@ -22,7 +22,7 @@
 
 ## Module layout
 
-- Базовая реализация для ChEMBL остаётся в монолитных пайплайнах, а прокси лежат в `src/bioetl/sources/chembl/<entity>/pipeline.py`; `MODULE_RULES.md` фиксирует это как временное исключение до полной миграции в слоистую структуру.【F:refactoring/MODULE_RULES.md†L3-L28】
+- Код пайплайнов `activity` и `assay` перенесён в модули `src/bioetl/pipelines/chembl_<entity>.py`, а в `src/bioetl/sources/chembl/<entity>/pipeline.py` остались прокси-импорты для обратной совместимости CLI и тестов.【F:src/bioetl/pipelines/chembl_activity.py†L1-L210】【F:src/bioetl/pipelines/chembl_assay.py†L1-L210】
 
 ## Configuration keys
 
