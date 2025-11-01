@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from structlog.testing import capture_logs
+from logging.handlers import RotatingFileHandler
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOGGER_PATH = PROJECT_ROOT / "src" / "bioetl" / "core" / "logger.py"
