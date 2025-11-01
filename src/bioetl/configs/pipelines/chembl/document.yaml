@@ -34,6 +34,7 @@ determinism:
     - "source_system"
     - "chembl_release"
     - "extracted_at"
+    
     - "document_id"
     - "pubmed_id"
     - "doi"
