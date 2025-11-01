@@ -15,7 +15,7 @@ from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.pubchem.pipeline import PubChemPipeline
 from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
-PIPELINE_FACTORIES: Mapping[str, Type[PipelineBase]] = {
+PIPELINE_REGISTRY: Mapping[str, Type[PipelineBase]] = {
     "chembl_activity": ActivityPipeline,
     "chembl_assay": AssayPipeline,
     "chembl_document": DocumentPipeline,
@@ -31,7 +31,7 @@ def get_pipeline(key: str) -> Type[PipelineBase]:
     """Return the registered pipeline implementation for ``key``."""
 
     try:
-        return PIPELINE_FACTORIES[key]
+        return PIPELINE_REGISTRY[key]
     except KeyError as exc:  # pragma: no cover - defensive branch
         raise KeyError(f"Unknown pipeline key: {key}") from exc
 
@@ -39,7 +39,7 @@ def get_pipeline(key: str) -> Type[PipelineBase]:
 def iter_pipelines() -> Mapping[str, Type[PipelineBase]]:
     """Expose a copy of the registry mapping."""
 
-    return dict(PIPELINE_FACTORIES)
+    return dict(PIPELINE_REGISTRY)
 
 
-__all__ = ["PIPELINE_FACTORIES", "get_pipeline", "iter_pipelines"]
+__all__ = ["PIPELINE_REGISTRY", "get_pipeline", "iter_pipelines"]

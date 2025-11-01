@@ -20,6 +20,7 @@ __all__ = [
     "SupportsRequestJson",
     "fetch_chembl_release",
     "resolve_release_name",
+    "_resolve_release_name",
 ]
 
 
@@ -97,6 +98,10 @@ def resolve_release_name(payload: Any) -> str | None:
         return None
 
     return _coerce_release_value(payload)
+
+
+# Backwards compatibility alias for legacy import paths.
+_resolve_release_name = resolve_release_name
 
 
 def _request_status(base_url: str) -> Mapping[str, Any]:

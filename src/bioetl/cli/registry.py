@@ -16,6 +16,27 @@ from bioetl.cli.commands.pubchem_molecule import build_command_config as build_p
 from bioetl.cli.commands.uniprot_protein import build_command_config as build_uniprot_command
 
 
+_LEGACY_OVERRIDES = {
+    "chembl_activity": "activity",
+    "chembl_assay": "assay",
+    "chembl_document": "document",
+    "chembl_target": "target",
+    "chembl_testitem": "testitem",
+    "pubchem_molecule": "pubchem",
+    "iuphar_target": "gtp_iuphar",
+    "uniprot_protein": "uniprot",
+}
+
+
+def _resolve_legacy_key(key: str) -> str | None:
+    if key in _LEGACY_OVERRIDES:
+        return _LEGACY_OVERRIDES[key]
+    if "_" in key:
+        _, suffix = key.split("_", 1)
+        return suffix
+    return None
+
+
 def build_registry() -> dict[str, PipelineCommandConfig]:
     """Construct the default CLI registry mapping names to command configs."""
 
@@ -38,7 +59,11 @@ def get_command_config(key: str) -> PipelineCommandConfig:
     try:
         config = registry[key]
     except KeyError as exc:  # pragma: no cover - defensive branch
-        raise KeyError(f"Unknown pipeline key: {key}") from exc
+        legacy_key = _resolve_legacy_key(key)
+        if legacy_key and legacy_key in registry:
+            config = registry[legacy_key]
+        else:
+            raise KeyError(f"Unknown pipeline key: {key}") from exc
     return replace(config)
 
 
