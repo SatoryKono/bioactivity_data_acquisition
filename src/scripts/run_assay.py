@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the assay pipeline."""
 
-from scripts import create_pipeline_app  # noqa: E402
+from bioetl.cli.app import create_pipeline_app
 
 app = create_pipeline_app(
     "assay",

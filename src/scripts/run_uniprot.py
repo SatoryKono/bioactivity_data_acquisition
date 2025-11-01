@@ -1,6 +1,6 @@
 """CLI entrypoint for executing the UniProt pipeline."""
 
-from scripts import create_pipeline_app  # noqa: E402
+from bioetl.cli.app import create_pipeline_app
 
 app = create_pipeline_app(
     "uniprot",

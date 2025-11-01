@@ -1,15 +1,15 @@
-"""CLI interface using typer."""
+"""Typer-powered CLI wired to the canonical pipeline registry."""
 
 from __future__ import annotations
 
 import typer
 
-from bioetl.core.logger import UnifiedLogger
-from scripts import (
+from bioetl.cli.app import (
     PIPELINE_COMMAND_REGISTRY,
     PIPELINE_REGISTRY,
     register_pipeline_command,
 )
+from bioetl.core.logger import UnifiedLogger
 
 app = typer.Typer(help="BioETL - Unified ETL framework for bioactivity data")
 
