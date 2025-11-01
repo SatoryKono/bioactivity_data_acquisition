@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pandera_pandas import DataFrameModel
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
@@ -52,6 +53,7 @@ class ExternalSourcePipeline(PipelineBase):
     normalized_schema: ClassVar[type[BaseSchema]]
     business_key: ClassVar[str]
     metadata_source_system: ClassVar[str]
+    input_schema: ClassVar[type[DataFrameModel] | None] = None
 
     default_input_filename: ClassVar[Path] = Path("document.csv")
     expected_input_columns: ClassVar[tuple[str, ...]] = ("doi", "pmid", "title")
@@ -121,8 +123,16 @@ class ExternalSourcePipeline(PipelineBase):
             dtype="string",
             input_file=input_file,
         )
+        missing_columns = [
+            column for column in self.expected_input_columns if column not in df.columns
+        ]
+        for column in missing_columns:
+            df[column] = pd.Series(pd.NA, index=df.index, dtype="string")
         if not df.empty:
             df = df.convert_dtypes()
+            schema = self.input_schema
+            if schema is not None:
+                df = schema.validate(df, lazy=True)
         self._input_rows = int(len(df))
         update_summary_section(
             self.qc_summary_data,

@@ -6,6 +6,7 @@ from typing import Final
 
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
+from bioetl.schemas.pipeline_inputs import SemanticScholarInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.semantic_scholar.schema import SemanticScholarNormalizedSchema
 
@@ -37,6 +38,7 @@ class SemanticScholarPipeline(ExternalSourcePipeline):
     normalized_schema = SemanticScholarNormalizedSchema
     business_key: Final[str] = "paper_id"
     metadata_source_system: Final[str] = "semantic_scholar"
+    input_schema: Final[type[SemanticScholarInputSchema]] = SemanticScholarInputSchema
     expected_input_columns: Final[tuple[str, ...]] = (
         "pmid",
         "doi",

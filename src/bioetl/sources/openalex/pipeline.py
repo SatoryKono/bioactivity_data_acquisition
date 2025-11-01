@@ -6,6 +6,7 @@ from typing import Final
 
 from bioetl.adapters.openalex import OpenAlexAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
+from bioetl.schemas.pipeline_inputs import OpenAlexInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.openalex.schema import OpenAlexNormalizedSchema
 
@@ -37,6 +38,7 @@ class OpenAlexPipeline(ExternalSourcePipeline):
     normalized_schema = OpenAlexNormalizedSchema
     business_key: Final[str] = "doi_clean"
     metadata_source_system: Final[str] = "openalex"
+    input_schema: Final[type[OpenAlexInputSchema]] = OpenAlexInputSchema
     expected_input_columns: Final[tuple[str, ...]] = (
         "doi",
         "doi_clean",

@@ -6,6 +6,7 @@ from typing import Final
 
 from bioetl.adapters.pubmed import PubMedAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
+from bioetl.schemas.pipeline_inputs import PubMedInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.pubmed.schema import PubMedNormalizedSchema
 
@@ -43,6 +44,7 @@ class PubMedPipeline(ExternalSourcePipeline):
     normalized_schema = PubMedNormalizedSchema
     business_key: Final[str] = "pmid"
     metadata_source_system: Final[str] = "pubmed"
+    input_schema: Final[type[PubMedInputSchema]] = PubMedInputSchema
     expected_input_columns: Final[tuple[str, ...]] = (
         "pmid",
         "doi",

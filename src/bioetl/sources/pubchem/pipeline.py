@@ -10,6 +10,7 @@ import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas.pipeline_inputs import PubChemInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import update_summary_metrics, update_summary_section
@@ -52,7 +53,11 @@ class PubChemPipeline(PipelineBase):
             input_file=input_file,
         )
         if not df.empty:
+            for column in self._LOOKUP_COLUMNS:
+                if column not in df.columns:
+                    df[column] = pd.Series(pd.NA, index=df.index, dtype="string")
             df = df.convert_dtypes()
+            df = PubChemInputSchema.validate(df, lazy=True)
         return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # noqa: D401

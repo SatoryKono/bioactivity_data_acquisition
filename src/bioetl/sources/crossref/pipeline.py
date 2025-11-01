@@ -6,6 +6,7 @@ from typing import Final
 
 from bioetl.adapters.crossref import CrossrefAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
+from bioetl.schemas.pipeline_inputs import CrossrefInputSchema
 from bioetl.sources.crossref.schema import CrossrefNormalizedSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 
@@ -37,6 +38,7 @@ class CrossrefPipeline(ExternalSourcePipeline):
     normalized_schema = CrossrefNormalizedSchema
     business_key: Final[str] = "doi_clean"
     metadata_source_system: Final[str] = "crossref"
+    input_schema: Final[type[CrossrefInputSchema]] = CrossrefInputSchema
     expected_input_columns: Final[tuple[str, ...]] = (
         "doi",
         "doi_clean",

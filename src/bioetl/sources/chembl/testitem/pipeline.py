@@ -11,6 +11,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas.pipeline_inputs import TestItemInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.schemas.testitem import TestItemSchema
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
@@ -325,6 +326,14 @@ class TestItemPipeline(PipelineBase):
 
         if not resolved_path.exists():
             return df
+
+        if not df.empty:
+            schema_columns = TestItemInputSchema.to_schema().columns.keys()
+            for column in schema_columns:
+                if column not in df.columns:
+                    df[column] = pd.Series(pd.NA, index=df.index)
+            df = df.convert_dtypes()
+            df = TestItemInputSchema.validate(df, lazy=True)
 
         logger.info("extraction_completed", rows=len(df), columns=len(df.columns))
         return df
