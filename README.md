@@ -30,7 +30,7 @@ python -m bioetl.cli.main activity \
 
 Команда `list` показывает все зарегистрированные пайплайны Typer, а запуск в
 режиме `--dry-run` выполняет стадии до записи файла и валидирует конфигурацию
-без побочных эффектов.[ref: repo:src/scripts/__init__.py@test_refactoring_32]
+без побочных эффектов.[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
 Команда автоматически применяет структуру конфигурации
 [`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
 и включённые значения из `base.yaml` и `determinism.yaml`.

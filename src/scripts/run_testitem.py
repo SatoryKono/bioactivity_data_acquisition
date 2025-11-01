@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """CLI entrypoint for executing the test item pipeline."""
 
-from scripts import create_pipeline_app
+from bioetl.cli.app import create_pipeline_app
 
 app = create_pipeline_app(
     "testitem",
