@@ -1,0 +1,50 @@
+# Почему: Блоки `pipeline` и `materialization` дублируются во всех YAML.
+# Что: Добавляем include `includes/pipeline_defaults.yaml` с якорями и используем их.
+# Трассировка: [ref: repo:src/bioetl/configs/pipelines/openalex.yaml@test_refactoring_32] [ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]
+# Проверка: python -m bioetl.config.validator --config src/bioetl/configs/pipelines/openalex.yaml
+--- a/src/bioetl/configs/includes/pipeline_defaults.yaml
++++ b/src/bioetl/configs/includes/pipeline_defaults.yaml
+@@
++pipeline_defaults: &pipeline_defaults
++  version: "1.0.0"
++
++materialization_defaults: &materialization_defaults
++  pipeline_subdir: "${pipeline.name}"
+--- a/src/bioetl/configs/pipelines/openalex.yaml
++++ b/src/bioetl/configs/pipelines/openalex.yaml
+@@
+ extends:
+   - ../base.yaml
+   - ../includes/determinism.yaml
+   - ../includes/openalex_source.yaml
++  - ../includes/pipeline_defaults.yaml
+ 
+ pipeline:
++  <<: *pipeline_defaults
+   name: openalex
+   entity: document
+-  version: "1.0.0"
+ 
+ materialization:
+-  pipeline_subdir: "openalex"
++  <<: *materialization_defaults
++  pipeline_subdir: "openalex"
+--- a/src/bioetl/configs/pipelines/chembl/activity.yaml
++++ b/src/bioetl/configs/pipelines/chembl/activity.yaml
+@@
+ extends:
+   - ../base.yaml
+   - ../includes/determinism.yaml
+   - ../includes/chembl_source.yaml
++  - ../includes/pipeline_defaults.yaml
+ 
+ pipeline:
++  <<: *pipeline_defaults
+   name: activity
+   entity: activity
+-  version: "1.0.0"
+ 
+ materialization:
+-  pipeline_subdir: "activity"
++  <<: *materialization_defaults
++  pipeline_subdir: "activity"

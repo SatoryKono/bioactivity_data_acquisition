@@ -1,0 +1,131 @@
+# Почему: Повторяющиеся фабрики CLI для ChEMBL-пайплайнов усложняют поддержку.
+# Что: Вводим helper `build_chembl_command` и переиспользуем его в трёх модулях.
+# Трассировка: [ref: repo:src/bioetl/cli/commands/chembl_activity.py@test_refactoring_32] [ref: repo:src/bioetl/cli/commands/chembl_assay.py@test_refactoring_32] [ref: repo:src/bioetl/cli/commands/chembl_testitem.py@test_refactoring_32]
+# Проверка: pytest tests/e2e/test_cli_golden.py::test_changing_pipeline_defaults
+--- a/src/bioetl/cli/command_factories.py
++++ b/src/bioetl/cli/command_factories.py
+@@
++"""Reusable CLI command factory helpers."""
++
++from __future__ import annotations
++
++from pathlib import Path
++from typing import Callable, TypeVar
++
++from bioetl.cli.command import PipelineCommandConfig
++
++PipelineT = TypeVar("PipelineT")
++
++
++def build_chembl_command(
++    *,
++    pipeline_name: str,
++    pipeline_class: type[PipelineT],
++    config_slug: str,
++    default_input: Path,
++    default_output_dir: Path,
++    description: str,
++    default_config_path: Path | None = None,
++    get_config_path: Callable[[str], Path],
++) -> PipelineCommandConfig:
++    """Create a standard command config for ChEMBL pipelines."""
++
++    config_path = default_config_path or get_config_path(f"pipelines/{config_slug}.yaml")
++    return PipelineCommandConfig(
++        pipeline_name=pipeline_name,
++        pipeline_factory=lambda: pipeline_class,
++        default_config=config_path,
++        default_input=default_input,
++        default_output_dir=default_output_dir,
++        description=description,
++    )
+--- a/src/bioetl/cli/commands/chembl_activity.py
++++ b/src/bioetl/cli/commands/chembl_activity.py
+@@
+-from bioetl.cli.command import PipelineCommandConfig
+-from bioetl.config.paths import get_config_path
+-from bioetl.pipelines.chembl_activity import ActivityPipeline
++from bioetl.cli.command import PipelineCommandConfig
++from bioetl.cli.command_factories import build_chembl_command
++from bioetl.config.paths import get_config_path
++from bioetl.pipelines.chembl_activity import ActivityPipeline
+@@
+-    config_path = default_config_path or get_config_path("pipelines/chembl_activity.yaml")
+-    return PipelineCommandConfig(
+-        pipeline_name=pipeline_name,
+-        pipeline_factory=lambda: ActivityPipeline,
+-        default_config=config_path,
+-        default_input=default_input,
+-        default_output_dir=default_output_dir,
+-        description="ChEMBL activity data",
+-    )
++    return build_chembl_command(
++        pipeline_name=pipeline_name,
++        pipeline_class=ActivityPipeline,
++        config_slug="chembl_activity",
++        default_input=default_input,
++        default_output_dir=default_output_dir,
++        description="ChEMBL activity data",
++        default_config_path=default_config_path,
++        get_config_path=get_config_path,
++    )
+--- a/src/bioetl/cli/commands/chembl_assay.py
++++ b/src/bioetl/cli/commands/chembl_assay.py
+@@
+-from bioetl.cli.command import PipelineCommandConfig
+-from bioetl.config.paths import get_config_path
+-from bioetl.pipelines.chembl_assay import AssayPipeline
++from bioetl.cli.command import PipelineCommandConfig
++from bioetl.cli.command_factories import build_chembl_command
++from bioetl.config.paths import get_config_path
++from bioetl.pipelines.chembl_assay import AssayPipeline
+@@
+-    config_path = default_config_path or get_config_path("pipelines/chembl_assay.yaml")
+-    return PipelineCommandConfig(
+-        pipeline_name=pipeline_name,
+-        pipeline_factory=lambda: AssayPipeline,
+-        default_config=config_path,
+-        default_input=default_input,
+-        default_output_dir=default_output_dir,
+-        description="ChEMBL assay data",
+-    )
++    return build_chembl_command(
++        pipeline_name=pipeline_name,
++        pipeline_class=AssayPipeline,
++        config_slug="chembl_assay",
++        default_input=default_input,
++        default_output_dir=default_output_dir,
++        description="ChEMBL assay data",
++        default_config_path=default_config_path,
++        get_config_path=get_config_path,
++    )
+--- a/src/bioetl/cli/commands/chembl_testitem.py
++++ b/src/bioetl/cli/commands/chembl_testitem.py
+@@
+-from bioetl.cli.command import PipelineCommandConfig
+-from bioetl.config.paths import get_config_path
+-from bioetl.pipelines.chembl_testitem import TestItemPipeline
++from bioetl.cli.command import PipelineCommandConfig
++from bioetl.cli.command_factories import build_chembl_command
++from bioetl.config.paths import get_config_path
++from bioetl.pipelines.chembl_testitem import TestItemPipeline
+@@
+-    config_path = default_config_path or get_config_path("pipelines/chembl_testitem.yaml")
+-    return PipelineCommandConfig(
+-        pipeline_name=pipeline_name,
+-        pipeline_factory=lambda: TestItemPipeline,
+-        default_config=config_path,
+-        default_input=default_input,
+-        default_output_dir=default_output_dir,
+-        description="ChEMBL molecules + PubChem",
+-    )
++    return build_chembl_command(
++        pipeline_name=pipeline_name,
++        pipeline_class=TestItemPipeline,
++        config_slug="chembl_testitem",
++        default_input=default_input,
++        default_output_dir=default_output_dir,
++        description="ChEMBL molecules + PubChem",
++        default_config_path=default_config_path,
++        get_config_path=get_config_path,
++    )

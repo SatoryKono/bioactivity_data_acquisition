@@ -1,0 +1,58 @@
+# Почему: Методы `close_resources` в пайплайнах и тестовых стабах дублируют no-op.
+# Что: В `PipelineBase` добавлен менеджер cleanup callbacks, а локальные no-op убраны.
+# Трассировка: [ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32] [ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
+# Проверка: pytest tests/integration/pipelines/test_bit_identical_output.py
+--- a/src/bioetl/pipelines/base.py
++++ b/src/bioetl/pipelines/base.py
+@@
+-    def __init__(self, config: PipelineConfig, run_id: str) -> None:
+-        self.config = config
+-        self.run_id = run_id
+-        self._registered_clients: list[SupportsClose] = []
++    def __init__(self, config: PipelineConfig, run_id: str) -> None:
++        self.config = config
++        self.run_id = run_id
++        self._registered_clients: list[SupportsClose] = []
++        self._cleanup_callbacks: list[Callable[[], None]] = []
+@@
+-    def close_resources(self) -> None:
+-        """Hook for subclasses to release pipeline-level resources."""
++    def register_cleanup(self, callback: Callable[[], None]) -> None:
++        """Register a zero-argument callback executed during close."""
++
++        self._cleanup_callbacks.append(callback)
++
++    def close_resources(self) -> None:
++        """Release registered resources and callbacks."""
+ 
+         for client in self._registered_clients:
+             client.close()
++        for callback in self._cleanup_callbacks:
++            try:
++                callback()
++            except Exception as exc:  # pragma: no cover - defensive logging
++                logger.warning("cleanup_callback_failed", error=str(exc))
+--- a/src/bioetl/pipelines/chembl_activity.py
++++ b/src/bioetl/pipelines/chembl_activity.py
+@@
+-    def close_resources(self) -> None:
+-        """Закрытие дополнительных ресурсов (отсутствуют для Activity)."""
+-        # Здесь нет дополнительных ресурсов кроме зарегистрированных API‑клиентов.
+-        # Базовый ``close`` их закроет через ``register_client``.
+-        return None
++    # close_resources inherited from PipelineBase handles registered clients
+--- a/src/bioetl/pipelines/chembl_assay.py
++++ b/src/bioetl/pipelines/chembl_assay.py
+@@
+-    def close_resources(self) -> None:
+-        """Освобождение локальных ресурсов пайплайна Assay."""
+-
+-        if hasattr(self, "assay_client"):
+-            self.assay_client.clear_cache()
+-
+-        if hasattr(self, "_status_payload"):
+-            self._status_payload = None
++    def __init__(...):
++        ...
++        self.register_cleanup(lambda: getattr(self, "assay_client", None) and self.assay_client.clear_cache())
++        self.register_cleanup(lambda: setattr(self, "_status_payload", None))

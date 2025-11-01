@@ -1,0 +1,88 @@
+# Почему: Внешние CLI команды копируют один и тот же шаблон PipelineCommandConfig.
+# Что: Добавлен helper `build_simple_command` и переиспользован в модулях литературы.
+# Трассировка: [ref: repo:src/bioetl/cli/commands/openalex.py@test_refactoring_32] [ref: repo:src/bioetl/cli/commands/pubmed.py@test_refactoring_32] [ref: repo:src/bioetl/cli/commands/crossref.py@test_refactoring_32]
+# Проверка: pytest tests/e2e/test_cli_golden.py
+--- a/src/bioetl/cli/command_factories.py
++++ b/src/bioetl/cli/command_factories.py
+@@
+ def build_chembl_command(
+@@
+     )
++
++
++def build_simple_command(
++    *,
++    pipeline_name: str,
++    pipeline_class: type[PipelineT],
++    config_slug: str,
++    description: str,
++    get_config_path: Callable[[str], Path],
++    default_input: Path,
++    default_output_dir: Path,
++) -> PipelineCommandConfig:
++    """Factory wrapper for pipelines with shared IO defaults."""
++
++    return PipelineCommandConfig(
++        pipeline_name=pipeline_name,
++        pipeline_factory=lambda: pipeline_class,
++        default_config=get_config_path(f"pipelines/{config_slug}.yaml"),
++        default_input=default_input,
++        default_output_dir=default_output_dir,
++        description=description,
++    )
+--- a/src/bioetl/cli/commands/openalex.py
++++ b/src/bioetl/cli/commands/openalex.py
+@@
+-from bioetl.cli.command import PipelineCommandConfig
+-from bioetl.config.paths import get_config_path
+-from bioetl.sources.openalex.pipeline import OpenAlexPipeline
++from bioetl.cli.command import PipelineCommandConfig
++from bioetl.cli.command_factories import build_simple_command
++from bioetl.config.paths import get_config_path
++from bioetl.sources.openalex.pipeline import OpenAlexPipeline
+@@
+-    return PipelineCommandConfig(
+-        pipeline_name="openalex",
+-        pipeline_factory=lambda: OpenAlexPipeline,
+-        default_config=get_config_path("pipelines/openalex.yaml"),
+-        default_input=Path("data/input/document.csv"),
+-        default_output_dir=Path("data/output/openalex"),
+-        description="OpenAlex Works enrichment dataset",
+-    )
++    return build_simple_command(
++        pipeline_name="openalex",
++        pipeline_class=OpenAlexPipeline,
++        config_slug="openalex",
++        description="OpenAlex Works enrichment dataset",
++        get_config_path=get_config_path,
++        default_input=Path("data/input/document.csv"),
++        default_output_dir=Path("data/output/openalex"),
++    )
+--- a/src/bioetl/cli/commands/pubmed.py
++++ b/src/bioetl/cli/commands/pubmed.py
+@@
+-from bioetl.cli.command import PipelineCommandConfig
+-from bioetl.config.paths import get_config_path
+-from bioetl.sources.pubmed.pipeline import PubMedPipeline
++from bioetl.cli.command import PipelineCommandConfig
++from bioetl.cli.command_factories import build_simple_command
++from bioetl.config.paths import get_config_path
++from bioetl.sources.pubmed.pipeline import PubMedPipeline
+@@
+-    return PipelineCommandConfig(
+-        pipeline_name="pubmed",
+-        pipeline_factory=lambda: PubMedPipeline,
+-        default_config=get_config_path("pipelines/pubmed.yaml"),
+-        default_input=Path("data/input/document.csv"),
+-        default_output_dir=Path("data/output/pubmed"),
+-        description="PubMed literature enrichment dataset",
+-    )
++    return build_simple_command(
++        pipeline_name="pubmed",
++        pipeline_class=PubMedPipeline,
++        config_slug="pubmed",
++        description="PubMed literature enrichment dataset",
++        get_config_path=get_config_path,
++        default_input=Path("data/input/document.csv"),
++        default_output_dir=Path("data/output/pubmed"),
++    )

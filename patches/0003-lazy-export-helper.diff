@@ -1,0 +1,111 @@
+# Почему: Модули `bioetl.pipelines` и `bioetl.schemas` поддерживают одинаковый ленивый экспорт.
+# Что: Вынести helper `lazy_module_exports` и заменить дублирующие функции.
+# Трассировка: [ref: repo:src/bioetl/pipelines/__init__.py@test_refactoring_32] [ref: repo:src/bioetl/schemas/__init__.py@test_refactoring_32]
+# Проверка: pytest tests/unit/test_pipelines.py::test_lazy_exports pytest tests/unit/schemas/test_registry.py
+--- a/src/bioetl/utils/module_exports.py
++++ b/src/bioetl/utils/module_exports.py
+@@
++"""Helpers for implementing lazy module exports."""
++
++from __future__ import annotations
++
++from importlib import import_module
++from typing import Any, Callable
++
++
++def lazy_module_exports(
++    *,
++    exports: dict[str, str],
++    package: str,
++    on_missing: Callable[[str], AttributeError] | None = None,
++) -> tuple[Callable[[str], Any], Callable[[], list[str]]]:
++    """Return ``__getattr__`` and ``__dir__`` implementations for lazy exports."""
++
++    def _getattr(name: str) -> Any:
++        try:
++            module_name = exports[name]
++        except KeyError as exc:
++            if on_missing:
++                raise on_missing(name) from exc
++            raise AttributeError(f"module '{package}' has no attribute {name!r}") from exc
++        module = import_module(module_name)
++        return getattr(module, name)
++
++    def _dir() -> list[str]:
++        return sorted(set(exports) | set(globals().get("__all__", [])))
++
++    return _getattr, _dir
+--- a/src/bioetl/pipelines/__init__.py
++++ b/src/bioetl/pipelines/__init__.py
+@@
+-from importlib import import_module
+-from typing import TYPE_CHECKING, Any
++from typing import TYPE_CHECKING, Any
+ 
+ from bioetl.pipelines.base import PipelineBase
+-from bioetl.utils.module_exports import lazy_module_exports
++from bioetl.utils.module_exports import lazy_module_exports
+@@
+-
+-
+-def __getattr__(name: str) -> Any:
+-    """Lazily resolve pipeline exports."""
+-
+-    try:
+-        module_name = _PIPELINE_EXPORTS[name]
+-    except KeyError as exc:  # pragma: no cover - standard attribute error path.
+-        raise AttributeError(f"module 'bioetl.pipelines' has no attribute {name!r}") from exc
+-    module = import_module(module_name)
+-    return getattr(module, name)
+-
+-
+-def __dir__() -> list[str]:  # pragma: no cover - trivial helper.
+-    """Ensure ``dir(bioetl.pipelines)`` exposes public exports."""
+-
+-    return sorted(set(__all__))
++__getattr__, __dir__ = lazy_module_exports(
++    exports=_PIPELINE_EXPORTS,
++    package=__name__,
++)
+--- a/src/bioetl/schemas/__init__.py
++++ b/src/bioetl/schemas/__init__.py
+@@
+-from importlib import import_module
+-from typing import TYPE_CHECKING, Any
++from typing import TYPE_CHECKING, Any
+ 
+ from bioetl.schemas.chembl_activity import ActivitySchema  # noqa: PLC0415
+@@
+-from bioetl.schemas.uniprot import UniProtSchema
+-from bioetl.sources.iuphar.schema import (
++from bioetl.schemas.uniprot import UniProtSchema
++from bioetl.sources.iuphar.schema import (
+     IupharClassificationSchema,
+     IupharGoldSchema,
+     IupharTargetSchema,
+ )
+-from bioetl.sources.pubchem.schema import PubChemSchema
++from bioetl.sources.pubchem.schema import PubChemSchema
++from bioetl.utils.module_exports import lazy_module_exports
+@@
+-
+-
+-def __getattr__(name: str) -> Any:
+-    """Resolve schema exports lazily to avoid import-time side effects."""
+-
+-    try:
+-        module_name = _SCHEMA_EXPORTS[name]
+-    except KeyError as exc:  # pragma: no cover - mirrors normal attribute error behaviour.
+-        raise AttributeError(f"module 'bioetl.schemas' has no attribute {name!r}") from exc
+-    module = import_module(module_name)
+-    return getattr(module, name)
+-
+-
+-def __dir__() -> list[str]:  # pragma: no cover - trivial helper.
+-    """Ensure ``dir(bioetl.schemas)`` surfaces the documented exports."""
+-
+-    return sorted(set(__all__))
++__getattr__, __dir__ = lazy_module_exports(
++    exports=_SCHEMA_EXPORTS,
++    package=__name__,
++)

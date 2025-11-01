@@ -1,0 +1,3617 @@
+{
+  "root": "/workspace/bioactivity_data_acquisition",
+  "modules": [
+    {
+      "module": "src.bioetl.__init__",
+      "path": "src/bioetl/__init__.py",
+      "lines": 4,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.adapters.__init__",
+      "path": "src/bioetl/adapters/__init__.py",
+      "lines": 19,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.adapters._normalizer_helpers",
+      "path": "src/bioetl/adapters/_normalizer_helpers.py",
+      "lines": 22,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.adapters.base",
+      "path": "src/bioetl/adapters/base.py",
+      "lines": 275,
+      "functions": 13,
+      "classes": 3
+    },
+    {
+      "module": "src.bioetl.adapters.crossref",
+      "path": "src/bioetl/adapters/crossref.py",
+      "lines": 337,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.adapters.openalex",
+      "path": "src/bioetl/adapters/openalex.py",
+      "lines": 354,
+      "functions": 9,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.adapters.pubmed",
+      "path": "src/bioetl/adapters/pubmed.py",
+      "lines": 397,
+      "functions": 13,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.adapters.semantic_scholar",
+      "path": "src/bioetl/adapters/semantic_scholar.py",
+      "lines": 360,
+      "functions": 11,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.cli.__init__",
+      "path": "src/bioetl/cli/__init__.py",
+      "lines": 21,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.a",
+      "path": "src/bioetl/cli/app.py",
+      "lines": 88,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.command",
+      "path": "src/bioetl/cli/command.py",
+      "lines": 306,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.cli.commands.__init__",
+      "path": "src/bioetl/cli/commands/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.chembl_activit",
+      "path": "src/bioetl/cli/commands/chembl_activity.py",
+      "lines": 32,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.chembl_assa",
+      "path": "src/bioetl/cli/commands/chembl_assay.py",
+      "lines": 32,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.chembl_document",
+      "path": "src/bioetl/cli/commands/chembl_document.py",
+      "lines": 35,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.chembl_target",
+      "path": "src/bioetl/cli/commands/chembl_target.py",
+      "lines": 33,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.chembl_testitem",
+      "path": "src/bioetl/cli/commands/chembl_testitem.py",
+      "lines": 32,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.crossref",
+      "path": "src/bioetl/cli/commands/crossref.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.gtp_iuphar",
+      "path": "src/bioetl/cli/commands/gtp_iuphar.py",
+      "lines": 31,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.iuphar_target",
+      "path": "src/bioetl/cli/commands/iuphar_target.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.openalex",
+      "path": "src/bioetl/cli/commands/openalex.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.pubchem_molecule",
+      "path": "src/bioetl/cli/commands/pubchem_molecule.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.pubmed",
+      "path": "src/bioetl/cli/commands/pubmed.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.semantic_scholar",
+      "path": "src/bioetl/cli/commands/semantic_scholar.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.commands.uniprot_protein",
+      "path": "src/bioetl/cli/commands/uniprot_protein.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.limits",
+      "path": "src/bioetl/cli/limits.py",
+      "lines": 65,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.main",
+      "path": "src/bioetl/cli/main.py",
+      "lines": 37,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.cli.registr",
+      "path": "src/bioetl/cli/registry.py",
+      "lines": 122,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.clients.__init__",
+      "path": "src/bioetl/clients/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.clients.chembl_activit",
+      "path": "src/bioetl/clients/chembl_activity.py",
+      "lines": 371,
+      "functions": 13,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.clients.chembl_assa",
+      "path": "src/bioetl/clients/chembl_assay.py",
+      "lines": 278,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.config.__init__",
+      "path": "src/bioetl/config/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.config.loader",
+      "path": "src/bioetl/config/loader.py",
+      "lines": 288,
+      "functions": 10,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.config.models",
+      "path": "src/bioetl/config/models.py",
+      "lines": 788,
+      "functions": 35,
+      "classes": 20
+    },
+    {
+      "module": "src.bioetl.config.paths",
+      "path": "src/bioetl/config/paths.py",
+      "lines": 65,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.configs.__init__",
+      "path": "src/bioetl/configs/__init__.py",
+      "lines": 76,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.configs.models",
+      "path": "src/bioetl/configs/models.py",
+      "lines": 109,
+      "functions": 1,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.core.__init__",
+      "path": "src/bioetl/core/__init__.py",
+      "lines": 44,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.api_client",
+      "path": "src/bioetl/core/api_client.py",
+      "lines": 1448,
+      "functions": 49,
+      "classes": 9
+    },
+    {
+      "module": "src.bioetl.core.chembl.__init__",
+      "path": "src/bioetl/core/chembl/__init__.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.chembl.client",
+      "path": "src/bioetl/core/chembl/client.py",
+      "lines": 89,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.core.chembl.output",
+      "path": "src/bioetl/core/chembl/output.py",
+      "lines": 24,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.client_factor",
+      "path": "src/bioetl/core/client_factory.py",
+      "lines": 240,
+      "functions": 9,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.core.deprecation",
+      "path": "src/bioetl/core/deprecation.py",
+      "lines": 22,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.fallback_manager",
+      "path": "src/bioetl/core/fallback_manager.py",
+      "lines": 114,
+      "functions": 6,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.core.hashing",
+      "path": "src/bioetl/core/hashing.py",
+      "lines": 85,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.logger",
+      "path": "src/bioetl/core/logger.py",
+      "lines": 551,
+      "functions": 29,
+      "classes": 6
+    },
+    {
+      "module": "src.bioetl.core.materialization",
+      "path": "src/bioetl/core/materialization.py",
+      "lines": 398,
+      "functions": 11,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.core.output_writer",
+      "path": "src/bioetl/core/output_writer.py",
+      "lines": 1544,
+      "functions": 39,
+      "classes": 7
+    },
+    {
+      "module": "src.bioetl.core.pagination.__init__",
+      "path": "src/bioetl/core/pagination/__init__.py",
+      "lines": 27,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.core.pagination.strateg",
+      "path": "src/bioetl/core/pagination/strategy.py",
+      "lines": 375,
+      "functions": 9,
+      "classes": 9
+    },
+    {
+      "module": "src.bioetl.core.unified_schema",
+      "path": "src/bioetl/core/unified_schema.py",
+      "lines": 190,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.inventory.__init__",
+      "path": "src/bioetl/inventory/__init__.py",
+      "lines": 14,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.inventory.collector",
+      "path": "src/bioetl/inventory/collector.py",
+      "lines": 505,
+      "functions": 26,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.inventory.config",
+      "path": "src/bioetl/inventory/config.py",
+      "lines": 86,
+      "functions": 6,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.inventory.models",
+      "path": "src/bioetl/inventory/models.py",
+      "lines": 81,
+      "functions": 5,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.normalizers.__init__",
+      "path": "src/bioetl/normalizers/__init__.py",
+      "lines": 64,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.normalizers.base",
+      "path": "src/bioetl/normalizers/base.py",
+      "lines": 31,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.normalizers.bibliograph",
+      "path": "src/bioetl/normalizers/bibliography.py",
+      "lines": 245,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.normalizers.chemistr",
+      "path": "src/bioetl/normalizers/chemistry.py",
+      "lines": 286,
+      "functions": 26,
+      "classes": 9
+    },
+    {
+      "module": "src.bioetl.normalizers.constants",
+      "path": "src/bioetl/normalizers/constants.py",
+      "lines": 54,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.normalizers.date",
+      "path": "src/bioetl/normalizers/date.py",
+      "lines": 90,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.normalizers.helpers",
+      "path": "src/bioetl/normalizers/helpers.py",
+      "lines": 90,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.normalizers.identifier",
+      "path": "src/bioetl/normalizers/identifier.py",
+      "lines": 117,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.normalizers.numeric",
+      "path": "src/bioetl/normalizers/numeric.py",
+      "lines": 73,
+      "functions": 8,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.normalizers.registr",
+      "path": "src/bioetl/normalizers/registry.py",
+      "lines": 58,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.normalizers.string",
+      "path": "src/bioetl/normalizers/string.py",
+      "lines": 46,
+      "functions": 6,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pandera_pandas",
+      "path": "src/bioetl/pandera_pandas.py",
+      "lines": 90,
+      "functions": 4,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.pandera_typing",
+      "path": "src/bioetl/pandera_typing.py",
+      "lines": 43,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.__init__",
+      "path": "src/bioetl/pipelines/__init__.py",
+      "lines": 73,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.activit",
+      "path": "src/bioetl/pipelines/activity.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.assa",
+      "path": "src/bioetl/pipelines/assay.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.base",
+      "path": "src/bioetl/pipelines/base.py",
+      "lines": 1314,
+      "functions": 46,
+      "classes": 3
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl.__init__",
+      "path": "src/bioetl/pipelines/chembl/__init__.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl.chembl_document",
+      "path": "src/bioetl/pipelines/chembl/chembl_document.py",
+      "lines": 33,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl.chembl_target",
+      "path": "src/bioetl/pipelines/chembl/chembl_target.py",
+      "lines": 45,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl.chembl_testitem",
+      "path": "src/bioetl/pipelines/chembl/chembl_testitem.py",
+      "lines": 29,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl_activit",
+      "path": "src/bioetl/pipelines/chembl_activity.py",
+      "lines": 644,
+      "functions": 13,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl_assa",
+      "path": "src/bioetl/pipelines/chembl_assay.py",
+      "lines": 635,
+      "functions": 21,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl_document",
+      "path": "src/bioetl/pipelines/chembl_document.py",
+      "lines": 1103,
+      "functions": 27,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl_target",
+      "path": "src/bioetl/pipelines/chembl_target.py",
+      "lines": 979,
+      "functions": 27,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.chembl_testitem",
+      "path": "src/bioetl/pipelines/chembl_testitem.py",
+      "lines": 911,
+      "functions": 16,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.document",
+      "path": "src/bioetl/pipelines/document.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.document_enrichment",
+      "path": "src/bioetl/pipelines/document_enrichment.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.external_source",
+      "path": "src/bioetl/pipelines/external_source.py",
+      "lines": 409,
+      "functions": 18,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.pipelines.registr",
+      "path": "src/bioetl/pipelines/registry.py",
+      "lines": 53,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.target",
+      "path": "src/bioetl/pipelines/target.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.pipelines.target_gold",
+      "path": "src/bioetl/pipelines/target_gold.py",
+      "lines": 509,
+      "functions": 15,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.pipelines.testitem",
+      "path": "src/bioetl/pipelines/testitem.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.__init__",
+      "path": "src/bioetl/schemas/__init__.py",
+      "lines": 148,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.activit",
+      "path": "src/bioetl/schemas/activity.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.assa",
+      "path": "src/bioetl/schemas/assay.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.base",
+      "path": "src/bioetl/schemas/base.py",
+      "lines": 271,
+      "functions": 8,
+      "classes": 5
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.__init__",
+      "path": "src/bioetl/schemas/chembl/__init__.py",
+      "lines": 18,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.activit",
+      "path": "src/bioetl/schemas/chembl/activity.py",
+      "lines": 27,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.assa",
+      "path": "src/bioetl/schemas/chembl/assay.py",
+      "lines": 23,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.document",
+      "path": "src/bioetl/schemas/chembl/document.py",
+      "lines": 19,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.target",
+      "path": "src/bioetl/schemas/chembl/target.py",
+      "lines": 17,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl.testitem",
+      "path": "src/bioetl/schemas/chembl/testitem.py",
+      "lines": 18,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.chembl_activit",
+      "path": "src/bioetl/schemas/chembl_activity.py",
+      "lines": 268,
+      "functions": 1,
+      "classes": 3
+    },
+    {
+      "module": "src.bioetl.schemas.chembl_assa",
+      "path": "src/bioetl/schemas/chembl_assay.py",
+      "lines": 245,
+      "functions": 0,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.schemas.chembl_document",
+      "path": "src/bioetl/schemas/chembl_document.py",
+      "lines": 543,
+      "functions": 3,
+      "classes": 7
+    },
+    {
+      "module": "src.bioetl.schemas.chembl_target",
+      "path": "src/bioetl/schemas/chembl_target.py",
+      "lines": 210,
+      "functions": 0,
+      "classes": 8
+    },
+    {
+      "module": "src.bioetl.schemas.chembl_testitem",
+      "path": "src/bioetl/schemas/chembl_testitem.py",
+      "lines": 354,
+      "functions": 0,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.schemas.document",
+      "path": "src/bioetl/schemas/document.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.input_schemas",
+      "path": "src/bioetl/schemas/input_schemas.py",
+      "lines": 192,
+      "functions": 0,
+      "classes": 14
+    },
+    {
+      "module": "src.bioetl.schemas.iuphar_input",
+      "path": "src/bioetl/schemas/iuphar_input.py",
+      "lines": 26,
+      "functions": 0,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.schemas.registr",
+      "path": "src/bioetl/schemas/registry.py",
+      "lines": 292,
+      "functions": 7,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.schemas.target",
+      "path": "src/bioetl/schemas/target.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.testitem",
+      "path": "src/bioetl/schemas/testitem.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.schemas.uniprot",
+      "path": "src/bioetl/schemas/uniprot.py",
+      "lines": 61,
+      "functions": 0,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.__init__",
+      "path": "src/bioetl/sources/__init__.py",
+      "lines": 6,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.__init__",
+      "path": "src/bioetl/sources/chembl/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.__init__",
+      "path": "src/bioetl/sources/chembl/activity/__init__.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.client.__init__",
+      "path": "src/bioetl/sources/chembl/activity/client/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.client.activity_client",
+      "path": "src/bioetl/sources/chembl/activity/client/activity_client.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.constants",
+      "path": "src/bioetl/sources/chembl/activity/constants.py",
+      "lines": 80,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.merge.__init__",
+      "path": "src/bioetl/sources/chembl/activity/merge/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.normalizer.__init__",
+      "path": "src/bioetl/sources/chembl/activity/normalizer/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.normalizer.activity_normalizer",
+      "path": "src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.output.__init__",
+      "path": "src/bioetl/sources/chembl/activity/output/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.output.activity_output",
+      "path": "src/bioetl/sources/chembl/activity/output/activity_output.py",
+      "lines": 84,
+      "functions": 4,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.parser.__init__",
+      "path": "src/bioetl/sources/chembl/activity/parser/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.parser.activity_parser",
+      "path": "src/bioetl/sources/chembl/activity/parser/activity_parser.py",
+      "lines": 269,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.pipeline",
+      "path": "src/bioetl/sources/chembl/activity/pipeline.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.request.__init__",
+      "path": "src/bioetl/sources/chembl/activity/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.request.activity_request",
+      "path": "src/bioetl/sources/chembl/activity/request/activity_request.py",
+      "lines": 74,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.activity.schema.__init__",
+      "path": "src/bioetl/sources/chembl/activity/schema/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.__init__",
+      "path": "src/bioetl/sources/chembl/assay/__init__.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.client.__init__",
+      "path": "src/bioetl/sources/chembl/assay/client/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.client.assay_client",
+      "path": "src/bioetl/sources/chembl/assay/client/assay_client.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.constants",
+      "path": "src/bioetl/sources/chembl/assay/constants.py",
+      "lines": 58,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.merge.__init__",
+      "path": "src/bioetl/sources/chembl/assay/merge/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.merge.assay_merge",
+      "path": "src/bioetl/sources/chembl/assay/merge/assay_merge.py",
+      "lines": 24,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.normalizer.__init__",
+      "path": "src/bioetl/sources/chembl/assay/normalizer/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.normalizer.assay_normalizer",
+      "path": "src/bioetl/sources/chembl/assay/normalizer/assay_normalizer.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.output.__init__",
+      "path": "src/bioetl/sources/chembl/assay/output/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.output.assay_output",
+      "path": "src/bioetl/sources/chembl/assay/output/assay_output.py",
+      "lines": 92,
+      "functions": 8,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.parser.__init__",
+      "path": "src/bioetl/sources/chembl/assay/parser/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.parser.assay_parser",
+      "path": "src/bioetl/sources/chembl/assay/parser/assay_parser.py",
+      "lines": 131,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.pipeline",
+      "path": "src/bioetl/sources/chembl/assay/pipeline.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.request.__init__",
+      "path": "src/bioetl/sources/chembl/assay/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.request.assay_request",
+      "path": "src/bioetl/sources/chembl/assay/request/assay_request.py",
+      "lines": 66,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.assay.schema.__init__",
+      "path": "src/bioetl/sources/chembl/assay/schema/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.__init__",
+      "path": "src/bioetl/sources/chembl/document/__init__.py",
+      "lines": 16,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.client.__init__",
+      "path": "src/bioetl/sources/chembl/document/client/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.client.document_client",
+      "path": "src/bioetl/sources/chembl/document/client/document_client.py",
+      "lines": 169,
+      "functions": 10,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.merge.__init__",
+      "path": "src/bioetl/sources/chembl/document/merge/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.merge.enrichment",
+      "path": "src/bioetl/sources/chembl/document/merge/enrichment.py",
+      "lines": 55,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.normalizer.__init__",
+      "path": "src/bioetl/sources/chembl/document/normalizer/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.normalizer.document_normalizer",
+      "path": "src/bioetl/sources/chembl/document/normalizer/document_normalizer.py",
+      "lines": 114,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.output.__init__",
+      "path": "src/bioetl/sources/chembl/document/output/__init__.py",
+      "lines": 6,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.output.qc",
+      "path": "src/bioetl/sources/chembl/document/output/qc.py",
+      "lines": 37,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.output.rejections",
+      "path": "src/bioetl/sources/chembl/document/output/rejections.py",
+      "lines": 38,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.parser.__init__",
+      "path": "src/bioetl/sources/chembl/document/parser/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.parser.input_parser",
+      "path": "src/bioetl/sources/chembl/document/parser/input_parser.py",
+      "lines": 76,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.pipeline",
+      "path": "src/bioetl/sources/chembl/document/pipeline.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.request.__init__",
+      "path": "src/bioetl/sources/chembl/document/request/__init__.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.request.external",
+      "path": "src/bioetl/sources/chembl/document/request/external.py",
+      "lines": 738,
+      "functions": 17,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.schema.__init__",
+      "path": "src/bioetl/sources/chembl/document/schema/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.document.schema.fallback",
+      "path": "src/bioetl/sources/chembl/document/schema/fallback.py",
+      "lines": 31,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.__init__",
+      "path": "src/bioetl/sources/chembl/target/__init__.py",
+      "lines": 16,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.client.__init__",
+      "path": "src/bioetl/sources/chembl/target/client/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.client.chembl_client",
+      "path": "src/bioetl/sources/chembl/target/client/chembl_client.py",
+      "lines": 101,
+      "functions": 6,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.merge.__init__",
+      "path": "src/bioetl/sources/chembl/target/merge/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.merge.gold",
+      "path": "src/bioetl/sources/chembl/target/merge/gold.py",
+      "lines": 191,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.normalizer.__init__",
+      "path": "src/bioetl/sources/chembl/target/normalizer/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.normalizer.enrichment",
+      "path": "src/bioetl/sources/chembl/target/normalizer/enrichment.py",
+      "lines": 229,
+      "functions": 12,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.output.__init__",
+      "path": "src/bioetl/sources/chembl/target/output/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.output.services",
+      "path": "src/bioetl/sources/chembl/target/output/services.py",
+      "lines": 135,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.parser.__init__",
+      "path": "src/bioetl/sources/chembl/target/parser/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.parser.json_parser",
+      "path": "src/bioetl/sources/chembl/target/parser/json_parser.py",
+      "lines": 92,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.pipeline",
+      "path": "src/bioetl/sources/chembl/target/pipeline.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.request.__init__",
+      "path": "src/bioetl/sources/chembl/target/request/__init__.py",
+      "lines": 13,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.request.chembl",
+      "path": "src/bioetl/sources/chembl/target/request/chembl.py",
+      "lines": 61,
+      "functions": 6,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.request.iuphar",
+      "path": "src/bioetl/sources/chembl/target/request/iuphar.py",
+      "lines": 50,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.request.uniprot",
+      "path": "src/bioetl/sources/chembl/target/request/uniprot.py",
+      "lines": 68,
+      "functions": 7,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.chembl.target.schema.__init__",
+      "path": "src/bioetl/sources/chembl/target/schema/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/__init__.py",
+      "lines": 16,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.client.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/client/__init__.py",
+      "lines": 9,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.client.client",
+      "path": "src/bioetl/sources/chembl/testitem/client/client.py",
+      "lines": 261,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.merge.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/merge/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.normalizer.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/normalizer/__init__.py",
+      "lines": 8,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.normalizer.dataframe",
+      "path": "src/bioetl/sources/chembl/testitem/normalizer/dataframe.py",
+      "lines": 63,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.output.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/output/__init__.py",
+      "lines": 8,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.output.dataframe",
+      "path": "src/bioetl/sources/chembl/testitem/output/dataframe.py",
+      "lines": 46,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.parser.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/parser/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.parser.parser",
+      "path": "src/bioetl/sources/chembl/testitem/parser/parser.py",
+      "lines": 300,
+      "functions": 13,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.pipeline",
+      "path": "src/bioetl/sources/chembl/testitem/pipeline.py",
+      "lines": 20,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.request.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.request.request",
+      "path": "src/bioetl/sources/chembl/testitem/request/request.py",
+      "lines": 109,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.chembl.testitem.schema.__init__",
+      "path": "src/bioetl/sources/chembl/testitem/schema/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.common.__init__",
+      "path": "src/bioetl/sources/common/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.common.request",
+      "path": "src/bioetl/sources/common/request.py",
+      "lines": 74,
+      "functions": 5,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.crossref.__init__",
+      "path": "src/bioetl/sources/crossref/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.client.__init__",
+      "path": "src/bioetl/sources/crossref/client/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.merge.__init__",
+      "path": "src/bioetl/sources/crossref/merge/__init__.py",
+      "lines": 131,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.normalizer.__init__",
+      "path": "src/bioetl/sources/crossref/normalizer/__init__.py",
+      "lines": 70,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.output.__init__",
+      "path": "src/bioetl/sources/crossref/output/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.pagination.__init__",
+      "path": "src/bioetl/sources/crossref/pagination/__init__.py",
+      "lines": 76,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.crossref.parser.__init__",
+      "path": "src/bioetl/sources/crossref/parser/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.pipeline",
+      "path": "src/bioetl/sources/crossref/pipeline.py",
+      "lines": 62,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.crossref.request.__init__",
+      "path": "src/bioetl/sources/crossref/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.crossref.request.builder",
+      "path": "src/bioetl/sources/crossref/request/builder.py",
+      "lines": 53,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.crossref.schema.__init__",
+      "path": "src/bioetl/sources/crossref/schema/__init__.py",
+      "lines": 102,
+      "functions": 0,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.sources.document.__init__",
+      "path": "src/bioetl/sources/document/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.document.merge.__init__",
+      "path": "src/bioetl/sources/document/merge/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.document.merge.polic",
+      "path": "src/bioetl/sources/document/merge/policy.py",
+      "lines": 720,
+      "functions": 22,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.sources.document.pipeline",
+      "path": "src/bioetl/sources/document/pipeline.py",
+      "lines": 66,
+      "functions": 3,
+      "classes": 3
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.__init__",
+      "path": "src/bioetl/sources/iuphar/__init__.py",
+      "lines": 10,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.client.__init__",
+      "path": "src/bioetl/sources/iuphar/client/__init__.py",
+      "lines": 32,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.normalizer.__init__",
+      "path": "src/bioetl/sources/iuphar/normalizer/__init__.py",
+      "lines": 45,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.pagination.__init__",
+      "path": "src/bioetl/sources/iuphar/pagination/__init__.py",
+      "lines": 47,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.parser.__init__",
+      "path": "src/bioetl/sources/iuphar/parser/__init__.py",
+      "lines": 31,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.pipeline",
+      "path": "src/bioetl/sources/iuphar/pipeline.py",
+      "lines": 394,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.request.__init__",
+      "path": "src/bioetl/sources/iuphar/request/__init__.py",
+      "lines": 77,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.schema.__init__",
+      "path": "src/bioetl/sources/iuphar/schema/__init__.py",
+      "lines": 99,
+      "functions": 0,
+      "classes": 6
+    },
+    {
+      "module": "src.bioetl.sources.iuphar.service",
+      "path": "src/bioetl/sources/iuphar/service.py",
+      "lines": 408,
+      "functions": 9,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.openalex.__init__",
+      "path": "src/bioetl/sources/openalex/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.client.__init__",
+      "path": "src/bioetl/sources/openalex/client/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.merge.__init__",
+      "path": "src/bioetl/sources/openalex/merge/__init__.py",
+      "lines": 183,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.normalizer.__init__",
+      "path": "src/bioetl/sources/openalex/normalizer/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.output.__init__",
+      "path": "src/bioetl/sources/openalex/output/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.pagination.__init__",
+      "path": "src/bioetl/sources/openalex/pagination/__init__.py",
+      "lines": 81,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.openalex.parser.__init__",
+      "path": "src/bioetl/sources/openalex/parser/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.pipeline",
+      "path": "src/bioetl/sources/openalex/pipeline.py",
+      "lines": 55,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.openalex.request.__init__",
+      "path": "src/bioetl/sources/openalex/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.openalex.request.builder",
+      "path": "src/bioetl/sources/openalex/request/builder.py",
+      "lines": 44,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.openalex.schema.__init__",
+      "path": "src/bioetl/sources/openalex/schema/__init__.py",
+      "lines": 101,
+      "functions": 0,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.__init__",
+      "path": "src/bioetl/sources/pubchem/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.client.__init__",
+      "path": "src/bioetl/sources/pubchem/client/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.client.pubchem_client",
+      "path": "src/bioetl/sources/pubchem/client/pubchem_client.py",
+      "lines": 230,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.normalizer.__init__",
+      "path": "src/bioetl/sources/pubchem/normalizer/__init__.py",
+      "lines": 0,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.normalizer.pubchem_normalizer",
+      "path": "src/bioetl/sources/pubchem/normalizer/pubchem_normalizer.py",
+      "lines": 209,
+      "functions": 12,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.output.__init__",
+      "path": "src/bioetl/sources/pubchem/output/__init__.py",
+      "lines": 0,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.parser.__init__",
+      "path": "src/bioetl/sources/pubchem/parser/__init__.py",
+      "lines": 0,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.parser.pubchem_parser",
+      "path": "src/bioetl/sources/pubchem/parser/pubchem_parser.py",
+      "lines": 133,
+      "functions": 9,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.pipeline",
+      "path": "src/bioetl/sources/pubchem/pipeline.py",
+      "lines": 219,
+      "functions": 6,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.request.__init__",
+      "path": "src/bioetl/sources/pubchem/request/__init__.py",
+      "lines": 0,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.request.builder",
+      "path": "src/bioetl/sources/pubchem/request/builder.py",
+      "lines": 67,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.schema.__init__",
+      "path": "src/bioetl/sources/pubchem/schema/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubchem.schema.pubchem_schema",
+      "path": "src/bioetl/sources/pubchem/schema/pubchem_schema.py",
+      "lines": 133,
+      "functions": 0,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.__init__",
+      "path": "src/bioetl/sources/pubmed/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.client.__init__",
+      "path": "src/bioetl/sources/pubmed/client/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.merge.__init__",
+      "path": "src/bioetl/sources/pubmed/merge/__init__.py",
+      "lines": 142,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.normalizer.__init__",
+      "path": "src/bioetl/sources/pubmed/normalizer/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.output.__init__",
+      "path": "src/bioetl/sources/pubmed/output/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.pagination.__init__",
+      "path": "src/bioetl/sources/pubmed/pagination/__init__.py",
+      "lines": 86,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.parser.__init__",
+      "path": "src/bioetl/sources/pubmed/parser/__init__.py",
+      "lines": 253,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.pipeline",
+      "path": "src/bioetl/sources/pubmed/pipeline.py",
+      "lines": 69,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.request.__init__",
+      "path": "src/bioetl/sources/pubmed/request/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.request.builder",
+      "path": "src/bioetl/sources/pubmed/request/builder.py",
+      "lines": 57,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.pubmed.schema.__init__",
+      "path": "src/bioetl/sources/pubmed/schema/__init__.py",
+      "lines": 109,
+      "functions": 0,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.client.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/client/__init__.py",
+      "lines": 7,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.merge.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/merge/__init__.py",
+      "lines": 190,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.normalizer.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/normalizer/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.output.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/output/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.pagination.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/pagination/__init__.py",
+      "lines": 47,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.parser.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/parser/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.pipeline",
+      "path": "src/bioetl/sources/semantic_scholar/pipeline.py",
+      "lines": 63,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.request.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/request/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.semantic_scholar.schema.__init__",
+      "path": "src/bioetl/sources/semantic_scholar/schema/__init__.py",
+      "lines": 91,
+      "functions": 0,
+      "classes": 4
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.__init__",
+      "path": "src/bioetl/sources/uniprot/__init__.py",
+      "lines": 12,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.client",
+      "path": "src/bioetl/sources/uniprot/client.py",
+      "lines": 270,
+      "functions": 6,
+      "classes": 3
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.client.__init__",
+      "path": "src/bioetl/sources/uniprot/client/__init__.py",
+      "lines": 56,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.client.idmapping_client",
+      "path": "src/bioetl/sources/uniprot/client/idmapping_client.py",
+      "lines": 92,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.client.orthologs_client",
+      "path": "src/bioetl/sources/uniprot/client/orthologs_client.py",
+      "lines": 56,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.client.search_client",
+      "path": "src/bioetl/sources/uniprot/client/search_client.py",
+      "lines": 105,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.merge.__init__",
+      "path": "src/bioetl/sources/uniprot/merge/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.merge.service",
+      "path": "src/bioetl/sources/uniprot/merge/service.py",
+      "lines": 611,
+      "functions": 12,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.normalizer.__init__",
+      "path": "src/bioetl/sources/uniprot/normalizer/__init__.py",
+      "lines": 11,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.normalizer.normalizer",
+      "path": "src/bioetl/sources/uniprot/normalizer/normalizer.py",
+      "lines": 83,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.normalizer_service",
+      "path": "src/bioetl/sources/uniprot/normalizer_service.py",
+      "lines": 398,
+      "functions": 5,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.parser.__init__",
+      "path": "src/bioetl/sources/uniprot/parser/__init__.py",
+      "lines": 31,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.parser.entry_parser",
+      "path": "src/bioetl/sources/uniprot/parser/entry_parser.py",
+      "lines": 65,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.parser.extractors",
+      "path": "src/bioetl/sources/uniprot/parser/extractors.py",
+      "lines": 185,
+      "functions": 9,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.parser.idmapping_parser",
+      "path": "src/bioetl/sources/uniprot/parser/idmapping_parser.py",
+      "lines": 68,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.parser_utils",
+      "path": "src/bioetl/sources/uniprot/parser_utils.py",
+      "lines": 175,
+      "functions": 10,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.pipeline",
+      "path": "src/bioetl/sources/uniprot/pipeline.py",
+      "lines": 241,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.request.__init__",
+      "path": "src/bioetl/sources/uniprot/request/__init__.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.request.builder",
+      "path": "src/bioetl/sources/uniprot/request/builder.py",
+      "lines": 92,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.sources.uniprot.schema.__init__",
+      "path": "src/bioetl/sources/uniprot/schema/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.transform.__init__",
+      "path": "src/bioetl/transform/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.transform.adapters.__init__",
+      "path": "src/bioetl/transform/adapters/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.transform.adapters.chembl_activit",
+      "path": "src/bioetl/transform/adapters/chembl_activity.py",
+      "lines": 198,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.transform.adapters.chembl_assa",
+      "path": "src/bioetl/transform/adapters/chembl_assay.py",
+      "lines": 243,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.utils.__init__",
+      "path": "src/bioetl/utils/__init__.py",
+      "lines": 36,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.chembl",
+      "path": "src/bioetl/utils/chembl.py",
+      "lines": 146,
+      "functions": 6,
+      "classes": 2
+    },
+    {
+      "module": "src.bioetl.utils.column_constants",
+      "path": "src/bioetl/utils/column_constants.py",
+      "lines": 37,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.config",
+      "path": "src/bioetl/utils/config.py",
+      "lines": 135,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.dataframe",
+      "path": "src/bioetl/utils/dataframe.py",
+      "lines": 275,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.dtypes",
+      "path": "src/bioetl/utils/dtypes.py",
+      "lines": 246,
+      "functions": 8,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.fallback",
+      "path": "src/bioetl/utils/fallback.py",
+      "lines": 189,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "src.bioetl.utils.io",
+      "path": "src/bioetl/utils/io.py",
+      "lines": 130,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.json",
+      "path": "src/bioetl/utils/json.py",
+      "lines": 132,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.output",
+      "path": "src/bioetl/utils/output.py",
+      "lines": 138,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.qc",
+      "path": "src/bioetl/utils/qc.py",
+      "lines": 267,
+      "functions": 10,
+      "classes": 0
+    },
+    {
+      "module": "src.bioetl.utils.validation",
+      "path": "src/bioetl/utils/validation.py",
+      "lines": 622,
+      "functions": 16,
+      "classes": 2
+    },
+    {
+      "module": "src.scripts.__init__",
+      "path": "src/scripts/__init__.py",
+      "lines": 17,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.generate_pipeline_metrics",
+      "path": "src/scripts/generate_pipeline_metrics.py",
+      "lines": 419,
+      "functions": 14,
+      "classes": 3
+    },
+    {
+      "module": "src.scripts.run_chembl_activit",
+      "path": "src/scripts/run_chembl_activity.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_chembl_assa",
+      "path": "src/scripts/run_chembl_assay.py",
+      "lines": 19,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_chembl_document",
+      "path": "src/scripts/run_chembl_document.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_chembl_target",
+      "path": "src/scripts/run_chembl_target.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_chembl_testitem",
+      "path": "src/scripts/run_chembl_testitem.py",
+      "lines": 15,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_crossref",
+      "path": "src/scripts/run_crossref.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_fix_markdown",
+      "path": "src/scripts/run_fix_markdown.py",
+      "lines": 246,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_gtp_iuphar",
+      "path": "src/scripts/run_gtp_iuphar.py",
+      "lines": 13,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_inventor",
+      "path": "src/scripts/run_inventory.py",
+      "lines": 132,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_openalex",
+      "path": "src/scripts/run_openalex.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_pubchem",
+      "path": "src/scripts/run_pubchem.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_pubmed",
+      "path": "src/scripts/run_pubmed.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_semantic_scholar",
+      "path": "src/scripts/run_semantic_scholar.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.run_uniprot",
+      "path": "src/scripts/run_uniprot.py",
+      "lines": 12,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "src.scripts.validate_columns",
+      "path": "src/scripts/validate_columns.py",
+      "lines": 206,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.__init__",
+      "path": "tests/__init__.py",
+      "lines": 2,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.conftest",
+      "path": "tests/conftest.py",
+      "lines": 347,
+      "functions": 15,
+      "classes": 3
+    },
+    {
+      "module": "tests.e2e.helpers",
+      "path": "tests/e2e/helpers.py",
+      "lines": 246,
+      "functions": 10,
+      "classes": 0
+    },
+    {
+      "module": "tests.e2e.test_cli_commands",
+      "path": "tests/e2e/test_cli_commands.py",
+      "lines": 74,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.e2e.test_cli_golden",
+      "path": "tests/e2e/test_cli_golden.py",
+      "lines": 371,
+      "functions": 14,
+      "classes": 3
+    },
+    {
+      "module": "tests.e2e.test_unified_schema_golden",
+      "path": "tests/e2e/test_unified_schema_golden.py",
+      "lines": 44,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.integration.core.test_api_client_http_behaviour",
+      "path": "tests/integration/core/test_api_client_http_behaviour.py",
+      "lines": 129,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.integration.pipelines.__init__",
+      "path": "tests/integration/pipelines/__init__.py",
+      "lines": 0,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.integration.pipelines.test_activity_pipeline",
+      "path": "tests/integration/pipelines/test_activity_pipeline.py",
+      "lines": 123,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.integration.pipelines.test_bit_identical_output",
+      "path": "tests/integration/pipelines/test_bit_identical_output.py",
+      "lines": 155,
+      "functions": 6,
+      "classes": 1
+    },
+    {
+      "module": "tests.integration.pipelines.test_contract_pipeline_golden",
+      "path": "tests/integration/pipelines/test_contract_pipeline_golden.py",
+      "lines": 314,
+      "functions": 12,
+      "classes": 2
+    },
+    {
+      "module": "tests.integration.pipelines.test_enrichment_stages",
+      "path": "tests/integration/pipelines/test_enrichment_stages.py",
+      "lines": 157,
+      "functions": 7,
+      "classes": 0
+    },
+    {
+      "module": "tests.integration.pipelines.test_extended_mode_outputs",
+      "path": "tests/integration/pipelines/test_extended_mode_outputs.py",
+      "lines": 216,
+      "functions": 11,
+      "classes": 3
+    },
+    {
+      "module": "tests.integration.pipelines.test_materialization_manager",
+      "path": "tests/integration/pipelines/test_materialization_manager.py",
+      "lines": 216,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.integration.qc.test_unified_qc",
+      "path": "tests/integration/qc/test_unified_qc.py",
+      "lines": 139,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.__init__",
+      "path": "tests/unit/__init__.py",
+      "lines": 2,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.adapters.__init__",
+      "path": "tests/unit/adapters/__init__.py",
+      "lines": 2,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.config.test_pipeline_config",
+      "path": "tests/unit/config/test_pipeline_config.py",
+      "lines": 181,
+      "functions": 11,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.core.test_api_client",
+      "path": "tests/unit/core/test_api_client.py",
+      "lines": 128,
+      "functions": 8,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.core.test_api_client_properties",
+      "path": "tests/unit/core/test_api_client_properties.py",
+      "lines": 50,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.core.test_api_client_retry_properties",
+      "path": "tests/unit/core/test_api_client_retry_properties.py",
+      "lines": 98,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.core.test_client_factor",
+      "path": "tests/unit/core/test_client_factory.py",
+      "lines": 187,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.core.test_fallback_manager",
+      "path": "tests/unit/core/test_fallback_manager.py",
+      "lines": 75,
+      "functions": 11,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.core.test_pagination_strategies",
+      "path": "tests/unit/core/test_pagination_strategies.py",
+      "lines": 189,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.core.test_unified_api_client_fallbacks",
+      "path": "tests/unit/core/test_unified_api_client_fallbacks.py",
+      "lines": 107,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.docs.test_data_sources_spec",
+      "path": "tests/unit/docs/test_data_sources_spec.py",
+      "lines": 184,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.document.test_document_client",
+      "path": "tests/unit/document/test_document_client.py",
+      "lines": 119,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.document.test_normalizer",
+      "path": "tests/unit/document/test_normalizer.py",
+      "lines": 50,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.document.test_parser",
+      "path": "tests/unit/document/test_parser.py",
+      "lines": 42,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.document.test_request",
+      "path": "tests/unit/document/test_request.py",
+      "lines": 189,
+      "functions": 10,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.normalizers.test_bibliograph",
+      "path": "tests/unit/normalizers/test_bibliography.py",
+      "lines": 71,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_bibliography_helpers_cache",
+      "path": "tests/unit/normalizers/test_bibliography_helpers_cache.py",
+      "lines": 60,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.normalizers.test_boolean_normalizers",
+      "path": "tests/unit/normalizers/test_boolean_normalizers.py",
+      "lines": 97,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_chemistry_normalizer_properties",
+      "path": "tests/unit/normalizers/test_chemistry_normalizer_properties.py",
+      "lines": 125,
+      "functions": 8,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_date_normalizer_properties",
+      "path": "tests/unit/normalizers/test_date_normalizer_properties.py",
+      "lines": 55,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_helpers",
+      "path": "tests/unit/normalizers/test_helpers.py",
+      "lines": 90,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_identifier_normalizer_properties",
+      "path": "tests/unit/normalizers/test_identifier_normalizer_properties.py",
+      "lines": 169,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_numeric_normalizer_properties",
+      "path": "tests/unit/normalizers/test_numeric_normalizer_properties.py",
+      "lines": 127,
+      "functions": 7,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.normalizers.test_string_normalizer_properties",
+      "path": "tests/unit/normalizers/test_string_normalizer_properties.py",
+      "lines": 48,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.pagination.test_strategies",
+      "path": "tests/unit/pagination/test_strategies.py",
+      "lines": 214,
+      "functions": 19,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.perf.test_dataframe_hash",
+      "path": "tests/unit/perf/test_dataframe_hash.py",
+      "lines": 72,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.perf.test_quality_report_generator",
+      "path": "tests/unit/perf/test_quality_report_generator.py",
+      "lines": 145,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.pipelines.test_base_pipeline_validation",
+      "path": "tests/unit/pipelines/test_base_pipeline_validation.py",
+      "lines": 58,
+      "functions": 5,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.schemas.test_assay_schema",
+      "path": "tests/unit/schemas/test_assay_schema.py",
+      "lines": 65,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.schemas.test_document_raw_schema",
+      "path": "tests/unit/schemas/test_document_raw_schema.py",
+      "lines": 70,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.schemas.test_fallback_metadata_schema",
+      "path": "tests/unit/schemas/test_fallback_metadata_schema.py",
+      "lines": 99,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.schemas.test_pipeline_inputs",
+      "path": "tests/unit/schemas/test_pipeline_inputs.py",
+      "lines": 56,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.schemas.test_registr",
+      "path": "tests/unit/schemas/test_registry.py",
+      "lines": 51,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.schemas.test_testitem_schema",
+      "path": "tests/unit/schemas/test_testitem_schema.py",
+      "lines": 11,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.schemas.test_unified_schema_properties",
+      "path": "tests/unit/schemas/test_unified_schema_properties.py",
+      "lines": 63,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.scripts.test_cli_registr",
+      "path": "tests/unit/scripts/test_cli_registry.py",
+      "lines": 32,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.scripts.test_doc_link_checker",
+      "path": "tests/unit/scripts/test_doc_link_checker.py",
+      "lines": 68,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.__init__",
+      "path": "tests/unit/sources/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources._mixins",
+      "path": "tests/unit/sources/_mixins.py",
+      "lines": 84,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.chembl.__init__",
+      "path": "tests/unit/sources/chembl/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.activity.test_client",
+      "path": "tests/unit/sources/chembl/activity/test_client.py",
+      "lines": 73,
+      "functions": 7,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.sources.chembl.test_client",
+      "path": "tests/unit/sources/chembl/test_client.py",
+      "lines": 32,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.test_normalizer",
+      "path": "tests/unit/sources/chembl/test_normalizer.py",
+      "lines": 49,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.test_parser",
+      "path": "tests/unit/sources/chembl/test_parser.py",
+      "lines": 60,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.test_pipeline_e2e",
+      "path": "tests/unit/sources/chembl/test_pipeline_e2e.py",
+      "lines": 14,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.test_schema",
+      "path": "tests/unit/sources/chembl/test_schema.py",
+      "lines": 45,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.__init__",
+      "path": "tests/unit/sources/chembl/testitem/__init__.py",
+      "lines": 2,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.test_client",
+      "path": "tests/unit/sources/chembl/testitem/test_client.py",
+      "lines": 118,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.test_parser",
+      "path": "tests/unit/sources/chembl/testitem/test_parser.py",
+      "lines": 63,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.test_parser_properties",
+      "path": "tests/unit/sources/chembl/testitem/test_parser_properties.py",
+      "lines": 206,
+      "functions": 11,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.test_request_builder",
+      "path": "tests/unit/sources/chembl/testitem/test_request_builder.py",
+      "lines": 52,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.chembl.testitem.test_request_builder_properties",
+      "path": "tests/unit/sources/chembl/testitem/test_request_builder_properties.py",
+      "lines": 100,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.crossref.__init__",
+      "path": "tests/unit/sources/crossref/__init__.py",
+      "lines": 26,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_client",
+      "path": "tests/unit/sources/crossref/test_client.py",
+      "lines": 44,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_fallback",
+      "path": "tests/unit/sources/crossref/test_fallback.py",
+      "lines": 89,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_merge",
+      "path": "tests/unit/sources/crossref/test_merge.py",
+      "lines": 49,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_normalizer",
+      "path": "tests/unit/sources/crossref/test_normalizer.py",
+      "lines": 83,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_pagination",
+      "path": "tests/unit/sources/crossref/test_pagination.py",
+      "lines": 61,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_parser",
+      "path": "tests/unit/sources/crossref/test_parser.py",
+      "lines": 32,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_pipeline_e2e",
+      "path": "tests/unit/sources/crossref/test_pipeline_e2e.py",
+      "lines": 34,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_request_builder",
+      "path": "tests/unit/sources/crossref/test_request_builder.py",
+      "lines": 25,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.crossref.test_schema",
+      "path": "tests/unit/sources/crossref/test_schema.py",
+      "lines": 105,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.document.__init__",
+      "path": "tests/unit/sources/document/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.document.test_client",
+      "path": "tests/unit/sources/document/test_client.py",
+      "lines": 62,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.document.test_merge",
+      "path": "tests/unit/sources/document/test_merge.py",
+      "lines": 124,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.document.test_normalizer",
+      "path": "tests/unit/sources/document/test_normalizer.py",
+      "lines": 40,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.document.test_parser",
+      "path": "tests/unit/sources/document/test_parser.py",
+      "lines": 42,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.document.test_pipeline_e2e",
+      "path": "tests/unit/sources/document/test_pipeline_e2e.py",
+      "lines": 304,
+      "functions": 16,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.sources.document.test_schema",
+      "path": "tests/unit/sources/document/test_schema.py",
+      "lines": 14,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.__init__",
+      "path": "tests/unit/sources/iuphar/__init__.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_client",
+      "path": "tests/unit/sources/iuphar/test_client.py",
+      "lines": 31,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_normalizer",
+      "path": "tests/unit/sources/iuphar/test_normalizer.py",
+      "lines": 30,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_pagination_properties",
+      "path": "tests/unit/sources/iuphar/test_pagination_properties.py",
+      "lines": 184,
+      "functions": 11,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_parser",
+      "path": "tests/unit/sources/iuphar/test_parser.py",
+      "lines": 27,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_pipeline_e2e",
+      "path": "tests/unit/sources/iuphar/test_pipeline_e2e.py",
+      "lines": 62,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.iuphar.test_schema",
+      "path": "tests/unit/sources/iuphar/test_schema.py",
+      "lines": 78,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.openalex.__init__",
+      "path": "tests/unit/sources/openalex/__init__.py",
+      "lines": 25,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_client",
+      "path": "tests/unit/sources/openalex/test_client.py",
+      "lines": 46,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_fallback",
+      "path": "tests/unit/sources/openalex/test_fallback.py",
+      "lines": 66,
+      "functions": 4,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_merge",
+      "path": "tests/unit/sources/openalex/test_merge.py",
+      "lines": 61,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_normalizer",
+      "path": "tests/unit/sources/openalex/test_normalizer.py",
+      "lines": 93,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_normalizer_properties",
+      "path": "tests/unit/sources/openalex/test_normalizer_properties.py",
+      "lines": 57,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_pagination",
+      "path": "tests/unit/sources/openalex/test_pagination.py",
+      "lines": 47,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_parser",
+      "path": "tests/unit/sources/openalex/test_parser.py",
+      "lines": 31,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_pipeline_e2e",
+      "path": "tests/unit/sources/openalex/test_pipeline_e2e.py",
+      "lines": 32,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_request_builder",
+      "path": "tests/unit/sources/openalex/test_request_builder.py",
+      "lines": 24,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.openalex.test_schema",
+      "path": "tests/unit/sources/openalex/test_schema.py",
+      "lines": 106,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubchem.__init__",
+      "path": "tests/unit/sources/pubchem/__init__.py",
+      "lines": 23,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubchem.test_client",
+      "path": "tests/unit/sources/pubchem/test_client.py",
+      "lines": 100,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.pubchem.test_normalizer",
+      "path": "tests/unit/sources/pubchem/test_normalizer.py",
+      "lines": 79,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubchem.test_parser",
+      "path": "tests/unit/sources/pubchem/test_parser.py",
+      "lines": 34,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.pubchem.test_pipeline_e2e",
+      "path": "tests/unit/sources/pubchem/test_pipeline_e2e.py",
+      "lines": 109,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubchem.test_schema",
+      "path": "tests/unit/sources/pubchem/test_schema.py",
+      "lines": 59,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.pubmed.__init__",
+      "path": "tests/unit/sources/pubmed/__init__.py",
+      "lines": 27,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_client",
+      "path": "tests/unit/sources/pubmed/test_client.py",
+      "lines": 40,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_fallback",
+      "path": "tests/unit/sources/pubmed/test_fallback.py",
+      "lines": 68,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_merge",
+      "path": "tests/unit/sources/pubmed/test_merge.py",
+      "lines": 80,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_normalizer",
+      "path": "tests/unit/sources/pubmed/test_normalizer.py",
+      "lines": 70,
+      "functions": 3,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_pagination",
+      "path": "tests/unit/sources/pubmed/test_pagination.py",
+      "lines": 116,
+      "functions": 6,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_parser",
+      "path": "tests/unit/sources/pubmed/test_parser.py",
+      "lines": 78,
+      "functions": 4,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_pipeline_e2e",
+      "path": "tests/unit/sources/pubmed/test_pipeline_e2e.py",
+      "lines": 39,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_request_builder",
+      "path": "tests/unit/sources/pubmed/test_request_builder.py",
+      "lines": 31,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.pubmed.test_schema",
+      "path": "tests/unit/sources/pubmed/test_schema.py",
+      "lines": 109,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.__init__",
+      "path": "tests/unit/sources/semantic_scholar/__init__.py",
+      "lines": 26,
+      "functions": 0,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_client",
+      "path": "tests/unit/sources/semantic_scholar/test_client.py",
+      "lines": 41,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_fallback",
+      "path": "tests/unit/sources/semantic_scholar/test_fallback.py",
+      "lines": 46,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_merge",
+      "path": "tests/unit/sources/semantic_scholar/test_merge.py",
+      "lines": 96,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_normalizer",
+      "path": "tests/unit/sources/semantic_scholar/test_normalizer.py",
+      "lines": 131,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_normalizer_properties",
+      "path": "tests/unit/sources/semantic_scholar/test_normalizer_properties.py",
+      "lines": 49,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_pagination",
+      "path": "tests/unit/sources/semantic_scholar/test_pagination.py",
+      "lines": 50,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_parser",
+      "path": "tests/unit/sources/semantic_scholar/test_parser.py",
+      "lines": 28,
+      "functions": 2,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_pipeline_e2e",
+      "path": "tests/unit/sources/semantic_scholar/test_pipeline_e2e.py",
+      "lines": 30,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.sources.semantic_scholar.test_schema",
+      "path": "tests/unit/sources/semantic_scholar/test_schema.py",
+      "lines": 133,
+      "functions": 5,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.sources.test_base_adapter",
+      "path": "tests/unit/sources/test_base_adapter.py",
+      "lines": 77,
+      "functions": 5,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.sources.test_legacy_client_warnings",
+      "path": "tests/unit/sources/test_legacy_client_warnings.py",
+      "lines": 75,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.__init__",
+      "path": "tests/unit/sources/uniprot/__init__.py",
+      "lines": 3,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.conftest",
+      "path": "tests/unit/sources/uniprot/conftest.py",
+      "lines": 38,
+      "functions": 1,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_client",
+      "path": "tests/unit/sources/uniprot/test_client.py",
+      "lines": 91,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_idmapping_parser_properties",
+      "path": "tests/unit/sources/uniprot/test_idmapping_parser_properties.py",
+      "lines": 225,
+      "functions": 11,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_normalizer",
+      "path": "tests/unit/sources/uniprot/test_normalizer.py",
+      "lines": 67,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_parser",
+      "path": "tests/unit/sources/uniprot/test_parser.py",
+      "lines": 46,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_pipeline_e2e",
+      "path": "tests/unit/sources/uniprot/test_pipeline_e2e.py",
+      "lines": 202,
+      "functions": 13,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.sources.uniprot.test_schema",
+      "path": "tests/unit/sources/uniprot/test_schema.py",
+      "lines": 62,
+      "functions": 1,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.test_api_client",
+      "path": "tests/unit/test_api_client.py",
+      "lines": 1461,
+      "functions": 73,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_chemistry_normalizers",
+      "path": "tests/unit/test_chemistry_normalizers.py",
+      "lines": 99,
+      "functions": 9,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_cli_contract",
+      "path": "tests/unit/test_cli_contract.py",
+      "lines": 684,
+      "functions": 32,
+      "classes": 10
+    },
+    {
+      "module": "tests.unit.test_column_order",
+      "path": "tests/unit/test_column_order.py",
+      "lines": 38,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_column_validator",
+      "path": "tests/unit/test_column_validator.py",
+      "lines": 307,
+      "functions": 13,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_config_loader",
+      "path": "tests/unit/test_config_loader.py",
+      "lines": 724,
+      "functions": 20,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_document_enrichment",
+      "path": "tests/unit/test_document_enrichment.py",
+      "lines": 203,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_document_pipeline_validation",
+      "path": "tests/unit/test_document_pipeline_validation.py",
+      "lines": 361,
+      "functions": 19,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.test_document_schema",
+      "path": "tests/unit/test_document_schema.py",
+      "lines": 34,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_dtype_utils",
+      "path": "tests/unit/test_dtype_utils.py",
+      "lines": 216,
+      "functions": 14,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.test_fallback_utils",
+      "path": "tests/unit/test_fallback_utils.py",
+      "lines": 42,
+      "functions": 4,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.test_fixtures_smoke",
+      "path": "tests/unit/test_fixtures_smoke.py",
+      "lines": 29,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_hashing",
+      "path": "tests/unit/test_hashing.py",
+      "lines": 170,
+      "functions": 14,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.test_identifier_normalizer",
+      "path": "tests/unit/test_identifier_normalizer.py",
+      "lines": 163,
+      "functions": 9,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_inventor",
+      "path": "tests/unit/test_inventory.py",
+      "lines": 69,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_iuphar_pipeline",
+      "path": "tests/unit/test_iuphar_pipeline.py",
+      "lines": 147,
+      "functions": 10,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.test_iuphar_service",
+      "path": "tests/unit/test_iuphar_service.py",
+      "lines": 77,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_json_utils",
+      "path": "tests/unit/test_json_utils.py",
+      "lines": 314,
+      "functions": 26,
+      "classes": 3
+    },
+    {
+      "module": "tests.unit.test_logger",
+      "path": "tests/unit/test_logger.py",
+      "lines": 348,
+      "functions": 16,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.test_materialization_manager",
+      "path": "tests/unit/test_materialization_manager.py",
+      "lines": 81,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_merge_polic",
+      "path": "tests/unit/test_merge_policy.py",
+      "lines": 137,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_numeric_normalizer",
+      "path": "tests/unit/test_numeric_normalizer.py",
+      "lines": 136,
+      "functions": 14,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.test_output_writer",
+      "path": "tests/unit/test_output_writer.py",
+      "lines": 821,
+      "functions": 35,
+      "classes": 5
+    },
+    {
+      "module": "tests.unit.test_pipeline_extract_helper",
+      "path": "tests/unit/test_pipeline_extract_helper.py",
+      "lines": 102,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_pipelines",
+      "path": "tests/unit/test_pipelines.py",
+      "lines": 3028,
+      "functions": 169,
+      "classes": 19
+    },
+    {
+      "module": "tests.unit.test_pubchem_pipeline",
+      "path": "tests/unit/test_pubchem_pipeline.py",
+      "lines": 94,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.test_rate_limiter",
+      "path": "tests/unit/test_rate_limiter.py",
+      "lines": 58,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_target_gold",
+      "path": "tests/unit/test_target_gold.py",
+      "lines": 203,
+      "functions": 7,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.test_unified_schema_facade",
+      "path": "tests/unit/test_unified_schema_facade.py",
+      "lines": 51,
+      "functions": 3,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.test_utils_chembl",
+      "path": "tests/unit/test_utils_chembl.py",
+      "lines": 118,
+      "functions": 12,
+      "classes": 2
+    },
+    {
+      "module": "tests.unit.test_utils_dataframe",
+      "path": "tests/unit/test_utils_dataframe.py",
+      "lines": 135,
+      "functions": 4,
+      "classes": 4
+    },
+    {
+      "module": "tests.unit.test_utils_dtypes",
+      "path": "tests/unit/test_utils_dtypes.py",
+      "lines": 44,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_utils_io",
+      "path": "tests/unit/test_utils_io.py",
+      "lines": 91,
+      "functions": 5,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.test_utils_output",
+      "path": "tests/unit/test_utils_output.py",
+      "lines": 71,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.utils.test_column_constants_properties",
+      "path": "tests/unit/utils/test_column_constants_properties.py",
+      "lines": 36,
+      "functions": 2,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.utils.test_config_coercion",
+      "path": "tests/unit/utils/test_config_coercion.py",
+      "lines": 139,
+      "functions": 7,
+      "classes": 1
+    },
+    {
+      "module": "tests.unit.utils.test_validation_properties",
+      "path": "tests/unit/utils/test_validation_properties.py",
+      "lines": 199,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tests.unit.validation.test_schema_validation",
+      "path": "tests/unit/validation/test_schema_validation.py",
+      "lines": 118,
+      "functions": 9,
+      "classes": 1
+    },
+    {
+      "module": "tools.bioetl.__init__",
+      "path": "tools/bioetl/__init__.py",
+      "lines": 27,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.cachetools.__init__",
+      "path": "tools/cachetools/__init__.py",
+      "lines": 99,
+      "functions": 12,
+      "classes": 1
+    },
+    {
+      "module": "tools.qa.__init__",
+      "path": "tools/qa/__init__.py",
+      "lines": 5,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.qa.analyze_codebase",
+      "path": "tools/qa/analyze_codebase.py",
+      "lines": 576,
+      "functions": 40,
+      "classes": 4
+    },
+    {
+      "module": "tools.qa.check_dependency_matrix",
+      "path": "tools/qa/check_dependency_matrix.py",
+      "lines": 199,
+      "functions": 6,
+      "classes": 0
+    },
+    {
+      "module": "tools.qa.check_module_names",
+      "path": "tools/qa/check_module_names.py",
+      "lines": 116,
+      "functions": 4,
+      "classes": 0
+    },
+    {
+      "module": "tools.qa.check_required_docs",
+      "path": "tools/qa/check_required_docs.py",
+      "lines": 162,
+      "functions": 5,
+      "classes": 1
+    },
+    {
+      "module": "tools.run_activit",
+      "path": "tools/run_activity.py",
+      "lines": 10,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.run_assa",
+      "path": "tools/run_assay.py",
+      "lines": 10,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.run_document",
+      "path": "tools/run_document.py",
+      "lines": 10,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.run_target",
+      "path": "tools/run_target.py",
+      "lines": 328,
+      "functions": 3,
+      "classes": 0
+    },
+    {
+      "module": "tools.run_testitem",
+      "path": "tools/run_testitem.py",
+      "lines": 10,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.__init__",
+      "path": "tools/scripts/__init__.py",
+      "lines": 26,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.fix_all_md",
+      "path": "tools/scripts/fix_all_md.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.fix_markdown_errors",
+      "path": "tools/scripts/fix_markdown_errors.py",
+      "lines": 157,
+      "functions": 7,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.run_crossref",
+      "path": "tools/scripts/run_crossref.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.run_openalex",
+      "path": "tools/scripts/run_openalex.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.run_pubchem",
+      "path": "tools/scripts/run_pubchem.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.run_pubmed",
+      "path": "tools/scripts/run_pubmed.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.run_semantic_scholar",
+      "path": "tools/scripts/run_semantic_scholar.py",
+      "lines": 16,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.test_fix",
+      "path": "tools/scripts/test_fix.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.test_pandera_bool",
+      "path": "tools/scripts/test_pandera_bool.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.scripts.test_validation",
+      "path": "tools/scripts/test_validation.py",
+      "lines": 1,
+      "functions": 0,
+      "classes": 0
+    },
+    {
+      "module": "tools.sitecustomize",
+      "path": "tools/sitecustomize.py",
+      "lines": 12,
+      "functions": 0,
+      "classes": 0
+    }
+  ]
+}
