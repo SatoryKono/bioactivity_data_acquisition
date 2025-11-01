@@ -1,0 +1,13 @@
+nav:
+  - Index: INDEX.md
+  - Requirements:
+      - Architecture Overview: requirements/00-architecture-overview.md
+      - Data Sources and Spec: requirements/03-data-sources-and-spec.md
+  - Pipelines:
+      - Pipeline Contracts: pipelines/PIPELINES.md
+  - Configs:
+      - Config Structure: configs/CONFIGS.md
+  - CLI:
+      - CLI Reference: cli/CLI.md
+  - Quality:
+      - QA & QC: qc/QA_QC.md
