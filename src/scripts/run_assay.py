@@ -3,12 +3,7 @@
 
 from __future__ import annotations
 
-from bioetl.cli.app import create_pipeline_app
-
-app = create_pipeline_app(
-    "assay",
-    "Run assay pipeline to extract and transform assay data",
-)
+from scripts.run_chembl_assay import app  # re-export for backwards compatibility
 
 
 if __name__ == "__main__":

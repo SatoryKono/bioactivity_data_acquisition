@@ -46,7 +46,7 @@ def _resolve_legacy_key(key: str) -> str | None:
 def build_registry() -> dict[str, PipelineCommandConfig]:
     """Construct the default CLI registry mapping names to command configs."""
 
-    return {
+    registry = {
         "activity": build_activity_command(),
         "assay": build_assay_command(),
         "document": build_document_command(),
@@ -60,6 +60,18 @@ def build_registry() -> dict[str, PipelineCommandConfig]:
         "pubmed": build_pubmed_command(),
         "semantic_scholar": build_semantic_scholar_command(),
     }
+
+    registry.update(
+        {
+            "chembl_activity": build_activity_command(pipeline_name="chembl_activity"),
+            "chembl_assay": build_assay_command(pipeline_name="chembl_assay"),
+            "chembl_document": build_document_command(pipeline_name="chembl_document"),
+            "chembl_target": build_target_command(pipeline_name="chembl_target"),
+            "chembl_testitem": build_testitem_command(pipeline_name="chembl_testitem"),
+        }
+    )
+
+    return registry
 
 
 def get_command_config(key: str) -> PipelineCommandConfig:
