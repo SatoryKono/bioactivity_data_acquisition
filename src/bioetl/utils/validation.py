@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     pass
 
 
-def _summarize_schema_errors(failure_cases: pd.DataFrame | None) -> list[dict[str, Any]]:
+def summarize_schema_errors(failure_cases: pd.DataFrame | None) -> list[dict[str, Any]]:
     """Convert Pandera ``failure_cases`` frames into structured issue payloads."""
 
     issues: list[dict[str, Any]] = []
@@ -615,7 +615,7 @@ class ColumnValidator:
 
 
 __all__ = [
-    "_summarize_schema_errors",
+    "summarize_schema_errors",
     "ColumnComparisonResult",
     "ColumnValidator",
 ]

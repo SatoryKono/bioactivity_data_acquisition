@@ -70,9 +70,6 @@ def parse_retry_after(value: float | int | str | None) -> float | None:
             except (TypeError, ValueError):
                 return None
 
-            if parsed is None:
-                return None
-
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=timezone.utc)
 
@@ -214,8 +211,6 @@ class APIConfig:
         for raw_key, raw_value in headers.items():
             if raw_value is None:
                 continue
-            if not isinstance(raw_key, str):
-                raw_key = str(raw_key)
             key = raw_key.strip()
             if not key:
                 raise ValueError("header keys must not be blank")
@@ -513,7 +508,7 @@ class _RequestRetryContext:
             if self.last_response is not None and self.last_response.headers
             else None
         )
-        self.last_retry_after_seconds = self.client._retry_after_seconds(
+        self.last_retry_after_seconds = self.client.retry_after_seconds(
             self.last_response
         )
         self.last_error_text = (
@@ -1034,9 +1029,6 @@ class UnifiedAPIClient:
         normalised: list[str] = []
 
         for strategy in strategies:
-            if not isinstance(strategy, str):
-                continue
-
             candidate = strategy.strip().lower()
             if not candidate or candidate in seen:
                 continue
@@ -1262,7 +1254,7 @@ class UnifiedAPIClient:
         return payload
 
     @staticmethod
-    def _retry_after_seconds(response: requests.Response | None) -> float | None:
+    def retry_after_seconds(response: requests.Response | None) -> float | None:
         """Parse Retry-After header into seconds if possible."""
 
         if response is None or not response.headers:
@@ -1321,7 +1313,7 @@ class UnifiedAPIClient:
         if response.status_code != 429:
             return response
 
-        retry_after_seconds = self._retry_after_seconds(response)
+        retry_after_seconds = self.retry_after_seconds(response)
         retry_after_raw = response.headers.get("Retry-After") if response.headers else None
 
         if context is not None:

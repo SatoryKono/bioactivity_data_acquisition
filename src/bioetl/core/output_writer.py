@@ -866,11 +866,8 @@ class UnifiedOutputWriter:
         additional_paths: dict[str, Path | dict[str, Path]] = {}
         if additional_tables:
             for name, table_spec in additional_tables.items():
-                if table_spec is None:
-                    continue
-
                 table = table_spec.dataframe
-                if table is None or table.empty:
+                if table.empty:
                     continue
 
                 table_relative_path = table_spec.relative_path

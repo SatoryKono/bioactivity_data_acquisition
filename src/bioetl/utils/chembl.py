@@ -19,7 +19,7 @@ __all__ = [
     "ChemblRelease",
     "SupportsRequestJson",
     "fetch_chembl_release",
-    "_resolve_release_name",
+    "resolve_release_name",
 ]
 
 
@@ -85,13 +85,13 @@ def _coerce_release_value(value: Any) -> str | None:
     return str(value).strip() or None
 
 
-def _resolve_release_name(payload: Any) -> str | None:
+def resolve_release_name(payload: Any) -> str | None:
     """Return the first non-empty release identifier from ``payload``."""
 
     if isinstance(payload, Mapping):
         for key in _RELEASE_KEYS:
             if key in payload:
-                candidate = _resolve_release_name(payload[key])
+                candidate = resolve_release_name(payload[key])
                 if candidate:
                     return candidate
         return None
@@ -134,5 +134,5 @@ def fetch_chembl_release(
     else:
         status = api_client.request_json("/status.json")
 
-    version = _resolve_release_name(status)
+    version = resolve_release_name(status)
     return ChemblRelease(version=version, status=status)

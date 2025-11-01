@@ -35,8 +35,8 @@ from bioetl.core.unified_schema import get_schema, get_schema_metadata
 from bioetl.utils.chembl import (
     ChemblRelease,
     SupportsRequestJson,
-    _resolve_release_name,
     fetch_chembl_release,
+    resolve_release_name,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset
@@ -45,7 +45,7 @@ from bioetl.utils.qc import (
     update_summary_section,
     update_validation_issue_summary,
 )
-from bioetl.utils.validation import _summarize_schema_errors
+from bioetl.utils.validation import summarize_schema_errors
 
 logger = UnifiedLogger.get(__name__)
 
@@ -296,7 +296,7 @@ class PipelineBase(ABC):
         version = release.version if isinstance(release.version, str) else None
 
         if not version:
-            version = _resolve_release_name(status)
+            version = resolve_release_name(status)
 
         if version:
             release_date = (
@@ -668,7 +668,7 @@ class PipelineBase(ABC):
             should_fail_flag = bool(should_fail)
 
             failure_cases = getattr(exc, "failure_cases", None)
-            schema_issues = _summarize_schema_errors(failure_cases)
+            schema_issues = summarize_schema_errors(failure_cases)
 
             for issue in schema_issues:
                 self.record_validation_issue(issue)
@@ -1193,8 +1193,10 @@ class PipelineBase(ABC):
         debug_mode = False
 
         if isinstance(cli_options, dict):
-            verbose = bool(cli_options.get("verbose"))
-            debug = bool(cli_options.get("debug"))
+            verbose_val = cli_options.get("verbose")
+            verbose = bool(verbose_val) if verbose_val is not None else False  # type: ignore[arg-type]
+            debug_val = cli_options.get("debug")
+            debug = bool(debug_val) if debug_val is not None else False  # type: ignore[arg-type]
             mode = cli_options.get("mode")
             if isinstance(mode, str):
                 debug_mode = mode.lower() == "debug"

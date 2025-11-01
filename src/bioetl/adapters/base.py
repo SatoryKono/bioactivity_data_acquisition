@@ -3,7 +3,11 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    import structlog
+    from structlog import stdlib
 
 import pandas as pd
 
@@ -60,13 +64,14 @@ class ExternalAdapter(ABC):
     """
 
     DEFAULT_BATCH_SIZE: int | None = 50
+    logger: structlog.stdlib.BoundLogger
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize adapter with API client."""
         self.api_config = api_config
         self.adapter_config = adapter_config
         self.api_client = UnifiedAPIClient(api_config)
-        self.logger = UnifiedLogger.get(self.__class__.__name__)
+        self.logger = cast(stdlib.BoundLogger, UnifiedLogger.get(self.__class__.__name__))
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers (DOI, PMID, etc)."""
@@ -105,7 +110,7 @@ class ExternalAdapter(ABC):
         if not ids:
             return []
 
-        sanitized_ids = [identifier for identifier in ids if isinstance(identifier, str) and identifier]
+        sanitized_ids = [identifier for identifier in ids if identifier]
         filtered = len(ids) - len(sanitized_ids)
 
         if filtered:
@@ -201,7 +206,7 @@ class ExternalAdapter(ABC):
     ) -> pd.DataFrame:
         """Shared workflow for fetching, normalizing, and tabulating records."""
 
-        items_list = list(items) if items is not None else []
+        items_list = list(items)
 
         if not items_list:
             self.logger.info(no_items_event, adapter=self.__class__.__name__)
@@ -220,10 +225,7 @@ class ExternalAdapter(ABC):
             try:
                 normalized = self.normalize_record(raw_record)
             except Exception as exc:  # pragma: no cover - defensive logging
-                if isinstance(raw_record, dict):
-                    record_id = raw_record.get("id", "unknown")
-                else:
-                    record_id = getattr(raw_record, "id", "unknown")
+                record_id = raw_record.get("id", "unknown")
                 self.logger.error(
                     "normalization_failed",
                     adapter=self.__class__.__name__,

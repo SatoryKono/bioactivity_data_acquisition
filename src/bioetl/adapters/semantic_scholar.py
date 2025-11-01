@@ -156,7 +156,7 @@ class SemanticScholarAdapter(ExternalAdapter):
             title_pool.update(mapping.values())
 
         def _collect(frame: pd.DataFrame) -> None:
-            if frame is None or frame.empty:
+            if frame.empty:
                 return
             frames.append(frame)
             if "semantic_scholar_doi" in frame.columns:
