@@ -214,9 +214,9 @@ class ActivityParser:
             "activity_id": activity_id,
             "molecule_chembl_id": molecule_id,
             "assay_chembl_id": assay_chembl_id,
-            "assay_id": assay_numeric_id,
             "target_chembl_id": target_id,
             "document_chembl_id": document_id,
+             #
             "published_type": published_type,
             "published_relation": published_relation,
             "published_value": published_value,
@@ -240,10 +240,7 @@ class ActivityParser:
             "target_tax_id": target_tax_id,
             "activity_properties": properties_str,
             "compound_key": compound_key,
-            "is_citation": is_citation,
-            "high_citation_rate": high_citation_rate,
-            "exact_data_citation": exact_citation,
-            "rounded_data_citation": rounded_citation,
+             #
             "potential_duplicate": potential_duplicate,
             "uo_units": uo_units,
             "qudt_units": qudt_units,

@@ -319,6 +319,24 @@ class PipelineBase(ABC):
         logger.warning("chembl_version_not_in_status_response")
         return ChemblRelease(version=None, status=status)
 
+    def _get_chembl_release_version(
+        self,
+        api_client: SupportsRequestJson | str | None,
+    ) -> str | None:
+        """Get ChEMBL release version string.
+        
+        Convenience method that returns only the version string.
+        For full release info with status, use _fetch_chembl_release_info.
+        
+        Args:
+            api_client: ChEMBL API client instance
+        
+        Returns:
+            Version string (e.g., 'ChEMBL_36') or None
+        """
+        release = self._fetch_chembl_release_info(api_client)
+        return release.version
+
     def set_stage_summary(self, name: str, status: str, **details: Any) -> None:
         """Record the execution summary for an enrichment stage."""
 

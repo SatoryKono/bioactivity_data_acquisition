@@ -193,7 +193,10 @@ class ActivityPipeline(PipelineBase):
         return record
 
     def _get_chembl_release(self) -> str | None:
-        """Get ChEMBL database release version from the status endpoint."""
+        """Get ChEMBL database release version from the status endpoint.
+        
+        Additionally captures status snapshot for ActivityPipeline-specific use.
+        """
 
         release = self._fetch_chembl_release_info(self.api_client)  # type: ignore[arg-type]
         status = release.status

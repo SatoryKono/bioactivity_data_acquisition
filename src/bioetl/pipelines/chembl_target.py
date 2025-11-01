@@ -198,7 +198,7 @@ class TargetPipeline(PipelineBase):
         self.api_client = self.chembl_client
 
         self.batch_size = client_manager.batch_size
-        self._chembl_release = self._get_chembl_release() if self.chembl_client else None
+        self._chembl_release = self._get_chembl_release_version(self.chembl_client) if self.chembl_client else None
 
         self.gold_targets: pd.DataFrame = pd.DataFrame()
         self.gold_components: pd.DataFrame = pd.DataFrame()
@@ -242,11 +242,6 @@ class TargetPipeline(PipelineBase):
             details=details,
         )
 
-    def _get_chembl_release(self) -> str | None:
-        """Fetch the ChEMBL database release identifier."""
-
-        release = self._fetch_chembl_release_info(self.chembl_client)
-        return release.version
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract target data from input file."""

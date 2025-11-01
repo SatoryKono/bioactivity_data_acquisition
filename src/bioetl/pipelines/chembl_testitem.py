@@ -285,7 +285,7 @@ class TestItemPipeline(PipelineBase):
         self._init_external_adapters()
 
         # Cache ChEMBL release version
-        self._chembl_release = self._get_chembl_release()
+        self._chembl_release = self._get_chembl_release_version(self.api_client)
         self._molecule_cache: dict[str, dict[str, Any]] = {}
         self._fallback_builder = FallbackRecordBuilder(
             business_columns=tuple(self._expected_columns()),
@@ -352,18 +352,6 @@ class TestItemPipeline(PipelineBase):
 
         return pd.DataFrame(records)
 
-    def _get_chembl_release(self) -> str | None:
-        """Get ChEMBL database release version from status endpoint.
-
-        Returns:
-            Version string (e.g., 'ChEMBL_36') or None
-        """
-        from bioetl.utils.chembl import SupportsRequestJson
-
-        # Type cast to satisfy protocol compatibility
-        client: SupportsRequestJson = cast(SupportsRequestJson, self.api_client)
-        release = self._fetch_chembl_release_info(client)
-        return release.version
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform molecule data with hash generation."""

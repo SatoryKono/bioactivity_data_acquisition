@@ -10,6 +10,5 @@ app = create_pipeline_app(
     "Run chembl_activity pipeline to extract and transform activity data",
 )
 
-
 if __name__ == "__main__":
     app()
