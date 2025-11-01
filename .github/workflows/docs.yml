@@ -49,6 +49,10 @@ jobs:
             mkdocstrings[python] \
             mkdocs-mermaid2-plugin \
             mkdocs-table-reader-plugin
+      - name: Validate module naming
+        run: python -m tools.qa.check_module_names
+      - name: Enforce dependency matrix
+        run: python -m tools.qa.check_dependency_matrix
       - name: Build site
         run: mkdocs build --strict
       - name: Upload artifact
