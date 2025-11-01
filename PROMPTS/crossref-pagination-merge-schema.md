@@ -7,6 +7,7 @@
 **Статус:** ⚠️ **ЧАСТИЧНО РЕАЛИЗОВАНО** (базовая структура есть, опциональные модули отсутствуют)
 
 **Ссылки:**
+
 - `refactoring/MODULE_RULES.md` (строки 24-28): Опциональные подпапки (SHOULD): `schema/`, `merge/`, `pagination/`
 - `refactoring/AUDIT_REPORT_2025.md` (строка 1074): "Crossref: ✅ Базовая структура, ⚠️ Нет pagination/, merge/, schema/"
 - `refactoring/DATA_SOURCES.md` (строки 157-176): Требования к Crossref источнику
@@ -30,6 +31,7 @@ src/bioetl/sources/crossref/
 ```
 
 **Отсутствует:**
+
 - `pagination/` - стратегии пагинации для Crossref API
 - `merge/` - политика объединения с document pipeline
 - `schema/` - Pandera схемы для валидации Crossref данных
@@ -41,17 +43,20 @@ src/bioetl/sources/crossref/
 **Источник:** `docs/requirements/09-document-chembl-extraction.md` (строки 1104-1286)
 
 **Pagination:**
+
 - Crossref поддерживает cursor-based pagination для больших списков
 - API возвращает `next-cursor` в заголовках или в JSON ответе
 - Поддерживает фильтры и фасеты
 - Rate limit: ~50 запросов/секунду (Public Pool) или выше с mailto (Polite Pool)
 
 **Merge Policy:**
+
 - Join по `doi_clean` (нормализованный DOI)
 - Приоритет Crossref для библиографических метаданных
 - Используется в document pipeline для обогащения ChEMBL документов
 
 **Schema:**
+
 - Документы Crossref включают: DOI, title, authors, journal, year, ISSN, publisher, subject, doc_type
 - Нормализация: DOI, ORCID, ISSN (print vs electronic), даты публикации
 
@@ -225,10 +230,12 @@ def merge_crossref_with_base(
         Merged dataframe with Crossref data prefixed as 'crossref_*'
 
     Strategy:
+
         - Join on normalized DOI (doi_clean)
         - Prefix all Crossref columns with 'crossref_'
         - Preserve source metadata for conflict detection
         - Prefer Crossref values for bibliographic metadata
+
     """
     if crossref_df.empty:
         return base_df.copy()
@@ -307,10 +314,13 @@ def _detect_crossref_conflicts(
 Обновить `src/bioetl/sources/document/merge/policy.py` для использования Crossref merge:
 
 ```python
+
 # Добавить импорт
+
 from bioetl.sources.crossref.merge import merge_crossref_with_base, CROSSREF_MERGE_KEYS
 
 # Использовать в merge_with_precedence
+
 if crossref_df is not None and not crossref_df.empty:
     merged_df = merge_crossref_with_base(
         merged_df,

@@ -267,41 +267,8 @@ def run_enrichment_requests(
 
     workers = min(4, len(adapters)) or 1
     futures: dict[str, Any] = {}
+    results: dict[str, Any] = {}
 
-<<<<<<< HEAD
-        adapter_inputs: dict[str, dict[str, Sequence[str] | list[Mapping[str, str]]]] = {
-            "pubmed": {
-                "pmids": pmid_list,
-                "dois": doi_list,
-                "titles": title_list,
-                "records": record_list,
-            },
-            "crossref": {
-                "pmids": pmid_list,
-                "dois": doi_list,
-                "titles": title_list,
-                "records": record_list,
-            },
-            "openalex": {
-                "pmids": pmid_list,
-                "dois": doi_list,
-                "titles": title_list,
-                "records": record_list,
-            },
-            "semantic_scholar": {
-                "pmids": pmid_list,
-                "dois": doi_list,
-                "titles": title_list,
-                "records": record_list,
-            },
-        }
-
-        for source, adapter in adapters.items():
-            inputs = adapter_inputs.get(source)
-            if inputs is None:
-                continue
-            futures[source] = executor.submit(_dispatch_adapter, adapter, inputs)
-=======
     with ThreadPoolExecutor(max_workers=workers) as executor:
         if "pubmed" in adapters and pmids:
             _submit("pubmed", "process", pmids, executor)
@@ -327,7 +294,6 @@ def run_enrichment_requests(
                     adapters["semantic_scholar"].process_titles,
                     requested["semantic_scholar"]["ids"],
                 )
->>>>>>> origin/codex/enhance-enrichment-request-handling
 
         for source, future in futures.items():
             try:

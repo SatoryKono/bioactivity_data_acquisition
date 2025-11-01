@@ -7,6 +7,7 @@
 **Статус:** ❌ **НЕ ИСПРАВЛЕНО** (P1-5)
 
 **Ссылки:**
+
 - `refactoring/ACCEPTANCE_CRITERIA.md` (строка 17): "Два подряд запуска одного пайплайна на одинаковом входе формируют бит-идентичные артефакты (CSV/Parquet/JSON) при одинаковых конфигурациях окружения"
 - `refactoring/ACCEPTANCE_CRITERIA.md` (строка 57): "Golden-снимки обновлены детерминированно единым helper'ом"
 - `refactoring/AUDIT_REPORT_2025.md` (строка 993): "Golden-тесты есть, но нет автоматической проверки бит-идентичности"
@@ -66,6 +67,7 @@ assert metadata["file_checksums"] == expected_checksums
 ### 1. Автоматическая проверка бит-идентичности
 
 **Требования:**
+
 - Тест запускает пайплайн дважды с одинаковым входом и конфигурацией
 - Сравнивает output файлы (CSV/Parquet/JSON) бит-в-бит
 - Проверяет что хэши файлов идентичны (SHA256)
@@ -76,6 +78,7 @@ assert metadata["file_checksums"] == expected_checksums
 ### 2. Golden файлы helper
 
 **Требования:**
+
 - Единый helper для обновления golden файлов
 - Детерминированная генерация golden файлов
 - Валидация что golden файлы соответствуют ожидаемым хэшам
@@ -86,6 +89,7 @@ assert metadata["file_checksums"] == expected_checksums
 ### 3. Интеграция с существующими тестами
 
 **Расширить существующие golden тесты:**
+
 - `tests/golden/test_cli_golden.py` — добавить проверку бит-идентичности между запусками
 - `tests/integration/pipelines/test_extended_mode_outputs.py` — добавить проверку детерминизма артефактов
 
@@ -215,6 +219,7 @@ def normalize_meta_yaml_for_comparison(path: Path) -> dict[str, Any]:
     """Load meta.yaml and normalize time fields for comparison.
 
     Removes or normalizes fields that may differ between runs:
+
     - generated_at
     - extracted_at (если отличается только время)
     - run_id (может отличаться)
@@ -448,6 +453,7 @@ def frozen_time(monkeypatch):
 ### 4. Интеграция с CI
 
 **Добавить в CI workflow:**
+
 - Запуск determinism тестов в отдельной job или после основных тестов
 - Проверка что golden файлы не изменяются без явного обновления
 - Автоматическое обновление golden файлов только через специальный флаг
@@ -455,6 +461,7 @@ def frozen_time(monkeypatch):
 ### 5. Документация
 
 **Обновить:**
+
 - `docs/TESTING.md` — добавить раздел о бит-идентичности
 - `README.md` — упомянуть determinism тесты
 - `CHANGELOG.md` — при обновлении golden файлов
@@ -473,15 +480,18 @@ def frozen_time(monkeypatch):
 ## Приоритеты реализации
 
 **Приоритет 1:**
+
 - Helper функции для проверки бит-идентичности
 - Общий интеграционный тест
 - Тесты для activity и assay пайплайнов
 
 **Приоритет 2:**
+
 - Тесты для document, target, testitem пайплайнов
 - Интеграция с существующими golden тестами
 
 **Приоритет 3:**
+
 - Механизм автоматического обновления golden файлов
 - Документация и примеры использования
 

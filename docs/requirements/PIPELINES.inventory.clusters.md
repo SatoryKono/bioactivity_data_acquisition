@@ -3,9 +3,11 @@
 Generated on 2025-10-31T15:43:57+00:00
 
 ## Cluster 1
+
 Cluster size: 320
 responsibility: primary=tests (99/320); top sources: tests=99, document=28, uniprot=22, iuphar=18, testitem=15, others=138
 divergence points: config_keys, dependencies, io_logging, public_api, schemas
+
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
 - src/bioetl/adapters/crossref.py (source: adapters)
@@ -326,14 +328,17 @@ divergence points: config_keys, dependencies, io_logging, public_api, schemas
 - tests/unit/utils/test_config_coercion.py (source: tests)
 - tests/unit/utils/test_validation_properties.py (source: tests)
 - tests/unit/validation/test_schema_validation.py (source: tests)
+
 common n-grams: —
 common imports: —
 avg jaccard=0.00; avg import overlap=0.14
 
 ## Cluster 2
+
 Cluster size: 8
 responsibility: primary=activity (1/8); top sources: activity=1, assay=1, document=1, target=1, testitem=1, others=3
 divergence points: config_keys, dependencies, public_api
+
 - src/bioetl/sources/chembl/activity/__init__.py (source: activity)
 - src/bioetl/sources/chembl/assay/__init__.py (source: assay)
 - src/bioetl/sources/chembl/document/__init__.py (source: document)
@@ -342,48 +347,61 @@ divergence points: config_keys, dependencies, public_api
 - src/bioetl/sources/iuphar/__init__.py (source: iuphar)
 - src/bioetl/sources/pubchem/__init__.py (source: pubchem)
 - src/bioetl/sources/uniprot/__init__.py (source: uniprot)
+
 common n-grams: —
 common imports: .pipeline
 avg jaccard=0.00; avg import overlap=0.72
 
 ## Cluster 3
+
 Cluster size: 4
 responsibility: primary=request (3/4); top sources: request=3, uniprot=1
 divergence points: public_api
+
 - src/bioetl/sources/crossref/request/__init__.py (source: request)
 - src/bioetl/sources/openalex/request/__init__.py (source: request)
 - src/bioetl/sources/pubmed/request/__init__.py (source: request)
 - src/bioetl/sources/uniprot/request/__init__.py (source: uniprot)
+
 common n-grams: —
 common imports: .builder
 avg jaccard=0.00; avg import overlap=1.00
 
 ## Cluster 4
+
 Cluster size: 2
 responsibility: primary=document (1/2); top sources: document=1, target=1
 divergence points: config_keys, public_api
+
 - src/bioetl/sources/chembl/document/merge/__init__.py (source: document)
 - src/bioetl/sources/chembl/target/normalizer/__init__.py (source: target)
+
 common n-grams: —
 common imports: .enrichment
 avg jaccard=0.00; avg import overlap=1.00
 
 ## Cluster 5
+
 Cluster size: 2
 responsibility: primary=testitem (2/2); top sources: testitem=2
 divergence points: io_logging, public_api
+
 - src/bioetl/sources/chembl/testitem/normalizer/__init__.py (source: testitem)
 - src/bioetl/sources/chembl/testitem/output/__init__.py (source: testitem)
+
 common n-grams: —
 common imports: .dataframe
 avg jaccard=0.00; avg import overlap=1.00
 
 ## Cluster 6
+
 Cluster size: 2
 responsibility: primary=testitem (1/2); top sources: testitem=1, common=1
 divergence points: public_api
+
 - src/bioetl/sources/chembl/testitem/request/__init__.py (source: testitem)
 - src/bioetl/sources/common/__init__.py (source: common)
+
 common n-grams: —
 common imports: .request
 avg jaccard=0.00; avg import overlap=1.00

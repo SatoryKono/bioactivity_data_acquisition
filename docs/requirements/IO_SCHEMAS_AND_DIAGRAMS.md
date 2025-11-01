@@ -73,6 +73,7 @@ schema:
 ```
 
   column_order:
+
     - index
     - hash_row
     - hash_business_key
@@ -143,6 +144,7 @@ schema:
     - variant_mutation
     - variant_sequence
     - variant_accession_reported
+
   fields:
 
 ```text
@@ -874,6 +876,7 @@ schema:
 ```
 
   column_order:
+
     - index
     - hash_row
     - hash_business_key
@@ -931,6 +934,7 @@ schema:
     - fallback_retry_after_sec
     - fallback_attempt
     - fallback_timestamp
+
   fields:
 
 ```text
@@ -2011,6 +2015,7 @@ schema:
   primary_key: [document_chembl_id]
   foreign_keys: []
   column_order:
+
     - index
     - hash_row
     - hash_business_key
@@ -2135,6 +2140,7 @@ schema:
     - fallback_retry_after_sec
     - fallback_attempt
     - fallback_timestamp
+
   fields:
 
 ```text

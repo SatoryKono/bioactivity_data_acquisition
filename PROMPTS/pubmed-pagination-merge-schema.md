@@ -7,6 +7,7 @@
 **Статус:** ⚠️ **ЧАСТИЧНО РЕАЛИЗОВАНО** (базовая структура есть, опциональные модули отсутствуют)
 
 **Ссылки:**
+
 - `refactoring/MODULE_RULES.md` (строки 24-28): Опциональные подпапки
 - `refactoring/AUDIT_REPORT_2025.md` (строка 1076): "PubMed: ⚠️ Нет pagination/, merge/, schema/"
 - `refactoring/DATA_SOURCES.md` (строки 178-197): Требования к PubMed источнику
@@ -36,17 +37,20 @@ src/bioetl/sources/pubmed/
 **Источник:** `docs/requirements/09-document-chembl-extraction.md` (строки 178-1102)
 
 **Pagination:**
+
 - PubMed использует двухэтапный процесс: `esearch` → `efetch`
 - `esearch` возвращает WebEnv и QueryKey для batch получения
 - Нет традиционной пагинации; используется WebEnv/QueryKey для больших наборов
 - Batch size ограничен (до 10,000 IDs за раз для efetch)
 
 **Merge Policy:**
+
 - Join по `pmid` (PubMed ID)
 - Приоритет PubMed для библиографических метаданных (title, abstract, journal)
 - Fallback на DOI для случаев когда PMID отсутствует
 
 **Schema:**
+
 - Документы PubMed включают: PMID, title, abstract, authors, journal, year, volume, issue, pages, MeSH terms, chemicals
 - Нормализация: PMID (integer), DOI, ISSN, даты публикации, MeSH descriptors
 
@@ -73,6 +77,7 @@ class WebEnvPaginator:
     """Paginator for PubMed E-utilities using WebEnv/QueryKey pattern.
 
     PubMed uses a two-step process:
+
     1. esearch: Get WebEnv and QueryKey for a search query
     2. efetch: Fetch records using WebEnv/QueryKey in batches
 
@@ -98,9 +103,11 @@ class WebEnvPaginator:
             List of PubMed records
 
         Process:
+
             1. Call esearch to get WebEnv and QueryKey
             2. Call efetch in batches using WebEnv/QueryKey
             3. Parse and return all records
+
         """
         from bioetl.sources.pubmed.parser import parse_esearch_response, parse_efetch_response
 
@@ -194,10 +201,12 @@ def merge_pubmed_with_base(
         Merged dataframe with PubMed data prefixed as 'pubmed_*'
 
     Strategy:
+
         - Primary join on PMID (integer)
         - Fallback join on DOI if PMID missing
         - Prefix all PubMed columns with 'pubmed_'
         - Preserve source metadata for conflict detection
+
     """
     if pubmed_df.empty:
         return base_df.copy()
@@ -403,6 +412,7 @@ class PubMedNormalizedSchema(BaseSchema):
 ## Тесты
 
 Создать тесты аналогично Crossref:
+
 - `tests/sources/pubmed/test_pagination.py`
 - `tests/sources/pubmed/test_merge.py`
 - `tests/sources/pubmed/test_schema.py`

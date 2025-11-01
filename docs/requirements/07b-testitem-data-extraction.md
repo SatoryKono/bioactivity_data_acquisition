@@ -831,6 +831,7 @@ def resolve_pubchem_cid(
     Каскадный поиск PubChem CID с кэшированием.
 
     Порядок попыток (от самого быстрого к самому медленному):
+
     1. Cache lookup (проект 2 - мгновенно)
     2. Прямой pubchem_cid из данных (уже известен)
     3. ChEMBL cross-references (xref_sources)
@@ -1612,6 +1613,7 @@ class PubChemEnricher:
         Enrich molecules DataFrame with PubChem data.
 
         Algorithm:
+
         1. Filter: skip already enriched molecules
         2. CID resolution (parallel) with caching
         3. Batch properties fetch

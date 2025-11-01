@@ -587,11 +587,13 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     Canonical serialization for deterministic hashing.
 
     Rules:
+
     1. JSON with sort_keys=True, separators=(',', ':')
     2. ISO8601 UTC for all datetimes
     3. Float format: %.6f
     4. Empty/None values: "" (empty string)
     5. Column order: строго по column_order
+
     """
 
     canonical = {}

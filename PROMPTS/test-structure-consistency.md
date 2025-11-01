@@ -3,6 +3,7 @@
 ## Контекст задачи
 
 **Проблема:** Документы требуют `tests/sources/<source>/` для всех источников, но фактическая структура:
+
 - `tests/sources/` существует для адаптеров (crossref, pubmed, openalex, semantic_scholar, document, iuphar, uniprot, chembl, pubchem)
 - `tests/integration/pipelines/` для E2E тестов пайплайнов
 - `tests/unit/` для unit-тестов компонентов
@@ -10,6 +11,7 @@
 **Статус:** ❌ **НЕ ИСПРАВЛЕНО** (P0-3)
 
 **Ссылки:**
+
 - `refactoring/AUDIT_PLAN_REPORT_2025.md` (строка 115): "Противоречие в структуре тестов"
 - `refactoring/MODULE_RULES.md` (строка 39): Требует `tests/sources/<source>/` с `test_client.py`, `test_parser.py`, `test_normalizer.py`, `test_schema.py`, `test_pipeline_e2e.py`
 - `refactoring/PIPELINES.md` (строка 191): Ссылается на `tests/sources/<source>/`
@@ -20,6 +22,7 @@
 ### Существующая структура `tests/sources/`
 
 **Источники с полным набором тестов:**
+
 - `tests/sources/crossref/` — test_client.py, test_parser.py, test_normalizer.py, test_schema.py, test_pipeline_e2e.py, test_pagination.py, test_merge.py
 - `tests/sources/pubmed/` — test_client.py, test_parser.py, test_normalizer.py, test_schema.py, test_pipeline_e2e.py, test_pagination.py, test_merge.py
 - `tests/sources/openalex/` — test_client.py, test_parser.py, test_normalizer.py, test_schema.py, test_pipeline_e2e.py, test_pagination.py, test_merge.py
@@ -31,12 +34,14 @@
 - `tests/sources/pubchem/` — test_client.py, test_parser.py, test_normalizer.py, test_schema.py (⚠️ отсутствует test_pipeline_e2e.py)
 
 **Источники, требующие проверки:**
+
 - Проверить наличие всех 5 обязательных тестов для каждого источника
 - Проверить покрытие тестами всех модулей из `src/bioetl/sources/<source>/`
 
 ### Другие структуры тестов
 
 **`tests/integration/pipelines/`:**
+
 - `test_activity_pipeline.py` — E2E тесты Activity пайплайна
 - `test_bit_identical_output.py` — проверка бит-идентичности
 - `test_enrichment_stages.py` — тесты обогащения
@@ -45,6 +50,7 @@
 - `test_document_pipeline_merge_policy.py` — тесты политики слияния
 
 **`tests/unit/`:**
+
 - Unit-тесты для компонентов core/
 - Unit-тесты для отдельных модулей
 
@@ -53,12 +59,14 @@
 **Приоритет:** Высокий (соответствует MODULE_RULES.md)
 
 **Преимущества:**
+
 - Полностью соответствует `MODULE_RULES.md` (правильная организация)
 - Унифицирует структуру тестов для всех источников
 - Упрощает навигацию и поддержку тестов
 - Следует принципу "одно место для одного типа тестов"
 
 **Недостатки:**
+
 - Требует реорганизации существующих тестов
 - Требует проверки всех источников на полноту тестов
 - Требует обновления документации
@@ -68,6 +76,7 @@
 ### Этап 1: Инвентаризация текущих тестов (1-2 часа)
 
 **Задачи:**
+
 1. Проверить наличие всех обязательных тестов для каждого источника:
    - `test_client.py` — тесты клиента API
    - `test_parser.py` — тесты парсера
@@ -81,12 +90,14 @@
 3. Составить список источников с недостающими тестами
 
 **Ожидаемый результат:**
+
 - Таблица соответствия: источник → наличие тестов → статус
 - Список недостающих тестов для каждого источника
 
 ### Этап 2: Создание недостающих тестов (4-8 часов)
 
 **Задачи:**
+
 1. Для источников без `test_pipeline_e2e.py`:
    - Создать E2E тесты пайплайна
    - Перенести соответствующие тесты из `tests/integration/pipelines/`, если применимо
@@ -98,12 +109,14 @@
    - Создать тесты для опциональных модулей (pagination, merge, request), если они используются
 
 **Ожидаемый результат:**
+
 - Все источники имеют полный набор обязательных тестов
 - Все тесты следуют единому стилю и структуре
 
 ### Этап 3: Реорганизация тестов из tests/integration/pipelines/ (2-4 часа)
 
 **Задачи:**
+
 1. Анализ тестов в `tests/integration/pipelines/`:
    - Определить, какие тесты относятся к конкретным источникам
    - Определить, какие тесты являются общими (core компоненты, интеграция нескольких источников)
@@ -116,6 +129,7 @@
    - Тесты бит-идентичности → оставить в `tests/integration/pipelines/golden/` или создать `tests/golden/`
 
 **Ожидаемый результат:**
+
 - Тесты источников перенесены в `tests/sources/<source>/`
 - Общие тесты остаются в `tests/integration/` или `tests/unit/`
 - Структура тестов соответствует `MODULE_RULES.md`
@@ -123,6 +137,7 @@
 ### Этап 4: Обновление документации (1-2 часа)
 
 **Задачи:**
+
 1. Обновить `refactoring/MODULE_RULES.md`:
    - Уточнить структуру тестов: `tests/sources/<source>/` для тестов источников
    - Указать, что `tests/integration/pipelines/` — для общих E2E тестов
@@ -135,28 +150,35 @@
    - Указать статус реорганизации тестов (✅ завершено)
 
 **Ожидаемый результат:**
+
 - Документация синхронизирована с фактической структурой тестов
 - Все ссылки на тесты актуальны
 
 ### Этап 5: Валидация и проверка (1-2 часа)
 
 **Задачи:**
+
 1. Запустить все тесты:
+
    ```bash
    pytest tests/sources/ -v
    pytest tests/integration/ -v
    pytest tests/unit/ -v
    ```
+
 2. Проверить покрытие тестами:
+
    ```bash
    pytest --cov=src/bioetl/sources --cov-report=term-missing tests/sources/
    ```
+
 3. Проверить соответствие структуры `MODULE_RULES.md`:
    - Все источники имеют `tests/sources/<source>/`
    - Все источники имеют обязательные тесты
    - Нет дублирования тестов между `tests/sources/` и `tests/integration/`
 
 **Ожидаемый результат:**
+
 - Все тесты проходят
 - Покрытие тестами соответствует требованиям
 - Структура тестов соответствует `MODULE_RULES.md`
@@ -255,10 +277,12 @@ tests/
 ### Пример 1: Перенос E2E тестов Document пайплайна
 
 **До:**
+
 - `tests/integration/test_document_pipeline_enrichment.py` — тесты обогащения Document пайплайна
 - `tests/integration/test_document_pipeline_merge_policy.py` — тесты политики слияния
 
 **После:**
+
 - `tests/sources/document/test_pipeline_e2e.py` — включает тесты обогащения и политики слияния
 - Или разделить на:
   - `tests/sources/document/test_pipeline_e2e.py` — базовые E2E тесты
@@ -306,11 +330,13 @@ def test_pipeline_e2e_export(mock_pubchem_data, tmp_path):
 Определить, какие тесты из `tests/integration/pipelines/` являются общими и должны остаться там.
 
 **Тесты, которые остаются в `tests/integration/pipelines/`:**
+
 - `test_bit_identical_output.py` — проверка бит-идентичности (общая для всех пайплайнов)
 - `test_enrichment_stages.py` — тесты этапов обогащения (общие для нескольких пайплайнов)
 - `test_extended_mode_outputs.py` — тесты расширенного режима (общие для всех пайплайнов)
 
 **Тесты, которые переносятся в `tests/sources/<source>/`:**
+
 - `test_document_pipeline_enrichment.py` → `tests/sources/document/test_pipeline_e2e.py`
 - `test_document_pipeline_merge_policy.py` → `tests/sources/document/test_merge.py` (или включить в test_pipeline_e2e.py)
 
@@ -319,6 +345,7 @@ def test_pipeline_e2e_export(mock_pubchem_data, tmp_path):
 ### Риск 1: Потеря тестов при реорганизации
 
 **Митигация:**
+
 - Составить полный список тестов перед реорганизацией
 - Запускать тесты после каждого этапа миграции
 - Использовать git для отслеживания изменений
@@ -326,6 +353,7 @@ def test_pipeline_e2e_export(mock_pubchem_data, tmp_path):
 ### Риск 2: Конфликты импортов
 
 **Митигация:**
+
 - Обновлять импорты постепенно
 - Использовать относительные импорты где возможно
 - Проверять импорты после каждого изменения
@@ -333,6 +361,7 @@ def test_pipeline_e2e_export(mock_pubchem_data, tmp_path):
 ### Риск 3: Дублирование тестов
 
 **Митигация:**
+
 - Четко разделить тесты источников и общие тесты
 - Удалять тесты из старых мест после переноса
 - Проверять отсутствие дублирования перед завершением

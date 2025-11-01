@@ -1,6 +1,7 @@
 # relocated-notes
 
 Материал перенесён в актуальную документацию:
+
 - [docs/INDEX.md](../docs/INDEX.md)
 - [docs/requirements/00-architecture-overview.md](../docs/requirements/00-architecture-overview.md)
 - [docs/requirements/03-data-sources-and-spec.md](../docs/requirements/03-data-sources-and-spec.md)

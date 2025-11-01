@@ -7,6 +7,7 @@
 **Статус:** ⚠️ **ЧАСТИЧНО РЕАЛИЗОВАНО** (базовая структура есть, опциональные модули отсутствуют)
 
 **Ссылки:**
+
 - `refactoring/MODULE_RULES.md` (строки 24-28): Опциональные подпапки (SHOULD): `schema/`, `merge/`, `pagination/`
 - `refactoring/AUDIT_REPORT_2025.md` (строка 1075): "OpenAlex: ✅ Базовая структура, ⚠️ Нет pagination/, merge/, schema/"
 - `refactoring/DATA_SOURCES.md` (строки 199-217): Требования к OpenAlex источнику
@@ -30,6 +31,7 @@ src/bioetl/sources/openalex/
 ```
 
 **Отсутствует:**
+
 - `pagination/` - стратегии пагинации для OpenAlex API
 - `merge/` - политика объединения с document pipeline
 - `schema/` - Pandera схемы для валидации OpenAlex данных
@@ -41,17 +43,20 @@ src/bioetl/sources/openalex/
 **Источник:** `docs/requirements/09-document-chembl-extraction.md` (строки 1287-1456)
 
 **Pagination:**
+
 - OpenAlex использует cursor-based pagination через параметр `cursor` в URL
 - API возвращает `meta.next_cursor` в ответе для продолжения
 - Rate limit: "polite pool" с указанием email в заголовках (более высокие лимиты)
 - Поддерживает фильтры и сортировку
 
 **Merge Policy:**
+
 - Join по `doi_clean` (нормализованный DOI) с fallback на OpenAlex ID
 - Приоритет OpenAlex для библиографических метаданных
 - Используется в document pipeline для обогащения ChEMBL документов
 
 **Schema:**
+
 - Документы OpenAlex включают: OpenAlex ID, DOI, title, authors, journal, year, open_access, concepts, venue
 - Нормализация: OpenAlex ID, DOI, PMID (если есть), даты публикации, ISSN, OA статус, concepts (топ-3)
 
@@ -235,11 +240,13 @@ def merge_openalex_with_base(
         Merged dataframe with OpenAlex data prefixed as 'openalex_*'
 
     Strategy:
+
         - Primary join on normalized DOI (doi_clean)
         - Fallback join on OpenAlex ID if DOI missing
         - Prefix all OpenAlex columns with 'openalex_'
         - Preserve source metadata for conflict detection
         - Prefer OpenAlex values for bibliographic metadata
+
     """
     if openalex_df.empty:
         return base_df.copy()

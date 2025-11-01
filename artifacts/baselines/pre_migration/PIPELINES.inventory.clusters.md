@@ -3,7 +3,9 @@
 Generated on 2025-10-31T06:31:21+00:00
 
 ## Cluster 1
+
 Cluster size: 130
+
 - src/bioetl/adapters/_normalizer_helpers.py (source: adapters)
 - src/bioetl/adapters/base.py (source: base)
 - src/bioetl/adapters/crossref.py (source: adapters)
@@ -134,6 +136,7 @@ Cluster size: 130
 - tests/unit/test_utils_output.py (source: tests)
 - tests/unit/utils/test_config_coercion.py (source: tests)
 - tests/unit/validation/test_schema_validation.py (source: tests)
+
 common n-grams: —
 common imports: —
 avg jaccard=0.01; avg import overlap=0.11

@@ -7,6 +7,7 @@
 **Статус:** ❌ **НЕ ИСПРАВЛЕНО** (P0-1)
 
 **Ссылки:**
+
 - `refactoring/AUDIT_REPORT_2025.md` (строка 390): "P0-1: ChEMBL пайплайны дублируются между `pipelines/` и `sources/chembl/`"
 - `refactoring/MODULE_RULES.md` (строка 18): Структура `src/bioetl/sources/<source>/` — правильная организация для внешних источников
 - `refactoring/PUBCHEM_MIGRATION_PLAN.md`: Референс для миграции PubChem из монолитных файлов в модульную структуру
@@ -14,6 +15,7 @@
 ## Текущая ситуация
 
 ### Монолитные файлы в `src/bioetl/pipelines/`
+
 - `activity.py` - ActivityPipeline (монолитная реализация)
 - `assay.py` - AssayPipeline (монолитная реализация)
 - `target.py` - TargetPipeline (монолитная реализация)
@@ -21,6 +23,7 @@
 - `document.py` - DocumentPipeline (монолитная реализация)
 
 ### Прокси файлы в `src/bioetl/sources/chembl/`
+
 - `activity/pipeline.py` - прокси к `ActivityPipeline` из `pipelines/activity.py`
 - `assay/pipeline.py` - прокси к `AssayPipeline` из `pipelines/assay.py`
 - `target/pipeline.py` - прокси к `TargetPipeline` из `pipelines/target.py`
@@ -36,6 +39,7 @@
 **Приоритет:** Высокий (рекомендуется согласно MODULE_RULES.md)
 
 **Преимущества:**
+
 - Устраняет дублирование полностью
 - Соответствует MODULE_RULES.md (правильная организация)
 - Унифицирует структуру всех источников
@@ -43,6 +47,7 @@
 - Следует паттерну миграции PubChem (PUBCHEM_MIGRATION_PLAN.md)
 
 **Недостатки:**
+
 - Требует значительного рефакторинга
 - Требует обновления всех импортов в кодовой базе
 - Требует обновления тестов и документации
@@ -55,7 +60,9 @@
    - Идентифицировать общие компоненты и специфичные для entity
 
 2. **Подготовка модульной структуры**
+
    Для каждого entity (activity, assay, target, testitem, document):
+
    - Убедиться что структура `src/bioetl/sources/chembl/<entity>/` соответствует MODULE_RULES.md:
      - `client/` - HTTP клиент для ChEMBL API
      - `request/` - сборка запросов
@@ -95,7 +102,9 @@
 **Пример миграции для одного entity (activity):**
 
 ```python
+
 # До: src/bioetl/pipelines/activity.py
+
 class ActivityPipeline(PipelineBase):
     def extract(self):
         # Монолитная логика
@@ -108,6 +117,7 @@ class ActivityPipeline(PipelineBase):
         ...
 
 # После: src/bioetl/sources/chembl/activity/pipeline.py
+
 from bioetl.sources.chembl.activity.client import ActivityClient
 from bioetl.sources.chembl.activity.parser import ActivityParser
 from bioetl.sources.chembl.activity.normalizer import ActivityNormalizer
@@ -132,11 +142,13 @@ class ActivityPipeline(PipelineBase):
 **Приоритет:** Низкий (не рекомендуется, но допустим временно)
 
 **Преимущества:**
+
 - Минимальные изменения кода
 - Сохраняет обратную совместимость
 - Можно выполнить постепенно
 
 **Недостатки:**
+
 - Дублирование остается
 - Усложняет поддержку
 - Не соответствует MODULE_RULES.md
@@ -152,6 +164,7 @@ class ActivityPipeline(PipelineBase):
 
 2. **Добавление DeprecationWarning**
    - В каждом прокси файле добавить DeprecationWarning:
+
      ```python
      import warnings
      warnings.warn(
@@ -207,19 +220,25 @@ class ActivityPipeline(PipelineBase):
 ## Риски и митигация
 
 ### Риск 1: Ломающие изменения в импортах
+
 **Митигация:**
+
 - Создать реэкспорт в `pipelines/__init__.py` для обратной совместимости
 - Добавить DeprecationWarning
 - Постепенная миграция
 
 ### Риск 2: Потеря функциональности при миграции
+
 **Митигация:**
+
 - Тщательное тестирование перед удалением монолитных файлов
 - Золотые тесты для сравнения output до/после миграции
 - Поэтапная миграция по одному entity за раз
 
 ### Риск 3: Большой объем изменений
+
 **Митигация:**
+
 - Миграция по одному entity за раз
 - Тщательное планирование и документирование шагов
 - Использование git для отслеживания изменений

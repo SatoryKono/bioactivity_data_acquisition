@@ -7,6 +7,7 @@
 **Статус:** ❌ **НЕ ИСПРАВЛЕНО** (P1-3)
 
 **Ссылки:**
+
 - `refactoring/ACCEPTANCE_CRITERIA.md` (строка 55): "Property-based тесты (Hypothesis) покрывают граничные случаи парсинга, нормализации и пагинации"
 - `refactoring/AUDIT_REPORT_2025.md` (строка 991): "Найдено 1 упоминание в `test_json_utils.py`, но не сам Hypothesis"
 
@@ -56,6 +57,7 @@
 **Местоположение:** `src/bioetl/normalizers/`
 
 **Компоненты для тестирования:**
+
 - `StringNormalizer` — обрезка пробелов, нормализация регистра (частично покрыто)
 - `NumericNormalizer` — нормализация чисел, единицы измерения, precision
 - `DateTimeNormalizer` — парсинг различных форматов дат, временные зоны
@@ -64,6 +66,7 @@
 - `IdentifierNormalizer` — нормализация DOI, PMID, ChEMBL ID, UniProt, PubChem CID (частично покрыто)
 
 **Инварианты для проверки:**
+
 - Идемпотентность: `normalize(normalize(x)) == normalize(x)`
 - Детерминизм: два вызова с одинаковым входом дают одинаковый результат
 - Типы: результат имеет ожидаемый тип
@@ -89,12 +92,14 @@ def test_string_normalize_is_idempotent(value: str) -> None:
 **Местоположение:** `src/bioetl/sources/<source>/parser/`
 
 **Компоненты для тестирования:**
+
 - Парсеры ответов API для каждого источника
 - Обработка различных форматов JSON/XML
 - Парсинг частичных/поврежденных данных
 - Обработка edge cases (пустые массивы, null значения, неожиданные типы)
 
 **Инварианты для проверки:**
+
 - Чистые функции (без side effects)
 - Обработка всех допустимых форматов ответа API
 - Graceful degradation при неожиданных полях
@@ -127,11 +132,13 @@ def test_parser_handles_various_json_structures(payload: dict | list) -> None:
 **Местоположение:** `src/bioetl/sources/<source>/pagination/`
 
 **Компоненты для тестирования:**
+
 - Стратегии пагинации: PageNumber, Cursor, OffsetLimit, Token
 - Отсутствие дубликатов и пропусков
 - Корректная обработка последней страницы
 
 **Инварианты для проверки:**
+
 - Все записи уникальны (нет дубликатов)
 - Порядок стабилен
 - Нет пропусков между страницами
@@ -144,6 +151,7 @@ def test_parser_handles_various_json_structures(payload: dict | list) -> None:
 **Местоположение:** `src/bioetl/schemas/`, `tests/schemas/`
 
 **Компоненты для тестирования:**
+
 - Генерация валидных данных по схеме
 - Проверка что нормализованные данные проходят валидацию
 - Обработка edge cases (null, пустые строки, граничные значения)
@@ -155,6 +163,7 @@ def test_parser_handles_various_json_structures(payload: dict | list) -> None:
 **Местоположение:** `src/bioetl/sources/<source>/normalizer/`
 
 **Компоненты для тестирования:**
+
 - Трансформации между форматами (например, ChEMBL → UnifiedSchema)
 - Сохранение всех полей (extras)
 - Приведение единиц измерения
@@ -192,6 +201,7 @@ hypothesis>=6.0.0
 ### 2. Структура теста
 
 Все property-based тесты должны:
+
 - Использовать `pytest.importorskip("hypothesis")` для graceful skip если библиотека отсутствует
 - Иметь `@settings` с фиксированным `max_examples` (рекомендуется 200-500)
 - Использовать `@given` с явными стратегиями
@@ -235,16 +245,19 @@ def <component>_inputs(draw: st.DrawFn) -> <Type>:
 ### 4. Приоритеты реализации
 
 **Приоритет 1 (критично):**
+
 - `NumericNormalizer` — нормализация чисел, единицы
 - `DateTimeNormalizer` — парсинг дат
 - `ChemistryNormalizer` — SMILES, InChI
 
 **Приоритет 2 (важно):**
+
 - Парсеры для источников без property-based тестов
 - `BooleanNormalizer`
 - Трансформации в normalizer'ах источников
 
 **Приоритет 3 (желательно):**
+
 - Расширение существующих property-based тестов
 - Пагинация (дополнить существующие)
 
@@ -281,13 +294,16 @@ if result is not None:
 original = extract_all_fields(x)
 transformed = transform(x)
 normalized = normalize(transformed)
+
 # Проверка что все исходные поля сохранены в extras или явных полях
+
 assert all(field in normalized for field in original)
 ```
 
 ### 6. Интеграция с CI
 
 Тесты должны:
+
 - Запускаться в CI как часть `pytest` suite
 - Иметь фиксированный seed для воспроизводимости (опционально через pytest.ini)
 - Быть помечены маркером `@pytest.mark.property` если нужна отдельная категория
@@ -302,6 +318,7 @@ markers =
 ### 7. Документация
 
 Для каждого нового property-based теста:
+
 - Добавить docstring с описанием проверяемого инварианта
 - Указать минимальные настройки в комментариях
 - Задокументировать стратегии генерации данных

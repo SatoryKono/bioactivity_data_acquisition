@@ -198,12 +198,14 @@ def merge_semantic_scholar_with_base(
         Merged dataframe with Semantic Scholar data prefixed as 'semantic_scholar_*'
 
     Strategy:
+
         - Primary join on normalized DOI (doi_clean)
         - Fallback join on PMID (pubmed_id) if DOI missing
         - Fallback join on paper ID if both missing (rare)
         - Prefix all Semantic Scholar columns with 'semantic_scholar_'
         - Preserve source metadata for conflict detection
         - Prefer Semantic Scholar values for citation metrics
+
     """
     if semantic_scholar_df.empty:
         return base_df.copy()
