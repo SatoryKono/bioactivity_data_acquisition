@@ -1,0 +1,9 @@
+sources:
+  semantic_scholar:
+    enabled: true
+    base_url: "https://api.semanticscholar.org/graph/v1"
+    # api_key: "${SEMANTIC_SCHOLAR_API_KEY:}"
+    batch_size: 50
+    rate_limit_max_calls: 1
+    rate_limit_period: 1.25
+    workers: 1
