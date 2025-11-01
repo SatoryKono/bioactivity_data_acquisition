@@ -8,13 +8,13 @@
 
 - Добавление новых источников требует обновить таблицы в
 
-  `docs/requirements/03-data-sources-and-spec.md` и `docs/pipelines/PIPELINES.md`.
+  `docs/architecture/03-data-sources-and-spec.md` и `docs/pipelines/PIPELINES.md`.
 
 - Все ссылки на код в документах оформляются через `[ref: repo:<path>@test_refactoring_32]`.
 
 ## проверки-перед-pr
 
-- Запускайте `pytest`, `ruff check`, `mypy` и `python -m scripts.qa.check_required_docs`
+- Запускайте `pytest`, `ruff check`, `mypy` и `python -m tools.qa.check_required_docs`
 
   перед открытием PR.
 
@@ -40,11 +40,11 @@
 
 - Fallback логика MUST оставаться идемпотентной; при модификации обновляйте QC
 
-  правила и описания в `docs/requirements/03-data-sources-and-spec.md`.
+  правила и описания в `docs/architecture/03-data-sources-and-spec.md`.
 
 ## документация-и-рефакторинг
 
-- Папка `refactoring/` служит указателем на основную документацию; не дублируйте
+- Папка `docs/architecture/refactoring/` служит указателем на основную документацию; не дублируйте
 
   содержимое, вместо этого добавляйте ссылки на актуальные файлы в `docs/`.
 

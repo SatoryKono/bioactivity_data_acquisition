@@ -6,17 +6,17 @@
 
 | ac_id | инвариант | способ проверки | команда/псевдокод | порог/ожидаемое | артефакт |
 |---|---|---|---|---|---|
-| AC1 | Бит-в-бит детерминизм | Golden-run | --golden path/to/golden.csv | байтовая идентичность | diff отчёт [ref: 02-io-system.md](requirements/02-io-system.md#ac-01-golden-compare-детерминизма) |
-| AC2 | column_order=схеме | Сравнить df.columns с schema.column_order | assert list(df.columns)==schema.column_order | 100% совпадение | лог теста [ref: 04-normalization-validation.md](requirements/04-normalization-validation.md#ac-03-column-order-validation) |
+| AC1 | Бит-в-бит детерминизм | Golden-run | --golden path/to/golden.csv | байтовая идентичность | diff отчёт [ref: 02-io-system.md](architecture/02-io-system.md#ac-01-golden-compare-детерминизма) |
+| AC2 | column_order=схеме | Сравнить df.columns с schema.column_order | assert list(df.columns)==schema.column_order | 100% совпадение | лог теста [ref: 04-normalization-validation.md](architecture/04-normalization-validation.md#ac-03-column-order-validation) |
 | AC3 | hash_row стабилен | Канонизация + хэш | см. патч в implementation-examples.md | идентичность на повторном запуске | checksum |
 
-| AC4 | Нет partial artifacts | Проверка наличия/размеров | см. 02-io протокол | ни одного пустого/пропавшего | валидатор [ref: 02-io-system.md](requirements/02-io-system.md#ac-02-запрет-частичных-артефактов) |
-| AC5 | Respect Retry-After | Mock 429 | см. AC-07 клиента | ожидание ≥ Retry-After | логи [ref: 03-data-extraction.md](requirements/03-data-extraction.md#ac-07-respect-retry-after-429) |
-| AC6 | Activity сортировка | Перед записью | df.sort_values("activity_id") | устойчивый порядок | meta.yaml note [ref: 06-activity-data-extraction.md](requirements/06-activity-data-extraction.md#детерминизм) |
-| AC7 | Assay batch≤25 | Конфиг-валидация | assert cfg.batch_size<=25 | fail-fast при >25 | лог [ref: 00-architecture-overview.md](requirements/00-architecture-overview.md) |
-| AC8 | Long-format nested | Трансформация | expand_assay_parameters_long(...) | ни одной потерянной записи | RI-отчёт [ref: 00-architecture-overview.md](requirements/00-architecture-overview.md) |
-| AC9 | QC duplicates=0 | Проверка | df["activity_id"].duplicated().sum()==0 | 0 | qc_summary [ref: 06-activity-data-extraction.md](requirements/06-activity-data-extraction.md#11-quality-control) |
-| AC10 | Schema drift fail-fast | Запуск с несовместимой major | --fail-on-schema-drift | exit!=0 | лог [ref: 04-normalization-validation.md](requirements/04-normalization-validation.md#ac-08-schema-drift-detection) |
+| AC4 | Нет partial artifacts | Проверка наличия/размеров | см. 02-io протокол | ни одного пустого/пропавшего | валидатор [ref: 02-io-system.md](architecture/02-io-system.md#ac-02-запрет-частичных-артефактов) |
+| AC5 | Respect Retry-After | Mock 429 | см. AC-07 клиента | ожидание ≥ Retry-After | логи [ref: 03-data-extraction.md](pipelines/03-data-extraction.md#ac-07-respect-retry-after-429) |
+| AC6 | Activity сортировка | Перед записью | df.sort_values("activity_id") | устойчивый порядок | meta.yaml note [ref: 06-activity-data-extraction.md](pipelines/06-activity-data-extraction.md#детерминизм) |
+| AC7 | Assay batch≤25 | Конфиг-валидация | assert cfg.batch_size<=25 | fail-fast при >25 | лог [ref: 00-architecture-overview.md](architecture/00-architecture-overview.md) |
+| AC8 | Long-format nested | Трансформация | expand_assay_parameters_long(...) | ни одной потерянной записи | RI-отчёт [ref: 00-architecture-overview.md](architecture/00-architecture-overview.md) |
+| AC9 | QC duplicates=0 | Проверка | df["activity_id"].duplicated().sum()==0 | 0 | qc_summary [ref: 06-activity-data-extraction.md](pipelines/06-activity-data-extraction.md#11-quality-control) |
+| AC10 | Schema drift fail-fast | Запуск с несовместимой major | --fail-on-schema-drift | exit!=0 | лог [ref: 04-normalization-validation.md](architecture/04-normalization-validation.md#ac-08-schema-drift-detection) |
 
 > При каждом релизе, затрагивающем публичный API, обновляйте версию по SemVer синхронно в `pyproject.toml`, фиксируйте изменения в `CHANGELOG.md` и актуализируйте [DEPRECATIONS.md](../DEPRECATIONS.md) (дата объявления, окно удаления, релиз-цель).
 
@@ -258,9 +258,9 @@ qc_report = {
 
 **Дополнительные закрытые риски:**
 
-- **R4** (AUD-5): Обязательные поля логов формализованы в [01-logging-system.md](requirements/01-logging-system.md#acceptance-criteria-aud-5) ✅
+- **R4** (AUD-5): Обязательные поля логов формализованы в [01-logging-system.md](architecture/01-logging-system.md#acceptance-criteria-aud-5) ✅
 
-- **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](requirements/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
+- **R3** (major): Протокол requeue для PartialFailure формализован в [03-data-extraction.md](pipelines/03-data-extraction.md#протокол-повторной-постановки-requeue-для-partialfailure) ✅
 
 ## Инструменты проверки
 

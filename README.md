@@ -42,11 +42,11 @@ python -m bioetl.cli.main activity \
 
 - Архитектура уровней и глоссарий:
 
-  [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32]
+  [`docs/architecture/00-architecture-overview.md`][ref: repo:docs/architecture/00-architecture-overview.md@test_refactoring_32]
 
 - Источники данных и схемы:
 
-  [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32]
+  [`docs/architecture/03-data-sources-and-spec.md`][ref: repo:docs/architecture/03-data-sources-and-spec.md@test_refactoring_32]
 
 - Контракты пайплайнов:
 

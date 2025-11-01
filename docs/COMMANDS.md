@@ -151,8 +151,8 @@ Goal: regenerate the pipeline inventory snapshot and cluster report artifacts.
 Defaults:
 
 - CONFIG: configs/inventory.yaml
-- OUTPUT: docs/requirements/PIPELINES.inventory.csv
-- CLUSTERS: docs/requirements/PIPELINES.inventory.clusters.md
+- OUTPUT: docs/pipelines/PIPELINES.inventory.csv
+- CLUSTERS: docs/pipelines/PIPELINES.inventory.clusters.md
 
 Bash:
 

@@ -7,8 +7,8 @@
 - Полное обновление документации: навигация, архитектура и спецификации данных в
 
   [`docs/INDEX.md`][ref: repo:docs/INDEX.md@test_refactoring_32],
-  [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32],
-  [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32],
+  [`docs/architecture/00-architecture-overview.md`][ref: repo:docs/architecture/00-architecture-overview.md@test_refactoring_32],
+  [`docs/architecture/03-data-sources-and-spec.md`][ref: repo:docs/architecture/03-data-sources-and-spec.md@test_refactoring_32],
   [`docs/pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32],
   [`docs/configs/CONFIGS.md`][ref: repo:docs/configs/CONFIGS.md@test_refactoring_32],
   [`docs/cli/CLI.md`][ref: repo:docs/cli/CLI.md@test_refactoring_32] и
@@ -32,7 +32,7 @@
 
 ### Changed
 
-- Материалы из `refactoring/` заменены ссылками на актуальные файлы в `docs/`;
+- Материалы из `refactoring/` перенесены в `docs/architecture/refactoring/` и заменены ссылками на актуальные файлы в `docs/`;
 
   файлы оставлены как указатели для обратной совместимости.
 

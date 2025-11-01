@@ -32,9 +32,9 @@
 
   актуальность документации по источникам.[ref: repo:.pre-commit-config.yaml@test_refactoring_32]
 
-- Документ-чекер `scripts/qa/check_required_docs.py` выполняется в тестах и
+- Документ-чекер `tools/qa/check_required_docs.py` выполняется в тестах и
 
-  валидирует [ref: repo:docs/@test_refactoring_32] ссылки и маркеры.[ref: repo:scripts/qa/check_required_docs.py@test_refactoring_32]
+  валидирует [ref: repo:docs/@test_refactoring_32] ссылки и маркеры.[ref: repo:tools/qa/check_required_docs.py@test_refactoring_32]
 
 ## qc-отчёты-и-метрики
 
@@ -66,7 +66,7 @@
 | --- | --- |
 | `pytest` | Запуск полного тестового набора |
 | `pytest tests/golden/test_cli_golden.py` | Проверка CLI артефактов |
-| `python -m scripts.qa.check_required_docs` | Валидация ссылок и обязательных документов |
+| `python -m tools.qa.check_required_docs` | Валидация ссылок и обязательных документов |
 | `npx markdownlint-cli2 "**/*.md"` | Статический анализ Markdown |
 | `ruff check src tests` | Проверка стиля Python |
 

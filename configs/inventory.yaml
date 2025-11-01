@@ -1,12 +1,14 @@
 # Inventory generation settings for pipeline sources
-csv_output: docs/requirements/PIPELINES.inventory.csv
-cluster_report: docs/requirements/PIPELINES.inventory.clusters.md
+csv_output: docs/pipelines/PIPELINES.inventory.csv
+cluster_report: docs/pipelines/PIPELINES.inventory.clusters.md
 root_dirs:
   - src/bioetl
   - src/library
   - src/scripts
   - tests
-  - docs/requirements
+  - docs/architecture
+  - docs/pipelines
+  - docs/cli
 config_dirs:
   - src/bioetl/configs/pipelines
 include_extensions:

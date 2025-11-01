@@ -8,7 +8,7 @@
 
 **Файлы**:
 
-- `docs/requirements/02-io-system.md` — норматив atomic write
+- `docs/architecture/02-io-system.md` — норматив atomic write
 - `src/library/io/writer.py` — патч 5 (os.replace)
 - `src/library/common/hash_utils.py` — патч 1 (канонизация)
 - `tests/unit/test_writer.py` — тесты atomic write
@@ -41,8 +41,8 @@
 
 **Файлы**:
 
-- `docs/requirements/04-normalization-validation.md` — централизация column_order
-- `docs/requirements/02-io-system.md` — синхронизация NA-policy (R1) ✅
+- `docs/architecture/04-normalization-validation.md` — централизация column_order
+- `docs/architecture/02-io-system.md` — синхронизация NA-policy (R1) ✅
 - `src/library/schemas/registry.py` — schema drift detection
 - `src/library/schemas/precision_map.py` — precision_policy
 - `tests/unit/test_schema_drift.py` — тесты drift
@@ -78,8 +78,8 @@
 
 **Файлы**:
 
-- `docs/requirements/03-data-extraction.md` — Retry-After стратегия
-- `docs/requirements/03-data-extraction.md` — протокол requeue для PartialFailure (R3) ✅
+- `docs/pipelines/03-data-extraction.md` — Retry-After стратегия
+- `docs/pipelines/03-data-extraction.md` — протокол requeue для PartialFailure (R3) ✅
 - `src/library/clients/unified_client.py` — патч 3 (retry-after)
 
 - `src/library/clients/rate_limit.py` — TokenBucket acquire
@@ -115,8 +115,8 @@
 
 **Файлы**:
 
-- `docs/requirements/05-assay-extraction.md` — batch_size≤25, long-format
-- `docs/requirements/00-architecture-overview.md` — whitelist enrichment
+- `docs/pipelines/05-assay-extraction.md` — batch_size≤25, long-format
+- `docs/architecture/00-architecture-overview.md` — whitelist enrichment
 
 - `src/library/pipelines/assay/transform.py` — патч 2 (expand_*_long)
 - `src/library/pipelines/assay/config.py` — batch_size validation
@@ -150,7 +150,7 @@
 
 **Файлы**:
 
-- `docs/requirements/06-activity-data-extraction.md` — offset-only, сортировка, QC duplicates=0
+- `docs/pipelines/06-activity-data-extraction.md` — offset-only, сортировка, QC duplicates=0
 - `src/library/pipelines/activity/extract.py` — offset-only validation
 
 - `src/library/pipelines/activity/validate.py` — duplicates check
