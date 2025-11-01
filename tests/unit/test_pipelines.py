@@ -29,7 +29,7 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
 from bioetl.sources.chembl.assay.constants import NULLABLE_INT_COLUMNS
-from bioetl.utils.validation import _summarize_schema_errors
+from bioetl.utils.validation import summarize_schema_errors
 
 
 @pytest.fixture
@@ -2881,7 +2881,7 @@ def test_schema_validation_failures(monkeypatch, assay_config, testitem_config):
         }
     )
 
-    expected_payload = _summarize_schema_errors(failure_cases)
+    expected_payload = summarize_schema_errors(failure_cases)
 
     def _raise_schema_error(self, *args, **kwargs):  # noqa: ANN001, D401 - test helper
         failure_handler = kwargs.get("failure_handler")

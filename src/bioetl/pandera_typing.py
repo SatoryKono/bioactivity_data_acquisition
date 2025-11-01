@@ -30,8 +30,8 @@ def _resolve_alias(name: str) -> type[Any]:
 
 if TYPE_CHECKING:
     # Explicit type aliases for static type checkers
-    from pandera.typing import DataFrame as _DataFrameAlias
-    from pandera.typing import Series as _SeriesAlias
+    from pandera.typing import DataFrame as _DataFrameAlias  # pyright: ignore
+    from pandera.typing import Series as _SeriesAlias  # pyright: ignore
 
     Series: TypeAlias = _SeriesAlias[Any]
     DataFrame: TypeAlias = _DataFrameAlias[Any]

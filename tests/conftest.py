@@ -1,5 +1,6 @@
 """Shared pytest fixtures and configuration."""
 
+import argparse
 import os
 import sys
 import tempfile
@@ -65,6 +66,13 @@ _register_cachetools_stub()
 def pytest_addoption(parser: pytest.Parser) -> None:  # pragma: no cover - test helper
     """Provide no-op coverage options when pytest-cov is unavailable."""
 
+    try:
+        import pytest_cov  # noqa: F401 - check if installed
+        # pytest-cov is installed, it will register the options
+        return
+    except ImportError:
+        pass
+
     for args in (
         ("--cov", {"action": "append", "default": []}),
         ("--cov-report", {"action": "append", "default": []}),
@@ -73,7 +81,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:  # pragma: no cover - test 
         name, kwargs = args
         try:
             parser.addoption(name, **kwargs)
-        except ValueError:
+        except (ValueError, argparse.ArgumentError):
             # Option already provided by an installed plugin.
             continue
 

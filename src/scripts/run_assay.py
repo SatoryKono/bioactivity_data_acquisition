@@ -3,14 +3,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from bioetl.cli.app import create_pipeline_app
 
-if TYPE_CHECKING:
-    import typer
-
-from bioetl.cli.app import create_pipeline_app  # type: ignore[assignment]
-
-app: typer.Typer = create_pipeline_app(  # type: ignore[call-overload]
+app = create_pipeline_app(
     "assay",
     "Run assay pipeline to extract and transform assay data",
 )

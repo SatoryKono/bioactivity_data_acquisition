@@ -12,7 +12,7 @@ import requests
 
 _pd: ModuleType | None
 try:  # pragma: no cover - pandas is available in production but optional for tests
-    import pandas as _pd
+    import pandas as _pd  # pyright: ignore
 except Exception:  # pragma: no cover - fallback when pandas is unavailable
     _pd = None
 

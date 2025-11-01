@@ -13,7 +13,8 @@ HTTPServer = pytest_httpserver.HTTPServer
 
 from bioetl.config.loader import load_config
 from bioetl.config.paths import get_config_path
-from bioetl.pipelines.document import DocumentPipeline, _document_run_pubmed_stage
+from bioetl.pipelines.document import DocumentPipeline
+from bioetl.sources.chembl.document.pipeline import _document_run_pubmed_stage
 from bioetl.sources.document.pipeline import ExternalEnrichmentResult
 
 pytestmark = pytest.mark.integration

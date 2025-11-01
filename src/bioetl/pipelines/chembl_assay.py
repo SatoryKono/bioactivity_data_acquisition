@@ -366,7 +366,7 @@ class AssayPipeline(PipelineBase):
         if not assay_data.empty:
             df = df.merge(assay_data, on="assay_chembl_id", how="left", suffixes=("", "_api"))
             # Remove duplicate columns from API merge (keep original, remove _api suffix)
-            df = df.loc[:, ~pd.Series(df.columns).str.endswith("_api")]
+            df = df.loc[:, ~df.columns.str.endswith("_api")]
 
         # Normalize strings
         if "assay_description" in df.columns:

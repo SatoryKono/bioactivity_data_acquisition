@@ -13,7 +13,7 @@ pytest.importorskip("hypothesis")
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from bioetl.utils.validation import _summarize_schema_errors
+from bioetl.utils.validation import summarize_schema_errors
 
 
 @st.composite
@@ -81,10 +81,10 @@ failure_cases_inputs = st.one_of(st.none(), failure_cases_dataframes())
 
 @given(failure_cases_inputs)
 @settings(max_examples=200, deadline=None)
-def test_summarize_schema_errors_properties(failure_cases: pd.DataFrame | None) -> None:
+def testsummarize_schema_errors_properties(failure_cases: pd.DataFrame | None) -> None:
     """The helper always produces stable, well-formed issue payloads."""
 
-    result = _summarize_schema_errors(failure_cases)
+    result = summarize_schema_errors(failure_cases)
 
     assert isinstance(result, list)
     assert all(isinstance(item, dict) for item in result)
@@ -175,7 +175,7 @@ def test_summarize_schema_errors_properties(failure_cases: pd.DataFrame | None) 
         assert set(issue["column"] for issue in result) == {"<dataframe>"}
 
 
-def test_summarize_schema_errors_missing_column_defaults() -> None:
+def testsummarize_schema_errors_missing_column_defaults() -> None:
     """When the ``column`` field is absent every issue targets the DataFrame sentinel."""
 
     failure_cases = pd.DataFrame(
@@ -185,7 +185,7 @@ def test_summarize_schema_errors_missing_column_defaults() -> None:
         }
     )
 
-    result = _summarize_schema_errors(failure_cases)
+    result = summarize_schema_errors(failure_cases)
 
     assert result == [
         {

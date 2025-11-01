@@ -5,11 +5,11 @@ from typing import Any
 import pandas as pd
 
 from bioetl.pipelines.target_gold import (
-    _split_accession_field,
     annotate_source_rank,
     coalesce_by_priority,
     expand_xrefs,
     merge_components,
+    split_accession_field,
 )
 from bioetl.sources.chembl.target.parser import (
     expand_json_column,
@@ -159,7 +159,7 @@ def build_targets_gold(
 
     if "uniprot_secondary_accessions" in working.columns:
         secondary_map = {
-            key: _split_accession_field(value)
+            key: split_accession_field(value)
             for key, value in working.set_index("target_chembl_id")["uniprot_secondary_accessions"].items()
         }
     else:

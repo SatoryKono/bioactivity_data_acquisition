@@ -47,6 +47,23 @@ def _normalise_value(value: Any) -> Any:
     return value
 
 
+def split_accession_field(value: Any) -> list[str]:
+    """Split semicolon-separated accession field values into a sorted list."""
+
+    if value is None or value is PD_NA or pd_isna(value):
+        return []
+    if not isinstance(value, str):
+        return []
+
+    stripped = value.strip()
+    if not stripped or stripped.lower() == "nan":
+        return []
+
+    parts = [p.strip() for p in stripped.split(";")]
+    unique = sorted({p for p in parts if p})
+    return unique
+
+
 
 
 def coalesce_by_priority(
