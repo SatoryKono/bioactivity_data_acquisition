@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, Callable
 
 
@@ -16,6 +16,7 @@ def append_qc_sections(
     row_count: int,
     duplicates: Mapping[str, Any] | None = None,
     coverage: Mapping[str, float] | None = None,
+    missing_sources: Sequence[str] | None = None,
 ) -> None:
     """Populate common QC sections for the provided dataset."""
 
@@ -23,5 +24,15 @@ def append_qc_sections(
     add_section("datasets", {dataset_name: {"rows": row_count}})
     if duplicates is not None:
         add_section("duplicates", {dataset_name: duplicates})
-    if coverage is not None:
-        add_section("coverage", {dataset_name: coverage})
+    if coverage is not None or missing_sources is not None:
+        payload: dict[str, Any]
+        if coverage is None:
+            payload = {}
+        else:
+            payload = dict(coverage)
+
+        if missing_sources is not None:
+            unique_sources = list(dict.fromkeys(str(source) for source in missing_sources))
+            payload["missing_sources"] = unique_sources
+
+        add_section("coverage", {dataset_name: payload})

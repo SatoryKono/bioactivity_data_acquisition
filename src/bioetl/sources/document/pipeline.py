@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable
 
 import pandas as pd
@@ -48,8 +48,19 @@ class ExternalEnrichmentResult:
     dataframe: pd.DataFrame
     status: str
     errors: dict[str, str]
+    requested_count: int = 0
+    matched_count: int = 0
+    missing_ids: dict[str, list[str]] = field(default_factory=dict)
+    coverage: dict[str, float] = field(default_factory=dict)
 
     def has_errors(self) -> bool:
         """Return ``True`` when at least one adapter reported an error."""
 
         return bool(self.errors)
+
+    @property
+    def missing_count(self) -> int:
+        """Return the number of identifiers that remain unresolved."""
+
+        remaining = self.requested_count - self.matched_count
+        return remaining if remaining > 0 else 0
