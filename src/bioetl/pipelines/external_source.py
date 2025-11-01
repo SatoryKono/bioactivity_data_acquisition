@@ -41,7 +41,7 @@ class IdentifierPayload:
 
 
 if TYPE_CHECKING:  # pragma: no cover - used for typing only
-    from bioetl.sources.chembl.document.pipeline import AdapterDefinition
+    from bioetl.sources.document.pipeline import AdapterDefinition
 
 
 class ExternalSourcePipeline(PipelineBase):

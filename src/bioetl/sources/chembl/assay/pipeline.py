@@ -12,8 +12,9 @@ if TYPE_CHECKING:  # pragma: no cover - import-time cycle guard for typing
 
 
 def __getattr__(name: str) -> Any:  # pragma: no cover - simple delegation
-    if name == "AssayPipeline":
-        from bioetl.pipelines.chembl_assay import AssayPipeline
+    from bioetl.pipelines import chembl_assay as _chembl_assay
 
-        return AssayPipeline
-    raise AttributeError(name)
+    try:
+        return getattr(_chembl_assay, name)
+    except AttributeError as exc:
+        raise AttributeError(name) from exc

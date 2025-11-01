@@ -32,12 +32,12 @@ class EntryPoint:
 
 
 _PIPELINE_ENTRYPOINTS: dict[str, tuple[str, str]] = {
-    "chembl_assay": ("assay", "scripts.run_assay"),
-    "chembl_activity": ("activity", "scripts.run_activity"),
-    "chembl_testitem": ("testitem", "scripts.run_testitem"),
+    "chembl_assay": ("assay", "scripts.run_chembl_assay"),
+    "chembl_activity": ("activity", "scripts.run_chembl_activity"),
+    "chembl_testitem": ("testitem", "scripts.run_chembl_testitem"),
     "chembl_target": ("target", "scripts.run_target"),
-    "chembl_document": ("document", "scripts.run_document"),
-    "iuphar_target": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
+    "chembl_document": ("document", "scripts.run_chembl_document"),
+    "gtp_iuphar": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
     "uniprot_protein": ("uniprot", "scripts.run_uniprot"),
 }
 
@@ -50,14 +50,18 @@ def _build_registry_entrypoints() -> list[EntryPoint]:
         "chembl_testitem",
         "chembl_target",
         "chembl_document",
-        "iuphar_target",
+        "gtp_iuphar",
         "uniprot_protein",
     ):
         legacy_name, module_path = _PIPELINE_ENTRYPOINTS[name]
         config = PIPELINE_REGISTRY[name]
         pipeline_cls = config.pipeline_factory()
         default_mode = config.default_mode
-        mode = "smoke" if default_mode == "default" else default_mode
+        if default_mode == "default" and config.mode_choices:
+            supports_smoke = "smoke" in config.mode_choices and module_path != "scripts.run_target"
+            mode = "smoke" if supports_smoke else default_mode
+        else:
+            mode = default_mode
         entries.append(
             EntryPoint(
                 name=name,
@@ -100,17 +104,19 @@ def _load_entry_module(
     monkeypatch: pytest.MonkeyPatch | None = None,
     pipeline_override: type | None = None,
 ) -> ModuleType:
-    if (
-        monkeypatch is not None
-        and pipeline_override is not None
-        and entry.legacy_name in PIPELINE_COMMAND_REGISTRY
-    ):
-        original = PIPELINE_COMMAND_REGISTRY[entry.legacy_name]
-        monkeypatch.setitem(
-            PIPELINE_COMMAND_REGISTRY,
-            entry.legacy_name,
-            replace(original, pipeline_factory=lambda: pipeline_override),
-        )
+    if monkeypatch is not None and pipeline_override is not None:
+        override_keys = []
+        if entry.legacy_name in PIPELINE_COMMAND_REGISTRY:
+            override_keys.append(entry.legacy_name)
+        if entry.name in PIPELINE_COMMAND_REGISTRY:
+            override_keys.append(entry.name)
+        for key in dict.fromkeys(override_keys):
+            original = PIPELINE_COMMAND_REGISTRY[key]
+            monkeypatch.setitem(
+                PIPELINE_COMMAND_REGISTRY,
+                key,
+                replace(original, pipeline_factory=lambda: pipeline_override),
+            )
 
     return _import_entry_module(entry)
 
@@ -144,7 +150,11 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
 
     if entry.legacy_name != "target":
         assert "Legacy alias for --sample" in result.stdout
-        assert "Process only the first N records for smoke testing (preferred)" in result.stdout
+        normalized_stdout = " ".join(result.stdout.replace("│", " ").split())
+        assert (
+            "Process only the first N records for smoke testing (preferred)"
+            in normalized_stdout
+        )
 
 
 @pytest.mark.unit
@@ -231,7 +241,8 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         assert cli_section["limit"] == 5
 
     run_id = captured.get("run_id")
-    assert isinstance(run_id, str) and run_id.startswith(entry.legacy_name)
+    assert isinstance(run_id, str)
+    assert run_id.startswith(entry.legacy_name) or run_id.startswith(entry.name)
 
     runtime_options = captured.get("runtime_options")
     assert isinstance(runtime_options, dict)

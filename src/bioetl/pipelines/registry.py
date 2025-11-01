@@ -8,9 +8,9 @@ from typing import Type
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.chembl_activity import ActivityPipeline
 from bioetl.pipelines.chembl_assay import AssayPipeline
-from bioetl.sources.chembl.document.pipeline import DocumentPipeline
-from bioetl.sources.chembl.target.pipeline import TargetPipeline
-from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
+from bioetl.pipelines.chembl_document import DocumentPipeline
+from bioetl.pipelines.chembl_target import TargetPipeline
+from bioetl.pipelines.chembl_testitem import TestItemPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.crossref.pipeline import CrossrefPipeline
 from bioetl.sources.openalex.pipeline import OpenAlexPipeline
@@ -27,7 +27,7 @@ PIPELINE_REGISTRY: Mapping[str, Type[PipelineBase]] = {
     "chembl_testitem": TestItemPipeline,
     "pubchem_molecule": PubChemPipeline,
     "uniprot_protein": UniProtPipeline,
-    "iuphar_target": GtpIupharPipeline,
+    "gtp_iuphar": GtpIupharPipeline,
     "openalex": OpenAlexPipeline,
     "crossref": CrossrefPipeline,
     "pubmed": PubMedPipeline,

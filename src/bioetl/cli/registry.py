@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
+from pathlib import Path
 
 from bioetl.cli.command import PipelineCommandConfig
 from bioetl.cli.commands.chembl_activity import build_command_config as build_activity_command
@@ -11,7 +12,7 @@ from bioetl.cli.commands.chembl_assay import build_command_config as build_assay
 from bioetl.cli.commands.chembl_document import build_command_config as build_document_command
 from bioetl.cli.commands.chembl_target import build_command_config as build_target_command
 from bioetl.cli.commands.chembl_testitem import build_command_config as build_testitem_command
-from bioetl.cli.commands.iuphar_target import build_command_config as build_iuphar_command
+from bioetl.cli.commands.gtp_iuphar import build_command_config as build_gtp_iuphar_command
 from bioetl.cli.commands.crossref import build_command_config as build_crossref_command
 from bioetl.cli.commands.openalex import build_command_config as build_openalex_command
 from bioetl.cli.commands.pubmed import build_command_config as build_pubmed_command
@@ -20,6 +21,7 @@ from bioetl.cli.commands.semantic_scholar import (
 )
 from bioetl.cli.commands.pubchem_molecule import build_command_config as build_pubchem_command
 from bioetl.cli.commands.uniprot_protein import build_command_config as build_uniprot_command
+from bioetl.config.paths import get_config_path
 
 
 _LEGACY_OVERRIDES = {
@@ -29,6 +31,7 @@ _LEGACY_OVERRIDES = {
     "chembl_target": "target",
     "chembl_testitem": "testitem",
     "pubchem_molecule": "pubchem",
+    "gtp_iuphar": "gtp_iuphar",
     "iuphar_target": "gtp_iuphar",
     "uniprot_protein": "uniprot",
 }
@@ -46,20 +49,53 @@ def _resolve_legacy_key(key: str) -> str | None:
 def build_registry() -> dict[str, PipelineCommandConfig]:
     """Construct the default CLI registry mapping names to command configs."""
 
-    return {
-        "activity": build_activity_command(),
-        "assay": build_assay_command(),
-        "document": build_document_command(),
-        "target": build_target_command(),
-        "testitem": build_testitem_command(),
+    registry = {
+        "activity": build_activity_command(
+            default_input=Path("data/input/activity.csv"),
+            default_output_dir=Path("data/output/activity"),
+            default_config_path=get_config_path("pipelines/activity.yaml"),
+        ),
+        "assay": build_assay_command(
+            default_input=Path("data/input/assay.csv"),
+            default_output_dir=Path("data/output/assay"),
+            default_config_path=get_config_path("pipelines/assay.yaml"),
+        ),
+        "document": build_document_command(
+            default_input=Path("data/input/document.csv"),
+            default_output_dir=Path("data/output/documents"),
+            default_config_path=get_config_path("pipelines/document.yaml"),
+        ),
+        "target": build_target_command(
+            default_input=Path("data/input/target.csv"),
+            default_output_dir=Path("data/output/target"),
+            default_config_path=get_config_path("pipelines/target.yaml"),
+        ),
+        "testitem": build_testitem_command(
+            default_input=Path("data/input/testitem.csv"),
+            default_output_dir=Path("data/output/testitems"),
+            default_config_path=get_config_path("pipelines/testitem.yaml"),
+        ),
         "pubchem": build_pubchem_command(),
-        "gtp_iuphar": build_iuphar_command(),
+        "gtp_iuphar": build_gtp_iuphar_command(),
         "uniprot": build_uniprot_command(),
         "openalex": build_openalex_command(),
         "crossref": build_crossref_command(),
         "pubmed": build_pubmed_command(),
         "semantic_scholar": build_semantic_scholar_command(),
     }
+
+    registry.update(
+        {
+            "chembl_activity": build_activity_command(pipeline_name="chembl_activity"),
+            "chembl_assay": build_assay_command(pipeline_name="chembl_assay"),
+            "chembl_document": build_document_command(pipeline_name="chembl_document"),
+            "chembl_target": build_target_command(pipeline_name="chembl_target"),
+            "chembl_testitem": build_testitem_command(pipeline_name="chembl_testitem"),
+            "iuphar_target": build_gtp_iuphar_command(pipeline_name="gtp_iuphar"),
+        }
+    )
+
+    return registry
 
 
 def get_command_config(key: str) -> PipelineCommandConfig:

@@ -1,5 +1,5 @@
 """Compatibility proxy for the ChEMBL target pipeline."""
 
-from bioetl.sources.chembl.target.pipeline import TargetPipeline
+from bioetl.pipelines.chembl_target import TargetPipeline
 
 __all__ = ["TargetPipeline"]
