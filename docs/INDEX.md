@@ -1,17 +1,36 @@
-# Навигация BioETL {#index}
+# documentation-index
 
-## Основные разделы {#primary-sections}
+## навигация
 
-- [Архитектура и глоссарий](requirements/00-architecture-overview.md)
-- [Источники данных и схемы](requirements/03-data-sources-and-spec.md)
-- [Публичные контракты пайплайнов](pipelines/PIPELINES.md)
-- [Структура конфигураций](configs/CONFIGS.md)
-- [CLI и режимы запуска](cli/CLI.md)
-- [Контроль качества и тестирование](qc/QA_QC.md)
+- [Архитектура](requirements/00-architecture-overview.md)
+- [Требования к источникам и схемам](requirements/03-data-sources-and-spec.md)
+- [Контракты пайплайнов](pipelines/PIPELINES.md)
+- [Конфигурации](configs/CONFIGS.md)
+- [CLI](cli/CLI.md)
+- [Валидация и QC](qc/QA_QC.md)
 
-## Быстрые ссылки {#quick-links}
+## карта-документации
 
-- [README](../README.md)
-- [`src/bioetl/configs/profiles`][ref: repo:src/bioetl/configs/profiles@test_refactoring_32]
-- [`src/bioetl/sources/chembl`][ref: repo:src/bioetl/sources/chembl@test_refactoring_32]
-- [`src/scripts`][ref: repo:src/scripts@test_refactoring_32]
+```mermaid
+graph TD
+    A[Архитектура] --> B[Требования]
+    B --> C[Пайплайны]
+    C --> D[Конфиги]
+    C --> E[CLI]
+    C --> F[QA/QC]
+```
+
+## как-поддерживать-согласованность
+
+1. При изменении кода обновляйте соответствующие разделы и ссылку на файл.
+2. Перед коммитом запускайте `python -m scripts.qa.check_required_docs` и
+
+   `npx markdownlint-cli2 "**/*.md"`.
+
+3. Если добавляете новый источник, расширьте таблицы в
+
+   `requirements/03-data-sources-and-spec.md` и `pipelines/PIPELINES.md`.
+
+4. Refactoring-документы теперь служат указателями и дублировать данные в них
+
+   нельзя.

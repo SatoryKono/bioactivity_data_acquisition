@@ -1,106 +1,79 @@
-# Источники данных и спецификация {#data-sources-and-spec}
+# data-sources-and-spec
 
-## Сводка источников {#sources-summary}
-| Источник | Конечная точка | Пайплайны | Пагинация/батчи | Лимиты и ретраи | Конфигурация |
+## источники-и-api
+
+| Источник | Каталог | Основные конечные точки | Пагинация | Лимиты и квоты | Ретраи и таймауты | Примечания |
+| --- | --- | --- | --- | --- | --- | --- |
+| ChEMBL Activity | `sources/chembl/activity` | `/activity.json?activity_id__in=` | Батчи по ID, деление по длине URL | batch_size 20, `max_url_length=2000` | Глобальные ретраи из `base.yaml`, 5 попыток | Fallback-записи формируются при отказах.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+| ChEMBL Assay | `sources/chembl/assay` | `/assay.json`, `/assay_type.json` | Смещение по offset/limit | batch_size 50 (по умолчанию) | Ретраи 5 попыток, rate limit 12 req/s | BAO-нормализация через словари.[ref: repo:src/bioetl/sources/chembl/assay/pipeline.py@test_refactoring_32]
+| ChEMBL Target | `sources/chembl/target` | `/target.json`, `/target_component.json` | Постраничная пагинация | batch_size 25 | Персональные таймауты и circuit breaker в `target.yaml` | Обогащение UniProt/IUPHAR в отдельных стадиях.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+| ChEMBL Document | `sources/chembl/document` | `/document.json` | Батчи по `document_chembl_id` | batch_size 10 | Таймауты 60s, ретраи 5 | Поддерживает режимы `chembl`/`all` и внешние адаптеры.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
+| ChEMBL Test Item | `sources/chembl/testitem` | `/molecule.json`, `/compound_records.json` | Батчи по molecule ID | batch_size 25 | Ретраи 5, rate limit 12 req/s | Пайплайн активирует PubChem для синонимов.[ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32]
+| PubChem PUG-REST | `sources/pubchem` | `/compound/inchikey/{}/cids`, `/compound/cid/{}/property` | Батчи по списку CID | batch_size 50 | Rate limit 5 req/15s (из базового профиля) | Повторные запросы с backoff при 5xx.[ref: repo:src/bioetl/sources/pubchem/request/builder.py@test_refactoring_32]
+| UniProt REST | `sources/uniprot` | `/uniprotkb/{id}`, `/uniprotkb/stream` | Cursor (stream) | rate_limit 3 req/s | Таймаут 60s, 4 попытки | Используется для таргетов и отдельного пайплайна.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+| UniProt ID Mapping | `sources/uniprot` | `/idmapping/run`, `/idmapping/status` | Пулинг статуса | rate_limit 2 req/s | Таймаут 60s, 4 попытки | Кэширование включено для повторного использования.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+| IUPHAR | `sources/iuphar` | `/targets`, `/targets/families` | PageNumberPaginator (size 200) | rate_limit 6 req/s | Таймаут 45s, 4 попытки | Требует `x-api-key` из окружения.[ref: repo:src/bioetl/sources/iuphar/pagination.py@test_refactoring_32]
+| PubMed E-utilities | `sources/pubmed` | `/efetch.fcgi`, `/esearch.fcgi` | Батчи по 200 ID | 3 req/s без ключа, 10 с ключом | Таймауты глобальные; backoff при ошибках | Добавляет `tool`, `email`, `api_key` в запрос.[ref: repo:src/bioetl/sources/pubmed/request/builder.py@test_refactoring_32]
+| Crossref REST | `adapters/crossref` | `/works` | Cursor (mailto) | rate_limit 2 req/s | Таймауты по профилю, ретраи 5 | Требует `mailto` в User-Agent.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
+| OpenAlex | `adapters/openalex` | `/works` | Cursor `cursor=*` | rate_limit 10 req/s | Таймауты по профилю | Требует `mailto` параметр и заголовок.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
+| Semantic Scholar | `adapters/semantic_scholar` | `/paper/batch` | Батчи по 50 ID | rate_limit 1 req/1.25s (10 с ключом) | Ретраи по базовой политике | API key опциональный, передаётся в заголовках.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
+
+## извлекаемые-сущности-и-цели
+
+| Сущность | Основной источник | Целевая схема | Обогащение | Обязательные поля | Формат вывода |
 | --- | --- | --- | --- | --- | --- |
-| ChEMBL REST | `/activity.json`, `/assay.json`, `/target.json`, `/molecule.json` | Activity, Assay, Target, TestItem | Батчи по ID, split по `max_url_length` | Batch size 20 (Activity/TestItem), 50 (Target), 10 (Document); backoff через `UnifiedAPIClient` | [`includes/chembl_source.yaml`][ref: repo:src/bioetl/configs/includes/chembl_source.yaml@test_refactoring_32] |
-| PubMed E-utilities | `efetch.fcgi`, `esummary.fcgi` | Document | Page-пагинация с `retstart` | Rate limit 3 rps без API key, 10 rps с ключом | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] |
-| Crossref Works | `/works` | Document | Cursor-пагинация | Rate limit 2 rps | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] |
-| OpenAlex Works | `/works` | Document | Cursor-пагинация | Rate limit 10 rps | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] |
-| Semantic Scholar Graph | `/paper/search` | Document | Cursor-пагинация | Rate limit 1 rps (10 с API key) | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] |
-| PubChem PUG REST | `/pug_view/data/compound/` | PubChem, TestItem | Paging по CID и чанки | Retry через backoff, rate limit 5 rps | [`pipelines/pubchem.yaml`][ref: repo:src/bioetl/configs/pipelines/pubchem.yaml@test_refactoring_32] |
-| UniProt REST | `/uniprotkb/search` | Target, UniProt | Cursor-пагинация | Rate limit 15 rps | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@test_refactoring_32] |
-| Guide to Pharmacology | `/targets` | Target, GtP IUPHAR | Offset-пагинация | API key required, rate limit 60/min | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@test_refactoring_32] |
+| `activity` | ChEMBL | `ActivitySchema` | — | `activity_id`, `assay_chembl_id`, `molecule_chembl_id`, измерения | CSV + JSON отладочный дамп |[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+| `assay` | ChEMBL | `AssaySchema` | BAO lookup | `assay_chembl_id`, `assay_type`, `assay_category` | CSV/Parquet |[ref: repo:src/bioetl/sources/chembl/assay/pipeline.py@test_refactoring_32]
+| `target` | ChEMBL | `TargetSchema` | UniProt, IUPHAR | `target_chembl_id`, `organism`, `gene_symbol` | Parquet (gold), CSV (qc) |[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
+| `document` | ChEMBL | `DocumentNormalizedSchema` | PubMed, Crossref, OpenAlex, Semantic Scholar | `document_chembl_id`, `title`, `doi_clean` или `pmid` | CSV с QC-отчётами |[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
+| `testitem` | ChEMBL | `TestItemSchema` | PubChem | `molecule_chembl_id`, связи с родителями/солями | CSV |[ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32]
+| `pubchem_enrichment` | PubChem | `PubChemEnrichmentSchema` | — | `inchikey`, `cid`, набор свойств | CSV |[ref: repo:src/bioetl/sources/pubchem/pipeline.py@test_refactoring_32]
+| `gtp_iuphar_targets` | IUPHAR | `IupharTargetSchema` | Семейства и gold-классы | `targetId`, `iuphar_target_id`, `name` | CSV + дополнительные таблицы |[ref: repo:src/bioetl/sources/iuphar/pipeline.py@test_refactoring_32]
+| `uniprot` | UniProt | `UniProtSchema` | — | `accession`, биотип, гены | Parquet |[ref: repo:src/bioetl/sources/uniprot/pipeline.py@test_refactoring_32]
 
-## ChEMBL-ориентированные пайплайны {#chembl-pipelines}
-### Activity {#source-activity}
-- Конечная точка: `/activity.json`, формируется через
-  [`ActivityRequestBuilder.build_url`][ref: repo:src/bioetl/sources/chembl/activity/request/activity_request.py@test_refactoring_32].
-- Батчи: максимум 20 ID, дополнительные split по `max_url_length=2000`.
-- Бизнес-ключи MUST включать `activity_id` и поля перечисленные в
-  [`ACTIVITY_FALLBACK_BUSINESS_COLUMNS`][ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@test_refactoring_32].
-- Дедупликация MUST обеспечивать уникальность `activity_id`
-  ([`duplicate_check`][ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]).
-- Валидация выполняется схемой `ActivitySchema` с приведением типов в
-  [`ActivityPipeline.transform`][ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32].
+## бизнес-ключи-и-дедуп
 
-### Assay {#source-assay}
-- Конечная точка: `/assay.json`, собирается билдером
-  [`AssayRequestBuilder`][ref: repo:src/bioetl/sources/chembl/assay/request/assay_request.py@test_refactoring_32].
-- Батчи: конфиг `batch_size` 20, split по URL-лимиту 2000 символов.
-- Бизнес-ключи: `assay_chembl_id` + whitelists из
-  [`ASSAY_FALLBACK_BUSINESS_COLUMNS`][ref: repo:src/bioetl/sources/chembl/assay/constants.py@test_refactoring_32].
-- Инвариант: `assay_chembl_id` MUST быть уникален (QC duplicates=0).
-- Нормализация и fallback обрабатываются в
-  [`AssayPipeline`][ref: repo:src/bioetl/sources/chembl/assay/pipeline.py@test_refactoring_32].
+| Сущность | Бизнес-ключ | Дедупликация | Приоритет источников |
+| --- | --- | --- | --- |
+| `activity` | (`activity_id`) и хеш бизнес-ключа | Fallback и QC фиксируют дубликаты `activity_id` | Чистые данные ChEMBL, fallback только при ошибках |[ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@test_refactoring_32]
+| `assay` | `assay_chembl_id` | Проверка `duplicate_check` в конфиге (`threshold=0`) | ChEMBL → BAO |[ref: repo:src/bioetl/configs/pipelines/assay.yaml@test_refactoring_32]
+| `target` | `target_chembl_id` + `uniprot_accession` (если есть) | `MaterializationManager` отслеживает уникальность по стадиям | UniProt > IUPHAR > ChEMBL |[ref: repo:src/bioetl/sources/chembl/target/merge/policy.py@test_refactoring_32]
+| `document` | `document_chembl_id` + нормализованный `doi_clean` или `pmid` | Merge-policy устраняет коллизии, QC считает конфликты | Crossref > PubMed > OpenAlex > ChEMBL |[ref: repo:src/bioetl/sources/chembl/document/merge/policy.py@test_refactoring_32]
+| `testitem` | `molecule_chembl_id` | Хеш строки и проверка с PubChem CID | PubChem > ChEMBL |[ref: repo:src/bioetl/sources/chembl/testitem/merge/policy.py@test_refactoring_32]
+| `gtp_iuphar_targets` | `iuphar_target_id` | `PageNumberPaginator` удаляет дубль по `unique_key` | Семейства IUPHAR > сырые данные |[ref: repo:src/bioetl/sources/iuphar/service.py@test_refactoring_32]
 
-### Target {#source-target}
-- Основной поток: ChEMBL `/target.json` + enrichment UniProt/IUPHAR через
-  зарегистрированные стадии
-  ([`enrichment_stage_registry`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32],
-   [`TargetPipeline`][ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]).
-- Батчи: `batch_size=25`, `max_url_length=2000` из
-  [`target.yaml`][ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32].
-- Business key MUST включать `target_chembl_id` и UniProt accession при наличии.
-- Валидация схемой `TargetSchema` (Pandera) гарантирует типы и nullable-поля.
-- Инвариант: enrichment стадии SHOULD добавлять `iuphar_id` и `uniprot_accession`
-  только при успешной валидации ответа.
+## инварианты-и-валидационные-правила
 
-### TestItem {#source-testitem}
-- Основной источник: ChEMBL `/molecule.json`, дополнение PubChem через
-  [`TestItemPipeline._enrich_pubchem`][ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32].
-- Батчи: `batch_size=20`, `max_url_length=2000`.
-- Business key MUST содержать `chembl_id` и структурные поля
-  [`_CHEMBL_STRUCTURE_FIELDS`][ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32].
-- Dedup политика: уникальный `chembl_id`, PubChem collisions логируются как QC предупреждения.
+- Pandera-схемы MUST совпадать с версией в `schema_registry`; drift блокирует
 
-## Документный пайплайн {#document-pipeline-sources}
-| Источник | Endpoint | Параметры | Пагинация | Политика ретраев | Бизнес-ключи |
-| --- | --- | --- | --- | --- | --- |
-| ChEMBL documents | `/document.json` | `document_chembl_id__in` | ID-батчи по 10 | Авто-backoff | `document_chembl_id` |
-| PubMed | `efetch.fcgi` / `esummary.fcgi` | `db=pubmed`, `retmode=json`, `tool`, `email`, `api_key` | `retstart`+`retmax` | Экспоненциальный backoff, Retry-After | PMID, DOI |
-| Crossref | `/works` | `filter=doi:...`, `mailto` | Cursor `next-cursor` | Backoff на HTTP429 | DOI |
-| OpenAlex | `/works` | `filter=doi.search` | Cursor `cursor` | Backoff на HTTP429 | DOI |
-| Semantic Scholar | `/paper/search` | `fields=...`, `query=doi:` | Cursor `next` | Backoff + API key | DOI |
+  запись.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
 
-- Конфигурация источников задана в
-  [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32].
-- Обогащения регистрируются как enrichment стадии в
-  [`DocumentPipeline`][ref: repo:src/bioetl/pipelines/document.py@test_refactoring_32].
-- Business key документа MUST включать `document_chembl_id` и стабильный DOI/PMID,
-  что отражено в схеме `DocumentSchema`
-  ([ref: repo:src/bioetl/schemas/document.py@test_refactoring_32]).
-- Инвариант: при конфликте DOI из разных источников поле `conflict_doi` MUST быть
-  заполнено, а запись остаётся в отчёте QC.
+- Единицы измерения активностей нормализуются в `ActivityNormalizer`; неизвестные
 
-## Внешние самостоятельные источники {#external-standalone}
-### PubChem {#source-pubchem}
-- Endpoint: `/pug_view/data/compound/{cid}/JSON` с построением URL в
-  [`PubChemClient._build_url`][ref: repo:src/bioetl/sources/pubchem/client.py@test_refactoring_32].
-- Батчи: списки CID из входного CSV, чанки по 25.
-- Business key: `cid`, `inchikey` MUST быть детерминированы.
-- QC: отсутствующие поля фиксируются в `fallback_reason`.
+  единицы MUST приводить к ошибке валидации.[ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32]
 
-### UniProt {#source-uniprot}
-- Endpoint: `/uniprotkb/search`, параметры `query`, `fields`, `compressed=false`.
-- Пагинация: cursor из ответа, обрабатывается в
-  [`UniProtClient.iter_query`][ref: repo:src/bioetl/sources/uniprot/client.py@test_refactoring_32].
-- Business key: `accession`.
-- Инвариант: ответ MUST содержать `sequence.length`; иначе запись помечается как invalid.
+- DOI и идентификаторы документов нормализуются в lowercase и без префиксов
 
-### Guide to Pharmacology {#source-iuphar}
-- Endpoint: `/targets`, параметры `?page={n}`.
-- Аутентификация через API key в заголовке, разрешается моделью
-  [`Source.resolve_contact_secrets`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32].
-- Business key: `iuphar_target_id`.
-- Инвариант: при 401 ответе пайплайн MUST остановиться с ошибкой валидации ключа.
+  URL; конфликты фиксируются в полях `conflict_doi`/`conflict_pmid`.[ref: repo:src/bioetl/sources/chembl/document/normalizer.py@test_refactoring_32]
 
-## Инварианты и правила валидации {#source-invariants}
-- Все источники MUST соблюдать сортировку и хеширование из `determinism` профиля.
-- HTTP-параметры `tool`, `email`, `mailto` SHOULD поставляться из окружения через
-  `env:` ссылки, валидация реализована в
-  [`Source.resolve_contact_secrets`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32].
-- Пайплайны MAY добавлять fallback записи, но они MUST содержать `fallback_reason`
-  и `fallback_timestamp`.
-- Валидация MUST происходить минимум дважды: после извлечения и после обогащения
-  (см. `validate()` в [`PipelineBase`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]).
+- Таргеты MUST иметь `organism` и валидный `gene_symbol`, иначе запись
+
+  попадает в QC с уровнем `warning` и не исключается из датасета.[ref: repo:src/bioetl/sources/chembl/target/service.py@test_refactoring_32]
+
+- Все пайплайны сортируют вывод в соответствии с `determinism.column_order`
+
+  конфигурации; отсутствие колонки приводит к вставке `pd.NA` и логированию.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
+
+## политика-повторов-и-ошибок
+
+- HTTP статусы 408, 425, 429, 5xx MUST запускать экспоненциальный backoff
+
+  согласно `RetryConfig` (максимум 5 попыток).[ref: repo:src/bioetl/config/models.py@test_refactoring_32]
+
+- Circuit breaker в таргет-пайплайне SHOULD переводить источник в деградирующий
+
+  режим после 5 подряд ошибок, сохраняя fallback-данные.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+
+- Пайплайны MAY продолжить работу при non-critical QC ошибках, но запись в
+
+  `validation_issues` обязательна для последующего анализа.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]

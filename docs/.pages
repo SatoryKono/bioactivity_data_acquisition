@@ -1,14 +1,14 @@
 title: BioETL Documentation
 nav:
-  - INDEX.md
+  - Index: INDEX.md
   - Requirements:
-      - requirements/00-architecture-overview.md
-      - requirements/03-data-sources-and-spec.md
+      - Architecture Overview: requirements/00-architecture-overview.md
+      - Data Sources and Spec: requirements/03-data-sources-and-spec.md
   - Pipelines:
-      - pipelines/PIPELINES.md
+      - Pipeline Contracts: pipelines/PIPELINES.md
   - Configs:
-      - configs/CONFIGS.md
+      - Config Structure: configs/CONFIGS.md
   - CLI:
-      - cli/CLI.md
+      - CLI Reference: cli/CLI.md
   - Quality:
-      - qc/QA_QC.md
+      - QA & QC: qc/QA_QC.md

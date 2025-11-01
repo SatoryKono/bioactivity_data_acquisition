@@ -1,20 +1,66 @@
-# Публичные контракты пайплайнов {#pipelines-contracts}
+# pipelines-contracts
 
-## Интерфейс стадий {#stage-interface}
-| Метод | Вход | Выход | Инварианты |
-| --- | --- | --- | --- |
-| `extract(input_file: Path | None)` | CSV из `data/input/*.csv` или путь из CLI | `pd.DataFrame` | MUST вызывать `read_input_table()` для детерминизма ([ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]). |
-| `normalize(df)` / `enrich(df)` | DataFrame после extract | DataFrame | SHOULD возвращать столбцы в порядке `determinism.column_order`. |
-| `validate(df)` | DataFrame после normalize | None | MUST валидировать Pandera-схемами и накапливать `validation_issues`. |
-| `write(df)` | Проверенный DataFrame | `OutputArtifacts` | MUST использовать `OutputWriter` и соблюдать `SortConfig`. |
-| `run()` | Конфиг, run_id | Результаты материализации | Оборачивает стадии, обновляет QC и метаданные. |
+## стандартный-интерфейс
 
-## Минимальный пример конфига {#config-example}
+| Метод | Вход | Выход | Обязательные поля | Побочные артефакты |
+| --- | --- | --- | --- | --- |
+| `extract()` | CSV/идентификаторы, runtime `limit` | DataFrame сырых записей | Идентификаторы сущности | `stage_context`, статистика времени |
+| `transform()` | DataFrame после extract | Нормализованный DataFrame | Зависит от пайплайна | Доп. таблицы, QC-метрики |
+| `validate()` | Нормализованный DataFrame | DataFrame, прошедший Pandera | Порядок колонок `schema_registry` | `validation_issues` |
+| `export()` | Проверенный DataFrame, `output_path` | `OutputArtifacts` (csv/json/qc) | Колонки из `determinism.column_order` | QC-отчёты, метаданные |
+| `run()` | `output_path`, `extended` флаг | `OutputArtifacts` | Все вышеперечисленные | Время стадий, debug JSON |
 
+`PipelineBase` гарантирует детерминированные столбцы, сортировку и фиксацию
+времени стадий. Ошибки Pandera уровня `error` MUST прерывать выполнение.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
+
+## жизненный-цикл-пайплайна
+
+```mermaid
+sequenceDiagram
+    participant CLI
+    participant Pipeline
+    participant Clients
+    participant Validators
+    participant Writer
+    CLI->>Pipeline: run(output_path)
+    Pipeline->>Pipeline: extract()
+    Pipeline->>Clients: batched HTTP / чтение CSV
+    Clients-->>Pipeline: сырые фреймы
+    Pipeline->>Pipeline: transform()
+    Pipeline->>Validators: validate()
+    Validators-->>Pipeline: schema-checked df
+    Pipeline->>Writer: export()
+    Writer-->>CLI: OutputArtifacts
+```
+
+## пайплайны-по-умолчанию
+
+### activity-pipeline
+
+- `extract()` считывает `activity.csv` или путь CLI и подтягивает детали по
+
+  списку `activity_id` через `ActivityChEMBLClient`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+
+- `transform()` нормализует числовые поля, переводит пустые значения и собирает
+
+  fallback-метрики.[ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32]
+
+- `validate()` использует `ActivitySchema` и при необходимости добавляет
+
+  отсутствующие колонки согласно `determinism.column_order`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+
+- `export()` пишет CSV и JSON debug при `extended`, добавляя QC (`duplicates`,
+
+  `null_rate`).[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+
+Пример минимальной конфигурации:
 ```yaml
 extends:
+
   - ../base.yaml
   - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
 pipeline:
   name: activity
   entity: activity
@@ -22,88 +68,135 @@ sources:
   chembl:
     batch_size: 20
 ```
-Конфигурация валидируется моделью
-[`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32],
-неизвестные ключи запрещены.
+[ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
 
-## Activity {#pipeline-activity}
-- Вход: `activity.csv` со списком `activity_id`.
-- Выход: основной CSV, QC JSON, fallback таблица (если применимо).
-- Бизнес-ключи: поля из
-  [`ACTIVITY_FALLBACK_BUSINESS_COLUMNS`][ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@test_refactoring_32].
-- Дополнительные таблицы: `activity_fallback.csv` через
-  [`ActivityOutputWriter`][ref: repo:src/bioetl/sources/chembl/activity/output/activity_output.py@test_refactoring_32].
-- CLI: `python -m bioetl.cli.main activity --config ...`
-  ([ref: repo:src/scripts/__init__.py@test_refactoring_32]).
-- Тесты покрытия: unit и integration в
-  [`tests/unit/test_pipelines.py`][ref: repo:tests/unit/test_pipelines.py@test_refactoring_32]
-  и [`tests/integration/pipelines/test_activity_pipeline.py`][ref: repo:tests/integration/pipelines/test_activity_pipeline.py@test_refactoring_32].
+### document-pipeline
 
-## Assay {#pipeline-assay}
-- Вход: `assay.csv` с `assay_chembl_id`.
-- Нормализация: комбинирует ChEMBL payload и fallback из
-  [`AssayMergeService`][ref: repo:src/bioetl/sources/chembl/assay/merge/assay_merge.py@test_refactoring_32].
-- QC: `duplicates` MUST быть 0 согласно конфигу
-  [`assay.yaml`][ref: repo:src/bioetl/configs/pipelines/assay.yaml@test_refactoring_32].
-- CLI: `python -m bioetl.cli.main assay ...`.
-- Дополнительно: материализует отчёт о пропусках `qc_assay_missing.csv`.
+- `extract()` валидирует `document_chembl_id`, вызывает ChEMBL и при режиме
 
-## Target {#pipeline-target}
-- Вход: `target.csv` со столбцами `target_chembl_id`, `uniprot_accession?`.
-- Стадии обогащения:
-  - `uniprot` — добавляет белковую информацию через
-    [`TargetPipeline._enrich_uniprot`][ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32].
-  - `iuphar` — добавляет Guide to Pharmacology данные.
-- Выходы: основной CSV, `target_uniprot.csv`, `target_iuphar.csv`.
-- Бизнес-ключ: `target_chembl_id` + `accession` (если обогащено).
-- Доп. инвариант: gold-таблица MUST быть отсортирована по `target_chembl_id`.
+  `all` запускает внешние адаптеры PubMed, Crossref, OpenAlex, Semantic Scholar.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 
-## Document {#pipeline-document}
-- Поддерживает режимы (`extended`, `baseline`, `enrichment-only`) через CLI
-  ([ref: repo:src/scripts/__init__.py@test_refactoring_32]).
-- Extract: читает `document.csv` и обращается к ChEMBL в
-  [`DocumentPipeline.extract`][ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32].
-- Enrich: стадии `pubmed`, `crossref`, `openalex`, `semantic_scholar` из
-  [`DocumentPipeline._prepare_enrichment_adapters`][ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32].
-- Validate: применяет `DocumentSchema` и проверяет полноту DOI/PMID.
-- Write: материализует `document.csv`, `document_conflicts.csv`, `document_qc.json`.
-- Инварианты:
-  - DOI/PMID coverage MUST соответствовать порогам
-    [`qc.thresholds`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32].
-  - При несовпадении данных внешних источников соответствующие `*_source` поля MUST
-    фиксировать источник.
+- `transform()` объединяет ответы, применяет приоритеты (`merge_with_precedence`)
 
-## TestItem {#pipeline-testitem}
-- Вход: `testitem.csv` с `chembl_id`.
-- Extract: вызывает ChEMBL `/molecule.json`.
-- Enrich: PubChem свойства через
-  [`TestItemPipeline._enrich_pubchem`][ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32].
-- Validate: `TestItemSchema` из
-  [`src/bioetl/schemas/testitem.py`][ref: repo:src/bioetl/schemas/testitem.py@test_refactoring_32].
-- Write: основной CSV + `testitem_properties.json`.
+  и нормализует DOI/PMID.[ref: repo:src/bioetl/sources/chembl/document/merge/policy.py@test_refactoring_32]
 
-## Standalone энричеры {#pipeline-standalone}
-### PubChem {#pipeline-pubchem}
-- CLI: `python -m bioetl.cli.main pubchem`.
-- Extract: CID из CSV, запросы через
-  [`PubChemClient`][ref: repo:src/bioetl/sources/pubchem/client.py@test_refactoring_32].
-- Validate: Pandera схема `PubChemSchema` (см.
-  [`tests/sources/pubchem/test_pipeline_e2e.py`][ref: repo:tests/sources/pubchem/test_pipeline_e2e.py@test_refactoring_32]).
+- `validate()` сначала проверяет сырые данные по `DocumentRawSchema`, затем
 
-### UniProt {#pipeline-uniprot}
-- Extract: `UniProtClient.iter_query`.
-- Нормализация: маппинг полей в `UniProtPipeline._normalize_entry`.
-- Выход: `uniprot.csv` + QC метрики.
+  нормализованный фрейм по `DocumentNormalizedSchema`.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 
-### GtP IUPHAR {#pipeline-iuphar}
-- Требует `IUPHAR_API_KEY` (валидация в
-  [`Source.resolve_contact_secrets`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32]).
-- Валидация: Pandera схема `IupharSchema`.
-- Write: `gtp_iuphar.csv`.
+- `export()` сохраняет основную таблицу и QC-файлы (`qc_missing_mappings.csv`,
 
-## Инварианты QC {#pipeline-qc}
-- Каждый пайплайн MUST вызывать `update_summary_metrics` перед финализацией
-  ([ref: repo:src/bioetl/utils/qc.py@test_refactoring_32]).
-- Дополнительные таблицы SHOULD документироваться в `OutputMetadata.additional_tables`.
-- При ошибках схемы пайплайн MUST поднимать исключение `SchemaValidationError`
-  ([ref: repo:src/bioetl/utils/validation.py@test_refactoring_32]).
+  `qc_enrichment_metrics.csv`) через `OutputWriter`.[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+
+Минимальная конфигурация с внешними адаптерами:
+```yaml
+extends:
+
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
+pipeline:
+  name: document
+  entity: document
+sources:
+  pubmed:
+    base_url: "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
+    tool: "${PUBMED_TOOL}"
+    email: "${PUBMED_EMAIL}"
+  crossref:
+    base_url: "https://api.crossref.org"
+    mailto: "${CROSSREF_MAILTO}"
+```
+[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
+
+### target-pipeline
+
+- `extract()` получает таргеты из ChEMBL и готовит идентификаторы для UniProt.
+
+  Клиенты регистрируются в `PipelineBase` для корректного закрытия.[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
+
+- `transform()` делегирует enrichment `TargetEnricher`, который
+
+  подтягивает UniProt и IUPHAR данные, строит классификации и QC метрики.[ref: repo:src/bioetl/sources/chembl/target/normalizer/enrichment.py@test_refactoring_32]
+
+- `validate()` применяет Pandera-схему для `TargetSchema` и проверяет согласованность
+
+  колонок со слоями materialization.[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
+
+- `export()` сохраняет несколько датасетов (`targets_final`, `target_components`,
+
+  `protein_class`) через `MaterializationManager`.[ref: repo:src/bioetl/core/materialization.py@test_refactoring_32]
+
+Выдержка из конфигурации с отключаемыми стадиями:
+```yaml
+sources:
+  chembl:
+    stage: primary
+  uniprot:
+    enabled: true
+    stage: enrichment
+  iuphar:
+    enabled: true
+    stage: enrichment
+materialization:
+  pipeline_subdir: "target"
+  stages:
+    gold:
+      datasets:
+        targets:
+          formats:
+            parquet: "targets_final.parquet"
+```
+[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+
+### pubchem-pipeline
+
+- `extract()` принимает InChIKey из входного CSV и для каждого lookup вызывает
+
+  `PubChemRequestBuilder` для CID и свойств.[ref: repo:src/bioetl/sources/pubchem/pipeline.py@test_refactoring_32]
+
+- `transform()` объединяет свойства, синонимы и registry ID, нормализует типы и
+
+  сортирует поля.[ref: repo:src/bioetl/sources/pubchem/normalizer/pubchem_normalizer.py@test_refactoring_32]
+
+- `validate()` использует Pandera схему для обогащения и проверяет наличие CID.[ref: repo:src/bioetl/sources/pubchem/schema/pubchem_schema.py@test_refactoring_32]
+- `export()` пишет CSV и QC-отчёт о полноте CID/свойств.[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+
+### gtp-iuphar-pipeline
+
+- `extract()` использует `PageNumberPaginator` для `/targets` и `/targets/families`,
+
+  собирая `stage_context` для энрихмента.[ref: repo:src/bioetl/sources/iuphar/pipeline.py@test_refactoring_32]
+
+- `transform()` вызывает `IupharService.enrich_targets`, формирует главную таблицу
+
+  и дополнительные (`classification`, `gold`).[ref: repo:src/bioetl/sources/iuphar/service.py@test_refactoring_32]
+
+- `validate()` проверяет схему `IupharTargetSchema` и добавляет `iuphar_target_id`.
+- `export()` сохраняет базовый датасет + дополнительные таблицы через
+
+  `MaterializationManager`.[ref: repo:src/bioetl/sources/iuphar/pipeline.py@test_refactoring_32]
+
+### testitem-пайплайн
+
+- `extract()` подтягивает molecule ID из CSV и ChEMBL, затем вызывает PubChem
+
+  для актуальных CID.[ref: repo:src/bioetl/sources/chembl/testitem/pipeline.py@test_refactoring_32]
+
+- `transform()` нормализует синонимы, родитель/соль и формирует бизнес ключи.[ref: repo:src/bioetl/sources/chembl/testitem/normalizer/dataframe.py@test_refactoring_32]
+- `validate()` применяет `TestItemSchema`; коллизии помечаются в QC.
+- `export()` создаёт deterministic CSV и QC отчёт по совпадениям.[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+
+### document-enrichment-modes
+
+Режим CLI `--mode=chembl` отключает внешние адаптеры, `--mode=all` включает их.
+Валидация проверяет наличие хотя бы одного идентификатора (`doi` или `pmid`).[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
+
+## требования-к-io
+
+- Все пайплайны MUST принимать входные CSV в кодировке UTF-8 и с заголовком.
+- Выходные CSV детерминированно отсортированы и используют `,` как разделитель.
+- Параметр `--extended` SHOULD включать запись доп. таблиц и debug JSON, если
+
+  пайплайн поддерживает расширенную материализацию.

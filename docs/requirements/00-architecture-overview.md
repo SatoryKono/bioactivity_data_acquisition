@@ -1,98 +1,126 @@
-# Архитектура BioETL {#architecture-overview}
+# architecture-overview
 
-## Уровни системы {#system-layers}
+## слои-системы
 
 ```mermaid
 graph TD
-    cli[CLI (Typer)] --> orchestration[Pipeline orchestration]
-    orchestration --> configs[Конфигурации]
-    orchestration --> clients[HTTP-клиенты]
-    orchestration --> normalizers[Нормализаторы]
-    orchestration --> schemas[Pandera схемы]
-    orchestration --> writer[Output writer]
-    clients --> apis[Внешние API]
-    writer --> datasets[Детерминированные наборы данных]
+    CLI[CLI (Typer)] --> ConfigLoader[Config loader & PipelineConfig]
+    ConfigLoader --> Pipelines[PipelineBase subclasses]
+    Pipelines --> Stages[extract / transform / validate / write]
+    Stages --> Core[Core services: UnifiedAPIClient, logger, output writer]
+    Core --> Sources[Source adapters & clients]
+    Sources --> Storage[Materialization manager & deterministic outputs]
 ```
 
-- CLI основан на [`typer.Typer`][ref: repo:src/bioetl/cli/main.py@test_refactoring_32] и
-  реестре [`PIPELINE_COMMAND_REGISTRY`][ref: repo:src/scripts/__init__.py@test_refactoring_32].
-- Оркестрация наследует
-  [`PipelineBase`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32],
-  обеспечивая единый `run()` и контроль стадий.
-- Конфигурации валидируются строгими моделями
-  [`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32].
-- HTTP-клиенты разделены по источникам (например,
-  [`ActivityChEMBLClient`][ref: repo:src/bioetl/sources/chembl/activity/client/activity_client.py@test_refactoring_32])
-  и используют `UnifiedAPIClient`.
-- Normalizers/Pandera schemas обеспечивают конверсию и проверку
-  ([`ActivityNormalizer`][ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32],
-   [`ActivitySchema`][ref: repo:src/bioetl/schemas/activity.py@test_refactoring_32]).
-- Writer выполняет детерминированную материализацию и QC через
-  [`bioetl.core.output_writer`][ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32].
+- CLI основан на Typer и реестре `PIPELINE_COMMAND_REGISTRY`, что обеспечивает
 
-## Жизненный цикл пайплайна {#pipeline-lifecycle}
+  единый вход для всех пайплайнов.[ref: repo:src/scripts/__init__.py@test_refactoring_32]
 
-```mermaid
-sequenceDiagram
-    participant CLI
-    participant Pipeline
-    participant Stage as Stage handlers
-    participant Writer
-    CLI->>Pipeline: run(config, run_id)
-    Pipeline->>Pipeline: extract()
-    Pipeline->>Stage: normalize()/enrich()
-    Stage-->>Pipeline: dataframe
-    Pipeline->>Stage: validate()
-    Stage-->>Pipeline: validation issues
-    Pipeline->>Writer: write() + additional tables
-    Pipeline->>Pipeline: finalize_run()
-```
+- Конфигурации загружаются через `PipelineConfig` с Pydantic-валидацией и
 
-1. `extract()` MUST использовать `read_input_table()` для детерминизма.
-2. `normalize()` и обогащения SHOULD возвращать Pandas `DataFrame` с упорядоченными
-   столбцами согласно `determinism.column_order`.
-3. `validate()` MUST применять Pandera схемы и фиксировать ошибки через
-   `record_validation_issue()`.
-4. `write()` MUST использовать `OutputWriter` для основного набора, QC и метаданных.
-5. `run()` MAY добавлять дополнительные таблицы (например, gold/bronze).
+  поддержкой include/extends.[ref: repo:src/bioetl/config/models.py@test_refactoring_32]
 
-## Поток данных {#data-flow}
+- Базовый класс `PipelineBase` реализует стандартные стадии и обработку
+
+  дополнительных артефактов, что формирует общий контракт выполнения.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
+
+- Core-службы (`UnifiedAPIClient`, `UnifiedLogger`, `OutputWriter`) обеспечивают
+
+  ретраи, структурированное логирование и детерминированную запись.[ref: repo:src/bioetl/core/api_client.py@test_refactoring_32]
+
+## поток-данных
 
 ```mermaid
 graph LR
-    input_csv[Входной CSV] --> extract
-    extract[extract()] --> normalize
-    normalize[normalize()/enrich()] --> validate
-    validate[validate()] --> qc[QC metrics]
-    validate --> writer[write()]
-    writer --> output_main[Детерминированный CSV]
-    writer --> qc_reports[QC/metadata JSON]
+    Input[Входные CSV/идентификаторы] --> Extract
+    Extract -->|HTTP| APIClients
+    APIClients --> Parsers
+    Parsers --> Normalizers
+    Normalizers --> Validate
+    Validate --> Pandera
+    Pandera --> Output[CSV/Parquet + QC]
+    Output --> Materialization
 ```
 
-- Входные данные резолвятся через
-  [`load_input_frame`][ref: repo:src/bioetl/utils/io.py@test_refactoring_32].
-- QC агрегируется функциями
-  [`update_summary_metrics`][ref: repo:src/bioetl/utils/qc.py@test_refactoring_32].
-- Финализация набора использует
-  [`finalize_output_dataset`][ref: repo:src/bioetl/utils/output.py@test_refactoring_32].
+1. `extract()` получает идентификаторы из CSV или API и использует клиентов с
 
-## Глоссарий {#glossary}
+   `backoff`-ретраями и пагинацией.[ref: repo:src/bioetl/utils/io.py@test_refactoring_32]
 
-| Термин | Определение |
-| --- | --- |
-| Business key | Подмножество колонок, формирующих уникальность сущности. |
-| Determinism | Набор правил сортировки, хеширования и фиксации сидов в конфиге. |
-| Enrichment stage | Зарегистрированный шаг из
-  [`enrichment_stage_registry`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]. |
-| Fallback record | Детерминированная заглушка, генерируемая
-  [`FallbackRecordBuilder`][ref: repo:src/bioetl/utils/fallback.py@test_refactoring_32]. |
-| Materialization tier | Bronze/Silver/Gold таблицы, создаваемые writer-ом пайплайна. |
-| Run ID | Детерминированный идентификатор запуска, попадающий в output и логирование. |
+2. Парсеры и нормализаторы приводят payload к промежуточным фреймам, применяя
 
-## Инварианты {#architecture-invariants}
+   правила сопоставления идентификаторов и очистки типов.[ref: repo:src/bioetl/sources/chembl/document/normalizer.py@test_refactoring_32]
 
-- Пайплайн MUST регистрировать все HTTP-клиенты через `self._clients` для корректного
-  завершения сеансов ([`PipelineBase._clients`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]).
-- Любая запись об ошибке SHOULD попадать в `validation_issues` или QC сводку.
-- Дополнительные таблицы MAY создаваться, но MUST иметь уникальные имена в
-  `additional_tables` ([`AdditionalTableSpec`][ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]).
+3. `validate()` выполняет Pandera-проверки, подстраивая порядок столбцов и
+
+   собирая QC-метрики.[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
+
+4. `export()` сохраняет датасеты через `OutputWriter`, дополняя метаданными,
+
+   QC-отчётами и вспомогательными таблицами.[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
+
+## компоненты
+
+### cli-и-оркестрация
+
+- Typer-команды генерируются динамически и поддерживают общий набор флагов
+
+  (`--config`, `--input`, `--output`, `--mode`, `--dry-run`).[ref: repo:src/bioetl/cli/command.py@test_refactoring_32]
+
+- Ограничения `limit`/`sample` обрабатываются в базовом классе и логируются.
+
+### конфигурация
+
+- YAML-файлы в `src/bioetl/configs/` используют `extends` и include-фрагменты
+
+  (`includes/chembl_source.yaml`, `includes/determinism.yaml`).[ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
+
+- `TargetSourceConfig` поддерживает ключи для rate limit, circuit breaker и
+
+  извлечение секретов из переменных окружения `env:`.[ref: repo:src/bioetl/config/models.py@test_refactoring_32]
+
+### клиенты-и-адаптеры
+
+- `UnifiedAPIClient` инкапсулирует timeout, ретраи, rate limit и кэширование.[ref: repo:src/bioetl/core/api_client.py@test_refactoring_32]
+- Внешние адаптеры наследуют `ExternalAdapter`, реализуя батчевую работу и
+
+  нормализацию (PubMed, Crossref, OpenAlex, Semantic Scholar).[ref: repo:src/bioetl/adapters/base.py@test_refactoring_32]
+
+- Специализированные билдеры запросов выполняют требования API (например,
+
+  `PubMedRequestBuilder` добавляет `tool`/`email`).[ref: repo:src/bioetl/sources/pubmed/request/builder.py@test_refactoring_32]
+
+### нормализация-и-мерджинг
+
+- Каждая сущность имеет Pandera-схему и порядок колонок, регистрируемые в
+
+  `schema_registry`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+
+- Merge-политики (`merge_with_precedence`, сервисы IUPHAR/UniProt) обеспечивают
+
+  детерминированные приоритеты источников.[ref: repo:src/bioetl/sources/chembl/document/merge/policy.py@test_refactoring_32]
+
+### материализация-и-qc
+
+- `MaterializationManager` управляет слоями silver/gold/QC и расширениями
+
+  датасетов.[ref: repo:src/bioetl/core/materialization.py@test_refactoring_32]
+
+- QC-метрики агрегируются функциями `update_summary_metrics` и `duplicate_summary`
+
+  для включения в отчёты.[ref: repo:src/bioetl/utils/qc.py@test_refactoring_32]
+
+## глоссарий
+
+- **Бизнес-ключ** — минимальный набор колонок, идентифицирующий запись в рамках
+
+  сущности (например, `document_chembl_id` + `doi_clean`).
+
+- **Энрихер** — внешний источник, добавляющий поля к базовому датасету.
+- **Fallback** — детерминированная запись, создаваемая при ошибке запроса.
+- **Materialization stage** — именованная директория (`silver`, `gold`, `qc`) с
+
+  определённым форматом и колонками.
+
+- **Runtime options** — временные флаги исполнения пайплайна (`limit`, `mode`),
+
+  не влияющие на конфигурацию.
