@@ -8,7 +8,7 @@ import pandas as pd
 from requests import HTTPError
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
-from bioetl.adapters.base import AdapterConfig, ExternalAdapter
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
 from bioetl.sources.crossref.request import CrossrefRequestBuilder
@@ -35,13 +35,41 @@ class CrossrefAdapter(ExternalAdapter):
         self.request_builder = CrossrefRequestBuilder(api_config, adapter_config)
         self.api_client.session.headers.update(self.request_builder.base_headers)
 
-    def _fetch_batch(self, dois: list[str]) -> list[dict[str, Any]]:
+    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch a batch of DOIs."""
-        all_items = []
-        for doi in dois:
-            record, _ = self._fetch_work_by_doi(doi)
-            if record:
-                all_items.append(record)
+        # Crossref requires individual queries for multiple DOIs
+        # Fetch each DOI separately
+        all_items: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
+        for doi in ids:
+            url = f"/works/{doi}"
+            request_spec = self.request_builder.build(url)
+            try:
+                response = self.api_client.request_json(
+                    request_spec.url,
+                    params=request_spec.params,
+                    headers=request_spec.headers,
+                )
+                if isinstance(response, dict) and "message" in response:
+                    all_items.append(response["message"])
+            except Exception as exc:
+                error_message = str(exc)
+                failures[doi] = error_message
+                self.logger.warning(
+                    "fetch_doi_failed",
+                    doi=doi,
+                    error=error_message,
+                    request_id=request_spec.metadata.get("request_id"),
+                )
+
+        if failures:
+            raise AdapterFetchError(
+                "Crossref batch experienced network errors",
+                failed_ids=list(failures),
+                partial_records=all_items,
+                errors=failures,
+            )
+
         return all_items
 
     def process_identifiers(

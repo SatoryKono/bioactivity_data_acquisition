@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.adapters.base import AdapterConfig
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import APIConfig
 from bioetl.core.logger import UnifiedLogger
@@ -243,6 +243,16 @@ def run_enrichment_requests(
         for source, future in futures.items():
             try:
                 result = future.result(timeout=timeout)
+            except AdapterFetchError as exc:
+                error_message = str(exc) or f"{source} adapter failed"
+                adapter_errors[source] = error_message
+                logger.error(
+                    "adapter_failed",
+                    source=source,
+                    error=error_message,
+                    failed_ids=getattr(exc, "failed_ids", None) or None,
+                )
+                continue
             except Exception as exc:  # noqa: BLE001
                 error_message = str(exc) or exc.__class__.__name__
                 adapter_errors[source] = error_message

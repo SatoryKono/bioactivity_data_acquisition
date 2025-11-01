@@ -7,6 +7,7 @@ from typing import Any
 
 import pandas as pd
 
+from bioetl.adapters import AdapterFetchError
 from bioetl.sources.chembl.document.request import (
     collect_enrichment_metrics,
     run_enrichment_requests,
@@ -59,7 +60,7 @@ def test_run_enrichment_requests_collects_successful_results() -> None:
 def test_run_enrichment_requests_captures_errors() -> None:
     """Adapter exceptions should be collected without bubbling up."""
 
-    boom = RuntimeError("boom")
+    boom = AdapterFetchError("boom", failed_ids=["1"])
     adapters: dict[str, Any] = {
         "pubmed": StubAdapter(boom),
         "semantic_scholar": StubAdapter(pd.DataFrame({"title": ["x"]})),
@@ -73,8 +74,31 @@ def test_run_enrichment_requests_captures_errors() -> None:
         timeout=1.0,
     )
 
-    assert "pubmed" in errors
+    assert errors == {"pubmed": str(boom)}
     assert semantic_df is not None
+
+
+def test_run_enrichment_requests_error_marks_failed_status() -> None:
+    """Adapter fetch errors should propagate into QC metrics as failures."""
+
+    boom = AdapterFetchError("pubmed down", failed_ids=["1", "2"])
+    adapters: dict[str, Any] = {
+        "pubmed": StubAdapter(boom),
+        "crossref": StubAdapter(pd.DataFrame({"doi": ["10.1/foo"]})),
+    }
+
+    pubmed_df, crossref_df, *_rest, errors = run_enrichment_requests(
+        adapters,
+        pmids=["1", "2"],
+        dois=["10.1/foo"],
+        titles=[],
+    )
+
+    assert pubmed_df is None
+    assert crossref_df is not None
+    metrics = collect_enrichment_metrics({"pubmed": pubmed_df, "crossref": crossref_df}, errors)
+    pubmed_status = metrics.loc[metrics["source"] == "pubmed", "status"].item()
+    assert pubmed_status == "failed"
 
 
 def test_collect_enrichment_metrics_reports_rows_and_errors() -> None:
