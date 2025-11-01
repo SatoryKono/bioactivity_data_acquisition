@@ -3,11 +3,10 @@
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import structlog
-    from structlog import stdlib
 
 import pandas as pd
 
@@ -64,14 +63,14 @@ class ExternalAdapter(ABC):
     """
 
     DEFAULT_BATCH_SIZE: int | None = 50
-    logger: structlog.stdlib.BoundLogger
+    logger: "structlog.stdlib.BoundLogger"
 
     def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
         """Initialize adapter with API client."""
         self.api_config = api_config
         self.adapter_config = adapter_config
         self.api_client = UnifiedAPIClient(api_config)
-        self.logger = cast(stdlib.BoundLogger, UnifiedLogger.get(self.__class__.__name__))
+        self.logger = UnifiedLogger.get(self.__class__.__name__)
 
     def fetch_by_ids(self, ids: list[str]) -> list[dict[str, Any]]:
         """Fetch records by identifiers (DOI, PMID, etc)."""
