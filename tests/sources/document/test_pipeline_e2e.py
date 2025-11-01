@@ -16,7 +16,6 @@ from bioetl.config.paths import get_config_path
 from bioetl.pipelines.document import DocumentPipeline, _document_run_pubmed_stage
 from bioetl.sources.document.pipeline import ExternalEnrichmentResult
 
-
 pytestmark = pytest.mark.integration
 
 

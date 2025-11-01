@@ -17,7 +17,6 @@ from bioetl.sources.chembl.testitem.parser import TestItemParser
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
 from bioetl.utils.json import canonical_json
 
-
 pytestmark = pytest.mark.property
 
 _EXPECTED_COLUMNS = tuple(TestItemPipeline._expected_columns())

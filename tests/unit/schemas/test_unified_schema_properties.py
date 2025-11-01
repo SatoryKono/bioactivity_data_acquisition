@@ -17,7 +17,6 @@ from bioetl.core.unified_schema import (
     is_registered,
 )
 
-
 _ENTITIES = ("document", "assay", "activity", "target", "testitem")
 
 

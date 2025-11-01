@@ -5,16 +5,12 @@ import json
 import socketserver
 import threading
 import types
-from __future__ import annotations
-
-import http.server
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit
 from unittest.mock import MagicMock
+from urllib.parse import urlsplit
 
 import pandas as pd
 import pytest

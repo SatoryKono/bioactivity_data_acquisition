@@ -10,9 +10,9 @@ import requests
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.chembl import build_chembl_client_context
 from bioetl.core.deprecation import warn_legacy_client
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.chembl import build_chembl_client_context
 
 logger = UnifiedLogger.get(__name__)
 

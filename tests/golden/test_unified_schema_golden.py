@@ -9,7 +9,6 @@ import yaml
 
 from bioetl.core.unified_schema import get_schema_metadata
 
-
 _ENTITIES = ("document", "assay", "activity", "target", "testitem")
 _GOLDEN_PATH = Path(__file__).with_name("data") / "unified_schema_metadata.yaml"
 

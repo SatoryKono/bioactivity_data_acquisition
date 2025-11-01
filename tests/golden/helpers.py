@@ -11,7 +11,6 @@ import yaml
 
 from bioetl.core.output_writer import OutputArtifacts
 
-
 __all__ = [
     "calculate_file_hash",
     "compare_files_bitwise",

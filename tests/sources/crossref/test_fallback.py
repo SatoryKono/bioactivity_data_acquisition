@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from unittest.mock import patch
+
 from requests import HTTPError, Response
 
 from tests.sources.crossref import CrossrefAdapterTestCase

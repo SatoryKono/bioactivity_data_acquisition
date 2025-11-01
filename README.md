@@ -27,6 +27,7 @@ python -m bioetl.cli.main activity \
   --output-dir data/output/activity \
   --dry-run
 ```
+
 Команда `list` показывает все зарегистрированные пайплайны Typer, а запуск в
 режиме `--dry-run` выполняет стадии до записи файла и валидирует конфигурацию
 без побочных эффектов.[ref: repo:src/scripts/__init__.py@test_refactoring_32]
@@ -37,31 +38,24 @@ python -m bioetl.cli.main activity \
 ## Где искать документацию {#where-to-find-docs}
 
 - Навигация: [`docs/INDEX.md`][ref: repo:docs/INDEX.md@test_refactoring_32] —
-
   единая точка входа и карта разделов.
 
 - Архитектура уровней и глоссарий:
-
   [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32]
 
 - Источники данных и схемы:
-
   [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32]
 
 - Контракты пайплайнов:
-
   [`docs/pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32]
 
 - Конфигурации и профили:
-
   [`docs/configs/CONFIGS.md`][ref: repo:docs/configs/CONFIGS.md@test_refactoring_32]
 
 - CLI и команды:
-
   [`docs/cli/CLI.md`][ref: repo:docs/cli/CLI.md@test_refactoring_32]
 
 - Контроль качества и тесты:
-
   [`docs/qc/QA_QC.md`][ref: repo:docs/qc/QA_QC.md@test_refactoring_32]
 
 ## Поддерживаемые источники данных и их статус {#supported-sources}

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from bioetl.utils.column_constants import normalise_ignore_suffixes
 

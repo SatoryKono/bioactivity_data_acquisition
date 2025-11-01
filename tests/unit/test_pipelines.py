@@ -7,10 +7,10 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
+import pandera as pa
 import pytest
 import requests
 import yaml
-import pandera as pa
 from pandas.api.types import is_float_dtype, is_integer_dtype
 from pandera.errors import SchemaErrors
 
@@ -25,10 +25,10 @@ from bioetl.pipelines import (
     TargetPipeline,
     TestItemPipeline,
 )
-from bioetl.sources.chembl.assay.constants import NULLABLE_INT_COLUMNS
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import ActivitySchema, AssaySchema, TargetSchema, TestItemSchema
 from bioetl.schemas.activity import COLUMN_ORDER as ACTIVITY_COLUMN_ORDER
+from bioetl.sources.chembl.assay.constants import NULLABLE_INT_COLUMNS
 from bioetl.utils.validation import _summarize_schema_errors
 
 

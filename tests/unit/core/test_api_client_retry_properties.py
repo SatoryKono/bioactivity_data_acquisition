@@ -7,7 +7,8 @@ from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from bioetl.core.api_client import RetryPolicy, parse_retry_after
 

@@ -19,7 +19,6 @@ from bioetl.pipelines.base import enrichment_stage_registry
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.pipelines.target import TargetPipeline
 
-
 pytestmark = pytest.mark.integration
 
 

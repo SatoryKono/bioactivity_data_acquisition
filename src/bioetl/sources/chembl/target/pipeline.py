@@ -8,7 +8,6 @@ from typing import Any
 import pandas as pd
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import (
     EnrichmentStage,
@@ -24,12 +23,13 @@ from bioetl.schemas import (
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
+
 # Import UniProtSearchClient, UniProtIdMappingClient and UniProtOrthologClient directly from client.py module (not from client package)
 # The client package __init__.py exports from search_client.py/idmapping_client.py/orthologs_client.py which have different APIs
 # We need the version from client.py which has (client, fields, batch_size) API
 try:
-    import sys
     import importlib.util
+    import sys
 
     # Get the path to client.py
     uniprot_dir = Path(__file__).parent.parent.parent / "uniprot"
@@ -74,12 +74,6 @@ except Exception:
         UniProtOrthologsClient,
         UniProtSearchClient,
     )
-from bioetl.utils.qc import (
-    prepare_missing_mappings,
-    update_summary_metrics,
-    update_summary_section,
-    update_validation_issue_summary,
-)
 from bioetl.sources.chembl.target.client import TargetClientManager
 from bioetl.sources.chembl.target.merge import build_gold_outputs
 from bioetl.sources.chembl.target.normalizer import (
@@ -88,6 +82,12 @@ from bioetl.sources.chembl.target.normalizer import (
 )
 from bioetl.sources.chembl.target.output import TargetOutputService
 from bioetl.sources.chembl.target.request import IupharRequestBuilder
+from bioetl.utils.qc import (
+    prepare_missing_mappings,
+    update_summary_metrics,
+    update_summary_section,
+    update_validation_issue_summary,
+)
 
 schema_registry.register("target", "1.0.0", TargetSchema)  # type: ignore[arg-type]
 

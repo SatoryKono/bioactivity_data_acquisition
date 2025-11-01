@@ -25,8 +25,8 @@ from bioetl.core.output_writer import (
     hash_row,
 )
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.pipelines.base import PipelineBase
 from bioetl.pandera_typing import Series
+from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
 

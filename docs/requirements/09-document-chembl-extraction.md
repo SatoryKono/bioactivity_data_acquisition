@@ -2744,6 +2744,7 @@ qc:
   fail_on_threshold_violation: false
 
 ```
+
 ```python
 
 def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
@@ -3240,3 +3241,4 @@ python -m scripts.get_document_data \
 - [Semantic Scholar API](https://api.semanticscholar.org/)
 
 - [Semantic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)
+ntic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)

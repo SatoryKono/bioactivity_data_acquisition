@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import re
 
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from bioetl.normalizers.identifier import IdentifierNormalizer
-
 
 normalizer = IdentifierNormalizer()
 

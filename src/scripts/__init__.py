@@ -9,18 +9,18 @@ import typer
 
 from bioetl.cli.command import PipelineCommandConfig, create_pipeline_command
 from bioetl.config.paths import get_config_path
-from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
-from bioetl.sources.chembl.assay.pipeline import AssayPipeline
 from bioetl.pipelines.document import (
     DEFAULT_DOCUMENT_PIPELINE_MODE,
     DOCUMENT_PIPELINE_MODES,
     DocumentPipeline,
 )
+from bioetl.sources.chembl.activity.pipeline import ActivityPipeline
+from bioetl.sources.chembl.assay.pipeline import AssayPipeline
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
-from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
-from bioetl.sources.uniprot.pipeline import UniProtPipeline
+from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.pubchem.pipeline import PubChemPipeline
+from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
 PIPELINE_COMMAND_REGISTRY: dict[str, PipelineCommandConfig] = {
     "activity": PipelineCommandConfig(

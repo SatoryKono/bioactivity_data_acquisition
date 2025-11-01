@@ -10,7 +10,6 @@ import pytest
 from bioetl.config.models import DeterminismConfig, MaterializationPaths
 from bioetl.core.materialization import MaterializationManager
 
-
 pytestmark = pytest.mark.integration
 
 

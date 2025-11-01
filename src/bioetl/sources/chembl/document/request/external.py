@@ -237,11 +237,6 @@ def run_enrichment_requests(
     if not adapters:
         return None, None, None, None, {}, {}
 
-    pmid_list = list(dict.fromkeys(pmids)) if pmids else []
-    doi_list = list(dict.fromkeys(dois)) if dois else []
-    title_list = list(dict.fromkeys(titles)) if titles else []
-    record_list = list(records) if records else []
-
     pubmed_df = None
     crossref_df = None
     openalex_df = None

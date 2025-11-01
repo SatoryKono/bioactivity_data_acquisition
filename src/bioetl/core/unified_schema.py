@@ -22,9 +22,9 @@ from bioetl.pandera_pandas import DataFrameModel
 from bioetl.schemas.activity import ActivitySchema
 from bioetl.schemas.assay import AssaySchema
 from bioetl.schemas.document import DocumentNormalizedSchema
+from bioetl.schemas.registry import SchemaRegistration, SchemaRegistry, schema_registry
 from bioetl.schemas.target import TargetSchema
 from bioetl.schemas.testitem import TestItemSchema
-from bioetl.schemas.registry import SchemaRegistration, SchemaRegistry, schema_registry
 
 __all__ = [
     "SchemaRegistration",

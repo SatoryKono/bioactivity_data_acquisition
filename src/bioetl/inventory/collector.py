@@ -1,10 +1,10 @@
 """Collect and analyse metadata for source code inventory reporting."""
 from __future__ import annotations
 
-from collections import Counter, defaultdict
-from datetime import datetime, timezone
 import ast
 import re
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from itertools import combinations
 from pathlib import Path
 from typing import Iterable, Iterator, Sequence

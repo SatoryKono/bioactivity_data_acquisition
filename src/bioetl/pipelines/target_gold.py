@@ -11,9 +11,9 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from bioetl.config.models import MaterializationPaths
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.materialization import MaterializationManager
-from bioetl.config.models import MaterializationPaths
 
 # Runtime-safe aliases for pandas API to avoid stub issues
 PD_NA: Any = getattr(pd, "NA", np.nan)

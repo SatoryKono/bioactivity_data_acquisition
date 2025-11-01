@@ -189,7 +189,7 @@ class SchemaRegistry:
     ) -> SchemaRegistration | None:
         """Return the registration matching ``schema_id`` and optional ``version``."""
 
-        for (entity, schema_version), registration in cls._metadata.items():
+        for (_entity, schema_version), registration in cls._metadata.items():
             if registration.schema_id != schema_id:
                 continue
             if version is not None and schema_version != version:

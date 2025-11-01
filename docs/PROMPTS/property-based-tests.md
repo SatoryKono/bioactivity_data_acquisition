@@ -73,6 +73,7 @@
 - Валидация: если результат не None, то он проходит validate()
 
 **Пример стратегии:**
+
 ```python
 from hypothesis import given, settings
 from hypothesis import strategies as st
@@ -106,6 +107,7 @@ def test_string_normalize_is_idempotent(value: str) -> None:
 - Сохранение всех полей из исходного ответа
 
 **Пример стратегии для JSON парсера:**
+
 ```python
 @st.composite
 def api_response_strategy(draw):
@@ -194,6 +196,7 @@ tests/
 ### 1. Установка зависимостей
 
 Убедиться что `hypothesis` добавлен в `requirements.txt`:
+
 ```txt
 hypothesis>=6.0.0
 ```
@@ -209,6 +212,7 @@ hypothesis>=6.0.0
 - Иметь docstring с описанием проверяемого инварианта
 
 **Шаблон:**
+
 ```python
 """Property-based tests for <component>."""
 
@@ -234,6 +238,7 @@ def test_<component>_property(<parameter>):
 ### 3. Кастомные стратегии
 
 Для сложных данных использовать `@st.composite`:
+
 ```python
 @st.composite
 def <component>_inputs(draw: st.DrawFn) -> <Type>:
@@ -264,12 +269,14 @@ def <component>_inputs(draw: st.DrawFn) -> <Type>:
 ### 5. Примеры инвариантов для тестирования
 
 **Идемпотентность:**
+
 ```python
 result = f(x)
 assert f(result) == result
 ```
 
 **Детерминизм:**
+
 ```python
 result1 = f(x)
 result2 = f(x)
@@ -277,12 +284,14 @@ assert result1 == result2
 ```
 
 **Соответствие типам:**
+
 ```python
 result = f(x)
 assert isinstance(result, ExpectedType) or result is None
 ```
 
 **Валидация:**
+
 ```python
 result = f(x)
 if result is not None:
@@ -290,6 +299,7 @@ if result is not None:
 ```
 
 **Отсутствие потерь данных:**
+
 ```python
 original = extract_all_fields(x)
 transformed = transform(x)
@@ -309,6 +319,7 @@ assert all(field in normalized for field in original)
 - Быть помечены маркером `@pytest.mark.property` если нужна отдельная категория
 
 **Пример pytest.ini:**
+
 ```ini
 [pytest]
 markers =

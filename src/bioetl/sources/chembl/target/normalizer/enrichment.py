@@ -1,27 +1,29 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
 
 import pandas as pd
 
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.parser import parse_api_response
 from bioetl.sources.iuphar.service import IupharService
+
 # Import UniProtSearchClient, UniProtIdMappingClient and UniProtOrthologClient from parent module client.py (not from client package)
 # The client.py versions have the correct API (client, fields, batch_size, fetch_entries)
 # while idmapping_client.py and orthologs_client.py have different APIs
 try:
-    import sys
     import importlib.util
+    import sys
     from pathlib import Path
-    
+
     # Get the path to client.py
     # enrichment.py is in normalizer/ subdirectory, so we need one more parent
     uniprot_dir = Path(__file__).parent.parent.parent.parent / "uniprot"
     client_py_file = uniprot_dir / "client.py"
-    
+
     if client_py_file.exists():
         # Check if already loaded by checking both the file path and the module name
         module_key = str(client_py_file)
@@ -186,7 +188,8 @@ class TargetEnricher:
         if self.iuphar_paginator is None:
             return []
 
-        parser = lambda payload: parse_api_response(payload, unique_key=unique_key)
+        def parser(payload: dict[str, Any]) -> dict[str, Any]:
+            return parse_api_response(payload, unique_key=unique_key)
         return self.iuphar_paginator.fetch_all(
             path,
             unique_key=unique_key,

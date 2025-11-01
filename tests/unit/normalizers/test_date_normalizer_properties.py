@@ -6,13 +6,13 @@ from datetime import UTC, date, datetime
 
 import pandas as pd
 import pytest
+
 hypothesis = pytest.importorskip("hypothesis")
 strategies = pytest.importorskip("hypothesis.strategies")
 from hypothesis import given
 
 from bioetl.normalizers.date import DateNormalizer
 from bioetl.normalizers.registry import registry
-
 
 _DATE_STRATEGY = strategies.dates(min_value=date(1900, 1, 1), max_value=date(2100, 12, 31))
 

@@ -14,8 +14,8 @@ PROJECT_SRC = Path(__file__).resolve().parents[2] / "src"
 if str(PROJECT_SRC) not in sys.path:
     sys.path.insert(0, str(PROJECT_SRC))
 
-from bioetl.core.output_writer import OutputArtifacts  # noqa: E402
 from bioetl.cli.main import app as main_cli_app  # noqa: E402
+from bioetl.core.output_writer import OutputArtifacts  # noqa: E402
 from scripts import PIPELINE_COMMAND_REGISTRY  # noqa: E402
 
 

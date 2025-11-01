@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+import re
+from collections.abc import Iterator, Mapping, MutableMapping
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-import re
-from typing import Any, Mapping, MutableMapping, cast
+from typing import Any, cast
 
 import structlog
 
@@ -50,7 +51,7 @@ def _copy_mapping(mapping: Mapping[str, Any]) -> dict[str, Any]:
 
     if isinstance(mapping, dict):
         return dict(mapping)
-    return {key: value for key, value in mapping.items()}
+    return dict(mapping.items())
 
 
 @dataclass(slots=True)
@@ -115,7 +116,7 @@ class LogContext:
             payload.update(self.http)
         return payload
 
-    def evolve(self, **updates: Any) -> "LogContext":
+    def evolve(self, **updates: Any) -> LogContext:
         data: dict[str, Any] = {
             "run_id": self.run_id,
             "stage": self.stage,
@@ -275,7 +276,7 @@ def clear_context() -> None:
 
 
 @contextmanager
-def http_context(**fields: Any):
+def http_context(**fields: Any) -> Iterator[None]:
     """Temporarily augment the active context with HTTP metadata."""
 
     token = set_context(**fields)
@@ -513,7 +514,7 @@ class UnifiedLogger:
 
     @classmethod
     @contextmanager
-    def http_context(cls, **fields: Any):
+    def http_context(cls, **fields: Any) -> Iterator[None]:
         token = set_context(**fields)
         try:
             yield
@@ -528,7 +529,8 @@ class UnifiedLogger:
 def security_sensitive_message(message: str) -> str:
     """Utility retained for backwards compatibility."""
 
-    return security_processor(None, "", {"message": message}).get("message", message)
+    result = security_processor(None, "", {"message": message}).get("message", message)
+    return cast(str, result)
 
 
 __all__ = [

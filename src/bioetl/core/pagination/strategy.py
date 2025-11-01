@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Generic, TypeVar
 
 from bioetl.core.api_client import UnifiedAPIClient
+
 Parser = Callable[[Any], Sequence[Mapping[str, Any]]]
 Extractor = Callable[[Mapping[str, Any]], Sequence[Mapping[str, Any]]]
 CursorExtractor = Callable[[Mapping[str, Any]], str | None]

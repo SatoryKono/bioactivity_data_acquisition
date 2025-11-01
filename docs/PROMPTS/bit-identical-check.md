@@ -31,6 +31,7 @@
 **Файл:** `tests/golden/test_cli_golden.py`
 
 **Пример проверки хэшей:**
+
 ```python
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -375,6 +376,7 @@ def update_golden_file(
 **Местоположение:** `tests/integration/pipelines/test_<entity>_determinism.py`
 
 **Пример для activity:**
+
 ```python
 """Determinism tests for activity pipeline."""
 
@@ -429,6 +431,7 @@ tests/
 ### 2. Маркеры pytest
 
 **Добавить в `pytest.ini` или `pyproject.toml`:**
+
 ```ini
 [pytest]
 markers =
@@ -439,6 +442,7 @@ markers =
 ### 3. Фикстуры
 
 **Добавить в `tests/conftest.py`:**
+
 ```python
 @pytest.fixture
 def frozen_time(monkeypatch):

@@ -13,7 +13,6 @@ from hypothesis import strategies as st
 
 from bioetl.normalizers.numeric import BooleanNormalizer, NumericNormalizer
 
-
 pytestmark = pytest.mark.property
 
 _numeric_normalizer = NumericNormalizer()

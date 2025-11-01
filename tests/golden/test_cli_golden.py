@@ -23,7 +23,6 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.base import BaseSchema
 from bioetl.schemas.registry import schema_registry
 from scripts import PIPELINE_COMMAND_REGISTRY, create_pipeline_app
-
 from tests.golden.helpers import snapshot_artifacts, verify_bit_identical_outputs
 
 RUNNER = CliRunner()

@@ -16,10 +16,10 @@ from bioetl.core.api_client import (
     APIConfig,
     CircuitBreaker,
     CircuitBreakerOpenError,
-    _RequestRetryContext,
     RetryPolicy,
     TokenBucketLimiter,
     UnifiedAPIClient,
+    _RequestRetryContext,
 )
 
 

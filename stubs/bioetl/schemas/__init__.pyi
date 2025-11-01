@@ -4,7 +4,6 @@ from typing import ClassVar
 
 from . import base as base
 
-
 class ActivitySchema(base.BaseSchema):
     """Stub Pandera model representing the Activity output schema."""
 

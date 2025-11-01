@@ -9,7 +9,6 @@ from hypothesis import given, settings
 
 from bioetl.sources.uniprot.parser import parse_idmapping_results, parse_idmapping_status
 
-
 BUCKET_SYNONYMS: dict[str, list[str]] = {
     "pending": ["pending", "queued"],
     "running": ["running", "active"],

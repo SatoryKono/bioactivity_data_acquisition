@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import types
 from pathlib import Path
 
@@ -12,7 +11,6 @@ from bioetl.pandera_pandas import DataFrameModel
 from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.registry import schema_registry
-
 
 pytestmark = pytest.mark.integration
 

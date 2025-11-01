@@ -12,7 +12,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 from structlog.testing import capture_logs
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

@@ -2,7 +2,7 @@
 
 from .chembl import ChemblRequestBuilder, ChemblTargetRequest
 from .iuphar import IupharRequestBuilder
-from .uniprot import UniProtRequestBuilder, UniProtRequestBatch
+from .uniprot import UniProtRequestBatch, UniProtRequestBuilder
 
 __all__ = [
     "ChemblRequestBuilder",

@@ -16,13 +16,15 @@ from bioetl.config.models import (
     MaterializationStagePaths,
     PathConfig,
     PipelineMetadata,
-    PipelineConfig as _LegacyPipelineConfig,
     PostprocessConfig,
     QCConfig,
     RateLimitConfig,
     RetryConfig,
     SortConfig,
     TargetSourceConfig,
+)
+from bioetl.config.models import (
+    PipelineConfig as _LegacyPipelineConfig,
 )
 
 __all__ = [

@@ -5,15 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 import pandas as pd
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
+from bioetl.pandera_pandas import Field
+from bioetl.pandera_typing import Series
 from bioetl.schemas.base import (
     FALLBACK_METADATA_COLUMN_ORDER,
     BaseSchema,
     FallbackMetadataMixin,
 )
-from bioetl.pandera_pandas import Field
-from bioetl.pandera_typing import Series
 
 
 class _FallbackEnabledSchema(FallbackMetadataMixin, BaseSchema):

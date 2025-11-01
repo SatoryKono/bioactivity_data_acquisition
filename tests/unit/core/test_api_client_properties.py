@@ -7,7 +7,8 @@ from email.utils import format_datetime, parsedate_to_datetime
 from unittest.mock import patch
 
 import pytest
-from hypothesis import given, strategies as st
+from hypothesis import given
+from hypothesis import strategies as st
 
 from bioetl.core import api_client
 

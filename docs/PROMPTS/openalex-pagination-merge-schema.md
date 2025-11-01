@@ -174,6 +174,7 @@ class CursorPaginator:
 ```
 
 **Пример использования:**
+
 ```python
 from bioetl.sources.openalex.pagination import CursorPaginator
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig

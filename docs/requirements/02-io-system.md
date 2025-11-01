@@ -1421,3 +1421,4 @@ artifacts = writer.write(df, table_name="documents", date_tag="20250128")
 ---
 
 **Следующий раздел**: [03-data-extraction.md](03-data-extraction.md)
+xtraction.md](03-data-extraction.md)

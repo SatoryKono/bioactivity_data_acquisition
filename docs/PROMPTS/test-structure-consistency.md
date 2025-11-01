@@ -294,6 +294,7 @@ tests/
 Создать `tests/sources/pubchem/test_pipeline_e2e.py` по образцу существующих тестов.
 
 **Структура теста:**
+
 ```python
 import pytest
 from bioetl.sources.pubchem.pipeline import PubChemPipeline

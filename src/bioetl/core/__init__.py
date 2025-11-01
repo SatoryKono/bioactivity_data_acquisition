@@ -12,11 +12,15 @@ from bioetl.core.output_writer import (
 from bioetl.core.unified_schema import (
     SchemaRegistration,
     SchemaRegistry,
-    get_registry as get_schema_registry,
     get_schema,
     get_schema_metadata,
-    is_registered as is_schema_registered,
     register_schema,
+)
+from bioetl.core.unified_schema import (
+    get_registry as get_schema_registry,
+)
+from bioetl.core.unified_schema import (
+    is_registered as is_schema_registered,
 )
 
 __all__ = [

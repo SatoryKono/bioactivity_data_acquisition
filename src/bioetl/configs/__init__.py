@@ -8,7 +8,6 @@ from typing import Any, Mapping, Sequence
 from bioetl.config.loader import deep_merge as _deep_merge
 from bioetl.config.loader import load_config as _legacy_load_config
 from bioetl.config.loader import parse_cli_overrides as _parse_cli_overrides
-
 from bioetl.configs.models import (
     CacheConfig,
     DeterminismConfig,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, overload
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from typing import Any, overload
 
 __all__ = [
     "Timestamp",

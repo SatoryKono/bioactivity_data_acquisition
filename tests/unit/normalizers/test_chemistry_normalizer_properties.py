@@ -18,7 +18,6 @@ from bioetl.normalizers.chemistry import (
     NonNegativeFloatNormalizer,
 )
 
-
 pytestmark = pytest.mark.property
 
 _chemistry_normalizer = ChemistryNormalizer()

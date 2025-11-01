@@ -420,7 +420,6 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
 
         coerce_nullable_int(df, nullable_int_columns)
 
-        pipeline_version = self.config.pipeline.version
         default_source = "chembl"
 
         release_value: str | None = self.chembl_release

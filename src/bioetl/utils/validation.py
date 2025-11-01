@@ -580,25 +580,16 @@ class ColumnValidator:
                 entity = result.entity.lower()
                 if not stem.startswith(entity):
                     issues.append(
-                        "file '{file}' is expected to start with entity '{entity}'".format(
-                            file=source_file.name,
-                            entity=result.entity,
-                        )
+                        f"file '{source_file.name}' is expected to start with entity '{result.entity}'"
                     )
 
             if result.missing_columns or result.extra_columns:
                 issues.append(
-                    "entity '{entity}' mismatch: missing={missing} extra={extra}".format(
-                        entity=result.entity,
-                        missing=sorted(result.missing_columns),
-                        extra=sorted(result.extra_columns),
-                    )
+                    f"entity '{result.entity}' mismatch: missing={sorted(result.missing_columns)} extra={sorted(result.extra_columns)}"
                 )
             elif not result.order_matches or not result.column_count_matches:
                 issues.append(
-                    "entity '{entity}' column order/count mismatch".format(
-                        entity=result.entity,
-                    )
+                    f"entity '{result.entity}' column order/count mismatch"
                 )
 
         if issues:

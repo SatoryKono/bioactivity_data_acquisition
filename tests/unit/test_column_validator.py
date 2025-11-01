@@ -6,9 +6,9 @@ import pandas as pd
 import pytest
 
 from bioetl.utils.validation import (
+    _DEFAULT_VALIDATION_CHUNK_SIZE,
     ColumnComparisonResult,
     ColumnValidator,
-    _DEFAULT_VALIDATION_CHUNK_SIZE,
 )
 
 

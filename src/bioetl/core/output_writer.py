@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import typing as _typing
 from collections.abc import Callable, Mapping, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field, replace
@@ -13,20 +14,20 @@ from enum import Enum
 from pathlib import Path
 from time import perf_counter
 from typing import TYPE_CHECKING, Any, cast
-import typing as _typing
 
 import pandas as pd
 from pandas import DataFrame
 
 from bioetl.config.models import DeterminismConfig
 from bioetl.config.paths import get_configs_root
-from bioetl.core.logger import UnifiedLogger
 from bioetl.core.hashing import (
     generate_hash_business_key as _generate_hash_business_key,
+)
+from bioetl.core.hashing import (
     generate_hash_row as _generate_hash_row,
 )
+from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.utils.dataframe import resolve_schema_column_order
 
 if TYPE_CHECKING:  # pragma: no cover - assists static analysers only.
     from bioetl.config import PipelineConfig
@@ -579,6 +580,7 @@ class UnifiedOutputWriter:
             return []
 
         try:
+            from bioetl.utils.dataframe import resolve_schema_column_order  # noqa: PLC0415
             schema_type = cast("type[BaseSchema]", registration.schema)
             return resolve_schema_column_order(schema_type)
         except Exception:  # pragma: no cover - defensive guard
@@ -610,6 +612,7 @@ class UnifiedOutputWriter:
             return []
 
         try:
+            from bioetl.utils.dataframe import resolve_schema_column_order  # noqa: PLC0415
             schema_type = cast("type[BaseSchema]", registration.schema)
             return resolve_schema_column_order(schema_type)
         except Exception:  # pragma: no cover - defensive guard

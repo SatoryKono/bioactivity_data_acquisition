@@ -40,8 +40,8 @@ try:
         raise FileNotFoundError(f"client.py not found at {client_py_path}")
 except Exception:
     # Fallback to package imports if import fails
-    from .search_client import UniProtSearchClient
     from .idmapping_client import UniProtIdMappingClient
+    from .search_client import UniProtSearchClient
 
 warn_legacy_client(__name__, replacement="bioetl.adapters.uniprot")
 

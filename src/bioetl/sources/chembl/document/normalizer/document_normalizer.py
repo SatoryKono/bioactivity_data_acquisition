@@ -7,7 +7,8 @@ from typing import Any, Mapping
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.normalizers import NormalizerRegistry, registry as normalizer_registry
+from bioetl.normalizers import NormalizerRegistry
+from bioetl.normalizers import registry as normalizer_registry
 from bioetl.utils.dtypes import coerce_optional_bool
 
 logger = UnifiedLogger.get(__name__)

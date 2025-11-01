@@ -9,6 +9,7 @@
 3) Реализовать temp → `os.replace`.
 4) Запретить silent-drop колонок.
 
+
 **Outputs**
 
 - Патч к IO-модулю

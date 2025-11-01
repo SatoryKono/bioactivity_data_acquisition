@@ -4,7 +4,7 @@ from collections.abc import Sequence
 from dataclasses import MISSING
 from numbers import Real
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import pandas as pd
 import pandera.errors as pa_errors

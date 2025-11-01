@@ -12,7 +12,6 @@ import yaml
 
 from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.pipelines.base import PipelineBase
-
 from tests.golden.helpers import snapshot_artifacts, verify_bit_identical_outputs
 
 pytestmark = pytest.mark.integration

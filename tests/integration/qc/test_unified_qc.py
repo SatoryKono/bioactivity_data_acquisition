@@ -24,7 +24,6 @@ from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.document import DocumentPipeline
 from bioetl.pipelines.target import TargetPipeline
 
-
 pytestmark = pytest.mark.integration
 
 

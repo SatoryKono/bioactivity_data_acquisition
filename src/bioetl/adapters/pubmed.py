@@ -9,9 +9,9 @@ from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
-from bioetl.sources.pubmed.request import PubMedRequestBuilder
 from bioetl.sources.pubmed.pagination import WebEnvPaginator
 from bioetl.sources.pubmed.parser import parse_efetch_response
+from bioetl.sources.pubmed.request import PubMedRequestBuilder
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 
@@ -295,7 +295,7 @@ class PubMedAdapter(ExternalAdapter):
         pmid_int: int | None = None
         if pmid_value not in (None, ""):
             try:
-                pmid_int = int(pmid_value)
+                pmid_int = int(str(pmid_value))
             except (TypeError, ValueError):
                 pmid_int = None
 

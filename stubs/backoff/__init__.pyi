@@ -1,3 +1,5 @@
+"""Type stubs for backoff library."""
+
 from collections.abc import Callable
 from typing import Any, ParamSpec, TypeVar
 
@@ -18,4 +20,5 @@ def on_exception(
     logger: Any | None = ...,
 ) -> Callable[[Callable[P, T]], Callable[P, T]]: ...
 
+__all__ = ["constant", "on_exception"]
 

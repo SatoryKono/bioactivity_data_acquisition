@@ -7,10 +7,10 @@ import pytest
 
 from bioetl.config.loader import load_config
 from bioetl.config.models import PipelineConfig
+from bioetl.core.unified_schema import register_schema
 from bioetl.pandera_pandas import DataFrameModel, Field
 from bioetl.pandera_typing import Series
 from bioetl.pipelines.base import PipelineBase
-from bioetl.core.unified_schema import register_schema
 
 
 class _UnitTestSchema(DataFrameModel):

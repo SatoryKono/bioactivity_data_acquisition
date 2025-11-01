@@ -38,25 +38,21 @@ sequenceDiagram
 ### activity-pipeline
 
 - `extract()` считывает `activity.csv` или путь CLI и подтягивает детали по
-
   списку `activity_id` через `ActivityChEMBLClient`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
 
 - `transform()` нормализует числовые поля, переводит пустые значения и собирает
-
   fallback-метрики.[ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32]
 
 - `validate()` использует `ActivitySchema` и при необходимости добавляет
-
   отсутствующие колонки согласно `determinism.column_order`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
 
 - `export()` пишет CSV и JSON debug при `extended`, добавляя QC (`duplicates`,
-
   `null_rate`).[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
 
 Пример минимальной конфигурации:
+
 ```yaml
 extends:
-
   - ../base.yaml
   - ../includes/determinism.yaml
   - ../includes/chembl_source.yaml
@@ -68,30 +64,27 @@ sources:
   chembl:
     batch_size: 20
 ```
+
 [ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
 
 ### document-pipeline
 
 - `extract()` валидирует `document_chembl_id`, вызывает ChEMBL и при режиме
-
   `all` запускает внешние адаптеры PubMed, Crossref, OpenAlex, Semantic Scholar.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 
 - `transform()` объединяет ответы, применяет приоритеты (`merge_with_precedence`)
-
   и нормализует DOI/PMID.[ref: repo:src/bioetl/sources/chembl/document/merge/policy.py@test_refactoring_32]
 
 - `validate()` сначала проверяет сырые данные по `DocumentRawSchema`, затем
-
   нормализованный фрейм по `DocumentNormalizedSchema`.[ref: repo:src/bioetl/sources/chembl/document/pipeline.py@test_refactoring_32]
 
 - `export()` сохраняет основную таблицу и QC-файлы (`qc_missing_mappings.csv`,
-
   `qc_enrichment_metrics.csv`) через `OutputWriter`.[ref: repo:src/bioetl/core/output_writer.py@test_refactoring_32]
 
 Минимальная конфигурация с внешними адаптерами:
+
 ```yaml
 extends:
-
   - ../base.yaml
   - ../includes/determinism.yaml
   - ../includes/chembl_source.yaml
@@ -108,27 +101,25 @@ sources:
     base_url: "<https://api.crossref.org>"
     mailto: "${CROSSREF_MAILTO}"
 ```
+
 [ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
 
 ### target-pipeline
 
 - `extract()` получает таргеты из ChEMBL и готовит идентификаторы для UniProt.
-
   Клиенты регистрируются в `PipelineBase` для корректного закрытия.[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
 
 - `transform()` делегирует enrichment `TargetEnricher`, который
-
   подтягивает UniProt и IUPHAR данные, строит классификации и QC метрики.[ref: repo:src/bioetl/sources/chembl/target/normalizer/enrichment.py@test_refactoring_32]
 
 - `validate()` применяет Pandera-схему для `TargetSchema` и проверяет согласованность
-
   колонок со слоями materialization.[ref: repo:src/bioetl/sources/chembl/target/pipeline.py@test_refactoring_32]
 
 - `export()` сохраняет несколько датасетов (`targets_final`, `target_components`,
-
   `protein_class`) через `MaterializationManager`.[ref: repo:src/bioetl/core/materialization.py@test_refactoring_32]
 
 Выдержка из конфигурации с отключаемыми стадиями:
+
 ```yaml
 sources:
   chembl:
@@ -148,6 +139,7 @@ materialization:
           formats:
             parquet: "targets_final.parquet"
 ```
+
 [ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
 
 ### pubchem-pipeline

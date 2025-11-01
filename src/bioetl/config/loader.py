@@ -4,7 +4,7 @@ import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, IO
+from typing import IO, TYPE_CHECKING, Any
 
 import yaml
 

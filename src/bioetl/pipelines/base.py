@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import abc
 from abc import ABC, abstractmethod
-from datetime import datetime
-from time import perf_counter
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import datetime
 from pathlib import Path
 from time import perf_counter
 from typing import Any, cast
@@ -16,24 +15,28 @@ import pandas as pd
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.chembl import (
+    ChemblClientContext,
+    create_pipeline_output_writer,
+)
+from bioetl.core.chembl import (
+    build_chembl_client_context as _core_build_chembl_client_context,
+)
+from bioetl.core.chembl import (
+    create_chembl_client as _core_create_chembl_client,
+)
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output_writer import (
     AdditionalTableSpec,
     OutputArtifacts,
     OutputMetadata,
 )
-from bioetl.core.chembl import (
-    ChemblClientContext,
-    build_chembl_client_context as _core_build_chembl_client_context,
-    create_chembl_client as _core_create_chembl_client,
-    create_pipeline_output_writer,
-)
 from bioetl.core.unified_schema import get_schema, get_schema_metadata
 from bioetl.utils.chembl import (
     ChemblRelease,
     SupportsRequestJson,
-    fetch_chembl_release,
     _resolve_release_name,
+    fetch_chembl_release,
 )
 from bioetl.utils.io import load_input_frame, resolve_input_path
 from bioetl.utils.output import finalize_output_dataset

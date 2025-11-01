@@ -14,7 +14,6 @@ from hypothesis import strategies as st
 from bioetl.core.api_client import APIConfig, UnifiedAPIClient
 from bioetl.sources.chembl.testitem.request import TestItemRequestBuilder
 
-
 pytestmark = pytest.mark.property
 
 

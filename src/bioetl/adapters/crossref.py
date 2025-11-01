@@ -11,11 +11,11 @@ from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
 from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
 from bioetl.core.api_client import APIConfig
 from bioetl.normalizers.bibliography import normalize_common_bibliography
-from bioetl.sources.crossref.request import CrossrefRequestBuilder
 from bioetl.sources.crossref.normalizer import (
     normalize_crossref_affiliations,
     normalize_crossref_authors,
 )
+from bioetl.sources.crossref.request import CrossrefRequestBuilder
 
 NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
 

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, MutableMapping
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
-from collections.abc import Callable, MutableMapping
 
 import pandas as pd
 

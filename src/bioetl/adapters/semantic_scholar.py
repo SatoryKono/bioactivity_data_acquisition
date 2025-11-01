@@ -1,11 +1,11 @@
 """Semantic Scholar Graph API adapter."""
 
 import os
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any
 
-import pandas as pd
 import backoff
+import pandas as pd
 from requests import RequestException
 
 from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
@@ -60,7 +60,8 @@ class SemanticScholarAdapter(ExternalAdapter):
                 continue
 
             if record:
-                records.append(record)
+                dict_record: dict[str, Any] = dict(record)
+                records.append(dict_record)
 
         if failures:
             raise AdapterFetchError(
@@ -150,7 +151,7 @@ class SemanticScholarAdapter(ExternalAdapter):
                 if pmid and pmid not in pmid_title_map:
                     pmid_title_map[str(pmid)] = title_str
 
-        title_pool: set[str] = set(str(value) for value in titles or [] if value)
+        title_pool: set[str] = {str(value) for value in titles or [] if value}
         for mapping in (doi_title_map, pmid_title_map):
             title_pool.update(mapping.values())
 
@@ -212,7 +213,7 @@ class SemanticScholarAdapter(ExternalAdapter):
         }
 
         try:
-            response: dict[str, Any] = self.api_client.request_json(url, params=params)
+            response: Mapping[str, Any] = self.api_client.request_json(url, params=params)
         except Exception as exc:  # pragma: no cover - defensive
             error_message = str(exc) or "Semantic Scholar search failed"
             raise AdapterFetchError(
@@ -226,7 +227,7 @@ class SemanticScholarAdapter(ExternalAdapter):
             return data
         return []
 
-    def _fetch_paper(self, paper_id: str) -> dict[str, Any] | None:
+    def _fetch_paper(self, paper_id: str) -> Mapping[str, Any] | None:
         """Fetch a single paper by ID (DOI, PMID, or ArXiv)."""
         # Format paper ID
         formatted_id = self._format_paper_id(paper_id)
@@ -353,7 +354,6 @@ class SemanticScholarAdapter(ExternalAdapter):
             exception=RequestException,
             interval=self._backoff_interval,
             max_tries=self._backoff_max_tries,
-            jitter=None,
         )(operation)
         return wrapped()
 

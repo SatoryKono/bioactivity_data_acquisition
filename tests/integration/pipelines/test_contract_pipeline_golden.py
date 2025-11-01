@@ -20,7 +20,6 @@ from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.pagination import PageNumberPaginationStrategy, PageNumberRequest
 from bioetl.pipelines.base import PipelineBase
-
 from tests.golden.helpers import (
     compare_files_bitwise,
     snapshot_artifacts,
