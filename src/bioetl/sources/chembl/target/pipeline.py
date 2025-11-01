@@ -20,6 +20,7 @@ from bioetl.schemas import (
     TargetSchema,
     XrefSchema,
 )
+from bioetl.schemas.pipeline_inputs import TargetInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig
@@ -272,6 +273,14 @@ class TargetPipeline(PipelineBase):
 
         if not resolved_path.exists():
             return df
+
+        if not df.empty:
+            schema_columns = TargetInputSchema.to_schema().columns.keys()
+            for column in schema_columns:
+                if column not in df.columns:
+                    df[column] = pd.Series(pd.NA, index=df.index)
+            df = df.convert_dtypes()
+            df = TargetInputSchema.validate(df, lazy=True)
 
         logger.info("extraction_completed", rows=len(df))
         return df

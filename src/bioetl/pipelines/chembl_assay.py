@@ -17,6 +17,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.assay import AssaySchema
+from bioetl.schemas.pipeline_inputs import AssayInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.assay.constants import (
     ASSAY_CLASS_ENRICHMENT_WHITELIST,
@@ -192,6 +193,9 @@ class AssayPipeline(PipelineBase):
             return df
 
         result = pd.DataFrame({"assay_chembl_id": df.get("assay_chembl_id", pd.Series(dtype="string"))})
+
+        if not result.empty:
+            result = AssayInputSchema.validate(result, lazy=True)
 
         logger.info("extraction_completed", rows=len(result))
         return result

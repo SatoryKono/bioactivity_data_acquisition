@@ -16,6 +16,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.activity import ActivitySchema
+from bioetl.schemas.pipeline_inputs import ActivityInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.activity.output.activity_output import ActivityOutputWriter
 from bioetl.sources.chembl.activity.parser.activity_parser import (
@@ -114,10 +115,18 @@ class ActivityPipeline(PipelineBase):
         if not resolved_path.exists():
             return df
 
-        # Map activity_chembl_id to activity_id if needed
-        if 'activity_chembl_id' in df.columns:
-            df = df.rename(columns={'activity_chembl_id': 'activity_id'})
-            df['activity_id'] = pd.to_numeric(df['activity_id'], errors='coerce').astype('Int64')
+        if not df.empty:
+            working = df.copy()
+            if "activity_chembl_id" in working.columns and "activity_id" not in working.columns:
+                working = working.rename(columns={"activity_chembl_id": "activity_id"})
+            if "activity_id" in working.columns:
+                working["activity_id"] = pd.to_numeric(
+                    working["activity_id"], errors="coerce"
+                ).astype("Int64")
+            if "activity_chembl_id" not in working.columns:
+                working["activity_chembl_id"] = pd.Series(pd.NA, index=working.index, dtype="string")
+            working = ActivityInputSchema.validate(working, lazy=True)
+            df = working
 
         # Extract activity IDs for API call
         activity_ids = df['activity_id'].dropna().astype(int).unique().tolist()

@@ -13,6 +13,7 @@ from bioetl.core.client_factory import APIClientFactory
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import UniProtSchema
+from bioetl.schemas.pipeline_inputs import UniProtInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (
@@ -122,7 +123,14 @@ class UniProtPipeline(PipelineBase):
         )
         if "accession" in df.columns and "uniprot_accession" not in df.columns:
             df = df.rename(columns={"accession": "uniprot_accession"})
-        return df.convert_dtypes()
+        schema_columns = UniProtInputSchema.to_schema().columns.keys()
+        for column in schema_columns:
+            if column not in df.columns:
+                df[column] = pd.Series(pd.NA, index=df.index)
+        df = df.convert_dtypes()
+        if not df.empty:
+            df = UniProtInputSchema.validate(df, lazy=True)
+        return df
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich with UniProt metadata and prepare QC artifacts."""
