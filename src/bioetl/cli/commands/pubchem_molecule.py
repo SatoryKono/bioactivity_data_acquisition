@@ -5,20 +5,18 @@ from __future__ import annotations
 from pathlib import Path
 
 from bioetl.cli.command import PipelineCommandConfig
-from bioetl.config.paths import get_config_path
+from bioetl.cli.commands._common import build_external_source_command_config
 from bioetl.sources.pubchem.pipeline import PubChemPipeline
 
 
 def build_command_config() -> PipelineCommandConfig:
     """Return the CLI command configuration for the PubChem pipeline."""
 
-    return PipelineCommandConfig(
+    return build_external_source_command_config(
         pipeline_name="pubchem",
-        pipeline_factory=lambda: PubChemPipeline,
-        default_config=get_config_path("pipelines/pubchem.yaml"),
-        default_input=Path("data/input/pubchem_lookup.csv"),
-        default_output_dir=Path("data/output/pubchem"),
+        pipeline_class=PubChemPipeline,
         description="Standalone PubChem enrichment dataset",
+        default_input=Path("data/input/pubchem_lookup.csv"),
     )
 
 

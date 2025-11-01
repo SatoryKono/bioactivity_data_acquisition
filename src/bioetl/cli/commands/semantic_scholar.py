@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from bioetl.cli.command import PipelineCommandConfig
-from bioetl.config.paths import get_config_path
+from bioetl.cli.commands._common import build_external_source_command_config
 from bioetl.sources.semantic_scholar.pipeline import SemanticScholarPipeline
 
 
 def build_command_config() -> PipelineCommandConfig:
     """Return the CLI command configuration for the Semantic Scholar pipeline."""
 
-    return PipelineCommandConfig(
+    return build_external_source_command_config(
         pipeline_name="semantic_scholar",
-        pipeline_factory=lambda: SemanticScholarPipeline,
-        default_config=get_config_path("pipelines/semantic_scholar.yaml"),
-        default_input=Path("data/input/document.csv"),
-        default_output_dir=Path("data/output/semantic_scholar"),
+        pipeline_class=SemanticScholarPipeline,
         description="Semantic Scholar Graph enrichment dataset",
     )
 

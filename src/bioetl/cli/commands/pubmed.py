@@ -2,22 +2,17 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from bioetl.cli.command import PipelineCommandConfig
-from bioetl.config.paths import get_config_path
+from bioetl.cli.commands._common import build_external_source_command_config
 from bioetl.sources.pubmed.pipeline import PubMedPipeline
 
 
 def build_command_config() -> PipelineCommandConfig:
     """Return the CLI command configuration for the PubMed pipeline."""
 
-    return PipelineCommandConfig(
+    return build_external_source_command_config(
         pipeline_name="pubmed",
-        pipeline_factory=lambda: PubMedPipeline,
-        default_config=get_config_path("pipelines/pubmed.yaml"),
-        default_input=Path("data/input/document.csv"),
-        default_output_dir=Path("data/output/pubmed"),
+        pipeline_class=PubMedPipeline,
         description="PubMed literature enrichment dataset",
     )
 
