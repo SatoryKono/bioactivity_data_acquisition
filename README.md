@@ -1,272 +1,72 @@
 # BioETL
 
-Unified ETL framework for bioactivity data extraction from ChEMBL and
-external sources with full determinism and reproducibility.
+## Что это и зачем {#what-this-and-why}
 
-## Installation
+BioETL объединяет пайплайны извлечения, нормализации и детерминированной
+материализации биоактивных данных из ChEMBL и сопряжённых источников. Каждая
+реализация наследует базовую оркестрацию
+[`PipelineBase`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
+и использует строгие схемы Pandera, HTTP-клиенты с backoff и единый логгер.
+Публичное API описано в документации, на которую ссылается этот README.
+
+## Быстрый старт {#quick-start}
 
 ```bash
-
-# Install in development mode
-
+python -m venv .venv
+source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Install pre-commit hooks
-
-pre-commit install
-
-```
-
-### Install test dependencies only
-
-```bash
-pip install -r requirements.txt
-
-```
-
-> **Note:** The test suite relies on [Faker](https://faker.readthedocs.io/en/master/)
-> for deterministic fixture data. Installing the development extras or the
-> pinned requirements file above ensures the dependency is available before
-> running `pytest`.
-
-## Quick Start
-
-```bash
-
-# Load configuration
-
-python -c "from bioetl.config import load_config; print(load_config('configs/profiles/dev.yaml'))"
-
-# Test logger
-
-python -c "from bioetl.core.logger import UnifiedLogger; \
-UnifiedLogger.setup('development', 'test'); \
-UnifiedLogger.get('test').info('Hello World')"
-
-```
-
-## Environment variables
-
-Все обязательные переменные перечислены в файле [`.env.example`](.env.example) с
-комментариями по формату значений. Скопируйте его и заполните реальные данные:
-
-```bash
-cp .env.example .env
-${SHELL:-bash} -lc 'set -a; source .env; set +a'
-
-```
-
-Команда `set -a` экспортирует все переменные из `.env` в текущую сессию. В
-CI/CD можно использовать аналогичный подход (например, `python -m dotenv load`
-или встроенные менеджеры секретов) до вызова CLI.
-
-<!-- markdownlint-disable MD013 -->
-| Переменная | Назначение | Обязательность |
-| --- | --- | --- |
-| `PUBMED_TOOL` | Значение параметра `tool` для обращения к NCBI E-utilities. | Да — требуется документному пайплайну. |
-| `PUBMED_EMAIL` | Контактный e-mail для PubMed, который указывается в запросах. | Да — требуется документному пайплайну. |
-| `PUBMED_API_KEY` | Повышает PubMed rate limit с 3 до 10 запросов/сек. | Необязательная, но рекомендована для production. |
-| `CROSSREF_MAILTO` | E-mail для polite pool Crossref API. | Да — требуется документному пайплайну. |
-| `OPENALEX_MAILTO` | Контактный e-mail для OpenAlex API. | Да — рекомендуется для документного пайплайна. |
-| `SEMANTIC_SCHOLAR_API_KEY` | Токен Semantic Scholar Graph API. | Необязательная локально, обязательна для production. |
-| `IUPHAR_API_KEY` | Ключ доступа к Guide to Pharmacology API. | Да — требуется target-пайплайну. |
-<!-- markdownlint-enable MD013 -->
-
-Если `IUPHAR_API_KEY` не задан, загрузчик конфигурации завершится ошибкой,
-предотвращая случайную отправку плейсхолдеров `${IUPHAR_API_KEY}` в HTTP-заголовки.
-
-## CLI Usage
-
-<!-- markdownlint-disable MD013 -->
-Команды Typer регистрируются автоматически на основе `scripts.PIPELINE_COMMAND_REGISTRY`,
-поэтому консольный интерфейс всегда отражает актуальные пайплайны. Полный перечень команд,
-дефолтных путей и унифицированных флагов поддерживается в [refactoring/FAQ.md](refactoring/FAQ.md#cli-commands).
-<!-- markdownlint-enable MD013 -->
-
-```bash
-
-# Просмотреть доступные команды и флаги
-
-python -m bioetl.cli.main --help
-
-# Список зарегистрированных пайплайнов
-
-python -m bioetl.cli.main list
-
-# Пример запуска пайплайна в режиме dry-run
-
+# выполнение производственного пайплайна activity с профилем dev
 python -m bioetl.cli.main activity \
   --config src/bioetl/configs/pipelines/activity.yaml \
-  --dry-run \
-  --verbose
+  --input data/input/activity.csv \
+  --output-dir data/output/activity
 
 ```
 
-## Structure
+Команда автоматически применяет структуру конфигурации
+[`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
+и включённые значения из `base.yaml` и `determinism.yaml`.
 
-```text
-src/bioetl/
-  ├── core/          # Logger, API client, output writer
-  ├── config/        # Configuration system
-  ├── configs/
-  │   ├── includes/  # Shared YAML fragments for pipelines
-  │   └── pipelines/ # Per-source configs (<source>.yaml)
-  ├── normalizers/   # Data normalizers
-  ├── schemas/       # Pandera schemas
-  ├── pipelines/     # Pipeline implementations
-  ├── sources/
-  │   └── <source>/
-  │       ├── client/       # HTTP clients with retry/backoff
-  │       ├── request/      # Request builders and API etiquette
-  │       ├── pagination/   # Pagination strategies (page, cursor, ...)
-  │       ├── parser/       # Response parsing without side effects
-  │       ├── normalizer/   # Converts payloads to UnifiedSchema
-  │       ├── schema/       # Pandera schemas (optional)
-  │       ├── merge/        # Merge policies (optional)
-  │       ├── output/       # Deterministic writers, hashes, meta.yaml
-  │       └── pipeline.py   # PipelineBase orchestration entrypoint
-  └── cli/           # CLI interface
+## Где искать документацию {#where-to-find-docs}
 
-configs/
-  ├── base.yaml      # Base configuration
-  ├── profiles/      # dev.yaml, prod.yaml, test.yaml
-  └── sources/       # Per-source configs (pipeline.yaml, schema.yaml, includes/)
+- Навигация: [`docs/INDEX.md`][ref: repo:docs/INDEX.md@test_refactoring_32]
+- Архитектура уровней и глоссарий:
+  [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32]
+- Источники данных и схемы:
+  [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32]
+- Контракты пайплайнов:
+  [`docs/pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32]
+- Конфигурации и профили:
+  [`docs/configs/CONFIGS.md`][ref: repo:docs/configs/CONFIGS.md@test_refactoring_32]
+- CLI и команды:
+  [`docs/cli/CLI.md`][ref: repo:docs/cli/CLI.md@test_refactoring_32]
+- Контроль качества и тесты:
+  [`docs/qc/QA_QC.md`][ref: repo:docs/qc/QA_QC.md@test_refactoring_32]
 
-tests/
-  ├── unit/          # Unit tests
-  ├── integration/   # Integration tests
-  ├── golden/        # Golden tests
-  └── fixtures/      # Test fixtures
+## Поддерживаемые источники данных и их статус {#supported-sources}
 
-```
+### Пайплайны ChEMBL
 
-## API etiquette
+| Пайплайн | Основной источник | CLI команда | Конфигурация | Статус |
+| --- | --- | --- | --- | --- |
+| Activity | ChEMBL `/activity.json` | `bioetl.cli.main activity` | [`pipelines/activity.yaml`][ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32] | Production (unit + integration тесты) |
+| Assay | ChEMBL `/assay.json` | `bioetl.cli.main assay` | [`pipelines/assay.yaml`][ref: repo:src/bioetl/configs/pipelines/assay.yaml@test_refactoring_32] | Production |
+| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | `bioetl.cli.main target` | [`pipelines/target.yaml`][ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32] | Production |
+| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | `bioetl.cli.main document` | [`pipelines/document.yaml`][ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] | Production |
+| TestItem | ChEMBL молекулы с обогащением PubChem | `bioetl.cli.main testitem` | [`pipelines/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/testitem.yaml@test_refactoring_32] | Production |
 
-<!-- markdownlint-disable MD013 -->
-Внешние источники накладывают требования на идентификацию клиента. Пакет `src/bioetl/sources/<source>/request/`
-содержит билдеры, которые автоматически применяют эти правила. Конфигурации пайплайнов должны заполнять
-контактные поля через переменные окружения.
+### Внешние энричеры и standalone источники
 
-| Источник   | Требования                                                                 | Конфигурация |
-|------------|-----------------------------------------------------------------------------|--------------|
-| Crossref   | Заголовок `User-Agent` с контактным `mailto`, query-параметр `mailto`.      | `CROSSREF_MAILTO` |
-| OpenAlex   | Заголовок `User-Agent` с контактным `mailto`, query-параметр `mailto`.      | `OPENALEX_MAILTO` |
-| PubMed     | Query-параметры `tool`, `email`, `api_key` (если выдан) и заголовок `User-Agent`. | `PUBMED_TOOL`, `PUBMED_EMAIL`, `PUBMED_API_KEY` |
-<!-- markdownlint-enable MD013 -->
+| Пайплайн | Источник | CLI команда | Конфигурация | Статус |
+| --- | --- | --- | --- | --- |
+| PubChem | PubChem PUG REST | `bioetl.cli.main pubchem` | [`pipelines/pubchem.yaml`][ref: repo:src/bioetl/configs/pipelines/pubchem.yaml@test_refactoring_32] | Production |
+| UniProt | UniProt REST API | `bioetl.cli.main uniprot` | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@test_refactoring_32] | Production |
+| GtP IUPHAR | Guide to Pharmacology API | `bioetl.cli.main gtp_iuphar` | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@test_refactoring_32] | Production |
 
-<!-- markdownlint-disable MD013 -->
-Билдеры также сортируют query-параметры для детерминированных URL и прокладывают `request_id` в метаданные
-каждого HTTP-запроса для трассировки.
-<!-- markdownlint-enable MD013 -->
+## Лицензия и обратная связь {#license-and-feedback}
 
-## Development
-
-```bash
-
-# Validate documentation references
-
-python scripts/qa/check_required_docs.py
-
-# Run linting (same as CI)
-
-ruff check src/bioetl src/library tests
-ruff format --check src/bioetl src/library tests
-
-# Run tests
-
-pytest tests/ -v
-
-# Run with coverage
-
-pytest tests/ --cov=src/bioetl --cov-report=html
-
-# Run specific test suite
-
-make test-unit                     # Unit tests only (directory scoped)
-make test-integration              # Integration tests only (directory scoped)
-pytest tests/unit/ -v              # Direct pytest invocation for unit tests
-pytest tests/integration/ -v       # Direct pytest invocation for integration tests
-
-# Lint
-
-ruff check src/ tests/
-
-# Type check
-
-mypy --config-file=pyproject.toml src/bioetl src/library
-
-# Execute the full test matrix
-
-pytest tests/unit tests/integration tests/schemas
-
-# Run every hook locally
-
-pre-commit run --all-files
-
-```
-
-Подробнее о запуске тестов см. [docs/TESTING.md](docs/TESTING.md).
-
-### Continuous Integration setup
-
-CI workflows rely on the same configuration loader that powers the CLI. To
-customise logging or other runtime options in GitHub Actions, use
-double-underscore separated environment variables with the `BIOETL__` prefix.
-For example, the default workflow sets `BIOETL__LOGGING__LEVEL=DEBUG` and
-`BIOETL__LOGGING__FILE__ENABLED=true` before running `pytest`. The loader also
-accepts the legacy `BIOACTIVITY__` prefix to keep existing secrets working
-while pipelines migrate to the new namespace.
-
-Column layout drift is caught automatically in CI by running
-`python -m scripts.validate_columns compare-all`. The helper now raises an
-assertion if a CSV filename does not start with its registered entity prefix or
-if the materialised columns diverge from the Pandera schema, keeping the I/O
-contracts in sync with `bioetl.schemas.*`.
-
-### Extract-stage conventions
-
-1. Всегда используйте `PipelineBase.read_input_table` для чтения исходных CSV.
-
-   Хелпер логирует путь, применяет `limit`/`sample` и возвращает как датафрейм,
-   так и разрешённый путь. Это гарантирует единообразное поведение при
-   отсутствии файла и упрощает написание новых пайплайнов.
-
-### Transform-stage conventions
-
-- `transform()` обязан принимать и возвращать `pd.DataFrame`, сохраняя табличный
-  контракт между стадиями и позволяя повторно применять схемы валидации без
-  дополнительных адаптеров (см. `src/bioetl/pipelines/base.py` строки 785-802).
-
-### Export-stage conventions
-
-<!-- markdownlint-disable MD013 -->
-- `export()` использует `UnifiedOutputWriter` для детерминированной фиксации
-  данных и побочных артефактов QC, поэтому на вход всегда подаётся
-  `pd.DataFrame`, уже прошедший валидацию (см. `src/bioetl/pipelines/base.py` строки 804-880).
-<!-- markdownlint-enable MD013 -->
-
-### Extended output mode
-
-Флаг `--extended` в CLI добавляет к стандартному набору артефактов
-(`dataset.csv`, `qc/<name>_quality_report.csv`, `meta.yaml`) следующие файлы:
-
-1. `qc/<name>_correlation_report.csv` — матрица парных корреляций для всех
-   числовых признаков в длинном формате.
-
-2. `qc/<name>_summary_statistics.csv` — сводка описательных статистик по
-   каждому столбцу (count, mean, top, freq и т. д.).
-
-3. `qc/<name>_dataset_metrics.csv` — агрегированные QC-метрики на уровне всего
-   датасета (количество строк/столбцов, дубликаты, пустые значения, размер в
-   памяти и т. п.).
-
-Все новые файлы сохраняются в каталоге `qc/` рядом с основным датасетом и
-учитываются в `meta.yaml` для контроля целостности.
-
-## Commands
-
-Для быстрого запуска pipeline'ов используйте команды из [docs/COMMANDS.md](docs/COMMANDS.md).
-
-## License
-
-MIT
+Проект распространяется по лицензии MIT, указанной в
+[`pyproject.toml`][ref: repo:pyproject.toml@test_refactoring_32]. Ошибки и
+предложения отправляйте через задачи в репозитории или по контактам команды
+BioETL.

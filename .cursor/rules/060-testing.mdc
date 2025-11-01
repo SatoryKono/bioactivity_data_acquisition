@@ -1,0 +1,29 @@
+---
+description: Тесты без сети; golden-наборы и property-based для критичных функций
+globs:
+  - "tests/**/*.py"
+alwaysApply: false
+tags: [testing, pytest]
+version: "1.0.0"
+---
+
+# context
+Юнит/интеграционные тесты.
+
+# requirements
+- НЕЛЬЗЯ совершать сетевые вызовы в юнит-тестах; использовать фикстуры/записи.
+- ДОЛЖЕН поддерживать золотые эталоны для неизменяемых артефактов.
+- ДОЛЖЕН применять property-based тесты к чистым функциям трансформации.
+
+# examples
+## valid
+```py
+from unittest.mock import patch
+@patch("bioetl.client.Api.get", return_value=FAKE_PAGE)
+def test_extract(...): ...
+```
+## invalid
+```py
+def test_live():
+    requests.get("https://api.example.com")  # live call
+```

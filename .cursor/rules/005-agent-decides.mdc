@@ -1,0 +1,26 @@
+---
+description: Agent Decides — детерминированная стратегия действий Agent во всём проекте
+alwaysApply: true
+version: "1.0.0"
+---
+
+# purpose
+Единый сценарий решений для репозитория `bioactivity_data_acquisition` (ветка `test_refactoring_32`).
+
+# decision-model
+0) Grounding: прочитать структуру (`pyproject.toml`, `src/`/`bioetl/`, `configs/`, `tests/`, `docs/`, `.cursor/rules/`), сопоставить задачу с файлами и правилами.
+1) Classify: REFactor / FEATURE / BUGFIX / DATA/SCHEMA / DOCS / TESTS.
+2) Plan: список файлов к изменению, ожидаемый результат, риски, конфликт-чек с core/io/schemas/testing.
+3) Edit: детерминизм IO, Pandera-валидация до записи, централизованный логгер, без silent-breaking.
+4) Verify: унифицированный diff, команды для линта/типов/тестов без сети, ожидания по артефактам.
+5) Docs & Changelog: обновить docs/; при изменении контракта — запись в DEPRECATIONS.md.
+6) Fallbacks: остановиться и указать недостающие входы (путь/ключ/переменная/схема), не гадать.
+
+# outputs
+- План с путями; патчи; команды проверки; список обновлённых docs; риски и как ловит CI.
+
+# examples
+## valid
+Сначала план → затем патчи → затем команды проверки → затем обновления docs и депрекации.
+## invalid
+Генерировать длинные файлы без плана; менять CLI без депрекации; ходить в сеть из юнит-тестов.

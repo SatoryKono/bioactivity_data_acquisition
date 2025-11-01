@@ -1,0 +1,30 @@
+---
+description: Контракты CLI: явные флаги, проверка входов, понятные ошибки
+globs:
+  - "src/**/cli/**/*.py"
+  - "scripts/**/*.py"
+  - "src/**/*.py"
+alwaysApply: false
+tags: [cli, ux]
+version: "1.0.0"
+---
+
+# context
+Командные интерфейсы и скрипты запуска.
+
+# requirements
+- ДОЛЖЕН поддерживать флаги: --config, --limit, --dry-run, --golden, --sample (при наличии).
+- ДОЛЖЕН проверять наличие путей/прав доступа/переменных окружения и падать с ясным сообщением.
+- НЕЛЬЗЯ изменять формат вывода без фиксации в документации.
+
+# examples
+## valid
+```py
+parser.add_argument("--config", required=True)
+if not Path(args.config).exists():
+    parser.error("Config not found")
+```
+## invalid
+```py
+cfg = sys.argv[1]  # без проверки и флагов
+```

@@ -147,6 +147,8 @@ class DocumentPipeline(PipelineBase):
         # Cache ChEMBL release version
         self._chembl_release = self._get_chembl_release()
         self.document_client.release = self._chembl_release
+        self.enrichment_coverage: dict[str, dict[str, Any]] = {}
+        self.enrichment_missing_sources: list[str] = []
 
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:
         """Extract document data from input file with optional enrichment."""
@@ -297,10 +299,13 @@ class DocumentPipeline(PipelineBase):
                 chembl_rows=len(chembl_df),
             )
             self.qc_enrichment_metrics = pd.DataFrame()
+            self.enrichment_coverage = {}
+            self.enrichment_missing_sources = []
             return ExternalEnrichmentResult(chembl_df, "skipped", {})
 
         pmids: list[str] = []
         dois: list[str] = []
+        identifier_records: list[dict[str, str]] = []
 
         if "chembl_pmid" in chembl_df.columns:
             pmids = chembl_df["chembl_pmid"].dropna().astype(str).tolist()
@@ -325,6 +330,46 @@ class DocumentPipeline(PipelineBase):
         if "_original_title" in chembl_df.columns:
             titles = chembl_df["_original_title"].dropna().astype(str).tolist()
 
+        if not chembl_df.empty:
+            for record in chembl_df.to_dict("records"):
+                entry: dict[str, str] = {}
+
+                pmid_candidate = None
+                for column in ("chembl_pmid", "pmid", "pubmed_id"):
+                    value = record.get(column)
+                    if value in (None, ""):
+                        continue
+                    if hasattr(pd, "isna") and pd.isna(value):  # type: ignore[attr-defined]
+                        continue
+                    pmid_candidate = str(value)
+                    break
+
+                if pmid_candidate:
+                    entry["pmid"] = pmid_candidate
+
+                doi_candidate = None
+                for column in ("doi", "chembl_doi"):
+                    value = record.get(column)
+                    if value in (None, ""):
+                        continue
+                    if hasattr(pd, "isna") and pd.isna(value):  # type: ignore[attr-defined]
+                        continue
+                    doi_candidate = str(value)
+                    break
+
+                if doi_candidate:
+                    entry["doi"] = doi_candidate
+
+                title_value = record.get("_original_title") or record.get("title")
+                if title_value not in (None, ""):
+                    if hasattr(pd, "isna") and pd.isna(title_value):  # type: ignore[attr-defined]
+                        title_value = None
+                    if title_value is not None:
+                        entry["title"] = str(title_value)
+
+                if entry:
+                    identifier_records.append(entry)
+
         logger.info(
             "enrichment_data",
             pmids_count=len(pmids),
@@ -333,12 +378,20 @@ class DocumentPipeline(PipelineBase):
             sample_pmids=pmids[:3] if pmids else [],
         )
 
-        pubmed_df, crossref_df, openalex_df, semantic_scholar_df, adapter_errors = (
+        (
+            pubmed_df,
+            crossref_df,
+            openalex_df,
+            semantic_scholar_df,
+            adapter_errors,
+            coverage_summary,
+        ) = (
             run_enrichment_requests(
                 self.external_adapters,
                 pmids=pmids,
                 dois=dois,
                 titles=titles,
+                records=identifier_records,
             )
         )
 
@@ -348,7 +401,11 @@ class DocumentPipeline(PipelineBase):
             "openalex": openalex_df,
             "semantic_scholar": semantic_scholar_df,
         }
-        self.qc_enrichment_metrics = collect_enrichment_metrics(frames, adapter_errors)
+        self.qc_enrichment_metrics = collect_enrichment_metrics(frames, adapter_errors, coverage_summary)
+        self.enrichment_coverage = coverage_summary
+        self.enrichment_missing_sources = sorted(
+            source for source, entry in coverage_summary.items() if entry.get("missing_ids")
+        )
 
         enriched_df = merge_enrichment_results(
             chembl_df,
@@ -368,7 +425,27 @@ class DocumentPipeline(PipelineBase):
         else:
             status = "completed"
 
-        return ExternalEnrichmentResult(enriched_df, status, adapter_errors)
+        requested_count = sum(int(entry.get("requested", 0)) for entry in coverage_summary.values())
+        matched_count = sum(int(entry.get("matched", 0)) for entry in coverage_summary.values())
+        missing_ids = {
+            source: list(entry.get("missing_ids", []))
+            for source, entry in coverage_summary.items()
+            if entry.get("missing_ids")
+        }
+        coverage_by_source = {
+            source: float(entry.get("coverage", 1.0))
+            for source, entry in coverage_summary.items()
+        }
+
+        return ExternalEnrichmentResult(
+            enriched_df,
+            status,
+            adapter_errors,
+            requested_count=requested_count,
+            matched_count=matched_count,
+            missing_ids=missing_ids,
+            coverage=coverage_by_source,
+        )
 
     # ------------------------------------------------------------------
     # Extraction helpers
@@ -782,6 +859,7 @@ class DocumentPipeline(PipelineBase):
             row_count=int(len(validated_df)),
             duplicates=None,
             coverage=coverage_payload,
+            missing_sources=self.enrichment_missing_sources,
         )
 
         self._enforce_qc_thresholds(metrics)

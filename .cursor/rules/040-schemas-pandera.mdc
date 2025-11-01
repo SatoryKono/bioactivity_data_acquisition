@@ -1,0 +1,31 @@
+---
+description: Валидация Pandera до записи; схемы — обязательны и версионируются
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: false
+tags: [schema, pandera, validation]
+version: "1.0.0"
+---
+
+# context
+Любой код, формирующий табличные артефакты.
+
+# requirements
+- ДОЛЖЕН объявлять и переиспользовать Pandera-схемы для данных.
+- ДОЛЖЕН валидировать данные до записи на диск; ошибки — с явным списком несоответствий.
+- НЕЛЬЗЯ молча отбрасывать колонки/менять типы без фиксации в схеме и документации.
+
+# examples
+## valid
+```py
+@pa.check_types
+def normalize(df: pd.DataFrame) -> ActivitySchema:
+    return ActivitySchema.validate(df)
+```
+## invalid
+```py
+# пишем как есть, без схемы
+df.to_parquet(path)
+```
