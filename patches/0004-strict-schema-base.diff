@@ -1,0 +1,72 @@
+# Почему: Классы Config в Pandera-схемах дублируют одинаковые флаги.
+# Что: Вводится базовый `StrictDataFrameModel` и переиспользуется в OpenAlex/Crossref/PubMed схемах.
+# Трассировка: [ref: repo:src/bioetl/sources/openalex/schema/__init__.py@test_refactoring_32] [ref: repo:src/bioetl/sources/crossref/schema/__init__.py@test_refactoring_32] [ref: repo:src/bioetl/sources/pubmed/schema/__init__.py@test_refactoring_32]
+# Проверка: pytest tests/unit/schemas/test_registry.py
+--- a/src/bioetl/pandera_pandas.py
++++ b/src/bioetl/pandera_pandas.py
+@@
+-from pandera import DataFrameModel as DataFrameModel
++from pandera import DataFrameModel as DataFrameModel
++
++
++class StrictDataFrameModel(pa.DataFrameModel):
++    """Common base enabling strict, coerced, unordered Pandera models."""
++
++    class Config:
++        strict = True
++        coerce = True
++        ordered = False
+--- a/src/bioetl/sources/openalex/schema/__init__.py
++++ b/src/bioetl/sources/openalex/schema/__init__.py
+@@
+-from bioetl.pandera_pandas import pa
++from bioetl.pandera_pandas import StrictDataFrameModel, pa
+@@
+-class OpenAlexRawSchema(pa.DataFrameModel):
++class OpenAlexRawSchema(StrictDataFrameModel):
+@@
+-    class Config:
+-        strict = True
+-        coerce = True
+-        ordered = False
+-
+-
+-class OpenAlexNormalizedSchema(BaseSchema):
++class OpenAlexNormalizedSchema(BaseSchema):
+@@
+-    class Config:
+-        strict = True
+-        coerce = True
+-        ordered = False
++    class Config(StrictDataFrameModel.Config):
++        pass
+--- a/src/bioetl/sources/crossref/schema/__init__.py
++++ b/src/bioetl/sources/crossref/schema/__init__.py
+@@
+-from bioetl.pandera_pandas import pa
++from bioetl.pandera_pandas import StrictDataFrameModel, pa
+@@
+-class CrossrefRawSchema(pa.DataFrameModel):
++class CrossrefRawSchema(StrictDataFrameModel):
+@@
+-    class Config:
+-        strict = True
+-        coerce = True
+-        ordered = False
++    class Config(StrictDataFrameModel.Config):
++        pass
+--- a/src/bioetl/sources/pubmed/schema/__init__.py
++++ b/src/bioetl/sources/pubmed/schema/__init__.py
+@@
+-from bioetl.pandera_pandas import pa
++from bioetl.pandera_pandas import StrictDataFrameModel, pa
+@@
+-class PubMedRawSchema(pa.DataFrameModel):
++class PubMedRawSchema(StrictDataFrameModel):
+@@
+-    class Config:
+-        strict = True
+-        coerce = True
+-        ordered = False
++    class Config(StrictDataFrameModel.Config):
++        pass
