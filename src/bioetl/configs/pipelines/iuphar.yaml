@@ -1,6 +1,7 @@
 extends:
   - ../base.yaml
   - ../includes/determinism.yaml
+  - ../includes/iuphar_source.yaml
 
 pipeline:
   name: gtp_iuphar
@@ -58,14 +59,7 @@ sources:
   pubchem:
     enabled: false
   iuphar:
-    enabled: true
-    base_url: "https://www.guidetopharmacology.org/services"
-    http_profile: iuphar
     stage: primary
-    headers:
-      x-api-key: "${IUPHAR_API_KEY}"
-    cache_enabled: true
-    cache_ttl: 14400
 
 determinism:
   sort:

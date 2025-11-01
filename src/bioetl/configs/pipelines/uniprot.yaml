@@ -1,6 +1,9 @@
 extends:
   - ../base.yaml
   - ../includes/determinism.yaml
+  - ../includes/uniprot_source.yaml
+  - ../includes/uniprot_idmapping_source.yaml
+  - ../includes/uniprot_orthologs_source.yaml
 
 pipeline:
   name: uniprot
@@ -81,26 +84,6 @@ http:
       Accept: "application/json"
       User-Agent: "bioetl-uniprot-pipeline/1.0"
 
-sources:
-  uniprot:
-    enabled: true
-    base_url: "https://rest.uniprot.org/uniprotkb"
-    http_profile: uniprot
-    stage: enrichment
-    cache_enabled: true
-    cache_ttl: 21600
-  uniprot_idmapping:
-    enabled: true
-    base_url: "https://rest.uniprot.org/idmapping"
-    http_profile: uniprot_idmapping
-    stage: enrichment
-    cache_enabled: true
-    cache_ttl: 21600
-  uniprot_orthologs:
-    enabled: false
-    base_url: "https://rest.uniprot.org/uniprotkb/stream"
-    http_profile: uniprot_orthologs
-    stage: optional
 
 determinism:
   sort:

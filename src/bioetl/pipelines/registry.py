@@ -12,7 +12,11 @@ from bioetl.sources.chembl.document.pipeline import DocumentPipeline
 from bioetl.sources.chembl.target.pipeline import TargetPipeline
 from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
+from bioetl.sources.crossref.pipeline import CrossrefPipeline
+from bioetl.sources.openalex.pipeline import OpenAlexPipeline
 from bioetl.sources.pubchem.pipeline import PubChemPipeline
+from bioetl.sources.pubmed.pipeline import PubMedPipeline
+from bioetl.sources.semantic_scholar.pipeline import SemanticScholarPipeline
 from bioetl.sources.uniprot.pipeline import UniProtPipeline
 
 PIPELINE_REGISTRY: Mapping[str, Type[PipelineBase]] = {
@@ -24,6 +28,10 @@ PIPELINE_REGISTRY: Mapping[str, Type[PipelineBase]] = {
     "pubchem_molecule": PubChemPipeline,
     "uniprot_protein": UniProtPipeline,
     "iuphar_target": GtpIupharPipeline,
+    "openalex": OpenAlexPipeline,
+    "crossref": CrossrefPipeline,
+    "pubmed": PubMedPipeline,
+    "semantic_scholar": SemanticScholarPipeline,
 }
 
 

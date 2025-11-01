@@ -1,3 +1,6 @@
+extends:
+  - includes/pubchem_source.yaml
+
 version: 1
 pipeline:
   name: "base"
@@ -78,13 +81,7 @@ determinism:
     ascending: []
   column_order: []
 
-sources:
-  pubchem:
-    enabled: true
-    base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
-    headers:
-      Accept: "application/json"
-      User-Agent: "bioetl-pubchem-default/1.0"
+
 
 postprocess:
   qc:
