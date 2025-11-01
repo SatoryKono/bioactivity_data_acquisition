@@ -33,23 +33,23 @@ OPENALEX_ADAPTER_DEFINITION: Final[AdapterDefinition] = AdapterDefinition(
 class OpenAlexPipeline(ExternalSourcePipeline):
     """Pipeline orchestrating enrichment against the OpenAlex Works API."""
 
-    source_name: Final[str] = "openalex"
-    adapter_definition: Final[AdapterDefinition] = OPENALEX_ADAPTER_DEFINITION
+    source_name = "openalex"
+    adapter_definition = OPENALEX_ADAPTER_DEFINITION
     normalized_schema = OpenAlexNormalizedSchema
-    business_key: Final[str] = "doi_clean"
-    metadata_source_system: Final[str] = "openalex"
-    input_schema: Final[type[OpenAlexInputSchema]] = OpenAlexInputSchema
-    expected_input_columns: Final[tuple[str, ...]] = (
+    business_key = "doi_clean"
+    metadata_source_system = "openalex"
+    input_schema = OpenAlexInputSchema
+    expected_input_columns = (
         "doi",
         "doi_clean",
         "pmid",
         "title",
         "openalex_id",
     )
-    identifier_columns: Final[dict[str, tuple[str, ...]]] = {
+    identifier_columns = {
         "doi": ("doi", "doi_clean", "chembl_doi", "openalex_doi", "openalex_doi_clean"),
         "pmid": ("pmid", "chembl_pmid", "openalex_pmid"),
         "title": ("title", "openalex_title"),
     }
-    match_columns: Final[tuple[str, ...]] = ("openalex_id", "openalex_doi_clean", "doi_clean")
-    sort_by: Final[tuple[str, ...]] = ("doi_clean", "openalex_id")
+    match_columns = ("openalex_id", "openalex_doi_clean", "doi_clean")
+    sort_by = ("doi_clean", "openalex_id")

@@ -39,19 +39,19 @@ PUBMED_ADAPTER_DEFINITION: Final[AdapterDefinition] = AdapterDefinition(
 class PubMedPipeline(ExternalSourcePipeline):
     """Pipeline dedicated to PubMed E-utilities enrichment."""
 
-    source_name: Final[str] = "pubmed"
-    adapter_definition: Final[AdapterDefinition] = PUBMED_ADAPTER_DEFINITION
+    source_name = "pubmed"
+    adapter_definition = PUBMED_ADAPTER_DEFINITION
     normalized_schema = PubMedNormalizedSchema
-    business_key: Final[str] = "pmid"
-    metadata_source_system: Final[str] = "pubmed"
-    input_schema: Final[type[PubMedInputSchema]] = PubMedInputSchema
-    expected_input_columns: Final[tuple[str, ...]] = (
+    business_key = "pmid"
+    metadata_source_system = "pubmed"
+    input_schema = PubMedInputSchema
+    expected_input_columns = (
         "pmid",
         "doi",
         "doi_clean",
         "title",
     )
-    identifier_columns: Final[dict[str, tuple[str, ...]]] = {
+    identifier_columns = {
         "pmid": ("pmid", "chembl_pmid", "pubmed_pmid", "openalex_pmid", "semantic_scholar_pmid"),
         "doi": (
             "doi",
@@ -65,5 +65,5 @@ class PubMedPipeline(ExternalSourcePipeline):
         ),
         "title": ("title", "pubmed_article_title"),
     }
-    match_columns: Final[tuple[str, ...]] = ("pubmed_pmid", "pmid")
-    sort_by: Final[tuple[str, ...]] = ("pmid",)
+    match_columns = ("pubmed_pmid", "pmid")
+    sort_by = ("pmid",)

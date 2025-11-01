@@ -33,20 +33,20 @@ SEMANTIC_SCHOLAR_ADAPTER_DEFINITION: Final[AdapterDefinition] = AdapterDefinitio
 class SemanticScholarPipeline(ExternalSourcePipeline):
     """Pipeline using the Semantic Scholar Graph API for enrichment."""
 
-    source_name: Final[str] = "semantic_scholar"
-    adapter_definition: Final[AdapterDefinition] = SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
+    source_name = "semantic_scholar"
+    adapter_definition = SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
     normalized_schema = SemanticScholarNormalizedSchema
-    business_key: Final[str] = "paper_id"
-    metadata_source_system: Final[str] = "semantic_scholar"
-    input_schema: Final[type[SemanticScholarInputSchema]] = SemanticScholarInputSchema
-    expected_input_columns: Final[tuple[str, ...]] = (
+    business_key = "paper_id"
+    metadata_source_system = "semantic_scholar"
+    input_schema = SemanticScholarInputSchema
+    expected_input_columns = (
         "pmid",
         "doi",
         "doi_clean",
         "title",
         "paper_id",
     )
-    identifier_columns: Final[dict[str, tuple[str, ...]]] = {
+    identifier_columns = {
         "pmid": ("pmid", "chembl_pmid", "pubmed_pmid", "semantic_scholar_pmid"),
         "doi": (
             "doi",
@@ -59,5 +59,5 @@ class SemanticScholarPipeline(ExternalSourcePipeline):
         ),
         "title": ("title", "semantic_scholar_title"),
     }
-    match_columns: Final[tuple[str, ...]] = ("paper_id", "pubmed_id", "doi_clean")
-    sort_by: Final[tuple[str, ...]] = ("paper_id", "doi_clean")
+    match_columns = ("paper_id", "pubmed_id", "doi_clean")
+    sort_by = ("paper_id", "doi_clean")
