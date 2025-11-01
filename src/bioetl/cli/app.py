@@ -27,7 +27,7 @@ def _resolve_pipeline_key(pipeline_key: str) -> str:
     }
     if pipeline_key in overrides:
         return overrides[pipeline_key]
-    if "_" in pipeline_key:
+    if pipeline_key.startswith("chembl_"):
         _, suffix = pipeline_key.split("_", 1)
         return suffix
     return pipeline_key
