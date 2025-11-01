@@ -20,7 +20,7 @@ from bioetl.core.hashing import generate_hash_business_key, generate_hash_row
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.pagination import PageNumberPaginationStrategy, PageNumberRequest
 from bioetl.pipelines.base import PipelineBase
-from tests.golden.helpers import (
+from tests.e2e.helpers import (
     compare_files_bitwise,
     snapshot_artifacts,
     verify_bit_identical_outputs,
@@ -216,7 +216,13 @@ class ContractPipeline(PipelineBase):
 
 
 def _load_contract_entries() -> list[Mapping[str, object]]:
-    path = Path(__file__).with_name("data") / "contract_pipeline_http.json"
+    path = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "integration"
+        / "pipelines"
+        / "contract_pipeline_http.json"
+    )
     payload = jsonlib.loads(path.read_text(encoding="utf-8"))
     if not isinstance(payload, list):  # pragma: no cover - defensive guard
         raise TypeError("Contract payload must be a list of request/response entries")
@@ -281,7 +287,13 @@ def test_contract_pipeline_matches_golden_snapshot(tmp_path: Path) -> None:
     dataset_path = first_snapshot.dataset
     assert dataset_path is not None and dataset_path.exists()
 
-    golden_dataset = Path(__file__).with_name("golden") / "contract_pipeline_dataset.csv"
+    golden_dataset = (
+        Path(__file__).resolve().parents[2]
+        / "data"
+        / "integration"
+        / "pipelines"
+        / "contract_pipeline_dataset.csv"
+    )
     identical, diagnostic = compare_files_bitwise(dataset_path, golden_dataset)
     assert identical, diagnostic
 

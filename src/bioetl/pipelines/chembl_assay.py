@@ -1,4 +1,3 @@
-"""Assay Pipeline - ChEMBL assay data extraction."""
 """ChEMBL assay pipeline implementation."""
 
 from __future__ import annotations
