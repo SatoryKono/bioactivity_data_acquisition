@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pandas as pd
+from typing import Any
 
 from bioetl.pandera_pandas import pa
 from bioetl.pandera_typing import Series
@@ -143,7 +143,7 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
         regex=r'^CHEMBL\d+$',
         description="FK на ассай",
     )
-    assay_id: Series[pd.Int64Dtype] = pa.Field(
+    assay_id: Series[int] = pa.Field(
         nullable=True,
         description="Внутренний числовой идентификатор ассая",
     )
@@ -178,10 +178,9 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     standard_value: Series[float] = pa.Field(nullable=True, ge=0, description="Стандартизированное значение")
     standard_units: Series[str] = pa.Field(
         nullable=True,
-        isin=STANDARD_UNITS_ALLOWED,
         description="Единицы стандартизированного значения",
     )
-    standard_flag: Series[pd.Int64Dtype] = pa.Field(
+    standard_flag: Series[int] = pa.Field(
         nullable=True,
         coerce=False,
         description="Флаг стандартизации (0/1)",
@@ -191,7 +190,7 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     # Boundaries and censorship
     lower_bound: Series[float] = pa.Field(nullable=True, description="Нижняя граница стандартизированного значения")
     upper_bound: Series[float] = pa.Field(nullable=True, description="Верхняя граница стандартизированного значения")
-    is_censored: Series[pd.BooleanDtype] = pa.Field(
+    is_censored: Series[bool] = pa.Field(
         nullable=True,
         description="Флаг цензурирования данных",
     )
@@ -206,15 +205,16 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     bao_label: Series[str] = pa.Field(nullable=True, description="BAO label (Bioassay Ontology)")
 
     # Ontologies and metadata
-    potential_duplicate: Series[pd.Int64Dtype] = pa.Field(
+    potential_duplicate: Series[int] = pa.Field(
         nullable=True,
         coerce=False,
-        isin=[0, 1],
+        ge=0,
+        le=1,
         description="Возможный дубликат активности",
     )
     uo_units: Series[str] = pa.Field(nullable=True, regex=r'^UO_\d{7}$', description="Unit Ontology ID")
     qudt_units: Series[str] = pa.Field(nullable=True, description="QUDT URI для единиц измерения")
-    src_id: Series[pd.Int64Dtype] = pa.Field(
+    src_id: Series[int] = pa.Field(
         nullable=True,
         coerce=False,
         description="ID источника данных",
@@ -224,7 +224,7 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     # Activity properties (JSON string)
     canonical_smiles: Series[str] = pa.Field(nullable=True, description="Канонический SMILES лиганда")
     target_organism: Series[str] = pa.Field(nullable=True, description="Организм таргета")
-    target_tax_id: Series[pd.Int64Dtype] = pa.Field(
+    target_tax_id: Series[int] = pa.Field(
         nullable=True,
         coerce=False,
         ge=1,
@@ -232,10 +232,10 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
     )
     activity_properties: Series[str] = pa.Field(nullable=True, description="Свойства активности в каноническом виде")
     compound_key: Series[str] = pa.Field(nullable=True, description="Бизнес-ключ для связывания активности")
-    is_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг наличия цитирования")
-    high_citation_rate: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Высокая частота цитирований")
-    exact_data_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг точного цитирования")
-    rounded_data_citation: Series[pd.BooleanDtype] = pa.Field(nullable=True, description="Флаг округленного цитирования")
+    is_citation: Series[bool] = pa.Field(nullable=True, description="Флаг наличия цитирования")
+    high_citation_rate: Series[bool] = pa.Field(nullable=True, description="Высокая частота цитирований")
+    exact_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг точного цитирования")
+    rounded_data_citation: Series[bool] = pa.Field(nullable=True, description="Флаг округленного цитирования")
 
     # Ligand efficiency
     bei: Series[float] = pa.Field(nullable=True, description="Binding Efficiency Index")
@@ -258,11 +258,15 @@ class ActivitySchema(FallbackMetadataMixin, BaseSchema):
 class _ActivityColumnOrderAccessor:
     """Descriptor exposing column order for backwards compatibility."""
 
-    def __get__(self, instance, owner) -> list[str]:  # noqa: D401 - short accessor
+    def __get__(self, instance: Any | None, owner: type) -> list[str]:  # noqa: D401 - short accessor
         return ActivitySchema.get_column_order()
 
 
 # Mirror behaviour from other schemas: surface column_order via Config without
 # registering it as a Pandera check during model creation.
 ActivitySchema.Config.ordered = False
+
+# Expose column_order via accessor for backwards compatibility
+_activity_column_order_accessor = _ActivityColumnOrderAccessor()
+ActivitySchema.Config.column_order = property(lambda self: _activity_column_order_accessor.__get__(None, ActivitySchema))  # type: ignore[assignment]
 

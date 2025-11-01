@@ -65,7 +65,7 @@ sources:
     batch_size: 20
 ```
 
-[ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]
 
 ### document-pipeline
 
@@ -102,7 +102,7 @@ sources:
     mailto: "${CROSSREF_MAILTO}"
 ```
 
-[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32]
 
 ### target-pipeline
 
@@ -140,7 +140,7 @@ materialization:
             parquet: "targets_final.parquet"
 ```
 
-[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32]
 
 ### pubchem-pipeline
 

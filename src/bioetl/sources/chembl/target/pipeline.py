@@ -20,7 +20,7 @@ from bioetl.schemas import (
     TargetSchema,
     XrefSchema,
 )
-from bioetl.schemas.pipeline_inputs import TargetInputSchema
+from bioetl.schemas.input_schemas import TargetInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
 from bioetl.sources.iuphar.service import IupharService, IupharServiceConfig

@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 import pandas as pd
 
@@ -42,14 +42,15 @@ class IdentifierPayload:
 
 
 if TYPE_CHECKING:  # pragma: no cover - used for typing only
-    from bioetl.sources.chembl.document.pipeline import AdapterDefinition
+    from bioetl.config import PipelineConfig
+    from bioetl.sources.document.pipeline import AdapterDefinition
 
 
 class ExternalSourcePipeline(PipelineBase):
     """Base pipeline orchestrating enrichment via a single external adapter."""
 
     source_name: ClassVar[str]
-    adapter_definition: ClassVar["AdapterDefinition"]
+    adapter_definition: ClassVar[AdapterDefinition]
     normalized_schema: ClassVar[type[BaseSchema]]
     business_key: ClassVar[str]
     metadata_source_system: ClassVar[str]
@@ -65,7 +66,7 @@ class ExternalSourcePipeline(PipelineBase):
     match_columns: ClassVar[tuple[str, ...]] = ()
     sort_by: ClassVar[tuple[str, ...]] = ()
 
-    def __init__(self, config: "PipelineConfig", run_id: str):  # type: ignore[name-defined]
+    def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         self.primary_schema = self.normalized_schema
         self._ensure_schema_registered()
@@ -73,10 +74,6 @@ class ExternalSourcePipeline(PipelineBase):
         self._input_rows = 0
         self._requested_counts: dict[str, int] = {}
         self.runtime_options.setdefault("source", self.source_name)
-
-    # Lazy import guard for type checking
-    if True:  # pragma: no cover - executed at import time only
-        from bioetl.config import PipelineConfig  # noqa: PLC0415
 
     def _initialise_adapter(self) -> Any | None:
         """Construct the external adapter using structured configuration."""
@@ -86,7 +83,9 @@ class ExternalSourcePipeline(PipelineBase):
             logger.warning("adapter_sources_unavailable", source=self.source_name)
             return None
 
-        source_cfg = sources.get(self.source_name)
+        # Type narrowing: after isinstance check, treat as typed Mapping
+        typed_sources = cast(Mapping[str, Any], sources)
+        source_cfg = typed_sources.get(self.source_name)
         if source_cfg is None:
             logger.warning("adapter_config_missing", source=self.source_name)
             return None
@@ -222,7 +221,6 @@ class ExternalSourcePipeline(PipelineBase):
         adapter = getattr(self, "adapter", None)
         api_client = getattr(adapter, "api_client", None)
         self._close_resource(api_client, resource_name=f"api_client.{self.source_name}")
-        super().close_resources()
 
     # ------------------------------------------------------------------
     # Helpers
@@ -267,7 +265,8 @@ class ExternalSourcePipeline(PipelineBase):
             if column not in working.columns:
                 working[column] = pd.NA
         extra = [column for column in working.columns if column not in required]
-        return working[required + extra]
+        result: pd.DataFrame = working[required + extra]
+        return result
 
     def _schema_data_columns(self) -> list[str]:
         schema_columns = self._schema_columns()
@@ -279,13 +278,14 @@ class ExternalSourcePipeline(PipelineBase):
         resolver = getattr(schema, "get_column_order", None)
         if callable(resolver):
             try:
-                columns = list(resolver())
+                resolved = resolver()
+                columns = cast(list[str], resolved) if resolved else []
             except Exception:  # pragma: no cover - defensive
                 columns = []
         if not columns:
             order = getattr(schema, "_column_order", None)
-            if isinstance(order, Sequence):
-                columns = [str(column) for column in order]
+            if order:
+                columns = cast(list[str], order) if isinstance(order, list) else list(order)
         return columns
 
     def _resolve_match_count(self, df: pd.DataFrame) -> int:
@@ -294,7 +294,15 @@ class ExternalSourcePipeline(PipelineBase):
         for column in self.match_columns or (self.business_key,):
             if column in df.columns:
                 series = df[column]
-                if pd.api.types.is_bool_dtype(series):
+                # Check if series has boolean dtype
+                dtype_obj = series.dtype
+                # Use string-based check for BooleanDtype to avoid typing issues
+                dtype_name = type(dtype_obj).__name__
+                if dtype_name == "BooleanDtype":
+                    is_bool = True
+                else:
+                    is_bool = dtype_obj is bool or str(dtype_obj).startswith("bool")
+                if is_bool:
                     return int(series.fillna(False).sum())
                 return int(series.notna().sum())
         return int(len(df))
@@ -327,9 +335,19 @@ class ExternalSourcePipeline(PipelineBase):
         thresholds = getattr(qc_config, "thresholds", {}) if qc_config else {}
         key = f"{self.source_name}.min_coverage"
         try:
-            value = float(thresholds.get(key, 0.0)) if isinstance(thresholds, Mapping) else 0.0
+            if isinstance(thresholds, Mapping):
+                # Type narrowing: after isinstance check, treat as typed Mapping
+                typed_thresholds = cast(Mapping[str, Any], thresholds)
+                value = float(typed_thresholds.get(key, 0.0))
+            else:
+                value = 0.0
         except (TypeError, ValueError):  # pragma: no cover - configuration guard
-            logger.warning("invalid_coverage_threshold", source=self.source_name, value=thresholds.get(key))
+            # Type narrowing: after isinstance check, treat as typed Mapping
+            threshold_value: Any | None = None
+            if isinstance(thresholds, Mapping):
+                typed_thresholds = cast(Mapping[str, Any], thresholds)
+                threshold_value = typed_thresholds.get(key)
+            logger.warning("invalid_coverage_threshold", source=self.source_name, value=threshold_value)
             return 0.0
         return value
 
@@ -378,11 +396,12 @@ class ExternalSourcePipeline(PipelineBase):
 
     def _ensure_schema_registered(self) -> None:
         try:
+            # BaseSchema is compatible with DataFrameModel via inheritance
             schema_registry.register(
                 self.source_name,
                 "1.0.0",
-                self.normalized_schema,
-            )  # type: ignore[arg-type]
+                self.normalized_schema,  # type: ignore[arg-type]
+            )
         except ValueError:
             # Already registered – keep the initial registration.
             pass

@@ -6,7 +6,7 @@ from typing import Final
 
 from bioetl.adapters.crossref import CrossrefAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
-from bioetl.schemas.pipeline_inputs import CrossrefInputSchema
+from bioetl.schemas.input_schemas import CrossrefInputSchema
 from bioetl.sources.crossref.schema import CrossrefNormalizedSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 

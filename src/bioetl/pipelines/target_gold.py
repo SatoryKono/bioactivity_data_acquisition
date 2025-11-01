@@ -394,14 +394,15 @@ def expand_xrefs(
         if isinstance(raw, list | tuple) and not raw:
             continue
 
+        payload: Any
         if isinstance(raw, str):
             try:
-                payload: Any = json.loads(raw)
+                payload = json.loads(raw)
             except json.JSONDecodeError:
                 logger.debug("expand_xrefs_invalid_json", target=target_id, value=raw)
                 continue
         else:
-            payload: Any = raw
+            payload = cast(Any, raw)
 
         if isinstance(payload, dict):
             payload = [payload]
@@ -409,15 +410,20 @@ def expand_xrefs(
         if not isinstance(payload, list):
             continue
 
-        typed_payload: list[Any] = cast(list[Any], payload)
-        for item in typed_payload:
+        # payload is guaranteed to be list after isinstance check
+        # Explicitly narrow type for mypy - cast needed because isinstance doesn't narrow element types
+        payload_list: list[Any] = cast(list[Any], payload)  # type: ignore[redundant-cast]
+        for item in payload_list:
+            # json.loads/raw may have Any elements, type narrowed below
             if not isinstance(item, dict):
                 continue
+            # item is verified to be dict by isinstance check above, safe to cast
+            typed_item: dict[str, Any] = cast(dict[str, Any], item)
             record = {
                 target_column: target_id,
-                "xref_src_db": _normalise_value(item.get("xref_src_db") or item.get("xref_src")),
-                "xref_id": _normalise_value(item.get("xref_id") or item.get("xref_acc")),
-                "component_id": _normalise_value(item.get("component_id")),
+                "xref_src_db": _normalise_value(typed_item.get("xref_src_db") or typed_item.get("xref_src")),
+                "xref_id": _normalise_value(typed_item.get("xref_id") or typed_item.get("xref_acc")),
+                "component_id": _normalise_value(typed_item.get("component_id")),
             }
             if record["xref_src_db"] is PD_NA or record["xref_id"] is PD_NA:
                 continue
@@ -445,11 +451,19 @@ def annotate_source_rank(
     default_rank = len(ranking)
 
     df = df.copy()
-    df[output_column] = (
-        df.get(source_column)
-        .map(lambda value: ranking.get(str(value).lower(), default_rank) if value is not None else default_rank)
-        .astype("Int64")
-    )
+    series = df.get(source_column)
+    if series is None:
+        df[output_column] = pd.Series([default_rank] * len(df), dtype="Int64", index=df.index)
+    else:
+
+        def map_value(value: Any) -> int:
+            """Map source value to rank."""
+            return ranking.get(str(value).lower(), default_rank) if value is not None else default_rank
+
+        df[output_column] = (
+            series.map(map_value)
+            .astype("Int64")
+        )
     return df
 
 

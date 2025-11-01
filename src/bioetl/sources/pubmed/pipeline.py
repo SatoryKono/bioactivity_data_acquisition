@@ -6,7 +6,7 @@ from typing import Final
 
 from bioetl.adapters.pubmed import PubMedAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
-from bioetl.schemas.pipeline_inputs import PubMedInputSchema
+from bioetl.schemas.input_schemas import PubMedInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.pubmed.schema import PubMedNormalizedSchema
 

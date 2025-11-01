@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.schemas.pipeline_inputs import (
+from bioetl.schemas.input_schemas import (
     ActivityInputSchema,
     AssayInputSchema,
     PubChemInputSchema,

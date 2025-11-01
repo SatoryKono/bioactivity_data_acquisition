@@ -70,7 +70,7 @@ determinism:
 
   параметры HTTP.
 
-[ref: repo:src/bioetl/configs/pipelines/activity.yaml@test_refactoring_32]
+[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]
 
 Комментарии:
 

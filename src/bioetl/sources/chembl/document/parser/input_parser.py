@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.schemas.document_input import DocumentInputSchema
+from bioetl.schemas.input_schemas import DocumentInputSchema
 
 logger = UnifiedLogger.get(__name__)
 

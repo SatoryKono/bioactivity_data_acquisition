@@ -16,7 +16,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.activity import ActivitySchema
-from bioetl.schemas.pipeline_inputs import ActivityInputSchema
+from bioetl.schemas.input_schemas import ActivityInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.activity.output.activity_output import ActivityOutputWriter
 from bioetl.sources.chembl.activity.parser.activity_parser import (

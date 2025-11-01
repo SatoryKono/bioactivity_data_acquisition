@@ -13,7 +13,7 @@ from bioetl.core.client_factory import APIClientFactory
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas import UniProtSchema
-from bioetl.schemas.pipeline_inputs import UniProtInputSchema
+from bioetl.schemas.input_schemas import UniProtInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import (

@@ -6,11 +6,11 @@ from collections.abc import Mapping
 from typing import Type
 
 from bioetl.pipelines.base import PipelineBase
-from bioetl.pipelines.chembl_activity import ActivityPipeline
-from bioetl.pipelines.chembl_assay import AssayPipeline
-from bioetl.sources.chembl.document.pipeline import DocumentPipeline
-from bioetl.sources.chembl.target.pipeline import TargetPipeline
-from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
+from bioetl.pipelines.chembl.chembl_activity import ActivityPipeline
+from bioetl.pipelines.chembl.chembl_assay import AssayPipeline
+from bioetl.pipelines.chembl.chembl_document import DocumentPipeline
+from bioetl.pipelines.chembl.chembl_target import TargetPipeline
+from bioetl.pipelines.chembl.chembl_testitem import TestItemPipeline
 from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
 from bioetl.sources.crossref.pipeline import CrossrefPipeline
 from bioetl.sources.openalex.pipeline import OpenAlexPipeline

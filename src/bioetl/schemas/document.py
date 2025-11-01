@@ -107,8 +107,14 @@ class DocumentRawSchema(_DataFrameModelBase):
         schema = cls.to_schema()
         schema._ordered = False  # defensive: ensure ordering is never enforced
 
-        if not isinstance(check_obj, pd.DataFrame):
-            return cast(pd.DataFrame, schema.validate(check_obj, *args, **kwargs))
+        # Note: check_obj parameter is annotated as pd.DataFrame, but Pandera's
+        # validate can accept other types (dicts, lists, etc.), so this check
+        # is defensive for edge cases where non-DataFrame types are passed
+        # This is a runtime guard, not a type narrowing issue
+        if not isinstance(check_obj, pd.DataFrame):  # type: ignore[arg-type]
+            # If check_obj is not a DataFrame, let Pandera handle the conversion
+            validated = schema.validate(check_obj, *args, **kwargs)
+            return cast(pd.DataFrame, validated)
 
         original_columns = list(check_obj.columns)
         expected_columns = list(schema.columns.keys())
@@ -146,22 +152,22 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     )
 
     # Core document information
-    document_pubmed_id: Series[pd.Int64Dtype] = Field(
+    document_pubmed_id: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Document PubMed ID",
     )
     document_classification: Series[str] = Field(nullable=True, description="Document classification")
-    referenses_on_previous_experiments: Series[pd.BooleanDtype] = Field(
+    referenses_on_previous_experiments: Series[pd.BooleanDtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="References on previous experiments",
     )
-    original_experimental_document: Series[pd.BooleanDtype] = Field(
+    original_experimental_document: Series[pd.BooleanDtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Original experimental document",
     )
 
     # Resolved fields with precedence
-    pmid: Series[pd.Int64Dtype] = Field(
+    pmid: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Resolved PMID using precedence",
     )
@@ -178,7 +184,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     journal_abbrev_source: Series[str] = Field(nullable=True, description="Source of resolved journal abbreviation")
     authors: Series[str] = Field(nullable=True, description="Resolved authors")
     authors_source: Series[str] = Field(nullable=True, description="Source of resolved authors")
-    year: Series[pd.Int64Dtype] = Field(
+    year: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Resolved publication year",
     )
@@ -195,7 +201,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     issn_print_source: Series[str] = Field(nullable=True, description="Source of resolved print ISSN")
     issn_electronic: Series[str] = Field(nullable=True, description="Resolved electronic ISSN")
     issn_electronic_source: Series[str] = Field(nullable=True, description="Source of resolved electronic ISSN")
-    is_oa: Series[pd.BooleanDtype] = Field(
+    is_oa: Series[pd.BooleanDtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Resolved Open Access flag",
     )
@@ -204,12 +210,12 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     oa_status_source: Series[str] = Field(nullable=True, description="Source of OA status")
     oa_url: Series[str] = Field(nullable=True, description="Resolved OA URL")
     oa_url_source: Series[str] = Field(nullable=True, description="Source of OA URL")
-    citation_count: Series[pd.Int64Dtype] = Field(
+    citation_count: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Resolved citation count",
     )
     citation_count_source: Series[str] = Field(nullable=True, description="Source of citation count")
-    influential_citations: Series[pd.Int64Dtype] = Field(
+    influential_citations: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Resolved influential citation count",
     )
@@ -223,29 +229,29 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     chemicals: Series[str] = Field(nullable=True, description="Resolved chemicals list")
     chemicals_source: Series[str] = Field(nullable=True, description="Source of chemicals list")
 
-    conflict_doi: Series[pd.BooleanDtype] = Field(
+    conflict_doi: Series[pd.BooleanDtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Conflict flag for DOI discrepancies",
     )
-    conflict_pmid: Series[pd.BooleanDtype] = Field(
+    conflict_pmid: Series[pd.BooleanDtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Conflict flag for PMID discrepancies",
     )
 
     # PMID fields (4 sources)
-    chembl_pmid: Series[pd.Int64Dtype] = Field(
+    chembl_pmid: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PMID из ChEMBL",
     )
-    pubmed_pmid: Series[pd.Int64Dtype] = Field(
+    pubmed_pmid: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PMID из PubMed",
     )
-    openalex_pmid: Series[pd.Int64Dtype] = Field(
+    openalex_pmid: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PMID из OpenAlex",
     )
-    semantic_scholar_pmid: Series[pd.Int64Dtype] = Field(
+    semantic_scholar_pmid: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PMID из Semantic Scholar",
     )
@@ -253,15 +259,15 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         nullable=True,
         description="Идентификатор публикации в Semantic Scholar",
     )
-    semantic_scholar_citation_count: Series[pd.Int64Dtype] = Field(
+    semantic_scholar_citation_count: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Количество цитирований из Semantic Scholar",
     )
-    semantic_scholar_influential_citations: Series[pd.Int64Dtype] = Field(
+    semantic_scholar_influential_citations: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Влиятельные цитирования из Semantic Scholar",
     )
-    semantic_scholar_reference_count: Series[pd.Int64Dtype] = Field(
+    semantic_scholar_reference_count: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Число ссылок из Semantic Scholar",
     )
@@ -309,13 +315,13 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     semantic_scholar_journal: Series[str] = Field(nullable=True, description="Название журнала из Semantic Scholar")
 
     # Year fields (2 sources)
-    chembl_year: Series[pd.Int64Dtype] = Field(
+    chembl_year: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         ge=1800,
         le=2100,
         nullable=True,
         description="Год публикации из ChEMBL",
     )
-    openalex_year: Series[pd.Int64Dtype] = Field(
+    openalex_year: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="Год публикации из OpenAlex",
     )
@@ -339,27 +345,27 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
     pubmed_mesh_descriptors: Series[str] = Field(nullable=True, description="PubMed MeSH descriptors")
     pubmed_mesh_qualifiers: Series[str] = Field(nullable=True, description="PubMed MeSH qualifiers")
     pubmed_chemical_list: Series[str] = Field(nullable=True, description="PubMed chemical list")
-    pubmed_year_completed: Series[pd.Int64Dtype] = Field(
+    pubmed_year_completed: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed year completed",
     )
-    pubmed_month_completed: Series[pd.Int64Dtype] = Field(
+    pubmed_month_completed: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed month completed",
     )
-    pubmed_day_completed: Series[pd.Int64Dtype] = Field(
+    pubmed_day_completed: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed day completed",
     )
-    pubmed_year_revised: Series[pd.Int64Dtype] = Field(
+    pubmed_year_revised: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed year revised",
     )
-    pubmed_month_revised: Series[pd.Int64Dtype] = Field(
+    pubmed_month_revised: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed month revised",
     )
-    pubmed_day_revised: Series[pd.Int64Dtype] = Field(
+    pubmed_day_revised: Series[pd.Int64Dtype] = Field(  # type: ignore[valid-type]
         nullable=True,
         description="PubMed day revised",
     )
@@ -378,7 +384,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
 
     # Column order according to IO_SCHEMAS_AND_DIAGRAMS.md line 957
     # Stored as class attribute to avoid Pandera treating it as a custom check
-    _column_order = [
+    _column_order: list[str] = [
         "index",
         "hash_row",
         "hash_business_key",
@@ -502,7 +508,7 @@ class DocumentSchema(FallbackMetadataMixin, BaseSchema):
         "semantic_scholar_error",
     ] + FALLBACK_METADATA_COLUMN_ORDER
 
-    class Config:
+    class Config(BaseSchema.Config):
         strict = True
         # ``coerce`` is deliberately disabled for the normalized document schema.
         #

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bioetl.cli.command import PipelineCommandConfig
 from bioetl.config.paths import get_config_path
-from bioetl.sources.chembl.document.pipeline import DocumentPipeline
+from bioetl.pipelines.chembl.chembl_document import DocumentPipeline
 
 
 def build_command_config(
@@ -21,7 +21,7 @@ def build_command_config(
     return PipelineCommandConfig(
         pipeline_name=pipeline_name,
         pipeline_factory=lambda: DocumentPipeline,
-        default_config=get_config_path("pipelines/document.yaml"),
+        default_config=get_config_path("pipelines/chembl/document.yaml"),
         default_input=default_input,
         default_output_dir=default_output_dir,
         default_mode=default_mode,

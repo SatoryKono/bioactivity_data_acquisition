@@ -1,0 +1,52 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
+pipeline:
+  name: assay
+  entity: assay
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "assay"
+
+sources:
+  chembl:
+    enabled: true
+    batch_size: 20
+    max_url_length: 2000
+    headers:
+      User-Agent: "bioetl-assay-pipeline/1.0"
+
+determinism:
+  sort:
+    by: ["assay_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "assay_id"
+    - "description"
+    - "assay_type"
+    - "assay_category"
+    - "assay_test_type"
+    - "assay_strain"
+    - "cell_chembl_id"
+    - "target_id"
+    - "confidence_score"
+    - "organism"
+    - "tax_id"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    null_rate_critical: 0.3
+    duplicates: 0
+

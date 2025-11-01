@@ -17,7 +17,7 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
 from bioetl.schemas.assay import AssaySchema
-from bioetl.schemas.pipeline_inputs import AssayInputSchema
+from bioetl.schemas.input_schemas import AssayInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.assay.constants import (
     ASSAY_CLASS_ENRICHMENT_WHITELIST,

@@ -10,7 +10,7 @@ import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas.pipeline_inputs import PubChemInputSchema
+from bioetl.schemas.input_schemas import PubChemInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.utils.output import finalize_output_dataset
 from bioetl.utils.qc import update_summary_metrics, update_summary_section

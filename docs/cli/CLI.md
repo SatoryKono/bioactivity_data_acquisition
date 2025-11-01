@@ -14,11 +14,11 @@
 | Команда | Описание | Основные параметры | Конфиг по умолчанию |
 | --- | --- | --- | --- |
 | `list` | Перечислить доступные пайплайны | — | — |
-| `activity` | Запуск ChEMBL Activity | `--config`, `--input-file`, `--output-dir`, `--dry-run` | `src/bioetl/configs/pipelines/activity.yaml` |
-| `assay` | Запуск ChEMBL Assay | Те же | `src/bioetl/configs/pipelines/assay.yaml` |
-| `target` | Таргеты с UniProt/IUPHAR | `--mode`, `--set`, `--extended` | `src/bioetl/configs/pipelines/target.yaml` |
-| `document` | Документы с внешним энрихментом | `--mode`, `--set`, `--dry-run` | `src/bioetl/configs/pipelines/document.yaml` |
-| `testitem` | Молекулы + PubChem | `--dry-run`, `--sample` | `src/bioetl/configs/pipelines/testitem.yaml` |
+| `activity` | Запуск ChEMBL Activity | `--config`, `--input-file`, `--output-dir`, `--dry-run` | `src/bioetl/configs/pipelines/chembl/activity.yaml` |
+| `assay` | Запуск ChEMBL Assay | Те же | `src/bioetl/configs/pipelines/chembl/assay.yaml` |
+| `target` | Таргеты ChEMBL-only | `--mode`, `--set`, `--extended` | `src/bioetl/configs/pipelines/chembl/target.yaml` |
+| `document` | Документы ChEMBL-only | `--mode`, `--set`, `--dry-run` | `src/bioetl/configs/pipelines/chembl/document.yaml` |
+| `testitem` | Молекулы ChEMBL-only | `--dry-run`, `--sample` | `src/bioetl/configs/pipelines/chembl/testitem.yaml` |
 | `pubchem` | Standalone PubChem | `--input-file` InChIKey CSV | `src/bioetl/configs/pipelines/pubchem.yaml` |
 | `gtp_iuphar` | Guide to Pharmacology | `--set sources.iuphar.api_key=...` | `src/bioetl/configs/pipelines/iuphar.yaml` |
 | `uniprot` | UniProt выгрузка | `--sample`, `--extended` | `src/bioetl/configs/pipelines/uniprot.yaml` |
@@ -61,14 +61,14 @@
 # Production run activity с профилем prod
 
 python -m bioetl.cli.main activity \
-  --config src/bioetl/configs/pipelines/activity.yaml \
+  --config src/bioetl/configs/pipelines/chembl/activity.yaml \
   --input-file data/input/activity.csv \
   --output-dir data/output/activity
 
 # Dry-run для документов с переопределением лимита PubMed
 
 python -m bioetl.cli.main document \
-  --config src/bioetl/configs/pipelines/document.yaml \
+  --config src/bioetl/configs/pipelines/chembl/document.yaml \
   --input-file data/input/document.csv \
   --output-dir data/output/documents \
   --mode all \

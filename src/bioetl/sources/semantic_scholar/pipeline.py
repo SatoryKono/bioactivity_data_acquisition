@@ -6,7 +6,7 @@ from typing import Final
 
 from bioetl.adapters.semantic_scholar import SemanticScholarAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
-from bioetl.schemas.pipeline_inputs import SemanticScholarInputSchema
+from bioetl.schemas.input_schemas import SemanticScholarInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.semantic_scholar.schema import SemanticScholarNormalizedSchema
 

@@ -6,7 +6,7 @@ from typing import Final
 
 from bioetl.adapters.openalex import OpenAlexAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
-from bioetl.schemas.pipeline_inputs import OpenAlexInputSchema
+from bioetl.schemas.input_schemas import OpenAlexInputSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 from bioetl.sources.openalex.schema import OpenAlexNormalizedSchema
 

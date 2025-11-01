@@ -6,7 +6,7 @@ from pathlib import Path
 
 from bioetl.cli.command import PipelineCommandConfig
 from bioetl.config.paths import get_config_path
-from bioetl.pipelines.chembl_assay import AssayPipeline
+from bioetl.pipelines.chembl.chembl_assay import AssayPipeline
 
 
 def build_command_config(
@@ -20,7 +20,7 @@ def build_command_config(
     return PipelineCommandConfig(
         pipeline_name=pipeline_name,
         pipeline_factory=lambda: AssayPipeline,
-        default_config=get_config_path("pipelines/assay.yaml"),
+        default_config=get_config_path("pipelines/chembl/assay.yaml"),
         default_input=default_input,
         default_output_dir=default_output_dir,
         description="ChEMBL assay data",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.pandera_pandas import DataFrameModel, Field
+from bioetl.pandera_pandas import DataFrameModel, Field, pa
 from bioetl.pandera_typing import Series
 
 
@@ -13,6 +13,22 @@ class _BaseInputSchema(DataFrameModel):
 
     class Config:
         strict = False
+        ordered = True
+        coerce = True
+
+
+class DocumentInputSchema(pa.DataFrameModel):
+    """Validate input identifiers for the document pipeline."""
+
+    document_chembl_id: Series[str] = pa.Field(
+        regex=r"^CHEMBL\d+$",
+        nullable=False,
+        unique=True,
+        description="Валидный идентификатор документа ChEMBL",
+    )
+
+    class Config:
+        strict = True
         ordered = True
         coerce = True
 
@@ -164,6 +180,7 @@ __all__ = [
     "ActivityInputSchema",
     "AssayInputSchema",
     "CrossrefInputSchema",
+    "DocumentInputSchema",
     "OpenAlexInputSchema",
     "PubMedInputSchema",
     "SemanticScholarInputSchema",

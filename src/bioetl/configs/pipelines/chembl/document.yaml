@@ -1,0 +1,55 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
+pipeline:
+  name: document
+  entity: document
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "document"
+
+cli:
+  mode: "chembl"
+
+sources:
+  chembl:
+    enabled: true
+    batch_size: 10
+    max_url_length: 1800
+    headers:
+      User-Agent: "bioetl-document-pipeline/1.0"
+
+determinism:
+  sort:
+    by: ["year", "document_id"]
+    ascending: [true, true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "document_id"
+    - "pubmed_id"
+    - "doi"
+    - "journal"
+    - "year"
+    - "title"
+    - "authors"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    doi_coverage:
+      min: 0.3
+      severity: warning
+    pmid_coverage:
+      min: 0.2
+      severity: warning
+

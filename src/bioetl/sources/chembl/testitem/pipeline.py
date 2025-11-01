@@ -11,7 +11,7 @@ from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas.pipeline_inputs import TestItemInputSchema
+from bioetl.schemas.input_schemas import TestItemInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.schemas.testitem import TestItemSchema
 from bioetl.sources.chembl.testitem.client import TestItemChEMBLClient
