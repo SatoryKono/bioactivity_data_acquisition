@@ -27,7 +27,7 @@ PIPELINE_REGISTRY: Mapping[str, Type[PipelineBase]] = {
     "chembl_testitem": TestItemPipeline,
     "pubchem_molecule": PubChemPipeline,
     "uniprot_protein": UniProtPipeline,
-    "iuphar_target": GtpIupharPipeline,
+    "gtp_iuphar": GtpIupharPipeline,
     "openalex": OpenAlexPipeline,
     "crossref": CrossrefPipeline,
     "pubmed": PubMedPipeline,

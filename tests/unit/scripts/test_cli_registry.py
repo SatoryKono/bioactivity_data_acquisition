@@ -19,7 +19,7 @@ from scripts import PIPELINE_REGISTRY
         ("chembl_testitem", "bioetl.sources.chembl.testitem.pipeline", "TestItemPipeline"),
         ("pubchem_molecule", "bioetl.sources.pubchem.pipeline", "PubChemPipeline"),
         ("uniprot_protein", "bioetl.sources.uniprot.pipeline", "UniProtPipeline"),
-        ("iuphar_target", "bioetl.sources.iuphar.pipeline", "GtpIupharPipeline"),
+        ("gtp_iuphar", "bioetl.sources.iuphar.pipeline", "GtpIupharPipeline"),
     ],
 )
 def test_cli_registry_resolves_pipeline_imports(key: str, module_path: str, attr_name: str) -> None:
