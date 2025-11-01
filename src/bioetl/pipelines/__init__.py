@@ -14,6 +14,10 @@ __all__ = (
     "DocumentPipeline",
     "GtpIupharPipeline",
     "UniProtPipeline",
+    "OpenAlexPipeline",
+    "CrossrefPipeline",
+    "PubMedPipeline",
+    "SemanticScholarPipeline",
 )
 
 _PIPELINE_EXPORTS: dict[str, str] = {
@@ -25,6 +29,10 @@ _PIPELINE_EXPORTS: dict[str, str] = {
     "DocumentPipeline": "bioetl.sources.chembl.document.pipeline",
     "GtpIupharPipeline": "bioetl.sources.iuphar.pipeline",
     "UniProtPipeline": "bioetl.sources.uniprot.pipeline",
+    "OpenAlexPipeline": "bioetl.sources.openalex.pipeline",
+    "CrossrefPipeline": "bioetl.sources.crossref.pipeline",
+    "PubMedPipeline": "bioetl.sources.pubmed.pipeline",
+    "SemanticScholarPipeline": "bioetl.sources.semantic_scholar.pipeline",
 }
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
@@ -35,7 +43,11 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checkers only.
     from bioetl.sources.chembl.target.pipeline import TargetPipeline
     from bioetl.sources.chembl.testitem.pipeline import TestItemPipeline
     from bioetl.sources.iuphar.pipeline import GtpIupharPipeline
+    from bioetl.sources.openalex.pipeline import OpenAlexPipeline
+    from bioetl.sources.crossref.pipeline import CrossrefPipeline
     from bioetl.sources.uniprot.pipeline import UniProtPipeline
+    from bioetl.sources.pubmed.pipeline import PubMedPipeline
+    from bioetl.sources.semantic_scholar.pipeline import SemanticScholarPipeline
 
 
 def __getattr__(name: str) -> Any:
