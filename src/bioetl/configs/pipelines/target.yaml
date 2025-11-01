@@ -2,6 +2,10 @@ extends:
   - ../base.yaml
   - ../includes/determinism.yaml
   - ../includes/chembl_source.yaml
+  - ../includes/uniprot_source.yaml
+  - ../includes/uniprot_idmapping_source.yaml
+  - ../includes/uniprot_orthologs_source.yaml
+  - ../includes/iuphar_source.yaml
 
 pipeline:
   name: target
@@ -109,41 +113,6 @@ sources:
     circuit_breaker:
       failure_threshold: 5
       timeout_sec: 90.0
-  uniprot:
-    enabled: true
-    base_url: "https://rest.uniprot.org/uniprotkb"
-    http_profile: uniprot
-    stage: enrichment
-    rate_limit:
-      max_calls: 3
-      period: 1.0
-    cache_enabled: true
-    cache_ttl: 21600
-  uniprot_idmapping:
-    enabled: true
-    base_url: "https://rest.uniprot.org/idmapping"
-    http_profile: uniprot_idmapping
-    stage: enrichment
-    cache_enabled: true
-    cache_ttl: 21600
-  uniprot_orthologs:
-    enabled: false
-    base_url: "https://rest.uniprot.org/uniprotkb/stream"
-    http_profile: uniprot_orthologs
-    stage: optional
-  iuphar:
-    enabled: true
-    base_url: "https://www.guidetopharmacology.org/services"
-    http_profile: iuphar
-    stage: enrichment
-    api_key: "${IUPHAR_API_KEY}"
-    headers:
-      x-api-key: "${IUPHAR_API_KEY}"
-    rate_limit:
-      max_calls: 6
-      period: 1.0
-    cache_enabled: true
-    cache_ttl: 14400
 
 determinism:
   sort:
