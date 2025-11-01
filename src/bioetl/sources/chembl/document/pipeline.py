@@ -332,7 +332,10 @@ class DocumentPipeline(PipelineBase):
             titles = chembl_df["_original_title"].dropna().astype(str).tolist()
 
         if not chembl_df.empty:
-            for record in chembl_df.to_dict("records"):
+            # Явное указание типа для устранения частично неизвестного типа
+            records = chembl_df.to_dict("records")
+            for raw_record in records:
+                record = cast(dict[str, Any], raw_record)
                 entry: dict[str, str] = {}
 
                 pmid_candidate = None

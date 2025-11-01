@@ -42,7 +42,7 @@ def _config_loader_factory(
         # После проверки isinstance приводим к Any для устранения ошибки типизации
         if isinstance(node, yaml.nodes.ScalarNode):  # type: ignore[attr-defined]
             scalar_node = cast(Any, node)
-            relative_path = loader.construct_scalar(scalar_node)  # type: ignore[arg-type]
+            relative_path = loader.construct_scalar(scalar_node)
         else:
             raise TypeError("!include only supports scalar values with file paths")
 
@@ -56,7 +56,7 @@ def _config_loader_factory(
 
         value = load_yaml(include_path, _include_stack=loader._include_stack)  # type: ignore[attr-defined]
         if isinstance(value, list):
-            return _IncludedList(value)
+            return _IncludedList(cast(list[Any], value))  # type: ignore[redundant-cast]
         return value
 
     ConfigLoader.add_constructor("!include", construct_include)
@@ -71,20 +71,20 @@ def _resolve_includes(data: Any) -> Any:
 
     if isinstance(data, list):
         resolved_list: list[Any] = []
-        for item in data:
+        for item in cast(list[Any], data):
             if isinstance(item, _IncludedList):
                 included_values = _resolve_includes(list(item))
                 if not isinstance(included_values, list):
                     raise TypeError(
                         "Included value must resolve to a list when used in a list context"
                     )
-                resolved_list.extend(included_values)
+                resolved_list.extend(cast(list[Any], included_values))
             else:
                 resolved_list.append(_resolve_includes(item))
         return resolved_list
 
     if isinstance(data, dict):
-        return {key: _resolve_includes(value) for key, value in data.items()}
+        return cast(dict[str, Any], {cast(str, key): _resolve_includes(value) for key, value in cast(dict[Any, Any], data).items()})
 
     return data
 
@@ -194,8 +194,6 @@ def _load_with_extends(path: Path, visited: set[Path] | None = None) -> Any:
 
         base_data: dict[str, Any] = {}
         for entry in extends_iterable:
-            if not isinstance(entry, (str, Path)):
-                raise TypeError(f"Expected str or Path, got {type(entry)}")
             extends_path = Path(entry)
             if not extends_path.is_absolute():
                 extends_path = path.parent / extends_path

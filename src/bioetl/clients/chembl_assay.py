@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
-from typing import Any, Callable
+from typing import Any, Callable, cast
 
 import requests
 
@@ -177,15 +177,15 @@ class AssayChEMBLClient:
                     )
                     results.append(record)
                 continue
-            except requests.exceptions.RequestException as exc:
-                logger.error("assay_fetch_request_exception", error=str(exc), batch_ids=batch_ids)
+            except requests.exceptions.RequestException as exc:  # type: ignore[misc]
+                logger.error("assay_fetch_request_exception", error=str(cast(Exception, exc)), batch_ids=batch_ids)
                 for assay_id in batch_ids:
                     record = self._register_fallback(
                         assay_id,
                         release,
                         "request_exception",
                         fallback_factory,
-                        error=exc,
+                        error=cast(Exception, exc),
                     )
                     results.append(record)
                 continue
@@ -237,7 +237,7 @@ class AssayChEMBLClient:
         if isinstance(response, dict):
             payloads = response.get("assays", []) or []
         elif isinstance(response, list):
-            payloads = [item for item in response if isinstance(item, dict)]
+            payloads = [cast(dict[str, Any], item) for item in cast(list[Any], response) if isinstance(item, dict)]
 
         assays_by_id: dict[str, dict[str, Any]] = {}
         for assay in payloads:

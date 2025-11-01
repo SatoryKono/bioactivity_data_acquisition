@@ -36,7 +36,7 @@ def _validate_sample(sample: int | None) -> None:
     """Raise a user-facing error when sample is invalid."""
 
     if sample is not None and sample < 1:
-        raise typer.BadParameter("--sample must be >= 1")  # type: ignore[misc]
+        raise typer.BadParameter("--sample must be >= 1")
 
 
 def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
@@ -47,7 +47,7 @@ def _validate_mode(mode: str, choices: Sequence[str] | None) -> None:
 
     if mode not in choices:
         allowed = ", ".join(choices)
-        raise typer.BadParameter(  # type: ignore[misc]
+        raise typer.BadParameter(
             f"Mode must be one of: {allowed}"
         )
 
@@ -56,75 +56,75 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
     """Return a Typer-compatible command function for executing a pipeline."""
 
     def command(
-        input_file: Path | None = typer.Option(  # type: ignore[misc]  # type: ignore[misc]
+        input_file: Path | None = typer.Option(
             config.default_input,
             "--input-file",
             "-i",
             help="Path to the seed dataset used during extraction",
         ),
-        output_dir: Path = typer.Option(  # type: ignore[misc]
+        output_dir: Path = typer.Option(
             config.default_output_dir,
             "--output-dir",
             "-o",
             help="Directory where pipeline outputs will be materialised",
         ),
-        config_path: Path = typer.Option(  # type: ignore[misc]
+        config_path: Path = typer.Option(
             config.default_config,
             "--config",
             help="Path to the pipeline configuration YAML",
         ),
-        golden: Path | None = typer.Option(  # type: ignore[misc]
+        golden: Path | None = typer.Option(
             None,
             "--golden",
             help="Optional golden dataset for deterministic comparisons",
         ),
-        limit: int | None = typer.Option(  # type: ignore[misc]
+        limit: int | None = typer.Option(
             None,
             "--limit",
             help="Legacy alias for --sample; prefer --sample for new runs",
         ),
-        sample: int | None = typer.Option(  # type: ignore[misc]
+        sample: int | None = typer.Option(
             None,
             "--sample",
             help="Process only the first N records for smoke testing (preferred)",
         ),
-        fail_on_schema_drift: bool = typer.Option(  # type: ignore[misc]
+        fail_on_schema_drift: bool = typer.Option(
             True,
             "--fail-on-schema-drift/--allow-schema-drift",
             help="Fail immediately if schema drift is detected",
             show_default=True,
         ),
-        extended: bool = typer.Option(  # type: ignore[misc]
+        extended: bool = typer.Option(
             False,
             "--extended/--no-extended",
             help="Emit extended QC artifacts (correlations, summary statistics, dataset metrics)",
             show_default=True,
         ),
-        mode: str = typer.Option(  # type: ignore[misc]
+        mode: str = typer.Option(
             config.default_mode,
             "--mode",
             help="Execution mode for the pipeline",
             show_default=True,
         ),
-        dry_run: bool = typer.Option(  # type: ignore[misc]
+        dry_run: bool = typer.Option(
             False,
             "--dry-run",
             "-d",
             help="Validate configuration without running the pipeline",
         ),
-        verbose: bool = typer.Option(  # type: ignore[misc]
+        verbose: bool = typer.Option(
             False,
             "--verbose",
             "-v",
             help="Enable verbose logging",
         ),
-        validate_columns: bool = typer.Option(  # type: ignore[misc]
+        validate_columns: bool = typer.Option(
             True,
             "--validate-columns/--no-validate-columns",
             help="Validate output columns against requirements",
             show_default=True,
         ),
-        set_values: list[str] = typer.Option(  # type: ignore[misc]
+        set_values: list[str] = typer.Option(
             [],
             "--set",
             "-S",
@@ -153,7 +153,7 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 option="--limit",
                 replacement="--sample",
             )
-            typer.echo(  # type: ignore[misc]
+            typer.echo(
                 "Hint: --limit is deprecated; prefer --sample for new workflows.",
                 err=True,
             )
@@ -194,9 +194,9 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                 apply_sample_limit(pipeline, sample_limit)
 
             if dry_run:
-                typer.echo("[DRY-RUN] Configuration loaded successfully.")  # type: ignore[misc]
-                typer.echo(f"Config path: {config_path}")  # type: ignore[misc]
-                typer.echo(f"Config hash: {config_obj.config_hash}")  # type: ignore[misc]
+                typer.echo("[DRY-RUN] Configuration loaded successfully.")
+                typer.echo(f"Config path: {config_path}")
+                typer.echo(f"Config hash: {config_obj.config_hash}")
                 return
 
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -205,38 +205,38 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
 
             artifacts = pipeline.run(output_path, extended=extended, input_file=input_file)
 
-            typer.echo("=== Pipeline Execution Summary ===")  # type: ignore[misc]
-            typer.echo(f"Dataset: {artifacts.dataset}")  # type: ignore[misc]
-            typer.echo(f"Quality report: {artifacts.quality_report}")  # type: ignore[misc]
+            typer.echo("=== Pipeline Execution Summary ===")
+            typer.echo(f"Dataset: {artifacts.dataset}")
+            typer.echo(f"Quality report: {artifacts.quality_report}")
             if artifacts.correlation_report:
-                typer.echo(f"Correlation report: {artifacts.correlation_report}")  # type: ignore[misc]
+                typer.echo(f"Correlation report: {artifacts.correlation_report}")
             if artifacts.metadata:
-                typer.echo(f"Metadata: {artifacts.metadata}")  # type: ignore[misc]
+                typer.echo(f"Metadata: {artifacts.metadata}")
             if artifacts.debug_dataset:
-                typer.echo(f"Debug dataset: {artifacts.debug_dataset}")  # type: ignore[misc]
+                typer.echo(f"Debug dataset: {artifacts.debug_dataset}")
             if artifacts.qc_summary:
-                typer.echo(f"QC summary: {artifacts.qc_summary}")  # type: ignore[misc]
+                typer.echo(f"QC summary: {artifacts.qc_summary}")
             if artifacts.qc_missing_mappings:
-                typer.echo(  # type: ignore[misc]
+                typer.echo(
                     f"QC missing mappings: {artifacts.qc_missing_mappings}"
                 )
             if artifacts.qc_enrichment_metrics:
-                typer.echo(  # type: ignore[misc]
+                typer.echo(
                     f"QC enrichment metrics: {artifacts.qc_enrichment_metrics}"
                 )
             if artifacts.qc_summary_statistics:
-                typer.echo(  # type: ignore[misc]
+                typer.echo(
                     f"QC summary statistics: {artifacts.qc_summary_statistics}"
                 )
             if artifacts.qc_dataset_metrics:
-                typer.echo(  # type: ignore[misc]
+                typer.echo(
                     f"QC dataset metrics: {artifacts.qc_dataset_metrics}"
                 )
 
             # Валидация колонок
             if validate_columns:
-                typer.echo()  # type: ignore[misc]
-                typer.echo("Валидация колонок...")  # type: ignore[misc]
+                typer.echo()
+                typer.echo("Валидация колонок...")
 
                 try:
                     from bioetl.utils.validation import ColumnValidator
@@ -257,50 +257,50 @@ def create_pipeline_command(config: PipelineCommandConfig) -> Callable[..., None
                         )
 
                         if result.overall_match:
-                            typer.echo("Колонки соответствуют требованиям")  # type: ignore[misc]
+                            typer.echo("Колонки соответствуют требованиям")
                         else:
-                            typer.echo("Обнаружены несоответствия в колонках:")  # type: ignore[misc]
+                            typer.echo("Обнаружены несоответствия в колонках:")
                             if result.missing_columns:
-                                typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")  # type: ignore[misc]
+                                typer.echo(f"   Отсутствуют: {', '.join(result.missing_columns)}")
                             if result.extra_columns:
-                                typer.echo(f"   Лишние: {', '.join(result.extra_columns)}")  # type: ignore[misc]
+                                typer.echo(f"   Лишние: {', '.join(result.extra_columns)}")
                             if not result.order_matches:
-                                typer.echo("   Порядок колонок не соответствует требованиям")  # type: ignore[misc]
+                                typer.echo("   Порядок колонок не соответствует требованиям")
 
                         # Показать информацию о пустых колонках
                         if result.empty_columns:
-                            typer.echo(f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")  # type: ignore[misc]
+                            typer.echo(f"Пустые колонки ({len(result.empty_columns)}): {', '.join(result.empty_columns)}")
                         else:
-                            typer.echo("Все колонки содержат данные")  # type: ignore[misc]
+                            typer.echo("Все колонки содержат данные")
 
                         # Создать отчет о валидации
                         validation_report_dir = output_dir / "validation_reports"
                         validation_report_dir.mkdir(parents=True, exist_ok=True)
                         report_path = validator.generate_report([result], validation_report_dir)
-                        typer.echo(f"Отчет о валидации: {report_path}")  # type: ignore[misc]
+                        typer.echo(f"Отчет о валидации: {report_path}")
 
                         # Если есть критические несоответствия, завершить с ошибкой
                         if result.missing_columns or result.extra_columns:
-                            typer.secho(  # type: ignore[misc]
+                            typer.secho(
                                 "Критические несоответствия в колонках обнаружены!",
-                                fg=typer.colors.RED,  # type: ignore[misc]
+                                fg=typer.colors.RED,
                             )
-                            raise typer.Exit(1)  # type: ignore[misc]
+                            raise typer.Exit(1)
                     else:
-                        typer.echo("Выходной файл не найден для валидации")  # type: ignore[misc]
+                        typer.echo("Выходной файл не найден для валидации")
 
                 except ImportError:
-                    typer.echo("Модуль валидации колонок недоступен")  # type: ignore[misc]
+                    typer.echo("Модуль валидации колонок недоступен")
                 except Exception as e:
-                    typer.echo(f"Ошибка валидации колонок: {e}")  # type: ignore[misc]
+                    typer.echo(f"Ошибка валидации колонок: {e}")
                     logger.warning("column_validation_failed", error=str(e))
 
         except typer.BadParameter:
             raise
         except Exception as exc:  # noqa: BLE001 - surface pipeline errors to CLI
             logger.error("pipeline_failed", error=str(exc))
-            typer.secho(f"[ERROR] Pipeline failed: {exc}", fg=typer.colors.RED, err=True)  # type: ignore[misc]
-            raise typer.Exit(1) from exc  # type: ignore[misc]
+            typer.secho(f"[ERROR] Pipeline failed: {exc}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(1) from exc
 
     return command
 

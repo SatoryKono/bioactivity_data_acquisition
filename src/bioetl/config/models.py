@@ -7,7 +7,7 @@ import json
 import os
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from packaging.version import InvalidVersion, Version
 from pydantic import (
@@ -133,10 +133,11 @@ class TargetSourceConfig(SourceConfig):
         if not isinstance(data, dict):
             return data
 
-        http_block = data.get("http")
+        data_dict = cast(dict[str, Any], data)
+        http_block = data_dict.get("http")
         if isinstance(http_block, dict) and "rate_limit_jitter" in http_block:
-            payload = dict(data)
-            http_payload = dict(http_block)
+            http_payload = cast(dict[str, Any], {**http_block})
+            payload: dict[str, Any] = {**data_dict}
             payload["rate_limit_jitter"] = http_payload.pop("rate_limit_jitter")
 
             if http_payload:
@@ -146,7 +147,7 @@ class TargetSourceConfig(SourceConfig):
 
             return payload
 
-        return data
+        return cast(dict[str, Any], data)
 
     @field_validator("api_key", mode="before")
     @classmethod
@@ -156,25 +157,24 @@ class TargetSourceConfig(SourceConfig):
         if value is None:
             return value
 
-        if isinstance(value, str):
-            candidate = value.strip()
-            if candidate.startswith("env:"):
-                reference = candidate.split(":", 1)[1]
-                env_value = cls._resolve_api_key_reference(reference)
-                if env_value is None:
-                    raise ValueError(
-                        f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
-                    )
-                return env_value
+        candidate = value.strip()
+        if candidate.startswith("env:"):
+            reference = candidate.split(":", 1)[1]
+            env_value = cls._resolve_api_key_reference(reference)
+            if env_value is None:
+                raise ValueError(
+                    f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
+                )
+            return env_value
 
-            if candidate.startswith("${") and candidate.endswith("}"):
-                reference = candidate[2:-1]
-                env_value = cls._resolve_api_key_reference(reference)
-                if env_value is None:
-                    raise ValueError(
-                        f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
-                    )
-                return env_value
+        if candidate.startswith("${") and candidate.endswith("}"):
+            reference = candidate[2:-1]
+            env_value = cls._resolve_api_key_reference(reference)
+            if env_value is None:
+                raise ValueError(
+                    f"Environment variable '{reference.split(':', 1)[0]}' referenced for api_key is not set"
+                )
+            return env_value
 
         return value
 
@@ -204,31 +204,28 @@ class TargetSourceConfig(SourceConfig):
 
         resolved: dict[str, str] = {}
         for key, header_value in value.items():
-            if isinstance(header_value, str):
-                candidate = header_value.strip()
-                if candidate.startswith("env:"):
-                    env_name = candidate.split(":", 1)[1]
-                    env_value = os.getenv(env_name)
-                    if env_value is None:
-                        raise ValueError(
-                            f"Environment variable '{env_name}' required for header '{key}' is not set"
-                        )
-                    resolved[key] = env_value
-                    continue
+            candidate = header_value.strip()
+            if candidate.startswith("env:"):
+                env_name = candidate.split(":", 1)[1]
+                env_value = os.getenv(env_name)
+                if env_value is None:
+                    raise ValueError(
+                        f"Environment variable '{env_name}' required for header '{key}' is not set"
+                    )
+                resolved[key] = env_value
+                continue
 
-                if candidate.startswith("${") and candidate.endswith("}"):
-                    env_name = candidate[2:-1]
-                    env_value = os.getenv(env_name)
-                    if env_value is None:
-                        raise ValueError(
-                            f"Environment variable '{env_name}' required for header '{key}' is not set"
-                        )
-                    resolved[key] = env_value
-                    continue
+            if candidate.startswith("${") and candidate.endswith("}"):
+                env_name = candidate[2:-1]
+                env_value = os.getenv(env_name)
+                if env_value is None:
+                    raise ValueError(
+                        f"Environment variable '{env_name}' required for header '{key}' is not set"
+                    )
+                resolved[key] = env_value
+                continue
 
-                resolved[key] = header_value
-            else:
-                resolved[key] = header_value
+            resolved[key] = header_value
 
         return resolved
 
@@ -402,10 +399,10 @@ class MaterializationDatasetPaths(BaseModel):
 
         candidate: Path | str | None = self.formats.get(format_key)
         if candidate is not None:
-            return registry._normalise_path(candidate)
+            return registry.normalise_path(candidate)
 
         if self.path is not None:
-            return registry._normalise_path(self.path)
+            return registry.normalise_path(self.path)
 
         directory = self.directory or stage.directory
         filename = self.filename or dataset
@@ -415,7 +412,7 @@ class MaterializationDatasetPaths(BaseModel):
         if not tentative.suffix:
             tentative = tentative.with_suffix(registry.extension_for(format))
 
-        return registry._normalise_path(tentative)
+        return registry.normalise_path(tentative)
 
     def infer_default_format(
         self,
@@ -523,7 +520,7 @@ class MaterializationPaths(BaseModel):
         inferred = dataset_config.infer_default_format(stage=stage_config, registry=self)
         return inferred.strip().lower() if inferred else None
 
-    def _normalise_path(self, candidate: Path | str) -> Path:
+    def normalise_path(self, candidate: Path | str) -> Path:
         """Normalise relative paths against the configured materialization root."""
 
         path = Path(candidate)
@@ -589,7 +586,7 @@ class CliConfig(BaseModel):
             return None
 
         if isinstance(value, (list, tuple, set)):
-            sequence = list(value)
+            sequence: list[Any] = list(value)
         elif isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
             sequence = list(value)
         else:
@@ -626,11 +623,11 @@ class CliConfig(BaseModel):
     def __getitem__(self, key: str) -> Any:
         """Dictionary-style access for compatibility with legacy consumers."""
 
-        if key in self.model_fields:
+        if hasattr(self, key) and key in getattr(self, "model_fields_set", set()):
             return getattr(self, key)
 
-        extras = self.model_extra or {}
-        if key in extras:
+        extras = getattr(self, "__pydantic_extra__", None)
+        if extras and key in extras:
             return extras[key]
 
         raise KeyError(key)
@@ -644,11 +641,11 @@ class CliConfig(BaseModel):
         if not isinstance(key, str):  # pragma: no cover - defensive branch
             return False
 
-        if key in self.model_fields:
+        if key in getattr(self, "model_fields_set", set()):
             return True
 
-        extras = self.model_extra or {}
-        return key in extras
+        extras = getattr(self, "__pydantic_extra__", None)
+        return extras is not None and key in extras
 
     def get(self, key: str, default: Any | None = None) -> Any:
         """Replicate ``dict.get`` semantics."""
@@ -674,10 +671,11 @@ class CliConfig(BaseModel):
     ) -> None:
         """Replicate ``dict.update`` semantics for convenience."""
 
+        items: Iterable[tuple[str, Any]]
         if other is None:
-            items: Iterable[tuple[str, Any]] = ()
+            items = ()
         elif isinstance(other, Mapping):
-            items = other.items()
+            items = cast(Iterable[tuple[str, Any]], other.items())
         else:
             items = other
 
