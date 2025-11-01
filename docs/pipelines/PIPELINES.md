@@ -39,15 +39,15 @@ sequenceDiagram
 
 - `extract()` считывает `activity.csv` или путь CLI и подтягивает детали по
 
-  списку `activity_id` через `ActivityChEMBLClient`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+  списку `activity_id` через `ActivityChEMBLClient`.[ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
 
 - `transform()` нормализует числовые поля, переводит пустые значения и собирает
 
-  fallback-метрики.[ref: repo:src/bioetl/sources/chembl/activity/normalizer/activity_normalizer.py@test_refactoring_32]
+  fallback-метрики.[ref: repo:src/bioetl/transform/adapters/chembl_activity.py@test_refactoring_32]
 
 - `validate()` использует `ActivitySchema` и при необходимости добавляет
 
-  отсутствующие колонки согласно `determinism.column_order`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+  отсутствующие колонки согласно `determinism.column_order`.[ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
 
 - `export()` пишет CSV и JSON debug при `extended`, добавляя QC (`duplicates`,
 

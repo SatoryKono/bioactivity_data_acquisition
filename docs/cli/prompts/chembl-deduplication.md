@@ -116,11 +116,11 @@ class ActivityPipeline(PipelineBase):
         # Логика парсинга
         ...
 
-# После: src/bioetl/sources/chembl/activity/pipeline.py
+# После: src/bioetl/pipelines/chembl_activity.py
 
-from bioetl.sources.chembl.activity.client import ActivityClient
+from bioetl.clients.chembl_activity import ActivityChEMBLClient
 from bioetl.sources.chembl.activity.parser import ActivityParser
-from bioetl.sources.chembl.activity.normalizer import ActivityNormalizer
+from bioetl.transform.adapters.chembl_activity import ActivityNormalizer
 
 class ActivityPipeline(PipelineBase):
     def __init__(self, config, run_id):

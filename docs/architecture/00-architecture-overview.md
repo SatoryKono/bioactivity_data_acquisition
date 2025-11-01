@@ -93,7 +93,7 @@ graph LR
 
 - Каждая сущность имеет Pandera-схему и порядок колонок, регистрируемые в
 
-  `schema_registry`.[ref: repo:src/bioetl/sources/chembl/activity/pipeline.py@test_refactoring_32]
+  `schema_registry`.[ref: repo:src/bioetl/pipelines/chembl_activity.py@test_refactoring_32]
 
 - Merge-политики (`merge_with_precedence`, сервисы IUPHAR/UniProt) обеспечивают
 

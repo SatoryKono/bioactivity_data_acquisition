@@ -1,5 +1,5 @@
 """Activity normalizer module namespace."""
 
-from .activity_normalizer import ActivityNormalizer
+from bioetl.transform.adapters.chembl_activity import ActivityNormalizer
 
 __all__ = ["ActivityNormalizer"]
