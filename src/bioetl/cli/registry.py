@@ -12,6 +12,12 @@ from bioetl.cli.commands.chembl_document import build_command_config as build_do
 from bioetl.cli.commands.chembl_target import build_command_config as build_target_command
 from bioetl.cli.commands.chembl_testitem import build_command_config as build_testitem_command
 from bioetl.cli.commands.iuphar_target import build_command_config as build_iuphar_command
+from bioetl.cli.commands.crossref import build_command_config as build_crossref_command
+from bioetl.cli.commands.openalex import build_command_config as build_openalex_command
+from bioetl.cli.commands.pubmed import build_command_config as build_pubmed_command
+from bioetl.cli.commands.semantic_scholar import (
+    build_command_config as build_semantic_scholar_command,
+)
 from bioetl.cli.commands.pubchem_molecule import build_command_config as build_pubchem_command
 from bioetl.cli.commands.uniprot_protein import build_command_config as build_uniprot_command
 
@@ -49,6 +55,10 @@ def build_registry() -> dict[str, PipelineCommandConfig]:
         "pubchem": build_pubchem_command(),
         "gtp_iuphar": build_iuphar_command(),
         "uniprot": build_uniprot_command(),
+        "openalex": build_openalex_command(),
+        "crossref": build_crossref_command(),
+        "pubmed": build_pubmed_command(),
+        "semantic_scholar": build_semantic_scholar_command(),
     }
 
 
