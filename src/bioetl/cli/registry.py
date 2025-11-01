@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import replace
+from pathlib import Path
 
 from bioetl.cli.command import PipelineCommandConfig
 from bioetl.cli.commands.chembl_activity import build_command_config as build_activity_command
@@ -20,6 +21,7 @@ from bioetl.cli.commands.semantic_scholar import (
 )
 from bioetl.cli.commands.pubchem_molecule import build_command_config as build_pubchem_command
 from bioetl.cli.commands.uniprot_protein import build_command_config as build_uniprot_command
+from bioetl.config.paths import get_config_path
 
 
 _LEGACY_OVERRIDES = {
@@ -48,11 +50,31 @@ def build_registry() -> dict[str, PipelineCommandConfig]:
     """Construct the default CLI registry mapping names to command configs."""
 
     registry = {
-        "activity": build_activity_command(),
-        "assay": build_assay_command(),
-        "document": build_document_command(),
-        "target": build_target_command(),
-        "testitem": build_testitem_command(),
+        "activity": build_activity_command(
+            default_input=Path("data/input/activity.csv"),
+            default_output_dir=Path("data/output/activity"),
+            default_config_path=get_config_path("pipelines/chembl_activity.yaml"),
+        ),
+        "assay": build_assay_command(
+            default_input=Path("data/input/assay.csv"),
+            default_output_dir=Path("data/output/assay"),
+            default_config_path=get_config_path("pipelines/chembl_assay.yaml"),
+        ),
+        "document": build_document_command(
+            default_input=Path("data/input/document.csv"),
+            default_output_dir=Path("data/output/documents"),
+            default_config_path=get_config_path("pipelines/chembl_document.yaml"),
+        ),
+        "target": build_target_command(
+            default_input=Path("data/input/target.csv"),
+            default_output_dir=Path("data/output/target"),
+            default_config_path=get_config_path("pipelines/chembl_target.yaml"),
+        ),
+        "testitem": build_testitem_command(
+            default_input=Path("data/input/testitem.csv"),
+            default_output_dir=Path("data/output/testitems"),
+            default_config_path=get_config_path("pipelines/chembl_testitem.yaml"),
+        ),
         "pubchem": build_pubchem_command(),
         "gtp_iuphar": build_gtp_iuphar_command(),
         "uniprot": build_uniprot_command(),

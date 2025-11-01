@@ -16,7 +16,7 @@ from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas.assay import AssaySchema
+from bioetl.schemas.chembl_assay import AssaySchema
 from bioetl.schemas.input_schemas import AssayInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.assay.constants import (
@@ -356,7 +356,7 @@ class AssayPipeline(PipelineBase):
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform assay data and expand nested parameter/class payloads."""
-        from bioetl.schemas.assay import AssaySchema
+        from bioetl.schemas.chembl_assay import AssaySchema
 
         if df.empty:
             # Return empty DataFrame with all required columns from schema
@@ -450,7 +450,7 @@ class AssayPipeline(PipelineBase):
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate assay data against schema and referential integrity."""
-        from bioetl.schemas.assay import AssaySchema
+        from bioetl.schemas.chembl_assay import AssaySchema
 
         self.validation_issues.clear()
 

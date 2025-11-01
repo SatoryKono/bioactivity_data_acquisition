@@ -12,11 +12,11 @@ from scripts import PIPELINE_REGISTRY
 @pytest.mark.parametrize(
     ("key", "module_path", "attr_name"),
     [
-        ("chembl_activity", "bioetl.sources.chembl.activity.pipeline", "ActivityPipeline"),
-        ("chembl_assay", "bioetl.sources.chembl.assay.pipeline", "AssayPipeline"),
-        ("chembl_target", "bioetl.sources.chembl.target.pipeline", "TargetPipeline"),
-        ("chembl_document", "bioetl.sources.chembl.document.pipeline", "DocumentPipeline"),
-        ("chembl_testitem", "bioetl.sources.chembl.testitem.pipeline", "TestItemPipeline"),
+        ("chembl_activity", "bioetl.pipelines.chembl_activity", "ActivityPipeline"),
+        ("chembl_assay", "bioetl.pipelines.chembl_assay", "AssayPipeline"),
+        ("chembl_target", "bioetl.pipelines.chembl_target", "TargetPipeline"),
+        ("chembl_document", "bioetl.pipelines.chembl_document", "DocumentPipeline"),
+        ("chembl_testitem", "bioetl.pipelines.chembl_testitem", "TestItemPipeline"),
         ("pubchem_molecule", "bioetl.sources.pubchem.pipeline", "PubChemPipeline"),
         ("uniprot_protein", "bioetl.sources.uniprot.pipeline", "UniProtPipeline"),
         ("gtp_iuphar", "bioetl.sources.iuphar.pipeline", "GtpIupharPipeline"),
