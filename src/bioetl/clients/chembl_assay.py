@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable, cast
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, cast
 
 from requests.exceptions import RequestException
 

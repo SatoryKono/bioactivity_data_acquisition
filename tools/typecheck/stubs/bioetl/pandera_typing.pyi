@@ -1,5 +1,5 @@
 from __future__ import annotations
 
-from pandera.typing.pandas import DataFrame, Series  # type: ignore[import-untyped]
+from pandera.typing import DataFrame, Series
 
 __all__ = ["Series", "DataFrame"]

@@ -17,10 +17,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
-import pandera.pandas as _pandera_pandas
+import pandera.pandas as _pandera_pandas  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
-    from pandera.typing import Series
+    from pandera.typing import Series  # type: ignore[import-untyped]
 else:
     from bioetl.pandera_typing import Series
 
