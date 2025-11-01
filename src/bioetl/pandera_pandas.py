@@ -15,11 +15,14 @@ remains unchanged.
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import pandera.pandas as _pandera_pandas
 
-from bioetl.pandera_typing import Series
+if TYPE_CHECKING:
+    from pandera.typing import Series
+else:
+    from bioetl.pandera_typing import Series
 
 
 class _FieldCallable(Protocol):

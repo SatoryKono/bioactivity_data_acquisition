@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from types import ModuleType
 from typing import Any, Protocol
 from urllib.parse import urljoin
 
 import requests
 
+_pd: ModuleType | None
 try:  # pragma: no cover - pandas is available in production but optional for tests
     import pandas as _pd
 except Exception:  # pragma: no cover - fallback when pandas is unavailable

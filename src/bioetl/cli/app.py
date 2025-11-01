@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from typing import Mapping
+from typing import Any, Mapping
 
 import typer
 
@@ -69,7 +69,7 @@ def register_pipeline_command(app: typer.Typer, key: str) -> None:
     app.command(name=key)(command)
 
 
-def create_pipeline_app(key: str, help_text: str) -> typer.Typer:
+def create_pipeline_app(key: str, help_text: str) -> Any:  # type: ignore[no-any-return]
     """Build a Typer application that exposes the pipeline registered as ``key``."""
 
     app = typer.Typer(help=help_text)

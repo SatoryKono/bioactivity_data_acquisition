@@ -33,8 +33,8 @@ if TYPE_CHECKING:
     from pandera.typing import DataFrame as _DataFrameAlias
     from pandera.typing import Series as _SeriesAlias
 
-    Series: TypeAlias = _SeriesAlias
-    DataFrame: TypeAlias = _DataFrameAlias
+    Series: TypeAlias = _SeriesAlias[Any]
+    DataFrame: TypeAlias = _DataFrameAlias[Any]
 else:
     # Runtime resolution for compatibility across Pandera versions
     Series = _resolve_alias("Series")

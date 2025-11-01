@@ -6,7 +6,7 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Any, Callable, cast
 
-import requests
+from requests.exceptions import RequestException
 
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.deprecation import warn_legacy_client
@@ -177,7 +177,7 @@ class AssayChEMBLClient:
                     )
                     results.append(record)
                 continue
-            except requests.exceptions.RequestException as exc:  # type: ignore[misc]
+            except RequestException as exc:
                 logger.error("assay_fetch_request_exception", error=str(cast(Exception, exc)), batch_ids=batch_ids)
                 for assay_id in batch_ids:
                     record = self._register_fallback(

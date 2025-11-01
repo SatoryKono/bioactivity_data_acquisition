@@ -11,18 +11,6 @@ class Exit(Exception):
     """Exception for exiting the application."""
     def __init__(self, code: int = 0) -> None: ...
 
-def Typer(
-    name: str | None = ...,
-    add_completion: bool = ...,
-    *,
-    invoke_without_command: bool = ...,
-    no_args_is_help: bool = ...,
-    rich_markup_mode: str | None = ...,
-    help: str | None = ...,
-    epilog: str | None = ...,
-    **kwargs: Any,
-) -> Any: ...
-
 class TyperInstance:
     def command(
         self,
@@ -51,6 +39,21 @@ class TyperInstance:
     ) -> Callable[[Callable[..., Any]], Any]: ...
     
     def __call__(self, *args: Any, **kwargs: Any) -> Any: ...
+
+class Typer(TyperInstance):
+    """Typer application class."""
+    def __init__(
+        self,
+        name: str | None = ...,
+        add_completion: bool = ...,
+        *,
+        invoke_without_command: bool = ...,
+        no_args_is_help: bool = ...,
+        rich_markup_mode: str | None = ...,
+        help: str | None = ...,
+        epilog: str | None = ...,
+        **kwargs: Any,
+    ) -> None: ...
 
 def run(func: Callable[..., Any] | None = ...) -> None: ...
 
