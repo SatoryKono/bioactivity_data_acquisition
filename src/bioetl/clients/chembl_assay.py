@@ -1,4 +1,3 @@
-"""ChEMBL client wrapper tailored for the Assay pipeline."""
 """Client wrapper for the ChEMBL assay pipeline."""
 
 from __future__ import annotations

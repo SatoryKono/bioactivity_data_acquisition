@@ -16,7 +16,7 @@ if str(PROJECT_SRC) not in sys.path:
 
 from bioetl.cli.main import app as main_cli_app  # noqa: E402
 from bioetl.core.output_writer import OutputArtifacts  # noqa: E402
-from scripts import PIPELINE_COMMAND_REGISTRY  # noqa: E402
+from scripts import PIPELINE_COMMAND_REGISTRY, PIPELINE_REGISTRY  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -24,24 +24,45 @@ class EntryPoint:
     """Description of a pipeline CLI entry point."""
 
     name: str
+    legacy_name: str
     module: str
     pipeline_attr: str
     config_path: Path
     mode: str
 
 
+_PIPELINE_ENTRYPOINTS: dict[str, tuple[str, str]] = {
+    "chembl_assay": ("assay", "scripts.run_assay"),
+    "chembl_activity": ("activity", "scripts.run_activity"),
+    "chembl_testitem": ("testitem", "scripts.run_testitem"),
+    "chembl_target": ("target", "scripts.run_target"),
+    "chembl_document": ("document", "scripts.run_document"),
+    "iuphar_target": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
+    "uniprot_protein": ("uniprot", "scripts.run_uniprot"),
+}
+
+
 def _build_registry_entrypoints() -> list[EntryPoint]:
-    ordered_keys = ("assay", "activity", "testitem", "target", "document", "gtp_iuphar")
     entries: list[EntryPoint] = []
-    for key in ordered_keys:
-        config = PIPELINE_COMMAND_REGISTRY[key]
+    for name in (
+        "chembl_assay",
+        "chembl_activity",
+        "chembl_testitem",
+        "chembl_target",
+        "chembl_document",
+        "iuphar_target",
+        "uniprot_protein",
+    ):
+        legacy_name, module_path = _PIPELINE_ENTRYPOINTS[name]
+        config = PIPELINE_REGISTRY[name]
         pipeline_cls = config.pipeline_factory()
         default_mode = config.default_mode
         mode = "smoke" if default_mode == "default" else default_mode
         entries.append(
             EntryPoint(
-                name=key,
-                module=f"scripts.run_{key}",
+                name=name,
+                legacy_name=legacy_name,
+                module=module_path,
                 pipeline_attr=pipeline_cls.__name__,
                 config_path=config.default_config,
                 mode=mode,
@@ -63,7 +84,7 @@ def test_cli_list_command_reflects_registry() -> None:
 
     assert result.exit_code == 0, result.output
 
-    for key, config in sorted(PIPELINE_COMMAND_REGISTRY.items()):
+    for key, config in sorted(PIPELINE_REGISTRY.items()):
         description = config.description or config.pipeline_name
         expected_line = f"  - {key} ({description})"
         assert expected_line in result.stdout
@@ -82,12 +103,12 @@ def _load_entry_module(
     if (
         monkeypatch is not None
         and pipeline_override is not None
-        and entry.name in PIPELINE_COMMAND_REGISTRY
+        and entry.legacy_name in PIPELINE_COMMAND_REGISTRY
     ):
-        original = PIPELINE_COMMAND_REGISTRY[entry.name]
+        original = PIPELINE_COMMAND_REGISTRY[entry.legacy_name]
         monkeypatch.setitem(
             PIPELINE_COMMAND_REGISTRY,
-            entry.name,
+            entry.legacy_name,
             replace(original, pipeline_factory=lambda: pipeline_override),
         )
 
@@ -121,7 +142,7 @@ def test_cli_help_exposes_contract(entry: EntryPoint) -> None:
     for flag in expected_flags:
         assert flag in result.stdout, f"{flag} missing from help for {entry.name}"
 
-    if entry.name != "target":
+    if entry.legacy_name != "target":
         assert "Legacy alias for --sample" in result.stdout
         assert "Process only the first N records for smoke testing (preferred)" in result.stdout
 
@@ -171,15 +192,15 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
         "cli.custom_flag='contract'",
     ]
 
-    if entry.name == "target":
+    if entry.legacy_name == "target":
         args.extend(["--limit", "7"])
     else:
         args.extend(["--limit", "5"])
 
-    if entry.name == "document":
+    if entry.legacy_name == "document":
         monkeypatch.setenv("PUBMED_API_KEY", "contract")
         monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "contract")
-    if entry.name == "gtp_iuphar":
+    if entry.legacy_name == "gtp_iuphar":
         monkeypatch.setenv("IUPHAR_API_KEY", "contract")
 
     result = runner.invoke(module.app, args)
@@ -204,13 +225,13 @@ def test_cli_overrides_propagate_to_pipeline(monkeypatch: pytest.MonkeyPatch, tm
     assert cli_section["verbose"] is True
     assert cli_section["sample"] == 5
     assert cli_section["golden"] == str(golden_path)
-    if entry.name == "target":
+    if entry.legacy_name == "target":
         assert cli_section["limit"] == 7
     else:
         assert cli_section["limit"] == 5
 
     run_id = captured.get("run_id")
-    assert isinstance(run_id, str) and run_id.startswith(entry.name)
+    assert isinstance(run_id, str) and run_id.startswith(entry.legacy_name)
 
     runtime_options = captured.get("runtime_options")
     assert isinstance(runtime_options, dict)
@@ -367,7 +388,7 @@ def test_cli_main_registers_pipeline_commands() -> None:
     """The consolidated CLI registers each pipeline command alongside list."""
 
     registered_command_names = {command.name for command in main_cli_app.registered_commands}
-    expected_names = set(PIPELINE_COMMAND_REGISTRY) | {"list"}
+    expected_names = set(PIPELINE_COMMAND_REGISTRY) | set(PIPELINE_REGISTRY) | {"list"}
 
     missing = expected_names - registered_command_names
     assert not missing, f"Missing commands from main CLI: {sorted(missing)}"
@@ -382,7 +403,8 @@ def test_cli_main_help_lists_pipeline_commands() -> None:
 
     assert result.exit_code == 0, result.output
 
-    for command_name in sorted(PIPELINE_COMMAND_REGISTRY):
+    all_commands = set(PIPELINE_COMMAND_REGISTRY) | set(PIPELINE_REGISTRY)
+    for command_name in sorted(all_commands):
         assert command_name in result.stdout
 
     assert "list" in result.stdout
@@ -406,9 +428,9 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
 
     monkeypatch.setattr(module, entry.pipeline_attr, RecordingPipeline, raising=False)
 
-    if entry.name == "target":
+    if entry.legacy_name == "target":
         monkeypatch.setenv("IUPHAR_API_KEY", "contract")
-    if entry.name == "document":
+    if entry.legacy_name == "document":
         monkeypatch.setenv("PUBMED_API_KEY", "contract")
         monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "contract")
 
@@ -427,10 +449,10 @@ def test_cli_default_behaviour(monkeypatch: pytest.MonkeyPatch, entry: EntryPoin
     config = captured.get("config")
     assert config is not None, "Pipeline did not receive configuration"
 
-    if entry.name == "document":
+    if entry.legacy_name == "document":
         assert config.cli.get("mode") == "all"
 
-    if entry.name == "target":
+    if entry.legacy_name == "target":
         stages = config.cli.get("stages", {})
         assert stages.get("uniprot") is True
         assert stages.get("iuphar") is True
@@ -446,7 +468,7 @@ def test_target_cli_auto_disables_iuphar_when_api_key_missing(
 ) -> None:
     """Target CLI should disable IUPHAR stage when API key is absent."""
 
-    entry = next(ep for ep in ENTRYPOINTS if ep.name == "target")
+    entry = next(ep for ep in ENTRYPOINTS if ep.name == "chembl_target")
 
     captured: dict[str, object] = {}
 
@@ -496,7 +518,7 @@ def test_target_cli_requires_api_key_when_stage_forced(
 ) -> None:
     """Explicitly enabling IUPHAR without API key should error out."""
 
-    entry = next(ep for ep in ENTRYPOINTS if ep.name == "target")
+    entry = next(ep for ep in ENTRYPOINTS if ep.name == "chembl_target")
 
     monkeypatch.delenv("IUPHAR_API_KEY", raising=False)
 
@@ -518,10 +540,10 @@ def test_target_cli_requires_api_key_when_stage_forced(
 
 
 def _get_entry_by_name(name: str) -> EntryPoint:
-    try:
-        return next(entry for entry in ENTRYPOINTS if entry.name == name)
-    except StopIteration:  # pragma: no cover - defensive guard
-        raise AssertionError(f"Entry point '{name}' not found")
+    for entry in ENTRYPOINTS:
+        if entry.name == name or entry.legacy_name == name:
+            return entry
+    raise AssertionError(f"Entry point '{name}' not found")
 
 
 class _FakeArtifactsPipeline:
@@ -597,7 +619,7 @@ def test_cli_validate_columns_success(monkeypatch: pytest.MonkeyPatch, tmp_path:
 
     assert result.exit_code == 0, result.output
     assert calls.get("validator_created") is True
-    assert calls.get("entity") == entry.name
+    assert calls.get("entity") == entry.legacy_name
     assert calls.get("schema_version") == "latest"
     assert calls.get("columns") == ["chembl_id"]
     report_path = calls.get("report_path")
