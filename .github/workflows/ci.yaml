@@ -154,8 +154,8 @@ jobs:
         with:
           name: pipeline-inventory
           path: |
-            docs/requirements/PIPELINES.inventory.csv
-            docs/requirements/PIPELINES.inventory.clusters.md
+            docs/pipelines/PIPELINES.inventory.csv
+            docs/pipelines/PIPELINES.inventory.clusters.md
 
   pipeline-metrics:
     runs-on: ubuntu-latest

@@ -83,7 +83,7 @@ class BaseSchema(pa.DataFrameModel):
 - `assay_tissue, assay_cell_type, assay_subcellular_fraction`
 - `target_chembl_id, target_pref_name, relationship_type`
 - `relationship_type, confidence_score, activity_type`
-- И другие из требований docs/requirements/05-assay-extraction.md
+- И другие из требований docs/pipelines/05-assay-extraction.md
 
 **Column Order:** `[assay_chembl_id, row_subtype, row_index, pref_name, hash_row, hash_business_key, chembl_release]`
 
@@ -219,7 +219,7 @@ class BaseSchema(pa.DataFrameModel):
 **Остальные поля из ~81:**
 
 - Все физико-химические свойства, флаги, drug_* поля
-- Полный список см. в docs/requirements/07a-testitem-extraction.md
+- Полный список см. в docs/pipelines/07a-testitem-extraction.md
 
 **Column Order:** `[molecule_chembl_id, molregno, pref_name, parent_chembl_id, max_phase, structure_type, molecule_type, mw_freebase, qed_weighted, pubchem_cid, standardized_smiles, hash_row, hash_business_key, chembl_release]`
 

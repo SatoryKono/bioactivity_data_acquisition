@@ -26,7 +26,8 @@
 
 - При изменении профиля добавляйте комментарий к ключам в `docs/configs/CONFIGS.md`.
 - Внешние URL и лимиты MUST совпадать с документацией источников и отражаться в
-  `docs/requirements/03-data-sources-and-spec.md`.
+
+  `docs/architecture/03-data-sources-and-spec.md`.
 
 ## связь-и-обратная-связь
 

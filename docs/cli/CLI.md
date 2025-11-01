@@ -110,6 +110,6 @@ python -m bioetl.cli.main target \
 
 ## Интеграция с CI {#cli-ci-integration}
 
-Команда `python -m scripts.qa.check_required_docs` проверяет наличие ключевых
+Команда `python -m tools.qa.check_required_docs` проверяет наличие ключевых
 документов перед запуском пайплайнов в CI. Рекомендуется включать `bioetl ... --dry-run`
 в pre-commit для smoke-проверок конфигураций.

@@ -7,9 +7,63 @@ from packaging import version
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pandera_pandas import DataFrameModel
-from bioetl.utils.dataframe import resolve_schema_column_order
 
 logger = UnifiedLogger.get(__name__)
+
+
+def _resolve_schema_column_order(schema: DataFrameModel | None) -> list[str]:
+    """Return the canonical column order for a schema.
+
+    This is a local copy to avoid circular imports with bioetl.utils.dataframe.
+
+    Pandera's :class:`~pandera.api.pandas.model.DataFrameModel` exposes a
+    ``get_column_order`` helper in our ``BaseSchema`` subclasses, but in
+    practice some schemas may not populate ``_column_order`` (for example when
+    the contract was imported from an external source).  Historically this led
+    to callers receiving an empty list, skipping reordering logic and letting
+    Pandera enforce its own field order.  On certain environments this surfaced
+    as ``column '...' out-of-order`` validation failures.
+
+    This helper normalises the behaviour by preferring the explicit
+    ``get_column_order`` value and falling back to the concrete DataFrameSchema
+    definition so that callers can deterministically align their dataframe
+    columns with the schema contract.
+    """
+
+    if schema is None:
+        return []
+
+    try:
+        explicit_order = schema.get_column_order()  # type: ignore[attr-defined]
+    except AttributeError:
+        explicit_order = []
+
+    if explicit_order:
+        return list(explicit_order)
+
+    fallback_order = getattr(schema, "_column_order", None)
+    if fallback_order:
+        return list(fallback_order)
+
+    try:
+        materialised = schema.to_schema()
+    except Exception:  # pragma: no cover - defensive fallback
+        materialised = None
+
+    if materialised is not None:
+        try:
+            columns = list(materialised.columns.keys())
+        except AttributeError:  # pragma: no cover - legacy Pandera versions
+            columns = list(materialised.columns)
+        if columns:
+            return columns
+
+    # Final fallback: rely on Pydantic's field order if available.
+    model_fields = getattr(schema, "model_fields", None)
+    if isinstance(model_fields, dict) and model_fields:
+        return list(model_fields.keys())
+
+    return []
 
 
 @dataclass(frozen=True)
@@ -65,7 +119,7 @@ class SchemaRegistry:
         column_count = 0
 
         try:
-            column_order = resolve_schema_column_order(schema)
+            column_order = _resolve_schema_column_order(schema)
         except Exception:  # pragma: no cover - defensive fallback
             column_order = []
 
@@ -90,7 +144,7 @@ class SchemaRegistry:
 
         if column_count == 0:
             try:
-                column_count = len(resolve_schema_column_order(schema))
+                column_count = len(_resolve_schema_column_order(schema))
             except Exception:  # pragma: no cover - defensive fallback
                 column_count = 0
 
