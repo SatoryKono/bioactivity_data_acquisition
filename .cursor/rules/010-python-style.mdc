@@ -1,0 +1,32 @@
+---
+description: Стиль Python-кода: ruff/black/mypy совместимость и композиция вместо наследования
+globs:
+  - "src/**/*.py"
+  - "bioetl/**/*.py"
+  - "scripts/**/*.py"
+  - "tests/**/*.py"
+alwaysApply: false
+tags: [python, style, lint]
+version: "1.0.0"
+---
+
+# context
+Применимо к исходникам, скриптам и тестам Python.
+
+# requirements
+- ДОЛЖЕН писать код, совместимый с конфигурацией ruff/black/mypy из репозитория.
+- НЕЛЬЗЯ добавлять незадекларированные зависимости или импорты без обновления pyproject.toml/requirements.txt.
+- ДОЛЖЕН предпочитать композицию и явные зависимости вместо множественного наследования.
+
+# examples
+## valid
+```py
+class ActivityService:
+    def __init__(self, client: "ApiClient"):
+        self._client = client
+```
+## invalid
+```py
+class MegaExtractor(ApiClient, Logger, Writer):
+    ...
+```
