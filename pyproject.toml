@@ -103,7 +103,6 @@ mypy_path = ["tools/typecheck/stubs"]
 files = [
     "src/bioetl",
     "src/scripts",
-    "src/library",
 ]
 
 [[tool.mypy.overrides]]
@@ -133,7 +132,6 @@ ignore_errors = true
 module = [
     "scripts.*",
     "tools.*",
-    "library.*",
 ]
 ignore_errors = true
 
