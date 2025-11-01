@@ -7,7 +7,6 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from bioetl.config import PipelineConfig
 from bioetl.config.loader import load_config
 from bioetl.core.chembl.client import ChemblClientContext
 from bioetl.sources.chembl.document.client import (

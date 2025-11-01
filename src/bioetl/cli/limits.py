@@ -5,7 +5,6 @@ from __future__ import annotations
 from types import MethodType
 from typing import Any, cast
 
-import pandas as pd
 from pandas import DataFrame
 
 from bioetl.core.logger import UnifiedLogger

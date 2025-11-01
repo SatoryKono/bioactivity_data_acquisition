@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from unittest.mock import call, patch
+from unittest.mock import patch
 
-import pandas as pd
 
 from tests.unit.sources.pubmed import PubMedAdapterTestCase
 

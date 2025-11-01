@@ -53,7 +53,6 @@ def fix_markdown_file(path: Path) -> bool:
 
     lines = original.splitlines()
 
-    fence_re = re.compile(r"^\s*```")
     heading_no_space_re = re.compile(r"^(#{1,6})([^#\s].*)$")
     heading_indented_re = re.compile(r"^\s+(#{1,6}\s.*)$")
     list_marker_star_re = re.compile(r"^\s*\*\s+")
@@ -171,7 +170,6 @@ def fix_markdown_file(path: Path) -> bool:
                 result.append("")
                 changed = True
             # Скопировать непрерывный блок списка как есть
-            start = i
             while i < n and (_is_list_item(out[i]) or out[i].strip() == ""):
                 result.append(out[i])
                 i += 1
