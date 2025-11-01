@@ -31,6 +31,7 @@ __all__ = (
     "DocumentNormalizedSchema",
     "DocumentSchema",
     "DocumentInputSchema",
+    "IupharInputSchema",
     "AssaySchema",
     "TestItemSchema",
     "TargetSchema",
@@ -53,6 +54,7 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "DocumentNormalizedSchema": "bioetl.schemas.document",
     "DocumentSchema": "bioetl.schemas.document",
     "DocumentInputSchema": "bioetl.schemas.document_input",
+    "IupharInputSchema": "bioetl.schemas.iuphar_input",
     "AssaySchema": "bioetl.schemas.assay",
     "TestItemSchema": "bioetl.schemas.testitem",
     "TargetSchema": "bioetl.schemas.target",
@@ -79,6 +81,7 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
         DocumentSchema,
     )
     from bioetl.schemas.document_input import DocumentInputSchema
+    from bioetl.schemas.iuphar_input import IupharInputSchema
     from bioetl.schemas.registry import SchemaRegistry, schema_registry
     from bioetl.schemas.target import (
         ProteinClassSchema,

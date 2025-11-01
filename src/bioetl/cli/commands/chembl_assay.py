@@ -9,15 +9,20 @@ from bioetl.config.paths import get_config_path
 from bioetl.pipelines.chembl_assay import AssayPipeline
 
 
-def build_command_config() -> PipelineCommandConfig:
+def build_command_config(
+    *,
+    pipeline_name: str = "assay",
+    default_input: Path | None = Path("data/input/assay.csv"),
+    default_output_dir: Path = Path("data/output/assay"),
+) -> PipelineCommandConfig:
     """Return the CLI command configuration for the assay pipeline."""
 
     return PipelineCommandConfig(
-        pipeline_name="assay",
+        pipeline_name=pipeline_name,
         pipeline_factory=lambda: AssayPipeline,
         default_config=get_config_path("pipelines/assay.yaml"),
-        default_input=Path("data/input/assay.csv"),
-        default_output_dir=Path("data/output/assay"),
+        default_input=default_input,
+        default_output_dir=default_output_dir,
         description="ChEMBL assay data",
     )
 

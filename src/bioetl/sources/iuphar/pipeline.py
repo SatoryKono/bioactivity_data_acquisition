@@ -13,6 +13,7 @@ from bioetl.core.client_factory import APIClientFactory, ensure_target_source_co
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.materialization import MaterializationManager
 from bioetl.pipelines.base import PipelineBase
+from bioetl.schemas.iuphar_input import IupharInputSchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.iuphar.client import IupharClient
 from bioetl.sources.iuphar.pagination import PageNumberPaginator
@@ -93,11 +94,45 @@ class GtpIupharPipeline(PipelineBase):
 
         self.classification_df: pd.DataFrame = pd.DataFrame()
         self.gold_df: pd.DataFrame = pd.DataFrame()
+        self._requested_target_ids: set[int] = set()
 
     # ------------------------------------------------------------------
     # Lifecycle methods
     # ------------------------------------------------------------------
     def extract(self, input_file: Path | None = None) -> pd.DataFrame:  # noqa: D401 - part of PipelineBase contract
+        self._requested_target_ids = set()
+
+        input_columns = ["targetId"]
+        input_df, resolved_input_path = self.read_input_table(
+            default_filename=Path("iuphar_targets.csv"),
+            expected_columns=input_columns,
+            input_file=input_file,
+        )
+        input_df = input_df.convert_dtypes()
+
+        if not input_df.empty:
+            validated_input = self.run_schema_validation(
+                input_df,
+                IupharInputSchema,
+                dataset_name="gtp_iuphar_input",
+                severity="error",
+            )
+            requested_series = (
+                pd.to_numeric(validated_input["targetId"], errors="coerce")
+                .dropna()
+                .astype("Int64")
+            )
+            requested_values = requested_series.dropna().unique()
+            self._requested_target_ids = {int(value) for value in requested_values if pd.notna(value)}
+            self.stage_context["input_targets"] = requested_series.tolist()
+            logger.info(
+                "iuphar_input_targets_loaded",
+                path=str(resolved_input_path),
+                requested=len(self._requested_target_ids),
+            )
+        else:
+            self.stage_context.pop("input_targets", None)
+
         if self.iuphar_client is None or self._paginator is None or not self.source_config.enabled:
             logger.warning(
                 "iuphar_extraction_disabled",
@@ -149,6 +184,22 @@ class GtpIupharPipeline(PipelineBase):
             )
 
         frame = pd.DataFrame(targets).convert_dtypes()
+        if self._requested_target_ids:
+            if "targetId" in frame.columns:
+                before_filter = len(frame)
+                frame = frame[frame["targetId"].isin(self._requested_target_ids)].copy()
+                logger.info(
+                    "iuphar_input_subset_applied",
+                    requested=len(self._requested_target_ids),
+                    before=before_filter,
+                    after=len(frame),
+                )
+            else:
+                logger.warning(
+                    "iuphar_input_subset_skipped",
+                    reason="missing_targetId_column",
+                    requested=len(self._requested_target_ids),
+                )
         if "name" in frame.columns:
             frame["iuphar_name"] = frame["name"]
         if "targetId" in frame.columns:
@@ -330,6 +381,14 @@ class GtpIupharPipeline(PipelineBase):
         )
 
         return validated_targets
+
+    def close_resources(self) -> None:
+        """Release cached dataframes and paginator references."""
+
+        self.classification_df = pd.DataFrame()
+        self.gold_df = pd.DataFrame()
+        self._paginator = None
+        self._requested_target_ids = set()
 
 
 __all__ = ["GtpIupharPipeline"]
