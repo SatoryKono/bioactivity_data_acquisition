@@ -186,8 +186,7 @@ class ActivityPipeline(PipelineBase):
     def _get_chembl_release(self) -> str | None:
         """Get ChEMBL database release version from the status endpoint."""
 
-        client = cast(SupportsRequestJson, self.api_client)
-        release = self._fetch_chembl_release_info(client)
+        release = self._fetch_chembl_release_info(self.api_client)  # type: ignore[arg-type]
         status = release.status
         if isinstance(status, Mapping):
             self._status_snapshot = dict(status) if not isinstance(status, dict) else status

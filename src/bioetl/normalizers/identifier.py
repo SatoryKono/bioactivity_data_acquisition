@@ -22,9 +22,6 @@ class IdentifierNormalizer(BaseNormalizer):
 
     def normalize(self, value: str, **_: Any) -> str | None:
         """Нормализует идентификатор."""
-        if not isinstance(value, str):
-            return None
-
         text = value.strip()
         if not text:
             return None
@@ -55,9 +52,6 @@ class IdentifierNormalizer(BaseNormalizer):
 
     def normalize_orcid(self, value: str) -> str | None:
         """Нормализует ORCID ID."""
-        if not isinstance(value, str):
-            return None
-
         # Убрать URL префикс
         orcid = value.replace("https://orcid.org/", "").replace("http://orcid.org/", "")
         orcid = orcid.strip().upper()
@@ -70,9 +64,6 @@ class IdentifierNormalizer(BaseNormalizer):
 
     def normalize_openalex_id(self, value: str) -> str | None:
         """Извлекает короткий OpenAlex ID из URL."""
-        if not isinstance(value, str):
-            return None
-
         candidate = value.strip()
 
         # Извлечь ID из URL вида https://openalex.org/W123456789

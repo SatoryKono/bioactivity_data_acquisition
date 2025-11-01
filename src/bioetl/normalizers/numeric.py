@@ -4,7 +4,7 @@ import math
 from typing import Any
 
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.helpers import _is_na, coerce_bool
+from bioetl.normalizers.helpers import is_na, coerce_bool
 
 
 class NumericNormalizer(BaseNormalizer):
@@ -16,7 +16,7 @@ class NumericNormalizer(BaseNormalizer):
 
     def validate(self, value: Any) -> bool:
         """Проверяет, можно ли нормализовать значение в число."""
-        if _is_na(value):
+        if is_na(value):
             return True
         try:
             float(str(value).strip())
@@ -26,7 +26,7 @@ class NumericNormalizer(BaseNormalizer):
 
     def normalize_int(self, value: Any) -> int | None:
         """Преобразует значение в целое число."""
-        if _is_na(value):
+        if is_na(value):
             return None
         try:
             return int(str(value).strip())
@@ -35,7 +35,7 @@ class NumericNormalizer(BaseNormalizer):
 
     def normalize_float(self, value: Any) -> float | None:
         """Преобразует значение в float."""
-        if _is_na(value):
+        if is_na(value):
             return None
         try:
             result = float(str(value).strip())
@@ -61,7 +61,7 @@ class BooleanNormalizer(BaseNormalizer):
 
     def validate(self, value: Any) -> bool:
         """Проверяет, можно ли нормализовать значение в bool."""
-        if _is_na(value):
+        if is_na(value):
             return True
         return coerce_bool(value, allow_na=True) is not None
 

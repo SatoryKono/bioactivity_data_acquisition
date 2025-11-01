@@ -249,7 +249,7 @@ class TestItemPipeline(PipelineBase):
         default_base_url = "https://www.ebi.ac.uk/chembl/api/data"
         default_batch_size = 25
 
-        chembl_context = self._init_chembl_client(
+        chembl_context = self.init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": default_base_url,

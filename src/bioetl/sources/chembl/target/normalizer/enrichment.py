@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -188,7 +188,7 @@ class TargetEnricher:
         if self.iuphar_paginator is None:
             return []
 
-        def parser(payload: dict[str, Any]) -> dict[str, Any]:
+        def parser(payload: dict[str, Any]) -> Sequence[Mapping[str, Any]]:
             return parse_api_response(payload, unique_key=unique_key)
         return self.iuphar_paginator.fetch_all(
             path,
@@ -211,5 +211,7 @@ class TargetEnricher:
 
     def select_best_classification(self, records: list[dict[str, Any]]) -> dict[str, Any] | None:
         result = self.iuphar_service.select_best_classification(records)
-        return dict(result) if isinstance(result, dict) else result
+        if result is None:
+            return None
+        return dict(result)
 

@@ -507,7 +507,7 @@ class TargetPipeline(PipelineBase):
         )
         return self.gold_targets
 
-    def _enrich_uniprot(
+    def enrich_uniprot(
         self, df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich the target dataframe using UniProt entries via the shared service."""
@@ -518,7 +518,7 @@ class TargetPipeline(PipelineBase):
             record_validation_issue=self.record_validation_issue,
         )
 
-    def _enrich_iuphar(
+    def enrich_iuphar(
         self, df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
         """Enrich target dataframe with IUPHAR classifications."""
@@ -571,7 +571,7 @@ class TargetPipeline(PipelineBase):
 
         return self.enricher.select_best_classification(records)
 
-    def _materialize_silver(
+    def materialize_silver(
         self,
         uniprot_df: pd.DataFrame,
         component_df: pd.DataFrame,
@@ -585,7 +585,7 @@ class TargetPipeline(PipelineBase):
             format_name=format_name,
         )
 
-    def _materialize_iuphar(
+    def materialize_iuphar(
         self,
         classification_df: pd.DataFrame,
         gold_df: pd.DataFrame,
@@ -633,7 +633,7 @@ class TargetPipeline(PipelineBase):
             return "parquet"
         return format_name
 
-    def _evaluate_iuphar_qc(self, coverage: float) -> None:
+    def evaluate_iuphar_qc(self, coverage: float) -> None:
         """Compare coverage against QC thresholds and log warnings."""
 
         thresholds = self.config.qc.thresholds or {}
@@ -862,7 +862,7 @@ def _target_run_uniprot_stage(
         return df
 
     try:
-        enriched_df, silver_df, component_df, metrics = pipeline._enrich_uniprot(df)
+        enriched_df, silver_df, component_df, metrics = pipeline.enrich_uniprot(df)
     except Exception as exc:
         pipeline.record_validation_issue(
             {
@@ -879,7 +879,7 @@ def _target_run_uniprot_stage(
         pipeline.qc_metrics.update(metrics)
 
     if not silver_df.empty or not component_df.empty:
-        pipeline._materialize_silver(silver_df, component_df)
+        pipeline.materialize_silver(silver_df, component_df)
 
     pipeline.stage_context["uniprot"] = {
         "silver": silver_df,
@@ -920,7 +920,7 @@ def _target_run_iuphar_stage(
         return df
 
     try:
-        enriched_df, classification_df, gold_df, metrics = pipeline._enrich_iuphar(df)
+        enriched_df, classification_df, gold_df, metrics = pipeline.enrich_iuphar(df)
     except Exception as exc:
         pipeline.record_validation_issue(
             {
@@ -938,12 +938,12 @@ def _target_run_iuphar_stage(
         coverage_value = metrics.get("iuphar_coverage")
         if coverage_value is not None:
             try:
-                pipeline._evaluate_iuphar_qc(float(coverage_value))
+                pipeline.evaluate_iuphar_qc(float(coverage_value))
             except (TypeError, ValueError):  # pragma: no cover - defensive
-                pipeline._evaluate_iuphar_qc(0.0)
+                pipeline.evaluate_iuphar_qc(0.0)
 
     if not classification_df.empty or not gold_df.empty:
-        pipeline._materialize_iuphar(classification_df, gold_df)
+        pipeline.materialize_iuphar(classification_df, gold_df)
 
     pipeline.stage_context["iuphar"] = {
         "classification": classification_df,

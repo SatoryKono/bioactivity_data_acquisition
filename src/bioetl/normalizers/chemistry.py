@@ -8,7 +8,7 @@ from typing import Any
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
 from bioetl.normalizers.constants import RELATION_ALIASES, UNIT_SYNONYMS
-from bioetl.normalizers.helpers import _is_na
+from bioetl.normalizers.helpers import is_na
 from bioetl.normalizers.numeric import NumericNormalizer
 
 logger = UnifiedLogger.get(__name__)
@@ -84,7 +84,7 @@ class ChemistryStringNormalizer(BaseNormalizer):
     ) -> str | None:
         """Normalize textual values with canonical whitespace and casing."""
 
-        if _is_na(value):
+        if is_na(value):
             return None
 
         text = _canonicalize_whitespace(str(value))
@@ -112,14 +112,14 @@ class ChemistryStringNormalizer(BaseNormalizer):
     def validate(self, value: Any) -> bool:
         """Проверяет, что значение можно нормализовать как строку."""
 
-        return _is_na(value) or isinstance(value, str)
+        return is_na(value) or isinstance(value, str)
 
 
 class ChemistryRelationNormalizer(BaseNormalizer):
     """Normalize comparison relations used in activity measurements."""
 
     def normalize(self, value: Any, *, default: str = "=", **_: Any) -> str:
-        if _is_na(value):
+        if is_na(value):
             return default
 
         text = str(value).strip()
@@ -137,7 +137,7 @@ class ChemistryRelationNormalizer(BaseNormalizer):
         return text
 
     def validate(self, value: Any) -> bool:
-        return _is_na(value) or isinstance(value, str)
+        return is_na(value) or isinstance(value, str)
 
 
 class ChemistryUnitsNormalizer(BaseNormalizer):
@@ -150,7 +150,7 @@ class ChemistryUnitsNormalizer(BaseNormalizer):
         default: str | None = None,
         **_: Any,
     ) -> str | None:
-        if _is_na(value):
+        if is_na(value):
             return default
 
         text = _canonicalize_whitespace(str(value))
@@ -164,7 +164,7 @@ class ChemistryUnitsNormalizer(BaseNormalizer):
         return text
 
     def validate(self, value: Any) -> bool:
-        return _is_na(value) or isinstance(value, str)
+        return is_na(value) or isinstance(value, str)
 
 
 class ChemblIdNormalizer(BaseNormalizer):
@@ -174,13 +174,13 @@ class ChemblIdNormalizer(BaseNormalizer):
         self._string_normalizer = ChemistryStringNormalizer()
 
     def normalize(self, value: Any, **_: Any) -> str | None:
-        if _is_na(value):
+        if is_na(value):
             return None
 
         return self._string_normalizer.normalize(value, uppercase=True)
 
     def validate(self, value: Any) -> bool:
-        if _is_na(value):
+        if is_na(value):
             return True
         if not isinstance(value, str):
             return False
@@ -195,7 +195,7 @@ class BaoIdNormalizer(BaseNormalizer):
         self._pattern = re.compile(r"^BAO[:_]\d{7}$", re.IGNORECASE)
 
     def normalize(self, value: Any, **_: Any) -> str | None:
-        if _is_na(value):
+        if is_na(value):
             return None
 
         text = self._string_normalizer.normalize(value, uppercase=True)
@@ -207,7 +207,7 @@ class BaoIdNormalizer(BaseNormalizer):
         return text
 
     def validate(self, value: Any) -> bool:
-        if _is_na(value):
+        if is_na(value):
             return True
         if not isinstance(value, str):
             return False
@@ -224,7 +224,7 @@ class TargetOrganismNormalizer(BaseNormalizer):
         return self._string_normalizer.normalize(value, title_case=True)
 
     def validate(self, value: Any) -> bool:
-        return _is_na(value) or isinstance(value, str)
+        return is_na(value) or isinstance(value, str)
 
 
 class NonNegativeFloatNormalizer(BaseNormalizer):

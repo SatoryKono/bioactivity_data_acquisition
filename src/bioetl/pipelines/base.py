@@ -143,7 +143,7 @@ class PipelineBase(ABC):
 
     _SEVERITY_LEVELS: dict[str, int] = {"info": 0, "warning": 1, "error": 2, "critical": 3}
 
-    def _init_chembl_client(
+    def init_chembl_client(
         self,
         *,
         defaults: Mapping[str, Any] | None = None,
@@ -218,8 +218,13 @@ class PipelineBase(ABC):
         stages = self.qc_summary_data.get("stages")
         if not isinstance(stages, dict):
             return None
-        payload = stages.get(name)
-        return payload if isinstance(payload, dict) else None
+        # Явное указание типа словаря для устранения частично неизвестного типа
+        stages_dict = cast(dict[str, Any], stages)
+        payload = stages_dict.get(name)
+        if isinstance(payload, dict):
+            # Явное указание типа для устранения частично неизвестного типа
+            return cast(dict[str, Any], payload)
+        return None
 
     def read_input_table(
         self,
@@ -397,7 +402,9 @@ class PipelineBase(ABC):
             config_sources = getattr(self.config, "sources", None)
             if isinstance(config_sources, Mapping):
                 enabled: list[str] = []
-                for name, definition in config_sources.items():
+                # Явное указание типа словаря для устранения частично неизвестного типа
+                sources_dict = cast(Mapping[str, Any], config_sources)
+                for name, definition in sources_dict.items():
                     if getattr(definition, "enabled", True):
                         enabled.append(str(name))
                 resolved_sources = enabled
@@ -751,7 +758,7 @@ class PipelineBase(ABC):
         validation_summary = self.qc_summary_data.setdefault("validation", {})
         metric_label = metric_name or f"schema.{dataset_label}"
 
-        if df is None or (hasattr(df, "empty") and df.empty):
+        if df.empty:
             validation_summary[dataset_label] = {
                 "status": "skipped",
                 "rows": 0,
@@ -888,7 +895,10 @@ class PipelineBase(ABC):
             try:
                 get_column_order_method = getattr(schema_cls, "get_column_order", None)
                 if get_column_order_method is not None and callable(get_column_order_method):
-                    canonical_order = list(get_column_order_method())
+                    # Явное указание типа итерируемого объекта для устранения частично неизвестного типа
+                    order_result = get_column_order_method()
+                    iterable_result = cast(Iterable[str], order_result)
+                    canonical_order = list(iterable_result)
             except Exception:  # pragma: no cover - defensive guard
                 canonical_order = []
 
@@ -1098,8 +1108,6 @@ class PipelineBase(ABC):
         else:
             formatted: list[str] = []
             for fmt in resolved_formats:
-                if fmt is None:
-                    continue
                 normalised = str(fmt).strip().lower()
                 if not normalised:
                     continue
@@ -1193,11 +1201,13 @@ class PipelineBase(ABC):
         debug_mode = False
 
         if isinstance(cli_options, dict):
-            verbose_val = cli_options.get("verbose")
-            verbose = bool(verbose_val) if verbose_val is not None else False  # type: ignore[arg-type]
-            debug_val = cli_options.get("debug")
-            debug = bool(debug_val) if debug_val is not None else False  # type: ignore[arg-type]
-            mode = cli_options.get("mode")
+            # Явное указание типа словаря для устранения частично неизвестного типа
+            cli_dict = cast(dict[str, Any], cli_options)
+            verbose_val = cli_dict.get("verbose")
+            verbose = bool(verbose_val) if verbose_val is not None else False
+            debug_val = cli_dict.get("debug")
+            debug = bool(debug_val) if debug_val is not None else False
+            mode = cli_dict.get("mode")
             if isinstance(mode, str):
                 debug_mode = mode.lower() == "debug"
 

@@ -1,7 +1,6 @@
-"""Assay Pipeline - ChEMBL assay data extraction."""
-"""ChEMBL assay pipeline implementation."""
-
 from __future__ import annotations
+
+"""Assay Pipeline - ChEMBL assay data extraction."""
 
 import subprocess
 from collections.abc import Iterable
@@ -17,7 +16,7 @@ from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.schemas import AssaySchema
+from bioetl.schemas.assay import AssaySchema
 from bioetl.schemas.registry import schema_registry
 from bioetl.sources.chembl.assay.constants import (
     ASSAY_CLASS_ENRICHMENT_WHITELIST,
@@ -32,7 +31,7 @@ from bioetl.transform.adapters.chembl_assay import AssayNormalizer
 from bioetl.utils.dataframe import resolve_schema_column_order
 from bioetl.utils.dtypes import coerce_nullable_int, coerce_retry_after
 
-schema_registry.register("assay", "1.0.0", AssaySchema)  # type: ignore[arg-type]
+schema_registry.register("assay", "1.0.0", AssaySchema)
 
 __all__ = ["AssayPipeline"]
 
@@ -41,7 +40,7 @@ logger = UnifiedLogger.get(__name__)
 # _coerce_nullable_int_columns заменена на coerce_nullable_int из bioetl.utils.dtypes
 
 
-class AssayPipeline(PipelineBase):  # type: ignore[misc]
+class AssayPipeline(PipelineBase):
     """Pipeline for extracting ChEMBL assay data."""
 
     def __init__(self, config: PipelineConfig, run_id: str):
@@ -365,7 +364,7 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
         if not assay_data.empty:
             df = df.merge(assay_data, on="assay_chembl_id", how="left", suffixes=("", "_api"))
             # Remove duplicate columns from API merge (keep original, remove _api suffix)
-            df = df.loc[:, ~df.columns.str.endswith("_api")]
+            df = df.loc[:, ~pd.Series(df.columns).str.endswith("_api")]
 
         # Normalize strings
         if "assay_description" in df.columns:
@@ -403,7 +402,8 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
 
         classes_df = self.assay_output_writer.materialize_classifications(classes_df)
 
-        df = self.merge_service.merge_frames(base_df, params_df, classes_df)
+        # merge_frames accepts base_df as first arg and *expanded_frames as varargs
+        df = self.merge_service.merge_frames(base_df, params_df, classes_df)  # type: ignore[arg-type]
 
         # Normalise nullable integer columns to Pandas' nullable Int64 dtype so
         # Pandera can coerce them into the expected dtype('int64') during
@@ -421,7 +421,6 @@ class AssayPipeline(PipelineBase):  # type: ignore[misc]
 
         coerce_nullable_int(df, nullable_int_columns)
 
-        pipeline_version = self.config.pipeline.version
         default_source = "chembl"
 
         release_value: str | None = self.chembl_release

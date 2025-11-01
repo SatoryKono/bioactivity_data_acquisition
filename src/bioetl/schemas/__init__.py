@@ -12,9 +12,16 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-# Explicit imports for ActivitySchema and TestItemSchema to ensure static type checkers can resolve them.
+# Explicit imports for ActivitySchema, AssaySchema and TestItemSchema to ensure static type checkers can resolve them.
 # These are imported eagerly (not via __getattr__) because static analyzers struggle with the dynamic fallback.
 from bioetl.schemas.activity import ActivitySchema  # noqa: PLC0415
+from bioetl.schemas.assay import AssaySchema  # noqa: PLC0415
+from bioetl.schemas.target import (  # noqa: PLC0415
+    ProteinClassSchema,
+    TargetComponentSchema,
+    TargetSchema,
+    XrefSchema,
+)
 from bioetl.schemas.testitem import TestItemSchema  # noqa: PLC0415
 
 __all__ = (
@@ -91,11 +98,6 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
 
 def __getattr__(name: str) -> Any:
     """Resolve schema exports lazily to avoid import-time side effects."""
-
-    # AssaySchema - ensure it's available for static analyzers
-    if name == "AssaySchema":
-        from bioetl.schemas.assay import AssaySchema
-        return AssaySchema
 
     try:
         module_name = _SCHEMA_EXPORTS[name]

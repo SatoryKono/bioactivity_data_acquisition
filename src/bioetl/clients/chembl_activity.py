@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -14,10 +14,10 @@ from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers import registry
 from bioetl.pipelines.base import PipelineBase
-from bioetl.utils.chembl import SupportsRequestJson
-from bioetl.utils.dtypes import coerce_nullable_int
 from bioetl.sources.chembl.activity.parser.activity_parser import ActivityParser
 from bioetl.sources.chembl.activity.request.activity_request import ActivityRequestBuilder
+from bioetl.utils.chembl import SupportsRequestJson
+from bioetl.utils.dtypes import coerce_nullable_int
 
 from ..core.deprecation import warn_legacy_client
 
@@ -42,7 +42,7 @@ class ActivityChEMBLClient:
     ) -> None:
         self._pipeline = pipeline
         self._parser = parser
-        chembl_context = pipeline._init_chembl_client(
+        chembl_context = pipeline.init_chembl_client(
             defaults={
                 "enabled": True,
                 "base_url": "https://www.ebi.ac.uk/chembl/api/data",
@@ -53,6 +53,7 @@ class ActivityChEMBLClient:
         self.api_client: SupportsRequestJson = chembl_context.client
         self.batch_size = chembl_context.batch_size
         self.max_url_length = chembl_context.max_url_length
+        self._base_url: str = chembl_context.base_url
         self._chembl_release: str | None = None
         self._fallback_factory: Callable[[int, str, Exception | None], dict[str, Any]] | None = None
         self._request_builder = request_builder or ActivityRequestBuilder(
@@ -94,8 +95,7 @@ class ActivityChEMBLClient:
         cache_hits = 0
         results: list[dict[str, Any]] = []
 
-        base_url = str(self.api_client.config.base_url)
-        self._request_builder.base_url = base_url.rstrip("/")
+        self._request_builder.base_url = self._base_url.rstrip("/")
 
         for batch_number, batch_ids in enumerate(
             self._request_builder.iter_batches(activity_ids), start=1
@@ -284,12 +284,17 @@ class ActivityChEMBLClient:
             logger.warning("cache_payload_unexpected", path=str(cache_path))
             return None
 
+        # Явное указание типа списка для устранения частично неизвестного типа
+        # После isinstance проверки тип не сужается автоматически для json.load
+        data_list: list[Any] = cast(list[Any], data)  # type: ignore[redundant-cast]
         ordered_records: list[dict[str, Any]] = []
-        for raw_record in data:
+        for raw_record in data_list:
             if not isinstance(raw_record, dict):
                 logger.warning("cache_record_invalid", path=str(cache_path))
                 return None
-            ordered_records.append(dict(raw_record))
+            # Явное указание типа словаря для устранения частично неизвестного типа
+            record_dict = cast(dict[str, Any], raw_record)
+            ordered_records.append(dict(record_dict))
 
         return self._sanitize_cached_records(ordered_records)
 

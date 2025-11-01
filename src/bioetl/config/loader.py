@@ -4,7 +4,7 @@ import json
 import os
 from collections.abc import Sequence
 from pathlib import Path
-from typing import IO, TYPE_CHECKING, Any
+from typing import IO, TYPE_CHECKING, Any, cast
 
 import yaml
 
@@ -38,20 +38,23 @@ def _config_loader_factory(
         if not isinstance(loader, ConfigLoader):
             raise TypeError("!include constructor received unexpected loader instance")
 
-        if isinstance(node, yaml.nodes.ScalarNode):
-            relative_path = loader.construct_scalar(node)
+        # Используем yaml.nodes.ScalarNode напрямую для проверки типа
+        # После проверки isinstance приводим к Any для устранения ошибки типизации
+        if isinstance(node, yaml.nodes.ScalarNode):  # type: ignore[attr-defined]
+            scalar_node = cast(Any, node)
+            relative_path = loader.construct_scalar(scalar_node)  # type: ignore[arg-type]
         else:
             raise TypeError("!include only supports scalar values with file paths")
 
         include_path = Path(relative_path)
         if not include_path.is_absolute():
-            include_path = loader._root / include_path
+            include_path = loader._root / include_path  # type: ignore[attr-defined]
 
         resolved_include = include_path.resolve()
-        if resolved_include in loader._include_stack:
+        if resolved_include in loader._include_stack:  # type: ignore[attr-defined]
             raise ValueError(f"Circular !include detected involving {resolved_include}")
 
-        value = load_yaml(include_path, _include_stack=loader._include_stack)
+        value = load_yaml(include_path, _include_stack=loader._include_stack)  # type: ignore[attr-defined]
         if isinstance(value, list):
             return _IncludedList(value)
         return value

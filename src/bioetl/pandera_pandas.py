@@ -37,6 +37,7 @@ class _FieldCallable(Protocol):
         lt: float | int | None = ...,
         coerce: bool | None = ...,
         dtype: Any | None = ...,  # upstream supports dtype; include for typing
+        isin: Any | None = ...,  # upstream supports isin for value validation
     ) -> Series[Any]:  # pragma: no cover - signature only used for typing.
         ...
 

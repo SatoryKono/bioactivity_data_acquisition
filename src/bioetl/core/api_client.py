@@ -57,27 +57,25 @@ def parse_retry_after(value: float | int | str | None) -> float | None:
             return None
         return max(seconds, 0.0)
 
-    if isinstance(value, str):
-        retry_after = value.strip()
-        if not retry_after:
+    # After checking None and (int, float), value must be str
+    retry_after = value.strip()
+    if not retry_after:
+        return None
+
+    try:
+        seconds = float(retry_after)
+    except (TypeError, ValueError):
+        try:
+            parsed = parsedate_to_datetime(retry_after)
+        except (TypeError, ValueError):
             return None
 
-        try:
-            seconds = float(retry_after)
-        except (TypeError, ValueError):
-            try:
-                parsed = parsedate_to_datetime(retry_after)
-            except (TypeError, ValueError):
-                return None
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
 
-            if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=timezone.utc)
+        seconds = (parsed - _current_utc_time()).total_seconds()
 
-            seconds = (parsed - _current_utc_time()).total_seconds()
-
-        return max(seconds, 0.0)
-
-    return None
+    return max(seconds, 0.0)
 
 
 class CircuitBreakerOpenError(Exception):
@@ -205,8 +203,6 @@ class APIConfig:
 
     @staticmethod
     def _normalise_headers(headers: dict[str, Any]) -> dict[str, str]:
-        if not isinstance(headers, dict):
-            raise TypeError("headers must be a mapping of string keys to values")
         normalised: dict[str, str] = {}
         for raw_key, raw_value in headers.items():
             if raw_value is None:
@@ -419,7 +415,7 @@ class RetryPolicy:
         if type(exc) in self.giveup_on:
             return True
 
-        if isinstance(exc, requests.exceptions.HTTPError):
+        if isinstance(exc, HTTPError):
             response = getattr(exc, "response", None)
             if response is not None:
                 status_code = response.status_code

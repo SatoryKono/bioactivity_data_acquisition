@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import structlog
+import structlog.stdlib
 
 MANDATORY_CONTEXT_FIELDS: tuple[str, ...] = (
     "run_id",
@@ -87,7 +88,7 @@ class LogContext:
     actor: str
     source: str
     generated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
-    extras: MutableMapping[str, Any] = field(default_factory=dict)
+    extras: MutableMapping[str, Any] = field(default_factory=lambda: dict[str, Any]())
     http: dict[str, Any] | None = None
 
     def __post_init__(self) -> None:  # noqa: D401 - short hook
@@ -474,7 +475,7 @@ def get_logger(name: str) -> structlog.stdlib.BoundLogger:
     """Return a structured logger bound to ``name``."""
 
     logger = structlog.get_logger(name)
-    return cast(structlog.stdlib.BoundLogger, logger)
+    return logger
 
 
 class UnifiedLogger:

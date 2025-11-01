@@ -2,7 +2,7 @@
 
 import os
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import backoff
 import pandas as pd
@@ -222,9 +222,9 @@ class SemanticScholarAdapter(ExternalAdapter):
                 errors={title: error_message},
             ) from exc
 
-        data = response.get("data", [])
+        data: Any = response.get("data", [])
         if isinstance(data, list):
-            return data
+            return cast(list[dict[str, Any]], data)
         return []
 
     def _fetch_paper(self, paper_id: str) -> Mapping[str, Any] | None:
@@ -273,10 +273,11 @@ class SemanticScholarAdapter(ExternalAdapter):
         """Normalize Semantic Scholar record."""
         common = normalize_common_bibliography(
             record,
-            doi=lambda rec: (
-                (rec.get("externalIds") or {}).get("DOI")
+            doi=lambda rec: cast(
+                str | None,
+                cast(dict[str, Any], rec.get("externalIds")).get("DOI")
                 if isinstance(rec.get("externalIds"), dict)
-                else None
+                else None,
             ),
             title="title",
             journal="venue",

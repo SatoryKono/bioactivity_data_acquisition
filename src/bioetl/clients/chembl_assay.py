@@ -1,7 +1,6 @@
-"""ChEMBL client wrapper tailored for the Assay pipeline."""
-"""Client wrapper for the ChEMBL assay pipeline."""
-
 from __future__ import annotations
+
+"""ChEMBL client wrapper tailored for the Assay pipeline."""
 
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -36,7 +35,7 @@ class AssayChEMBLClient:
     ) -> None:
         """Instantiate the client wrapper and underlying API client."""
 
-        context = pipeline._init_chembl_client(
+        context = pipeline.init_chembl_client(
             defaults=defaults,
             batch_size_cap=batch_size_cap,
         )

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
 import pandas as pd
 
@@ -28,13 +28,6 @@ class _SchemaConfigProtocol(Protocol):
 
     _schema_cls: type[BaseSchema]
     column_order: Any
-
-
-class _FieldSpec(TypedDict, total=False):
-    nullable: bool
-    description: str
-    regex: str
-    ge: float | int
 
 
 class FallbackMetadataMixin:

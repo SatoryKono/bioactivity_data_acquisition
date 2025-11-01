@@ -198,7 +198,8 @@ class PubChemClient:
         """Wrapper around :meth:`UnifiedAPIClient.request_json` with logging."""
 
         try:
-            return self.api_client.request_json(endpoint)
+            result = self.api_client.request_json(endpoint)
+            return dict(result) if isinstance(result, dict) else result  # type: ignore[return-value]
         except Exception as exc:  # noqa: BLE001 - centralised logging
             logger.error("pubchem_request_failed", endpoint=endpoint, error=str(exc))
             raise

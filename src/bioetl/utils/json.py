@@ -3,10 +3,10 @@
 import json
 import math
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from bioetl.normalizers.constants import NA_STRINGS
-from bioetl.normalizers.helpers import _is_na
+from bioetl.normalizers.helpers import is_na
 
 
 def canonical_json(value: Any, sort_keys: bool = True, ensure_ascii: bool = True) -> str | None:
@@ -50,7 +50,7 @@ def normalize_json_list(
     Returns:
         Кортеж (канонический JSON, список нормализованных записей)
     """
-    if _is_na(raw):
+    if is_na(raw):
         return None, []
 
     parsed: Any = raw
@@ -70,10 +70,15 @@ def normalize_json_list(
         return None, []
 
     normalized_records: list[dict[str, Any]] = []
-    for entry in parsed:
-        if not isinstance(entry, dict):
+    # После проверки isinstance parsed гарантированно список
+    # Явная аннотация типа для элементов (type checker не выводит из Any)
+    items = cast(list[Any], parsed)  # type: ignore[redundant-cast]
+    for item in items:
+        if not isinstance(item, dict):
             continue
 
+        # После проверки isinstance item гарантированно dict
+        entry = cast(dict[str, Any], item)
         normalized_entry: dict[str, Any] = {}
         for key, value in entry.items():
             if isinstance(value, str):

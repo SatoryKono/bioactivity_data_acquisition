@@ -270,10 +270,7 @@ class OutputMetadata:
         if schema is not None:
             from bioetl.schemas.registry import SchemaRegistry
 
-            if not isinstance(schema, type):
-                schema_cls = type(schema)
-            else:
-                schema_cls = schema
+            schema_cls = schema
 
             registration = SchemaRegistry.find_registration(
                 _typing.cast(DataFrameModel, schema_cls)
@@ -986,8 +983,9 @@ class UnifiedOutputWriter:
                 dataset_metrics_payload = {}
                 for row in dataset_metrics_df.to_dict("records"):
                     if isinstance(row, dict) and "metric" in row and "value" in row:
-                        metric_key = str(row["metric"])
-                        dataset_metrics_payload[metric_key] = row["value"]
+                        metric_key = str(row.get("metric", ""))
+                        value = row.get("value")
+                        dataset_metrics_payload[metric_key] = value
 
         checksum_targets: list[Path] = [
             dataset_path,
@@ -996,7 +994,7 @@ class UnifiedOutputWriter:
 
         for value in additional_paths.values():
             if isinstance(value, dict):
-                checksum_targets.extend(value.values())
+                checksum_targets.extend(list(value.values()))
             elif isinstance(value, Path):
                 checksum_targets.append(value)
 

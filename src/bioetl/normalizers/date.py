@@ -9,7 +9,7 @@ import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.normalizers.base import BaseNormalizer
-from bioetl.normalizers.helpers import _is_na
+from bioetl.normalizers.helpers import is_na
 
 logger = UnifiedLogger.get(__name__)
 
@@ -47,7 +47,7 @@ class DateNormalizer(BaseNormalizer):
     """Normalise date-like values to canonical ISO-8601 strings."""
 
     def normalize(self, value: Any, **_: Any) -> str | None:
-        if _is_na(value):
+        if is_na(value):
             return None
 
         if isinstance(value, pd.Timestamp):
@@ -79,7 +79,7 @@ class DateNormalizer(BaseNormalizer):
         return None
 
     def validate(self, value: Any) -> bool:
-        if _is_na(value):
+        if is_na(value):
             return True
         try:
             return self.normalize(value) is not None

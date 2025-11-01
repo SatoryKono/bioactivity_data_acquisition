@@ -6,7 +6,7 @@ import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -34,25 +34,19 @@ def _normalise_value(value: Any) -> Any:
         if stripped == "" or stripped.lower() == "nan":
             return PD_NA
         return stripped
-    if isinstance(value, float | np.floating) and np.isnan(value):
-        return PD_NA
+    # Явная проверка для float и np.floating, чтобы избежать частично неизвестного типа
+    if isinstance(value, float):
+        if np.isnan(value):
+            return PD_NA
+        return value
+    if isinstance(value, np.floating):
+        if np.isnan(cast(float, value)):
+            return PD_NA
+        # Приводим np.floating к float для устранения частично неизвестного типа
+        return cast(float, value)
     return value
 
 
-def _split_accession_field(value: Any) -> list[str]:
-    """Normalise accession strings to a list of unique identifiers."""
-
-    if value is None or value is PD_NA:
-        return []
-
-    if isinstance(value, str):
-        tokens = value.replace(";", " ").replace(",", " ").split()
-        return [token.strip() for token in tokens if token.strip()]
-
-    if isinstance(value, list | tuple | set):
-        return [str(item).strip() for item in value if item not in {None, "", PD_NA}]
-
-    return [str(value).strip()]
 
 
 def coalesce_by_priority(
@@ -74,7 +68,7 @@ def coalesce_by_priority(
     for output_column, candidates in mapping.items():
         if not candidates:
             result[output_column] = PD_NA
-            if source_suffix is not None:
+            if source_suffix:
                 result[f"{output_column}{source_suffix}"] = PD_NA
             continue
 
@@ -82,9 +76,10 @@ def coalesce_by_priority(
         column_sources: list[str] = []
         for candidate in candidates:
             if isinstance(candidate, tuple):
-                column_name, label = candidate
+                column_name_str, label = candidate
+                column_name = str(column_name_str)
             else:
-                column_name, label = candidate, str(candidate)
+                column_name, label = str(candidate), str(candidate)
 
             if column_name not in result.columns:
                 result[column_name] = PD_NA
@@ -98,7 +93,7 @@ def coalesce_by_priority(
             merged = pd.Series(PD_NA, index=result.index)
         result[output_column] = merged
 
-        if source_suffix is not None:
+        if source_suffix:
             def resolve_source(row: Any, sources: list[str] = column_sources) -> Any:
                 for idx, value in enumerate(row):
                     if value is not PD_NA and not pd_isna(value):

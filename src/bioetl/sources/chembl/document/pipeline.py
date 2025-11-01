@@ -29,7 +29,7 @@ from bioetl.sources.document.pipeline import AdapterDefinition, ExternalEnrichme
 from bioetl.sources.openalex.pipeline import OPENALEX_ADAPTER_DEFINITION
 from bioetl.sources.pubmed.pipeline import PUBMED_ADAPTER_DEFINITION
 from bioetl.sources.semantic_scholar.pipeline import SEMANTIC_SCHOLAR_ADAPTER_DEFINITION
-from bioetl.utils.chembl import SupportsRequestJson, _resolve_release_name
+from bioetl.utils.chembl import SupportsRequestJson, resolve_release_name
 from bioetl.utils.dtypes import coerce_retry_after
 from bioetl.utils.qc import compute_field_coverage, duplicate_summary
 
@@ -140,7 +140,8 @@ class DocumentPipeline(PipelineBase):
         self._adapter_initialization_mode: str | None = None
 
         configured_mode = getattr(self.config.cli, "mode", None)
-        self.mode: str = self._resolve_mode(configured_mode)
+        resolved_mode_value = self._resolve_mode(configured_mode)
+        self.mode: str = resolved_mode_value
         self.runtime_options["mode"] = self.mode
         self._prepare_enrichment_adapters()
 
@@ -647,9 +648,9 @@ class DocumentPipeline(PipelineBase):
         default_source = "chembl"
 
         if "chembl_release" in df.columns:
-            df["chembl_release"] = df["chembl_release"].apply(_resolve_release_name)
+            df["chembl_release"] = df["chembl_release"].apply(resolve_release_name)
 
-        release_value = _resolve_release_name(self._chembl_release)
+        release_value = resolve_release_name(self._chembl_release)
 
         if "fallback_reason" in df.columns:
             fallback_mask = df["fallback_reason"].notna()
