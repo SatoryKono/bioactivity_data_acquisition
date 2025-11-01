@@ -38,6 +38,7 @@ _PIPELINE_ENTRYPOINTS: dict[str, tuple[str, str]] = {
     "chembl_target": ("target", "scripts.run_target"),
     "chembl_document": ("document", "scripts.run_chembl_document"),
     "gtp_iuphar": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
+    "iuphar_target": ("gtp_iuphar", "scripts.run_gtp_iuphar"),
     "uniprot_protein": ("uniprot", "scripts.run_uniprot"),
 }
 

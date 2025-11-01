@@ -6,6 +6,7 @@ from typing import Final
 
 from bioetl.adapters.crossref import CrossrefAdapter
 from bioetl.pipelines.external_source import ExternalSourcePipeline
+from bioetl.schemas.pipeline_inputs import CrossrefInputSchema
 from bioetl.sources.crossref.schema import CrossrefNormalizedSchema
 from bioetl.sources.document.pipeline import AdapterDefinition, FieldSpec
 
@@ -32,19 +33,20 @@ CROSSREF_ADAPTER_DEFINITION: Final[AdapterDefinition] = AdapterDefinition(
 class CrossrefPipeline(ExternalSourcePipeline):
     """Pipeline coordinating DOI enrichment against the Crossref REST API."""
 
-    source_name: Final[str] = "crossref"
-    adapter_definition: Final[AdapterDefinition] = CROSSREF_ADAPTER_DEFINITION
+    source_name = "crossref"
+    adapter_definition = CROSSREF_ADAPTER_DEFINITION
     normalized_schema = CrossrefNormalizedSchema
-    business_key: Final[str] = "doi_clean"
-    metadata_source_system: Final[str] = "crossref"
-    expected_input_columns: Final[tuple[str, ...]] = (
+    business_key = "doi_clean"
+    metadata_source_system = "crossref"
+    input_schema = CrossrefInputSchema
+    expected_input_columns = (
         "doi",
         "doi_clean",
         "title",
         "crossref_doi",
         "crossref_doi_clean",
     )
-    identifier_columns: Final[dict[str, tuple[str, ...]]] = {
+    identifier_columns = {
         "doi": (
             "doi",
             "doi_clean",
@@ -56,5 +58,5 @@ class CrossrefPipeline(ExternalSourcePipeline):
         ),
         "title": ("title", "crossref_title"),
     }
-    match_columns: Final[tuple[str, ...]] = ("crossref_doi_clean", "doi_clean")
-    sort_by: Final[tuple[str, ...]] = ("doi_clean", "crossref_doi_clean")
+    match_columns = ("crossref_doi_clean", "doi_clean")
+    sort_by = ("doi_clean", "crossref_doi_clean")

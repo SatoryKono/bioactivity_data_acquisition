@@ -23,6 +23,8 @@ def _resolve_pipeline_key(pipeline_key: str) -> str:
     overrides = {
         "pubchem_molecule": "pubchem",
         "uniprot_protein": "uniprot",
+        "iuphar_target": "gtp_iuphar",
+        "semantic_scholar": "semantic_scholar",
     }
     if pipeline_key in overrides:
         return overrides[pipeline_key]

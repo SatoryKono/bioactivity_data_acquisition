@@ -32,6 +32,16 @@ __all__ = (
     "DocumentSchema",
     "DocumentInputSchema",
     "IupharInputSchema",
+    "ActivityInputSchema",
+    "AssayInputSchema",
+    "CrossrefInputSchema",
+    "OpenAlexInputSchema",
+    "PubMedInputSchema",
+    "SemanticScholarInputSchema",
+    "PubChemInputSchema",
+    "TargetInputSchema",
+    "TestItemInputSchema",
+    "UniProtInputSchema",
     "AssaySchema",
     "TestItemSchema",
     "TargetSchema",
@@ -55,6 +65,16 @@ _SCHEMA_EXPORTS: dict[str, str] = {
     "DocumentSchema": "bioetl.schemas.document",
     "DocumentInputSchema": "bioetl.schemas.document_input",
     "IupharInputSchema": "bioetl.schemas.iuphar_input",
+    "ActivityInputSchema": "bioetl.schemas.pipeline_inputs",
+    "AssayInputSchema": "bioetl.schemas.pipeline_inputs",
+    "CrossrefInputSchema": "bioetl.schemas.pipeline_inputs",
+    "OpenAlexInputSchema": "bioetl.schemas.pipeline_inputs",
+    "PubMedInputSchema": "bioetl.schemas.pipeline_inputs",
+    "SemanticScholarInputSchema": "bioetl.schemas.pipeline_inputs",
+    "PubChemInputSchema": "bioetl.schemas.pipeline_inputs",
+    "TargetInputSchema": "bioetl.schemas.pipeline_inputs",
+    "TestItemInputSchema": "bioetl.schemas.pipeline_inputs",
+    "UniProtInputSchema": "bioetl.schemas.pipeline_inputs",
     "AssaySchema": "bioetl.schemas.assay",
     "TestItemSchema": "bioetl.schemas.testitem",
     "TargetSchema": "bioetl.schemas.target",
@@ -82,6 +102,18 @@ if TYPE_CHECKING:  # pragma: no cover - imported for static analysis only.
     )
     from bioetl.schemas.document_input import DocumentInputSchema
     from bioetl.schemas.iuphar_input import IupharInputSchema
+    from bioetl.schemas.pipeline_inputs import (
+        ActivityInputSchema,
+        AssayInputSchema,
+        CrossrefInputSchema,
+        OpenAlexInputSchema,
+        PubChemInputSchema,
+        PubMedInputSchema,
+        SemanticScholarInputSchema,
+        TargetInputSchema,
+        TestItemInputSchema,
+        UniProtInputSchema,
+    )
     from bioetl.schemas.registry import SchemaRegistry, schema_registry
     from bioetl.schemas.target import (
         ProteinClassSchema,
