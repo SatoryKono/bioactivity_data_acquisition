@@ -9,7 +9,12 @@ The primary goals of this unified client are:
 -   **Resilience**: Automatically handle transient network errors, server-side issues (`5xx`), and rate limiting (`429`) through a robust retry mechanism with exponential backoff.
 -   **Predictability**: Ensure consistent behavior across all pipelines by using shared configuration profiles.
 
-Configuration is managed through a layered system, where settings from profiles like `base.yaml` and the new `network.yaml` are merged with pipeline-specific configs and CLI overrides.
+Configuration is managed through a layered system, where settings from standardized profiles are merged with pipeline-specific configs. The key profiles are:
+-   **`base.yaml`**: Provides foundational settings for all pipelines.
+-   **`network.yaml`**: Contains a standard, resilient configuration for network interactions, including timeouts and retry policies. It is recommended for pipelines that interact with external APIs.
+-   **`determinism.yaml`**: Provides settings to ensure reproducible, deterministic outputs, such as sort keys and hashing configurations.
+
+These profiles are merged with pipeline-specific configs and CLI overrides to create the final configuration.
 
 -   **Reference**: [RFC 7231, Section 6.6.4: 503 Service Unavailable](https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.4) (describes `Retry-After` header).
 
@@ -17,20 +22,23 @@ Configuration is managed through a layered system, where settings from profiles 
 
 All HTTP client settings are defined in the `PipelineConfig` Pydantic model (`[ref: repo:src/bioetl/config/models.py@refactoring_001]`). The newly created `configs/profiles/network.yaml` provides a standard set of these values.
 
-**Key Configuration Fields (`HttpConfig` and `RetryConfig`):**
+**Key Configuration Fields (`APIConfig` in `api_client.py`):**
 
-| Key | Type | Description |
+This configuration is typically defined in `configs/profiles/base.yaml` and applied to named profiles in the `http` section of a pipeline's main configuration file.
+
+| Key | Default | Description |
 |---|---|---|
-| `timeout_sec` | `float` | Total request timeout. Overridden by `connect` and `read` if set. |
-| `connect_timeout_sec` | `float` | Timeout for establishing a connection. |
-| `read_timeout_sec` | `float` | Timeout for waiting for data from the server. |
-| `retries.total` | `int` | Maximum number of retry attempts. |
-| `retries.backoff_multiplier` | `float` | The multiplier for the exponential backoff delay. |
-| `retries.backoff_max` | `float` | The maximum backoff delay in seconds. |
-| `retries.statuses` | `list[int]` | A list of HTTP status codes that should trigger a retry. |
-| `rate_limit.max_calls` | `int` | Maximum number of calls allowed per `period`. |
-| `rate_limit.period` | `float` | The time period in seconds for the rate limit. |
-| `headers` | `dict` | A dictionary of default headers to send with each request. |
+| `timeout_connect` | `10.0` | Timeout in seconds for establishing a connection. |
+| `timeout_read` | `30.0` | Timeout in seconds for waiting for data from the server. |
+| `retry_total` | `3` | Maximum number of retry attempts. |
+| `retry_backoff_factor` | `2.0` | Multiplier for the exponential backoff delay (e.g., 2.0 means delays of 1, 2, 4, 8... seconds). |
+| `retry_backoff_max` | `None` | The maximum backoff delay in seconds. If `None`, there is no cap. |
+| `retry_status_codes` | `[]` | A list of additional HTTP status codes that **SHOULD** trigger a retry. `5xx` codes are retried by default. |
+| `rate_limit_max_calls` | `1` | Maximum number of calls allowed per `period`. |
+| `rate_limit_period` | `1.0` | The time period in seconds for the rate limit. |
+| `rate_limit_jitter` | `True` | Adds a small, random delay to requests to avoid thundering herd problems. |
+| `cb_failure_threshold` | `5` | Number of consecutive failures before the circuit breaker opens. |
+| `cb_timeout` | `60.0` | Time in seconds the circuit breaker will stay open before transitioning to half-open. |
 
 **Merge Order:**
 Configuration is merged in the following order (later items override earlier ones):
@@ -51,39 +59,65 @@ Configuration is merged in the following order (later items override earlier one
 The retry logic is implemented in the `RetryPolicy` class within `api_client.py`.
 
 **Error Classification:**
--   **Retryable**: The system MUST retry on `requests.exceptions.RequestException` (which covers network timeouts and DNS/TLS errors) and specific HTTP status codes. The current implementation retries on:
-    -   `5xx` server errors (by default).
-    -   Any status code listed in the `retries.statuses` configuration list (e.g., `429`, `408`).
--   **Non-Retryable**: The system MUST NOT retry on `4xx` client errors (except those explicitly in the retryable list), as these indicate a problem with the request itself.
+-   **Retryable**: The system **MUST** retry on the following conditions:
+    -   Any exception that is a subclass of `requests.exceptions.RequestException` (e.g., `ConnectionError`, `Timeout`).
+    -   HTTP responses with a `5xx` status code (e.g., `500`, `502`, `503`, `504`).
+    -   Any additional status codes explicitly defined in the `retry_status_codes` configuration list (typically `429` for rate limiting).
+-   **Non-Retryable**: The system **MUST NOT** retry on `4xx` client errors (e.g., `400`, `401`, `403`, `404`), as these indicate a problem with the request itself that is unlikely to be resolved by retrying. The only exception is if a `4xx` code is explicitly added to `retry_status_codes`.
 
 **Backoff Algorithm:**
-The client uses an **exponential backoff** algorithm. The delay is calculated as `backoff_multiplier ** attempt_number`, capped at `backoff_max`.
-Crucially, if a `Retry-After` header is present in a `429` or `503` response, the client's `parse_retry_after` function will parse it, and this value **MUST** take precedence over the calculated backoff delay.
+The client uses an **exponential backoff with jitter** algorithm. The delay is calculated as `backoff_factor ** (attempt_number - 1)`, plus a small random jitter. This delay is capped at `backoff_max`.
 
-**Idempotency:**
--   **Current State**: The `UnifiedAPIClient` does not currently implement a mechanism for ensuring the idempotency of `POST` or `PATCH` requests, such as sending an `Idempotency-Key` header.
--   **Normative Standard**: Safe methods (`GET`, `HEAD`, `OPTIONS`) are inherently idempotent and SHOULD always be retried. Unsafe methods (`POST`, `PATCH`, `DELETE`) MUST NOT be retried unless an idempotency mechanism is implemented. If such a mechanism is added, it SHOULD follow the IETF draft standard for the `Idempotency-Key` header.
--   **Reference**: [IETF Draft: The Idempotency-Key HTTP Header Field](https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header)
+If a `Retry-After` header is present in a `429` or `503` response, its value **MUST** take precedence over the calculated backoff delay.
 
 ## 5. Quotas, Limits, and `429 Too Many Requests`
 
 The client handles rate limiting in two ways:
 1.  **Proactive Rate Limiting**: The `TokenBucketLimiter` class ensures that the client does not exceed the `rate_limit.max_calls` per `rate_limit.period` defined in the configuration.
-2.  **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client MUST prioritize the `Retry-After` header from the response to determine the backoff delay.
+2.  **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client **MUST** prioritize the `Retry-After` header from the response to determine the backoff delay.
 -   **Reference**: [RFC 6585, Section 4: 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4)
 
 ## 6. Telemetry and Logging
 
--   **Current State**: The `UnifiedAPIClient` is instrumented with structured logging via the `UnifiedLogger`. It logs retry attempts, backoff delays, and circuit breaker state changes. There is **no current implementation** of distributed tracing (W3C Trace Context) or metrics (OpenTelemetry).
--   **Normative Standard**:
-    -   **Tracing**: If tracing is implemented, the client MUST propagate the `traceparent` and `tracestate` headers. It SHOULD create a client `span` for each outgoing request with the semantic attributes defined by OpenTelemetry, such as `http.method`, `http.url`, `http.status_code`, and `net.peer.name`.
-    -   **Metrics**: If metrics are implemented, the client SHOULD record the following:
-        -   `http.client.duration` (histogram)
-        -   `http.client.active_requests` (up/down counter)
-        -   `http.client.request.retries` (counter)
--   **References**:
-    -   [W3C Trace Context](https://www.w3.org/TR/trace-context/)
-    -   [OpenTelemetry: HTTP Client Semantic Conventions](https://opentelemetry.io/docs/specs/semconv/http/http-spans/#http-client)
+The `UnifiedAPIClient` is instrumented with structured logging via the `UnifiedLogger`. The `http_log_context` automatically injects the following fields into log records related to HTTP requests, providing a rich context for debugging and monitoring.
+
+-   `endpoint`: The full URL of the request.
+-   `attempt`: The current retry attempt number.
+-   `duration_ms`: The duration of the request in milliseconds.
+-   `params`: The query parameters sent with the request.
+-   `retry_after`: The value of the `Retry-After` header, if present.
+
+### Example Log Record
+
+This is an example of a structured log record for a retryable error, as it would appear in a JSON log file.
+
+```json
+{
+  "event": "retrying_request",
+  "level": "warning",
+  "timestamp": "2024-10-28T14:30:01.123Z",
+  "logger": "bioetl.core.api_client",
+  "context": {
+    "run_id": "activity_20241028142959",
+    "stage": "extract",
+    "http": {
+      "endpoint": "https://www.ebi.ac.uk/chembl/api/data/activity.json",
+      "attempt": 2,
+      "duration_ms": 1532.45,
+      "params": {
+        "limit": 100,
+        "offset": 200
+      },
+      "retry_after": 10.0
+    }
+  },
+  "wait_seconds": 10.0,
+  "sleep_seconds": 10.0,
+  "error": "503 Server Error: Service Unavailable for url: ...",
+  "status_code": 503,
+  "retry_after": "10"
+}
+```
 
 ## 7. Pagination
 

@@ -25,11 +25,10 @@ This approach is **not dynamic**. Adding a new pipeline requires explicitly addi
 The single most important function of the CLI is to build the `PipelineConfig` object that will be passed to the pipeline. It does this by loading and merging settings from multiple sources in a strict order of precedence. This entire process is managed by the `load_config` function found in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
 
 The order of precedence is as follows (where 5 has the highest precedence and overrides all others):
-1.  `base.yaml`
-2.  `network.yaml` / `determinism.yaml` (if extended)
-3.  Pipeline-specific `--config` file
-4.  CLI `--set` flags
-5.  Environment variables (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`)
+1.  **Base Profiles**: Files listed in the `extends` key are loaded first. This typically includes `base.yaml` and can also include `network.yaml` (for network settings) and `determinism.yaml` (for reproducibility settings).
+2.  **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
+3.  **`--set` Flags**: CLI overrides for specific keys.
+4.  **Environment Variables**: The highest level of override (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
 
 
 This layered approach provides a powerful and flexible system for managing configurations.
