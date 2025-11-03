@@ -1,16 +1,12 @@
-# CLI Documentation
+# BioETL Command-Line Interface (CLI)
 
-This section provides comprehensive documentation for the `bioetl` Command-Line Interface (CLI).
+This directory contains detailed documentation for the `bioetl` CLI.
 
-## Key Documents
+## Overview and Commands
 
-For a complete understanding of the CLI, its architecture, and all available commands, please refer to the following documents:
+The CLI is the primary entry point for executing ETL pipelines. It is a Typer-based application that uses a static registry to define available commands.
 
--   **[0. CLI Overview and Principles](./00-cli-overview.md)**
-    This document provides a high-level overview of the CLI's architecture, its core design principles, the configuration loading strategy, and the policy for exit codes.
+**For a complete technical reference, including the CLI's architecture, configuration loading precedence, and a full list of commands and options, please see the official specification documents:**
 
--   **[1. CLI Command Reference](./01-cli-commands.md)**
-    This document is a detailed reference manual for every command available in the CLI. It includes the synopsis, flags, examples, and exit code information for the `list` command and all pipeline commands.
-
-[ref: repo:docs/cli/00-cli-overview.md@test_refactoring_32]
-[ref: repo:docs/cli/01-cli-commands.md@test_refactoring_32]
+- **[CLI Overview and Principles](./00-cli-overview.md)**
+- **[CLI Commands](./01-cli-commands.md)**

@@ -1,0 +1,5 @@
+cache:
+  enabled: true
+  directory: "data/cache"
+  ttl: 86400
+  release_scoped: false

@@ -1,0 +1,10 @@
+fragment_id;path;start_line;end_line;clone_group;similarity;type_hint
+1;src\bioetl\cli\commands\chembl_activity.py;12;17;1;0.90;II
+2;src\bioetl\cli\commands\chembl_assay.py;12;17;1;0.91;II
+3;src\bioetl\cli\commands\chembl_document.py;12;18;1;0.87;II
+4;src\bioetl\cli\commands\chembl_target.py;12;17;1;0.49;II
+9;src\scripts\run_chembl_activity.py;1;15;2;0.88;II
+10;src\scripts\run_chembl_assay.py;1;15;2;0.63;II
+11;src\scripts\run_chembl_document.py;1;15;2;0.30;II
+12;src\scripts\run_chembl_target.py;1;15;2;0.90;II
+13;src\scripts\run_chembl_testitem.py;1;15;2;0.64;II

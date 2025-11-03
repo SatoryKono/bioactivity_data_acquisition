@@ -1,0 +1,353 @@
+"""OpenAlex Works API adapter."""
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+import pandas as pd
+
+from bioetl.adapters._normalizer_helpers import get_bibliography_normalizers
+from bioetl.adapters.base import AdapterConfig, AdapterFetchError, ExternalAdapter
+from bioetl.core.api_client import APIConfig
+from bioetl.normalizers.bibliography import normalize_common_bibliography
+from bioetl.sources.openalex.request import OpenAlexRequestBuilder
+
+NORMALIZER_ID, NORMALIZER_STRING = get_bibliography_normalizers()
+
+
+class OpenAlexAdapter(ExternalAdapter):
+    """Adapter for OpenAlex Works API.
+
+    Override :meth:`_fetch_batch` to plug into the shared batching helper.
+    """
+
+    DEFAULT_BATCH_SIZE = 100
+    DEFAULT_WORK_FIELDS = (
+        "id,doi,title,authorships,primary_location,publication_date,"
+        "publication_year,type,language,open_access,concepts,ids,cited_by_count"
+    )
+
+    def __init__(self, api_config: APIConfig, adapter_config: AdapterConfig):
+        super().__init__(api_config, adapter_config)
+        self.request_builder = OpenAlexRequestBuilder(api_config, adapter_config)
+        self.api_client.session.headers.update(self.request_builder.base_headers)
+
+    def _fetch_batch(self, ids: list[str]) -> list[dict[str, Any]]:
+        """Fetch a batch of works."""
+        # Try to fetch by DOI first
+        dois = [id for id in ids if id.startswith("10.")]
+        pmids = [id for id in ids if id not in dois and id.isdigit()]
+        oa_ids = [id for id in ids if id not in dois and id not in pmids]
+
+        all_items: list[dict[str, Any]] = []
+        failures: dict[str, str] = {}
+
+        # Fetch by DOI - OpenAlex requires single DOI per request
+        if dois:
+            for doi in dois:
+                clean_doi = doi.replace("https://doi.org/", "")
+                url = f"/works/https://doi.org/{clean_doi}"
+                if not self._collect_records(all_items, failures, doi, url):
+                    continue
+
+        # Fetch by PMID - OpenAlex requires single PMID per request
+        if pmids:
+            for pmid in pmids:
+                url = f"/works/pmid:{pmid}"
+                if not self._collect_records(all_items, failures, pmid, url):
+                    continue
+
+        # Fetch by OpenAlex ID
+        if oa_ids:
+            # Can fetch directly by ID
+            for oa_id in oa_ids:
+                # Ensure it's a full URL
+                if not oa_id.startswith("https://"):
+                    oa_id = f"https://openalex.org/{oa_id}"
+                url = f"/works/{oa_id.split('/')[-1]}"
+                if not self._collect_records(all_items, failures, oa_id, url):
+                    continue
+
+        if failures:
+            raise AdapterFetchError(
+                "OpenAlex batch experienced network errors",
+                failed_ids=list(failures),
+                partial_records=all_items,
+                errors=failures,
+            )
+
+        return all_items
+
+    def _collect_records(
+        self,
+        destination: list[dict[str, Any]],
+        failures: dict[str, str],
+        identifier: str,
+        url: str,
+    ) -> bool:
+        """Helper to fetch a record and store either data or error state."""
+
+        try:
+            items = self._fetch_works(url)
+        except AdapterFetchError as exc:
+            failures[identifier] = str(exc)
+            if exc.partial_records:
+                destination.extend(exc.partial_records)
+            return False
+        except Exception as exc:  # pragma: no cover - defensive
+            failure_message = str(exc)
+            failures[identifier] = failure_message
+            self.logger.error("fetch_works_error", error=failure_message, url=url)
+            return False
+
+        if items:
+            destination.extend(items)
+        return True
+
+    def process_identifiers(
+        self,
+        *,
+        pmids: Sequence[str] | None = None,
+        dois: Sequence[str] | None = None,
+        titles: Sequence[str] | None = None,
+        records: Sequence[Mapping[str, str]] | None = None,
+    ) -> pd.DataFrame:
+        """Process identifiers using DOI/PMID with title fallbacks."""
+
+        normalized_records: list[dict[str, Any]] = []
+        failure_records: list[dict[str, Any]] = []
+
+        doi_titles: dict[str, str] = {}
+        pmid_titles: dict[str, str] = {}
+        if records:
+            for entry in records:
+                title = entry.get("title")
+                doi = entry.get("doi") or entry.get("chembl_doi")
+                pmid = entry.get("pmid") or entry.get("chembl_pmid")
+                if doi and title and doi not in doi_titles:
+                    doi_titles[str(doi)] = str(title)
+                if pmid and title and pmid not in pmid_titles:
+                    pmid_titles[str(pmid)] = str(title)
+
+        for doi in dict.fromkeys(dois or []):
+            if not doi:
+                continue
+            records_by_doi = self._fetch_works_for_identifier(f"https://doi.org/{doi}")
+            if records_by_doi:
+                normalized_records.extend(self._normalise_records(records_by_doi))
+                continue
+
+            title = doi_titles.get(doi)
+            if title:
+                search_results = self._search_by_title(title)
+                if search_results:
+                    normalized_records.extend(self._normalise_records(search_results))
+                    continue
+
+            failure_records.append({
+                "openalex_doi": doi,
+                "openalex_doi_clean": doi,
+                "openalex_error": "not_found",
+            })
+
+        for pmid in dict.fromkeys(pmids or []):
+            if not pmid or any(
+                record.get("openalex_pmid") == int(pmid)
+                for record in normalized_records
+                if isinstance(record.get("openalex_pmid"), int)
+            ):
+                continue
+
+            records_by_pmid = self._fetch_works_for_identifier(f"pmid:{pmid}")
+            if records_by_pmid:
+                normalized_records.extend(self._normalise_records(records_by_pmid))
+                continue
+
+            title = pmid_titles.get(pmid)
+            if title:
+                search_results = self._search_by_title(title)
+                if search_results:
+                    normalized_records.extend(self._normalise_records(search_results))
+                    continue
+
+            failure_records.append({
+                "openalex_pmid": int(pmid) if str(pmid).isdigit() else pmid,
+                "openalex_error": "not_found",
+            })
+
+        if not normalized_records and not failure_records:
+            return pd.DataFrame()
+
+        frames: list[pd.DataFrame] = []
+        if normalized_records:
+            frames.append(self.to_dataframe(normalized_records))
+        if failure_records:
+            frames.append(pd.DataFrame(failure_records))
+
+        combined = pd.concat(frames, ignore_index=True) if len(frames) > 1 else frames[0]
+        return combined.reset_index(drop=True)
+
+    def _fetch_works(self, url: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """Fetch works from OpenAlex API."""
+        query_params = dict(params or {})
+        query_params.setdefault("fields", self.DEFAULT_WORK_FIELDS)
+        spec = self.request_builder.build(url, params=query_params)
+        try:
+            response = self.api_client.request_json(
+                spec.url,
+                params=spec.params,
+                headers=spec.headers,
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            raise AdapterFetchError(
+                "OpenAlex request failed",
+                failed_ids=[url],
+                errors={url: str(exc)},
+            ) from exc
+
+        if isinstance(response, dict):
+            if "results" in response:
+                return response["results"]
+            # Single work
+            return [response]
+        return []
+
+    def _fetch_works_for_identifier(self, identifier: str) -> list[dict[str, Any]]:
+        """Fetch works by DOI/PMID identifier path."""
+
+        url = f"/works/{identifier.split('/')[-1]}"
+        try:
+            items = self._fetch_works(url)
+        except Exception as exc:  # pragma: no cover - defensive
+            self.logger.error("fetch_works_error", error=str(exc), url=url)
+            return []
+        return items
+
+    def _normalise_records(self, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Normalize raw OpenAlex records."""
+
+        normalized: list[dict[str, Any]] = []
+        for record in records:
+            try:
+                normalized.append(self.normalize_record(record))
+            except Exception as exc:  # pragma: no cover - defensive
+                self.logger.error("openalex_normalize_failed", error=str(exc))
+        return normalized
+
+    def _search_by_title(self, title: str) -> list[dict[str, Any]]:
+        """Search OpenAlex works by title using the search endpoint."""
+
+        params = {"search": title, "per-page": 1, "fields": self.DEFAULT_WORK_FIELDS}
+        results = self._fetch_works("/works", params=params)
+        if results:
+            return results
+
+        # Fallback to title search filter when basic search returns nothing
+        params = {"filter": f"title.search:{title}", "per-page": 1, "fields": self.DEFAULT_WORK_FIELDS}
+        return self._fetch_works("/works", params=params)
+
+    def normalize_record(self, record: dict[str, Any]) -> dict[str, Any]:
+        """Normalize OpenAlex record."""
+        common = normalize_common_bibliography(
+            record,
+            doi="doi",
+            title="title",
+            journal=lambda rec: (
+                (rec.get("primary_location") or {})
+                .get("source", {})
+                .get("display_name")
+            )
+            or (
+                (rec.get("primary_location") or {})
+                .get("source", {})
+                .get("name")
+            ),
+            authors="authorships",
+            journal_normalizer=lambda value: (
+                NORMALIZER_STRING.normalize(value) if value is not None else None
+            ),
+        )
+
+        normalized = dict(common)
+
+        # OpenAlex ID
+        if "id" in record:
+            normalized["openalex_id"] = NORMALIZER_ID.normalize_openalex_id(record["id"])
+
+        doi_clean = common.get("doi_clean")
+        if doi_clean:
+            normalized["openalex_doi"] = doi_clean
+            normalized["openalex_doi_clean"] = doi_clean
+
+        # PMID from ids
+        if "ids" in record:
+            ids = record["ids"]
+            if "pmid" in ids:
+                pmid = ids["pmid"].replace("https://pubmed.ncbi.nlm.nih.gov/", "")
+                normalized["openalex_pmid"] = int(pmid) if pmid.isdigit() else None
+
+        # Publication date
+        if "publication_date" in record:
+            normalized["publication_date"] = record["publication_date"]
+            # Parse year from date
+            if record["publication_date"]:
+                parts = record["publication_date"].split("-")
+                if parts:
+                    normalized["year"] = int(parts[0]) if parts[0].isdigit() else None
+
+        if "publication_year" in record:
+            normalized["year"] = record["publication_year"]
+
+        # Type
+        if "type" in record:
+            normalized["type"] = record["type"]
+
+        # Language
+        if "language" in record:
+            normalized["language"] = record["language"]
+
+        # Open Access info
+        if "open_access" in record:
+            oa = record["open_access"]
+            normalized["is_oa"] = oa.get("is_oa", False)
+            normalized["oa_status"] = oa.get("oa_status")
+            normalized["oa_url"] = oa.get("oa_url")
+
+        # Concepts - top 3 by score
+        if "concepts" in record and record["concepts"]:
+            concepts_sorted = sorted(
+                record["concepts"], key=lambda c: c.get("score", 0), reverse=True
+            )
+            top3 = concepts_sorted[:3]
+            normalized["concepts_top3"] = [
+                c.get("display_name", "") for c in top3 if c.get("display_name")
+            ]
+
+        # Venue (journal) and ISSN
+        if "primary_location" in record and record["primary_location"]:
+            source = record["primary_location"].get("source")
+            if source and isinstance(source, dict):
+                # ISSN
+                if "issn_l" in source and source["issn_l"]:
+                    normalized["openalex_issn"] = source["issn_l"]
+                elif "issn" in source and source["issn"]:
+                    issn_list = source["issn"] if isinstance(source["issn"], list) else [source["issn"]]
+                    normalized["openalex_issn"] = "; ".join(issn_list) if issn_list else None
+
+                # Crossref doc type if available
+                if "type" in source:
+                    normalized["crossref_doc_type"] = source["type"]
+
+        # Authors (primary location)
+        if "primary_location" in record and record["primary_location"]:
+            landing_page = record["primary_location"].get("landing_page_url")
+            if landing_page:
+                normalized["landing_page"] = landing_page
+
+        # Doc type from record
+        if "type" in normalized:
+            normalized["doc_type"] = normalized["type"]
+
+        if "cited_by_count" in record:
+            normalized["openalex_citation_count"] = record.get("cited_by_count")
+
+        return normalized
