@@ -147,9 +147,9 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
         set_run_context(stage="extract")
         log.info("extract_started")
         extract_start = time.perf_counter()
-        
+
         raw_df = self.extract(*args, **kwargs)
-        
+
         stage_durations["extract"] = (time.perf_counter() - extract_start) * 1000.0
         log.info("extract_completed", duration_ms=stage_durations["extract"], rows=len(raw_df))
 
@@ -182,6 +182,7 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
         # It handles file writing and artifact generation.
         artifacts: "OutputArtifacts" = self.export(validated_df, output_path, extended=extended)
         
+
         stage_durations["load"] = (time.perf_counter() - write_start) * 1000.0
         log.info("write_completed", duration_ms=stage_durations["load"], artifacts_path=str(artifacts.run_directory))
 
@@ -306,6 +307,7 @@ from bioetl.pipelines.base import PipelineBase
 
 class MinimalPipeline(PipelineBase):
     
+
     @abstractmethod
     def close_resources(self) -> None:
         """Required by ABC, even if empty."""

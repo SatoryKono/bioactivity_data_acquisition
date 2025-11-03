@@ -172,7 +172,8 @@ This pseudocode details the sequence of operations within the `write()` stage (r
 # Pseudocode within the framework's UnifiedOutputWriter class
 
 def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteResult":
-    
+
+
     log.info("Finalization started.")
 
     # 1. Canonicalization (assumed to be done during transform)
@@ -194,7 +195,7 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
     # This step is typically done at the end of the transform stage row-by-row.
     if "hash_row" not in df.columns:
         df["hash_row"] = df.apply(
-            lambda row: generate_hash_row(row[config.determinism.hashing.row_fields]), 
+            lambda row: generate_hash_row(row[config.determinism.hashing.row_fields]),
             axis=1
         )
     if "hash_business_key" not in df.columns:
