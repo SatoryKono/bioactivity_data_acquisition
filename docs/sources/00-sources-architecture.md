@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-This document defines the normative architecture for data source components within the `bioetl` framework. Each pipeline, as declared in the `[ref: repo:README.md@test_refactoring_32]`, is powered by a stack of components responsible for fetching, parsing, and cleaning data before it reaches the main `PipelineBase` orchestrator.
+This document defines the normative architecture for data source components within the `bioetl` framework. Each pipeline, as declared in the `[ref: repo:README.md@refactoring_001]`, is powered by a stack of components responsible for fetching, parsing, and cleaning data before it reaches the main `PipelineBase` orchestrator.
 
 The standard component stack follows this sequence:
 **Client → Paginator → Parser → Normalizer → Pandera Schema**
@@ -16,7 +16,7 @@ This section defines the project contract for each layer of the source component
 ### 2.1. HTTP Client
 
 -   **Interface**: `request(method, endpoint, **kwargs) -> Response`
--   **Implementation**: `bioetl.core.api_client.UnifiedAPIClient` (`[ref: repo:src/bioetl/core/api_client.py@test_refactoring_32]`)
+-   **Implementation**: `bioetl.core.api_client.UnifiedAPIClient` (`[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`)
 -   **Invariants**:
     -   MUST use strict, configurable timeouts (`connect` and `read`).
     -   MUST implement an exponential backoff retry policy for transient errors (`5xx`, `429`, network failures).
@@ -36,7 +36,7 @@ This section defines the project contract for each layer of the source component
 ### 2.3. Parser
 
 -   **Interface**: `parse(response_content: dict) -> dict`
--   **Implementation**: Source-specific classes, e.g., `ActivityParser` (`[ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@test_refactoring_32]`)
+-   **Implementation**: Source-specific classes, e.g., `ActivityParser` (`[ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@refactoring_001]`)
 -   **Invariants**:
     -   MUST be a pure function with no side effects.
     -   MUST raise an explicit error (e.g., `KeyError`, `ValueError`) if the input structure is invalid.
@@ -56,7 +56,7 @@ This section defines the project contract for each layer of the source component
 ### 2.5. Pandera Schema & Validation
 
 -   **Interface**: `validate(dataframe: pd.DataFrame) -> pd.DataFrame`
--   **Implementation**: Handled by the `PipelineBase.validate` method, which dynamically loads a schema. `[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]`
+-   **Implementation**: Handled by the `PipelineBase.validate` method, which dynamically loads a schema. `[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]`
 -   **Invariants**:
     -   MUST enforce strict column sets (`strict=True`).
     -   MUST enforce a fixed column order (via `ordered=True` or an external utility).
@@ -84,9 +84,9 @@ A detailed matrix mapping each pipeline to its specific component implementation
 ## 6. Integration with CLI and Configs
 
 The CLI and configuration system are responsible for wiring the component stack together.
--   **CLI Commands**: Typer commands, defined via `[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]`, instantiate a specific `PipelineBase` subclass.
+-   **CLI Commands**: Typer commands, defined via `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, instantiate a specific `PipelineBase` subclass.
 -   **Configuration**: The pipeline's YAML config provides the `http_profile` that selects the correct network settings, as well as any source-specific parameters needed by the client or parser. The `extends` key is used to inherit from shared profiles like `base.yaml` and `network.yaml`.
--   **Cross-Navigation**: This document is linked from the main `[ref: repo:docs/INDEX.md@test_refactoring_32]` and provides context for the **CLI**, **Configs**, and **QC** documentation.
+-   **Cross-Navigation**: This document is linked from the main `[ref: repo:docs/INDEX.md@refactoring_001]` and provides context for the **CLI**, **Configs**, and **QC** documentation.
 
 ## 7. Examples
 

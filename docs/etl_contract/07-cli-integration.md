@@ -6,63 +6,50 @@ The `bioetl` framework includes a powerful and user-friendly Command-Line Interf
 
 ## Pipeline Discovery and Registration
 
-Pipelines are discovered and registered with the CLI automatically. As long as a new pipeline class inherits from `PipelineBase` and is correctly placed within the `src/bioetl/pipelines/` directory, the framework's registry will find it and make it available as a CLI command.
+The CLI uses a **static command registry**, which is defined in `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]`. This file explicitly imports and configures each available pipeline command.
 
-This convention-based approach means that developers do not need to write any boilerplate code to integrate their new pipelines with the CLI.
+This approach is **not dynamic**. Adding a new pipeline requires explicitly adding its configuration to the `registry.py` file. This ensures that the list of available commands is always explicit and predictable.
 
 ## Core Commands
 
-The CLI is invoked via `python -m bioetl.cli.main`. It provides a set of standard commands for interacting with the framework.
+The CLI is invoked via `python -m bioetl.cli.main`.
 
 ### `list`
 
-The `list` command displays all currently registered and available pipelines. This is the first command a user should run to see which pipelines they can execute.
+The `list` command displays all currently registered pipeline commands.
 
 **Usage:**
 ```bash
 python -m bioetl.cli.main list
 ```
 
-**Example Output:**
-```
-Available Pipelines:
-- chembl_activity
-- chembl_assay
-- chembl_target
-- uniprot_protein
-```
+### `<pipeline-name>`
 
-### `<pipeline_name>`
-
-Each registered pipeline is available as a subcommand. This is the command used to execute a pipeline run.
+Each registered pipeline is available as a subcommand (e.g., `activity`, `assay`). This is the command used to execute a pipeline run.
 
 **Usage:**
 ```bash
-python -m bioetl.cli.main <pipeline_name> [OPTIONS]
+python -m bioetl.cli.main <pipeline-name> [OPTIONS]
 ```
 
 **Example:**
 ```bash
-python -m bioetl.cli.main chembl_activity --output-dir /data/output/chembl/activity-20231027
+python -m bioetl.cli.main activity --config configs/pipelines/chembl/activity.yaml --output-dir /data/output/activity
 ```
 
 ## Standard Command-Line Arguments
 
-Every pipeline command supports a standard set of command-line arguments that allow users to override settings in the YAML configuration at runtime.
+Every pipeline command supports a standard set of command-line arguments.
 
--   `--config TEXT`: Specifies the path to the pipeline's YAML configuration file. If not provided, the framework will look for a default configuration file matching the pipeline's name.
+-   `--config PATH`: **(Required)** Specifies the path to the pipeline's YAML configuration file.
 
--   `--output-dir DIRECTORY`: **(Required)** Specifies the root directory where the output artifacts (the dataset and its `meta.yaml` file) will be written.
+-   `--output-dir DIRECTORY`: **(Required)** Specifies the root directory where the output artifacts will be written.
 
--   `--input-file PATH`: (Optional) For pipelines that read from a local file instead of an API, this argument allows the user to specify the path to the input file.
+-   `--input-file PATH`: (Optional) Specifies the path to a local input file for pipelines that require it.
 
--   `--limit INTEGER`: (Optional) A convenient option for development and testing. It limits the pipeline to processing only the first `N` records.
+-   `--set TEXT`: (Optional) Overrides a specific configuration value using dot notation (e.g., `--set sources.chembl.batch_size=10`). Can be used multiple times.
 
--   `--dry-run`: This is an invaluable tool for validating a pipeline's configuration. When this flag is present, the pipeline will execute all stages up to and including the `validate` stage, but it **will not write any files**. A dry run is used to:
-    -   Verify that the YAML configuration is valid.
-    -   Confirm that the pipeline can successfully connect to the data source.
-    -   Run a small amount of data through the `extract` and `transform` stages to ensure the logic is working.
-    -   Perform a validation check on the transformed data.
+-   `--dry-run`: When this flag is present, the pipeline will execute all stages up to and including validation, but it **will not write any files**. It is an essential tool for verifying that a configuration is valid.
 
 **Example of a `--dry-run`:**
 ```bash

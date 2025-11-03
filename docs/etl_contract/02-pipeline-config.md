@@ -14,9 +14,9 @@ Below is a complete skeleton of a pipeline configuration file. It includes all t
 # src/bioetl/configs/pipelines/<source>/<pipeline>.yaml
 
 # (Optional) Inherit from base configuration profiles to reduce duplication.
-profile:
-  - base.yaml          # Common settings for all pipelines
-  - determinism.yaml   # Standard settings for ensuring deterministic output
+extends:
+  - ../../profiles/base.yaml   # Common settings for all pipelines
+  - ../../profiles/determinism.yaml   # Standard settings for ensuring deterministic output
 
 # -----------------------------------------------------------------------------
 # Section: source
@@ -117,7 +117,7 @@ runtime:
 
 ## Section Details
 
-- **`profile`**: Allows for the composition of configurations. Common settings can be placed in base files (like `base.yaml`) and included in multiple pipeline configurations to avoid repetition.
+- **`extends`**: Allows for the composition of configurations. Common settings can be placed in base files (like `base.yaml`) and included in multiple pipeline configurations to avoid repetition.
 - **`source`**: Contains everything needed to connect and communicate with the data source, including its location and policies for safe and reliable interaction (rate limiting, retries).
 - **`extract`**: Governs how data is retrieved. This includes defining the pagination method, which is crucial for handling large datasets from APIs.
 - **`transform`**: Provides a declarative way to perform common data transformation tasks. `normalizers` can be used for simple, reusable cleaning operations, while `dtypes` ensures that data is cast to the correct types before validation.

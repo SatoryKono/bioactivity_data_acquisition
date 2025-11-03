@@ -1,12 +1,12 @@
 # Specification: Typed Configurations and Profiles
 
-This document provides a comprehensive specification for the `bioetl` configuration system, based on the implementation in `[ref: repo:src/bioetl/config/loader.py@test_refactoring_32]`.
+This document provides a comprehensive specification for the `bioetl` configuration system, based on the implementation in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
 
 ## 1. Core Concepts
 
 ### 1.1. `PipelineConfig` Pydantic Model
 
-Every configuration is parsed into a strict Pydantic model, `PipelineConfig`, defined in `[ref: repo:src/bioetl/configs/models.py@test_refactoring_32]`. This ensures that any loaded configuration is validated against a single source of truth for its structure, data types, and constraints. An invalid configuration will cause the CLI to fail at startup with a clear validation error.
+Every configuration is parsed into a strict Pydantic model, `PipelineConfig`, defined in `[ref: repo:src/bioetl/configs/models.py@refactoring_001]`. This ensures that any loaded configuration is validated against a single source of truth for its structure, data types, and constraints. An invalid configuration will cause the CLI to fail at startup with a clear validation error.
 
 ### 1.2. Configuration Profiles (`extends`)
 
@@ -14,7 +14,7 @@ Profiles are reusable, partial YAML files, typically stored in `configs/profiles
 
 ## 2. Layer Merging Algorithm
 
-The final configuration is built by merging multiple sources. Each subsequent source overrides the values from the previous one. The precise order of precedence is implemented in the `load_config` function in `[ref: repo:src/bioetl/config/loader.py@test_refactoring_32]`.
+The final configuration is built by merging multiple sources. Each subsequent source overrides the values from the previous one. The precise order of precedence is implemented in the `load_config` function in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
 
 **Order of Precedence (Lowest to Highest):**
 
@@ -57,7 +57,7 @@ The YAML loader supports a custom `!include` tag for embedding one YAML file wit
 
 ## 5. Reference: `PipelineConfig` Structure
 
-The `PipelineConfig` model is the root of the configuration. For the full, authoritative structure, see `[ref: repo:src/bioetl/configs/models.py@test_refactoring_32]`.
+The `PipelineConfig` model is the root of the configuration. For the full, authoritative structure, see `[ref: repo:src/bioetl/configs/models.py@refactoring_001]`.
 
 | Key | Description |
 |---|---|

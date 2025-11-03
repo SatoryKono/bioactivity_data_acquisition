@@ -2,7 +2,7 @@
 
 ## 1. Overview and Goals
 
-The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to interact with external data sources. This client provides a centralized, configurable, and resilient layer for all outgoing HTTP requests. Its implementation can be found in `[ref: repo:src/bioetl/core/api_client.py@test_refactoring_32]`.
+The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to interact with external data sources. This client provides a centralized, configurable, and resilient layer for all outgoing HTTP requests. Its implementation can be found in `[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`.
 
 The primary goals of this unified client are:
 -   **Centralized Configuration**: Provide a single point for setting up timeouts, retry policies, rate limits, and headers.
@@ -15,7 +15,7 @@ Configuration is managed through a layered system, where settings from profiles 
 
 ## 2. Type-Safe Configuration
 
-All HTTP client settings are defined in the `PipelineConfig` Pydantic model (`[ref: repo:src/bioetl/config/models.py@test_refactoring_32]`). The newly created `configs/profiles/network.yaml` provides a standard set of these values.
+All HTTP client settings are defined in the `PipelineConfig` Pydantic model (`[ref: repo:src/bioetl/config/models.py@refactoring_001]`). The newly created `configs/profiles/network.yaml` provides a standard set of these values.
 
 **Key Configuration Fields (`HttpConfig` and `RetryConfig`):**
 
@@ -148,7 +148,7 @@ except RequestException as e:
 **Integration in a ChEMBL pipeline:**
 
 A ChEMBL-specific pipeline would get a pre-configured client from a factory that uses the loaded configuration.
-`[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]`
+`[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]`
 ```python
 # Inside a method in a PipelineBase subclass:
 class MyChemblPipeline(PipelineBase):
