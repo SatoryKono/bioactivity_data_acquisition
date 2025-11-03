@@ -58,6 +58,10 @@ Configuration is merged in the following order (later items override earlier one
 -   **Connection Pool**: The client is built on `requests.Session`, which automatically manages a connection pool for reusing connections to the same host, improving performance.
 -   **User-Agent**: A `User-Agent` header SHOULD be defined in the configuration to identify the client to the remote server.
 
+### 3.1 Concurrency Guardrails
+
+The `TokenBucketLimiter` protects upstream services by throttling the number of simultaneous requests. Each call to `_execute` acquires a token before a request is sent; once the configured budget is exhausted, callers block until the bucket is refilled and optionally incur a small, random jitter to desynchronise bursts.【F:src/bioetl/core/api_client.py†L325-L384】【F:src/bioetl/core/api_client.py†L1292-L1363】 The limiter is parameterised through `APIConfig.rate_limit_max_calls`, `APIConfig.rate_limit_period`, and `APIConfig.rate_limit_jitter`, which are populated from `RateLimitConfig` entries in `PipelineConfig`. The factory wiring these values enforces that each source inherits the correct `max_calls` and `period` from its HTTP profile or per-source override.【F:src/bioetl/core/client_factory.py†L51-L170】 In practice this means the maximum in-flight requests across worker threads equals `rate_limit.max_calls`, refreshed every `rate_limit.period` seconds.
+
 ## 4. Retries and Backoff
 
 The retry logic is implemented in the `RetryPolicy` class within `api_client.py`.
@@ -73,6 +77,11 @@ The retry logic is implemented in the `RetryPolicy` class within `api_client.py`
 The client uses an **exponential backoff with jitter** algorithm. The delay is calculated as `backoff_factor ** (attempt_number - 1)`, plus a small random jitter. This delay is capped at `backoff_max`.
 
 If a `Retry-After` header is present in a `429` or `503` response, its value **MUST** take precedence over the calculated backoff delay.
+
+**Interaction with Concurrency Controls:**
+
+-   A retry that follows a `Retry-After` header waits for the advised duration and then re-acquires the token bucket permit, preventing retry storms that could violate upstream quotas.【F:src/bioetl/core/api_client.py†L1292-L1363】
+-   Jitter is applied both when the limiter hands out tokens and when calculating exponential backoff delays, which keeps parallel workers from re-issuing retries in lockstep. This stabilises aggregate QPS under high contention.【F:src/bioetl/core/api_client.py†L325-L384】
 
 ## 5. Quotas, Limits, and `429 Too Many Requests`
 
@@ -90,6 +99,18 @@ The `UnifiedAPIClient` is instrumented with structured logging via the `UnifiedL
 -   `duration_ms`: The duration of the request in milliseconds.
 -   `params`: The query parameters sent with the request.
 -   `retry_after`: The value of the `Retry-After` header, if present.
+-   `trace_id`: Correlates all HTTP activity back to the pipeline invocation trace (propagated through `UnifiedLogger` context extras).
+-   `request_id`: Stable identifier for a single HTTP call attempt, allowing downstream collectors to deduplicate retries.
+
+### 6.1 Metrics Emitted
+
+Operational dashboards ingest the structured events emitted by the client and derive metrics such as:
+
+-   `http.requests.total`: incremented for every attempt recorded by `_RequestRetryContext.start_attempt()`.
+-   `http.requests.duration_ms`: histogram sourced from the `duration_ms` field attached to the log context.
+-   `http.rate_limiter.wait_seconds`: timer populated whenever the token bucket forces a wait, capturing both short and long waits.【F:src/bioetl/core/api_client.py†L344-L368】
+-   `http.retries.total`: counter derived from `retrying_request` events and `attempt` metadata.
+-   `http.retry_after.seconds`: gauge summarising parsed `Retry-After` values so that alerting can react to upstream back-pressure.【F:src/bioetl/core/api_client.py†L1292-L1363】
 
 ### Example Log Record
 
@@ -182,6 +203,40 @@ except RequestException as e:
     print(f"Request failed after all retries: {e}")
 
 ```
+
+### PipelineConfig overrides for concurrency and tracing
+
+```yaml
+version: 1
+pipeline:
+  name: example
+  entity: example
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+      statuses: [429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 4
+      period: 1.0
+    rate_limit_jitter: true
+sources:
+  chembl:
+    http_profile: default
+  crossref:
+    base_url: "https://api.crossref.org"
+    rate_limit:
+      max_calls: 2
+      period: 1.0
+    rate_limit_jitter: false
+    fallback_strategies: ["cache", "network"]
+```
+
+This snippet demonstrates how a pipeline can raise or lower concurrency targets (`rate_limit.max_calls`/`period`), toggle jitter, and rely on shared HTTP profiles. When the CLI loads this configuration it is validated into `PipelineConfig`; `APIClientFactory` then materialises per-source `APIConfig` objects using the merged rate-limit and retry values so that every `UnifiedAPIClient` shares the same guardrails.【F:src/bioetl/config/models.py†L513-L527】【F:src/bioetl/core/client_factory.py†L51-L170】 Trace metadata such as `trace_id` and `request_id` are bound separately through `UnifiedLogger.set_context`, allowing downstream logs and metrics to be correlated with this configuration.
 
 **Integration in a ChEMBL pipeline:**
 
