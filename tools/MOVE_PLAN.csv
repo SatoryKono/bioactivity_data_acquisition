@@ -1,4 +1,0 @@
-item,source,target,status,notes
-cli-entrypoint,src/scripts/__init__.py,src/bioetl/cli/app.py,done,"Registry now lives inside bioetl.cli.app"
-cli-module-imports,src/scripts/run_*.py,src/bioetl/cli/app.py,done,"Direct imports from bioetl.cli.app; no compatibility stubs listed"
-documentation,README.md,PUBLIC_API.md,done,"Updated docs to point at new bioetl.* modules"

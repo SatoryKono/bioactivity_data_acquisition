@@ -1,1 +1,0 @@
-"""Pubmed normalizer components."""
