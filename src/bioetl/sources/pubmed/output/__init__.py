@@ -1,1 +1,0 @@
-"""Pubmed output components."""

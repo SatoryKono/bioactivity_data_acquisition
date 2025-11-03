@@ -1,1 +1,0 @@
-"""Openalex normalizer components."""

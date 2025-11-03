@@ -1,1 +1,0 @@
-"""Crossref output components."""

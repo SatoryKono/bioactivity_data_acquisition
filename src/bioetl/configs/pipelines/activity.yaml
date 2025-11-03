@@ -1,2 +1,0 @@
-extends:
-  - chembl_activity.yaml

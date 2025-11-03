@@ -1,1 +1,0 @@
-"""IUPHAR pipeline tests."""
