@@ -2,69 +2,280 @@
 
 > **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
 
-This document provides a reference for the commands available in the `bioetl` CLI.
+This reference drills into every command exposed by `python -m bioetl.cli.main`, capturing its signature, required and optional options, default configuration bundles, runnable examples, and determinism guarantees.
 
-## `run` Commands
+## Invocation pattern
 
-All data processing pipelines are available as subcommands. The general syntax is:
+All pipeline entry points share the same Typer invocation form:
 
 ```bash
-python -m bioetl.cli.main <pipeline-name> [OPTIONS]
+python -m bioetl.cli.main <command> [OPTIONS]
 ```
 
-### Registered Pipelines
+The CLI loads configuration layers in a fixed precedence: profiles declared via `extends` (typically `configs/profiles/base.yaml`, `configs/profiles/network.yaml`, and `configs/profiles/determinism.yaml`), then the pipeline YAML passed with `--config`, then any `--set` overrides, and finally environment variables. This merge order keeps defaults predictable while still allowing per-run overrides.
 
-The following pipeline commands are registered in the CLI. The registration is statically defined in `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]`.
+## Global options
 
--   `activity`
--   `assay`
--   `document`
--   `target`
--   `testitem`
--   `pubchem`
--   `gtp_iuphar`
--   `uniprot`
--   `openalex`
--   `crossref`
--   `pubmed`
--   `semantic_scholar`
+These switches are available to every pipeline command. Flags marked as **required** must be present on the command line; all others default to a safe, deterministic behaviour when omitted.
 
-### Common Options for All `run` Commands
+| Option | Shorthand | Required | Description | Defaults |
+| --- | --- | --- | --- | --- |
+| `--config PATH` | | **Yes** | Path to the pipeline configuration YAML. | Provided per command |
+| `--output-dir PATH` | `-o` | **Yes** | Directory where run artifacts are materialised. | Provided per run |
+| `--input-file PATH` | `-i` | No | Optional seed dataset used during extraction for pipelines that require one. | Pipeline specific |
+| `--dry-run` | `-d` | No | Load, merge, and validate configuration without executing the pipeline. | `False` |
+| `--limit N` | | No | Process at most `N` rows (useful for smoke runs). | `None` |
+| `--sample N` | | No | Randomly sample `N` rows; honours deterministic sampling seeds when configured. | `None` |
+| `--golden PATH` | | No | Compare outputs against a stored golden dataset for bitwise determinism checks. | `None` |
+| `--mode NAME` | | No | Select a pre-defined execution mode (for example, enabling enrichment adapters). | Pipeline specific |
+| `--set KEY=VALUE` | `-S` | No | Override individual configuration keys at runtime. Repeatable. | `[]` |
+| `--fail-on-schema-drift / --allow-schema-drift` | | No | Toggle failure when output schemas deviate from the expected order. | `--fail-on-schema-drift` |
+| `--validate-columns / --no-validate-columns` | | No | Control column validation hooks in the post-processing stage. | `--validate-columns` |
+| `--extended / --no-extended` | | No | Enable extended QC artifacts. | `--no-extended` |
+| `--verbose` | `-v` | No | Emit verbose (development) logging. | `False` |
 
-These options are available for all pipeline commands. They are defined in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`.
+## Determinism building blocks
 
-| Option | Shorthand | Description | Default |
+Every command inherits the determinism policy enforced by `PipelineBase`: stable sorting, canonicalised values, SHA256 row and business-key hashes, and atomic writes. The shared `configs/profiles/determinism.yaml` profile captures these guarantees, while pipeline-specific configs define the concrete sort keys.
+
+## Command reference
+
+### `activity`
+
+- **Signature**: `python -m bioetl.cli.main activity [OPTIONS]`
+- **Purpose**: Extract biological activity records from ChEMBL `/activity.json` and normalise them to the project schema.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any applicable `--set` overrides.
+- **Default profiles**: Always merges `configs/profiles/base.yaml` and `configs/profiles/determinism.yaml`; network defaults can be layered when referenced in the pipeline YAML.
+- **Deterministic output**: Rows are sorted by `assay_id`, `testitem_id`, then `activity_id`; `hash_row` and `hash_business_key` are produced with SHA256 using the canonicalisation rules from the determinism profile. The run emits a `meta.yaml` snapshot with the fingerprint of both configuration and outputs.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main activity \
+    --config src/bioetl/configs/pipelines/chembl/activity.yaml \
+    --output-dir data/output/activity \
+    --set sources.chembl.batch_size=10
+  ```
+
+### `assay`
+
+- **Signature**: `python -m bioetl.cli.main assay [OPTIONS]`
+- **Purpose**: Retrieve and normalise assay metadata from ChEMBL `/assay.json`.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`.
+- **Default profiles**: `base.yaml` and `determinism.yaml`, with optional network profile via the pipeline config.
+- **Deterministic output**: Sorted by `assay_id` before export; SHA256 hashes cover the business key and entire row, ensuring reproducible QC and golden comparisons.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main assay \
+    --config src/bioetl/configs/pipelines/chembl/assay.yaml \
+    --output-dir data/output/assay
+  ```
+
+### `target`
+
+- **Signature**: `python -m bioetl.cli.main target [OPTIONS]`
+- **Purpose**: Build the enriched target dimension by combining ChEMBL `/target.json` data with UniProt and IUPHAR classifications.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, to toggle enrichment services).
+- **Default profiles**: `base.yaml` + `determinism.yaml`; additional network-specific overrides come from the pipeline YAML, including dedicated HTTP profiles for external enrichers.
+- **Deterministic output**: Sorted by `target_id` and hashed with SHA256; the determinism profile guarantees stable canonicalisation, while the pipeline config fixes enrichment thresholds and QC expectations.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main target \
+    --config src/bioetl/configs/pipelines/chembl/target.yaml \
+    --output-dir data/output/target
+  ```
+
+### `document`
+
+- **Signature**: `python -m bioetl.cli.main document [OPTIONS]`
+- **Purpose**: Extract ChEMBL documents and optionally enrich them with PubMed, Crossref, OpenAlex, and Semantic Scholar metadata, depending on the configured mode.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--mode` (for example `chembl` vs `all`), `--limit`, `--sample`, `--golden`, `--set`.
+- **Default profiles**: `base.yaml` and `determinism.yaml`; enrichment adapters inherit network defaults specified in the document pipeline config.
+- **Deterministic output**: Sorted by `year` and `document_id`, with SHA256 hashes covering both the full row and business keys. The adapter settings ensure canonical source precedence while still producing deterministic outputs and metadata.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main document \
+    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --output-dir data/output/document \
+    --mode all
+  ```
+
+### `testitem`
+
+- **Signature**: `python -m bioetl.cli.main testitem [OPTIONS]`
+- **Purpose**: Produce the molecule (test item) dimension from ChEMBL `/molecule.json`, optionally blending in PubChem enrichment.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, toggling PubChem enrichment).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, plus any network overrides included in the pipeline config.
+- **Deterministic output**: Sorted by `testitem_id` and hashed deterministically; outputs and QC sidecars inherit the shared determinism policy.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main testitem \
+    --config src/bioetl/configs/pipelines/chembl/testitem.yaml \
+    --output-dir data/output/testitem
+  ```
+
+### `pubchem`
+
+- **Signature**: `python -m bioetl.cli.main pubchem [OPTIONS]`
+- **Purpose**: Enrich ChEMBL molecules with PubChem properties using the standalone PubChem pipeline.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, adjusting PubChem rate limits or lookup paths).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, and the PubChem-specific HTTP settings declared in `configs/pipelines/pubchem.yaml`.
+- **Deterministic output**: PubChem enrichment maintains deterministic ordering by the lookup keys (`molecule_chembl_id`, `standard_inchi_key`) before writing artifacts, with SHA256 hashes mirroring the shared policy.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main pubchem \
+    --config src/bioetl/configs/pipelines/pubchem.yaml \
+    --output-dir data/output/pubchem
+  ```
+
+### `gtp_iuphar`
+
+- **Signature**: `python -m bioetl.cli.main gtp_iuphar [OPTIONS]`
+- **Purpose**: Harvest Guide to Pharmacology target data as a standalone pipeline or enrichment service.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--mode` (for example, `smoke`), `--set` (to override API credentials or QC thresholds).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, and the dedicated HTTP profile embedded in `configs/pipelines/iuphar.yaml`.
+- **Deterministic output**: Upholds the standard determinism contract—stable sort keys defined in the config, SHA256 hashing, and atomic artifact writes captured in `meta.yaml`.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main gtp_iuphar \
+    --config src/bioetl/configs/pipelines/iuphar.yaml \
+    --output-dir data/output/gtp_iuphar
+  ```
+
+### `uniprot`
+
+- **Signature**: `python -m bioetl.cli.main uniprot [OPTIONS]`
+- **Purpose**: Fetch UniProt records (including optional ID mapping and ortholog lookups) into a deterministic dataset.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and `--set` toggles for specific UniProt subsystems.
+- **Default profiles**: `base.yaml`, `determinism.yaml`, with UniProt-specific HTTP settings drawn from `configs/pipelines/uniprot.yaml`.
+- **Deterministic output**: Sort order and hashing follow the determinism profile after UniProt enrichment and schema validation, yielding reproducible CSV/Parquet outputs and metadata.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main uniprot \
+    --config src/bioetl/configs/pipelines/uniprot.yaml \
+    --output-dir data/output/uniprot
+  ```
+
+### `openalex`
+
+- **Signature**: `python -m bioetl.cli.main openalex [OPTIONS]`
+- **Purpose**: Convenience alias that runs the document pipeline with the OpenAlex adapter enabled for Works API enrichment.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (to adjust OpenAlex batch sizes or rate limits).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, plus the adapter settings defined under `sources.openalex.*` in the document pipeline config.
+- **Deterministic output**: Shares the document pipeline’s `year`/`document_id` sort order and SHA256 hashing, ensuring deterministic metadata even when only OpenAlex enrichment is active.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main openalex \
+    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --output-dir data/output/openalex \
+    --mode all \
+    --set sources.pubmed.enabled=false \
+    --set sources.crossref.enabled=false \
+    --set sources.semantic_scholar.enabled=false \
+    --set sources.openalex.enabled=true
+  ```
+
+### `crossref`
+
+- **Signature**: `python -m bioetl.cli.main crossref [OPTIONS]`
+- **Purpose**: Run the document pipeline with only the Crossref adapter enabled (mail-to headers enforced for polite API usage).
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (for example, to provide `sources.crossref.mailto`).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, and Crossref-specific keys inside the document pipeline config.
+- **Deterministic output**: Identical ordering and hashing guarantees to the base document command; only the Crossref enrichment branch is activated.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main crossref \
+    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --output-dir data/output/crossref \
+    --mode all \
+    --set sources.crossref.enabled=true \
+    --set sources.pubmed.enabled=false \
+    --set sources.openalex.enabled=false \
+    --set sources.semantic_scholar.enabled=false
+  ```
+
+### `pubmed`
+
+- **Signature**: `python -m bioetl.cli.main pubmed [OPTIONS]`
+- **Purpose**: Execute the document pipeline with PubMed adapters enabled (optionally alongside other enrichers via `--mode`).
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (for example, `sources.pubmed.tool`, `sources.pubmed.email`).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, plus PubMed-specific connection settings inside the document config.
+- **Deterministic output**: Retains the document pipeline’s deterministic ordering and hashing rules while enriching from PubMed.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main pubmed \
+    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --output-dir data/output/pubmed \
+    --mode all \
+    --set sources.pubmed.enabled=true \
+    --set sources.crossref.enabled=false \
+    --set sources.openalex.enabled=false \
+    --set sources.semantic_scholar.enabled=false
+  ```
+
+### `semantic_scholar`
+
+- **Signature**: `python -m bioetl.cli.main semantic_scholar [OPTIONS]`
+- **Purpose**: Run the document pipeline with Semantic Scholar Graph API enrichment enabled.
+- **Required options**: `--config`, `--output-dir`.
+- **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (including `sources.semantic_scholar.api_key`).
+- **Default profiles**: `base.yaml`, `determinism.yaml`, and the Semantic Scholar adapter configuration contained in the document pipeline YAML.
+- **Deterministic output**: Uses the document pipeline’s deterministic ordering and SHA256 hashing when only Semantic Scholar enrichment is active.
+- **Example**:
+
+  ```bash
+  python -m bioetl.cli.main semantic_scholar \
+    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --output-dir data/output/semantic_scholar \
+    --mode all \
+    --set sources.semantic_scholar.enabled=true \
+    --set sources.pubmed.enabled=false \
+    --set sources.crossref.enabled=false \
+    --set sources.openalex.enabled=false
+  ```
+
+### `list`
+
+- **Signature**: `python -m bioetl.cli.main list`
+- **Purpose**: Display the statically-registered pipeline commands packaged with the CLI.
+- **Behaviour**: No options are required. The command introspects the registry and prints the available pipeline names in deterministic (alphabetical) order for reproducible scripting.
+
+## Summary matrix
+
+| Command | Data domain | Primary configuration | Default profiles applied |
 | --- | --- | --- | --- |
-| `--input-file` | `-i` | Path to the seed dataset used during extraction. | Varies by pipeline |
-| `--output-dir` | `-o` | **Required.** Directory where outputs will be saved. | Varies by pipeline |
-| `--config` | | **Required.** Path to the pipeline configuration YAML. | Varies by pipeline |
-| `--golden` | | Optional golden dataset for deterministic comparisons. | `None` |
-| `--sample` | | Process only the first N records for smoke testing. | `None` |
-| `--fail-on-schema-drift` / `--allow-schema-drift` | | Fail if schema drift is detected. | `True` |
-| `--extended` / `--no-extended` | | Emit extended QC artifacts. | `False` |
-| `--mode` | | Execution mode for the pipeline. | `"default"` |
-| `--dry-run` | `-d` | Validate configuration without running the pipeline. | `False` |
-| `--verbose` | `-v` | Enable verbose (development) logging. | `False` |
-| `--validate-columns` / `--no-validate-columns` | | Validate output columns against requirements. | `True` |
-| `--set` | `-S` | Override a configuration value (e.g., `KEY=VALUE`). Can be repeated. | `[]` |
+| `activity` | ChEMBL activity fact table | `src/bioetl/configs/pipelines/chembl/activity.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
+| `assay` | ChEMBL assay dimension | `src/bioetl/configs/pipelines/chembl/assay.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `target` | ChEMBL target dimension + UniProt/IUPHAR enrichment | `src/bioetl/configs/pipelines/chembl/target.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `document` | ChEMBL documents with optional external enrichers | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `testitem` | ChEMBL molecules with PubChem enrichment hooks | `src/bioetl/configs/pipelines/chembl/testitem.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `pubchem` | PubChem standalone enrichment | `src/bioetl/configs/pipelines/pubchem.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `gtp_iuphar` | Guide to Pharmacology export | `src/bioetl/configs/pipelines/iuphar.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `uniprot` | UniProt protein export | `src/bioetl/configs/pipelines/uniprot.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `openalex` | Document pipeline (OpenAlex adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `crossref` | Document pipeline (Crossref adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `pubmed` | Document pipeline (PubMed adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `semantic_scholar` | Document pipeline (Semantic Scholar adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `list` | Registry discovery | *(no config)* | *(not applicable)* |
 
-### Example
-
-This command runs the `activity` pipeline using its specific configuration, saves the output to a designated directory, and overrides the batch size for this specific run.
-
-```bash
-python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl_activity.yaml \
-  --output-dir data/output/activity/run_20240101 \
-  --set sources.chembl.batch_size=10
-```
-
-## `list` Command
-
-The CLI provides a `list` command to display all registered pipeline commands.
-
-```bash
-python -m bioetl.cli.main list
-```
-
-This command inspects the static registry and prints a list of the available pipeline names.
+Each matrix entry links the CLI command to its authoritative configuration bundle, making it easy to trace which YAML files—and therefore which typed models—govern a run.
