@@ -48,3 +48,65 @@ This integrated approach guarantees that all data produced by the framework has 
 
 [pandera-docs]: https://pandera.readthedocs.io/en/stable/
 [ge-docs]: https://docs.greatexpectations.io/docs/
+
+## 3. QC/QA Metrics Enforced by the Test Suite
+
+Quality gates in the `test_refactoring_32` branch are organised around dedicated `pytest` suites (markers: `qc`, `golden`, `determinism`) that interrogate the `meta.yaml`, per-stage logs, and on-disk artifacts. The table below consolidates the hard thresholds and acceptance criteria that these tests assert.
+
+| Category | Metric / Expectation | Data Source | Threshold or Comparison | CI Outcome |
+| --- | --- | --- | --- | --- |
+| **Row volume** | `row_count` recorded for every run plus `delta_row_count_vs_prev_run` to guard regressions. | `meta.yaml` | Drift **warns** when the delta exceeds 25%. | Warn ≥ 25%, otherwise pass. |
+| **Duplicate control** | `duplicate_count`, `duplicate_rate`, `deduplicated_count`, and `delta_duplicate_rate_vs_prev_run`. | DataFrame aggregations & `meta.yaml` | Any duplicate count triggers a **fail**; duplicate rate drifts above 1 % (absolute delta 5 %) issue warnings. | Fail when count > 0; warn on elevated rates. |
+| **Uniqueness** | `unique_violation_count(<cols>)` across declared business keys. | DataFrame aggregation | Any non-zero result is a **fail**. | Fail when > 0. |
+| **Not-null & completeness** | `missing_count_by_column`, `null_rate_by_column`, `invalid_enum_count(<col>)`. | DataFrame aggregation | Pipeline configs encode per-column tolerances; exceeding them surfaces a warning, while invalid enums or schema-required columns enforce failure. | Warn on soft limits, fail on hard violations. |
+| **Schema drift** | `dtype_mismatch_count`, strict Pandera validation, and column-order freeze checks. | Pandera validation & golden comparison | Any mismatch or reordering is a **fail**; schemas are `strict=True`, `ordered=True`, `coerce=True`. | Fail on mismatch. |
+| **Hash integrity** | `hash_row` / `hash_business_key` equality and `hash_algo_is_valid`. | Artifact comparison & `meta.yaml` | Hash algorithm must stay `sha256`; dataset/manifests undergo byte-for-byte equality. | Fail if algorithm changes or hashes differ. |
+| **Golden parity** | Primary dataset, `meta.yaml` (with volatile fields masked), and `manifest.txt`. | `tests/golden/<pipeline>/` snapshots | Byte-identical comparison for datasets & manifests; structural equality for masked metadata. | Fail on any divergence. |
+| **Network health** | `http_error_rate`, `retry_count_total`, `429_count`, `timeout_count`, `parse_error_count`, `pagination_gap_count`. | Structured client logs | Warn when error/retry rates exceed configured percentages; parsing or pagination gaps are fatal. | Warn/Fail per metric. |
+
+These expectations combine to cover the categories requested by compliance reviews—row counts and drifts, hash comparison, schema drift, not-null completeness, and uniqueness. Whenever a pipeline introduces intentional changes (e.g., a new feature causing extra rows), the accompanying PR must document the rationale and adjust the golden baseline as described below.
+
+## 4. Golden Snapshot Layout and Maintenance Workflow
+
+Golden (snapshot) artifacts live under `tests/golden/<pipeline_name>/` and always include the following trio:
+
+1. **Primary dataset** – canonical CSV/Parquet output sorted by the pipeline's deterministic keys.
+2. **`meta.yaml`** – the run manifest with column order, schema version, row counts, and hash summaries. Volatile keys (`run_id`, execution timings, config hashes) are masked prior to comparison.
+3. **`manifest.txt`** – a checksum ledger covering every file produced by the pipeline run.
+
+Updates follow a strict review → regeneration → approval loop:
+
+1. **Review the change** – confirm why the current snapshot is expected to diverge (e.g., schema evolution, intentional logic change).
+2. **Regenerate artifacts** – run the pipeline with deterministic profiles, producing fresh dataset, metadata, and manifest.
+3. **Verify locally** – execute the golden/qc pytest suites; ensure `hash_row`/`hash_business_key` and schema validations still pass.
+4. **Submit for approval** – include the regenerated files in a PR together with rationale, diff summaries, and updated QC metrics. Reviewers approve only after confirming the deltas are intentional.
+
+No golden file is updated outside this process; byte-wise parity and metadata integrity remain the default acceptance target.
+
+## 5. CI Integration Flow
+
+Continuous Integration pipelines orchestrate QC in four deterministic stages that mirror the manual checklist:
+
+1. **Environment preparation** – enforce `TZ=UTC`, install pinned dependencies, and clear any prior outputs (e.g., `rm -rf data/output/<pipeline>/*`).
+2. **Pipeline execution** – run the CLI with determinism toggles, for example:
+
+    ```bash
+    python -m bioetl.cli.main activity \
+      --config configs/pipelines/chembl/activity.yaml \
+      --output-dir data/output/activity_chembl \
+      --set determinism.enabled=true
+    ```
+
+3. **Artifact comparison & metric export** – feed the new run into the comparison tooling:
+
+    ```bash
+    python tools/compare_artifacts.py \
+      --new-dir data/output/activity_chembl/latest \
+      --golden-dir tests/golden/activity_chembl
+    ```
+
+    The job publishes the dataset diff (if any), refreshed `qc_metrics.json`, and supporting manifests as CI artifacts.
+
+4. **Decision & reporting** – non-zero exit codes break the build: `1` for pipeline/runtime failures, `2` for QC/golden mismatches. Summary tables list each metric with PASS/WARN/FAIL states so reviewers can spot regressions quickly.
+
+This process ensures that the QC checks run automatically on every commit, enforcing both functional correctness (schema validation) and regression control (golden parity and metric thresholds).
