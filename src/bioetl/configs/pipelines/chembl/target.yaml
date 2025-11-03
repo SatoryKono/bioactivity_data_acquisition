@@ -1,0 +1,45 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
+pipeline:
+  name: target
+  entity: target
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "target"
+
+sources:
+  chembl:
+    enabled: true
+    batch_size: 25
+    max_url_length: 2000
+    headers:
+      User-Agent: "bioetl-target-pipeline/1.0"
+
+determinism:
+  sort:
+    by: ["target_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "target_id"
+    - "pref_name"
+    - "target_type"
+    - "organism"
+    - "tax_id"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    null_rate_critical: 0.3
+    duplicates: 0

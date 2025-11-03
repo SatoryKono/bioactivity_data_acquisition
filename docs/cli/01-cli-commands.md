@@ -1,138 +1,68 @@
-# CLI Command Reference
+# CLI Commands
 
-## 1. Global Commands
+This document provides a reference for the commands available in the `bioetl` CLI.
 
-### `list`
+## `run` Commands
 
-The `list` command displays all pipelines that are currently discovered and registered with the CLI.
+All data processing pipelines are available as subcommands. The general syntax is:
 
-**Synopsis:**
+```bash
+python -m bioetl.cli.main <pipeline-name> [OPTIONS]
+```
+
+### Registered Pipelines
+
+The following pipeline commands are registered in the CLI. The registration is statically defined in `[ref: repo:src/bioetl/cli/registry.py@test_refactoring_32]`.
+
+-   `activity`
+-   `assay`
+-   `document`
+-   `target`
+-   `testitem`
+-   `pubchem`
+-   `gtp_iuphar`
+-   `uniprot`
+-   `openalex`
+-   `crossref`
+-   `pubmed`
+-   `semantic_scholar`
+
+### Common Options for All `run` Commands
+
+These options are available for all pipeline commands. They are defined in `[ref: repo:src/bioetl/cli/command.py@test_refactoring_32]`.
+
+| Option | Shorthand | Description | Default |
+| --- | --- | --- | --- |
+| `--input-file` | `-i` | Path to the seed dataset used during extraction. | Varies by pipeline |
+| `--output-dir` | `-o` | **Required.** Directory where outputs will be saved. | Varies by pipeline |
+| `--config` | | **Required.** Path to the pipeline configuration YAML. | Varies by pipeline |
+| `--golden` | | Optional golden dataset for deterministic comparisons. | `None` |
+| `--sample` | | Process only the first N records for smoke testing. | `None` |
+| `--fail-on-schema-drift` / `--allow-schema-drift` | | Fail if schema drift is detected. | `True` |
+| `--extended` / `--no-extended` | | Emit extended QC artifacts. | `False` |
+| `--mode` | | Execution mode for the pipeline. | `"default"` |
+| `--dry-run` | `-d` | Validate configuration without running the pipeline. | `False` |
+| `--verbose` | `-v` | Enable verbose (development) logging. | `False` |
+| `--validate-columns` / `--no-validate-columns` | | Validate output columns against requirements. | `True` |
+| `--set` | `-S` | Override a configuration value (e.g., `KEY=VALUE`). Can be repeated. | `[]` |
+
+### Example
+
+This command runs the `activity` pipeline using its specific configuration, saves the output to a designated directory, and overrides the batch size for this specific run.
+
+```bash
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl_activity.yaml \
+  --output-dir data/output/activity/run_20240101 \
+  --set sources.chembl.batch_size=10
+```
+
+## `list` Command
+
+The CLI provides a `list` command to display all registered pipeline commands.
+
 ```bash
 python -m bioetl.cli.main list
 ```
 
-**Flags:**
-This command takes no flags.
-
-**Example Output:**
-```
-Available Pipelines:
-- activity
-- assay
-- document
-- target
-- testitem
-```
-
-**Exit Codes:**
--   `0`: Success.
-
----
-
-## 2. Pipeline Commands
-
-This section details the commands used to execute specific ETL pipelines. All pipeline commands share a common set of flags.
-
-### Standard Flags for All Pipelines
-
-| Flag                          | Alias | Type          | Required? | Description                                                                                    |
-| ----------------------------- | ----- | ------------- | --------- | ---------------------------------------------------------------------------------------------- |
-| `--output-dir`                | `-o`  | `DIRECTORY`   | **Yes**   | The root directory where all output artifacts will be written.                                 |
-| `--config`                    |       | `PATH`        | No        | Path to the pipeline's YAML configuration. Defaults to the pipeline's standard config file.      |
-| `--input-file`                | `-i`  | `PATH`        | No        | Path to a local input file, if the pipeline uses one (e.g., a seed list).                       |
-| `--dry-run`                   | `-d`  | `BOOLEAN`     | No        | Run all stages up to `validate` but do not write any output files.                               |
-| `--sample`                    |       | `INTEGER`     | No        | Process only the first N records. Useful for testing and development.                          |
-| `--limit`                     |       | `INTEGER`     | No        | (Deprecated) An alias for `--sample`.                                                          |
-| `--extended` / `--no-extended`|       | `BOOLEAN`     | No        | Generate extended QC artifacts (e.g., correlation reports). Default is `False`.                 |
-| `--set`                       | `-S`  | `KEY=VALUE`   | No        | Override a specific configuration value from the command line. Can be used multiple times.     |
-| `--verbose`                   | `-v`  | `BOOLEAN`     | No        | Enable verbose (DEBUG level) logging.                                                          |
-
-### `activity`
-
-Executes the ChEMBL activity data pipeline.
-
-**Synopsis:**
-```bash
-python -m bioetl.cli.main activity \
-  --output-dir <path/to/output/dir> \
-  [--config <path/to/activity.yaml>] \
-  [--dry-run]
-```
-
-**Description:**
-This pipeline extracts activity data points from the ChEMBL database. A `--dry-run` will test the connection to the ChEMBL API and validate the configuration and transformation logic for a small sample of data.
-
-**Examples:**
-
-*   **Minimal Run:**
-    ```bash
-    python -m bioetl.cli.main activity --output-dir data/output/activity
-    ```
-
-*   **Dry Run with a Small Sample:**
-    ```bash
-    python -m bioetl.cli.main activity --output-dir /tmp/activity-test --sample 10 --dry-run
-    ```
-
-**Artifacts:**
--   `activity_*.parquet`: The main dataset.
--   `meta.yaml`: The run metadata file.
--   `qc/`: Directory containing quality control reports.
-
-### `assay`
-
-Executes the ChEMBL assay data pipeline.
-
-**Synopsis:**
-```bash
-python -m bioetl.cli.main assay \
-  --output-dir <path/to/output/dir> \
-  [--config <path/to/assay.yaml>] \
-  [--dry-run]
-```
-*(Examples and Artifacts are analogous to the `activity` command.)*
-
-### `target`
-
-Executes the ChEMBL target data pipeline.
-
-**Synopsis:**
-```bash
-python -m bioetl.cli.main target \
-  --output-dir <path/to/output/dir> \
-  [--config <path/to/target.yaml>] \
-  [--dry-run]
-```
-*(Examples and Artifacts are analogous to the `activity` command.)*
-
-### `document`
-
-Executes the ChEMBL document data pipeline.
-
-**Synopsis:**
-```bash
-python -m bioetl.cli.main document \
-  --output-dir <path/to/output/dir> \
-  [--config <path/to/document.yaml>] \
-  [--dry-run]
-```
-*(Examples and Artifacts are analogous to the `activity` command.)*
-
-### `testitem`
-
-Executes the ChEMBL test item (molecule) data pipeline.
-
-**Synopsis:**
-```bash
-python -m bioetl.cli.main testitem \
-  --output-dir <path/to/output/dir> \
-  [--config <path/to/testitem.yaml>] \
-  [--dry-run]
-```
-*(Examples and Artifacts are analogous to the `activity` command.)*
-
-## 3. CLI Test Plan
-
--   **Golden Help Tests**: A test suite should capture the output of `python -m bioetl.cli.main <command> --help` for each command and compare it against a "golden" file to detect any changes in flags or help text.
--   **`list` Command Integration Test**: An integration test should run `python -m bioetl.cli.main list` and assert that the output contains the exact list of documented pipeline commands (`activity`, `assay`, etc.). This verifies that the command registry is working as expected.
--   **`--dry-run` Invariant Test**: An integration test for each pipeline command should run with the `--dry-run` flag and assert that the command completes with an exit code of `0` and that **no files** are created in the specified `--output-dir`. This is a critical test of the CLI's side-effect contract.
+This command inspects the static registry and prints a list of the available pipeline names.

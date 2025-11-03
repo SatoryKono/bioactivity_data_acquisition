@@ -1,62 +1,15 @@
-# /configs/profiles/determinism.yaml
-
-# This profile provides a standardized configuration for ensuring deterministic
-# and reproducible pipeline outputs. It centralizes settings for sorting,
-# column ordering, and content hashing.
-#
-# Pipelines requiring bit-for-bit identical outputs for the same inputs should
-# extend this profile.
-
-# --- Determinism Settings ---
+# configs/profiles/determinism.yaml
 determinism:
-  # The hashing algorithm used for generating `hash_row` and other integrity checks.
-  # Recommended: sha256.
   hash_algorithm: "sha256"
-
-  # The number of decimal places to use when serializing floating-point numbers
-  # for hashing. This prevents minor floating-point variations from breaking hashes.
   float_precision: 6
-
-  # The string format for serializing datetime objects before hashing.
-  # ISO 8601 is a well-defined, unambiguous standard.
   datetime_format: "iso8601"
-
-  # The version of the hashing policy. Increment this version if you change any
-  # of the above settings (algorithm, precision, etc.) to signal that hashes
-  # are not comparable to those generated with a previous version.
   hash_policy_version: "1.0.0"
-
-  # A list of column name suffixes to ignore during column order validation.
-  # This is useful for excluding dynamically generated or metadata columns from
-  # strict ordering checks.
   column_validation_ignore_suffixes:
     - "_scd"
     - "_temp"
     - "_meta"
     - "_tmp"
-
-  # --- Default Sorting Configuration ---
-  # Defines a default sort order to be applied before materialization.
-  # Pipeline-specific `sort` configurations will override this.
-  # It is best practice to define a stable sort key in the pipeline config's
-  # `write` block, but this serves as a fallback.
   sort:
-    # A list of column names to sort by.
-    # by:
-    #   - "business_key"
-    #   - "timestamp"
-
-    # A list of booleans indicating the sort direction for each corresponding column.
-    # `true` for ascending, `false` for descending.
-    # ascending:
-    #   - true
-    #   - false
     by: []
     ascending: []
-
-  # --- Default Column Order ---
-  # A list of column names defining a canonical order for output files.
-  # If the pipeline's `validate` block has `enforce_column_order: true`, this
-  # order will be enforced.
-  # Pipeline-specific `column_order` will override this.
   column_order: []

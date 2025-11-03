@@ -2,48 +2,43 @@
 
 ## 1. Purpose and Scope
 
-The `bioetl` Command-Line Interface (CLI) is the primary entry point for executing and managing ETL pipelines. It serves as a user-facing frontend to the `PipelineBase` orchestration framework, providing a standardized way to run pipelines, manage configurations, and inspect results.
+The `bioetl` Command-Line Interface (CLI) is the primary entry point for executing and managing ETL pipelines. It provides a standardized way to run pipelines, manage configurations, and pass runtime parameters.
 
-The CLI is designed around the same core principles as the `PipelineBase` orchestrator: determinism, reproducibility, and clarity. It handles the "scaffolding" of a pipeline run, including configuration loading, logging setup, and parameter parsing, allowing the pipeline itself to focus solely on the `extract` → `transform` → `validate` → `write` lifecycle.
+The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. This includes:
+-   Parsing command-line arguments.
+-   Loading and merging all configuration sources.
+-   Setting up the logging system.
+-   Instantiating the correct pipeline class and injecting its configuration.
+-   Reporting the final status of the run.
 
-[ref: repo:README.md@test_refactoring_32]
+## 2. Architecture: A Static Registry
 
-## 2. Architecture
+The CLI is a Typer application whose main entry point is `python -m bioetl.cli.main`. Its architecture is based on a **static command registry** that is built when the application starts.
 
-The CLI is a single application built with [Typer](https://typer.tiangolo.com/), located at `src/bioetl/cli/app.py`. Its architecture is based on a dynamic command registry.
+-   **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@test_refactoring_32]` defines the list of all available pipeline commands (e.g., `activity`, `assay`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
+-   **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
 
--   **Application Entry Point**: The main entry point is `python -m bioetl.cli.main`.
--   **Command Registry**: The CLI does not hardcode pipeline commands. Instead, it discovers and registers them at runtime. Any pipeline class that inherits from `PipelineBase` and is correctly placed in the `src/bioetl/pipelines/` directory is automatically made available as a subcommand (e.g., `activity`, `assay`). This is handled by the registration logic in `src/bioetl/cli/app.py`.
--   **Pipeline Factory**: When a command like `activity` is invoked, the CLI uses a factory pattern to find and instantiate the corresponding `ActivityPipeline` class, injecting the required `PipelineConfig` object.
+This approach is **not dynamic**. Adding a new pipeline requires explicitly adding its configuration to `registry.py`.
 
-[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
+## 3. Configuration Loading and Precedence
 
-## 3. Configuration Profiles
+The single most important function of the CLI is to build the `PipelineConfig` object that will be passed to the pipeline. It does this by loading and merging settings from multiple sources in a strict order of precedence. This entire process is managed by the `load_config` function found in `[ref: repo:src/bioetl/config/loader.py@test_refactoring_32]`.
 
-The CLI is responsible for loading and merging all configuration files into a single `PipelineConfig` object. The merging follows a strict order of precedence, where later sources override earlier ones.
+The order of precedence is as follows (where 4 has the highest precedence and overrides all others):
 
-1.  **Base Profiles (`extends`)**: The `extends` key in a YAML file loads one or more base profiles. By convention, all pipelines extend `base.yaml` and `determinism.yaml`. The profiles are merged in the order they are listed.
-2.  **Main Config File**: The values in the main pipeline config file (e.g., `activity.yaml`) are merged next, overriding any values from the base profiles.
-3.  **CLI Overrides (`--set`)**: Any values passed via the `--set KEY=VALUE` flag are merged next, providing a way to override specific settings for a single run.
-4.  **Environment Variables**: Finally, any environment variables with a `BIOETL_` prefix are applied, having the highest precedence. For example, `BIOETL_SOURCES__CHEMBL__BATCH_SIZE=50` would override the batch size.
+1.  **Base Profiles (`extends`)**: The loader first processes the `extends` key in the main YAML file, recursively loading and merging any specified base profiles (e.g., `base.yaml`).
+2.  **Main Config File**: The values in the main pipeline config file specified with `--config` are merged next, overriding any values from the base profiles.
+3.  **CLI Overrides (`--set`)**: Any values passed via the `--set KEY=VALUE` flag are merged next. This provides a way to override specific settings for a single run. The logic for parsing these values is in the `parse_cli_overrides` function.
+4.  **Environment Variables**: Finally, any environment variables with a `BIOETL_` or `BIOACTIVITY_` prefix are applied. They have the highest precedence. For example, `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=50` would override the batch size from all other sources.
 
-This layered approach provides a powerful and flexible system for managing configurations across different environments.
+This layered approach provides a powerful and flexible system for managing configurations.
 
-[ref: repo:src/bioetl/cli/loader.py@test_refactoring_32]
+## 4. Key Flags and Behavior
 
-## 4. Logging and Output
+-   **`--config`**: The **required** path to the main YAML configuration file for the pipeline.
+-   **`--output-dir`**: The **required** directory where all output artifacts will be saved.
+-   **`--set`**: Overrides a specific configuration value using dot notation (e.g., `--set sources.chembl.batch_size=10`). Can be repeated.
+-   **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
+-   **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
 
--   **Log Format**: By default, the CLI emits human-readable `key=value` logs to the console. In production or containerized environments, it is recommended to configure the logger for `json` output. The verbosity can be increased with the `--verbose` flag.
--   **`--dry-run` Behavior**: When the `--dry-run` flag is used, the CLI executes all pipeline stages up to and including `validate`, but it **will not write any files**. The process will exit after confirming that the configuration is valid and the initial data can be processed. This is an essential tool for development and debugging.
--   **Artifact Location**: All output artifacts, including the final dataset, quality reports, and the `meta.yaml` file, are saved in the directory specified by the required `--output-dir` flag.
-
-## 5. Exit Codes and Error Handling
-
-The CLI uses standard exit codes to signal the outcome of a pipeline run, making it suitable for use in automated scripting and orchestration tools (e.g., Airflow, cron).
-
-| Exit Code | Meaning                   | Description                                                                                             |
-| --------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `0`       | **Success**               | The pipeline completed all stages successfully and all output artifacts were written.                   |
-| `1`       | **Pipeline Failure**      | A general, non-specific error occurred during one of the pipeline stages (e.g., a network error, a transformation logic error). The logs will contain the full traceback. |
-| `2`       | **Invalid Parameters**    | The command was called with invalid or conflicting flags (e.g., `--sample -1`). This is a Typer-managed error. |
-| `(Other)` | **Configuration Failure** | A non-zero exit code will also be returned for issues like a missing or malformed configuration file. |
+A full list of commands and their specific flags can be found in the next document: `[ref: repo:docs/cli/01-cli-commands.md@test_refactoring_32]`.

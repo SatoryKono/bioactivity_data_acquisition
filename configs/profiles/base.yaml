@@ -1,104 +1,33 @@
-# /configs/profiles/base.yaml
-
-# This profile provides a baseline configuration for all pipelines.
-# It establishes sensible defaults for HTTP clients, caching, path conventions,
-# and other cross-cutting concerns. Pipelines should extend this profile to
-# ensure consistent behavior.
-
-# --- Configuration Version ---
-# Must be `1` for the current generation of the config loader.
+# configs/profiles/base.yaml
 version: 1
 
-# --- HTTP Client Profiles ---
-# Defines reusable HTTP client configurations. Pipelines can reference these
-# profiles by name (e.g., `chembl_api`) in their `sources` block.
 http:
   default:
-    # Connection and read timeouts.
     timeout_sec: 60.0
-    connect_timeout_sec: 15.0
-    read_timeout_sec: 60.0
-
-    # Retry policy for transient network errors.
     retries:
       total: 5
       backoff_multiplier: 2.0
       backoff_max: 60.0
-      # Retry on common transient error status codes.
       statuses: [408, 429, 500, 502, 503, 504]
-
-    # Rate limiting to avoid overwhelming source APIs.
     rate_limit:
       max_calls: 10
-      period: 1.0 # seconds
-
-    # Introduce random jitter to rate limiting to prevent thundering herd problems.
-    rate_limit_jitter: true
-
-    # Default headers to include in all requests.
+      period: 1.0
     headers:
-      User-Agent: "BioETL/1.0 (contact@example.com)"
+      User-Agent: "BioETL/1.0"
 
-# --- Caching Configuration ---
-# Configures the on-disk cache for HTTP requests to improve performance and
-# reduce load on source systems during development and retries.
 cache:
   enabled: true
-  # Directory for cache storage. Relative to `paths.cache_root`.
   directory: "http_cache"
-  # Time-to-live for cached responses, in seconds. 86400 = 24 hours.
   ttl: 86400
-  # Scope cache to the current release to prevent stale data across versions.
-  release_scoped: true
-  # Maximum number of items in the cache.
-  maxsize: 4096
 
-# --- Path Conventions ---
-# Defines root directories for inputs, outputs, and cache files.
 paths:
   input_root: "data/input"
   output_root: "data/output"
   cache_root: ".cache"
 
-# --- Materialization Configuration ---
-# Defines how and where data artifacts are written to disk.
 materialization:
-  # The root directory for all materialized outputs.
   root: "data/output"
-  # Default file format for datasets (e.g., parquet, csv).
   default_format: "parquet"
-  # Defines file extensions for supported formats.
-  formats:
-    parquet:
-      extension: ".parquet"
-    csv:
-      extension: ".csv"
-  # Stage-specific output configurations.
-  stages:
-    primary:
-      directory: "primary"
-    intermediate:
-      directory: "intermediate"
-    final:
-      directory: "final"
 
-# --- Fallback Strategies ---
-# Global configuration for how the pipeline should behave when a primary data
-# source is unavailable or returns an error.
 fallbacks:
   enabled: true
-  # If a valid cached response is available, prefer it over making a network call.
-  prefer_cache: true
-  # If a request for a batch of items fails, allow the pipeline to retry
-  # individual items instead of failing the entire batch.
-  allow_partial_materialization: true
-  # Allow the pipeline to use previously materialized outputs as a fallback.
-  use_materialized_outputs: true
-  # Default order of fallback strategies to attempt.
-  strategies: ["cache", "partial_retry", "network", "timeout", "5xx"]
-  # Maximum number of retries for partial materialization.
-  partial_retry_max: 3
-  # Circuit breaker configuration to prevent hammering a failing service.
-  circuit_breaker:
-    failure_threshold: 5
-    timeout_sec: 60.0
