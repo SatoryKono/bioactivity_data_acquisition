@@ -12,8 +12,8 @@ This approach is particularly effective for complex ETL pipelines where defining
 
 For each ChEMBL pipeline, a set of golden artifacts **MUST** be stored in a dedicated directory.
 
--   **Location**: `[ref: repo:tests/golden/<pipeline_name>/@test_refactoring_32]`
-    -   Example: `[ref: repo:tests/golden/activity_chembl/@test_refactoring_32]`
+-   **Location**: `[ref: repo:tests/golden/<pipeline_name>/@refactoring_001]`
+    -   Example: `[ref: repo:tests/golden/activity_chembl/@refactoring_001]`
 
 -   **Required Artifacts**:
     1.  **Primary Dataset**: The main output of the pipeline (e.g., `activity_chembl.parquet`). This is the most critical artifact.

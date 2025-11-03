@@ -10,14 +10,14 @@ This document describes the `testitem_pubchem` pipeline, which is responsible fo
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `testitem_pubchem`                                                                                 | Not Implemented       |
 | **CLI Command**   | `python -m bioetl.cli.main testitem_pubchem`                                                       | Not Implemented       |
-| **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml@test_refactoring_32]     | Not Implemented       |
-| **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@test_refactoring_32]                                          | Not Implemented       |
+| **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml@refactoring_001]     | Not Implemented       |
+| **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
 ## 2. Purpose and Scope
 
 This pipeline is designed to extract `testitem` data from PubChem. It is a standalone pipeline that does not perform any joins or enrichment with other data sources.
 
-The pipeline utilizes the existing PubChem source components, which can be found at [ref: repo:src/bioetl/sources/pubchem/@test_refactoring_32].
+The pipeline utilizes the existing PubChem source components, which can be found at [ref: repo:src/bioetl/sources/pubchem/@refactoring_001].
 
 ## 3. Inputs (CLI/Configs/Profiles)
 
@@ -44,7 +44,7 @@ The configuration is loaded in the following order, with later sources overridin
 
 ### Configuration Keys
 
-The following table describes the expected keys in the `testitem_pubchem.yaml` configuration file. See [ref: repo:src/bioetl/configs/models.py@test_refactoring_32] for the underlying configuration models.
+The following table describes the expected keys in the `testitem_pubchem.yaml` configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001] for the underlying configuration models.
 
 | Key                             | Type    | Required | Default | Description                                                                 |
 | ------------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------------- |
@@ -59,16 +59,16 @@ The following table describes the expected keys in the `testitem_pubchem.yaml` c
 
 The extraction process would use the existing components from the PubChem source module.
 
-- **Client:** The `PubChemClient` ([ref: repo:src/bioetl/sources/pubchem/client/client.py@test_refactoring_32]) would be responsible for making HTTP requests to the PubChem API. It would handle timeouts, retries with backoff, and rate limiting as configured in the pipeline's YAML file. Log records would include fields such as `endpoint`, `attempt`, and `duration_ms`.
+- **Client:** The `PubChemClient` ([ref: repo:src/bioetl/sources/pubchem/client/client.py@refactoring_001]) would be responsible for making HTTP requests to the PubChem API. It would handle timeouts, retries with backoff, and rate limiting as configured in the pipeline's YAML file. Log records would include fields such as `endpoint`, `attempt`, and `duration_ms`.
 - **Paginator:** A paginator, likely based on an offset/limit strategy, would be used to iterate through the PubChem search results. The paginator would handle the details of fetching pages of data until the end of the result set is reached. It would also respect rate limits and introduce pauses if necessary.
-- **Parser:** A parser ([ref: repo:src/bioetl/sources/pubchem/parser/parser.py@test_refactoring_32]) would be responsible for parsing the JSON response from the PubChem API. It would extract the relevant fields for `testitem` data and raise errors if required fields are missing or invalid.
+- **Parser:** A parser ([ref: repo:src/bioetl/sources/pubchem/parser/parser.py@refactoring_001]) would be responsible for parsing the JSON response from the PubChem API. It would extract the relevant fields for `testitem` data and raise errors if required fields are missing or invalid.
 
 The specific PubChem endpoint and query parameters for `testitem` data would need to be determined and implemented in the pipeline's extraction logic.
 
 ## 5. Normalization and Validation
 
-- **Normalizer:** The `PubChemNormalizer` ([ref: repo:src/bioetl/sources/pubchem/normalizer/normalizer.py@test_refactoring_32]) would be used to canonicalize identifiers and types, and to fill in any required fields that are not present in the raw extracted data.
-- **Pandera Schema:** A Pandera schema ([ref: repo:src/bioetl/sources/pubchem/schema/schema.py@test_refactoring_32]) would be used to validate the structure and types of the normalized data. The schema would be configured with `strict=True`, `ordered=True`, and `coerce=True` to ensure data quality. It would also define a business key and perform a uniqueness check on that key.
+- **Normalizer:** The `PubChemNormalizer` ([ref: repo:src/bioetl/sources/pubchem/normalizer/normalizer.py@refactoring_001]) would be used to canonicalize identifiers and types, and to fill in any required fields that are not present in the raw extracted data.
+- **Pandera Schema:** A Pandera schema ([ref: repo:src/bioetl/sources/pubchem/schema/schema.py@refactoring_001]) would be used to validate the structure and types of the normalized data. The schema would be configured with `strict=True`, `ordered=True`, and `coerce=True` to ensure data quality. It would also define a business key and perform a uniqueness check on that key.
 
 ## 6. Outputs and Determinism
 

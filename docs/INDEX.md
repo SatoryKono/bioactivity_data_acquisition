@@ -29,4 +29,4 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 1.  When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.
 2.  Before committing, run the project's QA scripts (e.g., `npx markdownlint-cli2 "**/*.md"`).
-3.  If adding a new source, expand the tables in the `[ref: repo:sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:pipelines/10-chembl-pipelines-catalog.md@refactoring_001]`.
+3.  If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001]`.
