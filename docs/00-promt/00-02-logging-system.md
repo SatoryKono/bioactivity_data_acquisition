@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Цель и объем
 
 Система логирования обеспечивает структурированные, детерминированные и трассируемые логи для всех стадий ETL (extract, transform, validate, load) и CLI. Выходные форматы пригодны для машинного парсинга и аудита; базовые инварианты одинаковы в dev/test/prod.

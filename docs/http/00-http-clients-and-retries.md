@@ -1,5 +1,7 @@
 # Specification: HTTP Clients, Retries, and Request Rules
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## 1. Overview and Goals
 
 The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to interact with external data sources. This client provides a centralized, configurable, and resilient layer for all outgoing HTTP requests. Its implementation can be found in `[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`.

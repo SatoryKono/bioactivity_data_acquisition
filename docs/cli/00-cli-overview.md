@@ -1,5 +1,7 @@
 # CLI Overview and Principles
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## 1. Purpose and Scope
 
 The `bioetl` Command-Line Interface (CLI) is the primary entry point for executing and managing ETL pipelines. It provides a standardized way to run pipelines, manage configurations, and pass runtime parameters.

@@ -1,5 +1,7 @@
 # ChEMBL Target Extraction Pipeline
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document describes the `target` pipeline, which is responsible for extracting and processing target data from the ChEMBL database.
 
 ## 1. Overview

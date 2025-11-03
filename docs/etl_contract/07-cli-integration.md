@@ -1,5 +1,7 @@
 # 7. CLI Integration
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Overview
 
 The `bioetl` framework includes a powerful and user-friendly Command-Line Interface (CLI) for managing and executing ETL pipelines. The CLI is the primary entry point for running pipelines in production, development, and testing environments. It is built using the [Typer](https://typer.tiangolo.com/) library, which provides a clean, modern interface with automatic help generation and argument parsing.

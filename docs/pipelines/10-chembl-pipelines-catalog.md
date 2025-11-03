@@ -1,5 +1,7 @@
 # ChEMBL Pipelines Catalog
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a detailed catalog for each of the core ChEMBL data extraction pipelines. Each card describes the pipeline's purpose, configuration, and behavior, strictly within the scope of extracting data from the ChEMBL API.
 
 ## 1. Coverage Matrix

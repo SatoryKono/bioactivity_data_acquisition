@@ -66,7 +66,7 @@ class AssayInputSchema(pa.DataFrameModel):
 
 ### 1.2 Конфигурация
 
-**Базовый стандарт:** см. `docs/architecture/10-configuration.md` (§2–§6).
+**Базовый стандарт:** см. `docs/configs/00-typed-configs-and-profiles.md`.
 
 **Профильный файл:** `configs/pipelines/assay.yaml`, который объявляет `extends: "../base.yaml"` и проходит валидацию `PipelineConfig`.
 

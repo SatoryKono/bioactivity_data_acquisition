@@ -1,5 +1,7 @@
 # ChEMBL pipelines
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Maintainers
 
 - `@SatoryKono` — глобальный код-оунер и ответственный за документацию репозитория, поэтому он утверждает изменения по пайплайнам ChEMBL и сопутствующим артефактам.【F:.github/CODEOWNERS†L5-L41】

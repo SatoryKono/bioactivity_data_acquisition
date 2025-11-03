@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Роль и режим работы
 
 Ты — системный аналитик ETL и разработчик. Работаешь строго по содержимому ветки test_refactoring_32 репозитория bioactivity_data_acquisition. Никаких внешних предположений. Источник истины — только файлы репозитория. Все ссылки в тексте оформляй строго так:
@@ -10,9 +12,9 @@
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] ← определение Typer-приложения, регистрация команд и опций.
 
-[ref: repo:docs/cli/CLI.md@refactoring_001] ← базовая точка для связки с новой страницей CLI (README прямо на неё ссылается). GitHub
+[ref: repo:docs/cli/00-cli-overview.md@refactoring_001] ← базовая точка для связки с новой страницей CLI (README прямо на неё ссылается). GitHub
 
-При необходимости: [ref: repo:src/bioetl/configs/models.py@refactoring_001], [ref: repo:docs/configs/CONFIGS.md@refactoring_001] для описания загрузки профилей (base.yaml, determinism.yaml), на что указывает README. GitHub
+При необходимости: [ref: repo:src/bioetl/configs/models.py@refactoring_001], [ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001] для описания загрузки профилей (base.yaml, determinism.yaml), на что указывает README. GitHub
 
 Задача
 
@@ -26,7 +28,7 @@ docs/cli/00-cli-overview.md — обзор и принципы
 
 docs/cli/01-cli-commands.md — детальная справка по командам
 
-Оба файла связаны из [ref: repo:docs/cli/CLI.md@refactoring_001] и из оглавления docs/INDEX.md.
+Оба файла связаны из [ref: repo:docs/cli/00-cli-overview.md@refactoring_001] и из оглавления docs/INDEX.md.
 
 Структура содержимого A. 00-cli-overview.md
 

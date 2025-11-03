@@ -1,8 +1,10 @@
 # Pipeline: `testitem_pubchem`
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document describes the `testitem_pubchem` pipeline, which is responsible for extracting testitem data from PubChem.
 
-**Note:** This pipeline is not yet implemented in the `test_refactoring_32` branch. This document serves as a specification for its future implementation.
+**Note:** This pipeline is not yet implemented. This document serves as a specification for its future implementation.
 
 ## 1. Identification
 

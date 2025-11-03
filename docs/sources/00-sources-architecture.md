@@ -1,5 +1,7 @@
 # Specification: Source Component Architecture
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## 1. Overview
 
 This document defines the normative architecture for data source components within the `bioetl` framework. Each pipeline, as declared in the `[ref: repo:README.md@refactoring_001]`, is powered by a stack of components responsible for fetching, parsing, and cleaning data before it reaches the main `PipelineBase` orchestrator.

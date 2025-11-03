@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Полный набор ChEMBL-пайплайнов с CLI-командами и конфигами (ТОЛЬКО извлечение из ChEMBL)»
 Роль и режим
 
@@ -11,9 +13,9 @@
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] — точные имена команд/флагов.
 
-[ref: repo:src/bioetl/configs/models.py@refactoring_001], [ref: repo:docs/configs/CONFIGS.md@refactoring_001] — ключи конфигов и мердж профилей.
+[ref: repo:src/bioetl/configs/models.py@refactoring_001], [ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001] — ключи конфигов и мердж профилей.
 
-Пайплайны/источники/схемы: [ref: repo:src/bioetl/pipelines/@refactoring_001], [ref: repo:src/bioetl/sources/@refactoring_001], [ref: repo:docs/pipelines/PIPELINES.md@refactoring_001].
+Пайплайны/источники/схемы: [ref: repo:src/bioetl/pipelines/@refactoring_001], [ref: repo:src/bioetl/sources/@refactoring_001], [ref: repo:docs/pipelines/00-pipeline-base.md@refactoring_001].
 
 Жёсткие ограничения области
 

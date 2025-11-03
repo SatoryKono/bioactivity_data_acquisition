@@ -1,5 +1,7 @@
 # 5. The Validation Stage
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Overview
 
 The `validate` stage is the gatekeeper of data quality in the `bioetl` framework. It is a non-negotiable, framework-managed step that occurs immediately after the `transform` stage. Its purpose is to ensure that every single record in the DataFrame conforms to a strict, predefined schema before it can be written to disk.

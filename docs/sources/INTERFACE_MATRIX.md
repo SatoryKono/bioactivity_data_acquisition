@@ -1,5 +1,7 @@
 # Source Interface Matrix
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a detailed matrix of the specific software components that implement each layer of the source architecture for the main pipelines, as outlined in the `[ref: repo:README.md@refactoring_001]`.
 
 | Source | CLI Command | Client (Module/Class) | Pagination | Parser | Normalizer | Schema/Validation | Business Key(s) | Sort Keys | Error Handling | Tests |

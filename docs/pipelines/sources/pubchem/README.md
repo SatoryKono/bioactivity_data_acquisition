@@ -1,5 +1,7 @@
 # PubChem enrichment
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Maintainers
 
 - `@SatoryKono` — глобальный ревьюер и владелец документации, отслеживает изменения по источнику PubChem.【F:.github/CODEOWNERS†L5-L41】

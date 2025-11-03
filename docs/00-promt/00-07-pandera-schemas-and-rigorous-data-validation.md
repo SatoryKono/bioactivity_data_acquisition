@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Pandera-схемы и жёсткая валидация данных»
 Роль и режим
 
@@ -9,15 +11,15 @@
 
 [ref: repo:README.md@refactoring_001]
 
-[ref: repo:docs/requirements/00-architecture-overview.md@refactoring_001]
+[ref: repo:docs/etl_contract/00-etl-overview.md@refactoring_001]
 
-[ref: repo:docs/pipelines/PIPELINES.md@refactoring_001]
+[ref: repo:docs/pipelines/00-pipeline-base.md@refactoring_001]
 
 [ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
 
 [ref: repo:src/bioetl/configs/models.py@refactoring_001]
 
-[ref: repo:docs/qc/QA_QC.md@refactoring_001]
+[ref: repo:docs/qc/00-qc-overview.md@refactoring_001]
 
 [ref: repo:tests/@refactoring_001]
 
@@ -156,7 +158,7 @@ pandera.readthedocs.io
 
 [ref: repo:src/bioetl/configs/models.py@refactoring_001]
 
-[ref: repo:docs/configs/CONFIGS.md@refactoring_001]
+[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001]
 
 09. Примеры (минимум)
 

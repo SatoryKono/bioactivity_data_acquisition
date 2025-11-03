@@ -1,5 +1,7 @@
 # 8. New Pipeline Implementation Guide
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Overview
 
 This guide provides a step-by-step walkthrough for creating a new ETL pipeline within the `bioetl` framework. It brings together all the concepts from the previous documents—the `PipelineBase` contract, configuration, schema validation, and CLI integration—into a practical workflow.

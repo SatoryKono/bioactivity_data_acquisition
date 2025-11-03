@@ -1,5 +1,7 @@
 # 2. Pipeline Configuration
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Overview
 
 Every pipeline in the `bioetl` framework is driven by a declarative YAML configuration file. This approach separates the pipeline's logic (defined in its Python class) from its behavior (defined in the YAML), making pipelines flexible, reusable, and easy to manage.

@@ -1,5 +1,7 @@
 # Guide to Pharmacology (IUPHAR)
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Maintainers
 
 - `@SatoryKono` — глобальный ответственный за код и документацию, утверждает изменения по источнику IUPHAR.【F:.github/CODEOWNERS†L5-L41】

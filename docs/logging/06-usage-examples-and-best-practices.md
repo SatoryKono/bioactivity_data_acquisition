@@ -1,5 +1,7 @@
 # 6. Usage Examples and Best Practices
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a set of practical, copy-paste-ready examples for using the `UnifiedLogger` in your application.
 
 ## 1. Initialization (Entry Point)

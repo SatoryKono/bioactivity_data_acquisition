@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Типобезопасные конфиги и слои включений»
 Роль и режим работы
 
@@ -10,7 +12,7 @@
 [ref: repo:README.md@refactoring_001] — в «Быстрый старт» зафиксированы запуск через CLI, применение PipelineConfig, а также автоподмешивание base.yaml и determinism.yaml. Используй это как рамку поведения.
 GitHub
 
-[ref: repo:docs/configs/CONFIGS.md@refactoring_001] — точка входа раздела конфигураций, нужно связать с новым артефактом.
+[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001] — точка входа раздела конфигураций, нужно связать с новым артефактом.
 GitHub
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] — фактическая логика загрузки конфигов и профилей в CLI, порядок приоритета.
@@ -38,7 +40,7 @@ GitHub
 
 docs/configs/00-typed-configs-and-profiles.md — спецификация.
 
-configs/profiles/base.yaml и configs/profiles/determinism.yaml — минимальные, рабочие скелеты с комментариями. Положи рядом с уже существующими конфигами проекта и свяжи из docs/configs/CONFIGS.md. 
+configs/profiles/base.yaml и configs/profiles/determinism.yaml — минимальные, рабочие скелеты с комментариями. Положи рядом с уже существующими конфигами проекта и свяжи из docs/configs/00-typed-configs-and-profiles.md. 
 GitHub
 
 Обязательное содержание спецификации (структура разделов)

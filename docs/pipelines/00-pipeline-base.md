@@ -1,5 +1,7 @@
 # PipelineBase Orchestrator Specification
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a comprehensive technical specification for the `PipelineBase` abstract class, which serves as the core orchestrator for all ETL pipelines within the `bioetl` framework.
 
 [ref: repo:README.md@refactoring_001]

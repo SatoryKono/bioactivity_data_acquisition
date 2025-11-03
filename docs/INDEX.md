@@ -25,6 +25,10 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files.
 
+## Additional Resources
+
+- **[Prompt Documentation](00-promt/)**: Original prompt specifications used for generating framework documentation. These files serve as reference materials for understanding the design decisions and requirements that shaped the `bioetl` framework.
+
 ## How to Maintain Consistency
 
 1.  When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.

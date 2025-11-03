@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «HTTP-клиенты с backoff и едиными правилами запросов»
 Роль и режим работы
 

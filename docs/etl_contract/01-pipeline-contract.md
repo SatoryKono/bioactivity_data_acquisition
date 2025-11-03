@@ -1,5 +1,7 @@
 # 1. The ETL Pipeline Contract
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## The `PipelineBase` Interface
 
 At the core of the `bioetl` framework is the abstract base class, `PipelineBase`. Every ETL pipeline **must** inherit from this class. It establishes a clear, consistent interface and lifecycle for all data processing tasks. By enforcing this contract, the framework ensures that all pipelines are predictable, maintainable, and integrate seamlessly with the broader system.

@@ -1,5 +1,7 @@
 # Determinism Policy Specification
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## 1. Scope and Invariants
 
 A "deterministic output" in the `bioetl` project guarantees that two pipeline runs with identical inputs and configurations will produce bit-for-bit identical output artifacts. This policy is the cornerstone of data integrity, reproducibility, and automated quality control.

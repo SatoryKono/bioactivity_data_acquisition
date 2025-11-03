@@ -1,5 +1,7 @@
 # CLI Exit Codes
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a reference for the exit codes returned by the `bioetl` CLI and maps them to specific error scenarios. Understanding these codes is essential for scripting, automation, and CI/CD integration.
 
 For a general overview of the CLI, see `[ref: repo:docs/cli/00-cli-overview.md@refactoring_001]`.

@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Базовый оркестратор PipelineBase»
 Роль и режим работы
 
@@ -15,9 +17,9 @@ GitHub
 [ref: repo:src/bioetl/configs/models.py@refactoring_001] ← модели конфигураций пайплайнов
 GitHub
 
-[ref: repo:docs/requirements/00-architecture-overview.md@refactoring_001]
+[ref: repo:docs/etl_contract/00-etl-overview.md@refactoring_001]
 
-[ref: repo:docs/pipelines/PIPELINES.md@refactoring_001]
+[ref: repo:docs/pipelines/00-pipeline-base.md@refactoring_001]
 
 [ref: repo:README.md@refactoring_001] ← фиксация стадий extract → transform → validate → write → run и принципов каркаса
 GitHub

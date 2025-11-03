@@ -1,5 +1,7 @@
 # Specification: Typed Configurations and Profiles
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document provides a comprehensive specification for the `bioetl` configuration system, based on the implementation in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
 
 ## 1. Core Concepts

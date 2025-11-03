@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Политика детерминизма выгрузок»
 Роль и режим работы
 
@@ -12,9 +14,9 @@ GitHub
 
 [ref: repo:docs/INDEX.md@refactoring_001]
 
-[ref: repo:docs/configs/CONFIGS.md@refactoring_001]
+[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001]
 
-[ref: repo:docs/qc/QA_QC.md@refactoring_001]
+[ref: repo:docs/qc/00-qc-overview.md@refactoring_001]
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] ← подтверждает, как CLI подмешивает профили.
 GitHub

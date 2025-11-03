@@ -1,3 +1,5 @@
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 Промт: «Архитектура источников: клиенты, пагинация, парсеры, нормализаторы»
 Роль и режим работы
 

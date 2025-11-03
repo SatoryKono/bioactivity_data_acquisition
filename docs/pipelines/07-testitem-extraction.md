@@ -1,5 +1,7 @@
 # ChEMBL TestItem Extraction Pipeline
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 This document specifies the `testitem` pipeline, which extracts molecule data from the ChEMBL API and optionally enriches it with data from PubChem.
 
 ## 1. Overview

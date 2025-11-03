@@ -1,5 +1,7 @@
 # 0. BioETL Framework Overview
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Introduction
 
 The `bioetl` framework is a specialized system designed for building robust, maintainable, and verifiable ETL (Extract, Transform, Load) pipelines. Its primary goal is to provide a standardized, opinionated architecture that guarantees data quality, consistency, and reproducibility across all data acquisition processes.

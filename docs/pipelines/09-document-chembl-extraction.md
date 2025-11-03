@@ -2777,7 +2777,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 
 ## 17. Конфигурация
 
-- Следует стандарту `docs/architecture/10-configuration.md`.
+- Следует стандарту `docs/configs/00-typed-configs-and-profiles.md`.
 
 - Профильный файл: `configs/pipelines/document.yaml` (`extends: "../base.yaml"`).
 

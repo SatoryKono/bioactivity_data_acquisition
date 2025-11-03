@@ -1,5 +1,7 @@
 # 3. Извлечение данных (UnifiedAPIClient)
 
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+
 ## Обзор
 
 UnifiedAPIClient — универсальный клиент для работы с внешними API, объединяющий:
