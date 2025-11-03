@@ -20,7 +20,7 @@ Inside the root output directory, the framework generates a set of standard arti
 
 Let's assume `pipeline.name` is `activity`. The standard output files would be:
 
--   **`activity.parquet`** (or `.csv`): The main dataset artifact. This file contains the clean, validated, and transformed data. Its format is determined by the `materialization` section of the pipeline's configuration.
+-   **`activity.csv`**: The main dataset artifact. This file contains the clean, validated, and transformed data. While other formats like Parquet are supported, CSV is the default.
 -   **`activity_meta.yaml`**: The run manifest. This is a YAML file containing a comprehensive record of the pipeline run, including configuration hashes, file checksums, and QC metrics.
 -   **`activity_qc_report.csv`**: The quality control report. This file contains detailed metrics about the quality of the data, such as null counts, uniqueness, and validation failures.
 
@@ -28,7 +28,7 @@ Let's assume `pipeline.name` is `activity`. The standard output files would be:
 
 ```
 /data/output/activity/run_20251103_103000/
-├── activity.parquet
+├── activity.csv
 ├── activity_meta.yaml
 └── activity_qc_report.csv
 ```

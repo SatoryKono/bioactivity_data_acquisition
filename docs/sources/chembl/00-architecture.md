@@ -63,10 +63,10 @@ graph TD
 
 The following table maps each of the five core ChEMBL pipelines to their specific architectural components.
 
-| Pipeline | High-Level Client | Request Builder | Parser | Pandera Schema |
-|---|---|---|---|---|
-| **`activity`** | `ActivityChEMBLClient` | `ActivityRequestBuilder` | `ActivityParser` | `ActivitySchema` |
-| **`assay`** | `AssayChEMBLClient` | `AssayRequestBuilder` | `AssayParser` | `AssaySchema` |
-| **`document`** | `DocumentChEMBLClient`| `DocumentRequestBuilder`| `DocumentParser` | `DocumentSchema` |
-| **`target`** | `TargetChEMBLClient` | `TargetRequestBuilder` | `TargetParser` | `TargetSchema` |
-| **`testitem`** | `TestItemChEMBLClient`| `TestItemRequestBuilder`| `TestItemParser` | `TestItemSchema` |
+| Pipeline | High-Level Client | Request Builder | Parser | Normalizer | Pandera Schema |
+|---|---|---|---|---|---|
+| **`activity`** | `ActivityChEMBLClient` | `ActivityRequestBuilder` | `ActivityParser` | `ActivityNormalizer` | `ActivitySchema` |
+| **`assay`** | `AssayChEMBLClient` | `AssayRequestBuilder` | `AssayParser` | `AssayNormalizer` | `AssaySchema` |
+| **`document`** | `DocumentChEMBLClient`| `DocumentRequestBuilder`| `DocumentParser` | `DocumentNormalizer` | `DocumentSchema` |
+| **`target`** | `TargetChEMBLClient` | `TargetRequestBuilder` | `TargetParser` | `TargetNormalizer` | `TargetSchema` |
+| **`testitem`** | `TestItemChEMBLClient`| `TestItemRequestBuilder`| `TestItemParser` | `TestItemNormalizer` | `TestItemSchema` |
