@@ -25,12 +25,12 @@ The `bioetl` framework consists of several key components that work together to 
 1.  **Pipeline Interface (`PipelineBase`)**: At the heart of the framework is the abstract `PipelineBase` class. Every pipeline must inherit from this class, which defines a standardized lifecycle and a clear contract for developers to implement.
 
 2.  **Four-Stage Pipeline Lifecycle**: Each pipeline follows a strict, sequential lifecycle composed of four distinct stages, orchestrated by the `run()` method:
-    - **`extract`**: Retrieves data from the source system.
-    - **`transform`**: Applies business logic, normalization, and enrichment to the data.
-    - **`validate`**: Verifies the transformed data against a strict Pandera schema.
-    - **`write`**: Atomically writes the final dataset and its metadata.
-    
-    The **`run()`** method orchestrates the execution of these stages in sequence, handling logging, timing, and error management. It is not a stage itself, but rather the orchestrator that ensures the stages execute in the correct order.
+   - **`extract`**: Retrieves data from the source system.
+   - **`transform`**: Applies business logic, normalization, and enrichment to the data.
+   - **`validate`**: Verifies the transformed data against a strict Pandera schema.
+   - **`write`**: Atomically writes the final dataset and its metadata.
+
+   The **`run()`** method orchestrates the execution of these stages in sequence, handling logging, timing, and error management. It is not a stage itself, but rather the orchestrator that ensures the stages execute in the correct order.
 
 3.  **Declarative Configuration**: Pipeline behavior is driven by YAML configuration files. This allows developers to define sources, extraction parameters, transformation rules, and output settings in a declarative manner, separating logic from configuration.
 
