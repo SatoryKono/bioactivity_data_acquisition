@@ -72,9 +72,9 @@ Create the YAML configuration file that will drive your pipeline. Start by copyi
 
 ```yaml
 # file: src/bioetl/configs/pipelines/uniprot/protein.yaml
-profile:
-  - base.yaml
-  - determinism.yaml
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
 
 source:
   endpoint: "https://www.uniprot.org/uniprot/"

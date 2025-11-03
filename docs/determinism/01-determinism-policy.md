@@ -16,8 +16,8 @@ The following invariants **must** be upheld for every deterministic run:
 
 This policy is enforced by the `PipelineBase` orchestrator, which applies settings from standard configuration profiles. The CLI automatically includes `base.yaml` and `determinism.yaml` for every run, ensuring these invariants are applied consistently.
 
-[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
-[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
+[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
+[ref: repo:src/bioetl/cli/app.py@refactoring_001]
 
 ## 2. Stable Sort Keys by Pipeline
 
@@ -25,11 +25,11 @@ To guarantee a stable row order, every pipeline **must** define a `determinism.s
 
 | Pipeline          | Sort Key(s)                               | Justification & Tie-Breaker Policy                                                                                                                                      | Source References                                                                                                |
 | ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **`activity`**    | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]                                |
-| **`assay`**       | `["assay_id"]`                            | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@test_refactoring_32]                                   |
-| **`target`**      | `["target_id"]`                           | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32]                                  |
-| **`document`**    | `["year", "document_id"]`                 | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected. | [ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32]                              |
-| **`testitem`**    | `["testitem_id"]`                         | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                     | [ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@test_refactoring_32]                              |
+| **`activity`**    | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@refactoring_001]                                |
+| **`assay`**       | `["assay_id"]`                            | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@refactoring_001]                                   |
+| **`target`**      | `["target_id"]`                           | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001]                                  |
+| **`document`**    | `["year", "document_id"]`                 | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected. | [ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001]                              |
+| **`testitem`**    | `["testitem_id"]`                         | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                     | [ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001]                              |
 
 ## 3. Value Canonicalization
 
@@ -46,7 +46,7 @@ Before any sorting or hashing operations, all data values must be brought to a s
 
 The framework uses hashes to verify data integrity. The current implementation uses the **SHA256** algorithm.
 
-[ref: repo:src/bioetl/core/hashing.py@test_refactoring_32]
+[ref: repo:src/bioetl/core/hashing.py@refactoring_001]
 
 -   **`hash_row`**:
     -   **Purpose**: To verify the integrity of an entire data row.
@@ -120,7 +120,7 @@ source_lineage:
 
 This profile provides the baseline settings for ensuring deterministic runs. It is located at `configs/profiles/determinism.yaml`.
 
-[ref: repo:configs/profiles/determinism.yaml@test_refactoring_32]
+[ref: repo:configs/profiles/determinism.yaml@refactoring_001]
 
 ```yaml
 # /configs/profiles/determinism.yaml
@@ -225,7 +225,7 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
 
 The determinism policy is automatically enforced by the CLI.
 
-[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
+[ref: repo:src/bioetl/cli/app.py@refactoring_001]
 
 -   **Profile Injection**: The `README.md` and CLI implementation confirm that the `determinism.yaml` profile is automatically loaded for every pipeline run, establishing its settings as the default.
 -   **Priority**: Parameters defined directly in a pipeline's specific YAML file (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
