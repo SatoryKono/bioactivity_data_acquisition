@@ -1,9 +1,17 @@
 # configs/profiles/base.yaml
+#
+# Baseline configuration shared by all pipelines. Each project-specific
+# pipeline YAML should `extends: ["../profiles/base.yaml"]` (with the
+# appropriate relative path) so that these defaults are merged before any
+# pipeline-specific overrides.
+
 version: 1
 
 http:
   default:
     timeout_sec: 60.0
+    connect_timeout_sec: 15.0
+    read_timeout_sec: 60.0
     retries:
       total: 5
       backoff_multiplier: 2.0
@@ -12,8 +20,11 @@ http:
     rate_limit:
       max_calls: 10
       period: 1.0
+    rate_limit_jitter: true
     headers:
-      User-Agent: "BioETL/1.0"
+      User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
+      Accept: "application/json"
+      Accept-Encoding: "gzip, deflate"
 
 cache:
   enabled: true
@@ -31,3 +42,7 @@ materialization:
 
 fallbacks:
   enabled: true
+
+validation:
+  strict: true
+  coerce: true

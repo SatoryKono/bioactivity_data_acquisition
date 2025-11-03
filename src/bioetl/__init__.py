@@ -1,3 +1,5 @@
-"""BioETL: structured ETL framework for bioactivity datasets."""
+"""BioETL package."""
 
-__all__ = ["core"]
+from .configs.models import PipelineConfig
+
+__all__ = ["PipelineConfig"]

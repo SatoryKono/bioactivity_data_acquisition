@@ -1,15 +1,49 @@
 # configs/profiles/determinism.yaml
+#
+# Determinism policy applied automatically by the CLI. Pipelines can override
+# any of these keys in their main configuration file, but the defaults below
+# guarantee stable, byte-for-byte reproducible artifacts.
+
 determinism:
-  hash_algorithm: "sha256"
+  enabled: true
+  hash_policy_version: "1.0.0"
   float_precision: 6
   datetime_format: "iso8601"
-  hash_policy_version: "1.0.0"
   column_validation_ignore_suffixes:
     - "_scd"
     - "_temp"
     - "_meta"
     - "_tmp"
+
   sort:
     by: []
     ascending: []
+    na_position: "last"
+
   column_order: []
+
+  serialization:
+    csv:
+      separator: ","
+      quoting: "ALL"
+      na_rep: ""
+    booleans: ["True", "False"]
+    nan_rep: "NaN"
+
+  hashing:
+    algorithm: "sha256"
+    row_fields: []
+    business_key_fields: []
+    exclude_fields: ["generated_at", "run_id"]
+
+  environment:
+    timezone: "UTC"
+    locale: "C"
+
+  write:
+    strategy: "atomic"
+
+  meta:
+    location: "sibling"
+    include_fields: []
+    exclude_fields: []
