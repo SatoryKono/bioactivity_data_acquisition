@@ -21,6 +21,10 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **[ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)**: A detailed catalog of all ChEMBL data extraction pipelines.
 - **[Source Interface Matrix](sources/INTERFACE_MATRIX.md)**: A matrix mapping each pipeline to its specific component implementations.
 
+## Style Guides
+
+- **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files.
+
 ## How to Maintain Consistency
 
 1.  When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.

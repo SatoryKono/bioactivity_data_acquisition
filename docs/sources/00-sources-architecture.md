@@ -100,7 +100,7 @@ The CLI and configuration system are responsible for wiring the component stack 
 4.  **Parser (`ActivityParser`)**: The `parse` method is called for each item in the `activities` list from the JSON response. It extracts and flattens the raw dictionary.
 5.  **Normalizer (`ActivityNormalizer` / `registry`)**: Within the `parse` method, functions like `registry.normalize("chemistry.chembl_id", ...)` are called to clean up specific fields.
 6.  **Schema (`ActivitySchema`)**: After all activities are processed into a DataFrame, the `PipelineBase.validate()` method calls `ActivitySchema.validate(df)`.
-7.  **Output**: The validated DataFrame is sorted by its stable sort keys (e.g., `activity_id`) before being written to a file.
+7.  **Output**: The validated DataFrame is sorted by its stable sort keys (e.g., `["assay_id", "testitem_id", "activity_id"]` for the `activity` pipeline) before being written to a file.
 
 ## 8. Test Plan
 
