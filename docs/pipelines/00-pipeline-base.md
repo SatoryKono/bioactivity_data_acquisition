@@ -2,7 +2,7 @@
 
 This document provides a comprehensive technical specification for the `PipelineBase` abstract class, which serves as the core orchestrator for all ETL pipelines within the `bioetl` framework.
 
-[ref: repo:README.md@refactoring_001]
+[ref: repo:README.md@test_refactoring_32]
 
 ## 1. Overview and Goals
 
@@ -28,7 +28,7 @@ The `PipelineBase` class standardizes the ETL process by defining a fixed, five-
 
 The public API is defined by the `PipelineBase` abstract class and a set of dataclasses for structured results. The implementation is based on Python's `abc` module.
 
-[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
+[ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
 
 ### Result Types
 
@@ -222,7 +222,7 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
 
 The pipeline receives its configuration via Dependency Injection (DI) in the constructor. A `PipelineConfig` object, loaded and validated from a YAML file, is passed in during initialization.
 
-[ref: repo:src/bioetl/configs/models.py@refactoring_001]
+[ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
 
 -   **Priority and Overlays**: The configuration system supports profiles via the `extends` key, allowing a pipeline-specific YAML file (e.g., `activity.yaml`) to inherit from and override values in base files (e.g., `base.yaml`, `determinism.yaml`).
 -   **Strictness**: The Pydantic models are configured with `extra="forbid"`. This is a critical feature that causes the configuration loading to fail if the YAML file contains any keys that are not explicitly defined in the models, preventing typos and "silent" configuration errors.
@@ -231,7 +231,7 @@ The pipeline receives its configuration via Dependency Injection (DI) in the con
 
 The framework provides a unified, structured logging system based on `structlog`.
 
-[ref: repo:src/bioetl/core/logger.py@refactoring_001]
+[ref: repo:src/bioetl/core/logger.py@test_refactoring_32]
 
 -   **Mandatory Fields**: Every log event emitted during a `run()` is guaranteed to be a JSON object containing these fields: `run_id`, `stage`, `actor`, `source`, `level`, and `generated_at` (UTC timestamp). Stage-specific timers (`duration_ms`) are added at the completion of each stage.
 -   **Output Formats**: The logger is configured to output human-readable `key=value` text to the console during development and deterministic, sorted-key JSON to files.
@@ -263,7 +263,7 @@ Data validation is a non-negotiable stage of the pipeline, enforced by Pandera s
 
 Pipelines are automatically discovered and exposed as commands in the Typer-based CLI.
 
-[ref: repo:src/bioetl/cli/app.py@refactoring_001]
+[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
 
 -   **Registration**: Placing a `PipelineBase` subclass in the `src/bioetl/pipelines/` directory is sufficient to register it as a new CLI command.
 -   **Required Flags**: All pipeline commands accept a standard set of flags:

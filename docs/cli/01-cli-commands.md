@@ -12,7 +12,7 @@ python -m bioetl.cli.main <pipeline-name> [OPTIONS]
 
 ### Registered Pipelines
 
-The following pipeline commands are registered in the CLI. The registration is statically defined in `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]`.
+The following pipeline commands are registered in the CLI. The registration is statically defined in `[ref: repo:src/bioetl/cli/registry.py@test_refactoring_32]`.
 
 -   `activity`
 -   `assay`
@@ -29,7 +29,7 @@ The following pipeline commands are registered in the CLI. The registration is s
 
 ### Common Options for All `run` Commands
 
-These options are available for all pipeline commands. They are defined in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`.
+These options are available for all pipeline commands. They are defined in `[ref: repo:src/bioetl/cli/command.py@test_refactoring_32]`.
 
 | Option | Shorthand | Description | Default |
 | --- | --- | --- | --- |

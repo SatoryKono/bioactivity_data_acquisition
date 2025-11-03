@@ -7,7 +7,7 @@ BioETL объединяет ETL-пайплайны для загрузки да�
 с унифицированными стадиями `extract → transform → validate → write → run`,
 типобезопасных конфигурациях и стандартизованном логировании. Каждая реализация
 наследует базовую оркестрацию
-[`PipelineBase`][ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
+[`PipelineBase`][ref: repo:src/bioetl/pipelines/base.py@test_refactoring_32]
 и использует строгие схемы Pandera, HTTP-клиенты с backoff и единый логгер.
 Бизнес-логика живёт в модулях `src/bioetl/pipelines/` и `src/bioetl/sources/`,
 где каждый источник реализует клиентов, пагинацию, парсеры и нормализаторы с
@@ -30,22 +30,35 @@ python -m bioetl.cli.main activity \
 
 Команда `list` показывает все зарегистрированные пайплайны Typer, а запуск в
 режиме `--dry-run` выполняет стадии до записи файла и валидирует конфигурацию
-без побочных эффектов.[ref: repo:src/bioetl/cli/app.py@refactoring_001]
+без побочных эффектов.[ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
 Команда автоматически применяет структуру конфигурации
-[`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@refactoring_001]
+[`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
 и включённые значения из `base.yaml` и `determinism.yaml`.
 
 ## Где искать документацию {#where-to-find-docs}
 
-- **Navigation**: [`docs/INDEX.md`][ref: repo:docs/INDEX.md@refactoring_001] — The main entry point and map of all documentation sections.
+- Навигация: [`docs/INDEX.md`][ref: repo:docs/INDEX.md@test_refactoring_32] —
+  единая точка входа и карта разделов.
 
-- **ETL Contract**: [`docs/etl_contract/00-etl-overview.md`][ref: repo:docs/etl_contract/00-etl-overview.md@refactoring_001] — Core principles and the `PipelineBase` architecture.
+- Архитектура уровней и глоссарий:
 
-- **Pipeline Catalog**: [`docs/pipelines/10-chembl-pipelines-catalog.md`][ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001] — A detailed catalog of all ChEMBL pipelines.
+  [`docs/requirements/00-architecture-overview.md`][ref: repo:docs/requirements/00-architecture-overview.md@test_refactoring_32]
 
-- **Configurations**: [`docs/configs/00-typed-configs-and-profiles.md`][ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001] — The Pydantic-based configuration system.
+- Источники данных и схемы:
 
-- **CLI Reference**: [`docs/cli/00-cli-overview.md`][ref: repo:docs/cli/00-cli-overview.md@refactoring_001] — The guide to the Command-Line Interface.
+  [`docs/requirements/03-data-sources-and-spec.md`][ref: repo:docs/requirements/03-data-sources-and-spec.md@test_refactoring_32]
+
+- Контракты пайплайнов:
+  [`docs/pipelines/PIPELINES.md`][ref: repo:docs/pipelines/PIPELINES.md@test_refactoring_32]
+
+- Конфигурации и профили:
+  [`docs/configs/CONFIGS.md`][ref: repo:docs/configs/CONFIGS.md@test_refactoring_32]
+
+- CLI и команды:
+  [`docs/cli/CLI.md`][ref: repo:docs/cli/CLI.md@test_refactoring_32]
+
+- Контроль качества и тесты:
+  [`docs/qc/QA_QC.md`][ref: repo:docs/qc/QA_QC.md@test_refactoring_32]
 
 ## Поддерживаемые источники данных и их статус {#supported-sources}
 
@@ -53,31 +66,31 @@ python -m bioetl.cli.main activity \
 
 | Пайплайн | Основной источник | Целевые сущности | CLI команда | Конфигурация | Статус |
 | --- | --- | --- | --- | --- | --- |
-| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity` | [`pipelines/chembl/activity.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@refactoring_001] | Production |
-| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay` | [`pipelines/chembl/assay.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@refactoring_001] | Production |
-| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/chembl/target.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001] | Production |
-| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/chembl/document.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001] | Production |
-| TestItem | ChEMBL молекулы с обогащением PubChem | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/chembl/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001] | Production |
+| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity` | [`pipelines/chembl/activity.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32] | Production |
+| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay` | [`pipelines/chembl/assay.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@test_refactoring_32] | Production |
+| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/chembl/target.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32] | Production |
+| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/chembl/document.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32] | Production |
+| TestItem | ChEMBL молекулы с обогащением PubChem | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/chembl/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@test_refactoring_32] | Production |
 
 ### Внешние энричеры и standalone источники
 
 | Пайплайн | Источник | Целевые сущности | CLI команда | Конфигурация | Статус |
 | --- | --- | --- | --- | --- | --- |
-| PubChem | PubChem PUG REST | Свойства молекул | `bioetl.cli.main pubchem` | [`pipelines/pubchem.yaml`][ref: repo:src/bioetl/configs/pipelines/pubchem.yaml@refactoring_001] | Production |
-| UniProt | UniProt REST API | Белковые записи | `bioetl.cli.main uniprot` | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@refactoring_001] | Production |
-| GtP IUPHAR | Guide to Pharmacology API | Таргеты и классификации | `bioetl.cli.main gtp_iuphar` | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@refactoring_001] | Production |
+| PubChem | PubChem PUG REST | Свойства молекул | `bioetl.cli.main pubchem` | [`pipelines/pubchem.yaml`][ref: repo:src/bioetl/configs/pipelines/pubchem.yaml@test_refactoring_32] | Production |
+| UniProt | UniProt REST API | Белковые записи | `bioetl.cli.main uniprot` | [`pipelines/uniprot.yaml`][ref: repo:src/bioetl/configs/pipelines/uniprot.yaml@test_refactoring_32] | Production |
+| GtP IUPHAR | Guide to Pharmacology API | Таргеты и классификации | `bioetl.cli.main gtp_iuphar` | [`pipelines/iuphar.yaml`][ref: repo:src/bioetl/configs/pipelines/iuphar.yaml@test_refactoring_32] | Production |
 
 ### Внешние адаптеры
 
 | Адаптер | API | Использование | Лимиты/аутентификация | Статус |
 | --- | --- | --- | --- | --- |
-| PubMed | E-utilities (`efetch`, `esearch`) | Документ-пайплайн | `tool`, `email`, `api_key`; 3 req/sec без ключа.[ref: repo:src/bioetl/sources/pubmed/request/builder.py@refactoring_001] | Production |
-| Crossref | REST `/works` | Документ-пайплайн | `mailto` в User-Agent, 2 req/sec конфигом.[ref: repo:src/bioetl/configs/pipelines/document.yaml@refactoring_001] | Production |
-| OpenAlex | REST `/works` | Документ-пайплайн | `mailto`, 10 req/sec конфигом.[ref: repo:src/bioetl/configs/pipelines/document.yaml@refactoring_001] | Production |
-| Semantic Scholar | Graph API `/paper/batch` | Документ-пайплайн | API key опционален, 1 req/1.25s без ключа.[ref: repo:src/bioetl/configs/pipelines/document.yaml@refactoring_001] | Production |
-| UniProt ID Mapping | REST `/idmapping` | Таргет-пайплайн | Квота 2 req/sec, кэширование включено.[ref: repo:src/bioetl/configs/pipelines/target.yaml@refactoring_001] | Production |
-| IUPHAR | `/targets`, `/targets/families` | Таргет и GTP-IUPHAR пайплайны | `x-api-key`, 6 req/sec.[ref: repo:src/bioetl/configs/pipelines/target.yaml@refactoring_001] | Production |
+| PubMed | E-utilities (`efetch`, `esearch`) | Документ-пайплайн | `tool`, `email`, `api_key`; 3 req/sec без ключа.[ref: repo:src/bioetl/sources/pubmed/request/builder.py@test_refactoring_32] | Production |
+| Crossref | REST `/works` | Документ-пайплайн | `mailto` в User-Agent, 2 req/sec конфигом.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] | Production |
+| OpenAlex | REST `/works` | Документ-пайплайн | `mailto`, 10 req/sec конфигом.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] | Production |
+| Semantic Scholar | Graph API `/paper/batch` | Документ-пайплайн | API key опционален, 1 req/1.25s без ключа.[ref: repo:src/bioetl/configs/pipelines/document.yaml@test_refactoring_32] | Production |
+| UniProt ID Mapping | REST `/idmapping` | Таргет-пайплайн | Квота 2 req/sec, кэширование включено.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32] | Production |
+| IUPHAR | `/targets`, `/targets/families` | Таргет и GTP-IUPHAR пайплайны | `x-api-key`, 6 req/sec.[ref: repo:src/bioetl/configs/pipelines/target.yaml@test_refactoring_32] | Production |
 
 ## Лицензия и обратная связь {#license-and-feedback}
 
-Проект распространяется по лицензии MIT (см. [`pyproject.toml`][ref: repo:pyproject.toml@refactoring_001], секция `project.license`). Ошибки и предложения отправляйте через задачи в репозитории или по контактам команды BioETL. Вопросы и предложения по качеству данных и пайплайнам направляйте через issues или PR, соблюдая правила из [`tools/PROJECT_RULES.md`][ref: repo:tools/PROJECT_RULES.md@refactoring_001] и [`tools/USER_RULES.md`][ref: repo:tools/USER_RULES.md@refactoring_001]. Для срочных вопросов используйте e-mail, указанный в `CROSSREF_MAILTO`/`OPENALEX_MAILTO` в локальной конфигурации.
+Проект распространяется по лицензии MIT (см. [`pyproject.toml`][ref: repo:pyproject.toml@test_refactoring_32], секция `project.license`). Ошибки и предложения отправляйте через задачи в репозитории или по контактам команды BioETL. Вопросы и предложения по качеству данных и пайплайнам направляйте через issues или PR, соблюдая правила из [`tools/PROJECT_RULES.md`][ref: repo:tools/PROJECT_RULES.md@test_refactoring_32] и [`tools/USER_RULES.md`][ref: repo:tools/USER_RULES.md@test_refactoring_32]. Для срочных вопросов используйте e-mail, указанный в `CROSSREF_MAILTO`/`OPENALEX_MAILTO` в локальной конфигурации.

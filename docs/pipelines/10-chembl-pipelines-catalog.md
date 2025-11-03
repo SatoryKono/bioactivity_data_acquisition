@@ -6,11 +6,11 @@ This document provides a detailed catalog for each of the core ChEMBL data extra
 
 | Pipeline | CLI Command | Configuration | ChEMBL Endpoint | Output Artifact |
 |---|---|---|---|---|
-| **Activity** | `activity` | `[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@refactoring_001]` | `/activity.json` | CSV/Parquet |
-| **Assay** | `assay` | `[ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@refactoring_001]` | `/assay.json` | CSV/Parquet |
-| **Target** | `target` | `[ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001]` | `/target.json` | CSV/Parquet |
-| **Document** | `document` | `[ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001]`| `/document.json` | CSV/Parquet |
-| **TestItem** | `testitem` | `[ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001]` | `/molecule.json` | CSV/Parquet |
+| **Activity** | `activity` | `[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]` | `/activity.json` | CSV/Parquet |
+| **Assay** | `assay` | `[ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@test_refactoring_32]` | `/assay.json` | CSV/Parquet |
+| **Target** | `target` | `[ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32]` | `/target.json` | CSV/Parquet |
+| **Document** | `document` | `[ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32]`| `/document.json` | CSV/Parquet |
+| **TestItem** | `testitem` | `[ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@test_refactoring_32]` | `/molecule.json` | CSV/Parquet |
 
 ---
 
@@ -20,7 +20,7 @@ This document provides a detailed catalog for each of the core ChEMBL data extra
 
 -   **Name**: `activity`
 -   **CLI Command**: `python -m bioetl.cli.main activity`
--   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@refactoring_001]`
+-   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@test_refactoring_32]`
 -   **Status**: Production
 
 #### Purpose and Scope
@@ -34,13 +34,13 @@ This pipeline extracts detailed activity data from the ChEMBL `/activity.json` e
 -   **Profiles**: The configuration extends `base.yaml` and `determinism.yaml`, which are merged before the main config and CLI flags.
 
 #### Extraction
--   **Client**: `ActivityChEMBLClient` (`[ref: repo:src/bioetl/clients/chembl_activity.py@refactoring_001]`) uses the `UnifiedAPIClient` for requests.
+-   **Client**: `ActivityChEMBLClient` (`[ref: repo:src/bioetl/clients/chembl_activity.py@test_refactoring_32]`) uses the `UnifiedAPIClient` for requests.
 -   **Pagination**: The client uses ID batching, sending multiple `activity_id` values in each request.
--   **Parser**: Raw JSON responses are processed by `ActivityParser` (`[ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@refactoring_001]`).
+-   **Parser**: Raw JSON responses are processed by `ActivityParser` (`[ref: repo:src/bioetl/sources/chembl/activity/parser/activity_parser.py@test_refactoring_32]`).
 
 #### Normalization and Validation
 -   **Normalization**: Values are canonicalized by `ActivityNormalizer` and the central normalizer registry.
--   **Validation**: The resulting DataFrame is validated against the `ActivitySchema` (`[ref: repo:src/bioetl/schemas/chembl_activity.py@refactoring_001]`).
+-   **Validation**: The resulting DataFrame is validated against the `ActivitySchema` (`[ref: repo:src/bioetl/schemas/chembl_activity.py@test_refactoring_32]`).
 -   **Business Key**: `activity_id`
 
 #### Outputs and Determinism
@@ -70,7 +70,7 @@ python -m bioetl.cli.main activity --config src/bioetl/configs/pipelines/chembl/
 
 -   **Name**: `assay`
 -   **CLI Command**: `python -m bioetl.cli.main assay`
--   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@refactoring_001]`
+-   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@test_refactoring_32]`
 -   **Status**: Production
 
 #### Purpose and Scope
@@ -81,13 +81,13 @@ This pipeline extracts descriptions of experimental assays from the ChEMBL `/ass
 -   **`--output-dir`**: Directory to save the output files.
 
 #### Extraction
--   **Client**: `AssayChEMBLClient` (`[ref: repo:src/bioetl/clients/chembl_assay.py@refactoring_001]`).
+-   **Client**: `AssayChEMBLClient` (`[ref: repo:src/bioetl/clients/chembl_assay.py@test_refactoring_32]`).
 -   **Pagination**: ID Batching.
--   **Parser**: `AssayParser` (`[ref: repo:src/bioetl/sources/chembl/assay/parser/assay_parser.py@refactoring_001]`).
+-   **Parser**: `AssayParser` (`[ref: repo:src/bioetl/sources/chembl/assay/parser/assay_parser.py@test_refactoring_32]`).
 
 #### Normalization and Validation
 -   **Normalization**: `AssayNormalizer`.
--   **Validation**: `AssaySchema` (`[ref: repo:src/bioetl/schemas/chembl_assay.py@refactoring_001]`).
+-   **Validation**: `AssaySchema` (`[ref: repo:src/bioetl/schemas/chembl_assay.py@test_refactoring_32]`).
 -   **Business Key**: `assay_chembl_id`
 
 #### Outputs and Determinism
@@ -110,7 +110,7 @@ python -m bioetl.cli.main assay --config src/bioetl/configs/pipelines/chembl/ass
 
 -   **Name**: `target`
 -   **CLI Command**: `python -m bioetl.cli.main target`
--   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001]`
+-   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@test_refactoring_32]`
 -   **Status**: Production
 
 #### Purpose and Scope
@@ -121,12 +121,12 @@ This pipeline extracts information about drug targets from the ChEMBL `/target.j
 -   **`--output-dir`**: Directory to save the output files.
 
 #### Extraction
--   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/target/client/target_client.py@refactoring_001]`.
+-   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/target/client/target_client.py@test_refactoring_32]`.
 -   **Pagination**: ID Batching.
--   **Parser**: `TargetParser` (`[ref: repo:src/bioetl/sources/chembl/target/parser/target_parser.py@refactoring_001]`).
+-   **Parser**: `TargetParser` (`[ref: repo:src/bioetl/sources/chembl/target/parser/target_parser.py@test_refactoring_32]`).
 
 #### Normalization and Validation
--   **Validation**: `TargetSchema` (`[ref: repo:src/bioetl/schemas/chembl_target.py@refactoring_001]`).
+-   **Validation**: `TargetSchema` (`[ref: repo:src/bioetl/schemas/chembl_target.py@test_refactoring_32]`).
 -   **Business Key**: `target_chembl_id`
 
 #### Outputs and Determinism
@@ -146,7 +146,7 @@ python -m bioetl.cli.main target --config src/bioetl/configs/pipelines/chembl/ta
 
 -   **Name**: `document`
 -   **CLI Command**: `python -m bioetl.cli.main document`
--   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001]`
+-   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@test_refactoring_32]`
 -   **Status**: Production
 
 #### Purpose and Scope
@@ -157,12 +157,12 @@ This pipeline extracts bibliographic information for publications from the ChEMB
 -   **`--output-dir`**: Directory to save the output files.
 
 #### Extraction
--   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/document/client/document_client.py@refactoring_001]`.
+-   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/document/client/document_client.py@test_refactoring_32]`.
 -   **Pagination**: ID Batching.
--   **Parser**: `DocumentParser` (`[ref: repo:src/bioetl/sources/chembl/document/parser/document_parser.py@refactoring_001]`).
+-   **Parser**: `DocumentParser` (`[ref: repo:src/bioetl/sources/chembl/document/parser/document_parser.py@test_refactoring_32]`).
 
 #### Normalization and Validation
--   **Validation**: `DocumentSchema` (`[ref: repo:src/bioetl/schemas/chembl_document.py@refactoring_001]`).
+-   **Validation**: `DocumentSchema` (`[ref: repo:src/bioetl/schemas/chembl_document.py@test_refactoring_32]`).
 -   **Business Key**: `document_chembl_id`
 
 #### Outputs and Determinism
@@ -182,7 +182,7 @@ python -m bioetl.cli.main document --config src/bioetl/configs/pipelines/chembl/
 
 -   **Name**: `testitem`
 -   **CLI Command**: `python -m bioetl.cli.main testitem`
--   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001]`
+-   **Configuration**: `[ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@test_refactoring_32]`
 -   **Status**: Production
 
 #### Purpose and Scope
@@ -193,12 +193,12 @@ This pipeline extracts information about chemical compounds (molecules) from the
 -   **`--output-dir`**: Directory to save the output files.
 
 #### Extraction
--   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/testitem/client/testitem_client.py@refactoring_001]`.
+-   **Client**: Wrapper at `[ref: repo:src/bioetl/sources/chembl/testitem/client/testitem_client.py@test_refactoring_32]`.
 -   **Pagination**: ID Batching.
--   **Parser**: `TestItemParser` (`[ref: repo:src/bioetl/sources/chembl/testitem/parser/testitem_parser.py@refactoring_001]`).
+-   **Parser**: `TestItemParser` (`[ref: repo:src/bioetl/sources/chembl/testitem/parser/testitem_parser.py@test_refactoring_32]`).
 
 #### Normalization and Validation
--   **Validation**: `TestItemSchema` (`[ref: repo:src/bioetl/schemas/chembl_testitem.py@refactoring_001]`).
+-   **Validation**: `TestItemSchema` (`[ref: repo:src/bioetl/schemas/chembl_testitem.py@test_refactoring_32]`).
 -   **Business Key**: `testitem_id`
 
 #### Outputs and Determinism
