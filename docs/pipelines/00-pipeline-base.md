@@ -181,7 +181,6 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
         # The 'write' method in this spec maps to 'export' in the codebase.
         # It handles file writing and artifact generation.
         artifacts: "OutputArtifacts" = self.export(validated_df, output_path, extended=extended)
-        
 
         stage_durations["load"] = (time.perf_counter() - write_start) * 1000.0
         log.info("write_completed", duration_ms=stage_durations["load"], artifacts_path=str(artifacts.run_directory))
@@ -306,7 +305,6 @@ import pandas as pd
 from bioetl.pipelines.base import PipelineBase
 
 class MinimalPipeline(PipelineBase):
-    
 
     @abstractmethod
     def close_resources(self) -> None:
@@ -336,4 +334,3 @@ class MinimalPipeline(PipelineBase):
 | **`write`**     | (None)                                  | Output is atomic; `meta.yaml` is generated; data is sorted.     |
 | **`run`**       | (None)                                  | Stages run in fixed order; exceptions are handled.              |
 | **`cleanup`**   | `close_resources()` method              | Always called, even on failure.                                 |
-

@@ -173,7 +173,6 @@ This pseudocode details the sequence of operations within the `write()` stage (r
 
 def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteResult":
 
-
     log.info("Finalization started.")
 
     # 1. Canonicalization (assumed to be done during transform)

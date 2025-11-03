@@ -1,59 +1,62 @@
 # /configs/profiles/determinism.yaml
-#
-# This profile contains a standard set of configurations to ensure that
-# pipeline outputs are deterministic. It should be included by any pipeline
-# where byte-for-byte reproducibility is a requirement.
-#
-# It is automatically included by the CLI for all standard pipeline runs.
-# [ref: repo:README.md@test_refactoring_32]
-# [ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
 
+# This profile provides a standardized configuration for ensuring deterministic
+# and reproducible pipeline outputs. It centralizes settings for sorting,
+# column ordering, and content hashing.
+#
+# Pipelines requiring bit-for-bit identical outputs for the same inputs should
+# extend this profile.
+
+# --- Determinism Settings ---
 determinism:
-  # Serialization settings control how data types are written to files.
-  serialization:
-    # For CSVs, defines the field separator, quoting rules, and how missing values are represented.
-    csv:
-      separator: ","
-      quoting: "ALL" # Quote all fields to prevent ambiguity
-      na_rep: ""     # Represent missing values as empty strings
+  # The hashing algorithm used for generating `hash_row` and other integrity checks.
+  # Recommended: sha256.
+  hash_algorithm: "sha256"
 
-    # Defines the representation for specific data types.
-    booleans: ["True", "False"] # Use consistent string representations
-    nan_rep: "NaN"              # Use a standard representation for Not-a-Number
+  # The number of decimal places to use when serializing floating-point numbers
+  # for hashing. This prevents minor floating-point variations from breaking hashes.
+  float_precision: 6
 
-  # Sorting is the most critical step for ensuring row-order stability.
-  sorting:
-    # The default sort direction. Can be overridden by the pipeline.
-    direction: "ascending"
-    # Defines where null/NA values should be placed in the sorted output.
-    na_position: "last"
+  # The string format for serializing datetime objects before hashing.
+  # ISO 8601 is a well-defined, unambiguous standard.
+  datetime_format: "iso8601"
 
-  # The hash policy defines the algorithm and other parameters for generating data integrity hashes.
-  hashing:
-    algorithm: "sha256"
-    # Fields to exclude from any hash calculation. These fields are non-deterministic by nature.
-    exclude_fields:
-      - "generated_at"
-      - "run_id"
+  # The version of the hashing policy. Increment this version if you change any
+  # of the above settings (algorithm, precision, etc.) to signal that hashes
+  # are not comparable to those generated with a previous version.
+  hash_policy_version: "1.0.0"
 
-  # Environment settings to prevent inconsistencies across different machines.
-  environment:
-    # All date and time operations must be performed in UTC.
-    timezone: "UTC"
-    # Use the 'C' locale to ensure consistent string sorting and formatting behavior.
-    locale: "C"
+  # A list of column name suffixes to ignore during column order validation.
+  # This is useful for excluding dynamically generated or metadata columns from
+  # strict ordering checks.
+  column_validation_ignore_suffixes:
+    - "_scd"
+    - "_temp"
+    - "_meta"
+    - "_tmp"
 
-  # Write settings control how the final artifacts are materialized.
-  write:
-    # Ensures that files are written to a temporary location and moved only upon success,
-    # preventing partial or corrupt outputs.
-    strategy: "atomic"
+  # --- Default Sorting Configuration ---
+  # Defines a default sort order to be applied before materialization.
+  # Pipeline-specific `sort` configurations will override this.
+  # It is best practice to define a stable sort key in the pipeline config's
+  # `write` block, but this serves as a fallback.
+  sort:
+    # A list of column names to sort by.
+    # by:
+    #   - "business_key"
+    #   - "timestamp"
 
-  # Metadata settings control the content and location of the meta.yaml file.
-  meta:
-    # The meta.yaml file must be saved in the same directory as the primary dataset artifact.
-    location: "sibling"
-    # Fields to include in the metadata file. An empty list implies all available fields are included.
-    include_fields: []
-    # Fields to explicitly exclude from the metadata file.
-    exclude_fields: []
+    # A list of booleans indicating the sort direction for each corresponding column.
+    # `true` for ascending, `false` for descending.
+    # ascending:
+    #   - true
+    #   - false
+    by: []
+    ascending: []
+
+  # --- Default Column Order ---
+  # A list of column names defining a canonical order for output files.
+  # If the pipeline's `validate` block has `enforce_column_order: true`, this
+  # order will be enforced.
+  # Pipeline-specific `column_order` will override this.
+  column_order: []

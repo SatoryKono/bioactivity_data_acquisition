@@ -1,0 +1,57 @@
+site_name: Bioactivity Data Acquisition
+site_description: "Documentation for the ChEMBL ETL and QA toolchain"
+docs_dir: docs
+nav:
+  - Overview: INDEX.md
+  - Architecture:
+      - Architecture Overview: architecture/00-architecture-overview.md
+      - Logging System: architecture/01-logging-system.md
+      - IO System: architecture/02-io-system.md
+      - Data Sources & Specs: architecture/03-data-sources-and-spec.md
+      - Normalisation & Validation: architecture/04-normalization-validation.md
+      - Configuration Standard: architecture/10-configuration.md
+      - Validation Rules: architecture/VALIDATION_RULES.md
+      - Runtime Assets: architecture/runtime-assets.md
+      - Technical Specification: architecture/99-final-tech-spec.md
+      - Refactoring Hub:
+          - Summary: architecture/refactoring/README.md
+          - Audit Plan 2025: architecture/refactoring/AUDIT_PLAN_REPORT_2025.md
+          - Audit Report 2025: architecture/refactoring/AUDIT_REPORT_2025.md
+          - PubChem Migration: architecture/refactoring/PUBCHEM_MIGRATION_PLAN.md
+  - Pipelines:
+      - Pipeline Catalog: pipelines/PIPELINES.md
+      - Data Extraction Blueprint: pipelines/03-data-extraction.md
+      - Assay Pipeline: pipelines/05-assay-extraction.md
+      - Activity Pipeline: pipelines/06-activity-data-extraction.md
+      - Test Item Pipeline: pipelines/07a-testitem-extraction.md
+      - Target Pipeline: pipelines/08-target-data-extraction.md
+      - Document Pipeline: pipelines/09-document-chembl-extraction.md
+      - Inventory CSV: pipelines/PIPELINES.inventory.csv
+      - Inventory Clusters: pipelines/PIPELINES.inventory.clusters.md
+      - Migration Guides:
+          - Activity v2→v3: pipelines/migration-guides/v3.0-activity-batch-ids.md
+      - Source Handbooks:
+          - ChEMBL: pipelines/sources/chembl/README.md
+          - CrossRef: pipelines/sources/crossref/README.md
+          - OpenAlex: pipelines/sources/openalex/README.md
+          - PubMed: pipelines/sources/pubmed/README.md
+          - Semantic Scholar: pipelines/sources/semantic_scholar/README.md
+          - UniProt: pipelines/sources/uniprot/README.md
+          - IUPHAR: pipelines/sources/iuphar/README.md
+  - CLI & Tooling:
+      - CLI Reference: cli/CLI.md
+      - Commands: COMMANDS.md
+      - Prompts:
+          - Golden Run Checklist: cli/prompts/bit-identical-check.md
+          - Property-Based Tests: cli/prompts/property-based-tests.md
+          - PubMed Pagination Prompt: cli/prompts/pubmed-pagination-merge-schema.md
+          - Crossref Pagination Prompt: cli/prompts/crossref-pagination-merge-schema.md
+          - OpenAlex Pagination Prompt: cli/prompts/openalex-pagination-merge-schema.md
+          - Semantic Scholar Pagination Prompt: cli/prompts/semantic-scholar-pagination-merge-schema.md
+          - Test Structure Consistency: cli/prompts/test-structure-consistency.md
+  - QA & Operations:
+      - QA Dashboard: qc/QA_QC.md
+      - Test Plan: test-plan.md
+      - Implementation Examples: implementation-examples.md
+      - Progress Summary: PROGRESS_SUMMARY.md
+      - Completed Implementation: COMPLETED_IMPLEMENTATION.md

@@ -1,0 +1,1342 @@
+{
+  "metadata": {
+    "total_modules": 51,
+    "pipelines_count": 20,
+    "cli_commands_count": 14,
+    "scripts_count": 17
+  },
+  "modules": {
+    "bioetl.pipelines.__init__": {
+      "path": "src\\bioetl\\pipelines\\__init__.py",
+      "size_bytes": 2892,
+      "size_lines": 73,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.pipelines.chembl_activity.ActivityPipeline",
+        "bioetl.pipelines.chembl_assay.AssayPipeline",
+        "bioetl.pipelines.chembl_document.DocumentPipeline",
+        "bioetl.pipelines.chembl_target.TargetPipeline",
+        "bioetl.pipelines.chembl_testitem.TestItemPipeline",
+        "bioetl.sources.crossref.pipeline.CrossrefPipeline",
+        "bioetl.sources.iuphar.pipeline.GtpIupharPipeline",
+        "bioetl.sources.openalex.pipeline.OpenAlexPipeline",
+        "bioetl.sources.pubmed.pipeline.PubMedPipeline",
+        "bioetl.sources.semantic_scholar.pipeline.SemanticScholarPipeline",
+        "bioetl.sources.uniprot.pipeline.UniProtPipeline",
+        "importlib.import_module",
+        "typing.Any",
+        "typing.TYPE_CHECKING"
+      ],
+      "functions": [
+        "__getattr__",
+        "__dir__"
+      ],
+      "classes": [],
+      "import_count": 16,
+      "function_count": 2,
+      "class_count": 0
+    },
+    "bioetl.pipelines.activity": {
+      "path": "src\\bioetl\\pipelines\\activity.py",
+      "size_bytes": 155,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.pipelines.chembl_activity.ActivityPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.assay": {
+      "path": "src\\bioetl\\pipelines\\assay.py",
+      "size_bytes": 143,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.pipelines.chembl_assay.AssayPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.base": {
+      "path": "src\\bioetl\\pipelines\\base.py",
+      "size_bytes": 49629,
+      "size_lines": 1314,
+      "imports": [
+        "__future__.annotations",
+        "abc",
+        "abc.ABC",
+        "abc.abstractmethod",
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.api_client.UnifiedAPIClient",
+        "bioetl.core.chembl.ChemblClientContext",
+        "bioetl.core.chembl.build_chembl_client_context",
+        "bioetl.core.chembl.create_chembl_client",
+        "bioetl.core.chembl.create_pipeline_output_writer",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.core.output_writer.AdditionalTableSpec",
+        "bioetl.core.output_writer.OutputArtifacts",
+        "bioetl.core.output_writer.OutputMetadata",
+        "bioetl.core.unified_schema.get_schema",
+        "bioetl.core.unified_schema.get_schema_metadata",
+        "bioetl.pandera_pandas.DataFrameModel",
+        "bioetl.schemas.base.BaseSchema",
+        "bioetl.schemas.registry.SchemaRegistry",
+        "bioetl.utils.chembl.ChemblRelease",
+        "bioetl.utils.chembl.SupportsRequestJson",
+        "bioetl.utils.chembl.fetch_chembl_release",
+        "bioetl.utils.chembl.resolve_release_name",
+        "bioetl.utils.dataframe.resolve_schema_column_order",
+        "bioetl.utils.io.load_input_frame",
+        "bioetl.utils.io.resolve_input_path",
+        "bioetl.utils.output.finalize_output_dataset",
+        "bioetl.utils.qc.update_summary_metrics",
+        "bioetl.utils.qc.update_summary_section",
+        "bioetl.utils.qc.update_validation_issue_summary",
+        "bioetl.utils.validation.summarize_schema_errors",
+        "collections.abc.Callable",
+        "collections.abc.Iterable",
+        "collections.abc.Mapping",
+        "collections.abc.Sequence",
+        "dataclasses.dataclass",
+        "dataclasses.replace",
+        "datetime.datetime",
+        "pandas",
+        "pathlib.Path",
+        "time.perf_counter",
+        "typing.Any",
+        "typing.cast"
+      ],
+      "functions": [
+        "should_run",
+        "execute",
+        "__init__",
+        "register",
+        "get",
+        "__init__",
+        "init_chembl_client",
+        "record_validation_issue",
+        "reset_stage_context",
+        "_record_stage_duration",
+        "_build_pii_secrets_policy",
+        "reset_run_state",
+        "get_stage_summary",
+        "read_input_table",
+        "_fetch_chembl_release_info",
+        "set_stage_summary",
+        "add_qc_summary_section",
+        "add_qc_summary_sections",
+        "set_qc_metrics",
+        "refresh_validation_issue_summary",
+        "set_export_metadata",
+        "set_export_metadata_from_dataframe",
+        "finalize_with_standard_metadata",
+        "execute_enrichment_stages",
+        "_resolve_pii_policy",
+        "get_runtime_limit",
+        "_severity_value",
+        "_should_fail",
+        "run_schema_validation",
+        "_validate_with_schema",
+        "extract",
+        "transform",
+        "validate",
+        "export",
+        "add_additional_table",
+        "remove_additional_table",
+        "reset_additional_tables",
+        "register_client",
+        "_close_resource",
+        "close_resources",
+        "close",
+        "_should_emit_debug_artifacts",
+        "_dump_debug_output",
+        "run",
+        "_handle_schema_failure",
+        "_close_client"
+      ],
+      "classes": [
+        "EnrichmentStage",
+        "EnrichmentStageRegistry",
+        "PipelineBase"
+      ],
+      "import_count": 43,
+      "function_count": 46,
+      "class_count": 3
+    },
+    "bioetl.pipelines.chembl.__init__": {
+      "path": "src\\bioetl\\pipelines\\chembl\\__init__.py",
+      "size_bytes": 520,
+      "size_lines": 15,
+      "imports": [
+        "bioetl.pipelines.chembl.chembl_activity.ActivityPipeline",
+        "bioetl.pipelines.chembl.chembl_assay.AssayPipeline",
+        "bioetl.pipelines.chembl.chembl_document.DocumentPipeline",
+        "bioetl.pipelines.chembl.chembl_target.TargetPipeline",
+        "bioetl.pipelines.chembl.chembl_testitem.TestItemPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.chembl.chembl_document": {
+      "path": "src\\bioetl\\pipelines\\chembl\\chembl_document.py",
+      "size_bytes": 1050,
+      "size_lines": 33,
+      "imports": [
+        "bioetl.config.PipelineConfig",
+        "bioetl.sources.chembl.document.pipeline.DocumentPipeline",
+        "dataclasses.replace",
+        "pathlib.Path",
+        "typing.Any"
+      ],
+      "functions": [
+        "__init__"
+      ],
+      "classes": [
+        "DocumentPipeline"
+      ],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl.chembl_target": {
+      "path": "src\\bioetl\\pipelines\\chembl\\chembl_target.py",
+      "size_bytes": 1546,
+      "size_lines": 45,
+      "imports": [
+        "bioetl.config.PipelineConfig",
+        "bioetl.sources.chembl.target.pipeline.TargetPipeline",
+        "pathlib.Path",
+        "typing.Any"
+      ],
+      "functions": [
+        "__init__"
+      ],
+      "classes": [
+        "TargetPipeline"
+      ],
+      "import_count": 4,
+      "function_count": 1,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl.chembl_testitem": {
+      "path": "src\\bioetl\\pipelines\\chembl\\chembl_testitem.py",
+      "size_bytes": 947,
+      "size_lines": 29,
+      "imports": [
+        "bioetl.config.PipelineConfig",
+        "bioetl.sources.chembl.testitem.pipeline.TestItemPipeline",
+        "bioetl.sources.pubchem.normalizer.pubchem_normalizer.PubChemNormalizer",
+        "pathlib.Path",
+        "typing.Any"
+      ],
+      "functions": [
+        "_init_external_adapters"
+      ],
+      "classes": [
+        "TestItemPipeline"
+      ],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl_activity": {
+      "path": "src\\bioetl\\pipelines\\chembl_activity.py",
+      "size_bytes": 25979,
+      "size_lines": 644,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.clients.chembl_activity.ActivityChEMBLClient",
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.schemas.chembl_activity.ActivitySchema",
+        "bioetl.schemas.input_schemas.ActivityInputSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.activity.output.activity_output.ActivityOutputWriter",
+        "bioetl.sources.chembl.activity.parser.activity_parser.ACTIVITY_FALLBACK_BUSINESS_COLUMNS",
+        "bioetl.sources.chembl.activity.parser.activity_parser.ActivityParser",
+        "bioetl.sources.chembl.activity.request.activity_request.ActivityRequestBuilder",
+        "bioetl.transform.adapters.chembl_activity.ActivityNormalizer",
+        "bioetl.utils.chembl.SupportsRequestJson",
+        "bioetl.utils.dataframe.resolve_schema_column_order",
+        "bioetl.utils.dtypes.coerce_nullable_float",
+        "bioetl.utils.dtypes.coerce_nullable_int",
+        "bioetl.utils.dtypes.coerce_retry_after",
+        "bioetl.utils.fallback.FallbackRecordBuilder",
+        "bioetl.utils.fallback.build_fallback_payload",
+        "collections.abc.Mapping",
+        "datetime.datetime",
+        "datetime.timezone",
+        "functools.lru_cache",
+        "numpy",
+        "pandas",
+        "pathlib.Path",
+        "typing.Any"
+      ],
+      "functions": [
+        "_get_activity_column_order",
+        "__init__",
+        "extract",
+        "_create_fallback_record",
+        "_get_chembl_release",
+        "transform",
+        "validate",
+        "close_resources",
+        "last_validation_report",
+        "_calculate_qc_metrics",
+        "_handle_schema_failure",
+        "_handle_schema_success",
+        "_coerce_threshold"
+      ],
+      "classes": [
+        "ActivityPipeline"
+      ],
+      "import_count": 28,
+      "function_count": 13,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl_assay": {
+      "path": "src\\bioetl\\pipelines\\chembl_assay.py",
+      "size_bytes": 25379,
+      "size_lines": 635,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.clients.chembl_assay.AssayChEMBLClient",
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.api_client.CircuitBreakerOpenError",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.normalizers.registry",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.schemas.chembl_assay.AssaySchema",
+        "bioetl.schemas.input_schemas.AssayInputSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.assay.constants.ASSAY_CLASS_ENRICHMENT_WHITELIST",
+        "bioetl.sources.chembl.assay.constants.NULLABLE_INT_COLUMNS",
+        "bioetl.sources.chembl.assay.constants.TARGET_ENRICHMENT_WHITELIST",
+        "bioetl.sources.chembl.assay.merge.AssayMergeService",
+        "bioetl.sources.chembl.assay.output.AssayOutputWriter",
+        "bioetl.sources.chembl.assay.parser.AssayParser",
+        "bioetl.sources.chembl.assay.request.AssayRequestBuilder",
+        "bioetl.transform.adapters.chembl_assay.AssayNormalizer",
+        "bioetl.utils.dataframe.resolve_schema_column_order",
+        "bioetl.utils.dtypes.coerce_nullable_int",
+        "bioetl.utils.dtypes.coerce_retry_after",
+        "collections.abc.Iterable",
+        "datetime.datetime",
+        "datetime.timezone",
+        "pandas",
+        "pathlib.Path",
+        "subprocess",
+        "typing.Any",
+        "typing.cast"
+      ],
+      "functions": [
+        "__init__",
+        "close_resources",
+        "_resolve_git_commit",
+        "_initialize_status",
+        "_make_cache_key",
+        "_update_fetch_metrics",
+        "extract",
+        "_fetch_assay_data",
+        "_expand_assay_parameters_long",
+        "_expand_assay_classifications",
+        "_fetch_target_reference_data",
+        "_fetch_assay_class_reference_data",
+        "transform",
+        "validate",
+        "_load_target_reference_ids",
+        "_check_referential_integrity",
+        "_assay_error_adapter",
+        "_normalize_target_id",
+        "_normalize_target_id",
+        "_normalize_assay_description",
+        "_normalize_assay_type"
+      ],
+      "classes": [
+        "AssayPipeline"
+      ],
+      "import_count": 29,
+      "function_count": 21,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl_document": {
+      "path": "src\\bioetl\\pipelines\\chembl_document.py",
+      "size_bytes": 40273,
+      "size_lines": 1103,
+      "imports": [
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.api_client.CircuitBreakerOpenError",
+        "bioetl.core.api_client.UnifiedAPIClient",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.pandera_pandas.DataFrameModel",
+        "bioetl.pipelines.base.EnrichmentStage",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.pipelines.base.enrichment_stage_registry",
+        "bioetl.schemas.chembl_document.DocumentNormalizedSchema",
+        "bioetl.schemas.chembl_document.DocumentRawSchema",
+        "bioetl.schemas.chembl_document.DocumentSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.document.client.DocumentChEMBLClient",
+        "bioetl.sources.chembl.document.client.DocumentFetchCallbacks",
+        "bioetl.sources.chembl.document.merge.merge_enrichment_results",
+        "bioetl.sources.chembl.document.normalizer.normalize_document_frame",
+        "bioetl.sources.chembl.document.output.append_qc_sections",
+        "bioetl.sources.chembl.document.output.persist_rejected_inputs",
+        "bioetl.sources.chembl.document.parser.prepare_document_input_ids",
+        "bioetl.sources.chembl.document.request.build_adapter_configs",
+        "bioetl.sources.chembl.document.request.collect_enrichment_metrics",
+        "bioetl.sources.chembl.document.request.init_external_adapters",
+        "bioetl.sources.chembl.document.request.run_enrichment_requests",
+        "bioetl.sources.chembl.document.schema.build_document_fallback_row",
+        "bioetl.sources.crossref.pipeline.CROSSREF_ADAPTER_DEFINITION",
+        "bioetl.sources.document.merge.policy.merge_with_precedence",
+        "bioetl.sources.document.pipeline.AdapterDefinition",
+        "bioetl.sources.document.pipeline.ExternalEnrichmentResult",
+        "bioetl.sources.openalex.pipeline.OPENALEX_ADAPTER_DEFINITION",
+        "bioetl.sources.pubmed.pipeline.PUBMED_ADAPTER_DEFINITION",
+        "bioetl.sources.semantic_scholar.pipeline.SEMANTIC_SCHOLAR_ADAPTER_DEFINITION",
+        "bioetl.utils.chembl.SupportsRequestJson",
+        "bioetl.utils.chembl.resolve_release_name",
+        "bioetl.utils.dtypes.coerce_retry_after",
+        "bioetl.utils.qc.compute_field_coverage",
+        "bioetl.utils.qc.duplicate_summary",
+        "collections.abc.Sequence",
+        "dataclasses.MISSING",
+        "numbers.Real",
+        "pandas",
+        "pandera.errors",
+        "pathlib.Path",
+        "requests",
+        "typing.Any",
+        "typing.cast"
+      ],
+      "functions": [
+        "_document_should_run_pubmed",
+        "_document_run_pubmed_stage",
+        "_register_document_enrichment_stages",
+        "__init__",
+        "extract",
+        "_sync_mode_runtime",
+        "_prepare_enrichment_adapters",
+        "_release_external_adapters",
+        "_resolve_mode",
+        "close_resources",
+        "_build_adapter_configs",
+        "_enrich_with_external_sources",
+        "_prepare_input_ids",
+        "_persist_rejected_inputs",
+        "_validate_raw_dataframe",
+        "_fetch_documents",
+        "_classify_error",
+        "_create_fallback_row",
+        "_get_chembl_release",
+        "transform",
+        "_enforce_schema_dtypes",
+        "validate",
+        "_compute_qc_metrics",
+        "_coerce_threshold_value",
+        "_enforce_qc_thresholds",
+        "_update_qc_summary",
+        "_coverage"
+      ],
+      "classes": [
+        "DocumentPipeline"
+      ],
+      "import_count": 45,
+      "function_count": 27,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl_target": {
+      "path": "src\\bioetl\\pipelines\\chembl_target.py",
+      "size_bytes": 35504,
+      "size_lines": 979,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.normalizers.registry",
+        "bioetl.pipelines.base.EnrichmentStage",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.pipelines.base.enrichment_stage_registry",
+        "bioetl.schemas.chembl_target.ProteinClassSchema",
+        "bioetl.schemas.chembl_target.TargetComponentSchema",
+        "bioetl.schemas.chembl_target.TargetSchema",
+        "bioetl.schemas.chembl_target.XrefSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.target.client.TargetClientManager",
+        "bioetl.sources.chembl.target.merge.build_gold_outputs",
+        "bioetl.sources.chembl.target.normalizer.MissingMappingRecorder",
+        "bioetl.sources.chembl.target.normalizer.TargetEnricher",
+        "bioetl.sources.chembl.target.output.TargetOutputService",
+        "bioetl.sources.chembl.target.request.IupharRequestBuilder",
+        "bioetl.sources.iuphar.pagination.PageNumberPaginator",
+        "bioetl.sources.iuphar.service.IupharService",
+        "bioetl.sources.iuphar.service.IupharServiceConfig",
+        "bioetl.sources.uniprot.client.UniProtIdMappingClient",
+        "bioetl.sources.uniprot.client.UniProtOrthologsClient",
+        "bioetl.sources.uniprot.client.UniProtSearchClient",
+        "bioetl.utils.qc.prepare_missing_mappings",
+        "bioetl.utils.qc.update_summary_metrics",
+        "bioetl.utils.qc.update_summary_section",
+        "bioetl.utils.qc.update_validation_issue_summary",
+        "importlib.util",
+        "pandas",
+        "pathlib.Path",
+        "sys",
+        "typing.Any"
+      ],
+      "functions": [
+        "_target_should_run_uniprot",
+        "_target_run_uniprot_stage",
+        "_target_should_run_iuphar",
+        "_target_run_iuphar_stage",
+        "_register_target_enrichment_stages",
+        "__init__",
+        "close_resources",
+        "_record_missing_mapping",
+        "_get_chembl_release",
+        "extract",
+        "transform",
+        "validate",
+        "enrich_uniprot",
+        "enrich_iuphar",
+        "_fetch_iuphar_collection",
+        "_build_family_hierarchy",
+        "_normalize_iuphar_name",
+        "_candidate_names_from_row",
+        "_fallback_classification_record",
+        "_select_best_classification",
+        "materialize_silver",
+        "materialize_iuphar",
+        "_materialize_gold_outputs",
+        "_resolve_materialization_format",
+        "evaluate_iuphar_qc",
+        "_evaluate_enrichment_thresholds",
+        "_update_qc_summary"
+      ],
+      "classes": [
+        "TargetPipeline"
+      ],
+      "import_count": 33,
+      "function_count": 27,
+      "class_count": 1
+    },
+    "bioetl.pipelines.chembl_testitem": {
+      "path": "src\\bioetl\\pipelines\\chembl_testitem.py",
+      "size_bytes": 32885,
+      "size_lines": 911,
+      "imports": [
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.normalizers.registry",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.schemas.chembl_testitem.TestItemSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.testitem.client.TestItemChEMBLClient",
+        "bioetl.sources.chembl.testitem.normalizer.coerce_boolean_and_integer_columns",
+        "bioetl.sources.chembl.testitem.normalizer.normalize_smiles_columns",
+        "bioetl.sources.chembl.testitem.output.build_duplicate_summary",
+        "bioetl.sources.chembl.testitem.output.calculate_fallback_stats",
+        "bioetl.sources.chembl.testitem.parser.TestItemParser",
+        "bioetl.sources.chembl.testitem.request.TestItemRequestBuilder",
+        "bioetl.sources.pubchem.client.pubchem_client.PubChemClient",
+        "bioetl.sources.pubchem.normalizer.pubchem_normalizer.PubChemNormalizer",
+        "bioetl.utils.chembl.SupportsRequestJson",
+        "bioetl.utils.dtypes.coerce_retry_after",
+        "bioetl.utils.fallback.FallbackRecordBuilder",
+        "bioetl.utils.qc.update_summary_metrics",
+        "bioetl.utils.qc.update_summary_section",
+        "bioetl.utils.qc.update_validation_issue_summary",
+        "collections.abc.Hashable",
+        "pandas",
+        "pathlib.Path",
+        "re",
+        "typing.Any",
+        "typing.cast"
+      ],
+      "functions": [
+        "_extract_boolean_columns",
+        "_expected_columns",
+        "__init__",
+        "extract",
+        "_fetch_molecule_data",
+        "_get_chembl_release",
+        "transform",
+        "_init_external_adapters",
+        "close_resources",
+        "_enrich_with_pubchem",
+        "validate",
+        "_calculate_qc_metrics",
+        "_check_referential_integrity",
+        "_validate_identifier_formats",
+        "_testitem_error_adapter",
+        "_refresh_qc_summary"
+      ],
+      "classes": [
+        "TestItemPipeline"
+      ],
+      "import_count": 27,
+      "function_count": 16,
+      "class_count": 1
+    },
+    "bioetl.pipelines.document": {
+      "path": "src\\bioetl\\pipelines\\document.py",
+      "size_bytes": 155,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.pipelines.chembl_document.DocumentPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.document_enrichment": {
+      "path": "src\\bioetl\\pipelines\\document_enrichment.py",
+      "size_bytes": 315,
+      "size_lines": 15,
+      "imports": [
+        "bioetl.sources.document.merge.policy.CASTERS",
+        "bioetl.sources.document.merge.policy.FIELD_PRECEDENCE",
+        "bioetl.sources.document.merge.policy.detect_conflicts",
+        "bioetl.sources.document.merge.policy.merge_with_precedence"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.external_source": {
+      "path": "src\\bioetl\\pipelines\\external_source.py",
+      "size_bytes": 15558,
+      "size_lines": 409,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.config.PipelineConfig",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.pandera_pandas.DataFrameModel",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.schemas.base.BaseSchema",
+        "bioetl.schemas.registry.schema_registry",
+        "bioetl.sources.chembl.document.request.external.build_adapter_configs",
+        "bioetl.sources.document.pipeline.AdapterDefinition",
+        "bioetl.utils.output.finalize_output_dataset",
+        "bioetl.utils.qc.update_summary_metrics",
+        "bioetl.utils.qc.update_summary_section",
+        "collections.abc.Mapping",
+        "dataclasses.dataclass",
+        "pandas",
+        "pathlib.Path",
+        "typing.Any",
+        "typing.ClassVar",
+        "typing.TYPE_CHECKING",
+        "typing.cast"
+      ],
+      "functions": [
+        "__init__",
+        "_initialise_adapter",
+        "extract",
+        "transform",
+        "validate",
+        "close_resources",
+        "_build_identifier_payload",
+        "_collect_identifiers",
+        "_ensure_data_columns",
+        "_schema_data_columns",
+        "_schema_columns",
+        "_resolve_match_count",
+        "_update_metrics",
+        "_resolve_coverage_threshold",
+        "_finalize_dataset",
+        "_ensure_schema_columns",
+        "_empty_dataframe",
+        "_ensure_schema_registered"
+      ],
+      "classes": [
+        "IdentifierPayload",
+        "ExternalSourcePipeline"
+      ],
+      "import_count": 20,
+      "function_count": 18,
+      "class_count": 2
+    },
+    "bioetl.pipelines.registry": {
+      "path": "src\\bioetl\\pipelines\\registry.py",
+      "size_bytes": 1992,
+      "size_lines": 53,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.pipelines.base.PipelineBase",
+        "bioetl.pipelines.chembl_activity.ActivityPipeline",
+        "bioetl.pipelines.chembl_assay.AssayPipeline",
+        "bioetl.pipelines.chembl_document.DocumentPipeline",
+        "bioetl.pipelines.chembl_target.TargetPipeline",
+        "bioetl.pipelines.chembl_testitem.TestItemPipeline",
+        "bioetl.sources.crossref.pipeline.CrossrefPipeline",
+        "bioetl.sources.iuphar.pipeline.GtpIupharPipeline",
+        "bioetl.sources.openalex.pipeline.OpenAlexPipeline",
+        "bioetl.sources.pubchem.pipeline.PubChemPipeline",
+        "bioetl.sources.pubmed.pipeline.PubMedPipeline",
+        "bioetl.sources.semantic_scholar.pipeline.SemanticScholarPipeline",
+        "bioetl.sources.uniprot.pipeline.UniProtPipeline",
+        "collections.abc.Mapping",
+        "typing.Type"
+      ],
+      "functions": [
+        "get_pipeline",
+        "iter_pipelines"
+      ],
+      "classes": [],
+      "import_count": 16,
+      "function_count": 2,
+      "class_count": 0
+    },
+    "bioetl.pipelines.target": {
+      "path": "src\\bioetl\\pipelines\\target.py",
+      "size_bytes": 147,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.pipelines.chembl_target.TargetPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.pipelines.target_gold": {
+      "path": "src\\bioetl\\pipelines\\target_gold.py",
+      "size_bytes": 18492,
+      "size_lines": 509,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.config.models.MaterializationPaths",
+        "bioetl.core.logger.UnifiedLogger",
+        "bioetl.core.materialization.MaterializationManager",
+        "collections.abc.Iterator",
+        "collections.abc.Mapping",
+        "collections.abc.Sequence",
+        "dataclasses.dataclass",
+        "json",
+        "numpy",
+        "pandas",
+        "pathlib.Path",
+        "typing.Any",
+        "typing.cast"
+      ],
+      "functions": [
+        "_normalise_value",
+        "split_accession_field",
+        "coalesce_by_priority",
+        "_component_id_generator",
+        "_resolve_target_lookup",
+        "merge_components",
+        "expand_xrefs",
+        "annotate_source_rank",
+        "materialize_gold",
+        "aggregate_targets",
+        "normalize_column",
+        "generator",
+        "generator",
+        "map_value",
+        "resolve_source"
+      ],
+      "classes": [
+        "MergeComponentsConfig"
+      ],
+      "import_count": 14,
+      "function_count": 15,
+      "class_count": 1
+    },
+    "bioetl.pipelines.testitem": {
+      "path": "src\\bioetl\\pipelines\\testitem.py",
+      "size_bytes": 156,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.pipelines.chembl_testitem.TestItemPipeline"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.__init__": {
+      "path": "src\\bioetl\\cli\\commands\\__init__.py",
+      "size_bytes": 84,
+      "size_lines": 3,
+      "imports": [],
+      "functions": [],
+      "classes": [],
+      "import_count": 0,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.chembl_activity": {
+      "path": "src\\bioetl\\cli\\commands\\chembl_activity.py",
+      "size_bytes": 1076,
+      "size_lines": 32,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.pipelines.chembl_activity.ActivityPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.chembl_assay": {
+      "path": "src\\bioetl\\cli\\commands\\chembl_assay.py",
+      "size_bytes": 1046,
+      "size_lines": 32,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.pipelines.chembl_assay.AssayPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.chembl_document": {
+      "path": "src\\bioetl\\cli\\commands\\chembl_document.py",
+      "size_bytes": 1188,
+      "size_lines": 35,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.pipelines.chembl_document.DocumentPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.chembl_target": {
+      "path": "src\\bioetl\\cli\\commands\\chembl_target.py",
+      "size_bytes": 1106,
+      "size_lines": 33,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.pipelines.chembl_target.TargetPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.chembl_testitem": {
+      "path": "src\\bioetl\\cli\\commands\\chembl_testitem.py",
+      "size_bytes": 1084,
+      "size_lines": 32,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.pipelines.chembl_testitem.TestItemPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.crossref": {
+      "path": "src\\bioetl\\cli\\commands\\crossref.py",
+      "size_bytes": 807,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.crossref.pipeline.CrossrefPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.gtp_iuphar": {
+      "path": "src\\bioetl\\cli\\commands\\gtp_iuphar.py",
+      "size_bytes": 975,
+      "size_lines": 31,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.iuphar.pipeline.GtpIupharPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.iuphar_target": {
+      "path": "src\\bioetl\\cli\\commands\\iuphar_target.py",
+      "size_bytes": 161,
+      "size_lines": 5,
+      "imports": [
+        "bioetl.cli.commands.gtp_iuphar.build_command_config"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.openalex": {
+      "path": "src\\bioetl\\cli\\commands\\openalex.py",
+      "size_bytes": 807,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.openalex.pipeline.OpenAlexPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.pubchem_molecule": {
+      "path": "src\\bioetl\\cli\\commands\\pubchem_molecule.py",
+      "size_bytes": 833,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.pubchem.pipeline.PubChemPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.pubmed": {
+      "path": "src\\bioetl\\cli\\commands\\pubmed.py",
+      "size_bytes": 794,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.pubmed.pipeline.PubMedPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.semantic_scholar": {
+      "path": "src\\bioetl\\cli\\commands\\semantic_scholar.py",
+      "size_bytes": 877,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.semantic_scholar.pipeline.SemanticScholarPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "bioetl.cli.commands.uniprot_protein": {
+      "path": "src\\bioetl\\cli\\commands\\uniprot_protein.py",
+      "size_bytes": 807,
+      "size_lines": 25,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.PipelineCommandConfig",
+        "bioetl.config.paths.get_config_path",
+        "bioetl.sources.uniprot.pipeline.UniProtPipeline",
+        "pathlib.Path"
+      ],
+      "functions": [
+        "build_command_config"
+      ],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 1,
+      "class_count": 0
+    },
+    "scripts.__init__": {
+      "path": "src\\scripts\\__init__.py",
+      "size_bytes": 417,
+      "size_lines": 17,
+      "imports": [
+        "bioetl.cli.app.PIPELINE_COMMAND_REGISTRY",
+        "bioetl.cli.app.PIPELINE_REGISTRY",
+        "bioetl.cli.app.create_pipeline_app",
+        "bioetl.cli.app.get_pipeline_command_config",
+        "bioetl.cli.app.register_pipeline_command"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 5,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.generate_pipeline_metrics": {
+      "path": "src\\scripts\\generate_pipeline_metrics.py",
+      "size_bytes": 14251,
+      "size_lines": 419,
+      "imports": [
+        "__future__.annotations",
+        "csv",
+        "dataclasses.dataclass",
+        "datetime.datetime",
+        "datetime.timezone",
+        "os",
+        "pathlib.Path",
+        "re",
+        "subprocess",
+        "time",
+        "typer",
+        "typing.Callable",
+        "typing.Iterable",
+        "typing.Sequence",
+        "xml.etree.ElementTree"
+      ],
+      "functions": [
+        "load_inventory",
+        "filter_records",
+        "compute_metrics",
+        "aggregate_metrics",
+        "calculate_pandera_ratio",
+        "format_number",
+        "format_delta",
+        "format_percentage",
+        "parse_baseline_test_time",
+        "run_tests",
+        "parse_junit_duration",
+        "build_markdown",
+        "main",
+        "has_pandera_reference"
+      ],
+      "classes": [
+        "InventoryRow",
+        "Metrics",
+        "Category"
+      ],
+      "import_count": 15,
+      "function_count": 14,
+      "class_count": 3
+    },
+    "scripts.run_chembl_activity": {
+      "path": "src\\scripts\\run_chembl_activity.py",
+      "size_bytes": 339,
+      "size_lines": 15,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 2,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_chembl_assay": {
+      "path": "src\\scripts\\run_chembl_assay.py",
+      "size_bytes": 327,
+      "size_lines": 15,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 2,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_chembl_document": {
+      "path": "src\\scripts\\run_chembl_document.py",
+      "size_bytes": 336,
+      "size_lines": 15,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 2,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_chembl_target": {
+      "path": "src\\scripts\\run_chembl_target.py",
+      "size_bytes": 328,
+      "size_lines": 15,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 2,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_chembl_testitem": {
+      "path": "src\\scripts\\run_chembl_testitem.py",
+      "size_bytes": 337,
+      "size_lines": 15,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 2,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_crossref": {
+      "path": "src\\scripts\\run_crossref.py",
+      "size_bytes": 412,
+      "size_lines": 16,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.create_pipeline_command",
+        "bioetl.cli.commands.crossref.build_command_config",
+        "typer"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_fix_markdown": {
+      "path": "src\\scripts\\run_fix_markdown.py",
+      "size_bytes": 7783,
+      "size_lines": 246,
+      "imports": [
+        "__future__.annotations",
+        "io",
+        "os",
+        "pathlib.Path",
+        "re",
+        "sys"
+      ],
+      "functions": [
+        "_is_atx_heading",
+        "_is_list_item",
+        "_atomic_write_text",
+        "fix_markdown_file",
+        "main"
+      ],
+      "classes": [],
+      "import_count": 6,
+      "function_count": 5,
+      "class_count": 0
+    },
+    "scripts.run_gtp_iuphar": {
+      "path": "src\\scripts\\run_gtp_iuphar.py",
+      "size_bytes": 308,
+      "size_lines": 13,
+      "imports": [
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_inventory": {
+      "path": "src\\scripts\\run_inventory.py",
+      "size_bytes": 4000,
+      "size_lines": 132,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.inventory.InventoryConfig",
+        "bioetl.inventory.InventoryRecord",
+        "bioetl.inventory.analyse_clusters",
+        "bioetl.inventory.collect_inventory",
+        "bioetl.inventory.load_inventory_config",
+        "csv",
+        "datetime.datetime",
+        "datetime.timezone",
+        "io",
+        "pathlib.Path",
+        "sys",
+        "typer",
+        "typing.Sequence"
+      ],
+      "functions": [
+        "_ensure_up_to_date",
+        "_write_file",
+        "_render_csv",
+        "_render_cluster_report",
+        "main"
+      ],
+      "classes": [],
+      "import_count": 14,
+      "function_count": 5,
+      "class_count": 0
+    },
+    "scripts.run_openalex": {
+      "path": "src\\scripts\\run_openalex.py",
+      "size_bytes": 412,
+      "size_lines": 16,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.create_pipeline_command",
+        "bioetl.cli.commands.openalex.build_command_config",
+        "typer"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_pubchem": {
+      "path": "src\\scripts\\run_pubchem.py",
+      "size_bytes": 418,
+      "size_lines": 16,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.create_pipeline_command",
+        "bioetl.cli.commands.pubchem_molecule.build_command_config",
+        "typer"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_pubmed": {
+      "path": "src\\scripts\\run_pubmed.py",
+      "size_bytes": 406,
+      "size_lines": 16,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.create_pipeline_command",
+        "bioetl.cli.commands.pubmed.build_command_config",
+        "typer"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_semantic_scholar": {
+      "path": "src\\scripts\\run_semantic_scholar.py",
+      "size_bytes": 436,
+      "size_lines": 16,
+      "imports": [
+        "__future__.annotations",
+        "bioetl.cli.command.create_pipeline_command",
+        "bioetl.cli.commands.semantic_scholar.build_command_config",
+        "typer"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 4,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.run_uniprot": {
+      "path": "src\\scripts\\run_uniprot.py",
+      "size_bytes": 260,
+      "size_lines": 12,
+      "imports": [
+        "bioetl.cli.app.create_pipeline_app"
+      ],
+      "functions": [],
+      "classes": [],
+      "import_count": 1,
+      "function_count": 0,
+      "class_count": 0
+    },
+    "scripts.validate_columns": {
+      "path": "src\\scripts\\validate_columns.py",
+      "size_bytes": 6248,
+      "size_lines": 206,
+      "imports": [
+        "bioetl.utils.validation.ColumnValidator",
+        "pathlib.Path",
+        "typer"
+      ],
+      "functions": [
+        "validate",
+        "compare_all"
+      ],
+      "classes": [],
+      "import_count": 3,
+      "function_count": 2,
+      "class_count": 0
+    }
+  }
+}
