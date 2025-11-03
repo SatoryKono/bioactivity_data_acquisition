@@ -175,17 +175,18 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
         stage_durations["validate"] = (time.perf_counter() - validate_start) * 1000.0
         log.info("validate_completed", duration_ms=stage_durations["validate"], rows=len(validated_df))
 
-        # --- WRITE STAGE (EXPORT) ---
-        set_run_context(stage="load") # 'load' is the conventional name for the write stage
+        # --- WRITE STAGE ---
+        set_run_context(stage="write")
         log.info("write_started")
         write_start = time.perf_counter()
 
-        # The 'write' method in this spec maps to 'export' in the codebase.
-        # It handles file writing and artifact generation.
-        artifacts: "OutputArtifacts" = self.export(validated_df, output_path, extended=extended)
+        # The 'write' method handles file writing and artifact generation.
+        # Note: In some implementations, this method may be internally named 'export',
+        # but the public API consistently uses 'write'.
+        artifacts: "OutputArtifacts" = self.write(validated_df, output_path, extended=extended)
 
-        stage_durations["load"] = (time.perf_counter() - write_start) * 1000.0
-        log.info("write_completed", duration_ms=stage_durations["load"], artifacts_path=str(artifacts.run_directory))
+        stage_durations["write"] = (time.perf_counter() - write_start) * 1000.0
+        log.info("write_completed", duration_ms=stage_durations["write"], artifacts_path=str(artifacts.run_directory))
 
         # Construct the final RunResult object from the generated artifacts
         write_result = WriteResult(

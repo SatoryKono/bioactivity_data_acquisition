@@ -168,7 +168,7 @@ The primary strategy for testing determinism is "golden testing."
 
 ## 9. `write()` Finalization Pseudocode
 
-This pseudocode details the sequence of operations within the `write()` stage (referred to as `export()` in the codebase) to ensure determinism.
+This pseudocode details the sequence of operations within the `write()` stage to ensure determinism. The public API method is `write()`, though some implementations may use `export()` as an internal method name.
 
 ```python
 # Pseudocode within the framework's UnifiedOutputWriter class

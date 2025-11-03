@@ -41,74 +41,57 @@ The metadata file is crucial for:
 
 ### Full `meta.yaml` Example
 
-Below is a complete example of a `meta.yaml` file, with explanations for each section.
+Below is a complete example of a `meta.yaml` file. The structure is standardized across all pipelines. For the authoritative specification, see [Determinism Policy](../determinism/01-determinism-policy.md#5-metayaml-structure).
 
 ```yaml
-# -----------------------------------------------------------------------------
-# Section: pipeline
-# Information about the pipeline that generated this artifact.
-# -----------------------------------------------------------------------------
+# Full meta.yaml Example
+artifacts:
+  dataset: path/to/activity.parquet
+  quality_report: path/to/qc/activity_quality_report.csv
+column_order:
+  - activity_id
+  - assay_id
+  # ... all other columns in fixed order
+column_order_source: schema
+config_fingerprint: "sha256:abcde12345..."
+config_snapshot:
+  path: configs/pipelines/chembl/activity.yaml
+  sha256: "sha256:fghij67890..."
+deduplicated_count: 0
+generated_at_utc: "2025-11-03T01:15:00.123456Z"
+hash_algo: sha256
+hash_business_key: "sha256:9f86d081884c7d65..."
+hash_policy_version: '1.0'
+inputs:
+  # Paths and hashes of input files, if applicable
+  - path: data/input/activity.csv
+    sha256: "sha256:..."
+outputs:
+  # Paths and file hashes of all generated artifacts
+  - path: activity.parquet
+    sha256: "sha256:..."
+  - path: activity_quality_report.csv
+    sha256: "sha256:..."
 pipeline:
-  name: "chembl_activity"
+  name: "activity"
   version: "1.0.0"
-  run_id: "20231027-143000-abcdef"
-  # A cryptographic hash of the exact YAML configuration used for this run.
-  config_hash: "sha256:abcde12345f67890..."
-
-# -----------------------------------------------------------------------------
-# Section: source
-# Details about the external data source.
-# -----------------------------------------------------------------------------
-source:
-  system: "ChEMBL API"
-  # The specific version of the source data (e.g., ChEMBL release number).
-  version: "ChEMBL_33"
-  endpoint: "https://www.ebi.ac.uk/chembl/api/data/activity"
-  # The exact parameters sent to the source API for this run.
-  request_params:
-    format: "json"
-    pchembl_value__isnull: false
-
-# -----------------------------------------------------------------------------
-# Section: execution
-# Timings and metrics for the pipeline run.
-# -----------------------------------------------------------------------------
-execution:
-  start_time_utc: "2023-10-27T14:30:00.123Z"
-  end_time_utc: "2023-10-27T14:35:10.456Z"
-  duration_seconds: 310.333
-  # Millisecond timings for each stage, useful for performance analysis.
-  stage_durations_ms:
-    extract: 180123.45
-    transform: 60234.56
-    validate: 15123.78
-    write: 54851.21
-
-# -----------------------------------------------------------------------------
-# Section: output
-# Information about the generated dataset itself.
-# -----------------------------------------------------------------------------
-output:
-  # The total number of rows in the dataset.
-  row_count: 123456
-  dataset_format: "parquet"
-  determinism:
-    sort_by: ["assay_id", "activity_id"]
-    # The version of the hashing algorithm used.
-    hash_policy_version: "1"
-  # The core of data integrity verification.
-  hashes:
-    # A hash of the columns defined in `write.hash_business_key`.
-    # This hash identifies a unique business record.
-    business_key: "sha256:fedcba9876..."
-    # A hash of all columns defined in `write.hash_row`.
-    # This hash verifies the bit-for-bit integrity of the entire dataset.
-    row: "sha256:98765fedcba..."
+qc:
+  duplicates: 0
+  missing_values: 125
+  referential_integrity_violations: 0
+row_count: 10000
+run_id: "20251103-011500-abcdef"
+sample_hash_row: "sha256:ab0c12de34..."
+schema_version: "1.2.0"
+source_lineage:
+  chembl_release: "33"
 ```
 
 ### Integrity Hashes
 
-The `output.hashes` section provides two critical checksums for data validation:
+The `meta.yaml` file includes two critical integrity hashes:
 
--   `hash_business_key`: This hash is calculated from the columns that form the unique business identifier of a record (e.g., `activity_id`). It is useful for tracking specific business entities across different versions of a dataset.
--   `hash_row`: This hash is calculated from all columns in the dataset. If this hash matches between two datasets, it provides a cryptographic guarantee that their content is identical. This is the ultimate check for determinism.
+-   `hash_business_key`: A SHA256 hash of the canonicalized business key columns. This hash identifies a unique business entity and is stable across pipeline runs with identical data.
+-   `sample_hash_row`: A SHA256 hash of a sample row (based on the first row after sorting) that verifies the integrity of row-level data. The full `hash_row` is calculated for every row in the dataset during the write stage.
+
+The `hash_algo` field specifies the hashing algorithm used (currently `sha256`), and `hash_policy_version` tracks the version of the hashing policy for compatibility checks.

@@ -49,7 +49,7 @@ flowchart LR
   D -->|mode=chembl| F
   F --> G[Validate: Pandera Raw/Normalized]
   G --> H[QC: coverage, conflicts, regex, duplicates]
-  H --> I[Load: atomic write CSV/Parquet + meta.yaml + QC]
+  H --> I[Write: atomic write CSV/Parquet + meta.yaml + QC]
   B -.timeout/429/5xx.-> J[Retry/backoff; recursive split]
   J -.exhausted.-> K[Fallback rows + error context]
   K --> D
@@ -84,7 +84,7 @@ flowchart LR
 
 - Conflict detection
 
-**Load Stage:**
+**Write Stage:**
 
 - Atomic writer (run_id-scoped temp dirs)
 

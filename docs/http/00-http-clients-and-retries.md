@@ -44,11 +44,13 @@ This configuration is typically defined in `configs/profiles/base.yaml` and appl
 
 **Merge Order:**
 Configuration is merged in the following order (later items override earlier ones):
-1.  `base.yaml`
-2.  `network.yaml` / `determinism.yaml` (if extended)
-3.  Pipeline-specific `--config` file
-4.  CLI `--set` flags
-5.  Environment variables (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`)
+
+**Order of Precedence (Lowest to Highest):**
+
+1.  **Base Profiles**: Files listed in the `extends` key (e.g., `base.yaml`, `network.yaml`, `determinism.yaml`).
+2.  **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
+3.  **CLI `--set` Flags**: Key-value pairs from the `--set` flag.
+4.  **Environment Variables**: Environment variables have the highest precedence (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
 
 ## 3. Timeouts, Pools, and Headers
 

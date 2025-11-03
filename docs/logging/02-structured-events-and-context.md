@@ -11,7 +11,7 @@ Every single log record, regardless of its level or origin, is guaranteed to con
 | Field          | Type       | Description                                                                 |
 | -------------- | ---------- | --------------------------------------------------------------------------- |
 | `run_id`       | `str`      | The stable, unique identifier for the current pipeline run.                 |
-| `stage`        | `str`      | The current execution stage (`extract`, `transform`, `validate`, `load`).   |
+| `stage`        | `str`      | The current execution stage (`extract`, `transform`, `validate`, `write`).   |
 | `actor`        | `str`      | The entity that initiated the run (e.g., `scheduler`, `<username>`).        |
 | `source`       | `str`      | The data source being processed (e.g., `chembl`, `pubmed`).                 |
 | `generated_at` | `str(ISO)` | A UTC timestamp in ISO 8601 format.                                         |

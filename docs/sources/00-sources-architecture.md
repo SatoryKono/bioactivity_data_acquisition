@@ -73,7 +73,7 @@ A detailed matrix mapping each pipeline to its specific component implementation
 ## 4. Interaction with Schemas and Determinism Policy
 
 -   **Schema Invocation**: The `PipelineBase.validate()` method is the single point of invocation for Pandera validation. It is called after the `transform()` stage, meaning the normalizers have already processed the data.
--   **Determinism**: The determinism policy (stable sort keys, row hashing) is applied in the `export()` method of `PipelineBase`, *after* the data has been successfully validated by its Pandera schema. This ensures that only clean, structured data is hashed and written to disk.
+-   **Determinism**: The determinism policy (stable sort keys, row hashing) is applied in the `write()` method of `PipelineBase`, *after* the data has been successfully validated by its Pandera schema. This ensures that only clean, structured data is hashed and written to disk.
 
 ## 5. Error Handling and Retries
 

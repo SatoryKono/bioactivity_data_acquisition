@@ -27,7 +27,7 @@ AssayPipeline
 │   ├── PanderaSchema (strict=True, nullable dtypes)
 │   ├── ReferentialIntegrityCheck
 │   └── QualityProfile (fail thresholds)
-└── Load Stage
+└── Write Stage
     ├── AtomicWriter (run_id-scoped temp dirs)
     ├── CanonicalSerialization (hash generation)
     └── MetadataBuilder (full provenance)
@@ -785,7 +785,7 @@ qc_profile = {
 
 ```
 
-## 5. Запись результатов (Load)
+## 5. Запись результатов (Write)
 
 ### 5.1 Atomic Writes
 
