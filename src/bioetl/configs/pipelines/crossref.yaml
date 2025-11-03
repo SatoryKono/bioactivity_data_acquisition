@@ -1,0 +1,22 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/crossref_source.yaml
+
+pipeline:
+  name: crossref
+  entity: document
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "crossref"
+
+determinism:
+  sort:
+    by: ["doi_clean", "crossref_doi_clean"]
+    ascending: [true, true]
+  column_order: []
+
+qc:
+  thresholds:
+    crossref.min_coverage: 0.0

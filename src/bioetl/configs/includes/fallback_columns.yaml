@@ -1,0 +1,8 @@
+- "fallback_reason"
+- "fallback_error_type"
+- "fallback_error_code"
+- "fallback_error_message"
+- "fallback_http_status"
+- "fallback_retry_after_sec"
+- "fallback_attempt"
+- "fallback_timestamp"

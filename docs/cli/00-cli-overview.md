@@ -29,7 +29,7 @@ The CLI is responsible for loading and merging all configuration files into a si
 
 This layered approach provides a powerful and flexible system for managing configurations across different environments.
 
-[ref: repo:src/bioetl/config/loader.py@test_refactoring_32]
+[ref: repo:src/bioetl/cli/loader.py@test_refactoring_32]
 
 ## 4. Logging and Output
 

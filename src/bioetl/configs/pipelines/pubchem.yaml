@@ -1,0 +1,72 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+
+pipeline:
+  name: pubchem
+  entity: pubchem
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "pubchem"
+  stages:
+    primary:
+      directory: "pubchem"
+      datasets:
+        lookup:
+          filename: "pubchem_lookup.csv"
+          formats:
+            csv: "pubchem_lookup.csv"
+
+sources:
+  pubchem:
+    enabled: true
+    base_url: "https://pubchem.ncbi.nlm.nih.gov/rest/pug"
+    batch_size: 100
+    rate_limit_max_calls: 5
+    rate_limit_period: 1.0
+    headers:
+      User-Agent: "bioetl-pubchem-pipeline/1.0"
+
+postprocess:
+  enrichment:
+    pubchem_lookup_input: "pubchem_lookup.csv"
+
+determinism:
+  sort:
+    by: ["molecule_chembl_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "run_id"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "molecule_chembl_id"
+    - "standard_inchi_key"
+    - "pubchem_cid"
+    - "pubchem_molecular_formula"
+    - "pubchem_molecular_weight"
+    - "pubchem_canonical_smiles"
+    - "pubchem_isomeric_smiles"
+    - "pubchem_inchi"
+    - "pubchem_inchi_key"
+    - "pubchem_iupac_name"
+    - "pubchem_registry_id"
+    - "pubchem_rn"
+    - "pubchem_synonyms"
+    - "pubchem_enriched_at"
+    - "pubchem_cid_source"
+    - "pubchem_fallback_used"
+    - "pubchem_enrichment_attempt"
+    - "pubchem_lookup_inchikey"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    pubchem.min_inchikey_coverage: 0.0
+    pubchem.min_enrichment_rate: 0.0
