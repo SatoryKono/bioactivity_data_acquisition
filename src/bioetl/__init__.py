@@ -1,5 +1,5 @@
-"""Core package for BioETL pipelines."""
+"""BioETL package."""
 
-__all__ = [
-    "pipelines",
-]
+from .configs.models import PipelineConfig
+
+__all__ = ["PipelineConfig"]
