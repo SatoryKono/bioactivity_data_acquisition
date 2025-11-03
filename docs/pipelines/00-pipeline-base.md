@@ -221,6 +221,70 @@ def run(self, output_path: Path, extended: bool = False, *args: Any, **kwargs: A
 
 ```
 
+### Stage Contracts and Guarantees
+
+The real implementation in `src/bioetl/pipelines/base.py` formalises the public
+contract of each lifecycle stage. The table below summarises what the
+orchestrator guarantees, what implementers must provide, and the determinism or
+idempotency expectations that are enforced at runtime.【F:docs/pipelines/00-pipeline-base.md†L109-L170】
+
+| Stage | Framework responsibilities | Implementer responsibilities | Determinism & idempotency requirements |
+| --- | --- | --- | --- |
+| `extract` | Sets logging context to `stage="extract"`, records wall-clock
+timing, and preserves any CLI `limit`/`sample` options for deterministic
+sampling. Re-raises exceptions with full tracebacks. | Implement a
+side-effect-free extractor that returns a Pandas `DataFrame`. Use
+`PipelineBase.read_input_table` for file inputs to inherit consistent logging,
+deterministic limiting, and empty-file handling. | For deterministic re-runs,
+the extractor must respect the same configuration and runtime options. When
+using runtime limits, the same subset must be returned for the same seed order
+and upstream source state.【F:docs/pipelines/00-pipeline-base.md†L172-L213】
+| `transform` | Switches the logging context to `stage="transform"`, captures
+duration, and propagates the DataFrame returned by `extract`. | Implement all
+transformations as pure functions (no mutation of external state). May call
+`execute_enrichment_stages` to run registered enrichment hooks. | Transformations
+must be deterministic for identical inputs—avoid reliance on wall-clock time or
+random ordering unless a seeded random generator is used.【F:docs/pipelines/00-pipeline-base.md†L215-L255】
+| `validate` | Fetches the schema from the Unified Schema registry, enforces
+column order, runs Pandera validation, records QC metrics, and accumulates
+issues through `record_validation_issue`. | Do not override unless absolutely
+required. Register additional schemas through configuration and call
+`run_schema_validation` for secondary datasets. | Validation is deterministic
+for identical input frames and schema versions. Non-fatal severities return the
+input frame unchanged but still log issues for auditability.【F:docs/pipelines/00-pipeline-base.md†L257-L322】
+| `export` (write) | Applies determinism rules (column order, stable sort,
+hash policies), writes the dataset and all QC artefacts via the configured
+output writer, and persists `stage_durations_ms`. | Optional overrides should
+call `PipelineBase.export` to benefit from the shared behaviour. Use
+`set_export_metadata_from_dataframe` and `finalize_with_standard_metadata` to
+standardise metadata prior to writing. | Output files must be reproducible: the
+same input DataFrame and determinism settings produce byte-identical CSV files
+and metadata manifests.【F:docs/pipelines/00-pipeline-base.md†L324-L392】
+| `cleanup` | Resets logging context to `stage="cleanup"`, removes transient
+runtime options, closes registered API clients, and calls `close_resources`. |
+Release any additional resources inside `close_resources` without raising
+exceptions. | Cleanup has no external side effects beyond releasing resources,
+preserving idempotency for subsequent runs.【F:docs/pipelines/00-pipeline-base.md†L394-L428】
+
+### Retry and Backoff Expectations
+
+`PipelineBase` centralises HTTP/client creation through helper methods that
+inject the project-wide retry and backoff policies. Pipelines should:
+
+1. Call `init_chembl_client` to obtain a `ChemblClientContext`, which wraps the
+   shared `UnifiedAPIClient` so that the default retry/backoff, throttling, and
+   observability policies are applied consistently.
+2. Register any instantiated clients via `register_client` so that the
+   orchestrator can dispose of them safely during cleanup (even on failure).
+3. Prefer `read_input_table` for disk inputs—`limit`/`sample` runtime options are
+   honoured automatically, missing files become structured warnings, and the
+   resolved path is logged for traceability.
+
+Custom retry loops should compose with the defaults (for example by decorating
+client calls with additional `backoff.on_exception` policies) rather than
+replacing them. This keeps failure semantics and observability consistent across
+pipelines.【F:docs/pipelines/00-pipeline-base.md†L430-L470】
+
 ## 4. Configuration and DI
 
 The pipeline receives its configuration via Dependency Injection (DI) in the constructor. A `PipelineConfig` object, loaded and validated from a YAML file, is passed in during initialization.
@@ -232,14 +296,64 @@ The pipeline receives its configuration via Dependency Injection (DI) in the con
 
 ## 5. Logging and Telemetry
 
-The framework provides a unified, structured logging system based on `structlog`.
+The framework provides a unified, structured logging system based on
+`structlog`. `PipelineBase.run()` enriches every record with mandatory context
+fields (`run_id`, `stage`, `actor`, `source`) and captures wall-clock durations
+for extract/transform/validate/write stages in milliseconds. Additional
+artifacts such as the QC summary and metadata files embed the same timings via
+`stage_durations_ms`.【F:docs/pipelines/00-pipeline-base.md†L472-L522】
 
-[ref: repo:src/bioetl/core/logger.py@refactoring_001]
+### Stage Event Catalogue
 
--   **Mandatory Fields**: Every log event emitted during a `run()` is guaranteed to be a JSON object containing these fields: `run_id`, `stage`, `actor`, `source`, `level`, and `generated_at` (UTC timestamp). Stage-specific timers (`duration_ms`) are added at the completion of each stage.
--   **Output Formats**: The logger is configured to output human-readable `key=value` text to the console during development and deterministic, sorted-key JSON to files.
--   **Secret Redaction**: A multi-layer redaction filter automatically finds and masks sensitive keywords (e.g., `token`, `api_key`, `Authorization`) in both structured fields and string messages, replacing their values with `[REDACTED]`.
--   **Telemetry Correlation**: If telemetry is enabled in the configuration, a processor automatically injects the active `trace_id` and `span_id` from OpenTelemetry into every log record, enabling seamless correlation between logs and traces.
+The table below enumerates the core log events emitted by the orchestrator. All
+events inherit the mandatory fields described above, and many attach additional
+payload fields as shown.
+
+| Stage | Event | Additional fields |
+| --- | --- | --- |
+| Bootstrap | `pipeline_initialized` | `pipeline`, `run_id`
+| Bootstrap | `pipeline_started` | `pipeline`
+| Extract | `reading_input` | `path`, optional `limit`
+| Extract | `input_file_not_found` | `path`
+| Extract | `input_limit_active` | `limit`, `rows`
+| Extract | `extraction_completed` | `rows`, `duration_ms`
+| Transform | `transformation_completed` | `rows`, `duration_ms`
+| Transform | `enrichment_stage_*` | `stage`, plus `reason`, `rows`, or `error`
+| Validate | `schema_validation_error` | `dataset`, `column`, `check`, `count`, `severity`
+| Validate | `schema_validation_failed` | `dataset`, `errors`, `error`
+| Validate | `validation_completed` | `rows`, `duration_ms`
+| Export | `exporting_data` | `path`, `rows`
+| Export | `pipeline_completed` | `artifacts`, `load_duration_ms`
+| Cleanup | `pipeline_resource_cleanup_failed` | `error`
+| Any | `pipeline_failed` | `error`, `exc_info`
+
+These events, combined with the logger's redaction processors, form the minimum
+telemetry contract. Pipelines may emit additional structured logs (for example,
+per-API-call retries) provided they do not remove the baseline context.
+
+### Extension Hooks
+
+Implementers can extend `PipelineBase` behaviour without reimplementing the
+orchestrator by using the following hook surface:
+
+- **Abstract methods** – `extract`, `transform`, and `close_resources` must be
+  implemented by every concrete pipeline. `validate` should only be overridden
+  to customise schema loading.
+- **Stage utilities** – `read_input_table`, `execute_enrichment_stages`,
+  `run_schema_validation`, and `finalize_with_standard_metadata` encapsulate
+  shared orchestration logic and should be preferred over bespoke
+  implementations.
+- **QC helpers** – `set_stage_summary`, `add_qc_summary_section(s)`,
+  `set_qc_metrics`, `record_validation_issue`, `refresh_validation_issue_summary`
+  keep validation and enrichment telemetry consistent.
+- **Metadata helpers** – `set_export_metadata_from_dataframe`,
+  `set_export_metadata`, and `add_additional_table` feed the writer with the
+  required context for deterministic artefact generation.
+- **Client lifecycle** – `init_chembl_client`, `register_client`, and
+  `reset_stage_context` provide safe resource management and per-stage state.
+
+All hooks are idempotent when invoked with identical inputs and configuration,
+supporting reproducible pipeline runs.【F:docs/pipelines/00-pipeline-base.md†L524-L586】
 
 ## 6. Determinism and Artifacts
 
