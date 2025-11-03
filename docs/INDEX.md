@@ -14,6 +14,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **[CLI Reference](cli/00-cli-overview.md)**: A guide to the Command-Line Interface, including architecture, commands, and flags.
 - **[HTTP Clients](http/00-http-clients-and-retries.md)**: The specification for the unified HTTP client, including retries, backoff, and rate limiting.
 - **[Structured Logging](logging/00-overview.md)**: An overview of the `structlog`-based logging system and its features.
+- **[Quality Assurance](qc/00-qc-overview.md)**: The framework for data quality control, including metrics and Golden Tests.
 
 ## Pipeline Documentation
 
