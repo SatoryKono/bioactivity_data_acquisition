@@ -7,6 +7,7 @@
 - [Архитектура и требования](requirements/00-architecture-overview.md) — архитектура уровней, поток данных, компоненты и глоссарий
 - [Источники данных и схемы](requirements/03-data-sources-and-spec.md) — референтный документ по источникам, сущностям и бизнес-ключам
 - [Контракты пайплайнов](pipelines/PIPELINES.md) — интерфейсы пайплайнов, примеры конфигов
+- [Source Architecture](sources/00-sources-architecture.md) — The component stack for data sources (Client, Parser, Normalizer).
 - [Конфигурации](configs/CONFIGS.md) — структура конфигов, профили, наследование
 - [CLI Overview](cli/00-cli-overview.md) — Architecture, configuration, and exit codes.
   - [Command Reference](cli/01-cli-commands.md) — Detailed reference for all commands and flags.
