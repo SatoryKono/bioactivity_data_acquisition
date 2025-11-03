@@ -3,7 +3,7 @@
 # This profile defines a standard, resilient network configuration for HTTP clients.
 # It can be included via the `extends` key in a pipeline's main config file.
 # The settings below correspond to the `HttpConfig` Pydantic model.
-# See: [ref: repo:src/bioetl/config/models.py@test_refactoring_32]
+# See: [ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
 
 http:
   # The 'default' profile provides a baseline for all sources.

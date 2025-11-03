@@ -1,23 +1,25 @@
-# documentation-index
+# Documentation Index
 
-## навигация
+## Navigation
 
-### Основные разделы
+### Main Sections
 
-- [Архитектура и требования](requirements/00-architecture-overview.md) — архитектура уровней, поток данных, компоненты и глоссарий
-- [Источники данных и схемы](requirements/03-data-sources-and-spec.md) — референтный документ по источникам, сущностям и бизнес-ключам
-- [Контракты пайплайнов](pipelines/PIPELINES.md) — интерфейсы пайплайнов, примеры конфигов
+- [Architecture and Requirements](requirements/00-architecture-overview.md) — System architecture, data flow, components, and glossary.
+- [Data Sources and Schemas](requirements/03-data-sources-and-spec.md) — Reference for data sources, entities, and business keys.
+- [Pipeline Contracts](pipelines/PIPELINES.md) — Pipeline interfaces and configuration examples.
+  - [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md) — A detailed catalog of all ChEMBL extraction pipelines.
 - [Source Architecture](sources/00-sources-architecture.md) — The component stack for data sources (Client, Parser, Normalizer).
-- [Конфигурации](configs/CONFIGS.md) — структура конфигов, профили, наследование
+- [Configurations](configs/CONFIGS.md) — Configuration structure, profiles, and inheritance.
 - [CLI Overview](cli/00-cli-overview.md) — Architecture, configuration, and exit codes.
   - [Command Reference](cli/01-cli-commands.md) — Detailed reference for all commands and flags.
-- [Валидация и QC](qc/QA_QC.md) — тесты, golden-сеты, QC-метрики
+- [Validation and QC](qc/QA_QC.md) — Testing, golden sets, and QC metrics.
 - [Determinism Policy](determinism/01-determinism-policy.md) — The policy for ensuring byte-for-byte reproducible outputs.
+- [HTTP Clients](http/00-http-clients-and-retries.md) — Specification for HTTP clients, retries, and backoff.
 
-### Дополнительные материалы
+### Additional Materials
 
-- [Архитектурные документы](architecture/00-architecture-overview.md) — детальные архитектурные документы (дублируют [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32])
-- [Устаревшие материалы](architecture/refactoring/README.md) — указатели на актуальную документацию в [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32]
+- [Architectural Documents (Legacy)](architecture/00-architecture-overview.md) — Detailed architectural documents (duplicates [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32])
+- [Outdated Materials](architecture/refactoring/README.md) — Pointers to the current documentation in [`requirements/`][ref: repo:docs/requirements/@test_refactoring_32]
 
 ## карта-документации
 
