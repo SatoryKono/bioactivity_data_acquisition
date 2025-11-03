@@ -1,0 +1,14 @@
+determinism:
+  hash_algorithm: "sha256"
+  float_precision: 6
+  datetime_format: "iso8601"
+  column_validation_ignore_suffixes:
+    - "_quality_report.csv"
+    - "_correlation_report.csv"
+    - "_qc.csv"
+    - "_metadata.csv"
+    - "_qc_summary.json"
+    - "qc_missing_mappings.csv"
+    - "qc_enrichment_metrics.csv"
+    - "_summary_statistics.csv"
+    - "_dataset_metrics.csv"

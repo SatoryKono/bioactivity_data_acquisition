@@ -1,0 +1,157 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+
+pipeline:
+  name: chembl_testitem
+  entity: testitem
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "chembl_testitem"
+
+sources:
+  chembl:
+    batch_size: 25
+    headers:
+      User-Agent: "bioetl-chembl-testitem-pipeline/1.0"
+  pubchem:
+    rate_limit:
+      max_calls: 5
+      period: 1.0
+    headers:
+      User-Agent: "bioetl-chembl-testitem-pipeline/1.0"
+
+postprocess:
+  enrichment:
+    pubchem_dataset: "data/output/pubchem/pubchem_lookup.csv"
+
+determinism:
+  sort:
+    by: ["molecule_chembl_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "molecule_chembl_id"
+    - "molregno"
+    - "pref_name"
+    - "pref_name_key"
+    - "parent_chembl_id"
+    - "parent_molregno"
+    - "therapeutic_flag"
+    - "structure_type"
+    - "molecule_type"
+    - "molecule_type_chembl"
+    - "max_phase"
+    - "first_approval"
+    - "dosed_ingredient"
+    - "availability_type"
+    - "chirality"
+    - "chirality_chembl"
+    - "mechanism_of_action"
+    - "direct_interaction"
+    - "molecular_mechanism"
+    - "oral"
+    - "parenteral"
+    - "topical"
+    - "black_box_warning"
+    - "natural_product"
+    - "first_in_class"
+    - "prodrug"
+    - "inorganic_flag"
+    - "polymer_flag"
+    - "usan_year"
+    - "usan_stem"
+    - "usan_substem"
+    - "usan_stem_definition"
+    - "indication_class"
+    - "withdrawn_flag"
+    - "withdrawn_year"
+    - "withdrawn_country"
+    - "withdrawn_reason"
+    - "drug_chembl_id"
+    - "drug_name"
+    - "drug_type"
+    - "drug_substance_flag"
+    - "drug_indication_flag"
+    - "drug_antibacterial_flag"
+    - "drug_antiviral_flag"
+    - "drug_antifungal_flag"
+    - "drug_antiparasitic_flag"
+    - "drug_antineoplastic_flag"
+    - "drug_immunosuppressant_flag"
+    - "drug_antiinflammatory_flag"
+    - "mw_freebase"
+    - "alogp"
+    - "hba"
+    - "hbd"
+    - "psa"
+    - "rtb"
+    - "ro3_pass"
+    - "num_ro5_violations"
+    - "acd_most_apka"
+    - "acd_most_bpka"
+    - "acd_logp"
+    - "acd_logd"
+    - "molecular_species"
+    - "full_mwt"
+    - "aromatic_rings"
+    - "heavy_atoms"
+    - "qed_weighted"
+    - "mw_monoisotopic"
+    - "full_molformula"
+    - "hba_lipinski"
+    - "hbd_lipinski"
+    - "num_lipinski_ro5_violations"
+    - "lipinski_ro5_violations"
+    - "lipinski_ro5_pass"
+    - "standardized_smiles"
+    - "standard_inchi"
+    - "standard_inchi_key"
+    - "all_names"
+    - "molecule_hierarchy"
+    - "molecule_properties"
+    - "molecule_structures"
+    - "molecule_synonyms"
+    - "atc_classifications"
+    - "cross_references"
+    - "biotherapeutic"
+    - "chemical_probe"
+    - "orphan"
+    - "veterinary"
+    - "helm_notation"
+    - !include ../includes/fallback_columns.yaml
+    - "pubchem_cid"
+    - "pubchem_molecular_formula"
+    - "pubchem_molecular_weight"
+    - "pubchem_canonical_smiles"
+    - "pubchem_isomeric_smiles"
+    - "pubchem_inchi"
+    - "pubchem_inchi_key"
+    - "pubchem_iupac_name"
+    - "pubchem_registry_id"
+    - "pubchem_rn"
+    - "pubchem_synonyms"
+    - "pubchem_enriched_at"
+    - "pubchem_cid_source"
+    - "pubchem_fallback_used"
+    - "pubchem_enrichment_attempt"
+    - "pubchem_lookup_inchikey"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    null_rate_critical: 0.3
+    duplicates: 0
+    fallback_usage_rate: 0.1
+    testitem.duplicate_ratio: 0.5
+    testitem.fallback_ratio: 0.2
+    testitem.parent_missing_ratio: 0.0

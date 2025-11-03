@@ -1,0 +1,67 @@
+"""Helpers for constructing PubChem REST API requests."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable, Sequence
+from typing import Final
+
+__all__ = ["PubChemRequestBuilder"]
+
+
+class PubChemRequestBuilder:
+    """Build URLs and query parameters for PubChem PUG-REST calls."""
+
+    _CID_LOOKUP_TEMPLATE: Final[str] = "/compound/inchikey/{inchikey}/cids/JSON"
+    _PROPERTIES_TEMPLATE: Final[str] = "/compound/cid/{cid_list}/property/{properties}/JSON"
+    _SYNONYMS_TEMPLATE: Final[str] = "/compound/cid/{cid}/synonyms/JSON"
+    _REGISTRY_XREFS_TEMPLATE: Final[str] = "/compound/cid/{cid}/xrefs/RegistryID,RN/JSON"
+    _DEFAULT_PROPERTIES: Final[tuple[str, ...]] = (
+        "MolecularFormula",
+        "MolecularWeight",
+        "CanonicalSMILES",
+        "IsomericSMILES",
+        "InChI",
+        "InChIKey",
+        "IUPACName",
+    )
+
+    @classmethod
+    def build_cid_lookup_url(cls, inchikey: str) -> str:
+        """Return the endpoint for resolving a CID by InChIKey."""
+
+        sanitized = inchikey.strip().upper()
+        return cls._CID_LOOKUP_TEMPLATE.format(inchikey=sanitized)
+
+    @classmethod
+    def build_properties_url(
+        cls,
+        cids: Sequence[int | str],
+        properties: Iterable[str] | None = None,
+    ) -> str:
+        """Return the endpoint for retrieving compound properties."""
+
+        cid_tokens = [str(cid) for cid in cids if str(cid)]
+        cid_list = ",".join(cid_tokens)
+        property_tokens = list(properties or cls._DEFAULT_PROPERTIES)
+        property_list = ",".join(property_tokens)
+        return cls._PROPERTIES_TEMPLATE.format(cid_list=cid_list, properties=property_list)
+
+    @classmethod
+    def build_synonyms_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving synonym data for a single CID."""
+
+        cid_token = str(cid).strip()
+        return cls._SYNONYMS_TEMPLATE.format(cid=cid_token)
+
+    @classmethod
+    def build_registry_xrefs_url(cls, cid: int | str) -> str:
+        """Return the endpoint for retrieving registry and RN identifiers."""
+
+        cid_token = str(cid).strip()
+        return cls._REGISTRY_XREFS_TEMPLATE.format(cid=cid_token)
+
+    @classmethod
+    def get_default_properties(cls) -> tuple[str, ...]:
+        """Expose the canonical property list used for enrichment."""
+
+        return cls._DEFAULT_PROPERTIES

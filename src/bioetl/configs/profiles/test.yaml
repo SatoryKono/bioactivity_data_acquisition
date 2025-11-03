@@ -1,0 +1,25 @@
+extends:
+  - ../base.yaml
+  - ../includes/cache.yaml
+
+pipeline:
+  name: "test"
+  entity: "testing"
+
+http:
+  global:
+    timeout_sec: 10.0
+    retries:
+      total: 1
+      backoff_multiplier: 1.5
+      backoff_max: 10.0
+    rate_limit:
+      max_calls: 100
+      period: 1.0
+
+cache:
+  enabled: false
+  ttl: 0
+
+qc:
+  severity_threshold: "warning"

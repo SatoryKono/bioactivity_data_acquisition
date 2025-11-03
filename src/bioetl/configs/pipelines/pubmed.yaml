@@ -1,0 +1,22 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/pubmed_source.yaml
+
+pipeline:
+  name: pubmed
+  entity: document
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "pubmed"
+
+determinism:
+  sort:
+    by: ["pmid"]
+    ascending: [true]
+  column_order: []
+
+qc:
+  thresholds:
+    pubmed.min_coverage: 0.0
