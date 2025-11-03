@@ -1,1 +1,0 @@
-"""Crossref source integration package."""

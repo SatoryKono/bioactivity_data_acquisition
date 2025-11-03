@@ -1,3 +1,0 @@
-index,hash_row,hash_business_key,pipeline_version,run_id,source_system,chembl_release,compound_id,assay_type,canonical_smiles,result_value,extracted_at
-1,70ff2f8dc9e33c5200fc0be5b74d6104e4907036f2750d13f9bcc0fce1f1a473,31ab94d0a2d1a1ec36325f09a6876ddbc2da7ff9a7a20a5a2fec12f8c96ca93b,1.2.3-contract,contract-run,contract-fixture,ChEMBL_33,CHEMBL123,B,C1=CC=CC=C1,1.5000,2024-01-01T00:00:00+00:00
-2,a247fa58c77397e6174f2fd2b4877bd93ba85d00d03f0e3a6b5b6aeb80d903f8,57bf690576979e1c53a556c91ee06d4dc4d431ce6fb4e5db20cd1c60f94401e8,1.2.3-contract,contract-run,contract-fixture,ChEMBL_33,CHEMBL456,F,C1=CC(=CC=C1)O,2.7500,2024-01-01T00:00:00+00:00

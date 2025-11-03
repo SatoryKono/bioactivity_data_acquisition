@@ -1,0 +1,33 @@
+# configs/profiles/base.yaml
+version: 1
+
+http:
+  default:
+    timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+      statuses: [408, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 10
+      period: 1.0
+    headers:
+      User-Agent: "BioETL/1.0"
+
+cache:
+  enabled: true
+  directory: "http_cache"
+  ttl: 86400
+
+paths:
+  input_root: "data/input"
+  output_root: "data/output"
+  cache_root: ".cache"
+
+materialization:
+  root: "data/output"
+  default_format: "parquet"
+
+fallbacks:
+  enabled: true
