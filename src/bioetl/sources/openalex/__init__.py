@@ -1,1 +1,0 @@
-"""OpenAlex source integration package."""

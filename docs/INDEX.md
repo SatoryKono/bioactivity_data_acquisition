@@ -10,6 +10,7 @@
 - [Конфигурации](configs/CONFIGS.md) — структура конфигов, профили, наследование
 - [CLI](cli/CLI.md) — команды, флаги, примеры использования
 - [Валидация и QC](qc/QA_QC.md) — тесты, golden-сеты, QC-метрики
+- [Determinism Policy](determinism/01-determinism-policy.md) — The policy for ensuring byte-for-byte reproducible outputs.
 
 ### Дополнительные материалы
 

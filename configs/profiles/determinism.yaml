@@ -1,0 +1,59 @@
+# /configs/profiles/determinism.yaml
+#
+# This profile contains a standard set of configurations to ensure that
+# pipeline outputs are deterministic. It should be included by any pipeline
+# where byte-for-byte reproducibility is a requirement.
+#
+# It is automatically included by the CLI for all standard pipeline runs.
+# [ref: repo:README.md@test_refactoring_32]
+# [ref: repo:src/bioetl/cli/app.py@test_refactoring_32]
+
+determinism:
+  # Serialization settings control how data types are written to files.
+  serialization:
+    # For CSVs, defines the field separator, quoting rules, and how missing values are represented.
+    csv:
+      separator: ","
+      quoting: "ALL" # Quote all fields to prevent ambiguity
+      na_rep: ""     # Represent missing values as empty strings
+
+    # Defines the representation for specific data types.
+    booleans: ["True", "False"] # Use consistent string representations
+    nan_rep: "NaN"              # Use a standard representation for Not-a-Number
+
+  # Sorting is the most critical step for ensuring row-order stability.
+  sorting:
+    # The default sort direction. Can be overridden by the pipeline.
+    direction: "ascending"
+    # Defines where null/NA values should be placed in the sorted output.
+    na_position: "last"
+
+  # The hash policy defines the algorithm and other parameters for generating data integrity hashes.
+  hashing:
+    algorithm: "sha256"
+    # Fields to exclude from any hash calculation. These fields are non-deterministic by nature.
+    exclude_fields:
+      - "generated_at"
+      - "run_id"
+
+  # Environment settings to prevent inconsistencies across different machines.
+  environment:
+    # All date and time operations must be performed in UTC.
+    timezone: "UTC"
+    # Use the 'C' locale to ensure consistent string sorting and formatting behavior.
+    locale: "C"
+
+  # Write settings control how the final artifacts are materialized.
+  write:
+    # Ensures that files are written to a temporary location and moved only upon success,
+    # preventing partial or corrupt outputs.
+    strategy: "atomic"
+
+  # Metadata settings control the content and location of the meta.yaml file.
+  meta:
+    # The meta.yaml file must be saved in the same directory as the primary dataset artifact.
+    location: "sibling"
+    # Fields to include in the metadata file. An empty list implies all available fields are included.
+    include_fields: []
+    # Fields to explicitly exclude from the metadata file.
+    exclude_fields: []
