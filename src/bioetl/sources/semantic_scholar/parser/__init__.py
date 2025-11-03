@@ -1,1 +1,0 @@
-"""Semantic Scholar parser components."""
