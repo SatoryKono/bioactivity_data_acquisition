@@ -42,4 +42,4 @@ This layered approach provides a powerful and flexible system for managing confi
 -   **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
 -   **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
 
-A full list of commands and their specific flags can be found in the next document: `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`.
+A full list of commands and their specific flags can be found in the `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed reference on exit codes, see `[ref: repo:docs/cli/02-cli-exit_codes.md@refactoring_001]`.
