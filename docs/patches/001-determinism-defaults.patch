@@ -1,0 +1,106 @@
+diff --git a/DE-DUP_PLAN.md b/DE-DUP_PLAN.md
+index ec6af57..440de4a 100644
+--- a/DE-DUP_PLAN.md
++++ b/DE-DUP_PLAN.md
+@@ -12,3 +12,7 @@ The legacy `library.target` package has been fully removed. The modern `bioetl`
+
+ ## Follow-up
+ - Monitor downstream documentation or deployment scripts for any references to the removed modules and update them to point to the `bioetl` equivalents if discovered.
++
++## Shared Determinism Configuration
++- Introduced `configs/includes/determinism_defaults.yaml` to centralize determinism defaults for all pipelines extending ChEMBL sources.
++- Updated activity, assay, document, and testitem pipeline configs to extend the shared include instead of duplicating the determinism defaults.
+diff --git a/configs/includes/determinism_defaults.yaml b/configs/includes/determinism_defaults.yaml
+new file mode 100644
+index 0000000..0fa86d2
+--- /dev/null
++++ b/configs/includes/determinism_defaults.yaml
+@@ -0,0 +1,4 @@
++determinism:
++  hash_algorithm: "sha256"
++  float_precision: 6
++  datetime_format: "iso8601"
+diff --git a/configs/pipelines/activity.yaml b/configs/pipelines/activity.yaml
+index 350535c..c16cdaa 100644
+--- a/configs/pipelines/activity.yaml
++++ b/configs/pipelines/activity.yaml
+@@ -1,5 +1,6 @@
+ extends:
+   - ../base.yaml
++  - ../includes/determinism_defaults.yaml
+   - ../includes/chembl_source.yaml
+
+ pipeline:
+@@ -13,9 +14,6 @@ sources:
+       User-Agent: "bioetl-activity-pipeline/1.0"
+
+ determinism:
+-  hash_algorithm: "sha256"
+-  float_precision: 6
+-  datetime_format: "iso8601"
+   sort:
+     by: ["activity_id"]
+     ascending: [true]
+diff --git a/configs/pipelines/assay.yaml b/configs/pipelines/assay.yaml
+index 0e9f013..5b702f9 100644
+--- a/configs/pipelines/assay.yaml
++++ b/configs/pipelines/assay.yaml
+@@ -1,5 +1,6 @@
+ extends:
+   - ../base.yaml
++  - ../includes/determinism_defaults.yaml
+   - ../includes/chembl_source.yaml
+
+ pipeline:
+@@ -13,9 +14,6 @@ sources:
+       User-Agent: "bioetl-assay-pipeline/1.0"
+
+ determinism:
+-  hash_algorithm: "sha256"
+-  float_precision: 6
+-  datetime_format: "iso8601"
+   sort:
+     by: ["assay_chembl_id", "row_subtype"]
+     ascending: [true, true]
+diff --git a/configs/pipelines/document.yaml b/configs/pipelines/document.yaml
+index f55b17c..b8e02ca 100644
+--- a/configs/pipelines/document.yaml
++++ b/configs/pipelines/document.yaml
+@@ -1,5 +1,6 @@
+ extends:
+   - ../base.yaml
++  - ../includes/determinism_defaults.yaml
+   - ../includes/chembl_source.yaml
+
+ pipeline:
+@@ -50,9 +51,6 @@ sources:
+     workers: 1
+
+ determinism:
+-  hash_algorithm: "sha256"
+-  float_precision: 6
+-  datetime_format: "iso8601"
+   sort:
+     by: ["document_chembl_id"]
+     ascending: [true]
+diff --git a/configs/pipelines/testitem.yaml b/configs/pipelines/testitem.yaml
+index 8d12d03..6fafd2b 100644
+--- a/configs/pipelines/testitem.yaml
++++ b/configs/pipelines/testitem.yaml
+@@ -1,5 +1,6 @@
+ extends:
+   - ../base.yaml
++  - ../includes/determinism_defaults.yaml
+   - ../includes/chembl_source.yaml
+
+ pipeline:
+@@ -19,9 +20,6 @@ sources:
+     rate_limit_period: 1.0
+
+ determinism:
+-  hash_algorithm: "sha256"
+-  float_precision: 6
+-  datetime_format: "iso8601"
+   sort:
+     by: ["molecule_chembl_id"]
+     ascending: [true]

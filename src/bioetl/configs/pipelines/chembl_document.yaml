@@ -1,0 +1,161 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/chembl_source.yaml
+  - ../includes/pubmed_source.yaml
+  - ../includes/crossref_source.yaml
+  - ../includes/openalex_source.yaml
+  - ../includes/semantic_scholar_source.yaml
+
+pipeline:
+  name: chembl_document
+  entity: document
+  version: "1.0.0"
+
+materialization:
+  pipeline_subdir: "chembl_document"
+
+sources:
+  chembl:
+    batch_size: 10
+    headers:
+      User-Agent: "bioetl-chembl-document-pipeline/1.0"
+
+determinism:
+  sort:
+    by: ["document_chembl_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "source_system"
+    - "chembl_release"
+    - "extracted_at"
+    - "document_chembl_id"
+    - "document_pubmed_id"
+    - "document_classification"
+    - "referenses_on_previous_experiments"
+    - "original_experimental_document"
+    - "pmid"
+    - "pmid_source"
+    - "doi_clean"
+    - "doi_clean_source"
+    - "title"
+    - "title_source"
+    - "abstract"
+    - "abstract_source"
+    - "journal"
+    - "journal_source"
+    - "journal_abbrev"
+    - "journal_abbrev_source"
+    - "authors"
+    - "authors_source"
+    - "year"
+    - "year_source"
+    - "volume"
+    - "volume_source"
+    - "issue"
+    - "issue_source"
+    - "first_page"
+    - "first_page_source"
+    - "last_page"
+    - "last_page_source"
+    - "issn_print"
+    - "issn_print_source"
+    - "issn_electronic"
+    - "issn_electronic_source"
+    - "is_oa"
+    - "is_oa_source"
+    - "oa_status"
+    - "oa_status_source"
+    - "oa_url"
+    - "oa_url_source"
+    - "citation_count"
+    - "citation_count_source"
+    - "influential_citations"
+    - "influential_citations_source"
+    - "fields_of_study"
+    - "fields_of_study_source"
+    - "concepts_top3"
+    - "concepts_top3_source"
+    - "mesh_terms"
+    - "mesh_terms_source"
+    - "chemicals"
+    - "chemicals_source"
+    - "conflict_doi"
+    - "conflict_pmid"
+    - "chembl_pmid"
+    - "pubmed_pmid"
+    - "openalex_pmid"
+    - "semantic_scholar_pmid"
+    - "chembl_title"
+    - "crossref_title"
+    - "openalex_title"
+    - "pubmed_article_title"
+    - "semantic_scholar_title"
+    - "chembl_abstract"
+    - "pubmed_abstract"
+    - "chembl_authors"
+    - "crossref_authors"
+    - "openalex_authors"
+    - "pubmed_authors"
+    - "semantic_scholar_authors"
+    - "chembl_doi"
+    - "crossref_doi"
+    - "openalex_doi"
+    - "pubmed_doi"
+    - "semantic_scholar_doi"
+    - "chembl_doc_type"
+    - "crossref_doc_type"
+    - "openalex_doc_type"
+    - "openalex_crossref_doc_type"
+    - "pubmed_doc_type"
+    - "semantic_scholar_doc_type"
+    - "chembl_journal"
+    - "pubmed_journal"
+    - "semantic_scholar_journal"
+    - "chembl_year"
+    - "openalex_year"
+    - "chembl_volume"
+    - "pubmed_volume"
+    - "chembl_issue"
+    - "pubmed_issue"
+    - "pubmed_first_page"
+    - "pubmed_last_page"
+    - "openalex_issn"
+    - "pubmed_issn"
+    - "semantic_scholar_issn"
+    - "pubmed_mesh_descriptors"
+    - "pubmed_mesh_qualifiers"
+    - "pubmed_chemical_list"
+    - "pubmed_year_completed"
+    - "pubmed_month_completed"
+    - "pubmed_day_completed"
+    - "pubmed_year_revised"
+    - "pubmed_month_revised"
+    - "pubmed_day_revised"
+    - "crossref_subject"
+    - "crossref_error"
+    - "openalex_error"
+    - "pubmed_error"
+    - "semantic_scholar_error"
+    - !include ../includes/fallback_columns.yaml
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  thresholds:
+    doi_coverage:
+      min: 0.3
+      severity: warning
+    pmid_coverage:
+      min: 0.2
+      severity: warning
+    conflicts_doi:
+      max: 0.15
+      severity: error
+    title_fallback_rate:
+      max: 0.25
+      severity: warning

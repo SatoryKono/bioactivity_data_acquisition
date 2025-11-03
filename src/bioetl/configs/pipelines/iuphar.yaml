@@ -1,0 +1,101 @@
+extends:
+  - ../base.yaml
+  - ../includes/determinism.yaml
+  - ../includes/iuphar_source.yaml
+
+pipeline:
+  name: gtp_iuphar
+  entity: target
+  version: "1.0.0"
+
+paths:
+  output_root: "data/output/iuphar"
+
+http:
+  iuphar:
+    timeout_sec: 45.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 45.0
+    retries:
+      total: 4
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+      statuses: [404, 408, 409, 425, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 6
+      period: 1.0
+    rate_limit_jitter: true
+    headers:
+      Accept: "application/json"
+      User-Agent: "bioetl-gtp-iuphar/1.0"
+
+materialization:
+  root: "data/output/iuphar"
+  pipeline_subdir: "iuphar"
+  default_format: "parquet"
+  stages:
+    iuphar:
+      format: "parquet"
+      directory: "."
+      datasets:
+        classification:
+          filename: "gtp_iuphar_classification"
+        iuphar_gold:
+          filename: "gtp_iuphar_gold"
+    gold:
+      format: "parquet"
+      directory: "."
+      datasets:
+        targets:
+          filename: "gtp_iuphar_targets"
+    qc:
+      format: "csv"
+      directory: "."
+      datasets:
+        qc_report:
+          filename: "gtp_iuphar_qc"
+
+sources:
+  pubchem:
+    enabled: false
+  iuphar:
+    stage: primary
+
+determinism:
+  sort:
+    by: ["iuphar_target_id"]
+    ascending: [true]
+  column_order:
+    - "index"
+    - "hash_row"
+    - "hash_business_key"
+    - "pipeline_version"
+    - "run_id"
+    - "source_system"
+    - "extracted_at"
+    - "iuphar_target_id"
+    - "targetId"
+    - "iuphar_name"
+    - "name"
+    - "abbreviation"
+    - "synonyms"
+    - "annotationStatus"
+    - "geneSymbol"
+    - "classification_path"
+    - "classification_depth"
+    - "iuphar_type"
+    - "iuphar_class"
+    - "iuphar_subclass"
+
+qc:
+  enabled: true
+  severity_threshold: warning
+  enrichments:
+    iuphar:
+      min: 0.6
+      severity: warning
+
+cli:
+  default_config: "configs/pipelines/iuphar.yaml"
+  mode_choices: ["default", "smoke"]
+  validate_columns: true

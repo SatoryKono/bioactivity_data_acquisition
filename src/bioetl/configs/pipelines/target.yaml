@@ -1,0 +1,2 @@
+extends:
+  - chembl_target.yaml

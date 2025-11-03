@@ -24,12 +24,13 @@ This approach is **not dynamic**. Adding a new pipeline requires explicitly addi
 
 The single most important function of the CLI is to build the `PipelineConfig` object that will be passed to the pipeline. It does this by loading and merging settings from multiple sources in a strict order of precedence. This entire process is managed by the `load_config` function found in `[ref: repo:src/bioetl/config/loader.py@test_refactoring_32]`.
 
-The order of precedence is as follows (where 4 has the highest precedence and overrides all others):
+The order of precedence is as follows (where 5 has the highest precedence and overrides all others):
+1.  `base.yaml`
+2.  `network.yaml` / `determinism.yaml` (if extended)
+3.  Pipeline-specific `--config` file
+4.  CLI `--set` flags
+5.  Environment variables (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`)
 
-1.  **Base Profiles (`extends`)**: The loader first processes the `extends` key in the main YAML file, recursively loading and merging any specified base profiles (e.g., `base.yaml`).
-2.  **Main Config File**: The values in the main pipeline config file specified with `--config` are merged next, overriding any values from the base profiles.
-3.  **CLI Overrides (`--set`)**: Any values passed via the `--set KEY=VALUE` flag are merged next. This provides a way to override specific settings for a single run. The logic for parsing these values is in the `parse_cli_overrides` function.
-4.  **Environment Variables**: Finally, any environment variables with a `BIOETL_` or `BIOACTIVITY_` prefix are applied. They have the highest precedence. For example, `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=50` would override the batch size from all other sources.
 
 This layered approach provides a powerful and flexible system for managing configurations.
 

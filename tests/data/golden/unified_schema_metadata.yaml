@@ -1,0 +1,25 @@
+activity:
+  column_count: 57
+  column_order_hash: 85bfeecad4bd0036253868c08399f57720bd178745bc41ededfbee2ef428f530
+  schema_id: activity.output
+  schema_version: 1.0.0
+assay:
+  column_count: 71
+  column_order_hash: 60f27983a58b9a769c6d780bcbb07d7e166172c6b23660db05fb11445b39bfa4
+  schema_id: assay.output
+  schema_version: 1.0.0
+document:
+  column_count: 128
+  column_order_hash: 73070d5680c06664c541cb800619fa73a6f80b0f740fda7467001e5c74665e06
+  schema_id: document.output
+  schema_version: 1.0.0
+target:
+  column_count: 48
+  column_order_hash: 238ff8d6f601e37240baa26ca247ed8cd459ec87a1ddc311927427c07f9d0970
+  schema_id: target.output
+  schema_version: 1.0.0
+testitem:
+  column_count: 120
+  column_order_hash: 827c6c57c51e500953764f274a5d2323f8955c52f32431031eb5f1944fd89567
+  schema_id: testitem.output
+  schema_version: 1.0.0

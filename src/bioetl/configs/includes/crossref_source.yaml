@@ -1,0 +1,11 @@
+sources:
+  crossref:
+    enabled: true
+    base_url: "https://api.crossref.org"
+    mailto: "${CROSSREF_MAILTO}"
+    headers:
+      User-Agent: "bioetl-crossref-client/1.0"
+    batch_size: 100
+    rate_limit_max_calls: 2
+    rate_limit_period: 1.0
+    workers: 2
