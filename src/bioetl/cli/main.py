@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +14,7 @@ import typer
 from bioetl.config import load_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from zoneinfo import ZoneInfo
 
 app = typer.Typer(
     name="bioetl",
@@ -149,8 +151,17 @@ def activity(
             typer.echo("Configuration validated successfully (dry-run mode)")
             raise typer.Exit(code=0)
 
-        # Generate run_id
+        # Generate run_id and deterministic date tag
         run_id = str(uuid.uuid4())
+        timezone_name = pipeline_config.determinism.environment.timezone
+        try:
+            tz = ZoneInfo(timezone_name)
+        except Exception:  # pragma: no cover - invalid timezone handled by defaults
+            tz = ZoneInfo("UTC")
+        pipeline_config.cli.date_tag = (
+            pipeline_config.cli.date_tag
+            or datetime.now(tz).strftime("%Y%m%d")
+        )
 
         # Initialize logger
         log = UnifiedLogger.get(__name__)
@@ -168,9 +179,14 @@ def activity(
         pipeline = ChemblActivityPipeline(config=pipeline_config, run_id=run_id)
 
         try:
+            mode = "extended" if extended else None
+            include_correlation = extended or pipeline_config.postprocess.correlation.enabled
+            include_qc_metrics = extended
+
             result = pipeline.run(
-                include_correlation=extended,
-                include_qc_metrics=extended,
+                mode=mode,
+                include_correlation=include_correlation,
+                include_qc_metrics=include_qc_metrics,
             )
 
             log.info(

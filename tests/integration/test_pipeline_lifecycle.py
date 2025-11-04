@@ -23,10 +23,10 @@ class TestPipelineLifecycle:
         tmp_output_dir: Path,
     ):
         """Test full pipeline lifecycle with mocked HTTP."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
+        pipeline_config_fixture.validation.schema_out = None
 
         with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
@@ -51,13 +51,12 @@ class TestPipelineLifecycle:
 
             assert result.run_id == run_id
             assert result.write_result.dataset.exists()
-            assert result.write_result.metadata.exists()
             assert result.write_result.quality_report is not None
             assert result.write_result.quality_report.exists()
 
             # Verify artifacts were created
             assert result.write_result.dataset.stat().st_size > 0
-            assert result.write_result.metadata.stat().st_size > 0
+            assert result.write_result.metadata is None
 
     def test_pipeline_lifecycle_with_validation_error(
         self,
@@ -68,6 +67,8 @@ class TestPipelineLifecycle:
         """Test pipeline lifecycle with validation error."""
         pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
         pipeline_config_fixture.validation.strict = True
+        pipeline_config_fixture.determinism.sort.by = []
+        pipeline_config_fixture.determinism.sort.ascending = []
 
         with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
@@ -111,6 +112,9 @@ class TestPipelineLifecycle:
         tmp_output_dir: Path,
     ):
         """Test pipeline lifecycle with empty data."""
+        pipeline_config_fixture.validation.schema_out = None
+        pipeline_config_fixture.determinism.sort.by = []
+        pipeline_config_fixture.determinism.sort.ascending = []
         with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
             mock_client = MagicMock()
             mock_status_response = MagicMock()

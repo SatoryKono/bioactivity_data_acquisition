@@ -30,14 +30,22 @@ class TestGoldenDeterminism:
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
 
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        artifacts = pipeline.plan_run_artifacts(run_id)
+        artifacts = pipeline.plan_run_artifacts(
+            run_id,
+            include_metadata=True,
+            include_qc_metrics=True,
+        )
 
         # Run pipeline twice
         result1 = pipeline.write(sample_activity_data, artifacts)
 
         # Create new pipeline instance with same config
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        artifacts2 = pipeline2.plan_run_artifacts(run_id)
+        artifacts2 = pipeline2.plan_run_artifacts(
+            run_id,
+            include_metadata=True,
+            include_qc_metrics=True,
+        )
         result2 = pipeline2.write(sample_activity_data, artifacts2)
 
         # Compare CSV files byte-by-byte
@@ -60,7 +68,11 @@ class TestGoldenDeterminism:
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        artifacts = pipeline.plan_run_artifacts(run_id)
+        artifacts = pipeline.plan_run_artifacts(
+            run_id,
+            include_metadata=True,
+            include_qc_metrics=True,
+        )
 
         result = pipeline.write(sample_activity_data, artifacts)
 
@@ -87,7 +99,11 @@ class TestGoldenDeterminism:
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        artifacts = pipeline.plan_run_artifacts(run_id)
+        artifacts = pipeline.plan_run_artifacts(
+            run_id,
+            include_metadata=True,
+            include_qc_metrics=True,
+        )
 
         result = pipeline.write(sample_activity_data, artifacts)
 

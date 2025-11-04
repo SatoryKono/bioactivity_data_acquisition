@@ -10,9 +10,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import datetime
 import time
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -38,7 +40,7 @@ class WriteArtifacts:
     """Collection of files emitted by the write stage of a pipeline run."""
 
     dataset: Path
-    metadata: Path
+    metadata: Path | None = None
     quality_report: Path | None = None
     correlation_report: Path | None = None
     qc_metrics: Path | None = None
@@ -50,7 +52,7 @@ class RunArtifacts:
 
     write: WriteArtifacts
     run_directory: Path
-    manifest: Path
+    manifest: Path | None
     log_file: Path
     extras: dict[str, Path] = field(default_factory=dict)
 
@@ -60,7 +62,7 @@ class WriteResult:
     """Materialised artifacts produced by the write stage."""
 
     dataset: Path
-    metadata: Path
+    metadata: Path | None = None
     quality_report: Path | None = None
     correlation_report: Path | None = None
     qc_metrics: Path | None = None
@@ -74,7 +76,7 @@ class RunResult:
     run_id: str
     write_result: WriteResult
     run_directory: Path
-    manifest: Path
+    manifest: Path | None
     log_file: Path
     stage_durations_ms: dict[str, float] = field(default_factory=dict)
 
@@ -125,25 +127,69 @@ class PipelineBase(ABC):
         span_id = expanded[32:48].ljust(16, "0")
         return trace_id, span_id
 
-    def build_run_stem(self, run_tag: str, mode: str | None = None) -> str:
+    def _normalise_run_tag(self, run_tag: str | None = None) -> str:
+        """Return a YYYYMMDD tag using overrides or the current date."""
+
+        candidates = []
+        if run_tag:
+            candidates.append(run_tag)
+        if self.config.cli.date_tag:
+            candidates.append(self.config.cli.date_tag)
+        if not candidates:
+            candidates.append(None)
+        seen: set[str] = set()
+        patterns = ("%Y%m%d", "%Y-%m-%d")
+        for candidate in candidates:
+            if not candidate:
+                continue
+            if candidate in seen:
+                continue
+            seen.add(candidate)
+            trimmed = candidate.strip()
+            for pattern in patterns:
+                try:
+                    parsed = datetime.strptime(trimmed, pattern)
+                except ValueError:
+                    continue
+                return parsed.strftime("%Y%m%d")
+            digits = "".join(character for character in trimmed if character.isdigit())
+            if len(digits) >= 8:
+                truncated = digits[:8]
+                try:
+                    parsed = datetime.strptime(truncated, "%Y%m%d")
+                except ValueError:
+                    pass
+                else:
+                    return parsed.strftime("%Y%m%d")
+        timezone_name = self.config.determinism.environment.timezone
+        try:
+            tz = ZoneInfo(timezone_name)
+        except Exception:  # pragma: no cover - invalid timezone handled by defaults
+            tz = ZoneInfo("UTC")
+        return datetime.now(tz).strftime("%Y%m%d")
+
+    def build_run_stem(self, run_tag: str | None, mode: str | None = None) -> str:
         """Return the filename stem for artifacts in a run.
 
         The stem combines the pipeline code, optional mode (e.g. "all" or
         "incremental"), and a deterministic tag such as a run date.
         """
+        tag = self._normalise_run_tag(run_tag)
         parts: Sequence[str]
         if mode:
-            parts = (self.pipeline_code, mode, run_tag)
+            parts = (self.pipeline_code, mode, tag)
         else:
-            parts = (self.pipeline_code, run_tag)
+            parts = (self.pipeline_code, tag)
         return "_".join(parts)
 
     def plan_run_artifacts(
         self,
-        run_tag: str,
+        run_tag: str | None,
         mode: str | None = None,
         include_correlation: bool = False,
-        include_qc_metrics: bool = True,
+        include_qc_metrics: bool = False,
+        include_metadata: bool = False,
+        include_manifest: bool = False,
         extras: dict[str, Path] | None = None,
     ) -> RunArtifacts:
         """Return the artifact map for a deterministic run.
@@ -163,8 +209,12 @@ class PipelineBase(ABC):
             else None
         )
         qc_metrics = run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
-        metadata = run_dir / f"{stem}_meta.yaml"
-        manifest = run_dir / f"{stem}_run_manifest.{self.manifest_extension}"
+        metadata = run_dir / f"{stem}_meta.yaml" if include_metadata else None
+        manifest = (
+            run_dir / f"{stem}_run_manifest.{self.manifest_extension}"
+            if include_manifest
+            else None
+        )
         log_file = self.logs_directory / f"{stem}.{self.log_extension}"
 
         write_artifacts = WriteArtifacts(
@@ -183,17 +233,22 @@ class PipelineBase(ABC):
         )
 
     def list_run_stems(self) -> Sequence[str]:
-        """Return deterministic run stems discovered via ``*_meta.yaml`` files."""
+        """Return deterministic run stems discovered via dataset files."""
 
-        stems = []
-        for meta_file in sorted(
-            self.pipeline_directory.glob(f"{self.pipeline_code}_*_meta.yaml"),
+        suffix = f".{self.dataset_extension}"
+        dataset_files = sorted(
+            (
+                path
+                for path in self.pipeline_directory.glob(f"{self.pipeline_code}_*{suffix}")
+                if path.name.endswith(suffix)
+                and not path.stem.endswith("_quality_report")
+                and not path.stem.endswith("_correlation_report")
+                and not path.stem.endswith("_qc")
+            ),
             key=lambda path: path.stat().st_mtime,
             reverse=True,
-        ):
-            stem = meta_file.stem.rsplit("_meta", 1)[0]
-            stems.append(stem)
-        return stems
+        )
+        return [path.stem for path in dataset_files]
 
     def apply_retention_policy(self) -> None:
         """Prune older runs beyond the configured ``retention_runs`` count."""
@@ -366,8 +421,11 @@ class PipelineBase(ABC):
 
         write_dataset_atomic(prepared.dataframe, artifacts.write.dataset, config=self.config)
         log.debug("dataset_written", path=str(artifacts.write.dataset))
-        write_yaml_atomic(metadata, artifacts.write.metadata)
-        log.debug("metadata_written", path=str(artifacts.write.metadata))
+        metadata_path: Path | None = None
+        if artifacts.write.metadata is not None:
+            write_yaml_atomic(metadata, artifacts.write.metadata)
+            log.debug("metadata_written", path=str(artifacts.write.metadata))
+            metadata_path = artifacts.write.metadata
 
         quality_payload = self.build_quality_report(prepared.dataframe)
         quality_path = emit_qc_artifact(
@@ -397,7 +455,7 @@ class PipelineBase(ABC):
 
         return WriteResult(
             dataset=artifacts.write.dataset,
-            metadata=artifacts.write.metadata,
+            metadata=metadata_path,
             quality_report=quality_path,
             correlation_report=correlation_path,
             qc_metrics=metrics_path,
@@ -408,8 +466,8 @@ class PipelineBase(ABC):
         self,
         *args: object,
         mode: str | None = None,
-        include_correlation: bool = False,
-        include_qc_metrics: bool = True,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
         extras: dict[str, Path] | None = None,
         **kwargs: object,
     ) -> RunResult:
@@ -430,10 +488,27 @@ class PipelineBase(ABC):
 
         artifacts: RunArtifacts | None = None
 
+        configured_mode = mode
+        if self.config.cli.extended:
+            configured_mode = "extended"
+
         UnifiedLogger.bind(stage="bootstrap")
-        log.info("pipeline_started", mode=mode)
+        log.info("pipeline_started", mode=configured_mode)
 
         try:
+            is_extended = configured_mode == "extended"
+            include_correlation = (
+                include_correlation
+                if include_correlation is not None
+                else (is_extended or self.config.postprocess.correlation.enabled)
+            )
+            include_qc_metrics = (
+                include_qc_metrics if include_qc_metrics is not None else is_extended
+            )
+            include_metadata = is_extended
+            include_manifest = is_extended
+            run_tag = self._normalise_run_tag(None)
+
             with UnifiedLogger.stage("extract", component=self._component_for_stage("extract")):
                 log.info("extract_started")
                 extract_start = time.perf_counter()
@@ -463,16 +538,18 @@ class PipelineBase(ABC):
 
             with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
                 artifacts = self.plan_run_artifacts(
-                    run_tag=self.run_id,
-                    mode=mode,
+                    run_tag=run_tag,
+                    mode=configured_mode,
                     include_correlation=include_correlation,
                     include_qc_metrics=include_qc_metrics,
+                    include_metadata=include_metadata,
+                    include_manifest=include_manifest,
                     extras=extras,
                 )
                 log.info(
                     "write_started",
                     dataset=str(artifacts.write.dataset),
-                    metadata=str(artifacts.write.metadata),
+                    metadata=(str(artifacts.write.metadata) if artifacts.write.metadata else None),
                 )
                 write_start = time.perf_counter()
                 write_result = self.write(validated, artifacts)
@@ -529,10 +606,14 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema.replace(
-            strict=self.config.validation.strict,
-            coerce=self.config.validation.coerce,
-        )
+        schema_object = schema_entry.schema
+        if hasattr(schema_object, "replace"):
+            schema = schema_object.replace(
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
+        else:  # pragma: no cover - compatibility path for older Pandera versions
+            schema = schema_object
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
@@ -565,11 +646,12 @@ class PipelineBase(ABC):
     def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
         if not column_order:
             return df
-        missing = [column for column in column_order if column not in df.columns]
+        order = list(column_order)
+        missing = [column for column in order if column not in df.columns]
         if missing:
             msg = f"Dataframe missing columns required by schema: {missing}"
             raise ValueError(msg)
-        extras = [column for column in df.columns if column not in column_order]
+        extras = [column for column in df.columns if column not in order]
         if not extras:
-            return df[column_order]
-        return df[[*column_order, *extras]]
+            return df[order]
+        return df[[*order, *extras]]
