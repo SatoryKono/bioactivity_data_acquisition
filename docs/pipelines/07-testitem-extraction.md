@@ -81,3 +81,129 @@ Once CIDs are resolved, the pipeline fetches properties from PubChem in batches 
 
 -   **Business Key**: `molecule_chembl_id`
 -   **Sort Key**: `molecule_chembl_id`
+
+## 7. Детерминизм
+
+**Sort keys:** `["testitem_id"]`
+
+TestItem pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование:
+
+- **Sort keys:** Строки сортируются по `testitem_id` (или `molecule_chembl_id`) перед записью
+- **Hash policy:** Используется SHA256 для генерации `hash_row` и `hash_business_key`
+  - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`)
+  - `hash_business_key`: хеш бизнес-ключа (`molecule_chembl_id`)
+- **Canonicalization:** Все значения нормализуются перед хешированием (trim whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
+- **Column order:** Фиксированный порядок колонок из Pandera схемы
+- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
+
+**Guarantees:**
+- Бит-в-бит воспроизводимость при одинаковых входных данных и конфигурации
+- Стабильный порядок строк и колонок
+- Идентичные хеши для идентичных данных
+
+For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-policy.md).
+
+## 8. QC/QA
+
+**Ключевые метрики успеха:**
+
+| Метрика | TestItem | Критичность |
+|---------|----------|-------------|
+| **ChEMBL coverage** | 100% идентификаторов | HIGH |
+| **PubChem enrichment rate** | ≥70% для молекул с InChIKey | HIGH |
+| **SMILES validity** | ≥95% валидных SMILES | MEDIUM |
+| **InChI validity** | ≥95% валидных InChI | MEDIUM |
+| **Property completeness** | ≥85% молекул с полным набором свойств | MEDIUM |
+| **Pipeline failure rate** | 0% (graceful degradation) | CRITICAL |
+| **Детерминизм** | Бит-в-бит воспроизводимость | CRITICAL |
+
+**QC метрики:**
+- Покрытие ChEMBL: процент успешно извлеченных molecule_chembl_id
+- Покрытие PubChem: процент молекул с успешным обогащением через PubChem
+- Валидность SMILES: процент валидных SMILES строк
+- Валидность InChI: процент валидных InChI строк
+- Полнота свойств: процент молекул с полным набором физико-химических свойств
+- Валидность данных: соответствие схеме Pandera и референциальная целостность
+
+**Пороги качества:**
+- ChEMBL coverage должен быть 100% (критично)
+- PubChem enrichment rate ≥70% для молекул с InChIKey (высокий приоритет)
+- SMILES validity ≥95% (средний приоритет)
+- InChI validity ≥95% (средний приоритет)
+
+**QC отчеты:**
+- Генерируется `testitem_quality_report.csv` с метриками покрытия и валидности
+- При использовании `--extended` режима дополнительно создается подробный отчет с распределениями
+
+For detailed QC metrics and policies, see [QC Overview](docs/qc/00-qc-overview.md).
+
+## 9. Логирование и трассировка
+
+TestItem pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
+
+**Обязательные поля в логах:**
+- `run_id`: Уникальный идентификатор запуска пайплайна
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `pipeline`: Имя пайплайна (`testitem`)
+- `duration`: Время выполнения стадии в секундах
+- `row_count`: Количество обработанных строк
+
+**Структурированные события:**
+- `pipeline_started`: Начало выполнения пайплайна
+- `extract_started`: Начало стадии извлечения
+- `extract_completed`: Завершение стадии извлечения с метриками
+- `transform_started`: Начало стадии трансформации
+- `transform_completed`: Завершение стадии трансформации
+- `validate_started`: Начало валидации
+- `validate_completed`: Завершение валидации
+- `write_started`: Начало записи результатов
+- `write_completed`: Завершение записи результатов
+- `pipeline_completed`: Успешное завершение пайплайна
+- `pipeline_failed`: Ошибка выполнения с деталями
+
+**Примеры JSON-логов:**
+
+```json
+{
+  "event": "pipeline_started",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "testitem",
+  "timestamp": "2025-01-15T10:30:00.123456Z"
+}
+
+{
+  "event": "extract_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "extract",
+  "pipeline": "testitem",
+  "duration": 45.2,
+  "row_count": 1250,
+  "pubchem_enrichment_rate": 72.5,
+  "smiles_validity": 96.2,
+  "timestamp": "2025-01-15T10:30:45.345678Z"
+}
+
+{
+  "event": "pipeline_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "testitem",
+  "duration": 120.5,
+  "row_count": 1250,
+  "timestamp": "2025-01-15T10:32:00.678901Z"
+}
+```
+
+**Формат вывода:**
+- Консоль: текстовый формат для удобства чтения
+- Файлы: JSON формат для машинной обработки и анализа
+- Ротация: автоматическая ротация лог-файлов (10MB × 10 файлов)
+
+**Трассировка:**
+- Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
+- Каждая стадия логирует начало и завершение с метриками производительности
+- Ошибки логируются с полным контекстом и stack trace
+- PubChem enrichment операции логируются с метриками успешности и покрытия
+
+For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).

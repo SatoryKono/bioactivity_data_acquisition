@@ -454,7 +454,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
 
 ### 2.5 Обогащение данными (Enrichment)
 
-**См. также**: [gaps.md](../gaps.md) (G6, G7, G8), [acceptance-criteria.md](../acceptance-criteria.md) (AC7, AC8), [implementation-examples.md](../implementation-examples.md) (патч 2).
+**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
 
 #### 2.5.1 Обогащение Target данными
 
@@ -919,7 +919,7 @@ postprocess:
 
 ## 7. CLI Дополнения
 
-**Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl pipeline run`. См. стандарт в [10-configuration.md](10-configuration.md#53-cli-interface-specification-aud-4).
+**Унифицированный интерфейс**: Все пайплайны используют единую команду `bioetl.cli.main <pipeline>`. См. стандарт в [CLI Overview](docs/cli/00-cli-overview.md).
 
 ```bash
 
@@ -1064,6 +1064,76 @@ bioetl pipeline run --config configs/pipelines/assay.yaml \
 - [ ] Формализовать контракт фильтра (pure function DataFrame -> DataFrame)
 
 - [ ] Документировать предикаты
+
+## 9. Логирование и трассировка
+
+Assay pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
+
+**Обязательные поля в логах:**
+- `run_id`: Уникальный идентификатор запуска пайплайна
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `pipeline`: Имя пайплайна (`assay`)
+- `duration`: Время выполнения стадии в секундах
+- `row_count`: Количество обработанных строк
+
+**Структурированные события:**
+- `pipeline_started`: Начало выполнения пайплайна
+- `extract_started`: Начало стадии извлечения
+- `extract_completed`: Завершение стадии извлечения с метриками
+- `transform_started`: Начало стадии трансформации
+- `transform_completed`: Завершение стадии трансформации
+- `validate_started`: Начало валидации
+- `validate_completed`: Завершение валидации
+- `write_started`: Начало записи результатов
+- `write_completed`: Завершение записи результатов
+- `pipeline_completed`: Успешное завершение пайплайна
+- `pipeline_failed`: Ошибка выполнения с деталями
+
+**Примеры JSON-логов:**
+
+```json
+{
+  "event": "pipeline_started",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "assay",
+  "timestamp": "2025-01-15T10:30:00.123456Z"
+}
+
+{
+  "event": "extract_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "extract",
+  "pipeline": "assay",
+  "duration": 45.2,
+  "row_count": 1250,
+  "api_calls": 50,
+  "cache_hits": 12,
+  "timestamp": "2025-01-15T10:30:45.345678Z"
+}
+
+{
+  "event": "pipeline_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "assay",
+  "duration": 120.5,
+  "row_count": 1250,
+  "timestamp": "2025-01-15T10:32:00.678901Z"
+}
+```
+
+**Формат вывода:**
+- Консоль: текстовый формат для удобства чтения
+- Файлы: JSON формат для машинной обработки и анализа
+- Ротация: автоматическая ротация лог-файлов (10MB × 10 файлов)
+
+**Трассировка:**
+- Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
+- Каждая стадия логирует начало и завершение с метриками производительности
+- Ошибки логируются с полным контекстом и stack trace
+
+For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
 
 ## Заключение
 

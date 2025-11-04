@@ -24,11 +24,11 @@
 
 - **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — HTTP запросы, ретраи, кэширование
 
-- **UnifiedSchema** (см. [04-normalization-validation.md](04-normalization-validation.md)) — Pandera-схемы и реестр нормализаторов
+- **UnifiedSchema** (см. [Validation](docs/etl_contract/05-validation.md)) — Pandera-схемы и реестр нормализаторов
 
-- **UnifiedOutputWriter** (см. [02-io-system.md](02-io-system.md)) — атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
+- **UnifiedOutputWriter** (см. [Output Layout](docs/output/00-output-layout.md)) — атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
 
-- **UnifiedLogger** (см. [01-logging-system.md](01-logging-system.md)) — структурные JSON-логи
+- **UnifiedLogger** (см. [Logging Overview](docs/logging/00-overview.md)) — структурные JSON-логи
 
 ### Источник данных
 
@@ -102,6 +102,59 @@ data = r.json()
 - Сортировка по `activity_id` воспроизводима
 
 - Фиксация `chembl_release` через `/status` endpoint
+
+---
+
+## 1.1. CLI Usage
+
+**Command:** `python -m bioetl.cli.main activity`
+
+**Required options:**
+- `--config PATH`: Path to the pipeline configuration YAML (e.g., `configs/pipelines/chembl/activity.yaml`)
+- `--output-dir PATH`: Directory where run artifacts are materialised
+
+**Optional options:**
+- `--dry-run`: Load, merge, and validate configuration without executing the pipeline
+- `--limit N`: Process at most `N` rows (useful for smoke runs)
+- `--sample N`: Randomly sample `N` rows
+- `--set KEY=VALUE`: Override individual configuration keys at runtime (repeatable)
+- `--verbose`: Emit verbose (development) logging
+
+**Examples:**
+
+```bash
+# Basic run with canonical config
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity
+
+# Dry run to validate configuration
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --dry-run
+
+# Override batch size for smoke test
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --set sources.chembl.batch_size=10 \
+  --limit 100
+
+# Extended mode with QC artifacts
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --extended
+```
+
+**Configuration loading precedence:**
+1. Base profiles (`configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`)
+2. Pipeline YAML (`--config`)
+3. CLI overrides (`--set`)
+4. Environment variables
+
+For more details, see [CLI Overview](docs/cli/00-cli-overview.md) and [CLI Commands](docs/cli/01-cli-commands.md).
 
 ---
 
@@ -641,6 +694,27 @@ ActivitySchema = DataFrameSchema(
 
 - Изменения схемы требуют bump версии и обновления документации
 
+### 6.1. Детерминизм
+
+**Sort keys:** `["assay_id", "testitem_id", "activity_id"]`
+
+Activity pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование:
+
+- **Sort keys:** Строки сортируются по `assay_id`, затем `testitem_id`, затем `activity_id` перед записью
+- **Hash policy:** Используется SHA256 для генерации `hash_row` и `hash_business_key`
+  - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`)
+  - `hash_business_key`: хеш бизнес-ключа (`activity_id`)
+- **Canonicalization:** Все значения нормализуются перед хешированием (trim whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
+- **Column order:** Фиксированный порядок колонок из `COLUMN_ORDER` в Pandera схеме
+- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
+
+**Guarantees:**
+- Бит-в-бит воспроизводимость при одинаковых входных данных и конфигурации
+- Стабильный порядок строк и колонок
+- Идентичные хеши для идентичных данных
+
+For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-policy.md).
+
 ---
 
 ## 7. Rate Limiting и Circuit Breaker
@@ -757,7 +831,7 @@ while True:
 
 **Инвариант G2, G9:** Только offset-пагинация; идти по page_meta.next до null; перед записью сортировка по activity_id обязательна: `df.sort_values(["activity_id"])`.
 
-**См. также**: [gaps.md](../gaps.md) (G2, G9), [acceptance-criteria.md](../acceptance-criteria.md) (AC6).
+**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ TODO: Максимальный limit для Activity API
 
@@ -790,7 +864,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ```
 
-**Ссылка:** [test-plan.md](../test-plan.md), процедура бинарного поиска
+**Ссылка:** Детали тестирования см. в [QC Checklists](docs/qc/03-checklists-and-ci.md).
 
 ---
 
@@ -1014,7 +1088,7 @@ qc_report = {
 
 ```
 
-**См. также**: [gaps.md](../gaps.md) (G10), [acceptance-criteria.md](../acceptance-criteria.md) (AC9).
+**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
 
@@ -1338,11 +1412,11 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 - **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — для запросов к API
 
-- **UnifiedSchema** (см. [04-normalization-validation.md](04-normalization-validation.md)) — для валидации
+- **UnifiedSchema** (см. [Validation](docs/etl_contract/05-validation.md)) — для валидации
 
-- **UnifiedOutputWriter** (см. [02-io-system.md](02-io-system.md)) — для записи
+- **UnifiedOutputWriter** (см. [Output Layout](docs/output/00-output-layout.md)) — для записи
 
-- **UnifiedLogger** (см. [01-logging-system.md](01-logging-system.md)) — для логирования
+- **UnifiedLogger** (см. [Logging Overview](docs/logging/00-overview.md)) — для логирования
 
 ### Интеграция с другими сущностями (referential integrity)
 
@@ -1569,4 +1643,4 @@ flowchart LR
 **Дата:** 2025-01-28
 **Автор:** ETL Architecture Team
 
-**Следующий раздел:** Интеграция с другими модулями, см. [00-architecture-overview.md](00-architecture-overview.md)
+**Следующий раздел:** Интеграция с другими модулями, см. [ETL Overview](docs/etl_contract/00-etl-overview.md)

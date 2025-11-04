@@ -1,0 +1,6 @@
+pipeline,doc_path,missing_cli,missing_config,missing_schema,missing_io,missing_determinism,missing_qc,missing_logging,priority
+activity,docs/pipelines/06-activity-data-extraction.md,NO,NO,NO,NO,NO,NO,NO,LOW
+assay,docs/pipelines/05-assay-extraction.md,NO,NO,NO,NO,NO,NO,NO,LOW
+target,docs/pipelines/08-target-data-extraction.md,NO,NO,NO,NO,NO,NO,NO,LOW
+document,docs/pipelines/09-document-chembl-extraction.md,NO,NO,NO,NO,NO,NO,NO,LOW
+testitem,docs/pipelines/07-testitem-extraction.md,NO,NO,NO,NO,NO,NO,NO,LOW
