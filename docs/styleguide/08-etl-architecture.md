@@ -44,6 +44,46 @@ class ChEMBLActivityPipeline2(PipelineBase):  # SHALL NOT create multiple
     pass
 ```
 
+## Pipeline Naming Convention
+
+All pipelines **MUST** follow a consistent naming convention that reflects the entity being extracted and the data source.
+
+### Pipeline Name Format (for code/configs)
+
+Pipeline names **MUST** use the format: `{entity}_{source}`
+
+- **Entity** comes first (what is being extracted): `document`, `testitem`, `target`, `assay`, `activity`
+- **Source** comes second (where data comes from): `chembl`, `pubchem`, `pubmed`, `crossref`, `openalex`, `semantic_scholar`, `uniprot`, `iuphar`
+
+**Valid Examples:**
+- `document_chembl` - document extraction from ChEMBL
+- `testitem_pubchem` - testitem extraction from PubChem
+- `assay_chembl` - assay extraction from ChEMBL
+- `activity_chembl` - activity extraction from ChEMBL
+- `target_chembl` - target extraction from ChEMBL
+- `target_uniprot` - target extraction from UniProt
+- `target_iuphar` - target extraction from IUPHAR
+
+**Invalid Examples:**
+- `pubmed_document` ❌ (should be `document_pubmed`)
+- `openalex_document` ❌ (should be `document_openalex`)
+- `crossref_document` ❌ (should be `document_crossref`)
+- `semantic_scholar_document` ❌ (should be `document_semantic_scholar`)
+
+### Documentation File Name Format
+
+Pipeline documentation files **MUST** use the format: `NN-{entity}-{source}-extraction.md`
+
+Where `NN` is a two-digit number for ordering, and the entity-source pattern matches the pipeline name.
+
+**Valid Examples:**
+- `05-assay-chembl-extraction.md`
+- `06-activity-chembl-extraction.md`
+- `07-testitem-chembl-extraction.md`
+- `08-target-chembl-extraction.md`
+- `09-document-chembl-extraction.md`
+- `21-testitem-pubchem-extraction.md`
+
 ## Unified Components
 
 All pipelines **MUST** use unified components:

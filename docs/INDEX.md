@@ -93,24 +93,28 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-pipeline-base.md](pipelines/00-pipeline-base.md) - Pipeline base documentation
 - [03-data-extraction.md](pipelines/03-data-extraction.md) - Data extraction pipeline
-- [05-assay-extraction.md](pipelines/05-assay-extraction.md) - Assay extraction pipeline
-- [06-activity-data-extraction.md](pipelines/06-activity-data-extraction.md) - Activity data extraction pipeline
-- [07-testitem-extraction.md](pipelines/07-testitem-extraction.md) - Testitem extraction pipeline
-- [08-target-data-extraction.md](pipelines/08-target-data-extraction.md) - Target data extraction pipeline
+- [05-assay-chembl-extraction.md](pipelines/05-assay-chembl-extraction.md) - Assay ChEMBL extraction pipeline
+- [06-activity-chembl-extraction.md](pipelines/06-activity-chembl-extraction.md) - Activity ChEMBL extraction pipeline
+- [07-testitem-chembl-extraction.md](pipelines/07-testitem-chembl-extraction.md) - Testitem ChEMBL extraction pipeline
+- [08-target-chembl-extraction.md](pipelines/08-target-chembl-extraction.md) - Target ChEMBL extraction pipeline
 - [09-document-chembl-extraction.md](pipelines/09-document-chembl-extraction.md) - Document ChEMBL extraction pipeline
 - [10-chembl-pipelines-catalog.md](pipelines/10-chembl-pipelines-catalog.md) - ChEMBL pipelines catalog
-- [21-pubchem-testitem.md](pipelines/21-pubchem-testitem.md) - PubChem testitem pipeline
+- [21-testitem-pubchem-extraction.md](pipelines/21-testitem-pubchem-extraction.md) - Testitem PubChem extraction pipeline
+- [22-document-pubmed-extraction.md](pipelines/22-document-pubmed-extraction.md) - Document PubMed extraction pipeline
+- [23-document-openalex-extraction.md](pipelines/23-document-openalex-extraction.md) - Document OpenAlex extraction pipeline
+- [24-document-crossref-extraction.md](pipelines/24-document-crossref-extraction.md) - Document Crossref extraction pipeline
+- [25-document-semantic-scholar-extraction.md](pipelines/25-document-semantic-scholar-extraction.md) - Document Semantic Scholar extraction pipeline
 
 #### Pipeline Sources (`pipelines/sources/`)
 
-- [chembl/README.md](pipelines/sources/chembl/README.md) - ChEMBL source documentation
 - [crossref/README.md](pipelines/sources/crossref/README.md) - Crossref source documentation
 - [iuphar/README.md](pipelines/sources/iuphar/README.md) - IUPHAR source documentation
 - [openalex/README.md](pipelines/sources/openalex/README.md) - OpenAlex source documentation
-- [pubchem/README.md](pipelines/sources/pubchem/README.md) - PubChem source documentation
 - [pubmed/README.md](pipelines/sources/pubmed/README.md) - PubMed source documentation
 - [semantic_scholar/README.md](pipelines/sources/semantic_scholar/README.md) - Semantic Scholar source documentation
 - [uniprot/README.md](pipelines/sources/uniprot/README.md) - UniProt source documentation
+
+> **Note**: ChEMBL and PubChem source documentation has been consolidated into the main pipeline documents: [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md) and [PubChem TestItem Pipeline](pipelines/21-testitem-pubchem-extraction.md).
 
 ### Quality Control (`qc/`)
 

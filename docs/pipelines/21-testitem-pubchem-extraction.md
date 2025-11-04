@@ -15,11 +15,20 @@ This document describes the `testitem_pubchem` pipeline, which is responsible fo
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
+## Maintainers
+
+- `@SatoryKono` — глобальный ревьюер и владелец документации, отслеживает изменения по источнику PubChem.【F:.github/CODEOWNERS†L5-L41】
+
 ## 2. Purpose and Scope
 
 This pipeline is designed to extract `testitem` data from PubChem. It is a standalone pipeline that does not perform any joins or enrichment with other data sources.
 
 The pipeline utilizes the existing PubChem source components, which can be found at [ref: repo:src/bioetl/sources/pubchem/@refactoring_001].
+
+## Public API
+
+- `bioetl.pipelines.pubchem.PubChemPipeline` — самостоятельный пайплайн, обогащающий список ChEMBL-молекул по `molecule_chembl_id` и `standard_inchi_key`, с подсчётом QC-метрик по покрытию и доле обогащений.【F:src/bioetl/pipelines/pubchem.py†L1-L170】
+- `bioetl.sources.pubchem.pipeline.PubChemPipeline` — совместимый shim, реэкспортирующий standalone-пайплайн под пространством `sources` для соответствия регистру источников.【F:src/bioetl/sources/pubchem/pipeline.py†L1-L5】
 
 ## 3. Inputs (CLI/Configs/Profiles)
 
@@ -55,6 +64,9 @@ The following table describes the expected keys in the `testitem_pubchem.yaml` c
 | `sources.pubchem.base_url`      | string  | No       | `https://pubchem.ncbi.nlm.nih.gov/rest/pug` | The base URL for the PubChem API.                                           |
 | `sources.pubchem.rate_limit_max_calls` | integer | No       | 5       | The maximum number of API calls per period.                                 |
 | `sources.pubchem.rate_limit_period`    | float   | No       | 1.0     | The period in seconds for the rate limit.                                   |
+| `postprocess.enrichment.pubchem_lookup_input` | string | Yes | | Path to lookup file with `molecule_chembl_id` and `standard_inchi_key` columns. |
+| `qc.thresholds.pubchem.min_inchikey_coverage` | float | No | | Minimum InChI key coverage ratio. |
+| `qc.thresholds.pubchem.min_enrichment_rate` | float | No | | Minimum enrichment rate. These QC metrics are synchronized with pipeline checks.【F:src/bioetl/configs/pipelines/pubchem.yaml†L67-L72】【F:src/bioetl/pipelines/pubchem.py†L80-L137】 |
 | `materialization.pipeline_subdir` | string  | Yes      |         | The subdirectory within the output directory to write artifacts to.         |
 
 ## 4. Extraction (Client → Paginator → Parser)
@@ -67,10 +79,20 @@ The extraction process would use the existing components from the PubChem source
 
 The specific PubChem endpoint and query parameters for `testitem` data would need to be determined and implemented in the pipeline's extraction logic.
 
+## Module Layout
+
+Пайплайн использует адаптер `bioetl.adapters.PubChemAdapter` и вспомогательные константы `_LOOKUP_COLUMNS`/`_PUBCHEM_COLUMNS`, обеспечивая слоистую архитектуру (pipeline → adapter → HTTP).【F:src/bioetl/pipelines/pubchem.py†L11-L138】
+
 ## 5. Normalization and Validation
 
 - **Normalizer:** The `PubChemNormalizer` ([ref: repo:src/bioetl/sources/pubchem/normalizer/normalizer.py@refactoring_001]) would be used to canonicalize identifiers and types, and to fill in any required fields that are not present in the raw extracted data.
 - **Pandera Schema:** A Pandera schema ([ref: repo:src/bioetl/sources/pubchem/schema/schema.py@refactoring_001]) would be used to validate the structure and types of the normalized data. The schema would be configured with `strict=True`, `ordered=True`, and `coerce=True` to ensure data quality. It would also define a business key and perform a uniqueness check on that key.
+
+## Merge Policy
+
+Пайплайн использует lookup-таблицу с колонками `molecule_chembl_id` и `standard_inchi_key`; обогащённые поля `pubchem_*` добавляются к этим ключам и сортируются детерминированно перед экспортом, обеспечивая совместимость с testitem-пайплайном ChEMBL.【F:src/bioetl/pipelines/pubchem.py†L32-L158】
+
+Матрица источников фиксирует, что в финальной выдаче test items имена и синонимы берутся из PubChem с приоритетом над ChEMBL, конфликтные случаи помечаются в QC.【F:refactoring/DATA_SOURCES.md†L38-L39】
 
 ## 6. Outputs and Determinism
 
@@ -100,6 +122,11 @@ The following QC metrics would be collected and reported in the pipeline's logs 
 | `duplicate_count`       | The number of duplicate records found based on the business key.            |
 | `missing_required_fields` | The number of records with missing required fields.                         |
 | `retry_events`          | The number of times the HTTP client had to retry a request.                 |
+
+## Tests
+
+- `tests/unit/test_pubchem_pipeline.py` покрывает полный цикл `extract → transform → validate → export`, используя мок-адаптер PubChem.【F:tests/unit/test_pubchem_pipeline.py†L1-L60】
+- Модульные тесты в `tests/sources/pubchem/` проверяют клиент и нормализацию адаптера, что поддерживает слои, требуемые `MODULE_RULES.md`.【F:tests/sources/pubchem/test_client.py†L1-L40】【F:tests/sources/pubchem/test_normalizer.py†L1-L40】
 
 ## 8. Errors and Exit Codes
 

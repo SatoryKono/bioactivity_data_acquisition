@@ -105,56 +105,468 @@ data = r.json()
 
 ---
 
-## 1.1. CLI Usage
+## 2. CLI
 
-**Command:** `python -m bioetl.cli.main activity`
+### 2.1. Команда и базовое использование
 
-**Required options:**
-- `--config PATH`: Path to the pipeline configuration YAML (e.g., `configs/pipelines/chembl/activity.yaml`)
-- `--output-dir PATH`: Directory where run artifacts are materialised
+Activity pipeline запускается через команду `activity` CLI фреймворка `bioetl`:
 
-**Optional options:**
-- `--dry-run`: Load, merge, and validate configuration without executing the pipeline
-- `--limit N`: Process at most `N` rows (useful for smoke runs)
-- `--sample N`: Randomly sample `N` rows
-- `--set KEY=VALUE`: Override individual configuration keys at runtime (repeatable)
-- `--verbose`: Emit verbose (development) logging
-
-**Examples:**
-
+**Базовая команда:**
 ```bash
-# Basic run with canonical config
+python -m bioetl.cli.main activity [OPTIONS]
+```
+
+**Минимальный пример:**
+```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
   --output-dir data/output/activity
+```
 
-# Dry run to validate configuration
+### 2.2. Обязательные параметры CLI
+
+| Параметр | Описание | Пример |
+|----------|----------|--------|
+| `--config PATH` | Путь к YAML-конфигурации пайплайна | `configs/pipelines/chembl/activity.yaml` |
+| `--output-dir PATH` | Директория для записи артефактов запуска | `data/output/activity` |
+
+**Важно:** Оба параметра обязательны. Без них пайплайн не запустится.
+
+### 2.3. Опциональные параметры CLI
+
+| Параметр | Краткая форма | Описание | Значение по умолчанию |
+|----------|---------------|----------|----------------------|
+| `--dry-run` | `-d` | Загрузить, объединить и валидировать конфигурацию без выполнения пайплайна | `False` |
+| `--limit N` | — | Обработать максимум `N` строк (полезно для smoke-тестов) | `None` |
+| `--sample N` | — | Случайная выборка `N` строк; использует детерминированный seed из конфигурации | `None` |
+| `--set KEY=VALUE` | `-S` | Переопределить отдельные ключи конфигурации во время выполнения (повторяемый) | `[]` |
+| `--verbose` | `-v` | Выводить подробные (development) логи | `False` |
+| `--extended` | — | Включить расширенные QC-артефакты (meta.yaml, correlation report) | `False` |
+| `--golden PATH` | — | Сравнить выводы с сохранённым golden-датасетом для проверки битового детерминизма | `None` |
+| `--fail-on-schema-drift` / `--allow-schema-drift` | — | Переключатель: падать при отклонении схемы вывода от ожидаемого порядка | `--fail-on-schema-drift` |
+| `--validate-columns` / `--no-validate-columns` | — | Управление хуками валидации колонок на этапе постобработки | `--validate-columns` |
+
+### 2.4. Примеры использования
+
+**Базовый запуск с каноническим конфигом:**
+```bash
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity
+```
+
+**Dry-run для валидации конфигурации:**
+```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
   --output-dir data/output/activity \
   --dry-run
+```
 
-# Override batch size for smoke test
+**Smoke-тест с переопределением batch_size:**
+```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \
   --limit 100
+```
 
-# Extended mode with QC artifacts
+**Расширенный режим с QC-артефактами:**
+```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
   --output-dir data/output/activity \
   --extended
 ```
 
-**Configuration loading precedence:**
-1. Base profiles (`configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`)
-2. Pipeline YAML (`--config`)
-3. CLI overrides (`--set`)
-4. Environment variables
+**С несколькими переопределениями через --set:**
+```bash
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --set sources.chembl.batch_size=20 \
+  --set postprocess.correlation.enabled=true \
+  --verbose
+```
 
-For more details, see [CLI Overview](docs/cli/00-cli-overview.md) and [CLI Commands](docs/cli/01-cli-commands.md).
+**С переменными окружения (env имеет приоритет над --set):**
+```bash
+export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --set sources.chembl.batch_size=10  # будет переопределено env
+```
+
+### 2.5. Порядок загрузки конфигурации
+
+Конфигурация загружается в следующем порядке (поздние источники переопределяют ранние):
+
+1. **Базовые профили** (`configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`) — задаются через `extends` в pipeline YAML
+2. **Pipeline YAML** (`--config`) — основной конфигурационный файл пайплайна
+3. **CLI переопределения** (`--set KEY=VALUE`) — переопределения через командную строку
+4. **Переменные окружения** — имеют наивысший приоритет
+
+**Пример приоритетов:**
+```bash
+# В configs/pipelines/chembl/activity.yaml:
+sources:
+  chembl:
+    batch_size: 25
+
+# В --set:
+--set sources.chembl.batch_size=10
+
+# В env:
+export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
+
+# Итоговое значение: 5 (env имеет приоритет)
+```
+
+### 2.6. Переменные окружения
+
+Переменные окружения имеют наивысший приоритет и могут переопределять любые параметры конфигурации.
+
+**Формат имени переменной:**
+- Префикс: `BIOETL__` или `BIOACTIVITY__`
+- Вложенные ключи разделяются двойным подчёркиванием `__`
+- Пример: `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25`
+
+**Часто используемые переменные для Activity pipeline:**
+
+| Переменная | Описание | Пример |
+|------------|----------|--------|
+| `BIOETL__SOURCES__CHEMBL__BATCH_SIZE` | Размер батча для ChEMBL API | `25` |
+| `BIOETL__CACHE__ENABLED` | Включить/выключить кэш | `true` |
+| `BIOETL__CACHE__TTL` | TTL кэша в секундах | `3600` |
+| `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC` | Таймаут HTTP-запросов | `60.0` |
+
+### 2.7. Режимы выполнения
+
+**Standard режим** (по умолчанию):
+- Создаёт основной CSV-файл с данными
+- Генерирует QC-отчёт (`quality_report.csv`)
+- Опционально: correlation report (если `postprocess.correlation.enabled=true`)
+
+**Extended режим** (`--extended`):
+- Всё из standard режима
+- Добавляет `meta.yaml` с метаданными запуска
+- Добавляет опциональный `run_manifest.json`
+
+**Dry-run режим** (`--dry-run`):
+- Загружает и валидирует конфигурацию
+- Не выполняет пайплайн
+- Полезен для проверки корректности конфигурации перед запуском
+
+**Примеры:**
+```bash
+# Standard режим
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity
+
+# Extended режим
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --extended
+
+# Dry-run режим
+python -m bioetl.cli.main activity \
+  --config configs/pipelines/chembl/activity.yaml \
+  --output-dir data/output/activity \
+  --dry-run
+```
+
+**Дополнительная информация:**
+- См. [CLI Overview](docs/cli/00-cli-overview.md) для общего описания CLI
+- См. [CLI Commands](docs/cli/01-cli-commands.md) для справочника по командам
+
+---
+
+## 3. Конфигурация
+
+### 3.1. Обзор конфигурации
+
+Activity pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
+
+**Путь к конфигурационному файлу:**
+- `configs/pipelines/chembl/activity.yaml`
+
+**Стандартная структура:**
+- Наследование базовых профилей через `extends`
+- Переопределение специфичных для пайплайна параметров
+- Валидация через Pydantic-модели
+
+### 3.2. Структура конфигурационного файла
+
+Конфигурационный файл Activity pipeline следует стандартной структуре `PipelineConfig`:
+
+```yaml
+version: 1  # Версия схемы конфигурации
+
+extends:  # Профили для наследования
+  - ../profiles/base.yaml
+  - ../profiles/determinism.yaml
+
+pipeline:  # Метаданные пайплайна
+  name: activity_chembl
+  version: "1.0.0"
+  owner: null
+  description: null
+
+http:  # HTTP-профили и базовые настройки клиентов
+  default:
+    timeout_sec: 60.0
+    connect_timeout_sec: 15.0
+    read_timeout_sec: 60.0
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+      statuses: [408, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 10
+      period: 1.0
+    rate_limit_jitter: true
+
+cache:  # Параметры HTTP-кэша
+  enabled: true
+  directory: "http_cache"
+  ttl: 3600
+
+paths:  # Каталоги ввода/вывода
+  input_root: "data/input"
+  output_root: "data/output"
+  cache_root: ".cache"
+
+determinism:  # Политика детерминизма выгрузок
+  enabled: true
+  sort:
+    by: ["assay_id", "testitem_id", "activity_id"]
+    ascending: [true, true, true]
+    na_position: "last"
+  column_order: [...]  # См. секцию ниже
+
+sources:  # Конфигурация источников данных
+  chembl:
+    batch_size: 25  # ОБЯЗАТЕЛЬНО ≤ 25
+    # ... другие параметры
+
+postprocess:  # Постобработка
+  correlation:
+    enabled: false
+```
+
+### 3.3. Основные параметры конфигурации
+
+| Секция | Ключ | Тип | Обязательный | Значение по умолчанию | Ограничения | Описание |
+|--------|------|-----|--------------|----------------------|-------------|----------|
+| `pipeline` | `name` | string | Да | — | — | Имя пайплайна (`activity_chembl`) |
+| `pipeline` | `version` | string | Да | — | — | Версия пайплайна |
+| `sources.chembl` | `batch_size` | integer | Да | — | `≤ 25` | Размер батча для ChEMBL API (жесткое ограничение URL длины) |
+| `determinism.sort` | `by` | array | Нет | `[]` | Должно совпадать с `ascending` по длине | Ключи сортировки: `["assay_id", "testitem_id", "activity_id"]` |
+| `determinism.sort` | `ascending` | array | Нет | `[]` | Должно совпадать с `by` по длине | Направление сортировки |
+| `determinism.sort` | `na_position` | string | Нет | `"last"` | `"first"` или `"last"` | Позиция NA значений |
+| `determinism.column_order` | — | array | Нет | `[]` | Должен соответствовать Pandera-схеме | Фиксированный порядок колонок |
+| `postprocess.correlation` | `enabled` | boolean | Нет | `false` | — | Включить correlation report |
+| `cache` | `enabled` | boolean | Нет | `true` | — | Включить HTTP-кэш |
+| `cache` | `ttl` | integer | Нет | `3600` | `> 0` | TTL кэша в секундах |
+| `http.default` | `timeout_sec` | float | Нет | `60.0` | `> 0` | Общий таймаут запроса |
+| `http.default` | `rate_limit.max_calls` | integer | Нет | `10` | `> 0` | Максимум запросов в окне |
+| `http.default` | `rate_limit.period` | float | Нет | `1.0` | `> 0` | Длина окна в секундах |
+
+### 3.4. Пример конфигурационного файла
+
+```yaml
+# configs/pipelines/chembl/activity.yaml
+
+version: 1
+
+extends:
+  - ../profiles/base.yaml
+  - ../profiles/determinism.yaml
+
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+  owner: "ETL Team"
+  description: "ChEMBL Activity extraction pipeline"
+
+materialization:
+  root: "data/output"
+  format: "parquet"
+  pipeline_subdir: "activity"
+
+sources:
+  chembl:
+    base_url: "https://www.ebi.ac.uk/chembl/api/data"
+    batch_size: 25  # ОБЯЗАТЕЛЬНО ≤ 25 из-за ограничения длины URL
+    max_url_length: 2000  # Используется для предсказательного throttling
+    http:
+      timeout_sec: 60.0
+      connect_timeout_sec: 15.0
+      read_timeout_sec: 60.0
+      headers:
+        Accept: "application/json"
+        User-Agent: "BioETL/1.0 (ActivityPipeline)"
+    retries:
+      total: 5
+      backoff_multiplier: 2.0
+      backoff_max: 60.0
+      statuses: [408, 429, 500, 502, 503, 504]
+    rate_limit:
+      max_calls: 10
+      period: 1.0
+    rate_limit_jitter: true
+
+cache:
+  enabled: true
+  namespace: "chembl_activity"
+  directory: "http_cache"
+  ttl: 3600  # 1 час
+
+determinism:
+  enabled: true
+  hash_policy_version: "1.0.0"
+  float_precision: 6
+  datetime_format: "iso8601"
+  sort:
+    by: ["assay_id", "testitem_id", "activity_id"]
+    ascending: [true, true, true]
+    na_position: "last"
+  column_order:
+    - "activity_id"
+    - "molecule_chembl_id"
+    - "assay_chembl_id"
+    - "target_chembl_id"
+    - "document_chembl_id"
+    - "standard_type"
+    - "standard_relation"
+    - "standard_value"
+    - "standard_units"
+    - "pchembl_value"
+    - "bao_endpoint"
+    - "bao_format"
+    - "bao_label"
+    - "canonical_smiles"
+    - "ligand_efficiency"
+    - "target_organism"
+    - "target_tax_id"
+    - "data_validity_comment"
+    - "activity_properties"
+    - "compound_key"
+    - "is_citation"
+    - "high_citation_rate"
+    - "exact_data_citation"
+    - "rounded_data_citation"
+
+postprocess:
+  correlation:
+    enabled: false  # Опционально: включить correlation report
+
+validation:
+  strict: true
+  coerce: true
+  schema_out: "src/bioetl/schemas/chembl_activity.py::ActivitySchema"
+
+qc:
+  enabled: true
+  thresholds:
+    duplicate_activity_id: 0  # Критично: дубликаты не допускаются
+    missing_standard_value_pct: 0.15  # Максимум 15% пропусков
+    invalid_units_count: 0  # Все единицы должны быть валидными
+```
+
+### 3.5. Правила валидации конфигурации
+
+Конфигурация валидируется через Pydantic-модели в `src/bioetl/configs/models.py`:
+
+**Обязательные проверки:**
+- `sources.chembl.batch_size` **должен быть ≤ 25** (жесткое ограничение ChEMBL API)
+- `determinism.sort.ascending` должен быть пустым или совпадать по длине с `determinism.sort.by`
+- Если задан `determinism.column_order`, необходимо указать `validation.schema_out`
+- Все значения должны соответствовать типам из Pydantic-моделей
+- Неизвестные ключи запрещены (модели объявлены с `extra="forbid"`)
+
+**Примеры ошибок валидации:**
+
+1. **Превышение batch_size:**
+```
+ConfigValidationError: sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit
+```
+
+2. **Несогласованные ключи сортировки:**
+```
+ValueError: determinism.sort.ascending must be empty or match determinism.sort.by length
+```
+
+3. **Неизвестный ключ:**
+```
+ValidationError: Extra inputs are not permitted (field: 'unknown_key')
+```
+
+### 3.6. Специфичные параметры для Activity pipeline
+
+**batch_size (критично):**
+- **Значение:** `≤ 25` (обязательно)
+- **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
+- **Валидация:** Проверяется при загрузке конфигурации
+- **Пример:** `batch_size: 25`
+
+**determinism.sort.by:**
+- **Значение:** `["assay_id", "testitem_id", "activity_id"]`
+- **Причина:** Обеспечивает детерминированную сортировку перед записью
+- **Пример:**
+```yaml
+determinism:
+  sort:
+    by: ["assay_id", "testitem_id", "activity_id"]
+    ascending: [true, true, true]
+```
+
+**postprocess.correlation.enabled:**
+- **Значение:** `true` или `false` (по умолчанию `false`)
+- **Описание:** Включает генерацию correlation report
+- **Пример:**
+```yaml
+postprocess:
+  correlation:
+    enabled: true
+```
+
+### 3.7. Переопределения через CLI и ENV
+
+**CLI переопределения (`--set`):**
+```bash
+# Переопределить batch_size
+--set sources.chembl.batch_size=20
+
+# Переопределить correlation enabled
+--set postprocess.correlation.enabled=true
+
+# Несколько переопределений
+--set sources.chembl.batch_size=20 --set postprocess.correlation.enabled=true
+```
+
+**Переменные окружения (приоритет над CLI):**
+```bash
+# Формат: BIOETL__<SECTION>__<KEY>__<SUBKEY>=<VALUE>
+export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
+export BIOETL__POSTPROCESS__CORRELATION__ENABLED=true
+export BIOETL__CACHE__TTL=7200
+```
+
+**Порядок приоритетов (от низшего к высшему):**
+1. Базовые профили (`extends`)
+2. Pipeline YAML (`--config`)
+3. CLI переопределения (`--set`)
+4. Переменные окружения (наивысший приоритет)
+
+**Дополнительная информация:**
+- См. [Typed Configurations and Profiles](docs/configs/00-typed-configs-and-profiles.md) для детального описания структуры конфигурации
+- См. [Pipeline Configuration](docs/etl_contract/02-pipeline-config.md) для общего обзора конфигурации пайплайнов
 
 ---
 
