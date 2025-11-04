@@ -1,5 +1,5 @@
-"""Configuration models for BioETL."""
+"""Compatibility shim for legacy imports."""
 
-from .models import PipelineConfig
+from ..config import PipelineConfig
 
 __all__ = ["PipelineConfig"]

@@ -13,7 +13,7 @@ from typing import Any, Callable, Mapping, Sequence
 import pandas as pd
 import yaml
 
-from bioetl.configs.models import PipelineConfig
+from bioetl.config import PipelineConfig
 
 from .logger import UnifiedLogger
 
