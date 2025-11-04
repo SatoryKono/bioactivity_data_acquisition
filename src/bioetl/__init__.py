@@ -1,5 +1,5 @@
-"""BioETL package."""
+"""Public interface for BioETL configuration and pipelines."""
 
-from .configs.models import PipelineConfig
+from .config import PipelineConfig, load_config
 
-__all__ = ["PipelineConfig"]
+__all__ = ["PipelineConfig", "load_config"]

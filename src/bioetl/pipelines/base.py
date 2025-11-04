@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from bioetl.configs.models import PipelineConfig
+from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output import (
     DeterministicWriteArtifacts,
