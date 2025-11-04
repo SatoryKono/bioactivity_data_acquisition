@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Document (Crossref) pipeline.
+This document describes the pipeline-specific CLI configuration for the Document (Crossref) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main document --source crossref
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main document --source crossref \
 
 ## Related Documentation
 
-- [66-document-crossref-config.md](66-document-crossref-config.md)
-- [00-document-crossref-overview.md](00-document-crossref-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [66-document-crossref-config.md](66-document-crossref-config.md) — Configuration details
+- [00-document-crossref-overview.md](00-document-crossref-overview.md) — Pipeline overview

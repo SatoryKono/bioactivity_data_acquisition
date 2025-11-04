@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the TestItem (PubChem) pipeline.
+This document describes the pipeline-specific determinism configuration for the TestItem (PubChem) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['pubchem_cid']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `pubchem_cid`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [24-testitem-pubchem-io.md](24-testitem-pubchem-io.md)
-- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [24-testitem-pubchem-io.md](24-testitem-pubchem-io.md) — I/O implementation
+- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md) — Pipeline overview

@@ -6,15 +6,13 @@
 
 ## Purpose
 
-This document describes structured logging for the Target (IUPHAR) pipeline.
+This document describes the pipeline-specific logging configuration for the Target (IUPHAR) pipeline.
 
-## Logging Format
+## Pipeline-Specific Actor Value
 
-Structured JSON via `structlog` with mandatory fields: `run_id`, `stage`, `actor`, `source`, `timestamp`.
-
-Actor: `target_iuphar`
+- **`actor`**: `target_iuphar`
 
 ## Related Documentation
 
-- [Logging Overview](../logging/00-overview.md)
-- [00-target-iuphar-overview.md](00-target-iuphar-overview.md)
+- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure) — General logging format, mandatory fields, stage-specific events
+- [00-target-iuphar-overview.md](00-target-iuphar-overview.md) — Pipeline overview

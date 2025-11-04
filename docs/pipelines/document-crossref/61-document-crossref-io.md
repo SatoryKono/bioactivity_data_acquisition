@@ -6,19 +6,20 @@
 
 ## Purpose
 
-This document describes the I/O stage of the Document (Crossref) pipeline.
+This document describes the pipeline-specific I/O configuration for the Document (Crossref) pipeline.
 
-## Output Files
+## Pipeline-Specific Output Files
 
 - `document_{date}.csv` — Main dataset
 - `document_{date}_quality_report.csv` — QC report
 - `document_{date}_meta.yaml` — Metadata
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
 Stable sorting by: `['doi']`
 
 ## Related Documentation
 
-- [62-document-crossref-determinism.md](62-document-crossref-determinism.md)
-- [00-document-crossref-overview.md](00-document-crossref-overview.md)
+- [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) — General I/O format, atomic writing, metadata structure
+- [62-document-crossref-determinism.md](62-document-crossref-determinism.md) — Determinism policy
+- [00-document-crossref-overview.md](00-document-crossref-overview.md) — Pipeline overview

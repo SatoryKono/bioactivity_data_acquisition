@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Target (UniProt) pipeline.
+This document describes the pipeline-specific CLI configuration for the Target (UniProt) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main target --source uniprot
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main target --source uniprot \
 
 ## Related Documentation
 
-- [34-target-uniprot-config.md](34-target-uniprot-config.md)
-- [00-target-uniprot-overview.md](00-target-uniprot-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [34-target-uniprot-config.md](34-target-uniprot-config.md) — Configuration details
+- [00-target-uniprot-overview.md](00-target-uniprot-overview.md) — Pipeline overview

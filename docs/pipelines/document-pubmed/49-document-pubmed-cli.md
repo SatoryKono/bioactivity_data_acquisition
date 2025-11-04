@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Document (PubMed) pipeline.
+This document describes the pipeline-specific CLI configuration for the Document (PubMed) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main document --source pubmed
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main document --source pubmed \
 
 ## Related Documentation
 
-- [50-document-pubmed-config.md](50-document-pubmed-config.md)
-- [00-document-pubmed-overview.md](00-document-pubmed-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [50-document-pubmed-config.md](50-document-pubmed-config.md) — Configuration details
+- [00-document-pubmed-overview.md](00-document-pubmed-overview.md) — Pipeline overview

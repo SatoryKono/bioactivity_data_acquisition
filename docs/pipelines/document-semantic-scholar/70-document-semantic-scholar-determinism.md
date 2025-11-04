@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the Document (Semantic Scholar) pipeline.
+This document describes the pipeline-specific determinism configuration for the Document (Semantic Scholar) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['semantic_scholar_id']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `semantic_scholar_id`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [69-document-semantic-scholar-io.md](69-document-semantic-scholar-io.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [69-document-semantic-scholar-io.md](69-document-semantic-scholar-io.md) — I/O implementation
+- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md) — Pipeline overview

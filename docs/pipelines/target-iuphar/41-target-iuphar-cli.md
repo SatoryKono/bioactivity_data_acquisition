@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Target (IUPHAR) pipeline.
+This document describes the pipeline-specific CLI configuration for the Target (IUPHAR) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main target --source iuphar
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main target --source iuphar \
 
 ## Related Documentation
 
-- [42-target-iuphar-config.md](42-target-iuphar-config.md)
-- [00-target-iuphar-overview.md](00-target-iuphar-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [42-target-iuphar-config.md](42-target-iuphar-config.md) — Configuration details
+- [00-target-iuphar-overview.md](00-target-iuphar-overview.md) — Pipeline overview

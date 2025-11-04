@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the Target (IUPHAR) pipeline.
+This document describes the pipeline-specific determinism configuration for the Target (IUPHAR) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['iuphar_object_id']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `iuphar_object_id`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [37-target-iuphar-io.md](37-target-iuphar-io.md)
-- [00-target-iuphar-overview.md](00-target-iuphar-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [37-target-iuphar-io.md](37-target-iuphar-io.md) — I/O implementation
+- [00-target-iuphar-overview.md](00-target-iuphar-overview.md) — Pipeline overview

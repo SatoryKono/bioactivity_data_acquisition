@@ -6,15 +6,13 @@
 
 ## Purpose
 
-This document describes structured logging for the Document (Semantic Scholar) pipeline.
+This document describes the pipeline-specific logging configuration for the Document (Semantic Scholar) pipeline.
 
-## Logging Format
+## Pipeline-Specific Actor Value
 
-Structured JSON via `structlog` with mandatory fields: `run_id`, `stage`, `actor`, `source`, `timestamp`.
-
-Actor: `document_semantic_scholar`
+- **`actor`**: `document_semantic_scholar`
 
 ## Related Documentation
 
-- [Logging Overview](../logging/00-overview.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure) — General logging format, mandatory fields, stage-specific events
+- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md) — Pipeline overview

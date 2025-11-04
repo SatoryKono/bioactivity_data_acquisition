@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Document (Semantic Scholar) pipeline.
+This document describes the pipeline-specific CLI configuration for the Document (Semantic Scholar) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main document --source semantic-scholar
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main document --source semantic-scholar \
 
 ## Related Documentation
 
-- [74-document-semantic-scholar-config.md](74-document-semantic-scholar-config.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [74-document-semantic-scholar-config.md](74-document-semantic-scholar-config.md) — Configuration details
+- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md) — Pipeline overview

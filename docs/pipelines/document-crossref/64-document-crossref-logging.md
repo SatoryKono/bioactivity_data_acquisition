@@ -6,15 +6,13 @@
 
 ## Purpose
 
-This document describes structured logging for the Document (Crossref) pipeline.
+This document describes the pipeline-specific logging configuration for the Document (Crossref) pipeline.
 
-## Logging Format
+## Pipeline-Specific Actor Value
 
-Structured JSON via `structlog` with mandatory fields: `run_id`, `stage`, `actor`, `source`, `timestamp`.
-
-Actor: `document_crossref`
+- **`actor`**: `document_crossref`
 
 ## Related Documentation
 
-- [Logging Overview](../logging/00-overview.md)
-- [00-document-crossref-overview.md](00-document-crossref-overview.md)
+- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure) — General logging format, mandatory fields, stage-specific events
+- [00-document-crossref-overview.md](00-document-crossref-overview.md) — Pipeline overview

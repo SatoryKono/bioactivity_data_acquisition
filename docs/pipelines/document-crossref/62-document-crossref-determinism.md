@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the Document (Crossref) pipeline.
+This document describes the pipeline-specific determinism configuration for the Document (Crossref) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['doi']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `doi`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [61-document-crossref-io.md](61-document-crossref-io.md)
-- [00-document-crossref-overview.md](00-document-crossref-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [61-document-crossref-io.md](61-document-crossref-io.md) — I/O implementation
+- [00-document-crossref-overview.md](00-document-crossref-overview.md) — Pipeline overview

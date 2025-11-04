@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the TestItem (PubChem) pipeline.
+This document describes the pipeline-specific CLI configuration for the TestItem (PubChem) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main testitem --source pubchem
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main testitem --source pubchem \
 
 ## Related Documentation
 
-- [29-testitem-pubchem-config.md](29-testitem-pubchem-config.md)
-- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [29-testitem-pubchem-config.md](29-testitem-pubchem-config.md) — Configuration details
+- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md) — Pipeline overview

@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the Document (PubMed) pipeline.
+This document describes the pipeline-specific determinism configuration for the Document (PubMed) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['pmid']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `pmid`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [45-document-pubmed-io.md](45-document-pubmed-io.md)
-- [00-document-pubmed-overview.md](00-document-pubmed-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [45-document-pubmed-io.md](45-document-pubmed-io.md) — I/O implementation
+- [00-document-pubmed-overview.md](00-document-pubmed-overview.md) — Pipeline overview

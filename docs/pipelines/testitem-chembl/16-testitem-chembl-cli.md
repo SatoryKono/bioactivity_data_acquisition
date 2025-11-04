@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the TestItem (ChEMBL) pipeline.
+This document describes the pipeline-specific CLI configuration for the TestItem (ChEMBL) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main testitem
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main testitem \
 
 ## Related Documentation
 
-- [17-testitem-chembl-config.md](17-testitem-chembl-config.md)
-- [00-testitem-chembl-overview.md](00-testitem-chembl-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [17-testitem-chembl-config.md](17-testitem-chembl-config.md) — Configuration details
+- [00-testitem-chembl-overview.md](00-testitem-chembl-overview.md) — Pipeline overview

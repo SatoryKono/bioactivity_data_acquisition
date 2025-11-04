@@ -6,18 +6,13 @@
 
 ## Purpose
 
-This document describes CLI commands for the Document (OpenAlex) pipeline.
+This document describes the pipeline-specific CLI configuration for the Document (OpenAlex) pipeline.
 
-## Command
+## Pipeline-Specific Command Name
 
 ```bash
 python -m bioetl.cli.main document --source openalex
 ```
-
-## Required Flags
-
-- `--config`: Configuration file path
-- `--output-dir`: Output directory
 
 ## Examples
 
@@ -29,5 +24,6 @@ python -m bioetl.cli.main document --source openalex \
 
 ## Related Documentation
 
-- [58-document-openalex-config.md](58-document-openalex-config.md)
-- [00-document-openalex-overview.md](00-document-openalex-overview.md)
+- [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags) — General CLI flag descriptions and exit codes
+- [58-document-openalex-config.md](58-document-openalex-config.md) — Configuration details
+- [00-document-openalex-overview.md](00-document-openalex-overview.md) — Pipeline overview

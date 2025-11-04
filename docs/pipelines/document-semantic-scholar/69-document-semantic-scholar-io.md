@@ -6,19 +6,20 @@
 
 ## Purpose
 
-This document describes the I/O stage of the Document (Semantic Scholar) pipeline.
+This document describes the pipeline-specific I/O configuration for the Document (Semantic Scholar) pipeline.
 
-## Output Files
+## Pipeline-Specific Output Files
 
 - `document_{date}.csv` — Main dataset
 - `document_{date}_quality_report.csv` — QC report
 - `document_{date}_meta.yaml` — Metadata
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
 Stable sorting by: `['semantic_scholar_id']`
 
 ## Related Documentation
 
-- [70-document-semantic-scholar-determinism.md](70-document-semantic-scholar-determinism.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) — General I/O format, atomic writing, metadata structure
+- [70-document-semantic-scholar-determinism.md](70-document-semantic-scholar-determinism.md) — Determinism policy
+- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md) — Pipeline overview

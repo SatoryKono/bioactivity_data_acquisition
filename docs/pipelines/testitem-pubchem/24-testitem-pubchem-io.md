@@ -6,19 +6,20 @@
 
 ## Purpose
 
-This document describes the I/O stage of the TestItem (PubChem) pipeline.
+This document describes the pipeline-specific I/O configuration for the TestItem (PubChem) pipeline.
 
-## Output Files
+## Pipeline-Specific Output Files
 
 - `testitem_{date}.csv` — Main dataset
 - `testitem_{date}_quality_report.csv` — QC report
 - `testitem_{date}_meta.yaml` — Metadata
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
 Stable sorting by: `['pubchem_cid']`
 
 ## Related Documentation
 
-- [25-testitem-pubchem-determinism.md](25-testitem-pubchem-determinism.md)
-- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md)
+- [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) — General I/O format, atomic writing, metadata structure
+- [25-testitem-pubchem-determinism.md](25-testitem-pubchem-determinism.md) — Determinism policy
+- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md) — Pipeline overview

@@ -6,18 +6,14 @@
 
 ## Purpose
 
-This document describes determinism requirements for the Document (OpenAlex) pipeline.
+This document describes the pipeline-specific determinism configuration for the Document (OpenAlex) pipeline.
 
-## Sort Keys
+## Pipeline-Specific Sort Keys
 
-`['openalex_id']`
-
-## Hash Generation
-
-SHA256-based row and business key hashing per global determinism policy.
+- Primary: `openalex_id`
 
 ## Related Documentation
 
-- [Determinism Policy](../determinism/00-determinism-policy.md)
-- [53-document-openalex-io.md](53-document-openalex-io.md)
-- [00-document-openalex-overview.md](00-document-openalex-overview.md)
+- [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
+- [53-document-openalex-io.md](53-document-openalex-io.md) — I/O implementation
+- [00-document-openalex-overview.md](00-document-openalex-overview.md) — Pipeline overview

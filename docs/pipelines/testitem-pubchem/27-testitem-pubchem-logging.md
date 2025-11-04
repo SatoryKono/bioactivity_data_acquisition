@@ -6,15 +6,13 @@
 
 ## Purpose
 
-This document describes structured logging for the TestItem (PubChem) pipeline.
+This document describes the pipeline-specific logging configuration for the TestItem (PubChem) pipeline.
 
-## Logging Format
+## Pipeline-Specific Actor Value
 
-Structured JSON via `structlog` with mandatory fields: `run_id`, `stage`, `actor`, `source`, `timestamp`.
-
-Actor: `testitem_pubchem`
+- **`actor`**: `testitem_pubchem`
 
 ## Related Documentation
 
-- [Logging Overview](../logging/00-overview.md)
-- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md)
+- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure) — General logging format, mandatory fields, stage-specific events
+- [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md) — Pipeline overview
