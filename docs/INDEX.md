@@ -23,7 +23,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Style Guides
 
-- **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files.
+- **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files (convention: `<NN>-<entity>-<source>-<topic>.md` for pipeline documentation).
 - **[Python Code Style](styleguide/01-python-code-style.md)**: Code formatting, type annotations, and quality standards (ruff, black, mypy).
 - **[Logging Guidelines](styleguide/02-logging-guidelines.md)**: Centralized logging with UnifiedLogger, structured JSON logs, and context enrichment.
 - **[Data Schemas and Validation](styleguide/03-data-schemas.md)**: Pandera schema requirements, validation workflows, and schema versioning.
@@ -92,12 +92,19 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-pipeline-base.md](pipelines/00-pipeline-base.md) - Pipeline base documentation
 - [03-data-extraction.md](pipelines/03-data-extraction.md) - Data extraction pipeline
-- [05-assay-chembl-extraction.md](pipelines/05-assay-chembl-extraction.md) - Assay ChEMBL extraction pipeline
-- [06-activity-chembl-extraction.md](pipelines/06-activity-chembl-extraction.md) - Activity ChEMBL extraction pipeline
-- [07-testitem-chembl-extraction.md](pipelines/07-testitem-chembl-extraction.md) - Testitem ChEMBL extraction pipeline
-- [08-target-chembl-extraction.md](pipelines/08-target-chembl-extraction.md) - Target ChEMBL extraction pipeline
+- [00-document-chembl-overview.md](pipelines/00-document-chembl-overview.md) - Document ChEMBL pipeline overview
+- [00-assay-chembl-overview.md](pipelines/00-assay-chembl-overview.md) - Assay ChEMBL pipeline overview
+- [00-activity-chembl-overview.md](pipelines/00-activity-chembl-overview.md) - Activity ChEMBL pipeline overview
+- [00-target-chembl-overview.md](pipelines/00-target-chembl-overview.md) - Target ChEMBL pipeline overview
+- [00-testitem-chembl-overview.md](pipelines/00-testitem-chembl-overview.md) - TestItem ChEMBL pipeline overview
+- [09-assay-chembl-extraction.md](pipelines/09-assay-chembl-extraction.md) - Assay ChEMBL extraction pipeline
+- [09-activity-chembl-extraction.md](pipelines/09-activity-chembl-extraction.md) - Activity ChEMBL extraction pipeline
+- [09-testitem-chembl-extraction.md](pipelines/09-testitem-chembl-extraction.md) - TestItem ChEMBL extraction pipeline
+- [09-target-chembl-extraction.md](pipelines/09-target-chembl-extraction.md) - Target ChEMBL extraction pipeline
 - [09-document-chembl-extraction.md](pipelines/09-document-chembl-extraction.md) - Document ChEMBL extraction pipeline
 - [10-chembl-pipelines-catalog.md](pipelines/10-chembl-pipelines-catalog.md) - ChEMBL pipelines catalog
+
+> **Note**: Pipeline documentation files follow the canonical naming convention `<NN>-<entity>-<source>-<topic>.md`. See [Naming Conventions](styleguide/00-naming-conventions.md#11-pipeline-documentation-file-naming) for details.
 - [21-testitem-pubchem-extraction.md](pipelines/21-testitem-pubchem-extraction.md) - Testitem PubChem extraction pipeline
 - [22-document-pubmed-extraction.md](pipelines/22-document-pubmed-extraction.md) - Document PubMed extraction pipeline
 - [23-document-openalex-extraction.md](pipelines/23-document-openalex-extraction.md) - Document OpenAlex extraction pipeline

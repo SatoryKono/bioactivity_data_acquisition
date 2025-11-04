@@ -8,6 +8,43 @@ This document outlines the standard naming conventions for documentation files w
 -   **Case**: All filenames **MUST** be in `lowercase`.
 -   **Separators**: Words in filenames **MUST** be separated by hyphens (`-`). Underscores (`_`) **SHOULD NOT** be used.
 
+### 1.1. Pipeline Documentation File Naming
+
+**Format**: `<NN>-<entity>-<source>-<topic>.md`
+
+Pipeline documentation files **MUST** follow this canonical naming convention:
+
+- `NN`: Two-digit sequential number (00–99) for stable sorting and ordering.
+- `entity`: Domain entity name (`activity`, `assay`, `target`, `document`, `testitem`).
+- `source`: Data source identifier (`chembl`, `uniprot`, `iuphar`, `pubchem`, `pubmed`, `crossref`, `openalex`, `semantic-scholar`).
+- `topic`: Fixed token for the documentation section (see table below).
+
+**Example**: `09-document-chembl-extraction.md` (canonical example).
+
+#### 1.1.1. Topic Tokens and Stage/Contract Mapping
+
+| Architecture/Stage | Topic Token | Notes |
+|---|---|---|
+| extract | `extraction` | Matches example usage |
+| transform | `transformation` | |
+| validate (Pandera) | `validation` | Version/column freeze policy |
+| write / I/O | `io` | Format, stable sort-keys, atomic write |
+| run (orchestration) | `run` | If a separate file is needed |
+| determinism & lineage | `determinism` | `hash_row`, `hash_business_key`, `meta.yaml`, UTC |
+| QC/QA & golden tests | `qc` | Metrics and thresholds |
+| logging/tracing | `logging` | Format and mandatory fields |
+| cli | `cli` | Exact commands and exit-codes |
+| configuration | `config` | Keys/profiles/defaults |
+| schema (Pandera) | `schema` | `schema_id/version`, dtypes |
+
+#### 1.1.2. Link and Anchor Rules
+
+- File H1 heading **MUST** duplicate the file name in title case: `# 09 Document ChEMBL Extraction`.
+- Internal anchors are derived from second-level headings in kebab-case.
+- All relative links **MUST** pass `.lychee.toml` validation.
+
+**File section (example)**: `09-document-chembl-extraction.md`
+
 ## 2. File Naming by Type
 
 ### 2.1. Sequenced Content Documents

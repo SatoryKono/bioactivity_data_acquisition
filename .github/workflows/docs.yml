@@ -22,7 +22,6 @@ jobs:
       - name: Lint Markdown
         uses: articulate/actions-markdownlint@v1
         with:
-          config: .markdownlint.json
           files: 'docs/**/*.md'
       - name: Check links
         uses: lycheeverse/lychee-action@v1.10.0

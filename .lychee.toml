@@ -1,7 +1,8 @@
 # Link checking configuration for documentation set
 inputs = [
   "README.md",
-  "docs/INDEX.md"
+  "docs/INDEX.md",
+  "docs/pipelines/**/*.md"
 ]
 
 exclude = [

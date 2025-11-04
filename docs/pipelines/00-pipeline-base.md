@@ -12,19 +12,19 @@ The `PipelineBase` class standardizes the ETL process by defining a fixed, four-
 
 **Boundaries of Responsibility:**
 
--   **`PipelineBase` (Framework)** is responsible for:
-    -   Orchestrating the sequence of stages.
-    -   Injecting configuration (`PipelineConfig`).
-    -   Managing the logging context and stage timers.
-    -   Handling exceptions at a high level.
-    -   Performing the final validation step against a provided schema.
-    -   Atomically writing the output dataset and all associated metadata artifacts.
-    -   Enforcing determinism through sorting and hashing.
+- **`PipelineBase` (Framework)** is responsible for:
+  - Orchestrating the sequence of stages.
+  - Injecting configuration (`PipelineConfig`).
+  - Managing the logging context and stage timers.
+  - Handling exceptions at a high level.
+  - Performing the final validation step against a provided schema.
+  - Atomically writing the output dataset and all associated metadata artifacts.
+  - Enforcing determinism through sorting and hashing.
 
--   **Concrete Implementation (Developer)** is responsible for:
-    -   Implementing the logic to connect to and extract data from a specific source (e.g., API clients, database connections).
-    -   Implementing the business logic to parse, clean, and transform the raw data.
-    -   Providing the Pandera schema for the final data structure.
+- **Concrete Implementation (Developer)** is responsible for:
+  - Implementing the logic to connect to and extract data from a specific source (e.g., API clients, database connections).
+  - Implementing the business logic to parse, clean, and transform the raw data.
+  - Providing the Pandera schema for the final data structure.
 
 ## 2. Public API (Signatures and Types)
 
@@ -230,41 +230,11 @@ idempotency expectations that are enforced at runtime.【F:docs/pipelines/00-pip
 
 | Stage | Framework responsibilities | Implementer responsibilities | Determinism & idempotency requirements |
 | --- | --- | --- | --- |
-| `extract` | Sets logging context to `stage="extract"`, records wall-clock
-timing, and preserves any CLI `limit`/`sample` options for deterministic
-sampling. Re-raises exceptions with full tracebacks. | Implement a
-side-effect-free extractor that returns a Pandas `DataFrame`. Use
-`PipelineBase.read_input_table` for file inputs to inherit consistent logging,
-deterministic limiting, and empty-file handling. | For deterministic re-runs,
-the extractor must respect the same configuration and runtime options. When
-using runtime limits, the same subset must be returned for the same seed order
-and upstream source state.【F:docs/pipelines/00-pipeline-base.md†L172-L213】
-| `transform` | Switches the logging context to `stage="transform"`, captures
-duration, and propagates the DataFrame returned by `extract`. | Implement all
-transformations as pure functions (no mutation of external state). May call
-`execute_enrichment_stages` to run registered enrichment hooks. | Transformations
-must be deterministic for identical inputs—avoid reliance on wall-clock time or
-random ordering unless a seeded random generator is used.【F:docs/pipelines/00-pipeline-base.md†L215-L255】
-| `validate` | Fetches the schema from the Unified Schema registry, enforces
-column order, runs Pandera validation, records QC metrics, and accumulates
-issues through `record_validation_issue`. | Do not override unless absolutely
-required. Register additional schemas through configuration and call
-`run_schema_validation` for secondary datasets. | Validation is deterministic
-for identical input frames and schema versions. Non-fatal severities return the
-input frame unchanged but still log issues for auditability.【F:docs/pipelines/00-pipeline-base.md†L257-L322】
-| `export` (write) | Applies determinism rules (column order, stable sort,
-hash policies), writes the dataset and all QC artefacts via the configured
-output writer, and persists `stage_durations_ms`. | Optional overrides should
-call `PipelineBase.export` to benefit from the shared behaviour. Use
-`set_export_metadata_from_dataframe` and `finalize_with_standard_metadata` to
-standardise metadata prior to writing. | Output files must be reproducible: the
-same input DataFrame and determinism settings produce byte-identical CSV files
-and metadata manifests.【F:docs/pipelines/00-pipeline-base.md†L324-L392】
-| `cleanup` | Resets logging context to `stage="cleanup"`, removes transient
-runtime options, closes registered API clients, and calls `close_resources`. |
-Release any additional resources inside `close_resources` without raising
-exceptions. | Cleanup has no external side effects beyond releasing resources,
-preserving idempotency for subsequent runs.【F:docs/pipelines/00-pipeline-base.md†L394-L428】
+| `extract` | Sets logging context to `stage="extract"`, records wall-clock timing, and preserves any CLI `limit`/`sample` options for deterministic sampling. Re-raises exceptions with full tracebacks. | Implement a side-effect-free extractor that returns a Pandas `DataFrame`. Use `PipelineBase.read_input_table` for file inputs to inherit consistent logging, deterministic limiting, and empty-file handling. | For deterministic re-runs, the extractor must respect the same configuration and runtime options. When using runtime limits, the same subset must be returned for the same seed order and upstream source state.【F:docs/pipelines/00-pipeline-base.md†L172-L213】 |
+| `transform` | Switches the logging context to `stage="transform"`, captures duration, and propagates the DataFrame returned by `extract`. | Implement all transformations as pure functions (no mutation of external state). May call `execute_enrichment_stages` to run registered enrichment hooks. | Transformations must be deterministic for identical inputs—avoid reliance on wall-clock time or random ordering unless a seeded random generator is used.【F:docs/pipelines/00-pipeline-base.md†L215-L255】 |
+| `validate` | Fetches the schema from the Unified Schema registry, enforces column order, runs Pandera validation, records QC metrics, and accumulates issues through `record_validation_issue`. | Do not override unless absolutely required. Register additional schemas through configuration and call `run_schema_validation` for secondary datasets. | Validation is deterministic for identical input frames and schema versions. Non-fatal severities return the input frame unchanged but still log issues for auditability.【F:docs/pipelines/00-pipeline-base.md†L257-L322】 |
+| `export` (write) | Applies determinism rules (column order, stable sort, hash policies), writes the dataset and all QC artefacts via the configured output writer, and persists `stage_durations_ms`. | Optional overrides should call `PipelineBase.export` to benefit from the shared behaviour. Use `set_export_metadata_from_dataframe` and `finalize_with_standard_metadata` to standardise metadata prior to writing. | Output files must be reproducible: the same input DataFrame and determinism settings produce byte-identical CSV files and metadata manifests.【F:docs/pipelines/00-pipeline-base.md†L324-L392】 |
+| `cleanup` | Resets logging context to `stage="cleanup"`, removes transient runtime options, closes registered API clients, and calls `close_resources`. | Release any additional resources inside `close_resources` without raising exceptions. | Cleanup has no external side effects beyond releasing resources, preserving idempotency for subsequent runs.【F:docs/pipelines/00-pipeline-base.md†L394-L428】 |
 
 ### Retry and Backoff Expectations
 
@@ -291,8 +261,8 @@ The pipeline receives its configuration via Dependency Injection (DI) in the con
 
 [ref: repo:src/bioetl/configs/models.py@refactoring_001]
 
--   **Priority and Overlays**: The configuration system supports profiles via the `extends` key, allowing a pipeline-specific YAML file (e.g., `activity.yaml`) to inherit from and override values in base files (e.g., `base.yaml`, `determinism.yaml`).
--   **Strictness**: The Pydantic models are configured with `extra="forbid"`. This is a critical feature that causes the configuration loading to fail if the YAML file contains any keys that are not explicitly defined in the models, preventing typos and "silent" configuration errors.
+- **Priority and Overlays**: The configuration system supports profiles via the `extends` key, allowing a pipeline-specific YAML file (e.g., `activity.yaml`) to inherit from and override values in base files (e.g., `base.yaml`, `determinism.yaml`).
+- **Strictness**: The Pydantic models are configured with `extra="forbid"`. This is a critical feature that causes the configuration loading to fail if the YAML file contains any keys that are not explicitly defined in the models, preventing typos and "silent" configuration errors.
 
 ## 5. Logging and Telemetry
 
@@ -311,21 +281,21 @@ payload fields as shown.
 
 | Stage | Event | Additional fields |
 | --- | --- | --- |
-| Bootstrap | `pipeline_initialized` | `pipeline`, `run_id`
-| Bootstrap | `pipeline_started` | `pipeline`
-| Extract | `reading_input` | `path`, optional `limit`
-| Extract | `input_file_not_found` | `path`
-| Extract | `input_limit_active` | `limit`, `rows`
-| Extract | `extraction_completed` | `rows`, `duration_ms`
-| Transform | `transformation_completed` | `rows`, `duration_ms`
-| Transform | `enrichment_stage_*` | `stage`, plus `reason`, `rows`, or `error`
-| Validate | `schema_validation_error` | `dataset`, `column`, `check`, `count`, `severity`
-| Validate | `schema_validation_failed` | `dataset`, `errors`, `error`
-| Validate | `validation_completed` | `rows`, `duration_ms`
-| Export | `exporting_data` | `path`, `rows`
-| Export | `pipeline_completed` | `artifacts`, `load_duration_ms`
-| Cleanup | `pipeline_resource_cleanup_failed` | `error`
-| Any | `pipeline_failed` | `error`, `exc_info`
+| Bootstrap | `pipeline_initialized` | `pipeline`, `run_id` |
+| Bootstrap | `pipeline_started` | `pipeline` |
+| Extract | `reading_input` | `path`, optional `limit` |
+| Extract | `input_file_not_found` | `path` |
+| Extract | `input_limit_active` | `limit`, `rows` |
+| Extract | `extraction_completed` | `rows`, `duration_ms` |
+| Transform | `transformation_completed` | `rows`, `duration_ms` |
+| Transform | `enrichment_stage_*` | `stage`, plus `reason`, `rows`, or `error` |
+| Validate | `schema_validation_error` | `dataset`, `column`, `check`, `count`, `severity` |
+| Validate | `schema_validation_failed` | `dataset`, `errors`, `error` |
+| Validate | `validation_completed` | `rows`, `duration_ms` |
+| Export | `exporting_data` | `path`, `rows` |
+| Export | `pipeline_completed` | `artifacts`, `load_duration_ms` |
+| Cleanup | `pipeline_resource_cleanup_failed` | `error` |
+| Any | `pipeline_failed` | `error`, `exc_info` |
 
 These events, combined with the logger's redaction processors, form the minimum
 telemetry contract. Pipelines may emit additional structured logs (for example,
@@ -336,21 +306,11 @@ per-API-call retries) provided they do not remove the baseline context.
 Implementers can extend `PipelineBase` behaviour without reimplementing the
 orchestrator by using the following hook surface:
 
-- **Abstract methods** – `extract`, `transform`, and `close_resources` must be
-  implemented by every concrete pipeline. `validate` should only be overridden
-  to customise schema loading.
-- **Stage utilities** – `read_input_table`, `execute_enrichment_stages`,
-  `run_schema_validation`, and `finalize_with_standard_metadata` encapsulate
-  shared orchestration logic and should be preferred over bespoke
-  implementations.
-- **QC helpers** – `set_stage_summary`, `add_qc_summary_section(s)`,
-  `set_qc_metrics`, `record_validation_issue`, `refresh_validation_issue_summary`
-  keep validation and enrichment telemetry consistent.
-- **Metadata helpers** – `set_export_metadata_from_dataframe`,
-  `set_export_metadata`, and `add_additional_table` feed the writer with the
-  required context for deterministic artefact generation.
-- **Client lifecycle** – `init_chembl_client`, `register_client`, and
-  `reset_stage_context` provide safe resource management and per-stage state.
+- **Abstract methods** – `extract`, `transform`, and `close_resources` must be implemented by every concrete pipeline. `validate` should only be overridden to customise schema loading.
+- **Stage utilities** – `read_input_table`, `execute_enrichment_stages`, `run_schema_validation`, and `finalize_with_standard_metadata` encapsulate shared orchestration logic and should be preferred over bespoke implementations.
+- **QC helpers** – `set_stage_summary`, `add_qc_summary_section(s)`, `set_qc_metrics`, `record_validation_issue`, `refresh_validation_issue_summary` keep validation and enrichment telemetry consistent.
+- **Metadata helpers** – `set_export_metadata_from_dataframe`, `set_export_metadata`, and `add_additional_table` feed the writer with the required context for deterministic artefact generation.
+- **Client lifecycle** – `init_chembl_client`, `register_client`, and `reset_stage_context` provide safe resource management and per-stage state.
 
 All hooks are idempotent when invoked with identical inputs and configuration,
 supporting reproducible pipeline runs.【F:docs/pipelines/00-pipeline-base.md†L524-L586】
@@ -359,22 +319,22 @@ supporting reproducible pipeline runs.【F:docs/pipelines/00-pipeline-base.md†
 
 The framework guarantees that a pipeline run with the same configuration will produce a bit-for-bit identical output.
 
--   **Stable Sorting**: Before writing, the final DataFrame is sorted by the columns specified in the `determinism.sort.by` key in the configuration.
--   **Integrity Hashes**: The `write` stage calculates two critical hashes that are stored in `meta.yaml`:
-    -   `hash_business_key`: A hash of the columns forming the unique business identifier.
-    -   `hash_row`: A hash of all columns specified, ensuring row-level integrity.
--   **`meta.yaml`**: This artifact is the run's "birth certificate," recording the `run_id`, configuration hash, source versions, `row_count`, all hashes, and stage timings.
--   **Invariant**: A repeated run with an identical configuration against an identical source state **must** produce identical `meta.yaml` hashes and an identical primary dataset file hash.
+- **Stable Sorting**: Before writing, the final DataFrame is sorted by the columns specified in the `determinism.sort.by` key in the configuration.
+- **Integrity Hashes**: The `write` stage calculates two critical hashes that are stored in `meta.yaml`:
+  - `hash_business_key`: A hash of the columns forming the unique business identifier.
+  - `hash_row`: A hash of all columns specified, ensuring row-level integrity.
+- **`meta.yaml`**: This artifact is the run's "birth certificate," recording the `run_id`, configuration hash, source versions, `row_count`, all hashes, and stage timings.
+- **Invariant**: A repeated run with an identical configuration against an identical source state **must** produce identical `meta.yaml` hashes and an identical primary dataset file hash.
 
 ## 7. Validation Contracts
 
 Data validation is a non-negotiable stage of the pipeline, enforced by Pandera schemas.
 
--   **Mandatory Checks**: Every output schema **must** enforce:
-    -   **Fixed Column Order**: `class Config: ordered = True`.
-    -   **Strict Data Types**: All columns must have a specific type (e.g., `Series[Int64]`). Coercion is allowed (`pa.Field(coerce=True)`).
-    -   **Business Key Uniqueness**: The primary business key column must be marked with `unique=True`.
--   **Schema Evolution**: Schemas must be versioned. Any backward-incompatible changes require a major version bump. The schema version is recorded in the `meta.yaml` file.
+- **Mandatory Checks**: Every output schema **must** enforce:
+  - **Fixed Column Order**: `class Config: ordered = True`.
+  - **Strict Data Types**: All columns must have a specific type (e.g., `Series[Int64]`). Coercion is allowed (`pa.Field(coerce=True)`).
+  - **Business Key Uniqueness**: The primary business key column must be marked with `unique=True`.
+- **Schema Evolution**: Schemas must be versioned. Any backward-incompatible changes require a major version bump. The schema version is recorded in the `meta.yaml` file.
 
 ## 8. CLI Integration
 
@@ -382,15 +342,16 @@ Pipelines are automatically discovered and exposed as commands in the Typer-base
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001]
 
--   **Registration**: Placing a `PipelineBase` subclass in the `src/bioetl/pipelines/` directory is sufficient to register it as a new CLI command.
--   **Required Flags**: All pipeline commands accept a standard set of flags:
-    -   `--config <path>`: Path to the pipeline's YAML configuration.
-    -   `--output-dir <path>`: **Required**. The destination directory for all output artifacts.
-    -   `--input-file <path>`: (Optional) Path to a local input file.
-    -   `--dry-run`: A critical flag that runs the pipeline through the `validate` stage but writes no files. It is used to verify configuration and logic.
--   **Exit Codes**: The CLI returns a `0` exit code on success and a non-zero exit code on failure.
+- **Registration**: Placing a `PipelineBase` subclass in the `src/bioetl/pipelines/` directory is sufficient to register it as a new CLI command.
+- **Required Flags**: All pipeline commands accept a standard set of flags:
+  - `--config <path>`: Path to the pipeline's YAML configuration.
+  - `--output-dir <path>`: **Required**. The destination directory for all output artifacts.
+  - `--input-file <path>`: (Optional) Path to a local input file.
+  - `--dry-run`: A critical flag that runs the pipeline through the `validate` stage but writes no files. It is used to verify configuration and logic.
+- **Exit Codes**: The CLI returns a `0` exit code on success and a non-zero exit code on failure.
 
 **Example Invocation:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config src/bioetl/configs/pipelines/chembl/activity.yaml \
@@ -400,16 +361,16 @@ python -m bioetl.cli.main activity \
 
 ## 9. Test Plan
 
--   **Unit Tests**:
-    -   Verify that the `run()` orchestrator calls the stages in the correct order (`extract` -> `transform` -> `validate` -> `write`).
-    -   Test that an exception raised in any stage is caught, logged with `exc_info`, and correctly re-raised.
-    -   Test that the `RunResult` object is constructed correctly with all expected paths.
--   **Golden Test**:
-    -   Create a test that runs a pipeline and captures the primary dataset file and the `meta.yaml` file.
-    -   Compare these artifacts against a pre-approved "golden" version committed to the repository. The test fails if there is any byte-level difference, ensuring determinism.
--   **Integration Test**:
-    -   Write a test that invokes the pipeline via the CLI (`subprocess.run`).
-    -   Assert that a run with the `--dry-run` flag completes with exit code `0`, produces no files in the output directory, and emits valid log messages.
+- **Unit Tests**:
+  - Verify that the `run()` orchestrator calls the stages in the correct order (`extract` -> `transform` -> `validate` -> `write`).
+  - Test that an exception raised in any stage is caught, logged with `exc_info`, and correctly re-raised.
+  - Test that the `RunResult` object is constructed correctly with all expected paths.
+- **Golden Test**:
+  - Create a test that runs a pipeline and captures the primary dataset file and the `meta.yaml` file.
+  - Compare these artifacts against a pre-approved "golden" version committed to the repository. The test fails if there is any byte-level difference, ensuring determinism.
+- **Integration Test**:
+  - Write a test that invokes the pipeline via the CLI (`subprocess.run`).
+  - Assert that a run with the `--dry-run` flag completes with exit code `0`, produces no files in the output directory, and emits valid log messages.
 
 ## 10. Minimal Example
 

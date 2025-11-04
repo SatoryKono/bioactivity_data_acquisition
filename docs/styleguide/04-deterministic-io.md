@@ -118,7 +118,7 @@ def write_atomic(content: str, path: Path):
     os.replace(tmp_path, path)
 ```
 
-### Valid Examples
+### Atomic Write Examples
 
 ```python
 from pathlib import Path
@@ -193,7 +193,7 @@ business_key_hash: "e5f6g7h8..."
 generated_at_utc: "2024-01-01T12:00:00.123456+00:00"
 ```
 
-### Valid Examples
+### meta.yaml Examples
 
 ```python
 from pathlib import Path

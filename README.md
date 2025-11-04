@@ -47,6 +47,8 @@ python -m bioetl.cli.main activity \
 
 - **CLI Reference**: [`docs/cli/00-cli-overview.md`][ref: repo:docs/cli/00-cli-overview.md@refactoring_001] — The guide to the Command-Line Interface.
 
+> **Конвенция именования файлов:** Файлы документации пайплайнов именуются по правилу `<NN>-<entity>-<source>-<topic>.md` (например, `09-document-chembl-extraction.md`). См. [Naming Conventions](docs/styleguide/00-naming-conventions.md#11-pipeline-documentation-file-naming).
+
 ## Поддерживаемые источники данных и их статус {#supported-sources}
 
 ### Пайплайны ChEMBL

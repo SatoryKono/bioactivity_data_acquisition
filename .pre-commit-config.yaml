@@ -18,7 +18,7 @@ repos:
       - id: pymarkdown
         args: ["--disable-rules", "md013", "scan"]
         files: >-
-          ^(README\.md|docs/(INDEX|requirements/00-architecture-overview|requirements/03-data-sources-and-spec|pipelines/PIPELINES|configs/CONFIGS|cli/CLI|qc/QA_QC)\.md)$
+          ^(README\.md|docs/(INDEX|pipelines/10-chembl-pipelines-catalog|configs/00-typed-configs-and-profiles|cli/00-cli-overview|qc/00-qc-overview)\.md)$
 
   - repo: https://github.com/lycheeverse/lychee
     rev: v0.15.1
