@@ -24,6 +24,7 @@ The `document_semantic_scholar` pipeline extracts publication metadata from Sema
 ### Scope
 
 The pipeline extracts:
+
 - **Core metadata**: Paper ID, DOI, PMID, title, abstract, venue, publication dates
 - **Citation metrics**: citation count, influential citation count, reference count
 - **Bibliographic details**: year, publication date, type
@@ -66,6 +67,7 @@ flowchart LR
 ### Components
 
 **Extract Stage:**
+
 - Semantic Scholar Graph API Client
 - Paper API (by ID/DOI/PMID)
 - Search API (title-based fallback)
@@ -75,16 +77,19 @@ flowchart LR
 - Access Denied handler
 
 **Transform Stage:**
+
 - JSON Parser (Semantic Scholar JSON format)
 - Normalize: dates, citation metrics, fields of study
 - Title search fallback with Jaccard similarity
 
 **Validate Stage:**
+
 - Pandera schema validation
 - QC coverage checks
 - Duplicate detection
 
 **Write Stage:**
+
 - Atomic writer (run_id-scoped temp dirs)
 - Canonical serialization (hash generation)
 - Metadata builder (full provenance)
@@ -106,13 +111,16 @@ https://api.semanticscholar.org/graph/v1
 **Purpose:** Retrieve a single paper by Semantic Scholar ID, DOI, or PMID.
 
 **Parameters:**
+
 - `paper_id`: Semantic Scholar ID (`CorpusId:123456`), DOI (`DOI:10.1234/example`), or PMID (`PMID:12345678`)
 - `fields`: Comma-separated list of fields to retrieve (optional)
 
 **Headers:**
+
 - `x-api-key`: API key (required for production use)
 
 **Example:**
+
 ```bash
 curl -H "x-api-key: your_api_key" \
   "https://api.semanticscholar.org/graph/v1/paper/DOI:10.1234/example"
@@ -125,13 +133,16 @@ curl -H "x-api-key: your_api_key" \
 **Purpose:** Retrieve multiple papers by IDs in a single request.
 
 **Parameters:**
+
 - `ids`: Array of paper IDs (DOIs, PMIDs, or Semantic Scholar IDs)
 
 **Headers:**
+
 - `x-api-key`: API key (required for production use)
 - `Content-Type`: `application/json`
 
 **Body:**
+
 ```json
 {
   "ids": ["DOI:10.1234/example1", "DOI:10.5678/example2"]
@@ -139,6 +150,7 @@ curl -H "x-api-key: your_api_key" \
 ```
 
 **Example:**
+
 ```bash
 curl -X POST \
   -H "x-api-key: your_api_key" \
@@ -154,14 +166,17 @@ curl -X POST \
 **Purpose:** Search papers by title or other fields (fallback method).
 
 **Parameters:**
+
 - `query`: Search query (title, abstract, etc.)
 - `limit`: Number of results (max: 100, default: 10)
 - `fields`: Comma-separated list of fields to retrieve
 
 **Headers:**
+
 - `x-api-key`: API key (required for production use)
 
 **Example:**
+
 ```bash
 curl -H "x-api-key: your_api_key" \
   "https://api.semanticscholar.org/graph/v1/paper/search?query=Machine%20Learning&limit=10"
@@ -170,11 +185,13 @@ curl -H "x-api-key: your_api_key" \
 ### API Key Requirement
 
 **Without API Key (Free Tier):**
+
 - 100 requests per 5 minutes
 - 100K requests per month per email
 - Rate limit: ~0.33 requests/second
 
 **With API Key (Premium Tier):**
+
 - 5000 requests per 5 minutes
 - No monthly limit
 - Rate limit: ~16 requests/second
@@ -184,6 +201,7 @@ curl -H "x-api-key: your_api_key" \
 ### Rate Limiting
 
 **Our Strategy (Conservative):**
+
 - Default: 0.33 requests/second (without key)
 - With API key: 10 requests/second with burst up to 15
 - Workers: 1-2 parallel threads
@@ -192,11 +210,13 @@ curl -H "x-api-key: your_api_key" \
 ### Access Denied Handling
 
 Semantic Scholar may return 403 (Access Denied) when:
+
 - Rate limit exceeded
 - API key invalid or expired
 - Suspicious activity detected
 
 **Handling Strategy:**
+
 - Wait 5 minutes (minimum)
 - Maximum 2 retries
 - Log each occurrence
@@ -205,6 +225,7 @@ Semantic Scholar may return 403 (Access Denied) when:
 ### JSON Response Structure
 
 **Example response:**
+
 ```json
 {
   "paperId": "1234567890abcdef",
@@ -229,6 +250,7 @@ Semantic Scholar may return 403 (Access Denied) when:
 ### Citation Metrics
 
 Unique Semantic Scholar metrics:
+
 - `citation_count`: total number of citations
 - `influential_citations`: influential citations
 - `reference_count`: number of references
@@ -236,6 +258,7 @@ Unique Semantic Scholar metrics:
 ### Title-based Search (Critical Fallback)
 
 If no DOI or PMID, use title-based search via Search API:
+
 - Exact match by title
 - Jaccard similarity on words
 - Select result with score > threshold (default 0.85)
@@ -256,6 +279,7 @@ def normalize_publication_types(types_list):
 ### Licensing
 
 ⚠️ **Important:** Semantic Scholar Metadata License
+
 - Non-commercial use OK
 - Commercial use requires special agreement
 - Attribution required: "Data from Semantic Scholar"
@@ -409,54 +433,61 @@ qc:
 
 ### 5.6 Special Features
 
-#### API Key Requirement
+#### API Key Requirement Details
 
 **Basic (without API key):**
+
 - 100 requests/5 minutes
 - 100K requests/month per email
 - Rate limit: ~0.33 requests/second
 
 **Premium (with API key):**
+
 - 5000 requests/5 minutes
 - No monthly limit
 - Rate limit: ~16 requests/second
 
 **API key is required for production use!**
 
-#### Rate Limiting
+#### Rate Limiting Configuration
 
 **Our strategy (conservative):**
+
 - Default: 0.8 requests/second (1.25s between requests) without key
 - With API key: 10 requests/second with burst up to 15
 - Workers: 1-2 parallel threads
 - Timeout: 30s
 
-#### Title-based Search (Critical Fallback)
+#### Title-based Search (Critical Fallback) - Implementation
 
 If no DOI or PMID, use title-based search via Search API:
+
 - Exact match by title
 - Jaccard similarity on words
 - Select result with score > threshold (default 0.85)
 - Validate year match if available
 
-#### Citation Metrics
+#### Citation Metrics - Details
 
 Unique Semantic Scholar metrics:
+
 - `citation_count`: total number of citations
 - `influential_citations`: influential citations
 - `reference_count`: number of references
 
-#### Access Denied Handling
+#### Access Denied Handling - Implementation
 
 When receiving Access Denied (403):
+
 - Wait 5 minutes (minimum)
 - Maximum 2 retry attempts
 - Log each occurrence
 - QC flag: `qc_flag_s2_access_denied=1`
 
-#### Licensing
+#### Licensing - Terms
 
 ⚠️ **Important:** Semantic Scholar Metadata License
+
 - Non-commercial use OK
 - Commercial use requires special agreement
 - Attribution required: "Data from Semantic Scholar"
@@ -482,10 +513,10 @@ The pipeline supports the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1.  **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
-2.  **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
-3.  **Explicit Config:** The file specified by the `--config` flag.
-4.  **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
+3. **Explicit Config:** The file specified by the `--config` flag.
+4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 
 ### Configuration Keys
 
@@ -513,9 +544,11 @@ The following table describes the expected keys in the `document_semantic_schola
 ### Input Data Format
 
 **Minimum Requirements:**
+
 - At least one of: `doi`, `pmid`, or `paper_id`
 
 **Optional:**
+
 - `title` (for fallback search if DOI/PMID unavailable)
 
 **Pandera InputSchema:**
@@ -551,9 +584,10 @@ class DocumentSemanticScholarInputSchema(pa.DataFrameModel):
 
 The extraction process uses Semantic Scholar Graph API components:
 
-### Client
+### Client Component
 
 The `SemanticScholarClient` ([ref: repo:src/bioetl/sources/semantic_scholar/client/client.py@refactoring_001]) handles:
+
 - HTTP requests to Semantic Scholar API
 - Timeouts, retries with exponential backoff
 - Rate limiting (0.33 rps without key, 10 rps with key)
@@ -563,6 +597,7 @@ The `SemanticScholarClient` ([ref: repo:src/bioetl/sources/semantic_scholar/clie
 ### Paper API
 
 For direct lookups:
+
 1. **Primary**: Try by DOI (`DOI:10.1234/example`)
 2. **Secondary**: Try by PMID (`PMID:12345678`)
 3. **Tertiary**: Try by Semantic Scholar ID (`CorpusId:123456`)
@@ -570,6 +605,7 @@ For direct lookups:
 ### Search API (Fallback)
 
 If DOI/PMID unavailable:
+
 1. **Search**: Use title-based search
 2. **Jaccard Similarity**: Calculate similarity scores
 3. **Select best**: Choose result with similarity > threshold (default: 0.85)
@@ -578,6 +614,7 @@ If DOI/PMID unavailable:
 ### Parser
 
 The parser ([ref: repo:src/bioetl/sources/semantic_scholar/parser/parser.py@refactoring_001]) extracts:
+
 - Paper ID, DOI, PMID
 - Title, abstract, venue
 - Publication dates, year
@@ -590,6 +627,7 @@ The parser ([ref: repo:src/bioetl/sources/semantic_scholar/parser/parser.py@refa
 ### Normalizer
 
 The `SemanticScholarNormalizer` ([ref: repo:src/bioetl/sources/semantic_scholar/normalizer/normalizer.py@refactoring_001]) performs:
+
 - Date normalization (ISO 8601 format)
 - DOI validation and normalization
 - Citation metrics normalization
@@ -599,6 +637,7 @@ The `SemanticScholarNormalizer` ([ref: repo:src/bioetl/sources/semantic_scholar/
 ### Pandera Schema
 
 A Pandera schema ([ref: repo:src/bioetl/sources/semantic_scholar/schema/schema.py@refactoring_001]) validates:
+
 - Data types and constraints
 - Required fields
 - Business key uniqueness (paper_id or DOI)
@@ -606,6 +645,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/semantic_scholar/schema/schema.p
 - Nullable policy
 
 **Schema Configuration:**
+
 - `strict=True`
 - `ordered=True`
 - `coerce=True`
@@ -615,6 +655,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/semantic_scholar/schema/schema.p
 ### Artifact Format
 
 The pipeline produces output files:
+
 - `document_semantic_scholar_{date}.csv` or `.parquet` - Main dataset
 - `document_semantic_scholar_{date}_quality_report.csv` - QC metrics
 - `document_semantic_scholar_{date}_meta.yaml` - Metadata and provenance
@@ -622,6 +663,7 @@ The pipeline produces output files:
 ### Sort Keys
 
 Output data is sorted by:
+
 - Primary: `paper_id` (ascending)
 - Secondary: `doi` (ascending)
 - Tertiary: `pmid` (ascending)
@@ -629,6 +671,7 @@ Output data is sorted by:
 ### Hashing
 
 Each row includes:
+
 - `hash_row`: SHA-256 hash of entire row data
 - `hash_business_key`: SHA-256 hash of business key (`paper_id` or `doi`)
 
@@ -683,6 +726,7 @@ The following QC metrics are collected and reported:
 ### QC Thresholds
 
 Configuration thresholds:
+
 - `qc.max_s2_access_denied`: Maximum Access Denied rate (default: 0.05)
 - `qc.min_paper_id_coverage`: Minimum paper ID coverage (default: 0.9)
 - `qc.max_title_fallback_rate`: Maximum title fallback rate (default: 0.15)
@@ -697,14 +741,16 @@ The pipeline uses the following exit codes:
 | 1         | Application Error       | A fatal error occurred, such as a network error or a bug in the code.       |
 | 2         | Usage Error             | An error occurred due to invalid configuration or command-line arguments.   |
 
-### Error Handling
+### Error Handling Details
 
 **Network Errors:**
+
 - Retry with exponential backoff
 - Maximum 5 retries
 - Fallback to cached data if available
 
 **API Errors:**
+
 - 403 (Access Denied): Wait 5 minutes, retry (max 2 times)
 - 429 (Too Many Requests): Wait and retry with backoff
 - 400 (Bad Request): Log error and skip record
@@ -712,6 +758,7 @@ The pipeline uses the following exit codes:
 - 500 (Server Error): Retry with backoff
 
 **Validation Errors:**
+
 - Schema validation failures: Log error and skip record
 - QC threshold violations: Fail pipeline with detailed report
 

@@ -200,7 +200,7 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
             axis=1
         )
     if "hash_business_key" not in df.columns:
-         df["hash_business_key"] = df[config.determinism.hashing.business_key_field].apply(generate_hash_business_key)
+        df["hash_business_key"] = df[config.determinism.hashing.business_key_field].apply(generate_hash_business_key)
     log.info("Integrity hashes calculated.")
 
     # 5. Atomic Write of Dataset

@@ -158,6 +158,7 @@ curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed&id=1234
 **Important:** For >200 UIDs, use POST method.
 
 **Example:**
+
 ```bash
 curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=12345678&retmode=xml"
 ```
@@ -170,6 +171,7 @@ The History Server reduces the number of requests for large batches:
 2. **EFetch**: Use `query_key` and `webenv` to retrieve records in batches
 
 **Benefits:**
+
 - Reduces API calls
 - Allows pagination through large result sets
 - More efficient for batches >200 records
@@ -177,14 +179,17 @@ The History Server reduces the number of requests for large batches:
 ### Rate Limiting
 
 **Without API Key:**
+
 - 3 requests per second (hard limit)
 - NCBI policy strictly enforced
 
 **With API Key:**
+
 - 10 requests per second (hard limit)
 - API key required in `tool` parameter
 
 **Identification Parameters (Required):**
+
 - `tool`: Application identifier (required)
 - `email`: Contact email (required)
 - `api_key`: API key for increased limits (optional)
@@ -248,7 +253,9 @@ Both locations should be checked and recorded in `doi_source` column for audit.
 - `QualifierName[@UI]`
 
 **Chemical Substances:**
+
 `//ChemicalList/Chemical`:
+
 - `NameOfSubstance[@UI]`
 - `RegistryNumber` (CAS number)
 
@@ -266,15 +273,18 @@ def normalize_pubmed_date(year, month, day):
 ### Error Handling
 
 **404 Not Found for PMID:**
+
 - Create "tombstone" record: `{pmid, error="NotFound", fetched_at}`
 - Continue processing remaining records
 
 **Timeout / 5xx errors:**
+
 - Retries with cap (max 5 attempts)
 - Log each attempt with context
 - Final fallback to error records
 
 **Malformed XML:**
+
 - Save raw batch in `landing/`
 - Emit `parse_error` with `xpath_context`
 - Write to `qc/pubmed/errors.csv`
@@ -422,7 +432,7 @@ qc:
 
 ### 5.6 Special Features
 
-#### History Server
+#### History Server Usage
 
 Using History Server (`use_history: true`) is recommended for large batches:
 
@@ -430,7 +440,7 @@ Using History Server (`use_history: true`) is recommended for large batches:
 - Allows fetching "several hundred records in one EFetch"
 - Pagination via `retstart`/`retmax`
 
-#### Rate Limiting
+#### Rate Limiting Configuration
 
 - **Without API key**: 3 requests/second (strict NCBI limit)
 - **With API key**: 10 requests/second (strict NCBI limit)
@@ -461,10 +471,10 @@ The pipeline supports the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1.  **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
-2.  **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
-3.  **Explicit Config:** The file specified by the `--config` flag.
-4.  **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
+3. **Explicit Config:** The file specified by the `--config` flag.
+4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 
 ### Configuration Keys
 
@@ -491,9 +501,11 @@ The following table describes the expected keys in the `document_pubmed.yaml` co
 ### Input Data Format
 
 **Minimum Requirements:**
+
 - `pmid` (integer, unique) - PubMed ID
 
 **Optional:**
+
 - `doi` (string) - DOI for validation/cross-reference
 
 **Pandera InputSchema:**
@@ -521,23 +533,26 @@ class DocumentPubMedInputSchema(pa.DataFrameModel):
 
 The extraction process uses PubMed E-utilities components:
 
-### Client
+### Client Component
 
 The `PubMedClient` ([ref: repo:src/bioetl/sources/pubmed/client/client.py@refactoring_001]) handles:
+
 - HTTP requests to E-utilities endpoints
 - Timeouts, retries with exponential backoff
 - Rate limiting (3 rps without key, 10 rps with key)
 - Identification parameters (`tool`, `email`, `api_key`)
 
-### History Server
+### History Server Component
 
 For batches >200 UIDs:
+
 1. **EPost**: Upload UIDs, receive `webenv` and `query_key`
 2. **EFetch**: Use `webenv` and `query_key` for paginated retrieval
 
-### EFetch
+### EFetch (Extraction)
 
 Retrieves records in XML format:
+
 - Batch size: up to 200 UIDs per request
 - For >200 UIDs: use POST method
 - XML parsing: `xml.etree.ElementTree` or `lxml`
@@ -545,6 +560,7 @@ Retrieves records in XML format:
 ### Parser
 
 The parser ([ref: repo:src/bioetl/sources/pubmed/parser/parser.py@refactoring_001]) extracts:
+
 - PMID, DOI, title, abstract
 - Journal, volume, issue, pages, ISSN
 - Publication dates (year, month, day)
@@ -556,6 +572,7 @@ The parser ([ref: repo:src/bioetl/sources/pubmed/parser/parser.py@refactoring_00
 ### Normalizer
 
 The `PubMedNormalizer` ([ref: repo:src/bioetl/sources/pubmed/normalizer/normalizer.py@refactoring_001]) performs:
+
 - Date normalization (ISO 8601 format)
 - Author name formatting (Last, First Middle)
 - DOI validation and normalization
@@ -565,6 +582,7 @@ The `PubMedNormalizer` ([ref: repo:src/bioetl/sources/pubmed/normalizer/normaliz
 ### Pandera Schema
 
 A Pandera schema ([ref: repo:src/bioetl/sources/pubmed/schema/schema.py@refactoring_001]) validates:
+
 - Data types and constraints
 - Required fields
 - Business key uniqueness (PMID)
@@ -572,6 +590,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/pubmed/schema/schema.py@refactor
 - Nullable policy
 
 **Schema Configuration:**
+
 - `strict=True`
 - `ordered=True`
 - `coerce=True`
@@ -581,6 +600,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/pubmed/schema/schema.py@refactor
 ### Artifact Format
 
 The pipeline produces output files:
+
 - `document_pubmed_{date}.csv` or `.parquet` - Main dataset
 - `document_pubmed_{date}_quality_report.csv` - QC metrics
 - `document_pubmed_{date}_meta.yaml` - Metadata and provenance
@@ -588,11 +608,13 @@ The pipeline produces output files:
 ### Sort Keys
 
 Output data is sorted by:
+
 - Primary: `pmid` (ascending)
 
 ### Hashing
 
 Each row includes:
+
 - `hash_row`: SHA-256 hash of entire row data
 - `hash_business_key`: SHA-256 hash of business key (`pmid`)
 
@@ -644,6 +666,7 @@ The following QC metrics are collected and reported:
 ### QC Thresholds
 
 Configuration thresholds:
+
 - `qc.min_pmid_coverage`: Minimum PMID coverage (default: 0.95)
 - `qc.max_malformed_xml_rate`: Maximum malformed XML rate (default: 0.01)
 
@@ -657,20 +680,23 @@ The pipeline uses the following exit codes:
 | 1         | Application Error       | A fatal error occurred, such as a network error or a bug in the code.       |
 | 2         | Usage Error             | An error occurred due to invalid configuration or command-line arguments.   |
 
-### Error Handling
+### Error Handling Details
 
 **Network Errors:**
+
 - Retry with exponential backoff
 - Maximum 5 retries
 - Fallback to cached data if available
 
 **API Errors:**
+
 - 429 (Too Many Requests): Wait and retry with backoff
 - 400 (Bad Request): Log error and skip record
 - 404 (Not Found): Log warning and continue
 - 500 (Server Error): Retry with backoff
 
 **Validation Errors:**
+
 - Schema validation failures: Log error and skip record
 - QC threshold violations: Fail pipeline with detailed report
 
