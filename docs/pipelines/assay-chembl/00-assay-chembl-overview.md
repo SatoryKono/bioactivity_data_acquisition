@@ -66,6 +66,7 @@ See [17-assay-chembl-config.md](17-assay-chembl-config.md) for detailed configur
 
 ## Related Documentation
 
-- [ChEMBL Pipelines Catalog](10-chembl-pipelines-catalog.md) — Overview of all ChEMBL pipelines
+- [PipelineBase Specification](../00-pipeline-base.md) — General I/O, determinism, logging, and CLI documentation
+- [Pipelines Catalog](../10-pipelines-catalog.md) — Overview of all pipelines
 - [ETL Contract Overview](../etl_contract/00-etl-overview.md) — Core ETL principles
-- [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements 
+- [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements

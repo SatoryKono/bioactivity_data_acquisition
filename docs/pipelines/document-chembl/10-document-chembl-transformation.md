@@ -1,7 +1,7 @@
 # 10 Document ChEMBL Transformation
 
-**Version:** 1.0.0  
-**Date:** 2025-01-29  
+**Version:** 1.0.0
+**Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
 ## Purpose
@@ -39,4 +39,4 @@ This document describes the transformation stage of the Document (ChEMBL) pipeli
 
 - [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — Extraction stage
 - [11-document-chembl-validation.md](11-document-chembl-validation.md) — Validation stage
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview 
+- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview

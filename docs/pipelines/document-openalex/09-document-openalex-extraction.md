@@ -107,6 +107,7 @@ https://api.openalex.org
 - `work_id`: OpenAlex ID (`W1234567890`), DOI (`https://doi.org/10.1234/example`), PMID (`pmid:12345678`), or MAG ID (`mag:1234567890`)
 
 **Example:**
+
 ```bash
 curl "https://api.openalex.org/works/https://doi.org/10.1234/example"
 ```
@@ -123,6 +124,7 @@ curl "https://api.openalex.org/works/https://doi.org/10.1234/example"
 - `cursor`: Cursor for pagination (use `*` for first page)
 
 **Example:**
+
 ```bash
 curl "https://api.openalex.org/works?filter=doi:10.1234/example|10.5678/example&per_page=100&cursor=*"
 ```
@@ -139,6 +141,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1234/example|10.5678/example&
 - `cursor`: Cursor for pagination
 
 **Example:**
+
 ```bash
 curl "https://api.openalex.org/works?search=title:Machine%20Learning&per_page=100&cursor=*"
 ```
@@ -174,6 +177,7 @@ OpenAlex is a completely open service:
 ### JSON Response Structure
 
 **Example response:**
+
 ```json
 {
   "id": "https://openalex.org/W1234567890",
@@ -422,10 +426,10 @@ The pipeline supports the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1.  **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
-2.  **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
-3.  **Explicit Config:** The file specified by the `--config` flag.
-4.  **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
+3. **Explicit Config:** The file specified by the `--config` flag.
+4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 
 ### Configuration Keys
 

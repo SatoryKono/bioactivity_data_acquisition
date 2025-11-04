@@ -22,9 +22,9 @@ The entire framework is built upon a set of fundamental principles that ensure t
 
 The `bioetl` framework consists of several key components that work together to provide a cohesive development and execution environment:
 
-1.  **Pipeline Interface (`PipelineBase`)**: At the heart of the framework is the abstract `PipelineBase` class. Every pipeline must inherit from this class, which defines a standardized lifecycle and a clear contract for developers to implement.
+1. **Pipeline Interface (`PipelineBase`)**: At the heart of the framework is the abstract `PipelineBase` class. Every pipeline must inherit from this class, which defines a standardized lifecycle and a clear contract for developers to implement.
 
-2.  **Four-Stage Pipeline Lifecycle**: Each pipeline follows a strict, sequential lifecycle composed of four distinct stages, orchestrated by the `run()` method:
+2. **Four-Stage Pipeline Lifecycle**: Each pipeline follows a strict, sequential lifecycle composed of four distinct stages, orchestrated by the `run()` method:
    - **`extract`**: Retrieves data from the source system.
    - **`transform`**: Applies business logic, normalization, and enrichment to the data.
    - **`validate`**: Verifies the transformed data against a strict Pandera schema.
@@ -32,11 +32,11 @@ The `bioetl` framework consists of several key components that work together to 
 
    The **`run()`** method orchestrates the execution of these stages in sequence, handling logging, timing, and error management. It is not a stage itself, but rather the orchestrator that ensures the stages execute in the correct order.
 
-3.  **Declarative Configuration**: Pipeline behavior is driven by YAML configuration files. This allows developers to define sources, extraction parameters, transformation rules, and output settings in a declarative manner, separating logic from configuration.
+3. **Declarative Configuration**: Pipeline behavior is driven by YAML configuration files. This allows developers to define sources, extraction parameters, transformation rules, and output settings in a declarative manner, separating logic from configuration.
 
-4.  **Schema-Driven Validation**: The framework leverages Pandera for rigorous, schema-driven data validation. Schemas define not just data types but also constraints, column order, and other quality checks, ensuring that all data conforms to its expected structure.
+4. **Schema-Driven Validation**: The framework leverages Pandera for rigorous, schema-driven data validation. Schemas define not just data types but also constraints, column order, and other quality checks, ensuring that all data conforms to its expected structure.
 
-5.  **Command-Line Interface (CLI)**: A Typer-based CLI provides a unified entry point for running and managing pipelines. It allows users to list available pipelines, execute them with custom parameters, and perform dry runs to validate configurations without writing data.
+5. **Command-Line Interface (CLI)**: A Typer-based CLI provides a unified entry point for running and managing pipelines. It allows users to list available pipelines, execute them with custom parameters, and perform dry runs to validate configurations without writing data.
 
 ## Goals of the Framework
 

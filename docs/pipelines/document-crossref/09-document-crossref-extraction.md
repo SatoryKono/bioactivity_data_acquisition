@@ -111,6 +111,7 @@ https://api.crossref.org
 - `Accept`: `application/json` (default)
 
 **Example:**
+
 ```bash
 curl -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)" \
   "https://api.crossref.org/works/10.1234/example"
@@ -130,6 +131,7 @@ curl -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)" \
 - `Content-Type`: `application/json`
 
 **Body:**
+
 ```json
 {
   "ids": ["10.1234/example1", "10.5678/example2"]
@@ -137,6 +139,7 @@ curl -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)" \
 ```
 
 **Example:**
+
 ```bash
 curl -X POST \
   -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)" \
@@ -177,11 +180,13 @@ Crossref provides two access pools:
 For large lists, cursor-based pagination is recommended:
 
 **First request:**
+
 ```bash
 curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor=*"
 ```
 
 **Next requests:**
+
 ```bash
 curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor={value_from_previous_response}"
 ```
@@ -189,6 +194,7 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor={valu
 ### JSON Response Structure
 
 **Example response:**
+
 ```json
 {
   "DOI": "10.1371/journal.pone.0000000",
@@ -468,10 +474,10 @@ The pipeline supports the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1.  **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
-2.  **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
-3.  **Explicit Config:** The file specified by the `--config` flag.
-4.  **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
+3. **Explicit Config:** The file specified by the `--config` flag.
+4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 
 ### Configuration Keys
 

@@ -90,7 +90,9 @@ log.info(
     rows_fetched=1000
 )
 ```
+
 **JSON Output:**
+
 ```json
 {
   "message": "API request successful.",
@@ -135,7 +137,9 @@ except requests.exceptions.RequestException as e:
         exc_info=True # This adds the traceback
     )
 ```
+
 **JSON Output:**
+
 ```json
 {
   "message": "API request failed.",
@@ -149,9 +153,9 @@ except requests.exceptions.RequestException as e:
 
 ## 5. Best Practices Summary
 
--   **Configure Once**: Call `UnifiedLogger.configure()` exactly once at application startup.
--   **Get Logger at Module Level**: Use `log = UnifiedLogger.get(__name__)` at the top of each file.
--   **Set Context Early**: Call `set_run_context()` at the beginning of each pipeline run.
--   **Log with Context**: Don't just log strings. Add key-value pairs to provide context for your events.
--   **Use `exc_info=True` for Errors**: Always include the full traceback when logging caught exceptions to aid in debugging.
--   **Match Log Level to Severity**: Use `info` for routine events, `warning` for potential problems, and `error` for definite failures.
+- **Configure Once**: Call `UnifiedLogger.configure()` exactly once at application startup.
+- **Get Logger at Module Level**: Use `log = UnifiedLogger.get(__name__)` at the top of each file.
+- **Set Context Early**: Call `set_run_context()` at the beginning of each pipeline run.
+- **Log with Context**: Don't just log strings. Add key-value pairs to provide context for your events.
+- **Use `exc_info=True` for Errors**: Always include the full traceback when logging caught exceptions to aid in debugging.
+- **Match Log Level to Severity**: Use `info` for routine events, `warning` for potential problems, and `error` for definite failures.

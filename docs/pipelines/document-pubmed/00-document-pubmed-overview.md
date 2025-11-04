@@ -67,5 +67,6 @@ See [17-document-pubmed-config.md](17-document-pubmed-config.md) for detailed co
 
 ## Related Documentation
 
+- [PipelineBase Specification](../00-pipeline-base.md) — General I/O, determinism, logging, and CLI documentation
 - [ETL Contract Overview](../etl_contract/00-etl-overview.md) — Core ETL principles
 - [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements

@@ -68,5 +68,6 @@ See [17-target-iuphar-config.md](17-target-iuphar-config.md) for detailed config
 
 ## Related Documentation
 
+- [PipelineBase Specification](../00-pipeline-base.md) — General I/O, determinism, logging, and CLI documentation
 - [ETL Contract Overview](../etl_contract/00-etl-overview.md) — Core ETL principles
 - [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements

@@ -14,10 +14,10 @@ If validation succeeds, the pipeline proceeds to the `write` stage. If even a si
 
 The `bioetl` framework uses [Pandera](https://pandera.readthedocs.io/en/stable/) to define and enforce data schemas. A Pandera schema is a Python class that declaratively defines the expected structure of a DataFrame, including:
 
--   **Column Names and Order**: Ensures all required columns are present and in the correct order.
--   **Data Types**: Enforces strict data types for each column (e.g., `int64`, `string`, `datetime64[ns, UTC]`).
--   **Constraints**: Defines rules that values must adhere to (e.g., `nullable=False`, `unique=True`, value ranges).
--   **Custom Checks**: Allows for complex, custom validation logic to be applied to one or more columns.
+- **Column Names and Order**: Ensures all required columns are present and in the correct order.
+- **Data Types**: Enforces strict data types for each column (e.g., `int64`, `string`, `datetime64[ns, UTC]`).
+- **Constraints**: Defines rules that values must adhere to (e.g., `nullable=False`, `unique=True`, value ranges).
+- **Custom Checks**: Allows for complex, custom validation logic to be applied to one or more columns.
 
 ### Example Pandera Schema
 
@@ -63,16 +63,18 @@ class ActivitySchema(pa.SchemaModel):
 
 ## How It Works
 
-1.  **Configuration**: In your pipeline's YAML file, you specify the path to your schema:
-    ```yaml
-    validate:
-      schema_out: "schemas/chembl/activity_out.py"
-      enforce_column_order: true
-    ```
-2.  **Execution**: After your `transform()` method finishes, the `PipelineBase.run()` method takes the resulting DataFrame and passes it to the `validate()` stage.
-3.  **Validation**: The `validate()` method dynamically loads the `ActivitySchema` class from the specified file and calls its `validate()` method on the DataFrame.
-4.  **Outcome**:
-    -   **Success**: If the DataFrame is valid, it is returned and passed to the `write` stage.
-    -   **Failure**: If validation fails, Pandera raises a `SchemaErrors` exception. The framework catches this, logs the detailed failure cases (e.g., which rows failed which checks), and terminates the pipeline run with a non-zero exit code.
+1. **Configuration**: In your pipeline's YAML file, you specify the path to your schema:
+
+   ```yaml
+   validate:
+     schema_out: "schemas/chembl/activity_out.py"
+     enforce_column_order: true
+   ```
+
+2. **Execution**: After your `transform()` method finishes, the `PipelineBase.run()` method takes the resulting DataFrame and passes it to the `validate()` stage.
+3. **Validation**: The `validate()` method dynamically loads the `ActivitySchema` class from the specified file and calls its `validate()` method on the DataFrame.
+4. **Outcome**:
+   - **Success**: If the DataFrame is valid, it is returned and passed to the `write` stage.
+   - **Failure**: If validation fails, Pandera raises a `SchemaErrors` exception. The framework catches this, logs the detailed failure cases (e.g., which rows failed which checks), and terminates the pipeline run with a non-zero exit code.
 
 By centralizing and automating the validation process, the framework ensures that data quality is a consistent, non-negotiable standard across all pipelines, rather than an ad-hoc check left to individual developers.

@@ -48,10 +48,10 @@ The pipeline would support the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1.  **Base Profile:** `src/bioetl/configs/base.yaml`
-2.  **Profile:** e.g., `src/bioetl/configs/includes/determinism.yaml` (activated by `--profile determinism`)
-3.  **Explicit Config:** The file specified by the `--config` flag.
-4.  **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Base Profile:** `src/bioetl/configs/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/includes/determinism.yaml` (activated by `--profile determinism`)
+3. **Explicit Config:** The file specified by the `--config` flag.
+4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 
 ### Configuration Keys
 
@@ -100,16 +100,16 @@ The specific PubChem endpoint and query parameters for `testitem` data would nee
 - **Sort Keys:** The output data would be sorted by a stable key (e.g., a unique `testitem` identifier from PubChem) to ensure deterministic output.
 - **Hashing:** Each row would have a `hash_row` and `hash_business_key` column. The `hash_row` would be a hash of the entire row's data, while the `hash_business_key` would be a hash of the columns that uniquely identify a `testitem`.
 - **`meta.yaml`:** A `meta.yaml` file would be generated alongside the data artifact, containing the following information:
-    - `dataset`: The name of the dataset (e.g., `testitem_pubchem`).
-    - `pipeline`: The name and version of the pipeline.
-    - `schema_version`: The version of the Pandera schema used.
-    - `column_order`: The exact order of the columns in the output file.
-    - `row_count`: The number of rows in the output file.
-    - `business_key`: The list of columns that make up the business key.
-    - `hash_algo`: The hashing algorithm used (e.g., `sha256`).
-    - `inputs/outputs`: A list of input and output files.
-    - `config_fingerprint`: A hash of the configuration used for the pipeline run.
-    - `generated_at_utc`: The timestamp of the pipeline run.
+  - `dataset`: The name of the dataset (e.g., `testitem_pubchem`).
+  - `pipeline`: The name and version of the pipeline.
+  - `schema_version`: The version of the Pandera schema used.
+  - `column_order`: The exact order of the columns in the output file.
+  - `row_count`: The number of rows in the output file.
+  - `business_key`: The list of columns that make up the business key.
+  - `hash_algo`: The hashing algorithm used (e.g., `sha256`).
+  - `inputs/outputs`: A list of input and output files.
+  - `config_fingerprint`: A hash of the configuration used for the pipeline run.
+  - `generated_at_utc`: The timestamp of the pipeline run.
 
 ## 7. QC Metrics (Extraction Level)
 

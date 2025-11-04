@@ -276,13 +276,13 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 Полный пример конфигурационного файла для target-uniprot pipeline доступен в `configs/pipelines/uniprot/target.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из UniProt.
 
-For detailed configuration structure and API, see [Typed Configurations and Profiles](docs/configs/00-typed-configs-and-profiles.md).
+For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
 ## 4. Data Schemas
 
 ### 4.1 Обзор
 
-Target-UniProt pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](docs/schemas/00-pandera-policy.md).
+Target-UniProt pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
 
 **Расположение схемы:** `src/bioetl/schemas/uniprot/target/uniprot_target_output_schema.py`
 
@@ -641,7 +641,7 @@ Target-UniProt pipeline обеспечивает детерминированн�
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
+For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 
@@ -676,7 +676,7 @@ For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-po
 - Генерируется `target_uniprot_quality_report.csv` с метриками покрытия и валидности
 - При использовании `--extended` режима дополнительно создается подробный отчет с распределениями
 
-For detailed QC metrics and policies, see [QC Overview](docs/qc/00-qc-overview.md).
+For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
 
 ## 10. Логирование и трассировка
 
@@ -750,4 +750,4 @@ Target-UniProt pipeline использует `UnifiedLogger` для структ
 - Каждая стадия логирует начало и завершение с метриками производительности
 - Ошибки логируются с полным контекстом и stack trace
 
-For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
+For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).

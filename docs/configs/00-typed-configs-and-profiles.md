@@ -144,9 +144,10 @@ version
   Input should be 1 [type=literal_error, input_value=2, input_type=int]
     For further information visit https://errors.pydantic.dev/2.12/v/literal_error
 ```
+
 【c46791†L1-L4】
 
-2. Несогласованные ключи сортировки:
+1. Несогласованные ключи сортировки:
 
 ```
 1 validation error for PipelineConfig
@@ -154,6 +155,7 @@ determinism
   Value error, determinism.sort.ascending must be empty or match determinism.sort.by length [type=value_error, input_value={'sort': {'by': ['assay_i...ending': [True, False]}}, input_type=dict]
     For further information visit https://errors.pydantic.dev/2.12/v/value_error
 ```
+
 【215e6c†L1-L4】
 
 ## 4. Слои и алгоритм мерджа
@@ -214,6 +216,7 @@ validation:
   strict: true
   coerce: true
 ```
+
 【F:configs/profiles/base.yaml†L1-L48】
 
 ### 5.2 Профиль детерминизма
@@ -257,6 +260,7 @@ determinism:
     include_fields: []
     exclude_fields: []
 ```
+
 【F:configs/profiles/determinism.yaml†L1-L49】
 
 ## 6. Пример итогового конфига

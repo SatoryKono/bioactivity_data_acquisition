@@ -7,18 +7,18 @@
 The `bioetl` Command-Line Interface (CLI) is the primary entry point for executing and managing ETL pipelines. It provides a standardized way to run pipelines, manage configurations, and pass runtime parameters.
 
 The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. This includes:
--   Parsing command-line arguments.
--   Loading and merging all configuration sources.
--   Setting up the logging system.
--   Instantiating the correct pipeline class and injecting its configuration.
--   Reporting the final status of the run.
+- Parsing command-line arguments.
+- Loading and merging all configuration sources.
+- Setting up the logging system.
+- Instantiating the correct pipeline class and injecting its configuration.
+- Reporting the final status of the run.
 
 ## 2. Architecture: A Static Registry
 
 The CLI is a Typer application whose main entry point is `python -m bioetl.cli.main`. Its architecture is based on a **static command registry** that is built when the application starts.
 
--   **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity`, `assay`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
--   **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
+- **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity`, `assay`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
+- **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
 
 This approach is **not dynamic**. Adding a new pipeline requires explicitly adding its configuration to `registry.py`.
 
@@ -30,21 +30,20 @@ The order of precedence is as follows (where 4 has the highest precedence and ov
 
 **Order of Precedence (Lowest to Highest):**
 
-1.  **Base Profiles**: Files listed in the `extends` key are loaded first. This typically includes `base.yaml` and can also include `network.yaml` (for network settings) and `determinism.yaml` (for reproducibility settings).
-2.  **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
-3.  **CLI `--set` Flags**: Key-value pairs from the `--set` flag are merged next.
-4.  **Environment Variables**: Environment variables have the highest precedence (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
-
+1. **Base Profiles**: Files listed in the `extends` key are loaded first. This typically includes `base.yaml` and can also include `network.yaml` (for network settings) and `determinism.yaml` (for reproducibility settings).
+2. **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
+3. **CLI `--set` Flags**: Key-value pairs from the `--set` flag are merged next.
+4. **Environment Variables**: Environment variables have the highest precedence (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
 
 This layered approach provides a powerful and flexible system for managing configurations.
 
 ## 4. Key Flags and Behavior
 
--   **`--config`**: The **required** path to the main YAML configuration file for the pipeline.
--   **`--output-dir`**: The **required** directory where all output artifacts will be saved.
--   **`--set`**: Overrides a specific configuration value using dot notation (e.g., `--set sources.chembl.batch_size=10`). Can be repeated.
--   **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
--   **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
+- **`--config`**: The **required** path to the main YAML configuration file for the pipeline.
+- **`--output-dir`**: The **required** directory where all output artifacts will be saved.
+- **`--set`**: Overrides a specific configuration value using dot notation (e.g., `--set sources.chembl.batch_size=10`). Can be repeated.
+- **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
+- **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
 
 A full list of commands and their specific flags can be found in the `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed reference on exit codes, see `[ref: repo:docs/cli/02-cli-exit_codes.md@refactoring_001]`.
 
@@ -100,39 +99,39 @@ Error handling for every pipeline run is centralized in `[ref: repo:src/bioetl/c
 
 The snippets below demonstrate reproducible invocations that rely on the command definitions in `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` and configuration handling in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`.
 
-1.  **List available pipelines**
+1. **List available pipelines**
 
-    ```bash
-    python -m bioetl.cli.main list
-    ```
+   ```bash
+   python -m bioetl.cli.main list
+   ```
 
-    *Expected output*: A plain-text list of command names such as `activity`, `assay`, and `document` sourced from the static registry.
+   *Expected output*: A plain-text list of command names such as `activity`, `assay`, and `document` sourced from the static registry.
 
-2.  **Dry-run the ChEMBL activity pipeline**
+2. **Dry-run the ChEMBL activity pipeline**
 
-    ```bash
-    python -m bioetl.cli.main activity \
-      --config src/bioetl/configs/pipelines/chembl/activity.yaml \
-      --output-dir data/output/activity/dry_run \
-      --dry-run
-    ```
+   ```bash
+   python -m bioetl.cli.main activity \
+     --config src/bioetl/configs/pipelines/chembl/activity.yaml \
+     --output-dir data/output/activity/dry_run \
+     --dry-run
+   ```
 
-    *Expected output*: Configuration merge summary and validation logs with no CSV files written.
+   *Expected output*: Configuration merge summary and validation logs with no CSV files written.
 
-3.  **Run the document pipeline with deterministic profiles**
+3. **Run the document pipeline with deterministic profiles**
 
-    ```bash
-    python -m bioetl.cli.main document \
-      --config src/bioetl/configs/pipelines/chembl/document.yaml \
-      --output-dir data/output/document/full_load \
-      --set profiles.include="['base.yaml','determinism.yaml']"
-    ```
+   ```bash
+   python -m bioetl.cli.main document \
+     --config src/bioetl/configs/pipelines/chembl/document.yaml \
+     --output-dir data/output/document/full_load \
+     --set profiles.include="['base.yaml','determinism.yaml']"
+   ```
 
-    *Expected output*: ETL progress logs, QC reports, and deterministic CSV outputs under `data/output/document/full_load`.
+   *Expected output*: ETL progress logs, QC reports, and deterministic CSV outputs under `data/output/document/full_load`.
 
-4.  **Execute a PubChem enrichment sample**
+4. **Execute a PubChem enrichment sample**
 
-    ```bash
+   ```bash
     python -m bioetl.cli.main pubchem \
       --config src/bioetl/configs/pipelines/pubchem.yaml \
       --output-dir data/output/pubchem/sample \

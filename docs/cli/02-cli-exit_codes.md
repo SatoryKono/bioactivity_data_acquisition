@@ -96,7 +96,7 @@ $ echo $?
 
 When integrating the CLI into automated environments, you **MUST** check the exit code after every execution.
 
--   A script **SHOULD** treat any non-zero exit code as a failure.
--   `if ! python -m bioetl.cli.main activity ...; then echo "Pipeline failed!"; exit 1; fi`
--   **Exit code `1`** indicates a problem with the pipeline's execution, configuration, or the data itself. The logs from the run are essential for diagnosing the root cause.
--   **Exit code `2`** indicates a problem with how the CI script is *invoking* the command. This is a script-level bug and should be fixed in the CI configuration.
+- A script **SHOULD** treat any non-zero exit code as a failure.
+- `if ! python -m bioetl.cli.main activity ...; then echo "Pipeline failed!"; exit 1; fi`
+- **Exit code `1`** indicates a problem with the pipeline's execution, configuration, or the data itself. The logs from the run are essential for diagnosing the root cause.
+- **Exit code `2`** indicates a problem with how the CI script is *invoking* the command. This is a script-level bug and should be fixed in the CI configuration.

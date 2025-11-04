@@ -63,6 +63,7 @@
 ## Глоссарий терминов
 
 ### CLI команды
+
 - `activity`
 - `assay`
 - `chembl_activity`
@@ -82,6 +83,7 @@
 - `Описание`
 
 ### Pipeline names
+
 - `activity`
 - `assay`
 - `document`
@@ -89,6 +91,7 @@
 - `testitem`
 
 ### Config paths (варианты)
+
 - `configs/pipelines/chembl/activity.yaml`
 - `configs/pipelines/chembl/assay.yaml`
 - `configs/pipelines/chembl/document.yaml`

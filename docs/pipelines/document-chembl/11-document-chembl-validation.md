@@ -34,4 +34,4 @@ The pipeline uses `DocumentSchema` for validation:
 
 - [12-document-chembl-io.md](12-document-chembl-io.md) — Output format
 - [14-document-chembl-qc.md](14-document-chembl-qc.md) — QC metrics
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview 
+- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview

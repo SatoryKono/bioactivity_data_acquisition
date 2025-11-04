@@ -16,4 +16,4 @@ This document describes the pipeline-specific determinism configuration for the 
 
 - [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts) — General determinism policy, hash generation, canonicalization
 - [12-document-chembl-io.md](12-document-chembl-io.md) — I/O implementation
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview 
+- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview

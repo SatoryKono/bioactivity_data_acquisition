@@ -36,12 +36,12 @@ The consistency of the log event contract is enforced by a predefined pipeline o
 
 The order of processors is critical:
 
-1.  **`structlog.contextvars.merge_contextvars`**: This is the first and most important processor. It merges the thread-safe `ContextVar` data (containing `run_id`, `stage`, etc.) into the event dictionary. This ensures that every log record is automatically stamped with the correct execution context.
-2.  **`add_utc_timestamp`**: Adds the `generated_at` timestamp.
-3.  **`add_log_level`**: Adds the `level` field.
-4.  **`add_context_base_fields`**: Adds the core application context fields (`run_id`, `stage`, `actor`, `source`).
-5.  **`redact_secrets_processor`**: Scrubs the event dictionary for any sensitive data before it can be rendered.
-6.  **(Renderer)**: The final step, which serializes the completed event dictionary into JSON or `key=value` text.
+1. **`structlog.contextvars.merge_contextvars`**: This is the first and most important processor. It merges the thread-safe `ContextVar` data (containing `run_id`, `stage`, etc.) into the event dictionary. This ensures that every log record is automatically stamped with the correct execution context.
+2. **`add_utc_timestamp`**: Adds the `generated_at` timestamp.
+3. **`add_log_level`**: Adds the `level` field.
+4. **`add_context_base_fields`**: Adds the core application context fields (`run_id`, `stage`, `actor`, `source`).
+5. **`redact_secrets_processor`**: Scrubs the event dictionary for any sensitive data before it can be rendered.
+6. **(Renderer)**: The final step, which serializes the completed event dictionary into JSON or `key=value` text.
 
 This fixed pipeline guarantees that all safety and enrichment steps are applied in the correct order for every log event.
 

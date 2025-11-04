@@ -64,7 +64,7 @@ python -m bioetl.cli.main testitem \
 3. CLI overrides (`--set`)
 4. Environment variables
 
-For more details, see [CLI Overview](docs/cli/00-cli-overview.md) and [CLI Commands](docs/cli/01-cli-commands.md).
+For more details, see [CLI Overview](../cli/00-cli-overview.md) and [CLI Commands](../cli/01-cli-commands.md).
 
 ## 3. Архитектура
 
@@ -363,7 +363,6 @@ Pipeline извлекает более 100 полей и разворачива�
 - Nullable policy: большинство полей nullable, только `molecule_chembl_id` NOT NULL
 - Range checks: `ge=1` для `molregno`, `parent_molregno`, `ge=0` для числовых полей
 
-
 ## 8. Выходные данные
 
 ### 8.1 Формат вывода
@@ -531,7 +530,7 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 ```
 
-For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
+For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 11. QC/QA
 
@@ -609,7 +608,7 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> None:
         )
 ```
 
-For detailed QC metrics and policies, see [QC Overview](docs/qc/00-qc-overview.md).
+For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
 
 ## 12. Логирование и трассировка
 
@@ -706,4 +705,4 @@ TestItem pipeline использует `UnifiedLogger` для структури
 - Ошибки логируются с полным контекстом и stack trace
 - QC метрики логируются с деталями для анализа качества данных
 
-For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
+For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).

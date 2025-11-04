@@ -30,7 +30,7 @@ cleanup_old_logs(older_than_days: int, logs_dir: Path) -> None
 
 Ссылки на код (ветка test_refactoring_32): [ref: repo:src/bioetl/core/logger.py@refactoring_001] [ref: repo:src/bioetl/cli/app.py@refactoring_001]
 
-Конфигурация @dataclass class LoggerConfig: level: Literal["DEBUG","INFO","WARNING","ERROR"] = "INFO" console_format: Literal["text","json"] = "text" file_enabled: bool = True file_path: Path = Path("var/logs/app.log") file_format: Literal["json"] = "json" max_bytes: int = 10 * 1024 * 1024 backup_count: int = 10 telemetry_enabled: bool = False redact_secrets: bool = True json_sort_keys: bool = True # детерминированность ключей json_ensure_ascii: bool = False # корректная кириллица
+Конфигурация @dataclass class LoggerConfig: level: Literal["DEBUG","INFO","WARNING","ERROR"] = "INFO" console_format: Literal["text","json"] = "text" file_enabled: bool = True file_path: Path = Path("var/logs/app.log") file_format: Literal["json"] = "json" max_bytes: int = 10 *1024* 1024 backup_count: int = 10 telemetry_enabled: bool = False redact_secrets: bool = True json_sort_keys: bool = True # детерминированность ключей json_ensure_ascii: bool = False # корректная кириллица
 
 Конвейер процессоров
 

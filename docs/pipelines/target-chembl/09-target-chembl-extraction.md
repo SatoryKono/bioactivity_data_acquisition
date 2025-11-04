@@ -259,13 +259,13 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 Полный пример конфигурационного файла для target pipeline доступен в `configs/pipelines/chembl/target.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из ChEMBL.
 
-For detailed configuration structure and API, see [Typed Configurations and Profiles](docs/configs/00-typed-configs-and-profiles.md).
+For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
 ## 4. Data Schemas
 
 ### 4.1 Обзор
 
-Target pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](docs/schemas/00-pandera-policy.md).
+Target pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
 
 **Расположение схемы:** `src/bioetl/schemas/chembl/target/target_output_schema.py`
 
@@ -734,7 +734,7 @@ Target pipeline гарантирует:
 5. **Атомарная запись:** Файлы записываются атомарно, предотвращая частичные записи
 6. **Воспроизводимые метаданные:** Все метаданные фиксируются в `meta.yaml` для полной трассируемости
 
-For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
+For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 
@@ -956,7 +956,7 @@ def validate_qc(df: pd.DataFrame, config: PipelineConfig) -> QCResult:
 - Информация логируется как информационное сообщение
 - QC отчет содержит информацию о нарушении
 
-For detailed QC metrics and policies, see [QC Overview](docs/qc/00-qc-overview.md).
+For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
 
 ## 10. Логирование и трассировка
 
@@ -1259,4 +1259,4 @@ Target pipeline использует `UnifiedLogger` для структурир
 2025-01-15T10:31:02.456Z [ERROR] pipeline_failed run_id=a1b2c3d4e5f6g7h8 error="ChEMBL API unavailable"
 ```
 
-For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
+For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).

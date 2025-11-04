@@ -1833,7 +1833,7 @@ DOCUMENT_SCHEMAS = {
 
 **Schema ID:** `document.output` v1.0.0
 
-**Ссылка:** См. также [Validation](docs/etl_contract/05-validation.md) для column_order и NA-policy.
+**Ссылка:** См. также [Validation](../etl_contract/05-validation.md) для column_order и NA-policy.
 
 ### 11.4 Валидация
 
@@ -2564,7 +2564,7 @@ Document pipeline использует `UnifiedLogger` для структури
 - Ошибки логируются с полным контекстом и stack trace
 - Enrichment операции логируются с метриками успешности и покрытия
 
-For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
+For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).
 
 ## 17. Риски и снижения (расширенные)
 

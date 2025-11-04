@@ -8,29 +8,29 @@ This document provides a high-level overview of the logging architecture, its co
 
 ## Core Principles
 
--   **Structured Output**: All log records are structured as dictionaries (key-value pairs), not plain text. This is the foundation for reliable parsing, filtering, and analysis in production environments. The system uses `structlog` as a frontend for Python's standard `logging` library to achieve this.
--   **Determinism**: In production environments, log output is rendered as JSON with sorted keys (`sort_keys=True`). This ensures that identical events produce identical log lines, which is critical for golden testing and auditing.
--   **Traceability**: Every log record is automatically enriched with a consistent execution context (e.g., `run_id`, `stage`). When OpenTelemetry is enabled, logs are also automatically correlated with `trace_id` and `span_id`, providing a unified view of requests across distributed services.
--   **Security**: The system includes a robust secret redaction mechanism that automatically masks sensitive values (e.g., API keys, tokens) before they are written to a log, preventing accidental exposure.
--   **Environment-Specific Outputs**: The system provides different output formats tailored to the environment: a human-readable `key=value` format for local development and a machine-parsable JSON format for testing and production.
+- **Structured Output**: All log records are structured as dictionaries (key-value pairs), not plain text. This is the foundation for reliable parsing, filtering, and analysis in production environments. The system uses `structlog` as a frontend for Python's standard `logging` library to achieve this.
+- **Determinism**: In production environments, log output is rendered as JSON with sorted keys (`sort_keys=True`). This ensures that identical events produce identical log lines, which is critical for golden testing and auditing.
+- **Traceability**: Every log record is automatically enriched with a consistent execution context (e.g., `run_id`, `stage`). When OpenTelemetry is enabled, logs are also automatically correlated with `trace_id` and `span_id`, providing a unified view of requests across distributed services.
+- **Security**: The system includes a robust secret redaction mechanism that automatically masks sensitive values (e.g., API keys, tokens) before they are written to a log, preventing accidental exposure.
+- **Environment-Specific Outputs**: The system provides different output formats tailored to the environment: a human-readable `key=value` format for local development and a machine-parsable JSON format for testing and production.
 
 ## High-Level Architecture
 
 The logging system is built on a pipeline of `structlog` processors that progressively enrich a log event dictionary before it is rendered.
 
-1.  **`structlog` Frontend**: Application code interacts with the logger via a simple, unified interface: `bioetl.core.get_logger()`. This returns a `structlog` bound logger, which captures key-value data.
-2.  **Context Injection**: The first processor (`merge_contextvars`) automatically injects shared context (like `run_id` and `stage`) into every log record. This context is stored in a thread-safe `ContextVar`, making it compatible with both multi-threaded and asynchronous code.
-3.  **Enrichment Pipeline**: A series of processors adds additional, standardized fields:
-    -   `add_utc_timestamp`: Adds a UTC timestamp.
-    -   `add_log_level`: Adds the log level (e.g., "INFO", "ERROR").
-    -   `add_context_base_fields`: Adds core application context.
-    -   (Optional) OpenTelemetry Processor: Adds `trace_id` and `span_id`.
-4.  **Security Processing**:
-    -   `redact_secrets_processor`: Scrubs sensitive data from the event dictionary.
-    -   `logging.Filter`: A standard logging filter provides a second layer of defense, redacting secrets from formatted string messages.
-5.  **Rendering**: The final processor in the chain, the renderer, serializes the event dictionary into its final output format:
-    -   **Development Console**: `KeyValueRenderer` produces human-readable `key=value` lines.
-    -   **File/Production**: `JSONRenderer` produces one JSON object per line, with sorted keys to ensure deterministic output.
+1. **`structlog` Frontend**: Application code interacts with the logger via a simple, unified interface: `bioetl.core.get_logger()`. This returns a `structlog` bound logger, which captures key-value data.
+2. **Context Injection**: The first processor (`merge_contextvars`) automatically injects shared context (like `run_id` and `stage`) into every log record. This context is stored in a thread-safe `ContextVar`, making it compatible with both multi-threaded and asynchronous code.
+3. **Enrichment Pipeline**: A series of processors adds additional, standardized fields:
+   - `add_utc_timestamp`: Adds a UTC timestamp.
+   - `add_log_level`: Adds the log level (e.g., "INFO", "ERROR").
+   - `add_context_base_fields`: Adds core application context.
+   - (Optional) OpenTelemetry Processor: Adds `trace_id` and `span_id`.
+4. **Security Processing**:
+   - `redact_secrets_processor`: Scrubs sensitive data from the event dictionary.
+   - `logging.Filter`: A standard logging filter provides a second layer of defense, redacting secrets from formatted string messages.
+5. **Rendering**: The final processor in the chain, the renderer, serializes the event dictionary into its final output format:
+   - **Development Console**: `KeyValueRenderer` produces human-readable `key=value` lines.
+   - **File/Production**: `JSONRenderer` produces one JSON object per line, with sorted keys to ensure deterministic output.
 
 This architecture ensures that all log records are consistent, secure, and enriched with valuable context, regardless of where in the application they originate.
 
@@ -38,8 +38,8 @@ This architecture ensures that all log records are consistent, secure, and enric
 
 Two renderers are bundled with the core logger configuration:
 
--   **JSON (`LogFormat.JSON`)** – the default for CI, golden tests, and production runs. We rely on `JSONRenderer(sort_keys=True, ensure_ascii=False)` so the output is stable across executions and safe for downstream ingestion.
--   **Key-Value (`LogFormat.KEY_VALUE`)** – a deterministic yet human-friendly development format powered by `KeyValueRenderer`. Keys appear in a fixed order (`timestamp`, `level`, `pipeline`, `stage`, `component`, `dataset`, `run_id`, `trace_id`, `span_id`, `message`), making it easy to scan log streams locally.
+- **JSON (`LogFormat.JSON`)** – the default for CI, golden tests, and production runs. We rely on `JSONRenderer(sort_keys=True, ensure_ascii=False)` so the output is stable across executions and safe for downstream ingestion.
+- **Key-Value (`LogFormat.KEY_VALUE`)** – a deterministic yet human-friendly development format powered by `KeyValueRenderer`. Keys appear in a fixed order (`timestamp`, `level`, `pipeline`, `stage`, `component`, `dataset`, `run_id`, `trace_id`, `span_id`, `message`), making it easy to scan log streams locally.
 
 Switch formats by passing `LogConfig(format=LogFormat.KEY_VALUE)` to `configure_logging`. Both renderers share the same processor pipeline, so every record contains identical context regardless of the output style.【F:src/bioetl/core/logger.py†L29-L121】
 
@@ -51,8 +51,8 @@ Switch formats by passing `LogConfig(format=LogFormat.KEY_VALUE)` to `configure_
 
 Every log is categorised with two layers:
 
--   **`stage`** – coarse ETL lifecycle buckets: `extract`, `transform`, `validate`, and `write`.
--   **`component`** – the precise module or service responsible for the event (for example `chembl_client`, `standardiser`, or `csv_writer`).
+- **`stage`** – coarse ETL lifecycle buckets: `extract`, `transform`, `validate`, and `write`.
+- **`component`** – the precise module or service responsible for the event (for example `chembl_client`, `standardiser`, or `csv_writer`).
 
 This pairing provides a stable grouping scheme for observability dashboards while keeping the taxonomy compact enough for quick filtering. Choose verbs for stages and snake_case nouns for components to remain consistent across the codebase.【F:src/bioetl/core/logger.py†L40-L60】
 
@@ -60,10 +60,10 @@ This pairing provides a stable grouping scheme for observability dashboards whil
 
 The logger enforces a shared correlation envelope so that every log can be traced to a single pipeline run and request:
 
--   `run_id` – UUID representing the full pipeline execution.
--   `pipeline` – canonical name of the orchestrated pipeline.
--   `trace_id` / `span_id` – OpenTelemetry-compatible identifiers that correlate logs with distributed traces and upstream HTTP requests.
--   `dataset` – dataset nickname or target table.
+- `run_id` – UUID representing the full pipeline execution.
+- `pipeline` – canonical name of the orchestrated pipeline.
+- `trace_id` / `span_id` – OpenTelemetry-compatible identifiers that correlate logs with distributed traces and upstream HTTP requests.
+- `dataset` – dataset nickname or target table.
 
 Bind these values once via `bind_global_context(run_id=..., pipeline=..., trace_id=..., span_id=...)`. Subsequent calls to `bind_global_context` can extend or override context for narrower scopes (e.g., per-stage metadata).【F:src/bioetl/core/logger.py†L123-L145】
 

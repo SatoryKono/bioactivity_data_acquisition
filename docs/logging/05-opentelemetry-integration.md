@@ -28,6 +28,7 @@ When `telemetry_enabled` is set to `True`, the `UnifiedLogger` adds a special pr
 For the integration to work, your application must be instrumented with the OpenTelemetry SDK. This is typically done at the application's entry point using an auto-instrumentation agent or by manually configuring the SDK.
 
 **Example of Manual OpenTelemetry Setup:**
+
 ```python
 # In your application's startup code
 from opentelemetry import trace

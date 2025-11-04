@@ -122,6 +122,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - [semantic_scholar/README.md](pipelines/sources/semantic_scholar/README.md) - Semantic Scholar source documentation
 
 > **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents:
+>
 > - [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)
 > - [PubChem TestItem Pipeline](pipelines/testitem-pubchem/00-testitem-pubchem-overview.md)
 > - [UniProt Target Pipeline](pipelines/target-uniprot/00-target-uniprot-overview.md)
@@ -164,6 +165,6 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## How to Maintain Consistency
 
-1.  When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.
-2.  Before committing, run the project's QA scripts (e.g., `npx markdownlint-cli2 "**/*.md"`).
-3.  If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001]`.
+1. When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.
+2. Before committing, run the project's QA scripts (e.g., `npx markdownlint-cli2 "**/*.md"`).
+3. If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001]`.

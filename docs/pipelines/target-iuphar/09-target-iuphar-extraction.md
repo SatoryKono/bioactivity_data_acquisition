@@ -286,13 +286,13 @@ python -m bioetl.cli.main target-iuphar \
 
 Полный пример конфигурационного файла для target-iuphar pipeline доступен в `configs/pipelines/iuphar/target.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из IUPHAR.
 
-For detailed configuration structure and API, see [Typed Configurations and Profiles](docs/configs/00-typed-configs-and-profiles.md).
+For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
 ## 4. Data Schemas
 
 ### 4.1 Обзор
 
-Target-IUPHAR pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](docs/schemas/00-pandera-policy.md).
+Target-IUPHAR pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
 
 **Расположение схемы:** `src/bioetl/schemas/iuphar/target/iuphar_target_output_schema.py`
 
@@ -581,7 +581,8 @@ class IUPHARTargetInputSchema(pa.DataFrameModel):
 
 **Примеры входных CSV:**
 
-**Пример 1: С iuphar_target_id**
+#### Пример 1: С iuphar_target_id
+
 ```csv
 iuphar_target_id
 1234
@@ -589,21 +590,24 @@ iuphar_target_id
 9012
 ```
 
-**Пример 2: С uniprot_accession**
+#### Пример 2: С uniprot_accession
+
 ```csv
 uniprot_accession
 P12345
 P67890
 ```
 
-**Пример 3: С target_name**
+#### Пример 3: С target_name
+
 ```csv
 target_name
 Dopamine D2 receptor
 Serotonin 5-HT1A receptor
 ```
 
-**Пример 4: Смешанный формат**
+#### Пример 4: Смешанный формат
+
 ```csv
 iuphar_target_id,uniprot_accession,target_name
 1234,,
@@ -710,7 +714,7 @@ Target-IUPHAR pipeline обеспечивает детерминированны
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
+For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 
@@ -749,7 +753,7 @@ For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-po
 
 Матрица источников фиксирует, что таргеты агрегируют ChEMBL (основа), UniProt (имена/гены) и IUPHAR (классификация); приоритеты: UniProt > ChEMBL для маркерных полей, IUPHAR > ChEMBL для классов.
 
-For detailed QC metrics and policies, see [QC Overview](docs/qc/00-qc-overview.md).
+For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
 
 ## 10. Логирование и трассировка
 
@@ -838,5 +842,4 @@ Target-IUPHAR pipeline использует `UnifiedLogger` для структ�
 - Каждая стадия логирует начало и завершение с метриками производительности
 - Ошибки логируются с полным контекстом и stack trace
 
-For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
-
+For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).

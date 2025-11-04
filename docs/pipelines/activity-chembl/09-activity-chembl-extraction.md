@@ -22,13 +22,13 @@
 
 Используются унифицированные компоненты архитектуры:
 
-- **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — HTTP запросы, ретраи, кэширование
+- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) — HTTP запросы, ретраи, кэширование
 
-- **UnifiedSchema** (см. [Validation](docs/etl_contract/05-validation.md)) — Pandera-схемы и реестр нормализаторов
+- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) — Pandera-схемы и реестр нормализаторов
 
-- **UnifiedOutputWriter** (см. [Output Layout](docs/output/00-output-layout.md)) — атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
+- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) — атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
 
-- **UnifiedLogger** (см. [Logging Overview](docs/logging/00-overview.md)) — структурные JSON-логи
+- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) — структурные JSON-логи
 
 ### Источник данных
 
@@ -112,11 +112,13 @@ data = r.json()
 Activity pipeline запускается через команду `activity` CLI фреймворка `bioetl`:
 
 **Базовая команда:**
+
 ```bash
 python -m bioetl.cli.main activity [OPTIONS]
 ```
 
 **Минимальный пример:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -149,6 +151,7 @@ python -m bioetl.cli.main activity \
 ### 2.4. Примеры использования
 
 **Базовый запуск с каноническим конфигом:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -156,6 +159,7 @@ python -m bioetl.cli.main activity \
 ```
 
 **Dry-run для валидации конфигурации:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -164,6 +168,7 @@ python -m bioetl.cli.main activity \
 ```
 
 **Smoke-тест с переопределением batch_size:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -173,6 +178,7 @@ python -m bioetl.cli.main activity \
 ```
 
 **Расширенный режим с QC-артефактами:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -181,6 +187,7 @@ python -m bioetl.cli.main activity \
 ```
 
 **С несколькими переопределениями через --set:**
+
 ```bash
 python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
@@ -191,6 +198,7 @@ python -m bioetl.cli.main activity \
 ```
 
 **С переменными окружения (env имеет приоритет над --set):**
+
 ```bash
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
 python -m bioetl.cli.main activity \
@@ -209,6 +217,7 @@ python -m bioetl.cli.main activity \
 4. **Переменные окружения** — имеют наивысший приоритет
 
 **Пример приоритетов:**
+
 ```bash
 # В configs/pipelines/chembl/activity.yaml:
 sources:
@@ -229,6 +238,7 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 Переменные окружения имеют наивысший приоритет и могут переопределять любые параметры конфигурации.
 
 **Формат имени переменной:**
+
 - Префикс: `BIOETL__` или `BIOACTIVITY__`
 - Вложенные ключи разделяются двойным подчёркиванием `__`
 - Пример: `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25`
@@ -245,21 +255,25 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 ### 2.7. Режимы выполнения
 
 **Standard режим** (по умолчанию):
+
 - Создаёт основной CSV-файл с данными
 - Генерирует QC-отчёт (`quality_report.csv`)
 - Опционально: correlation report (если `postprocess.correlation.enabled=true`)
 
 **Extended режим** (`--extended`):
+
 - Всё из standard режима
 - Добавляет `meta.yaml` с метаданными запуска
 - Добавляет опциональный `run_manifest.json`
 
 **Dry-run режим** (`--dry-run`):
+
 - Загружает и валидирует конфигурацию
 - Не выполняет пайплайн
 - Полезен для проверки корректности конфигурации перед запуском
 
 **Примеры:**
+
 ```bash
 # Standard режим
 python -m bioetl.cli.main activity \
@@ -280,8 +294,9 @@ python -m bioetl.cli.main activity \
 ```
 
 **Дополнительная информация:**
-- См. [CLI Overview](docs/cli/00-cli-overview.md) для общего описания CLI
-- См. [CLI Commands](docs/cli/01-cli-commands.md) для справочника по командам
+
+- См. [CLI Overview](../cli/00-cli-overview.md) для общего описания CLI
+- См. [CLI Commands](../cli/01-cli-commands.md) для справочника по командам
 
 ---
 
@@ -292,9 +307,11 @@ python -m bioetl.cli.main activity \
 Activity pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
 
 **Путь к конфигурационному файлу:**
+
 - `configs/pipelines/chembl/activity.yaml`
 
 **Стандартная структура:**
+
 - Наследование базовых профилей через `extends`
 - Переопределение специфичных для пайплайна параметров
 - Валидация через Pydantic-модели
@@ -484,6 +501,7 @@ qc:
 Конфигурация валидируется через Pydantic-модели в `src/bioetl/configs/models.py`:
 
 **Обязательные проверки:**
+
 - `sources.chembl.batch_size` **должен быть ≤ 25** (жесткое ограничение ChEMBL API)
 - `determinism.sort.ascending` должен быть пустым или совпадать по длине с `determinism.sort.by`
 - Если задан `determinism.column_order`, необходимо указать `validation.schema_out`
@@ -493,32 +511,38 @@ qc:
 **Примеры ошибок валидации:**
 
 1. **Превышение batch_size:**
-```
-ConfigValidationError: sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit
-```
+
+   ```text
+   ConfigValidationError: sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit
+   ```
 
 2. **Несогласованные ключи сортировки:**
-```
-ValueError: determinism.sort.ascending must be empty or match determinism.sort.by length
-```
+
+   ```text
+   ValueError: determinism.sort.ascending must be empty or match determinism.sort.by length
+   ```
 
 3. **Неизвестный ключ:**
-```
-ValidationError: Extra inputs are not permitted (field: 'unknown_key')
-```
+
+   ```text
+   ValidationError: Extra inputs are not permitted (field: 'unknown_key')
+   ```
 
 ### 3.6. Специфичные параметры для Activity pipeline
 
 **batch_size (критично):**
+
 - **Значение:** `≤ 25` (обязательно)
 - **Причина:** Жесткое ограничение длины URL в ChEMBL API (~2000 символов)
 - **Валидация:** Проверяется при загрузке конфигурации
 - **Пример:** `batch_size: 25`
 
 **determinism.sort.by:**
+
 - **Значение:** `["assay_id", "testitem_id", "activity_id"]`
 - **Причина:** Обеспечивает детерминированную сортировку перед записью
 - **Пример:**
+
 ```yaml
 determinism:
   sort:
@@ -527,9 +551,11 @@ determinism:
 ```
 
 **postprocess.correlation.enabled:**
+
 - **Значение:** `true` или `false` (по умолчанию `false`)
 - **Описание:** Включает генерацию correlation report
 - **Пример:**
+
 ```yaml
 postprocess:
   correlation:
@@ -539,6 +565,7 @@ postprocess:
 ### 3.7. Переопределения через CLI и ENV
 
 **CLI переопределения (`--set`):**
+
 ```bash
 # Переопределить batch_size
 --set sources.chembl.batch_size=20
@@ -551,6 +578,7 @@ postprocess:
 ```
 
 **Переменные окружения (приоритет над CLI):**
+
 ```bash
 # Формат: BIOETL__<SECTION>__<KEY>__<SUBKEY>=<VALUE>
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
@@ -559,14 +587,16 @@ export BIOETL__CACHE__TTL=7200
 ```
 
 **Порядок приоритетов (от низшего к высшему):**
+
 1. Базовые профили (`extends`)
 2. Pipeline YAML (`--config`)
 3. CLI переопределения (`--set`)
 4. Переменные окружения (наивысший приоритет)
 
 **Дополнительная информация:**
-- См. [Typed Configurations and Profiles](docs/configs/00-typed-configs-and-profiles.md) для детального описания структуры конфигурации
-- См. [Pipeline Configuration](docs/etl_contract/02-pipeline-config.md) для общего обзора конфигурации пайплайнов
+
+- См. [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md) для детального описания структуры конфигурации
+- См. [Pipeline Configuration](../etl_contract/02-pipeline-config.md) для общего обзора конфигурации пайплайнов
 
 ---
 
@@ -1121,11 +1151,12 @@ Activity pipeline обеспечивает детерминированный в
 - **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
 
 **Guarantees:**
+
 - Бит-в-бит воспроизводимость при одинаковых входных данных и конфигурации
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
+For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
 
 ---
 
@@ -1243,7 +1274,7 @@ while True:
 
 **Инвариант G2, G9:** Только offset-пагинация; идти по page_meta.next до null; перед записью сортировка по activity_id обязательна: `df.sort_values(["activity_id"])`.
 
-**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
+**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ TODO: Максимальный limit для Activity API
 
@@ -1276,7 +1307,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ```
 
-**Ссылка:** Детали тестирования см. в [QC Checklists](docs/qc/03-checklists-and-ci.md).
+**Ссылка:** Детали тестирования см. в [QC Checklists](../qc/03-checklists-and-ci.md).
 
 ---
 
@@ -1500,7 +1531,7 @@ qc_report = {
 
 ```
 
-**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
+**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
 
@@ -1822,13 +1853,13 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 ### Зависимости (cross-reference)
 
-- **UnifiedAPIClient** (см. [03-data-extraction.md](03-data-extraction.md)) — для запросов к API
+- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) — для запросов к API
 
-- **UnifiedSchema** (см. [Validation](docs/etl_contract/05-validation.md)) — для валидации
+- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) — для валидации
 
-- **UnifiedOutputWriter** (см. [Output Layout](docs/output/00-output-layout.md)) — для записи
+- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) — для записи
 
-- **UnifiedLogger** (см. [Logging Overview](docs/logging/00-overview.md)) — для логирования
+- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) — для логирования
 
 ### Интеграция с другими сущностями (referential integrity)
 
@@ -2055,4 +2086,4 @@ flowchart LR
 **Дата:** 2025-01-28
 **Автор:** ETL Architecture Team
 
-**Следующий раздел:** Интеграция с другими модулями, см. [ETL Overview](docs/etl_contract/00-etl-overview.md)
+**Следующий раздел:** Интеграция с другими модулями, см. [ETL Overview](../etl_contract/00-etl-overview.md)

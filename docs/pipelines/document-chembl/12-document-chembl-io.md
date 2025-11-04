@@ -23,4 +23,4 @@ Stable sorting by: `['document_chembl_id']`
 - [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) — General I/O format, atomic writing, metadata structure
 - [13-document-chembl-determinism.md](13-document-chembl-determinism.md) — Determinism policy
 - [14-document-chembl-qc.md](14-document-chembl-qc.md) — QC metrics
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview 
+- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview

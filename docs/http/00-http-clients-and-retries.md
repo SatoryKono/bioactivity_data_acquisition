@@ -7,18 +7,18 @@
 The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to interact with external data sources. This client provides a centralized, configurable, and resilient layer for all outgoing HTTP requests. Its implementation can be found in `[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`.
 
 The primary goals of this unified client are:
--   **Centralized Configuration**: Provide a single point for setting up timeouts, retry policies, rate limits, and headers.
--   **Resilience**: Automatically handle transient network errors, server-side issues (`5xx`), and rate limiting (`429`) through a robust retry mechanism with exponential backoff.
--   **Predictability**: Ensure consistent behavior across all pipelines by using shared configuration profiles.
+- **Centralized Configuration**: Provide a single point for setting up timeouts, retry policies, rate limits, and headers.
+- **Resilience**: Automatically handle transient network errors, server-side issues (`5xx`), and rate limiting (`429`) through a robust retry mechanism with exponential backoff.
+- **Predictability**: Ensure consistent behavior across all pipelines by using shared configuration profiles.
 
 Configuration is managed through a layered system, where settings from standardized profiles are merged with pipeline-specific configs. The key profiles are:
--   **`base.yaml`**: Provides foundational settings for all pipelines.
--   **`network.yaml`**: Contains a standard, resilient configuration for network interactions, including timeouts and retry policies. It is recommended for pipelines that interact with external APIs.
--   **`determinism.yaml`**: Provides settings to ensure reproducible, deterministic outputs, such as sort keys and hashing configurations.
+- **`base.yaml`**: Provides foundational settings for all pipelines.
+- **`network.yaml`**: Contains a standard, resilient configuration for network interactions, including timeouts and retry policies. It is recommended for pipelines that interact with external APIs.
+- **`determinism.yaml`**: Provides settings to ensure reproducible, deterministic outputs, such as sort keys and hashing configurations.
 
 These profiles are merged with pipeline-specific configs and CLI overrides to create the final configuration.
 
--   **Reference**: [RFC 7231, Section 6.6.4: 503 Service Unavailable](https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.4) (describes `Retry-After` header).
+- **Reference**: [RFC 7231, Section 6.6.4: 503 Service Unavailable](https://datatracker.ietf.org/doc/html/rfc7231#section-6.6.4) (describes `Retry-After` header).
 
 ## 2. Type-Safe Configuration
 
@@ -47,16 +47,16 @@ Configuration is merged in the following order (later items override earlier one
 
 **Order of Precedence (Lowest to Highest):**
 
-1.  **Base Profiles**: Files listed in the `extends` key (e.g., `base.yaml`, `network.yaml`, `determinism.yaml`).
-2.  **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
-3.  **CLI `--set` Flags**: Key-value pairs from the `--set` flag.
-4.  **Environment Variables**: Environment variables have the highest precedence (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
+1. **Base Profiles**: Files listed in the `extends` key (e.g., `base.yaml`, `network.yaml`, `determinism.yaml`).
+2. **Pipeline Config**: The main pipeline-specific YAML file provided via `--config`.
+3. **CLI `--set` Flags**: Key-value pairs from the `--set` flag.
+4. **Environment Variables**: Environment variables have the highest precedence (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
 
 ## 3. Timeouts, Pools, and Headers
 
--   **Timeouts**: The `UnifiedAPIClient` uses a tuple of `(connect_timeout, read_timeout)` for all requests, derived from the `connect_timeout_sec` and `read_timeout_sec` config fields.
--   **Connection Pool**: The client is built on `requests.Session`, which automatically manages a connection pool for reusing connections to the same host, improving performance.
--   **User-Agent**: A `User-Agent` header SHOULD be defined in the configuration to identify the client to the remote server.
+- **Timeouts**: The `UnifiedAPIClient` uses a tuple of `(connect_timeout, read_timeout)` for all requests, derived from the `connect_timeout_sec` and `read_timeout_sec` config fields.
+- **Connection Pool**: The client is built on `requests.Session`, which automatically manages a connection pool for reusing connections to the same host, improving performance.
+- **User-Agent**: A `User-Agent` header SHOULD be defined in the configuration to identify the client to the remote server.
 
 ### 3.1 Concurrency Guardrails
 
@@ -67,11 +67,11 @@ The `TokenBucketLimiter` protects upstream services by throttling the number of 
 The retry logic is implemented in the `RetryPolicy` class within `api_client.py`.
 
 **Error Classification:**
--   **Retryable**: The system **MUST** retry on the following conditions:
-    -   Any exception that is a subclass of `requests.exceptions.RequestException` (e.g., `ConnectionError`, `Timeout`).
-    -   HTTP responses with a `5xx` status code (e.g., `500`, `502`, `503`, `504`).
-    -   Any additional status codes explicitly defined in the `retry_status_codes` configuration list (typically `429` for rate limiting).
--   **Non-Retryable**: The system **MUST NOT** retry on `4xx` client errors (e.g., `400`, `401`, `403`, `404`), as these indicate a problem with the request itself that is unlikely to be resolved by retrying. The only exception is if a `4xx` code is explicitly added to `retry_status_codes`.
+- **Retryable**: The system **MUST** retry on the following conditions:
+  - Any exception that is a subclass of `requests.exceptions.RequestException` (e.g., `ConnectionError`, `Timeout`).
+  - HTTP responses with a `5xx` status code (e.g., `500`, `502`, `503`, `504`).
+  - Any additional status codes explicitly defined in the `retry_status_codes` configuration list (typically `429` for rate limiting).
+- **Non-Retryable**: The system **MUST NOT** retry on `4xx` client errors (e.g., `400`, `401`, `403`, `404`), as these indicate a problem with the request itself that is unlikely to be resolved by retrying. The only exception is if a `4xx` code is explicitly added to `retry_status_codes`.
 
 **Backoff Algorithm:**
 The client uses an **exponential backoff with jitter** algorithm. The delay is calculated as `backoff_factor ** (attempt_number - 1)`, plus a small random jitter. This delay is capped at `backoff_max`.
@@ -80,37 +80,37 @@ If a `Retry-After` header is present in a `429` or `503` response, its value **M
 
 **Interaction with Concurrency Controls:**
 
--   A retry that follows a `Retry-After` header waits for the advised duration and then re-acquires the token bucket permit, preventing retry storms that could violate upstream quotas.【F:src/bioetl/core/api_client.py†L1292-L1363】
--   Jitter is applied both when the limiter hands out tokens and when calculating exponential backoff delays, which keeps parallel workers from re-issuing retries in lockstep. This stabilises aggregate QPS under high contention.【F:src/bioetl/core/api_client.py†L325-L384】
+- A retry that follows a `Retry-After` header waits for the advised duration and then re-acquires the token bucket permit, preventing retry storms that could violate upstream quotas.【F:src/bioetl/core/api_client.py†L1292-L1363】
+- Jitter is applied both when the limiter hands out tokens and when calculating exponential backoff delays, which keeps parallel workers from re-issuing retries in lockstep. This stabilises aggregate QPS under high contention.【F:src/bioetl/core/api_client.py†L325-L384】
 
 ## 5. Quotas, Limits, and `429 Too Many Requests`
 
 The client handles rate limiting in two ways:
-1.  **Proactive Rate Limiting**: The `TokenBucketLimiter` class ensures that the client does not exceed the `rate_limit.max_calls` per `rate_limit.period` defined in the configuration.
-2.  **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client **MUST** prioritize the `Retry-After` header from the response to determine the backoff delay.
--   **Reference**: [RFC 6585, Section 4: 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4)
+1. **Proactive Rate Limiting**: The `TokenBucketLimiter` class ensures that the client does not exceed the `rate_limit.max_calls` per `rate_limit.period` defined in the configuration.
+2. **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client **MUST** prioritize the `Retry-After` header from the response to determine the backoff delay.
+- **Reference**: [RFC 6585, Section 4: 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4)
 
 ## 6. Telemetry and Logging
 
 The `UnifiedAPIClient` is instrumented with structured logging via the `UnifiedLogger`. The `http_log_context` automatically injects the following fields into log records related to HTTP requests, providing a rich context for debugging and monitoring.
 
--   `endpoint`: The full URL of the request.
--   `attempt`: The current retry attempt number.
--   `duration_ms`: The duration of the request in milliseconds.
--   `params`: The query parameters sent with the request.
--   `retry_after`: The value of the `Retry-After` header, if present.
--   `trace_id`: Correlates all HTTP activity back to the pipeline invocation trace (propagated through `UnifiedLogger` context extras).
--   `request_id`: Stable identifier for a single HTTP call attempt, allowing downstream collectors to deduplicate retries.
+- `endpoint`: The full URL of the request.
+- `attempt`: The current retry attempt number.
+- `duration_ms`: The duration of the request in milliseconds.
+- `params`: The query parameters sent with the request.
+- `retry_after`: The value of the `Retry-After` header, if present.
+- `trace_id`: Correlates all HTTP activity back to the pipeline invocation trace (propagated through `UnifiedLogger` context extras).
+- `request_id`: Stable identifier for a single HTTP call attempt, allowing downstream collectors to deduplicate retries.
 
 ### 6.1 Metrics Emitted
 
 Operational dashboards ingest the structured events emitted by the client and derive metrics such as:
 
--   `http.requests.total`: incremented for every attempt recorded by `_RequestRetryContext.start_attempt()`.
--   `http.requests.duration_ms`: histogram sourced from the `duration_ms` field attached to the log context.
--   `http.rate_limiter.wait_seconds`: timer populated whenever the token bucket forces a wait, capturing both short and long waits.【F:src/bioetl/core/api_client.py†L344-L368】
--   `http.retries.total`: counter derived from `retrying_request` events and `attempt` metadata.
--   `http.retry_after.seconds`: gauge summarising parsed `Retry-After` values so that alerting can react to upstream back-pressure.【F:src/bioetl/core/api_client.py†L1292-L1363】
+- `http.requests.total`: incremented for every attempt recorded by `_RequestRetryContext.start_attempt()`.
+- `http.requests.duration_ms`: histogram sourced from the `duration_ms` field attached to the log context.
+- `http.rate_limiter.wait_seconds`: timer populated whenever the token bucket forces a wait, capturing both short and long waits.【F:src/bioetl/core/api_client.py†L344-L368】
+- `http.retries.total`: counter derived from `retrying_request` events and `attempt` metadata.
+- `http.retry_after.seconds`: gauge summarising parsed `Retry-After` values so that alerting can react to upstream back-pressure.【F:src/bioetl/core/api_client.py†L1292-L1363】
 
 ### Example Log Record
 
@@ -146,34 +146,35 @@ This is an example of a structured log record for a retryable error, as it would
 
 ## 7. Pagination
 
--   **Current State**: The core `UnifiedAPIClient` does not have a generic pagination handler. Pagination logic is expected to be handled by the source-specific clients that use it (e.g., a ChEMBL client).
--   **Normative Standard**: Source-specific clients SHOULD implement pagination by:
-    -   Handling page/size or offset/limit parameters.
-    -   Parsing `next` links from response bodies or `Link` headers.
-    -   Respecting rate limits between page requests.
+- **Current State**: The core `UnifiedAPIClient` does not have a generic pagination handler. Pagination logic is expected to be handled by the source-specific clients that use it (e.g., a ChEMBL client).
+- **Normative Standard**: Source-specific clients SHOULD implement pagination by:
+  - Handling page/size or offset/limit parameters.
+  - Parsing `next` links from response bodies or `Link` headers.
+  - Respecting rate limits between page requests.
 
 ## 8. Response and Error Handling
 
--   **Response Processing**: The `request_json` and `request_text` methods handle the decoding of response bodies.
--   **Error Hierarchy**: The client uses standard `requests.exceptions`, primarily `HTTPError` for `4xx`/`5xx` responses and `RequestException` for other network issues. A custom `CircuitBreakerOpenError` is raised if the circuit breaker is open.
+- **Response Processing**: The `request_json` and `request_text` methods handle the decoding of response bodies.
+- **Error Hierarchy**: The client uses standard `requests.exceptions`, primarily `HTTPError` for `4xx`/`5xx` responses and `RequestException` for other network issues. A custom `CircuitBreakerOpenError` is raised if the circuit breaker is open.
 
 ## 9. Test Plan
 
--   **Unit Tests**:
-    -   Verify that the `RetryPolicy` correctly identifies retryable vs. non-retryable status codes.
-    -   Verify that `parse_retry_after` correctly parses both integer and HTTP-date formats.
-    -   Verify the backoff calculation is correct and respects `backoff_max`.
-    -   Verify that a `Retry-After` value correctly overrides the calculated backoff.
--   **Integration Tests**:
-    -   Using a mock server, simulate a `429` response with a `Retry-After` header and assert the client waits for the specified duration.
-    -   Simulate a `503` error and assert that the client performs the correct number of retries with exponential backoff.
-    -   Test the circuit breaker by sending a series of failing requests and asserting that it opens and subsequently closes.
+- **Unit Tests**:
+  - Verify that the `RetryPolicy` correctly identifies retryable vs. non-retryable status codes.
+  - Verify that `parse_retry_after` correctly parses both integer and HTTP-date formats.
+  - Verify the backoff calculation is correct and respects `backoff_max`.
+  - Verify that a `Retry-After` value correctly overrides the calculated backoff.
+- **Integration Tests**:
+  - Using a mock server, simulate a `429` response with a `Retry-After` header and assert the client waits for the specified duration.
+  - Simulate a `503` error and assert that the client performs the correct number of retries with exponential backoff.
+  - Test the circuit breaker by sending a series of failing requests and asserting that it opens and subsequently closes.
 
 ## 10. Examples
 
 **Creating and using a client with `network.yaml`:**
 
 *Pseudocode:*
+
 ```python
 # The CLI and config loader handle this part automatically.
 # 1. Load the `network.yaml` profile.
@@ -242,6 +243,7 @@ This snippet demonstrates how a pipeline can raise or lower concurrency targets 
 
 A ChEMBL-specific pipeline would get a pre-configured client from a factory that uses the loaded configuration.
 `[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]`
+
 ```python
 # Inside a method in a PipelineBase subclass:
 class MyChemblPipeline(PipelineBase):

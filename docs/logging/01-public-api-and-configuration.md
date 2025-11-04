@@ -12,25 +12,25 @@ The `UnifiedLogger` class exposes three primary static methods for application-w
 
 This method initializes the global logging system. It **must be called once** at the application's entry point (e.g., in the main CLI function) before any logging occurs.
 
--   **`config: LoggerConfig`**: An instance of the `LoggerConfig` dataclass containing all the configuration settings for the logging system.
--   **`additional_processors: list[Processor] | None = None`**: An optional list of custom `structlog` processors to be added to the end of the processing chain, just before the renderer.
+- **`config: LoggerConfig`**: An instance of the `LoggerConfig` dataclass containing all the configuration settings for the logging system.
+- **`additional_processors: list[Processor] | None = None`**: An optional list of custom `structlog` processors to be added to the end of the processing chain, just before the renderer.
 
 ### `UnifiedLogger.get(name: str | None = None)`
 
 This method returns a `structlog.BoundLogger` instance that is ready for use. It is the standard way to get a logger within any module.
 
--   **`name: str | None = None`**: The name of the logger. By convention, this should be `__name__`, which will associate the logger with the module's hierarchy (e.g., `bioetl.pipelines.chembl.activity`).
+- **`name: str | None = None`**: The name of the logger. By convention, this should be `__name__`, which will associate the logger with the module's hierarchy (e.g., `bioetl.pipelines.chembl.activity`).
 
 ### `set_run_context(...)`
 
 This is a standalone helper function that sets the global, thread-safe context for a pipeline run. It should be called at the beginning of a pipeline execution. All log records emitted after this call will be automatically enriched with this context.
 
--   **`run_id: str`**: A stable, unique identifier for the pipeline run.
--   **`stage: str`**: The name of the current execution stage (e.g., `extract`, `transform`).
--   **`actor: str`**: The entity initiating the run (e.g., `scheduler`, `username`).
--   **`source: str`**: The data source being processed (e.g., `chembl`, `pubmed`).
--   **`trace_id: str | None = None`**: (Optional) The OpenTelemetry trace ID, if available.
--   **`generated_at: str | None = None`**: (Optional) An ISO 8601 timestamp. If not provided, a UTC timestamp is generated automatically.
+- **`run_id: str`**: A stable, unique identifier for the pipeline run.
+- **`stage: str`**: The name of the current execution stage (e.g., `extract`, `transform`).
+- **`actor: str`**: The entity initiating the run (e.g., `scheduler`, `username`).
+- **`source: str`**: The data source being processed (e.g., `chembl`, `pubmed`).
+- **`trace_id: str | None = None`**: (Optional) The OpenTelemetry trace ID, if available.
+- **`generated_at: str | None = None`**: (Optional) An ISO 8601 timestamp. If not provided, a UTC timestamp is generated automatically.
 
 ## Configuration (`LoggerConfig`)
 

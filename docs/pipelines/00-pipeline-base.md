@@ -316,24 +316,29 @@ All pipeline logs use structured JSON format via `structlog` with mandatory cont
 All pipelines follow a standard event pattern for each stage:
 
 **Extract Stage:**
+
 - `extraction_started`: Batch extraction begins
 - `extraction_completed`: Batch extraction completes with `rows` and `duration_ms`
 - `extraction_failed`: Extraction error with details
 
 **Transform Stage:**
+
 - `transformation_started`: Transformation begins
 - `transformation_completed`: Transformation completes with `rows` and `duration_ms`
 
 **Validate Stage:**
+
 - `validation_started`: Schema validation begins
 - `validation_completed`: Validation passes with `rows` and `duration_ms`
 - `validation_failed`: Validation errors with details
 
 **Write Stage:**
+
 - `export_started`: File writing begins with `path` and `rows`
 - `export_completed`: All artifacts written successfully with `artifacts` path
 
 **Error Handling:**
+
 - `pipeline_failed`: Any stage failure with `error` and `exc_info` fields
 
 Pipeline-specific documentation should reference this section for general logging structure and only document pipeline-specific actor values or additional events that differ from this standard pattern.

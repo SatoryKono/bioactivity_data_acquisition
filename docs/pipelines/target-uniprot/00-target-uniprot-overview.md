@@ -68,6 +68,7 @@ See [17-target-uniprot-config.md](17-target-uniprot-config.md) for detailed conf
 
 ## Related Documentation
 
-- [ChEMBL to UniProt Mapping Pipeline](28-chembl2uniprot-mapping.md) — Mapping ChEMBL targets to UniProt
+- [PipelineBase Specification](../00-pipeline-base.md) — General I/O, determinism, logging, and CLI documentation
+- [ChEMBL to UniProt Mapping Pipeline](../28-chembl2uniprot-mapping.md) — Mapping ChEMBL targets to UniProt
 - [ETL Contract Overview](../etl_contract/00-etl-overview.md) — Core ETL principles
 - [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements

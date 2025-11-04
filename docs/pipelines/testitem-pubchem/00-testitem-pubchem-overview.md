@@ -66,6 +66,7 @@ See [29-testitem-pubchem-config.md](29-testitem-pubchem-config.md) for detailed 
 
 ## Related Documentation
 
-- [ChEMBL Pipelines Catalog](../10-chembl-pipelines-catalog.md) — Overview of ChEMBL pipelines (for comparison)
+- [PipelineBase Specification](../00-pipeline-base.md) — General I/O, determinism, logging, and CLI documentation
+- [Pipelines Catalog](../10-pipelines-catalog.md) — Overview of all pipelines
 - [ETL Contract Overview](../etl_contract/00-etl-overview.md) — Core ETL principles
 - [Determinism Policy](../determinism/00-determinism-policy.md) — Deterministic output requirements

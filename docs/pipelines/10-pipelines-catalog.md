@@ -296,15 +296,414 @@ python -m bioetl.cli.main testitem \
 
 【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L35-L53】
 
+---
+
+### Document PubMed (`document_pubmed`) {#document_pubmed}
+
+**Purpose.** Extracts publication metadata from PubMed using the E-utilities API. It provides comprehensive bibliographic information including titles, abstracts, authors, journal details, and publication metadata.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L7-L11】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-document-pubmed-overview.md](document-pubmed/00-document-pubmed-overview.md) — Pipeline overview
+- [09-document-pubmed-extraction.md](document-pubmed/09-document-pubmed-extraction.md) — Extraction from PubMed E-utilities API
+- [43-document-pubmed-transformation.md](document-pubmed/43-document-pubmed-transformation.md) — XML parsing and field normalization
+- [44-document-pubmed-validation.md](document-pubmed/44-document-pubmed-validation.md) — Pandera schemas and validation
+- [45-document-pubmed-io.md](document-pubmed/45-document-pubmed-io.md) — Output formats and atomic writing
+- [46-document-pubmed-determinism.md](document-pubmed/46-document-pubmed-determinism.md) — Determinism, stable sort, hashing
+- [47-document-pubmed-qc.md](document-pubmed/47-document-pubmed-qc.md) — QC metrics and thresholds
+- [48-document-pubmed-logging.md](document-pubmed/48-document-pubmed-logging.md) — Structured logging format
+- [49-document-pubmed-cli.md](document-pubmed/49-document-pubmed-cli.md) — CLI commands and flags
+- [50-document-pubmed-config.md](document-pubmed/50-document-pubmed-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.pubmed.history.use_history` | `true` | Enables e-utilities history for large batches.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L61】 |
+| `sources.pubmed.rate_limit.max_calls` | `3` (without API key) | Rate limiting: 3 requests per second without API key.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L62】 |
+| `determinism.sort.by` | `['pmid']` | Primary sort key is `pmid`.【F:docs/pipelines/document-pubmed/46-document-pubmed-determinism.md†L13】 |
+
+**Inputs.** Requires PMID or DOI identifiers from input CSV and fetches document data from PubMed E-utilities API (ESearch, EPost, EFetch) with history server support for batch operations.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L21-L24】
+
+**Outputs.** Produces publication dataset alongside standard meta/QC artifacts mandated by the determinism contract. Outputs include `document_pubmed_{date}.csv`, `document_pubmed_{date}_quality_report.csv`, and optionally `document_pubmed_{date}_meta.yaml` in extended mode.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L24】
+
+**Quality controls.** Coverage metrics for PMID/DOI/title/journal/authors, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L64】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from PubMed
+python -m bioetl.cli.main document --source pubmed \
+  --config configs/pipelines/pubmed/document.yaml \
+  --output-dir data/output/document-pubmed
+
+# With input file containing PMIDs
+python -m bioetl.cli.main document --source pubmed \
+  --config configs/pipelines/pubmed/document.yaml \
+  --input-file data/input/pmids.csv \
+  --output-dir data/output/document-pubmed
+```
+
+【F:docs/pipelines/document-pubmed/49-document-pubmed-cli.md†L14-L23】
+
+---
+
+### Document Crossref (`document_crossref`) {#document_crossref}
+
+**Purpose.** Extracts publication metadata from Crossref REST API. Crossref is a DOI registration agency providing comprehensive bibliographic metadata for scholarly works.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L9-L22】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-document-crossref-overview.md](document-crossref/00-document-crossref-overview.md) — Pipeline overview
+- [09-document-crossref-extraction.md](document-crossref/09-document-crossref-extraction.md) — Extraction from Crossref REST API
+- [59-document-crossref-transformation.md](document-crossref/59-document-crossref-transformation.md) — JSON parsing and field normalization
+- [60-document-crossref-validation.md](document-crossref/60-document-crossref-validation.md) — Pandera schemas and validation
+- [61-document-crossref-io.md](document-crossref/61-document-crossref-io.md) — Output formats and atomic writing
+- [62-document-crossref-determinism.md](document-crossref/62-document-crossref-determinism.md) — Determinism, stable sort, hashing
+- [63-document-crossref-qc.md](document-crossref/63-document-crossref-qc.md) — QC metrics and thresholds
+- [64-document-crossref-logging.md](document-crossref/64-document-crossref-logging.md) — Structured logging format
+- [65-document-crossref-cli.md](document-crossref/65-document-crossref-cli.md) — CLI commands and flags
+- [66-document-crossref-config.md](document-crossref/66-document-crossref-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.crossref.batching.dois_per_request` | `100 (≤ 200)` | Caps DOIs per call per API guidance.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L61】 |
+| `sources.crossref.rate_limit.max_calls` | `2` | Rate limiting: 2 requests per second.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L62】 |
+| `determinism.sort.by` | `['doi']` | Primary sort key is `doi`.【F:docs/pipelines/document-crossref/62-document-crossref-determinism.md†L13】 |
+
+**Inputs.** Requires DOI identifiers from input CSV and fetches document data from Crossref `/works` endpoint with batch processing (up to 100 DOIs per request).【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L21-L24】
+
+**Outputs.** Produces publication dataset alongside standard meta/QC artifacts. Outputs include `document_crossref_{date}.csv`, `document_crossref_{date}_quality_report.csv`, and optionally `document_crossref_{date}_meta.yaml` in extended mode.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L24】
+
+**Quality controls.** Coverage metrics for DOI/title/journal/authors, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L64】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from Crossref
+python -m bioetl.cli.main document --source crossref \
+  --config configs/pipelines/crossref/document.yaml \
+  --output-dir data/output/document-crossref
+
+# With input file containing DOIs
+python -m bioetl.cli.main document --source crossref \
+  --config configs/pipelines/crossref/document.yaml \
+  --input-file data/input/dois.csv \
+  --output-dir data/output/document-crossref
+```
+
+【F:docs/pipelines/document-crossref/65-document-crossref-cli.md†L14-L23】
+
+---
+
+### Document OpenAlex (`document_openalex`) {#document_openalex}
+
+**Purpose.** Extracts publication metadata from OpenAlex using the Works API. OpenAlex is a free, open-source database of scholarly works with comprehensive metadata including citations, concepts, and open access status.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L9-L32】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-document-openalex-overview.md](document-openalex/00-document-openalex-overview.md) — Pipeline overview
+- [09-document-openalex-extraction.md](document-openalex/09-document-openalex-extraction.md) — Extraction from OpenAlex Works API
+- [51-document-openalex-transformation.md](document-openalex/51-document-openalex-transformation.md) — JSON parsing and field normalization
+- [52-document-openalex-validation.md](document-openalex/52-document-openalex-validation.md) — Pandera schemas and validation
+- [53-document-openalex-io.md](document-openalex/53-document-openalex-io.md) — Output formats and atomic writing
+- [54-document-openalex-determinism.md](document-openalex/54-document-openalex-determinism.md) — Determinism, stable sort, hashing
+- [55-document-openalex-qc.md](document-openalex/55-document-openalex-qc.md) — QC metrics and thresholds
+- [56-document-openalex-logging.md](document-openalex/56-document-openalex-logging.md) — Structured logging format
+- [57-document-openalex-cli.md](document-openalex/57-document-openalex-cli.md) — CLI commands and flags
+- [58-document-openalex-config.md](document-openalex/58-document-openalex-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.openalex.rate_limit.max_calls` | `10` | Rate limiting: 10 requests per second.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L61】 |
+| `determinism.sort.by` | `['openalex_id']` | Primary sort key is `openalex_id`.【F:docs/pipelines/document-openalex/54-document-openalex-determinism.md†L13】 |
+
+**Inputs.** Requires DOI, PMID, or OpenAlex ID identifiers from input CSV and fetches document data from OpenAlex `/works` endpoint with cursor-based pagination.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L21-L24】
+
+**Outputs.** Produces publication dataset alongside standard meta/QC artifacts. Outputs include `document_openalex_{date}.csv`, `document_openalex_{date}_quality_report.csv`, and optionally `document_openalex_{date}_meta.yaml` in extended mode.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L24】
+
+**Quality controls.** Coverage metrics for DOI/PMID/title/journal/authors, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L64】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from OpenAlex
+python -m bioetl.cli.main document --source openalex \
+  --config configs/pipelines/openalex/document.yaml \
+  --output-dir data/output/document-openalex
+
+# With input file containing DOIs
+python -m bioetl.cli.main document --source openalex \
+  --config configs/pipelines/openalex/document.yaml \
+  --input-file data/input/dois.csv \
+  --output-dir data/output/document-openalex
+```
+
+【F:docs/pipelines/document-openalex/57-document-openalex-cli.md†L14-L23】
+
+---
+
+### Document Semantic Scholar (`document_semantic_scholar`) {#document_semantic_scholar}
+
+**Purpose.** Extracts publication metadata from Semantic Scholar Graph API. Semantic Scholar provides comprehensive bibliographic data including citation metrics, abstract, and fields of study.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L9-L32】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-document-semantic-scholar-overview.md](document-semantic-scholar/00-document-semantic-scholar-overview.md) — Pipeline overview
+- [09-document-semantic-scholar-extraction.md](document-semantic-scholar/09-document-semantic-scholar-extraction.md) — Extraction from Semantic Scholar Graph API
+- [67-document-semantic-scholar-transformation.md](document-semantic-scholar/67-document-semantic-scholar-transformation.md) — JSON parsing and field normalization
+- [68-document-semantic-scholar-validation.md](document-semantic-scholar/68-document-semantic-scholar-validation.md) — Pandera schemas and validation
+- [69-document-semantic-scholar-io.md](document-semantic-scholar/69-document-semantic-scholar-io.md) — Output formats and atomic writing
+- [70-document-semantic-scholar-determinism.md](document-semantic-scholar/70-document-semantic-scholar-determinism.md) — Determinism, stable sort, hashing
+- [71-document-semantic-scholar-qc.md](document-semantic-scholar/71-document-semantic-scholar-qc.md) — QC metrics and thresholds
+- [72-document-semantic-scholar-logging.md](document-semantic-scholar/72-document-semantic-scholar-logging.md) — Structured logging format
+- [73-document-semantic-scholar-cli.md](document-semantic-scholar/73-document-semantic-scholar-cli.md) — CLI commands and flags
+- [74-document-semantic-scholar-config.md](document-semantic-scholar/74-document-semantic-scholar-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.semantic_scholar.rate_limit.max_calls` | `1` (without API key) | Rate limiting: 1 request per 1.25 seconds without key, higher with key.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L61】 |
+| `sources.semantic_scholar.api_key` | Optional | API key for higher rate limits.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L60】 |
+| `determinism.sort.by` | `['semantic_scholar_id']` | Primary sort key is `semantic_scholar_id`.【F:docs/pipelines/document-semantic-scholar/70-document-semantic-scholar-determinism.md†L13】 |
+
+**Inputs.** Requires PMID, DOI, or Semantic Scholar Paper ID identifiers from input CSV and fetches document data from Semantic Scholar `/paper/batch` endpoint.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L21-L24】
+
+**Outputs.** Produces publication dataset alongside standard meta/QC artifacts. Outputs include `document_semantic_scholar_{date}.csv`, `document_semantic_scholar_{date}_quality_report.csv`, and optionally `document_semantic_scholar_{date}_meta.yaml` in extended mode.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L24】
+
+**Quality controls.** Coverage metrics for DOI/PMID/title/journal/authors, missing value detection, duplicate tracking, access denial rate monitoring, and validity checks feed a consolidated QC report.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L64】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from Semantic Scholar
+python -m bioetl.cli.main document --source semantic-scholar \
+  --config configs/pipelines/semantic-scholar/document.yaml \
+  --output-dir data/output/document-semantic-scholar
+
+# With input file containing PMIDs
+python -m bioetl.cli.main document --source semantic-scholar \
+  --config configs/pipelines/semantic-scholar/document.yaml \
+  --input-file data/input/pmids.csv \
+  --output-dir data/output/document-semantic-scholar
+```
+
+【F:docs/pipelines/document-semantic-scholar/73-document-semantic-scholar-cli.md†L14-L23】
+
+---
+
+### Target UniProt (`target_uniprot`) {#target_uniprot}
+
+**Purpose.** Extracts and processes target (protein) data from the UniProt REST API. This pipeline provides comprehensive protein information including sequences, features, gene names, and organism data.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L9-L26】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-target-uniprot-overview.md](target-uniprot/00-target-uniprot-overview.md) — Pipeline overview
+- [09-target-uniprot-extraction.md](target-uniprot/09-target-uniprot-extraction.md) — Extraction from UniProt REST API
+- [27-target-uniprot-transformation.md](target-uniprot/27-target-uniprot-transformation.md) — Protein data normalization
+- [28-target-uniprot-validation.md](target-uniprot/28-target-uniprot-validation.md) — Pandera schemas and validation
+- [29-target-uniprot-io.md](target-uniprot/29-target-uniprot-io.md) — Output formats and atomic writing
+- [30-target-uniprot-determinism.md](target-uniprot/30-target-uniprot-determinism.md) — Determinism, stable sort, hashing
+- [31-target-uniprot-qc.md](target-uniprot/31-target-uniprot-qc.md) — QC metrics and thresholds
+- [32-target-uniprot-logging.md](target-uniprot/32-target-uniprot-logging.md) — Structured logging format
+- [33-target-uniprot-cli.md](target-uniprot/33-target-uniprot-cli.md) — CLI commands and flags
+- [34-target-uniprot-config.md](target-uniprot/34-target-uniprot-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.uniprot.batch_size` | Configurable | Batch size for UniProt API calls.【F:docs/pipelines/target-uniprot/34-target-uniprot-config.md†L17】 |
+| `sources.uniprot.rate_limit.max_calls` | `2` | Critical: ≤ 2 (UniProt API quota).【F:docs/pipelines/target-uniprot/09-target-uniprot-extraction.md†L79】 |
+| `determinism.sort.by` | `['uniprot_accession']` | Primary sort key is `uniprot_accession`.【F:docs/pipelines/target-uniprot/34-target-uniprot-config.md†L19】 |
+
+**Inputs.** Requires UniProt accession numbers as input. For mapping ChEMBL target IDs to UniProt accessions, use the separate `chembl2uniprot-mapping` pipeline.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L11-L24】
+
+**Outputs.** Produces protein target dataset alongside standard meta/QC artifacts. Outputs include `target_uniprot_{date}.csv`, `target_uniprot_{date}_quality_report.csv`, and optionally `target_uniprot_{date}_meta.yaml` in extended mode.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L26】
+
+**Quality controls.** Coverage metrics for protein data completeness, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L65】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from UniProt
+python -m bioetl.cli.main target --source uniprot \
+  --config configs/pipelines/uniprot/target.yaml \
+  --output-dir data/output/target-uniprot
+
+# With input file containing UniProt accessions
+python -m bioetl.cli.main target --source uniprot \
+  --config configs/pipelines/uniprot/target.yaml \
+  --input-file data/input/uniprot_accessions.csv \
+  --output-dir data/output/target-uniprot
+```
+
+【F:docs/pipelines/target-uniprot/33-target-uniprot-cli.md†L14-L23】
+
+---
+
+### Target IUPHAR (`target_iuphar`) {#target_iuphar}
+
+**Purpose.** Extracts and processes target (pharmacological target) data from the Guide to Pharmacology (GtP) / IUPHAR database. This pipeline provides comprehensive pharmacological target information including target classifications, receptor families, and pharmacological properties.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L9-L26】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-target-iuphar-overview.md](target-iuphar/00-target-iuphar-overview.md) — Pipeline overview
+- [09-target-iuphar-extraction.md](target-iuphar/09-target-iuphar-extraction.md) — Extraction from Guide to Pharmacology API
+- [35-target-iuphar-transformation.md](target-iuphar/35-target-iuphar-transformation.md) — Target classification normalization
+- [36-target-iuphar-validation.md](target-iuphar/36-target-iuphar-validation.md) — Pandera schemas and validation
+- [37-target-iuphar-io.md](target-iuphar/37-target-iuphar-io.md) — Output formats and atomic writing
+- [38-target-iuphar-determinism.md](target-iuphar/38-target-iuphar-determinism.md) — Determinism, stable sort, hashing
+- [39-target-iuphar-qc.md](target-iuphar/39-target-iuphar-qc.md) — QC metrics and thresholds
+- [40-target-iuphar-logging.md](target-iuphar/40-target-iuphar-logging.md) — Structured logging format
+- [41-target-iuphar-cli.md](target-iuphar/41-target-iuphar-cli.md) — CLI commands and flags
+- [42-target-iuphar-config.md](target-iuphar/42-target-iuphar-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.iuphar.api_key` | Optional | API key for Guide to Pharmacology API.【F:docs/pipelines/target-iuphar/09-target-iuphar-extraction.md†L85】 |
+| `sources.iuphar.rate_limit.max_calls` | `6` | Rate limiting: 6 requests per second.【F:docs/pipelines/target-iuphar/09-target-iuphar-extraction.md†L79】 |
+| `determinism.sort.by` | `['iuphar_object_id']` | Primary sort key is `iuphar_object_id`.【F:docs/pipelines/target-iuphar/42-target-iuphar-config.md†L19】 |
+
+**Inputs.** Supports multiple input formats and automatically resolves identifiers to IUPHAR target_id through the search API. Enrichment from external sources (UniProt, ChEMBL) is handled by separate pipelines.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L11-L24】
+
+**Outputs.** Produces pharmacological target dataset alongside standard meta/QC artifacts. Outputs include `target_iuphar_{date}.csv`, `target_iuphar_{date}_quality_report.csv`, and optionally `target_iuphar_{date}_meta.yaml` in extended mode.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L26】
+
+**Quality controls.** Coverage metrics for target classification coverage, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L65】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from IUPHAR
+python -m bioetl.cli.main target --source iuphar \
+  --config configs/pipelines/iuphar/target.yaml \
+  --output-dir data/output/target-iuphar
+
+# With input file containing various identifiers
+python -m bioetl.cli.main target --source iuphar \
+  --config configs/pipelines/iuphar/target.yaml \
+  --input-file data/input/iuphar_targets.csv \
+  --output-dir data/output/target-iuphar
+```
+
+【F:docs/pipelines/target-iuphar/41-target-iuphar-cli.md†L14-L28】
+
+---
+
+### TestItem PubChem (`testitem_pubchem`) {#testitem_pubchem}
+
+**Purpose.** Extracts testitem (molecule) data from PubChem. It is a standalone pipeline that does not perform any joins or enrichment with other data sources.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L9-L24】
+
+**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+
+- [00-testitem-pubchem-overview.md](testitem-pubchem/00-testitem-pubchem-overview.md) — Pipeline overview
+- [09-testitem-pubchem-extraction.md](testitem-pubchem/09-testitem-pubchem-extraction.md) — Extraction from PubChem PUG REST API
+- [10-testitem-pubchem-transformation.md](testitem-pubchem/10-testitem-pubchem-transformation.md) — Molecule property normalization
+- [23-testitem-pubchem-validation.md](testitem-pubchem/23-testitem-pubchem-validation.md) — Pandera schemas and validation
+- [24-testitem-pubchem-io.md](testitem-pubchem/24-testitem-pubchem-io.md) — Output formats and atomic writing
+- [25-testitem-pubchem-determinism.md](testitem-pubchem/25-testitem-pubchem-determinism.md) — Determinism, stable sort, hashing
+- [26-testitem-pubchem-qc.md](testitem-pubchem/26-testitem-pubchem-qc.md) — QC metrics and thresholds
+- [27-testitem-pubchem-logging.md](testitem-pubchem/27-testitem-pubchem-logging.md) — Structured logging format
+- [28-testitem-pubchem-cli.md](testitem-pubchem/28-testitem-pubchem-cli.md) — CLI commands and flags
+- [29-testitem-pubchem-config.md](testitem-pubchem/29-testitem-pubchem-config.md) — Configuration keys and profiles
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.pubchem.batch_size` | Configurable | Batch size for PubChem API calls.【F:docs/pipelines/testitem-pubchem/29-testitem-pubchem-config.md†L17】 |
+| `determinism.sort.by` | `['pubchem_cid']` | Primary sort key is `pubchem_cid`.【F:docs/pipelines/testitem-pubchem/29-testitem-pubchem-config.md†L19】 |
+| `qc.thresholds.testitem.duplicate_ratio` | `0.0` | Critical: duplicates are not allowed.【F:docs/pipelines/testitem-pubchem/29-testitem-pubchem-config.md†L20】 |
+
+**Inputs.** Requires PubChem CID identifiers from input CSV and fetches molecule data from PubChem PUG REST API with batch retrieval.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L21-L24】
+
+**Outputs.** Produces molecule dataset alongside standard meta/QC artifacts. Outputs include `testitem_pubchem_{date}.csv`, `testitem_pubchem_{date}_quality_report.csv`, and optionally `testitem_pubchem_{date}_meta.yaml` in extended mode.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L25】
+
+**Quality controls.** Coverage metrics for molecule data completeness, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L63】
+
+**CLI usage.**
+
+```bash
+# Standard extraction from PubChem
+python -m bioetl.cli.main testitem --source pubchem \
+  --config configs/pipelines/pubchem/testitem.yaml \
+  --output-dir data/output/testitem-pubchem
+
+# With input file containing PubChem CIDs
+python -m bioetl.cli.main testitem --source pubchem \
+  --config configs/pipelines/pubchem/testitem.yaml \
+  --input-file data/input/pubchem_cids.csv \
+  --output-dir data/output/testitem-pubchem
+```
+
+【F:docs/pipelines/testitem-pubchem/28-testitem-pubchem-cli.md†L14-L28】
+
+---
+
+### ChEMBL to UniProt Mapping (`chembl2uniprot_mapping`) {#chembl2uniprot_mapping}
+
+**Purpose.** Creates mappings between ChEMBL target identifiers and UniProt accession numbers through the UniProt ID Mapping API. This mapping is essential for enriching ChEMBL target data with UniProt protein information.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L9-L11】
+
+**Documentation Structure:**
+
+- [28-chembl2uniprot-mapping.md](28-chembl2uniprot-mapping.md) — Pipeline documentation
+
+**Key configuration.**
+
+| Key | Requirement / Default | Notes |
+| --- | --- | --- |
+| `sources.uniprot_idmapping.batch_size` | `100000` | Batch size for ID mapping (can be large).【F:docs/pipelines/28-chembl2uniprot-mapping.md†L121】 |
+| `sources.uniprot_idmapping.rate_limit.max_calls` | `2` | Critical: ≤ 2 (UniProt API quota).【F:docs/pipelines/28-chembl2uniprot-mapping.md†L79】 |
+| `sources.uniprot_idmapping.polling.enabled` | `true` | Enables polling for async job status.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L130】 |
+| `determinism.sort.by` | `['target_chembl_id', 'uniprot_accession']` | Composite sort keys.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L147】 |
+
+**Inputs.** Requires ChEMBL `target_chembl_id` values from input CSV and uses UniProt ID Mapping API to create mappings to UniProt accession numbers.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L9-L11】
+
+**Outputs.** Produces mapping dataset with columns `target_chembl_id` and `uniprot_accession` alongside standard meta/QC artifacts. Outputs include `chembl2uniprot_mapping_{date}.csv`, `chembl2uniprot_mapping_{date}_quality_report.csv`, and optionally `chembl2uniprot_mapping_{date}_meta.yaml` in extended mode.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L11-L12】
+
+**Quality controls.** Coverage metrics for mapping success rate, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L192-L200】
+
+**CLI usage.**
+
+```bash
+# Standard mapping run
+python -m bioetl.cli.main chembl2uniprot-mapping \
+  --config configs/pipelines/uniprot/chembl2uniprot.yaml \
+  --output-dir data/output/chembl2uniprot-mapping
+
+# With input file containing ChEMBL target IDs
+python -m bioetl.cli.main chembl2uniprot-mapping \
+  --config configs/pipelines/uniprot/chembl2uniprot.yaml \
+  --input-file data/input/chembl_targets.csv \
+  --output-dir data/output/chembl2uniprot-mapping
+```
+
+【F:docs/pipelines/28-chembl2uniprot-mapping.md†L15-L29】
+
 ## Determinism & Invariant Matrix
 
 | Pipeline | Sort keys | Hashing invariants | Schema reference |
 | --- | --- | --- | --- |
 | Activity | `['assay_id', 'testitem_id', 'activity_id']` | Row/business hashes generated with canonicalized values under the SHA256 policy (`hash_row`, `hash_business_key`).【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_activity` schema module in the source interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
 | Assay | `['assay_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_assay` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Target | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Document | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| TestItem | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Target (ChEMBL) | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Document (ChEMBL) | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| TestItem (ChEMBL) | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Document PubMed | `['pmid']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_pubmed` schema per interface matrix. |
+| Document Crossref | `['doi']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_crossref` schema per interface matrix. |
+| Document OpenAlex | `['openalex_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_openalex` schema per interface matrix. |
+| Document Semantic Scholar | `['semantic_scholar_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_semantic_scholar` schema per interface matrix. |
+| Target UniProt | `['uniprot_accession']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `target_uniprot` schema per interface matrix. |
+| Target IUPHAR | `['iuphar_object_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `target_iuphar` schema per interface matrix. |
+| TestItem PubChem | `['pubchem_cid']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `testitem_pubchem` schema per interface matrix. |
+| ChEMBL2UniProt Mapping | `['target_chembl_id', 'uniprot_accession']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl2uniprot_mapping` schema per interface matrix. |
 
 The determinism policy also standardizes value canonicalization, serialization, and `meta.yaml` shape, ensuring cross-pipeline reproducibility when identical inputs and configurations are supplied.【F:docs/determinism/00-determinism-policy.md†L36-L118】
 

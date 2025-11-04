@@ -5,10 +5,10 @@
 The `transform` stage is where the raw data from the `extract` stage is converted into its final, clean, and structured form. This is where the primary business logic of the pipeline resides. The developer implements this stage as the `transform()` method in their `PipelineBase` subclass.
 
 The goals of this stage are to:
-1.  **Clean and Normalize Data**: Apply cleaning functions and standardize data formats.
-2.  **Enrich Data**: (Optional) Combine the source data with other data sources.
-3.  **Shape Data**: Rename columns, create new ones, and ensure the DataFrame conforms to the target schema.
-4.  **Perform Quality Control (QC)**: Execute in-line quality checks to identify and flag potential data issues.
+1. **Clean and Normalize Data**: Apply cleaning functions and standardize data formats.
+2. **Enrich Data**: (Optional) Combine the source data with other data sources.
+3. **Shape Data**: Rename columns, create new ones, and ensure the DataFrame conforms to the target schema.
+4. **Perform Quality Control (QC)**: Execute in-line quality checks to identify and flag potential data issues.
 
 ## Implementing the `transform()` Method
 
@@ -87,6 +87,7 @@ def _cast_data_types(self, df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 ```
+
 Note the use of `errors='coerce'`, which will turn any unparseable dates into `NaT` (Not a Time). This prevents the pipeline from failing and allows the `validate` stage to catch the issue.
 
 ## In-line Quality Control (QC)

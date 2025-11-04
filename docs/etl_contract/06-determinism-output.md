@@ -3,8 +3,8 @@
 ## Overview
 
 Two of the core principles of the `bioetl` framework are **determinism** and **reproducibility**.
--   **Determinism** means that running the same pipeline with the same configuration and input data will always produce a bit-for-bit identical output file.
--   **Reproducibility** means that every output artifact is accompanied by rich metadata that allows anyone to understand its full lineage: how, when, and from what it was created.
+- **Determinism** means that running the same pipeline with the same configuration and input data will always produce a bit-for-bit identical output file.
+- **Reproducibility** means that every output artifact is accompanied by rich metadata that allows anyone to understand its full lineage: how, when, and from what it was created.
 
 These guarantees are primarily enforced during the framework-managed `write` stage, which handles the final materialization of the data and its associated metadata.
 
@@ -36,9 +36,9 @@ The `write` stage performs atomic file operations. The dataset is first written 
 Every dataset produced by the framework is accompanied by a `meta.yaml` file. This file is the dataset's "birth certificate," containing a complete record of its origin and properties.
 
 The metadata file is crucial for:
--   **Auditing**: Verifying the source and parameters used to generate a dataset.
--   **Debugging**: Comparing the configurations of two different runs to identify changes.
--   **Lineage Tracking**: Understanding the full data flow from source to final artifact.
+- **Auditing**: Verifying the source and parameters used to generate a dataset.
+- **Debugging**: Comparing the configurations of two different runs to identify changes.
+- **Lineage Tracking**: Understanding the full data flow from source to final artifact.
 
 ### Full `meta.yaml` Example
 
@@ -92,7 +92,7 @@ source_lineage:
 
 The `meta.yaml` file includes two critical integrity hashes:
 
--   `hash_business_key`: A SHA256 hash of the canonicalized business key columns. This hash identifies a unique business entity and is stable across pipeline runs with identical data.
--   `sample_hash_row`: A SHA256 hash of a sample row (based on the first row after sorting) that verifies the integrity of row-level data. The full `hash_row` is calculated for every row in the dataset during the write stage.
+- `hash_business_key`: A SHA256 hash of the canonicalized business key columns. This hash identifies a unique business entity and is stable across pipeline runs with identical data.
+- `sample_hash_row`: A SHA256 hash of a sample row (based on the first row after sorting) that verifies the integrity of row-level data. The full `hash_row` is calculated for every row in the dataset during the write stage.
 
 The `hash_algo` field specifies the hashing algorithm used (currently `sha256`), and `hash_policy_version` tracks the version of the hashing policy for compatibility checks.

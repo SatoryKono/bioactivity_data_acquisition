@@ -20,6 +20,7 @@ This is the primary layer of defense and covers all structured data passed to th
 If you log `log.info("API Request", headers={"Authorization": "Bearer xyz123"})`, the processor will inspect the `headers` dictionary. It will find the key `"Authorization"`, match it against the keyword list, and transform the event dictionary before it is rendered.
 
 **Rendered Log:**
+
 ```json
 {
   "message": "API Request",
@@ -41,17 +42,17 @@ To cover this case, a standard `logging.Filter` is also attached to the logger. 
 The redaction mechanism is triggered by a predefined list of case-insensitive keywords. If any of these substrings appear in a key, the value associated with that key will be redacted.
 
 The current list of sensitive keywords is:
--   `api_key`
--   `token`
--   `password`
--   `secret`
--   `authorization`
--   `bearer`
--   `credential`
--   `access_token`
--   `refresh_token`
--   `private_key`
--   `x-api-key`
+- `api_key`
+- `token`
+- `password`
+- `secret`
+- `authorization`
+- `bearer`
+- `credential`
+- `access_token`
+- `refresh_token`
+- `private_key`
+- `x-api-key`
 
 **Example of Keyword Matching:**
 
