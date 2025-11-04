@@ -570,7 +570,7 @@ export BIOETL__CACHE__TTL=7200
 
 ---
 
-## 2. ChEMBL Activity API
+## 4. ChEMBL Activity API
 
 ### Base URL и endpoints
 
@@ -803,7 +803,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 ---
 
-## 3. Структура данных ChEMBL Activity
+## 5. Структура данных ChEMBL Activity
 
 ### Response schema
 
@@ -855,7 +855,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 ---
 
-## 4. Маппинг полей CSV → ChEMBL API
+## 6. Маппинг полей CSV → ChEMBL API
 
 ### Таблица FIELD_MAPPING
 
@@ -925,7 +925,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 ---
 
-## 5. Нормализация данных
+## 7. Нормализация данных
 
 ### Идентификаторы
 
@@ -1035,7 +1035,7 @@ ChEMBL применяет стандартизацию и проверки ва�
 
 ---
 
-## 6. Pandera Schema для Activity
+## 8. Pandera Schema для Activity
 
 ### SCHEMA_VERSION и COLUMN_ORDER
 
@@ -1106,7 +1106,7 @@ ActivitySchema = DataFrameSchema(
 
 - Изменения схемы требуют bump версии и обновления документации
 
-### 6.1. Детерминизм
+### 8.1. Детерминизм
 
 **Sort keys:** `["assay_id", "testitem_id", "activity_id"]`
 
@@ -1129,7 +1129,7 @@ For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-po
 
 ---
 
-## 7. Rate Limiting и Circuit Breaker
+## 9. Rate Limiting и Circuit Breaker
 
 ### Контракт клиента
 
@@ -1192,7 +1192,7 @@ chembl_activity_config = APIConfig(
 
 ---
 
-## 8. Батчинг и пагинация
+## 10. Батчинг и пагинация
 
 ### Стратегия батчинга
 
@@ -1280,7 +1280,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ---
 
-## 9. Обработка ошибок
+## 11. Обработка ошибок
 
 ### Таблица ERROR_HANDLING
 
@@ -1366,7 +1366,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ---
 
-## 10. Кэширование
+## 12. Кэширование
 
 ### Стратегия кэширования
 
@@ -1424,7 +1424,7 @@ cache_key = make_cache_key(
 
 ---
 
-## 11. Quality Control
+## 13. Quality Control
 
 ### QC метрики для activity
 
@@ -1520,7 +1520,7 @@ qc_report = {
 
 ---
 
-## 12. Output Artifacts
+## 14. Output Artifacts
 
 ### Standard режим (2 файла)
 
@@ -1618,7 +1618,7 @@ notes:
 
 ---
 
-## 13. Примеры использования
+## 15. Примеры использования
 
 ### Инициализация и GET-батч
 
@@ -1759,7 +1759,7 @@ writer.write(
 
 ---
 
-## 14. Best Practices
+## 16. Best Practices
 
 1. **Сужайте выборку фильтрами:** `assay_type`, `target_organism`, `pchembl_value__gte`, `only=...`
 
@@ -1818,7 +1818,7 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=False))
 
 ---
 
-## 15. Связь с другими компонентами
+## 17. Связь с другими компонентами
 
 ### Зависимости (cross-reference)
 
@@ -1880,7 +1880,7 @@ def validate_referential_integrity(activities_df, assays_df, targets_df):
 
 ---
 
-## 16. Диаграмма потока данных
+## 18. Диаграмма потока данных
 
 ```mermaid
 
@@ -1923,7 +1923,7 @@ flowchart LR
 
 ---
 
-## 17. Открытые вопросы (OPEN_QUESTIONS)
+## 19. Открытые вопросы (OPEN_QUESTIONS)
 
 ### ⚠️ UNCERTAIN пункты, требующие верификации
 
@@ -2007,7 +2007,7 @@ flowchart LR
 
 ---
 
-## 18. Ссылки (опорные)
+## 20. Ссылки (опорные)
 
 ### ChEMBL Data Web Services
 
