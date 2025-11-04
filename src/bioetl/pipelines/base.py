@@ -10,11 +10,13 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+import hashlib
 import time
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pandera.errors
 
 from bioetl.config import PipelineConfig
 from bioetl.core.logger import UnifiedLogger
@@ -452,10 +454,14 @@ class PipelineBase(ABC):
                 rows = self._safe_len(transformed)
                 log.info("transform_completed", duration_ms=duration, rows=rows)
 
+            prepared_for_validation = transformed
+            if isinstance(transformed, pd.DataFrame):
+                prepared_for_validation = self._apply_cli_sample(transformed)
+
             with UnifiedLogger.stage("validate", component=self._component_for_stage("validate")):
                 log.info("validate_started")
                 validate_start = time.perf_counter()
-                validated = self.validate(transformed)
+                validated = self.validate(prepared_for_validation)
                 duration = (time.perf_counter() - validate_start) * 1000.0
                 stage_durations_ms["validate"] = duration
                 rows = self._safe_len(validated)
@@ -529,18 +535,42 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema.replace(
-            strict=self.config.validation.strict,
-            coerce=self.config.validation.coerce,
-        )
+        schema = schema_entry.schema
+        original_strict = schema.strict
+        original_coerce = schema.coerce
+        schema.strict = self.config.validation.strict
+        schema.coerce = self.config.validation.coerce
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
             version=schema_entry.version,
         )
 
-        validated = schema.validate(payload, lazy=True)
-        validated = self._reorder_columns(validated, schema_entry.column_order)
+        fail_open = (not self.config.cli.fail_on_schema_drift) or (not self.config.cli.validate_columns)
+
+        try:
+            validated = schema.validate(payload, lazy=True)
+            validated = self._reorder_columns(validated, schema_entry.column_order)
+            schema_valid = True
+            failure_count: int | None = None
+            error_summary: str | None = None
+        except pandera.errors.SchemaErrors as exc:
+            if not fail_open:
+                raise
+            failure_count = len(exc.failure_cases) if hasattr(exc, "failure_cases") else None
+            error_summary = str(exc)
+            log.warning(
+                "schema_validation_failed",
+                schema=schema_entry.identifier,
+                version=schema_entry.version,
+                error=error_summary,
+                failure_count=failure_count,
+            )
+            validated = payload
+            schema_valid = False
+        finally:
+            schema.strict = original_strict
+            schema.coerce = original_coerce
 
         self._validation_schema = schema_entry
         self._validation_summary = {
@@ -550,26 +580,71 @@ class PipelineBase(ABC):
             "column_order": list(schema_entry.column_order),
             "strict": bool(self.config.validation.strict),
             "coerce": bool(self.config.validation.coerce),
-            "row_count": int(len(validated)),
+            "row_count": int(len(validated)) if isinstance(validated, pd.DataFrame) else None,
+            "schema_valid": schema_valid,
         }
+        if error_summary is not None:
+            self._validation_summary["error"] = error_summary
+        if failure_count is not None:
+            self._validation_summary["failure_count"] = failure_count
 
-        log.debug(
-            "validation_completed",
-            schema=schema_entry.identifier,
-            version=schema_entry.version,
-            rows=len(validated),
-        )
+        if schema_valid:
+            log.debug(
+                "validation_completed",
+                schema=schema_entry.identifier,
+                version=schema_entry.version,
+                rows=len(validated),
+            )
 
         return validated
 
     def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
         if not column_order:
             return df
-        missing = [column for column in column_order if column not in df.columns]
-        if missing:
-            msg = f"Dataframe missing columns required by schema: {missing}"
-            raise ValueError(msg)
-        extras = [column for column in df.columns if column not in column_order]
-        if not extras:
-            return df[column_order]
-        return df[[*column_order, *extras]]
+        ordered = list(column_order)
+        validate_columns = getattr(self.config.cli, "validate_columns", True)
+        if validate_columns:
+            missing = [column for column in ordered if column not in df.columns]
+            if missing:
+                msg = f"Dataframe missing columns required by schema: {missing}"
+                raise ValueError(msg)
+            extras = [column for column in df.columns if column not in ordered]
+            if not extras:
+                return df[ordered]
+            return df[[*ordered, *extras]]
+
+        existing = [column for column in ordered if column in df.columns]
+        extras = [column for column in df.columns if column not in existing]
+        if not existing:
+            return df
+        return df[[*existing, *extras]]
+
+    def _deterministic_sample_seed(self) -> int:
+        material = f"{self.config.pipeline.name}:{self.config.pipeline.version}"
+        digest = hashlib.sha256(material.encode("utf-8")).digest()
+        return int.from_bytes(digest[:8], "big", signed=False) % (2**32 - 1)
+
+    def _apply_cli_sample(self, df: pd.DataFrame) -> pd.DataFrame:
+        sample_size = getattr(self.config.cli, "sample", None)
+        if not sample_size or df.empty:
+            return df
+
+        if sample_size >= len(df):
+            log = UnifiedLogger.get(__name__)
+            log.debug(
+                "sample_size_exceeds_population",
+                requested=sample_size,
+                population=len(df),
+            )
+            return df
+
+        seed = self._deterministic_sample_seed()
+        sampled = df.sample(n=sample_size, random_state=seed, replace=False).sort_index()
+        log = UnifiedLogger.get(__name__)
+        log.info(
+            "sample_applied",
+            sample_size=sample_size,
+            population=len(df),
+            seed=seed,
+        )
+        return sampled.reset_index(drop=True)

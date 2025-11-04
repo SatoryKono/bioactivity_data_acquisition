@@ -317,6 +317,10 @@ class CLIConfig(BaseModel):
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
     )
+    sample: PositiveInt | None = Field(
+        default=None,
+        description="Random sample size requested via the CLI.",
+    )
     extended: bool = Field(
         default=False,
         description="If true, enable extended QC artifacts and metrics.",
@@ -324,6 +328,18 @@ class CLIConfig(BaseModel):
     golden: str | None = Field(
         default=None,
         description="Path to golden dataset for bitwise determinism comparison.",
+    )
+    verbose: bool = Field(
+        default=False,
+        description="If true, enable verbose (DEBUG-level) logging output.",
+    )
+    fail_on_schema_drift: bool = Field(
+        default=True,
+        description="If true, schema drift raises an error; otherwise it is logged and execution continues.",
+    )
+    validate_columns: bool = Field(
+        default=True,
+        description="If true, enforce strict column validation during Pandera checks.",
     )
     set_overrides: Mapping[str, Any] = Field(
         default_factory=dict,

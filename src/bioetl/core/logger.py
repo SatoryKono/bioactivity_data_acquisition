@@ -117,7 +117,7 @@ def _ensure_mandatory_fields(
 def _shared_processors(config: LogConfig) -> list[Any]:
     return [
         structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
+        structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso", utc=True, key="timestamp"),
         _ensure_mandatory_fields,
         structlog.processors.EventRenamer("message"),
@@ -126,9 +126,12 @@ def _shared_processors(config: LogConfig) -> list[Any]:
             redact_fields=config.redact_fields,
         ),
         structlog.processors.CallsiteParameterAdder(
-            parameters=("pathname", "lineno", "func_name"),
-            additional_ignores=("structlog", "logging"),
-            key="caller",
+            parameters=(
+                structlog.processors.CallsiteParameter.PATHNAME,
+                structlog.processors.CallsiteParameter.LINENO,
+                structlog.processors.CallsiteParameter.FUNC_NAME,
+            ),
+            additional_ignores=["structlog", "logging"],
         ),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
@@ -161,7 +164,7 @@ def configure_logging(
     renderer = _renderer_for(cfg.format)
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=[*shared_processors, structlog.processors.filter_by_level],
+        foreign_pre_chain=[*shared_processors, structlog.stdlib.filter_by_level],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
@@ -176,7 +179,7 @@ def configure_logging(
     structlog.configure(
         processors=[
             *shared_processors,
-            structlog.processors.filter_by_level,
+            structlog.stdlib.filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,

@@ -143,7 +143,6 @@ determinism:
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
                 app,  # type: ignore[reportUnknownVariableType]
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -197,7 +196,6 @@ http:
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
                 app,  # type: ignore[reportUnknownVariableType]
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",

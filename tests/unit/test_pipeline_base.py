@@ -23,6 +23,8 @@ class TestPipeline(PipelineBase):
         if isinstance(payload, pd.DataFrame):
             df = payload.copy()
             df["value_doubled"] = df["value"] * 2
+            if "id" in df.columns and "activity_id" not in df.columns:
+                df["activity_id"] = df["id"]
             return df
         return pd.DataFrame()
 
@@ -208,14 +210,18 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Override transform to return sample activity data
-        pipeline.transform = lambda payload: sample_activity_data
+        valid_sample = sample_activity_data.copy()
+        if "target_tax_id" in valid_sample.columns:
+            valid_sample["target_tax_id"] = valid_sample["target_tax_id"].fillna(1).astype(int)
+        pipeline.transform = lambda payload: valid_sample
 
-        validated = pipeline.validate(sample_activity_data)
+        validated = pipeline.validate(valid_sample)
 
         assert isinstance(validated, pd.DataFrame)
-        assert len(validated) == len(sample_activity_data)
+        assert len(validated) == len(valid_sample)
         assert pipeline._validation_schema is not None
         assert pipeline._validation_summary is not None
+        assert pipeline._validation_summary.get("schema_valid") is True
 
     def test_validate_without_schema(self, pipeline_config_fixture, run_id: str):
         """Test validation without schema."""
@@ -227,6 +233,32 @@ class TestPipelineBase:
 
         assert validated is df  # Should return unchanged when no schema
         assert pipeline._validation_schema is None
+        assert pipeline._validation_summary is None
+
+    def test_validate_fail_open_schema_errors(
+        self,
+        pipeline_config_fixture,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
+    ):
+        """Schema errors are logged and execution continues when fail-open is enabled."""
+
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.determinism.sort.by = ["activity_id"]
+        pipeline_config_fixture.determinism.sort.ascending = [True]
+
+        pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline.config.cli.fail_on_schema_drift = False
+
+        faulty = sample_activity_data.copy()
+        faulty.loc[:, "activity_id"] = "invalid"
+
+        validated = pipeline.validate(faulty)
+
+        assert isinstance(validated, pd.DataFrame)
+        assert pipeline._validation_summary is not None
+        assert pipeline._validation_summary.get("schema_valid") is False
+        assert "error" in pipeline._validation_summary
 
     def test_write(self, pipeline_config_fixture, run_id: str, sample_activity_data: pd.DataFrame):
         """Test write stage."""
@@ -256,6 +288,7 @@ class TestPipelineBase:
 
     def test_run_lifecycle(self, pipeline_config_fixture, run_id: str):
         """Test full pipeline lifecycle."""
+        pipeline_config_fixture.validation.schema_out = None
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         result = pipeline.run()
@@ -268,8 +301,23 @@ class TestPipelineBase:
         assert "validate" in result.stage_durations_ms
         assert "write" in result.stage_durations_ms
 
+    def test_cli_sample_application(self, pipeline_config_fixture, run_id: str):
+        """Deterministic sampling is applied when configured via CLI."""
+        pipeline_config_fixture.validation.schema_out = None
+        pipeline_config_fixture.cli.sample = 2
+
+        pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
+        df = pd.DataFrame({"id": list(range(10)), "value": list(range(10))})
+
+        sampled = pipeline._apply_cli_sample(df)
+        assert len(sampled) == 2
+
+        sampled_again = pipeline._apply_cli_sample(df)
+        pd.testing.assert_frame_equal(sampled, sampled_again)
+
     def test_run_with_mode(self, pipeline_config_fixture, run_id: str):
         """Test pipeline run with mode."""
+        pipeline_config_fixture.validation.schema_out = None
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         result = pipeline.run(mode="full")
@@ -278,6 +326,7 @@ class TestPipelineBase:
 
     def test_run_error_handling(self, pipeline_config_fixture, run_id: str):
         """Test error handling in pipeline run."""
+        pipeline_config_fixture.validation.schema_out = None
 
         class FailingPipeline(TestPipeline):
             def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
