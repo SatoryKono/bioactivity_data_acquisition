@@ -19,7 +19,7 @@ Stable row ordering is enforced centrally by `PipelineBase` and verified by the 
 | `document` | `year`, `document_id` |
 | `testitem` | `testitem_id` |
 
-**Operational notes**
+### Operational notes
 
 1. Sorting is always executed with a **stable algorithm**, `na_position="last"`, and `ascending=True`, guaranteeing consistent placement of duplicate keys and null handling.【F:docs/determinism/01-determinism-policy.md†L183-L186】
 2. Sort key declarations live under `determinism.sort.by` in every pipeline configuration; missing keys cause the pipeline tests to fail before any write occurs.【F:docs/determinism/01-determinism-policy.md†L24-L34】【F:docs/determinism/01-determinism-policy.md†L151-L161】
@@ -90,7 +90,7 @@ source_lineage:
   chembl_release: "33"
 ```
 
-**Emission contract**
+### Emission contract
 
 - `meta.yaml` is written atomically using the same helper as the dataset (see below).
 - Any addition/removal of keys requires updating the schema version and regenerating golden fixtures; the determinism tests will flag unexpected drift automatically.【F:docs/determinism/01-determinism-policy.md†L151-L168】
