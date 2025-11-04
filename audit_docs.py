@@ -139,18 +139,21 @@ def check_section_presence(content: str, section_name: str) -> bool:
     
     # Также проверяем вариации на английском
     english_variants = {
-        "CLI": ["CLI", "Command", "Usage", "Invocation"],
-        "Конфигурация": ["Configuration", "Config", "Configs"],
-        "Схемы валидации": ["Schema", "Validation", "Pandera"],
-        "Входы/выходы": ["Input", "Output", "Inputs", "Outputs", "I/O"],
-        "Детерминизм": ["Determinism", "Deterministic"],
-        "QC/QA": ["QC", "Quality", "Quality Control", "QA"],
-        "Логирование и трассировка": ["Logging", "Tracing", "Trace"],
+        "CLI": ["CLI", "Command", "Usage", "Invocation", "CLI Usage", "CLI Command"],
+        "Конфигурация": ["Configuration", "Config", "Configs", "Key configuration"],
+        "Схемы валидации": ["Schema", "Validation", "Pandera", "Schema validation", "Pandera schema"],
+        "Входы/выходы": ["Input", "Output", "Inputs", "Outputs", "I/O", "Входные данные", "Вход", "Выход"],
+        "Детерминизм": ["Determinism", "Deterministic", "Детерминизм"],
+        "QC/QA": ["QC", "Quality", "Quality Control", "QA", "QC/QA", "Quality controls"],
+        "Логирование и трассировка": ["Logging", "Tracing", "Trace", "Логирование", "трассировка"],
     }
     
     if section_name in english_variants:
         for variant in english_variants[section_name]:
             if re.search(rf'^#+\s+.*{re.escape(variant)}', content, re.MULTILINE | re.IGNORECASE):
+                return True
+            # Также ищем в тексте (не только в заголовках)
+            if re.search(rf'##+\s+.*{re.escape(variant)}', content, re.MULTILINE | re.IGNORECASE):
                 return True
     
     return False
@@ -305,6 +308,24 @@ def check_links() -> List[LinkInfo]:
     return broken_links
 
 
+def extract_config_keys_from_docs() -> Dict[str, Dict[str, str]]:
+    """Извлекает ключи конфигов из документации configs"""
+    config_doc = DOCS_DIR / "configs" / "00-typed-configs-and-profiles.md"
+    config_keys = {}
+    
+    if config_doc.exists():
+        content = config_doc.read_text(encoding="utf-8")
+        # Ищем таблицы с ключами конфигов
+        # Паттерн для таблиц: | `key` | Type | Default | Description |
+        pattern = r'\|.*?`([\w.]+)`.*?\|.*?\|.*?\|'
+        for match in re.finditer(pattern, content):
+            key = match.group(1)
+            if key not in config_keys:
+                config_keys[key] = {"source": "configs_doc", "description": ""}
+    
+    return config_keys
+
+
 def find_contradictions() -> List[Contradiction]:
     """Находит противоречия в документации"""
     print("Поиск противоречий...")
@@ -415,7 +436,8 @@ def find_contradictions() -> List[Contradiction]:
     etl_overview = DOCS_DIR / "etl_contract" / "00-etl-overview.md"
     if etl_overview.exists():
         content = etl_overview.read_text(encoding="utf-8")
-        stages_match = re.search(r'extract.*?transform.*?validate.*?write', content, re.IGNORECASE)
+        # Ищем паттерн "four distinct stages" или "four critical stages"
+        stages_match = re.search(r'(?:four|4)\s+(?:distinct|critical)\s+stages.*?extract.*?transform.*?validate.*?write', content, re.IGNORECASE | re.DOTALL)
         if stages_match:
             stages_in_docs["etl_overview"] = "extract → transform → validate → write"
     
@@ -423,22 +445,34 @@ def find_contradictions() -> List[Contradiction]:
     pipeline_contract = DOCS_DIR / "etl_contract" / "01-pipeline-contract.md"
     if pipeline_contract.exists():
         content = pipeline_contract.read_text(encoding="utf-8")
-        stages_match = re.search(r'extract.*?transform.*?validate.*?write.*?run', content, re.IGNORECASE)
-        if stages_match:
+        # Ищем паттерн "four critical stages" или "five critical stages"
+        four_stages_match = re.search(r'four\s+critical\s+stages.*?extract.*?transform.*?validate.*?write', content, re.IGNORECASE | re.DOTALL)
+        five_stages_match = re.search(r'five\s+critical\s+stages.*?extract.*?transform.*?validate.*?write.*?run', content, re.IGNORECASE | re.DOTALL)
+        
+        if five_stages_match:
+            # Если найдено "five critical stages", это противоречие
             stages_in_docs["pipeline_contract"] = "extract → transform → validate → write → run"
+        elif four_stages_match:
+            # Если найдено "four critical stages", это правильно
+            stages_in_docs["pipeline_contract"] = "extract → transform → validate → write"
     
     # Из pipeline base
     pipeline_base = DOCS_DIR / "pipelines" / "00-pipeline-base.md"
     if pipeline_base.exists():
         content = pipeline_base.read_text(encoding="utf-8")
-        stages_match = re.search(r'extract.*?transform.*?validate.*?write', content, re.IGNORECASE)
+        stages_match = re.search(r'(?:four|4)\s+(?:distinct|critical)\s+stages.*?extract.*?transform.*?validate.*?write', content, re.IGNORECASE | re.DOTALL)
         if stages_match:
             stages_in_docs["pipeline_base"] = "extract → transform → validate → write"
     
     # Проверяем противоречия в формулировках стадий
+    # Противоречие только если один документ говорит о "five stages" с run, а другой о "four stages"
     if len(stages_in_docs) > 1:
         stages_list = list(stages_in_docs.values())
-        if len(set(stages_list)) > 1:
+        # Проверяем только если есть формулировка с "run" как стадией
+        has_run_as_stage = any("→ run" in s or "-> run" in s for s in stages_list)
+        has_four_stages = any("→ write" in s or "-> write" in s for s in stages_list if "run" not in s)
+        
+        if has_run_as_stage and has_four_stages:
             contradictions.append(Contradiction(
                 type="F",
                 section="Архитектурные инварианты: стадии пайплайна",
@@ -446,7 +480,7 @@ def find_contradictions() -> List[Contradiction]:
                 formulation1=stages_in_docs.get("pipeline_contract", "N/A"),
                 file2="docs/etl_contract/00-etl-overview.md",
                 formulation2=stages_in_docs.get("etl_overview", "N/A"),
-                reason="Расхождение в формулировке стадий пайплайна (с run или без)",
+                reason="Расхождение в формулировке стадий пайплайна (с run как стадией или без)",
                 ref_doc1="docs/etl_contract/01-pipeline-contract.md",
                 ref_doc2="docs/etl_contract/00-etl-overview.md",
                 criticality="HIGH"
@@ -483,31 +517,37 @@ def find_contradictions() -> List[Contradiction]:
         content = determinism_policy.read_text(encoding="utf-8")
         for pipeline in ["activity", "assay", "target", "document", "testitem"]:
             # Паттерн для таблицы: | **`activity`** | `["assay_id", "testitem_id", "activity_id"]` | ...
-            pattern = rf'\|.*?\*\*`{pipeline}`\*\*.*?\|.*?`(\[.*?\])`.*?\|'
-            match = re.search(pattern, content, re.DOTALL)
-            if match:
-                sort_keys_by_source[("determinism", pipeline)] = match.group(1)
-                
-                # Сравниваем с каталогом - нормализуем кавычки для сравнения
-                if ("catalog", pipeline) in sort_keys_by_source:
-                    catalog_keys = sort_keys_by_source[("catalog", pipeline)].replace("'", '"')
-                    determinism_keys = sort_keys_by_source[("determinism", pipeline)]
-                    # Убираем пробелы и сравниваем содержимое
-                    catalog_normalized = re.sub(r'\s+', '', catalog_keys)
-                    determinism_normalized = re.sub(r'\s+', '', determinism_keys)
-                    if catalog_normalized != determinism_normalized:
-                        contradictions.append(Contradiction(
-                            type="F",
-                            section="Архитектурные инварианты: sort keys",
-                            file1="docs/pipelines/10-chembl-pipelines-catalog.md",
-                            formulation1=f"sort keys: {catalog_keys}",
-                            file2="docs/determinism/01-determinism-policy.md",
-                            formulation2=f"sort keys: {determinism_keys}",
-                            reason=f"Расхождение в sort keys для пайплайна {pipeline}",
-                            ref_doc1="docs/pipelines/10-chembl-pipelines-catalog.md",
-                            ref_doc2="docs/determinism/01-determinism-policy.md",
-                            criticality="HIGH"
-                        ))
+            # Более гибкий паттерн для поиска в таблице
+            patterns = [
+                rf'\|.*?\*\*`{pipeline}`\*\*.*?\|.*?`(\[.*?\])`.*?\|',
+                rf'\|.*?`{pipeline}`.*?\|.*?`(\[.*?\])`.*?\|',
+            ]
+            for pattern in patterns:
+                match = re.search(pattern, content, re.DOTALL)
+                if match:
+                    sort_keys_by_source[("determinism", pipeline)] = match.group(1)
+                    break
+            
+            # Сравниваем с каталогом - нормализуем кавычки для сравнения
+            if ("catalog", pipeline) in sort_keys_by_source and ("determinism", pipeline) in sort_keys_by_source:
+                catalog_keys = sort_keys_by_source[("catalog", pipeline)].replace("'", '"')
+                determinism_keys = sort_keys_by_source[("determinism", pipeline)].replace("'", '"')
+                # Убираем пробелы и сравниваем содержимое
+                catalog_normalized = re.sub(r'\s+', '', catalog_keys)
+                determinism_normalized = re.sub(r'\s+', '', determinism_keys)
+                if catalog_normalized != determinism_normalized:
+                    contradictions.append(Contradiction(
+                        type="F",
+                        section="Архитектурные инварианты: sort keys",
+                        file1="docs/pipelines/10-chembl-pipelines-catalog.md",
+                        formulation1=f"sort keys: {catalog_keys}",
+                        file2="docs/determinism/01-determinism-policy.md",
+                        formulation2=f"sort keys: {determinism_keys}",
+                        reason=f"Расхождение в sort keys для пайплайна {pipeline}",
+                        ref_doc1="docs/pipelines/10-chembl-pipelines-catalog.md",
+                        ref_doc2="docs/determinism/01-determinism-policy.md",
+                        criticality="HIGH"
+                    ))
     
     return contradictions
 

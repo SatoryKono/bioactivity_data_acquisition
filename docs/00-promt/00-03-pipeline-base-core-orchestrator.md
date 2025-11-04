@@ -21,7 +21,7 @@ GitHub
 
 [ref: repo:docs/pipelines/00-pipeline-base.md@refactoring_001]
 
-[ref: repo:README.md@refactoring_001] ← фиксация стадий extract → transform → validate → write → run и принципов каркаса
+[ref: repo:README.md@refactoring_001] ← фиксация стадий extract → transform → validate → write, оркестрируемых методом run(), и принципов каркаса
 GitHub
 
 Задача
@@ -32,7 +32,7 @@ GitHub
 
 Назначение и границы
 
-Что именно стандартизует PipelineBase и что выносит в реализацию конкретного источника (клиенты API, парсеры, нормализаторы, схемы). Зафиксируй универсальные стадии оркестрации extract → transform → validate → write → run и их инварианты. 
+Что именно стандартизует PipelineBase и что выносит в реализацию конкретного источника (клиенты API, парсеры, нормализаторы, схемы). Зафиксируй универсальные стадии оркестрации extract → transform → validate → write, оркестрируемые методом run(), и их инварианты. 
 GitHub
 
 Публичный API и типы

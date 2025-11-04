@@ -8,7 +8,7 @@ This document provides a comprehensive technical specification for the `Pipeline
 
 ## 1. Overview and Goals
 
-The `PipelineBase` class standardizes the ETL process by defining a fixed, five-stage lifecycle: `extract` → `transform` → `validate` → `write` → `run`. Its primary purpose is to abstract away the boilerplate of pipeline orchestration, allowing developers to focus on source-specific business logic.
+The `PipelineBase` class standardizes the ETL process by defining a fixed, four-stage lifecycle: `extract` → `transform` → `validate` → `write`, orchestrated by the `run()` method. Its primary purpose is to abstract away the boilerplate of pipeline orchestration, allowing developers to focus on source-specific business logic.
 
 **Boundaries of Responsibility:**
 

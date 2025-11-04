@@ -24,6 +24,16 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 ## Style Guides
 
 - **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files.
+- **[Python Code Style](styleguide/01-python-code-style.md)**: Code formatting, type annotations, and quality standards (ruff, black, mypy).
+- **[Logging Guidelines](styleguide/02-logging-guidelines.md)**: Centralized logging with UnifiedLogger, structured JSON logs, and context enrichment.
+- **[Data Schemas and Validation](styleguide/03-data-schemas.md)**: Pandera schema requirements, validation workflows, and schema versioning.
+- **[Deterministic I/O](styleguide/04-deterministic-io.md)**: Atomic file writes, fixed ordering, UTC timestamps, and canonical serialization.
+- **[Testing Standards](styleguide/05-testing-standards.md)**: Test markers, golden tests, property-based testing, and coverage requirements.
+- **[CLI Contracts](styleguide/06-cli-contracts.md)**: Typer-based CLI, explicit flags, exit codes, and input validation.
+- **[API Clients](styleguide/07-api-clients.md)**: UnifiedAPIClient usage, retry/backoff, throttling, circuit breakers, and caching.
+- **[ETL Pipeline Architecture](styleguide/08-etl-architecture.md)**: One source one pipeline, unified components, star schema, and adapter pattern.
+- **[Secrets and Configuration](styleguide/09-secrets-config.md)**: Secure secret management, typed Pydantic configs, and configuration profiles.
+- **[Documentation Standards](styleguide/10-documentation-standards.md)**: Documentation synchronization, CHANGELOG, examples, and cross-references.
 
 ## Additional Resources
 
