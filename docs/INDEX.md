@@ -92,24 +92,27 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-pipeline-base.md](pipelines/00-pipeline-base.md) - Pipeline base documentation
 - [03-data-extraction.md](pipelines/03-data-extraction.md) - Data extraction pipeline
-- [00-document-chembl-overview.md](pipelines/00-document-chembl-overview.md) - Document ChEMBL pipeline overview
-- [00-assay-chembl-overview.md](pipelines/00-assay-chembl-overview.md) - Assay ChEMBL pipeline overview
-- [00-activity-chembl-overview.md](pipelines/00-activity-chembl-overview.md) - Activity ChEMBL pipeline overview
-- [00-target-chembl-overview.md](pipelines/00-target-chembl-overview.md) - Target ChEMBL pipeline overview
-- [00-testitem-chembl-overview.md](pipelines/00-testitem-chembl-overview.md) - TestItem ChEMBL pipeline overview
-- [09-assay-chembl-extraction.md](pipelines/09-assay-chembl-extraction.md) - Assay ChEMBL extraction pipeline
-- [09-activity-chembl-extraction.md](pipelines/09-activity-chembl-extraction.md) - Activity ChEMBL extraction pipeline
-- [09-testitem-chembl-extraction.md](pipelines/09-testitem-chembl-extraction.md) - TestItem ChEMBL extraction pipeline
-- [09-target-chembl-extraction.md](pipelines/09-target-chembl-extraction.md) - Target ChEMBL extraction pipeline
-- [09-document-chembl-extraction.md](pipelines/09-document-chembl-extraction.md) - Document ChEMBL extraction pipeline
 - [10-chembl-pipelines-catalog.md](pipelines/10-chembl-pipelines-catalog.md) - ChEMBL pipelines catalog
 
+#### ChEMBL Pipelines
+
+- **Activity ChEMBL** (`pipelines/activity-chembl/`): [00-activity-chembl-overview.md](pipelines/activity-chembl/00-activity-chembl-overview.md) - Overview and all pipeline documentation
+- **Assay ChEMBL** (`pipelines/assay-chembl/`): [00-assay-chembl-overview.md](pipelines/assay-chembl/00-assay-chembl-overview.md) - Overview and all pipeline documentation
+- **Document ChEMBL** (`pipelines/document-chembl/`): [00-document-chembl-overview.md](pipelines/document-chembl/00-document-chembl-overview.md) - Overview and all pipeline documentation
+- **Target ChEMBL** (`pipelines/target-chembl/`): [00-target-chembl-overview.md](pipelines/target-chembl/00-target-chembl-overview.md) - Overview and all pipeline documentation
+- **TestItem ChEMBL** (`pipelines/testitem-chembl/`): [00-testitem-chembl-overview.md](pipelines/testitem-chembl/00-testitem-chembl-overview.md) - Overview and all pipeline documentation
+
 > **Note**: Pipeline documentation files follow the canonical naming convention `<NN>-<entity>-<source>-<topic>.md`. See [Naming Conventions](styleguide/00-naming-conventions.md#11-pipeline-documentation-file-naming) for details.
-- [21-testitem-pubchem-extraction.md](pipelines/21-testitem-pubchem-extraction.md) - Testitem PubChem extraction pipeline
-- [22-document-pubmed-extraction.md](pipelines/22-document-pubmed-extraction.md) - Document PubMed extraction pipeline
-- [23-document-openalex-extraction.md](pipelines/23-document-openalex-extraction.md) - Document OpenAlex extraction pipeline
-- [24-document-crossref-extraction.md](pipelines/24-document-crossref-extraction.md) - Document Crossref extraction pipeline
-- [25-document-semantic-scholar-extraction.md](pipelines/25-document-semantic-scholar-extraction.md) - Document Semantic Scholar extraction pipeline
+
+#### Non-ChEMBL Pipelines
+
+- **Target UniProt** (`pipelines/target-uniprot/`): [00-target-uniprot-overview.md](pipelines/target-uniprot/00-target-uniprot-overview.md) - Overview and all pipeline documentation
+- **Target IUPHAR** (`pipelines/target-iuphar/`): [00-target-iuphar-overview.md](pipelines/target-iuphar/00-target-iuphar-overview.md) - Overview and all pipeline documentation
+- **TestItem PubChem** (`pipelines/testitem-pubchem/`): [00-testitem-pubchem-overview.md](pipelines/testitem-pubchem/00-testitem-pubchem-overview.md) - Overview and all pipeline documentation
+- **Document PubMed** (`pipelines/document-pubmed/`): [00-document-pubmed-overview.md](pipelines/document-pubmed/00-document-pubmed-overview.md) - Overview and all pipeline documentation
+- **Document OpenAlex** (`pipelines/document-openalex/`): [00-document-openalex-overview.md](pipelines/document-openalex/00-document-openalex-overview.md) - Overview and all pipeline documentation
+- **Document Crossref** (`pipelines/document-crossref/`): [00-document-crossref-overview.md](pipelines/document-crossref/00-document-crossref-overview.md) - Overview and all pipeline documentation
+- **Document Semantic Scholar** (`pipelines/document-semantic-scholar/`): [00-document-semantic-scholar-overview.md](pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md) - Overview and all pipeline documentation
 
 #### Pipeline Sources (`pipelines/sources/`)
 
@@ -120,9 +123,9 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 > **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents:
 > - [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)
-> - [PubChem TestItem Pipeline](pipelines/21-testitem-pubchem-extraction.md)
-> - [UniProt Target Pipeline](pipelines/26-target-uniprot-extraction.md)
-> - [IUPHAR Target Pipeline](pipelines/27-target-iuphar-extraction.md)
+> - [PubChem TestItem Pipeline](pipelines/testitem-pubchem/00-testitem-pubchem-overview.md)
+> - [UniProt Target Pipeline](pipelines/target-uniprot/00-target-uniprot-overview.md)
+> - [IUPHAR Target Pipeline](pipelines/target-iuphar/00-target-iuphar-overview.md)
 > - [ChEMBL to UniProt Mapping Pipeline](pipelines/28-chembl2uniprot-mapping.md)
 
 ### Quality Control (`qc/`)

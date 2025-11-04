@@ -25,8 +25,8 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 - Empty or duplicate batches are disallowed by the shared paginator invariants (no duplicates, stop on empty page).【F:docs/sources/00-sources-architecture.md†L31-L35】
 
 ### Document
-- Input IDs are chunked at 10 by default, automatically halved when long URLs or timeouts occur; POST overrides with `X-HTTP-Method-Override: GET` keep large requests compliant.【F:docs/pipelines/09-document-chembl-extraction.md†L170-L259】
-- Recursive splitting retries half-batches after read timeouts, guaranteeing forward progress until single-record calls either succeed or raise, which is treated as EOF.【F:docs/pipelines/09-document-chembl-extraction.md†L223-L259】
+- Input IDs are chunked at 10 by default, automatically halved when long URLs or timeouts occur; POST overrides with `X-HTTP-Method-Override: GET` keep large requests compliant.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L170-L259】
+- Recursive splitting retries half-batches after read timeouts, guaranteeing forward progress until single-record calls either succeed or raise, which is treated as EOF.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L223-L259】
 
 ### Target
 - Targets use the same client/ID batching stack enumerated in the component matrix while exposing `target_chembl_id` as the pagination and business key, so empty pages trigger the shared paginator stop condition.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】【F:docs/pipelines/08-target-data-extraction.md†L31-L48】
@@ -46,8 +46,8 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 - Sort order and column layout track `AssaySchema.Config.column_order`, ensuring the serializer can reindex reliably.【F:docs/pipelines/05-assay-extraction.md†L75-L85】
 
 ### Document
-- ChEMBL attributes (IDs, bibliographic metadata) map directly into normalised columns, while DOI cleaning, author counts and ISSN fields capture enrichment rules within the unified mapping table.【F:docs/pipelines/09-document-chembl-extraction.md†L378-L417】
-- The extended `COLUMN_ORDER` enumerates identifiers, provenance flags and QC columns so the final DataFrame reindexes and hashes consistently prior to write.【F:docs/pipelines/09-document-chembl-extraction.md†L2044-L2085】
+- ChEMBL attributes (IDs, bibliographic metadata) map directly into normalised columns, while DOI cleaning, author counts and ISSN fields capture enrichment rules within the unified mapping table.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L378-L417】
+- The extended `COLUMN_ORDER` enumerates identifiers, provenance flags and QC columns so the final DataFrame reindexes and hashes consistently prior to write.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2044-L2085】
 
 ### Target
 - The target pipeline reuses the standard stack, surfacing enrichment hooks for UniProt/IUPHAR yet keeping `target_chembl_id` as the schema key to maintain compatibility with `TargetSchema`.【F:docs/pipelines/08-target-data-extraction.md†L31-L48】
@@ -58,7 +58,7 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 
 ## 4. I/O contracts and validation hooks
 
-- Document ingestion accepts unique `document_chembl_id` strings validated by a Pandera `DocumentInputSchema`, rejecting malformed IDs upfront and logging rejections for audit.【F:docs/pipelines/09-document-chembl-extraction.md†L170-L199】
+- Document ingestion accepts unique `document_chembl_id` strings validated by a Pandera `DocumentInputSchema`, rejecting malformed IDs upfront and logging rejections for audit.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L170-L199】
 - Assay ingestion mirrors that contract with `AssayInputSchema`, requiring `assay_chembl_id` and optional target filters before extraction begins.【F:docs/pipelines/05-assay-extraction.md†L37-L65】
 - Activity outputs comply with the explicit Pandera schema and column order, providing deterministic ordering for downstream materialisation and hashing.【F:docs/pipelines/06-activity-data-extraction.md†L575-L609】
 - Repository-wide HTTP defaults (timeouts, retries, rate limiting and headers) and materialisation paths are anchored by the base profile, so every client inherits consistent network/backoff and storage expectations.【F:configs/profiles/base.yaml†L4-L31】

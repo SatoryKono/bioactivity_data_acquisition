@@ -22,34 +22,34 @@ The ChEMBL pipelines expose the following public APIs:
 
 ### Activity (`activity`) {#activity_chembl}
 
-**Purpose.** Extracts activity records from the ChEMBL REST API, normalizes measurement fields, and emits deterministic artifacts with lineage metadata.【F:docs/pipelines/09-activity-chembl-extraction.md†L5-L39】
+**Purpose.** Extracts activity records from the ChEMBL REST API, normalizes measurement fields, and emits deterministic artifacts with lineage metadata.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L5-L39】
 
 **Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline overview
-- [09-activity-chembl-extraction.md](09-activity-chembl-extraction.md) — Extraction from ChEMBL API
-- [10-activity-chembl-transformation.md](10-activity-chembl-transformation.md) — Measurement field normalization
-- [11-activity-chembl-validation.md](11-activity-chembl-validation.md) — Pandera schemas and validation
-- [12-activity-chembl-io.md](12-activity-chembl-io.md) — Output formats and atomic writing
-- [13-activity-chembl-determinism.md](13-activity-chembl-determinism.md) — Determinism, stable sort, hashing
-- [14-activity-chembl-qc.md](14-activity-chembl-qc.md) — QC metrics and thresholds
-- [15-activity-chembl-logging.md](15-activity-chembl-logging.md) — Structured logging format
-- [16-activity-chembl-cli.md](16-activity-chembl-cli.md) — CLI commands and flags
-- [17-activity-chembl-config.md](17-activity-chembl-config.md) — Configuration keys and profiles
+- [00-activity-chembl-overview.md](activity-chembl/00-activity-chembl-overview.md) — Pipeline overview
+- [09-activity-chembl-extraction.md](activity-chembl/09-activity-chembl-extraction.md) — Extraction from ChEMBL API
+- [10-activity-chembl-transformation.md](activity-chembl/10-activity-chembl-transformation.md) — Measurement field normalization
+- [11-activity-chembl-validation.md](activity-chembl/11-activity-chembl-validation.md) — Pandera schemas and validation
+- [12-activity-chembl-io.md](activity-chembl/12-activity-chembl-io.md) — Output formats and atomic writing
+- [13-activity-chembl-determinism.md](activity-chembl/13-activity-chembl-determinism.md) — Determinism, stable sort, hashing
+- [14-activity-chembl-qc.md](activity-chembl/14-activity-chembl-qc.md) — QC metrics and thresholds
+- [15-activity-chembl-logging.md](activity-chembl/15-activity-chembl-logging.md) — Structured logging format
+- [16-activity-chembl-cli.md](activity-chembl/16-activity-chembl-cli.md) — CLI commands and flags
+- [17-activity-chembl-config.md](activity-chembl/17-activity-chembl-config.md) — Configuration keys and profiles
 
 **Key configuration.**
 
 | Key | Requirement / Default | Notes |
 | --- | --- | --- |
 | `extends` | `profiles/base.yaml`, `profiles/determinism.yaml` | Guarantees shared logging, determinism, and I/O defaults.【F:docs/configs/00-typed-configs-and-profiles.md†L79-L88】 |
-| `sources.chembl.batch_size` | `≤ 25` (required) | Enforced to respect the ChEMBL URL length limit for batched `/activity.json` calls.【F:docs/pipelines/09-activity-chembl-extraction.md†L168-L181】 |
-| `postprocess.correlation.enabled` | `false` by default | When `true`, emits an optional correlation report alongside the dataset.【F:docs/pipelines/09-activity-chembl-extraction.md†L1041-L1088】 |
+| `sources.chembl.batch_size` | `≤ 25` (required) | Enforced to respect the ChEMBL URL length limit for batched `/activity.json` calls.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L168-L181】 |
+| `postprocess.correlation.enabled` | `false` by default | When `true`, emits an optional correlation report alongside the dataset.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1041-L1088】 |
 
-**Inputs.** Uses the official ChEMBL `/activity` endpoint via the shared `UnifiedAPIClient`, including a release handshake against `/status` to pin `chembl_release`.【F:docs/pipelines/09-activity-chembl-extraction.md†L33-L60】
+**Inputs.** Uses the official ChEMBL `/activity` endpoint via the shared `UnifiedAPIClient`, including a release handshake against `/status` to pin `chembl_release`.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L33-L60】
 
-**Outputs.** Writes `activity_{date}.csv`, `activity_{date}_quality_report.csv`, and conditionally `activity_{date}_correlation_report.csv`; the extended profile also records `activity_{date}_meta.yaml` and an optional run manifest.【F:docs/pipelines/09-activity-chembl-extraction.md†L1041-L1054】
+**Outputs.** Writes `activity_{date}.csv`, `activity_{date}_quality_report.csv`, and conditionally `activity_{date}_correlation_report.csv`; the extended profile also records `activity_{date}_meta.yaml` and an optional run manifest.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1041-L1054】
 
-**Quality controls.** Mandatory metrics cover totals, type/unit distributions, missing values, duplicate detection, foreign-key integrity, and ChEMBL validity flags; the pipeline requires duplicate-free `activity_id` values before write-out.【F:docs/pipelines/09-activity-chembl-extraction.md†L943-L1009】
+**Quality controls.** Mandatory metrics cover totals, type/unit distributions, missing values, duplicate detection, foreign-key integrity, and ChEMBL validity flags; the pipeline requires duplicate-free `activity_id` values before write-out.【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L943-L1009】
 
 **CLI usage.**
 
@@ -72,35 +72,35 @@ python -m bioetl.cli.main activity \
 
 ### Assay (`assay`) {#assay_chembl}
 
-**Purpose.** Runs a multi-stage pipeline (extract → transform → validate → write) for assay metadata, including nested structure expansion, enrichment, and strict schema enforcement.【F:docs/pipelines/09-assay-chembl-extraction.md†L5-L33】
+**Purpose.** Runs a multi-stage pipeline (extract → transform → validate → write) for assay metadata, including nested structure expansion, enrichment, and strict schema enforcement.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L5-L33】
 
 **Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-assay-chembl-overview.md](00-assay-chembl-overview.md) — Pipeline overview
-- [09-assay-chembl-extraction.md](09-assay-chembl-extraction.md) — Extraction from ChEMBL API
-- [10-assay-chembl-transformation.md](10-assay-chembl-transformation.md) — Nested structure expansion and transformations
-- [11-assay-chembl-validation.md](11-assay-chembl-validation.md) — Pandera schemas and validation
-- [12-assay-chembl-io.md](12-assay-chembl-io.md) — Output formats and atomic writing
-- [13-assay-chembl-determinism.md](13-assay-chembl-determinism.md) — Determinism, stable sort, hashing
-- [14-assay-chembl-qc.md](14-assay-chembl-qc.md) — QC metrics and thresholds
-- [15-assay-chembl-logging.md](15-assay-chembl-logging.md) — Structured logging format
-- [16-assay-chembl-cli.md](16-assay-chembl-cli.md) — CLI commands and flags
-- [17-assay-chembl-config.md](17-assay-chembl-config.md) — Configuration keys and profiles
+- [00-assay-chembl-overview.md](assay-chembl/00-assay-chembl-overview.md) — Pipeline overview
+- [09-assay-chembl-extraction.md](assay-chembl/09-assay-chembl-extraction.md) — Extraction from ChEMBL API
+- [10-assay-chembl-transformation.md](assay-chembl/10-assay-chembl-transformation.md) — Nested structure expansion and transformations
+- [11-assay-chembl-validation.md](assay-chembl/11-assay-chembl-validation.md) — Pandera schemas and validation
+- [12-assay-chembl-io.md](assay-chembl/12-assay-chembl-io.md) — Output formats and atomic writing
+- [13-assay-chembl-determinism.md](assay-chembl/13-assay-chembl-determinism.md) — Determinism, stable sort, hashing
+- [14-assay-chembl-qc.md](assay-chembl/14-assay-chembl-qc.md) — QC metrics and thresholds
+- [15-assay-chembl-logging.md](assay-chembl/15-assay-chembl-logging.md) — Structured logging format
+- [16-assay-chembl-cli.md](assay-chembl/16-assay-chembl-cli.md) — CLI commands and flags
+- [17-assay-chembl-config.md](assay-chembl/17-assay-chembl-config.md) — Configuration keys and profiles
 
 **Key configuration.**
 
 | Key | Requirement / Default | Notes |
 | --- | --- | --- |
-| `sources.chembl.batch_size` | `≤ 25` (required) | Hard limit due to ChEMBL URL constraints; validated on load.【F:docs/pipelines/09-assay-chembl-extraction.md†L75-L85】 |
-| `sources.chembl.max_url_length` | `≤ 2000` | Feeds predictive throttling for request sizing.【F:docs/pipelines/09-assay-chembl-extraction.md†L75-L80】 |
-| `cache.namespace` | non-empty | Ensures release-scoped cache invalidation.【F:docs/pipelines/09-assay-chembl-extraction.md†L75-L81】 |
-| `determinism.sort.by` | `['assay_chembl_id', 'row_subtype', 'row_index']` | Keeps output ordering aligned with the Pandera schema column order.【F:docs/pipelines/09-assay-chembl-extraction.md†L75-L81】 |
+| `sources.chembl.batch_size` | `≤ 25` (required) | Hard limit due to ChEMBL URL constraints; validated on load.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L75-L85】 |
+| `sources.chembl.max_url_length` | `≤ 2000` | Feeds predictive throttling for request sizing.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L75-L80】 |
+| `cache.namespace` | non-empty | Ensures release-scoped cache invalidation.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L75-L81】 |
+| `determinism.sort.by` | `['assay_chembl_id', 'row_subtype', 'row_index']` | Keeps output ordering aligned with the Pandera schema column order.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L75-L81】 |
 
-**Inputs.** Pulls assay batches from `/assay.json` via the ChEMBL client, using cache-aware batching and release checks before enrichment with target and assay class lookups.【F:docs/pipelines/09-assay-chembl-extraction.md†L11-L25】【F:docs/pipelines/09-assay-chembl-extraction.md†L87-L118】
+**Inputs.** Pulls assay batches from `/assay.json` via the ChEMBL client, using cache-aware batching and release checks before enrichment with target and assay class lookups.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L11-L25】【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L87-L118】
 
-**Outputs.** Atomic writer produces `assay_{date}.csv`, `assay_{date}_qc.csv`, `assay_{date}_quality_report.csv`, and `assay_{date}_meta.yaml`, each hashed for provenance.【F:docs/pipelines/09-assay-chembl-extraction.md†L820-L889】
+**Outputs.** Atomic writer produces `assay_{date}.csv`, `assay_{date}_qc.csv`, `assay_{date}_quality_report.csv`, and `assay_{date}_meta.yaml`, each hashed for provenance.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L820-L889】
 
-**Quality controls.** Built-in referential-integrity auditing of enriched targets/classes plus a QC profile that enforces non-null IDs, duplicate-free keys, valid ChEMBL patterns, and bounded integrity losses.【F:docs/pipelines/09-assay-chembl-extraction.md†L703-L780】
+**Quality controls.** Built-in referential-integrity auditing of enriched targets/classes plus a QC profile that enforces non-null IDs, duplicate-free keys, valid ChEMBL patterns, and bounded integrity losses.【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L703-L780】
 
 **CLI usage.**
 
@@ -116,36 +116,36 @@ python -m bioetl.cli.main assay \
   --set sources.chembl.batch_size=20
 ```
 
-【F:docs/pipelines/09-assay-chembl-extraction.md†L75-L85】
+【F:docs/pipelines/assay-chembl/09-assay-chembl-extraction.md†L75-L85】
 
 ---
 
 ### Target (`target`) {#target_chembl}
 
-**Purpose.** Collects ChEMBL target definitions and enriches them with UniProt and IUPHAR data to produce a consolidated target gold dataset.【F:docs/pipelines/09-target-chembl-extraction.md†L7-L33】
+**Purpose.** Collects ChEMBL target definitions and enriches them with UniProt and IUPHAR data to produce a consolidated target gold dataset.【F:docs/pipelines/target-chembl/09-target-chembl-extraction.md†L7-L33】
 
 **Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-target-chembl-overview.md](00-target-chembl-overview.md) — Pipeline overview
-- [09-target-chembl-extraction.md](09-target-chembl-extraction.md) — Extraction from ChEMBL API
-- [10-target-chembl-transformation.md](10-target-chembl-transformation.md) — Data consolidation and transformations
-- [11-target-chembl-validation.md](11-target-chembl-validation.md) — Pandera schemas and validation
-- [12-target-chembl-io.md](12-target-chembl-io.md) — Output formats and atomic writing
-- [13-target-chembl-determinism.md](13-target-chembl-determinism.md) — Determinism, stable sort, hashing
-- [14-target-chembl-qc.md](14-target-chembl-qc.md) — QC metrics and thresholds
-- [15-target-chembl-logging.md](15-target-chembl-logging.md) — Structured logging format
-- [16-target-chembl-cli.md](16-target-chembl-cli.md) — CLI commands and flags
-- [17-target-chembl-config.md](17-target-chembl-config.md) — Configuration keys and profiles
+- [00-target-chembl-overview.md](target-chembl/00-target-chembl-overview.md) — Pipeline overview
+- [09-target-chembl-extraction.md](target-chembl/09-target-chembl-extraction.md) — Extraction from ChEMBL API
+- [10-target-chembl-transformation.md](target-chembl/10-target-chembl-transformation.md) — Data consolidation and transformations
+- [11-target-chembl-validation.md](target-chembl/11-target-chembl-validation.md) — Pandera schemas and validation
+- [12-target-chembl-io.md](target-chembl/12-target-chembl-io.md) — Output formats and atomic writing
+- [13-target-chembl-determinism.md](target-chembl/13-target-chembl-determinism.md) — Determinism, stable sort, hashing
+- [14-target-chembl-qc.md](target-chembl/14-target-chembl-qc.md) — QC metrics and thresholds
+- [15-target-chembl-logging.md](target-chembl/15-target-chembl-logging.md) — Structured logging format
+- [16-target-chembl-cli.md](target-chembl/16-target-chembl-cli.md) — CLI commands and flags
+- [17-target-chembl-config.md](target-chembl/17-target-chembl-config.md) — Configuration keys and profiles
 
 **Key configuration.**
 
 | Key | Requirement / Default | Notes |
 | --- | --- | --- |
 | `sources.chembl.*` profile | Shared include supplies base URL, batching, headers, and jitter controls for ChEMBL calls. See [Common Configuration](#common-configuration) below. | |
-| `sources.uniprot.enabled` / `sources.uniprot.batch_size` | Toggle UniProt enrichment and tune paging for ID-mapping/ortholog services. See [UniProt Target Pipeline](09-target-uniprot-extraction.md) and [ChEMBL to UniProt Mapping Pipeline](28-chembl2uniprot-mapping.md). | |
-| `sources.iuphar.*` | Configure API key, caching, and minimum enrichment ratios for Guide to Pharmacology augmentations. See [IUPHAR Target Pipeline](09-target-iuphar-extraction.md). | |
+| `sources.uniprot.enabled` / `sources.uniprot.batch_size` | Toggle UniProt enrichment and tune paging for ID-mapping/ortholog services. See [UniProt Target Pipeline](target-uniprot/09-target-uniprot-extraction.md) and [ChEMBL to UniProt Mapping Pipeline](28-chembl2uniprot-mapping.md). | |
+| `sources.iuphar.*` | Configure API key, caching, and minimum enrichment ratios for Guide to Pharmacology augmentations. See [IUPHAR Target Pipeline](target-iuphar/09-target-iuphar-extraction.md). | |
 
-**Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/09-target-chembl-extraction.md†L31-L43】【F:docs/sources/INTERFACE_MATRIX.md†L7-L12】
+**Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/target-chembl/09-target-chembl-extraction.md†L31-L43】【F:docs/sources/INTERFACE_MATRIX.md†L7-L12】
 
 **Outputs.** Emits the unified target dataset and standard determinism metadata/hashes described in the global `meta.yaml` contract, allowing downstream reproducibility checks.【F:docs/determinism/00-determinism-policy.md†L73-L118】
 
@@ -165,42 +165,42 @@ python -m bioetl.cli.main target \
   --set sources.uniprot.enabled=false
 ```
 
-【F:docs/pipelines/09-target-chembl-extraction.md†L15-L25】【F:docs/pipelines/09-target-uniprot-extraction.md†L33-L263】
+【F:docs/pipelines/target-chembl/09-target-chembl-extraction.md†L15-L25】【F:docs/pipelines/target-uniprot/09-target-uniprot-extraction.md†L33-L263】
 
 ---
 
 ### Document (`document`) {#document_chembl}
 
-**Purpose.** Normalizes publication metadata from ChEMBL and merges external bibliographic sources (PubMed, Crossref, OpenAlex, Semantic Scholar) with deterministic write-out and QC gating.【F:docs/pipelines/09-document-chembl-extraction.md†L7-L19】
+**Purpose.** Normalizes publication metadata from ChEMBL and merges external bibliographic sources (PubMed, Crossref, OpenAlex, Semantic Scholar) with deterministic write-out and QC gating.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L7-L19】
 
 **Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview
-- [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — Extraction from ChEMBL API
-- [10-document-chembl-transformation.md](10-document-chembl-transformation.md) — Normalization and transformations
-- [11-document-chembl-validation.md](11-document-chembl-validation.md) — Pandera schemas and validation
-- [12-document-chembl-io.md](12-document-chembl-io.md) — Output formats and atomic writing
-- [13-document-chembl-determinism.md](13-document-chembl-determinism.md) — Determinism, stable sort, hashing
-- [14-document-chembl-qc.md](14-document-chembl-qc.md) — QC metrics and thresholds
-- [15-document-chembl-logging.md](15-document-chembl-logging.md) — Structured logging format
-- [16-document-chembl-cli.md](16-document-chembl-cli.md) — CLI commands and flags
-- [17-document-chembl-config.md](17-document-chembl-config.md) — Configuration keys and profiles
+- [00-document-chembl-overview.md](document-chembl/00-document-chembl-overview.md) — Pipeline overview
+- [09-document-chembl-extraction.md](document-chembl/09-document-chembl-extraction.md) — Extraction from ChEMBL API
+- [10-document-chembl-transformation.md](document-chembl/10-document-chembl-transformation.md) — Normalization and transformations
+- [11-document-chembl-validation.md](document-chembl/11-document-chembl-validation.md) — Pandera schemas and validation
+- [12-document-chembl-io.md](document-chembl/12-document-chembl-io.md) — Output formats and atomic writing
+- [13-document-chembl-determinism.md](document-chembl/13-document-chembl-determinism.md) — Determinism, stable sort, hashing
+- [14-document-chembl-qc.md](document-chembl/14-document-chembl-qc.md) — QC metrics and thresholds
+- [15-document-chembl-logging.md](document-chembl/15-document-chembl-logging.md) — Structured logging format
+- [16-document-chembl-cli.md](document-chembl/16-document-chembl-cli.md) — CLI commands and flags
+- [17-document-chembl-config.md](document-chembl/17-document-chembl-config.md) — Configuration keys and profiles
 
 **Key configuration.**
 
 | Section | Key | Value / Constraint | Notes |
 | --- | --- | --- | --- |
-| Pipeline | `pipeline.name` | `document_chembl` | Identifies the run across logs and metadata.【F:docs/pipelines/09-document-chembl-extraction.md†L2778-L2789】 |
-| ChEMBL source | `sources.chembl.chunk_size` | `10 (≤ 20)` | Keeps request URLs under ~1800 characters.【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2794】 |
-| PubMed | `sources.pubmed.history.use_history` | `true` | Enables e-utilities history for large batches.【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2796】 |
-| Crossref | `sources.crossref.batching.dois_per_request` | `100 (≤ 200)` | Caps DOIs per call per API guidance.【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2796】 |
-| QC | `qc.max_title_fallback` / `qc.max_s2_access_denied` | `0.15` / `0.05` | Thresholds for title fallback rate and Semantic Scholar access denials.【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2796】 |
+| Pipeline | `pipeline.name` | `document_chembl` | Identifies the run across logs and metadata.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2778-L2789】 |
+| ChEMBL source | `sources.chembl.chunk_size` | `10 (≤ 20)` | Keeps request URLs under ~1800 characters.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2788-L2794】 |
+| PubMed | `sources.pubmed.history.use_history` | `true` | Enables e-utilities history for large batches.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2788-L2796】 |
+| Crossref | `sources.crossref.batching.dois_per_request` | `100 (≤ 200)` | Caps DOIs per call per API guidance.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2788-L2796】 |
+| QC | `qc.max_title_fallback` / `qc.max_s2_access_denied` | `0.15` / `0.05` | Thresholds for title fallback rate and Semantic Scholar access denials.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2788-L2796】 |
 
-**Inputs.** Combines a base ChEMBL crawl with downstream DOI- and PMID-driven fetches from PubMed, Crossref, OpenAlex, and Semantic Scholar, all orchestrated through dedicated client layers.【F:docs/pipelines/09-document-chembl-extraction.md†L7-L19】
+**Inputs.** Combines a base ChEMBL crawl with downstream DOI- and PMID-driven fetches from PubMed, Crossref, OpenAlex, and Semantic Scholar, all orchestrated through dedicated client layers.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L7-L19】
 
-**Outputs.** Generates `documents_{mode}_{date}.csv`, QC and correlation reports, plus `documents_{mode}_{date}_meta.yaml` with per-source fetch statistics.【F:docs/pipelines/09-document-chembl-extraction.md†L2812-L2832】
+**Outputs.** Generates `documents_{mode}_{date}.csv`, QC and correlation reports, plus `documents_{mode}_{date}_meta.yaml` with per-source fetch statistics.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2812-L2832】
 
-**Quality controls.** Coverage metrics for DOI/PMID/title/journal/authors, conflict detection across sources, validity flags (DOI regex, year bounds, Semantic Scholar access), and duplicate tracking feed a consolidated QC report and threshold checker.【F:docs/pipelines/09-document-chembl-extraction.md†L2646-L2796】
+**Quality controls.** Coverage metrics for DOI/PMID/title/journal/authors, conflict detection across sources, validity flags (DOI regex, year bounds, Semantic Scholar access), and duplicate tracking feed a consolidated QC report and threshold checker.【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2646-L2796】
 
 **CLI usage.**
 
@@ -216,45 +216,45 @@ python -m bioetl.cli.main document \
   --set sources.pubmed.enabled=false
 ```
 
-【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2803】
+【F:docs/pipelines/document-chembl/09-document-chembl-extraction.md†L2788-L2803】
 
 ---
 
 ### TestItem (`testitem`) {#testitem_chembl}
 
-**Purpose.** Exports flattened molecule records from ChEMBL while preserving deterministic ordering by molecule ID. The pipeline flattens nested JSON structures from ChEMBL responses to create comprehensive, flat records for each molecule.【F:docs/pipelines/09-testitem-chembl-extraction.md†L7-L14】
+**Purpose.** Exports flattened molecule records from ChEMBL while preserving deterministic ordering by molecule ID. The pipeline flattens nested JSON structures from ChEMBL responses to create comprehensive, flat records for each molecule.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L7-L14】
 
 **Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-testitem-chembl-overview.md](00-testitem-chembl-overview.md) — Pipeline overview
-- [09-testitem-chembl-extraction.md](09-testitem-chembl-extraction.md) — Extraction from ChEMBL API
-- [10-testitem-chembl-transformation.md](10-testitem-chembl-transformation.md) — Structure flattening and transformations
-- [11-testitem-chembl-validation.md](11-testitem-chembl-validation.md) — Pandera schemas and validation
-- [12-testitem-chembl-io.md](12-testitem-chembl-io.md) — Output formats and atomic writing
-- [13-testitem-chembl-determinism.md](13-testitem-chembl-determinism.md) — Determinism, stable sort, hashing
-- [14-testitem-chembl-qc.md](14-testitem-chembl-qc.md) — QC metrics and thresholds
-- [15-testitem-chembl-logging.md](15-testitem-chembl-logging.md) — Structured logging format
-- [16-testitem-chembl-cli.md](16-testitem-chembl-cli.md) — CLI commands and flags
-- [17-testitem-chembl-config.md](17-testitem-chembl-config.md) — Configuration keys and profiles
+- [00-testitem-chembl-overview.md](testitem-chembl/00-testitem-chembl-overview.md) — Pipeline overview
+- [09-testitem-chembl-extraction.md](testitem-chembl/09-testitem-chembl-extraction.md) — Extraction from ChEMBL API
+- [10-testitem-chembl-transformation.md](testitem-chembl/10-testitem-chembl-transformation.md) — Structure flattening and transformations
+- [11-testitem-chembl-validation.md](testitem-chembl/11-testitem-chembl-validation.md) — Pandera schemas and validation
+- [12-testitem-chembl-io.md](testitem-chembl/12-testitem-chembl-io.md) — Output formats and atomic writing
+- [13-testitem-chembl-determinism.md](testitem-chembl/13-testitem-chembl-determinism.md) — Determinism, stable sort, hashing
+- [14-testitem-chembl-qc.md](testitem-chembl/14-testitem-chembl-qc.md) — QC metrics and thresholds
+- [15-testitem-chembl-logging.md](testitem-chembl/15-testitem-chembl-logging.md) — Structured logging format
+- [16-testitem-chembl-cli.md](testitem-chembl/16-testitem-chembl-cli.md) — CLI commands and flags
+- [17-testitem-chembl-config.md](testitem-chembl/17-testitem-chembl-config.md) — Configuration keys and profiles
 
-> **Note**: PubChem enrichment is described in a separate document: [PubChem TestItem Pipeline](09-testitem-pubchem-extraction.md).
+> **Note**: PubChem enrichment is described in a separate document: [PubChem TestItem Pipeline](testitem-pubchem/09-testitem-pubchem-extraction.md).
 
 **Key configuration.**
 
 | Key | Requirement / Default | Notes |
 | --- | --- | --- |
-| `sources.chembl.batch_size` | `≤ 25` (required) | Controls `/molecule.json` batching to respect URL limits. Enforced to respect the ChEMBL URL length limit for batched `/molecule.json` calls.【F:docs/pipelines/09-testitem-chembl-extraction.md†L111-L118】 |
-| `sources.chembl.max_url_length` | `≤ 2000` | Used for predictive throttling of requests.【F:docs/pipelines/09-testitem-chembl-extraction.md†L112】 |
-| `determinism.sort.by` | `['molecule_chembl_id']` | First key is `molecule_chembl_id`. Sorting is applied before write; final CSV follows `TestItemSchema._column_order`.【F:docs/pipelines/09-testitem-chembl-extraction.md†L114】 |
-| `qc.thresholds.testitem.duplicate_ratio` | `0.0` | Critical: duplicates are not allowed.【F:docs/pipelines/09-testitem-chembl-extraction.md†L116】 |
-| `qc.thresholds.testitem.fallback_ratio` | `0.2` | Percentage of fallback records during API errors.【F:docs/pipelines/09-testitem-chembl-extraction.md†L117】 |
-| `qc.thresholds.testitem.parent_missing_ratio` | `0.0` | Referential integrity for `parent_chembl_id`.【F:docs/pipelines/09-testitem-chembl-extraction.md†L118】 |
+| `sources.chembl.batch_size` | `≤ 25` (required) | Controls `/molecule.json` batching to respect URL limits. Enforced to respect the ChEMBL URL length limit for batched `/molecule.json` calls.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L111-L118】 |
+| `sources.chembl.max_url_length` | `≤ 2000` | Used for predictive throttling of requests.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L112】 |
+| `determinism.sort.by` | `['molecule_chembl_id']` | First key is `molecule_chembl_id`. Sorting is applied before write; final CSV follows `TestItemSchema._column_order`.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L114】 |
+| `qc.thresholds.testitem.duplicate_ratio` | `0.0` | Critical: duplicates are not allowed.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L116】 |
+| `qc.thresholds.testitem.fallback_ratio` | `0.2` | Percentage of fallback records during API errors.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L117】 |
+| `qc.thresholds.testitem.parent_missing_ratio` | `0.0` | Referential integrity for `parent_chembl_id`.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L118】 |
 
-**Inputs.** Batches ChEMBL `molecule_chembl_id` values from input CSV and fetches molecule data from `/molecule.json` endpoint with release-scoped caching and graceful degradation.【F:docs/pipelines/09-testitem-chembl-extraction.md†L163-L200】
+**Inputs.** Batches ChEMBL `molecule_chembl_id` values from input CSV and fetches molecule data from `/molecule.json` endpoint with release-scoped caching and graceful degradation.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L163-L200】
 
-**Outputs.** Produces the flattened molecule dataset alongside the standard meta/QC artifacts mandated by the determinism contract, capturing column order, hashes, and lineage metadata. Outputs include `testitem_{date}.csv`, `testitem_{date}_quality_report.csv`, and optionally `testitem_{date}_meta.yaml` in extended mode.【F:docs/pipelines/09-testitem-chembl-extraction.md†L360-L429】
+**Outputs.** Produces the flattened molecule dataset alongside the standard meta/QC artifacts mandated by the determinism contract, capturing column order, hashes, and lineage metadata. Outputs include `testitem_{date}.csv`, `testitem_{date}_quality_report.csv`, and optionally `testitem_{date}_meta.yaml` in extended mode.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L360-L429】
 
-**Quality controls.** Configuration mandates duplicate tracking, fallback-rate monitoring, and referential integrity checks for `parent_chembl_id`. QC metrics include `testitem.duplicate_ratio`, `testitem.fallback_ratio`, and `testitem.parent_missing_ratio` with configurable thresholds.【F:docs/pipelines/09-testitem-chembl-extraction.md†L528-L604】
+**Quality controls.** Configuration mandates duplicate tracking, fallback-rate monitoring, and referential integrity checks for `parent_chembl_id`. QC metrics include `testitem.duplicate_ratio`, `testitem.fallback_ratio`, and `testitem.parent_missing_ratio` with configurable thresholds.【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L528-L604】
 
 **CLI usage.**
 
@@ -272,7 +272,7 @@ python -m bioetl.cli.main testitem \
   --limit 100
 ```
 
-【F:docs/pipelines/09-testitem-chembl-extraction.md†L35-L53】
+【F:docs/pipelines/testitem-chembl/09-testitem-chembl-extraction.md†L35-L53】
 
 ## Determinism & Invariant Matrix
 

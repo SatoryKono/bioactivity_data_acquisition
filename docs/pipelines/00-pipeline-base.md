@@ -301,6 +301,43 @@ These events, combined with the logger's redaction processors, form the minimum
 telemetry contract. Pipelines may emit additional structured logs (for example,
 per-API-call retries) provided they do not remove the baseline context.
 
+### 5.1. Logging Structure
+
+All pipeline logs use structured JSON format via `structlog` with mandatory context fields automatically injected by `PipelineBase.run()`. Every log record includes the following mandatory fields:
+
+- **`run_id`**: Unique identifier for the pipeline run (UUID format)
+- **`stage`**: Current pipeline stage (`bootstrap`, `extract`, `transform`, `validate`, `write`, `cleanup`)
+- **`actor`**: Pipeline name (e.g., `activity_chembl`, `target_uniprot`)
+- **`source`**: Data source identifier (e.g., `chembl`, `uniprot`, `pubmed`)
+- **`timestamp`**: ISO-8601 UTC timestamp
+
+#### Stage-Specific Events
+
+All pipelines follow a standard event pattern for each stage:
+
+**Extract Stage:**
+- `extraction_started`: Batch extraction begins
+- `extraction_completed`: Batch extraction completes with `rows` and `duration_ms`
+- `extraction_failed`: Extraction error with details
+
+**Transform Stage:**
+- `transformation_started`: Transformation begins
+- `transformation_completed`: Transformation completes with `rows` and `duration_ms`
+
+**Validate Stage:**
+- `validation_started`: Schema validation begins
+- `validation_completed`: Validation passes with `rows` and `duration_ms`
+- `validation_failed`: Validation errors with details
+
+**Write Stage:**
+- `export_started`: File writing begins with `path` and `rows`
+- `export_completed`: All artifacts written successfully with `artifacts` path
+
+**Error Handling:**
+- `pipeline_failed`: Any stage failure with `error` and `exc_info` fields
+
+Pipeline-specific documentation should reference this section for general logging structure and only document pipeline-specific actor values or additional events that differ from this standard pattern.
+
 ### Extension Hooks
 
 Implementers can extend `PipelineBase` behaviour without reimplementing the
@@ -325,6 +362,53 @@ The framework guarantees that a pipeline run with the same configuration will pr
   - `hash_row`: A hash of all columns specified, ensuring row-level integrity.
 - **`meta.yaml`**: This artifact is the run's "birth certificate," recording the `run_id`, configuration hash, source versions, `row_count`, all hashes, and stage timings.
 - **Invariant**: A repeated run with an identical configuration against an identical source state **must** produce identical `meta.yaml` hashes and an identical primary dataset file hash.
+
+### 6.1. I/O and Artifacts
+
+All pipelines generate a standard set of output artifacts with consistent formatting and atomic write guarantees.
+
+#### Output Files
+
+Every pipeline generates three core artifacts:
+
+1. **Primary Dataset** (`{entity}_{date}.csv`): Main dataset with all records
+2. **Quality Report** (`{entity}_{date}_quality_report.csv`): QC metrics and statistics
+3. **Metadata** (`{entity}_{date}_meta.yaml`): Metadata and lineage information
+
+The entity name and date format are pipeline-specific, but the naming pattern is consistent across all pipelines.
+
+#### CSV Format
+
+All CSV files follow these specifications:
+
+- **Encoding**: UTF-8
+- **Separator**: Comma (`,`)
+- **Header Row**: First row contains column names matching Pandera schema order
+- **Row Ordering**: Stable sorting by columns specified in `determinism.sort.by` configuration
+- **Line Endings**: Unix-style (`\n`)
+
+#### Metadata Format
+
+The `meta.yaml` file is a YAML-formatted document with deterministic key ordering. It includes:
+
+- **Pipeline Information**: `pipeline_version`, `pipeline_name`, `entity`
+- **Run Information**: `run_id`, `git_commit`, `config_hash`, `generated_at_utc`
+- **Data Statistics**: `row_count`, `schema_version`
+- **Integrity Hashes**: `hash_business_key`, `hash_row`, `blake2_checksum`
+- **Performance Metrics**: `stage_durations_ms` (extract, transform, validate, write)
+- **Source Versions**: Source-specific version information (e.g., ChEMBL release version)
+
+#### Atomic Writing
+
+All file writes use atomic operations to prevent partial writes and ensure data integrity:
+
+1. **Write to temporary file**: Data is written to a temporary file with `.tmp` suffix
+2. **Flush and sync**: Data is flushed to disk and synced using `os.fsync()`
+3. **Atomic rename**: Temporary file is atomically renamed to final filename using `os.replace()`
+
+This ensures that either the complete file is present or no file exists, preventing corruption from interrupted writes.
+
+Pipeline-specific documentation should reference this section for general I/O format and atomic writing guarantees, and only document pipeline-specific file names and sort keys.
 
 ## 7. Validation Contracts
 
@@ -358,6 +442,49 @@ python -m bioetl.cli.main activity \
   --output-dir data/output/activity \
   --dry-run
 ```
+
+### 8.1. Standard CLI Flags
+
+All pipeline commands follow a consistent CLI contract. The following flags are standardized across all pipelines:
+
+#### Required Flags
+
+- **`--config <path>`**: Path to the pipeline's YAML configuration file. The path may be absolute or relative to the current working directory. The configuration file must be valid YAML and conform to the pipeline's configuration schema.
+
+- **`--output-dir <path>`**: **Required**. The destination directory for all output artifacts. The directory will be created if it does not exist. All pipeline outputs (dataset, quality report, metadata) will be written to this directory.
+
+#### Optional Flags
+
+- **`--input-file <path>`**: Path to a local input file (CSV or other format as specified by the pipeline). Used when the pipeline requires input data from a file rather than extracting from an external source. The format and required columns are pipeline-specific.
+
+- **`--dry-run`**: Runs the pipeline through the `validate` stage but writes no files. This flag is critical for:
+  - Verifying configuration validity
+  - Testing pipeline logic without producing artifacts
+  - Validating input data format
+  - Checking schema compliance
+  
+  When `--dry-run` is used, the pipeline will:
+  - Execute extract, transform, and validate stages
+  - Perform all validation checks
+  - Generate log output
+  - **Not** write any files to disk
+
+- **`--limit <number>`**: Limit the number of records to process (for testing). Useful for quick smoke tests or debugging. The limit is applied during the extract stage.
+
+- **`--set <key>=<value>`**: Override configuration values at runtime. The key follows dot notation (e.g., `sources.chembl.batch_size=10`). Multiple overrides can be specified by repeating the flag.
+
+#### Exit Codes
+
+The CLI uses the following exit codes to indicate pipeline execution status:
+
+- **`0`**: Success - Pipeline completed successfully
+- **`1`**: Configuration error - Invalid configuration file or missing required flags
+- **`2`**: Validation error - Schema validation failed or QC thresholds exceeded
+- **`3`**: Extraction error - Failed to extract data from source
+- **`4`**: Transformation error - Failed during transform stage
+- **`5`**: Write error - Failed to write output files
+
+Pipeline-specific documentation should reference this section for general CLI flag descriptions and exit codes, and only document pipeline-specific command names or additional flags that differ from this standard contract.
 
 ## 9. Test Plan
 
