@@ -1,0 +1,38 @@
+# Битые ссылки по результатам `lychee`
+
+- `docs/pipelines/03-data-extraction.md`
+  - `docs/acceptance-criteria.md` (локальный файл отсутствует)
+  - `docs/gaps.md` (локальный файл отсутствует)
+  - `docs/pipelines/04-normalization-validation.md` (локальный файл отсутствует)
+- `docs/pipelines/05-assay-extraction.md`
+  - `docs/acceptance-criteria.md` (локальный файл отсутствует)
+  - `docs/gaps.md` (локальный файл отсутствует)
+  - `docs/implementation-examples.md` (локальный файл отсутствует)
+  - `docs/pipelines/10-configuration.md#53-cli-interface-specification-aud-4` (файл/якорь отсутствует)
+- `docs/pipelines/06-activity-data-extraction.md`
+  - `docs/acceptance-criteria.md` (локальный файл отсутствует)
+  - `docs/gaps.md` (локальный файл отсутствует)
+  - `docs/pipelines/00-architecture-overview.md` (локальный файл отсутствует)
+  - `docs/pipelines/01-logging-system.md` (локальный файл отсутствует)
+  - `docs/pipelines/02-io-system.md` (локальный файл отсутствует)
+  - `docs/pipelines/04-normalization-validation.md` (локальный файл отсутствует)
+  - `docs/test-plan.md` (локальный файл отсутствует)
+  - `https://www.ebi.ac.uk/chembl/blog/resource-urls` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/chema_data_model` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/faq` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/faq#pChEMBL` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/faq#Quality` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#FIELDS` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#FILTERING` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#ORDERING` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#PAGINATION` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#POST` (HTTP 404)
+  - `https://www.ebi.ac.uk/chembl/documentation/webservices#RESOURCE_ACTIVITY` (HTTP 404)
+- `docs/pipelines/09-document-chembl-extraction.md`
+  - `docs/pipelines/04-normalization-validation.md` (локальный файл отсутствует)
+  - `https://docs.openalex.org/api-use-policy` (HTTP 404)
+  - `https://dtd.nlm.nih.gov/ncbi/pubmed/doc/` (HTTP 404)
+  - `https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-metadata-maker/` (HTTP 404)
+  - `https://www.semanticscholar.org/product/api/api-terms-of-use` (HTTP 404)
