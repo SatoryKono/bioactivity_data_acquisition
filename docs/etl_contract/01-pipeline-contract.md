@@ -6,7 +6,7 @@
 
 At the core of the `bioetl` framework is the abstract base class, `PipelineBase`. Every ETL pipeline **must** inherit from this class. It establishes a clear, consistent interface and lifecycle for all data processing tasks. By enforcing this contract, the framework ensures that all pipelines are predictable, maintainable, and integrate seamlessly with the broader system.
 
-The `PipelineBase` class defines the five critical stages of an ETL pipeline: `extract`, `transform`, `validate`, `write`, and `run`. Developers are responsible for implementing the business logic within the `extract` and `transform` stages, while the framework manages the `validate`, `write`, and `run` stages to guarantee consistency.
+The `PipelineBase` class defines four critical stages of an ETL pipeline: `extract`, `transform`, `validate`, and `write`. The `run()` method orchestrates the execution of these stages in sequence. Developers are responsible for implementing the business logic within the `extract` and `transform` stages, while the framework manages the `validate`, `write`, and `run` stages to guarantee consistency.
 
 ### Abstract Interface Definition
 

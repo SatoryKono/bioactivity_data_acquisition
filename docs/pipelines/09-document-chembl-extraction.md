@@ -2573,7 +2573,7 @@ DOCUMENT_SCHEMAS = {
 
 **Schema ID:** `document.output` v1.0.0
 
-**Ссылка:** См. также [04-normalization-validation.md](04-normalization-validation.md) для column_order и NA-policy.
+**Ссылка:** См. также [Validation](docs/etl_contract/05-validation.md) для column_order и NA-policy.
 
 ### 15.4 Валидация
 
@@ -3138,6 +3138,81 @@ python -m scripts.get_document_data \
 - [ ] meta.yaml содержит schema_version и hash_policy_version
 
 - [ ] Acceptance criteria AC11-AC20 проходят в CI
+
+## 20.6. Логирование и трассировка
+
+Document pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
+
+**Обязательные поля в логах:**
+- `run_id`: Уникальный идентификатор запуска пайплайна
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `pipeline`: Имя пайплайна (`document`)
+- `duration`: Время выполнения стадии в секундах
+- `row_count`: Количество обработанных строк
+
+**Структурированные события:**
+- `pipeline_started`: Начало выполнения пайплайна
+- `extract_started`: Начало стадии извлечения
+- `extract_completed`: Завершение стадии извлечения с метриками
+- `transform_started`: Начало стадии трансформации
+- `transform_completed`: Завершение стадии трансформации
+- `validate_started`: Начало валидации
+- `validate_completed`: Завершение валидации
+- `write_started`: Начало записи результатов
+- `write_completed`: Завершение записи результатов
+- `pipeline_completed`: Успешное завершение пайплайна
+- `pipeline_failed`: Ошибка выполнения с деталями
+
+**Примеры JSON-логов:**
+
+```json
+{
+  "event": "pipeline_started",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "document",
+  "mode": "all",
+  "timestamp": "2025-01-15T10:30:00.123456Z"
+}
+
+{
+  "event": "extract_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "extract",
+  "pipeline": "document",
+  "duration": 45.2,
+  "row_count": 1250,
+  "chembl_extracted": 1250,
+  "pubmed_enriched": 1100,
+  "crossref_enriched": 980,
+  "openalex_enriched": 850,
+  "semantic_scholar_enriched": 720,
+  "timestamp": "2025-01-15T10:30:45.345678Z"
+}
+
+{
+  "event": "pipeline_completed",
+  "run_id": "a1b2c3d4e5f6g7h8",
+  "stage": "bootstrap",
+  "pipeline": "document",
+  "duration": 120.5,
+  "row_count": 1250,
+  "timestamp": "2025-01-15T10:32:00.678901Z"
+}
+```
+
+**Формат вывода:**
+- Консоль: текстовый формат для удобства чтения
+- Файлы: JSON формат для машинной обработки и анализа
+- Ротация: автоматическая ротация лог-файлов (10MB × 10 файлов)
+
+**Трассировка:**
+- Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
+- Каждая стадия логирует начало и завершение с метриками производительности
+- Ошибки логируются с полным контекстом и stack trace
+- Enrichment операции логируются с метриками успешности и покрытия
+
+For detailed logging configuration and API, see [Logging Overview](docs/logging/00-overview.md).
 
 ## 21. Риски и снижения (расширенные)
 

@@ -1191,7 +1191,7 @@ def validate_pagination_params(params: dict) -> None:
 
 ```
 
-**См. также**: [gaps.md](../gaps.md) (G2), [06-activity-data-extraction.md](06-activity-data-extraction.md).
+**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md) и [Activity Pipeline](docs/pipelines/06-activity-data-extraction.md).
 
 ### TTL курсора
 
@@ -1239,7 +1239,7 @@ if response.status_code == 429:
 
 - 5xx: exponential backoff, retry
 
-**См. также**: [gaps.md](../gaps.md) (G11), [acceptance-criteria.md](../acceptance-criteria.md) (AC5).
+**См. также**: Детали реализации см. в [Pipeline Contract](docs/etl_contract/01-pipeline-contract.md).
 
 ## Acceptance Criteria
 
@@ -1322,4 +1322,4 @@ assert "Client error, giving up" in log_output
 
 ---
 
-**Следующий раздел**: [04-normalization-validation.md](04-normalization-validation.md)
+**Следующий раздел**: [Validation](docs/etl_contract/05-validation.md)
