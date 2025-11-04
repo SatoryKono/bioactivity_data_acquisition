@@ -1,46 +1,101 @@
-# Pipeline Coverage Checklist
+# Чек-лист на закрытие
 
-## Activity — docs/pipelines/06-activity-data-extraction.md
+## Пайплайны
+
+### activity
+
 - [ ] CLI
-- [ ] Configuration
-- [x] Schemas
-- [x] Inputs/Outputs
-- [x] Determinism
-- [x] QC/QA
-- [x] Logging/Tracing
+- [ ] Конфигурация
+- [ ] Схемы валидации
+- [ ] Входы/выходы
+- [ ] Детерминизм
+- [ ] QC/QA
+- [ ] Логирование и трассировка
 
-## Assay — docs/pipelines/05-assay-extraction.md
+### assay
+
 - [ ] CLI
-- [ ] Configuration
-- [ ] Schemas
-- [x] Inputs/Outputs
-- [x] Determinism
-- [x] QC/QA
-- [ ] Logging/Tracing
-
-## Target — docs/pipelines/08-target-data-extraction.md
-- [x] CLI
-- [ ] Configuration
-- [ ] Schemas
-- [ ] Inputs/Outputs
-- [ ] Determinism
+- [ ] Конфигурация
+- [ ] Схемы валидации
+- [ ] Входы/выходы
+- [ ] Детерминизм
 - [ ] QC/QA
-- [ ] Logging/Tracing
+- [ ] Логирование и трассировка
 
-## Document — docs/pipelines/09-document-chembl-extraction.md
-- [x] CLI
-- [ ] Configuration
-- [x] Schemas
-- [x] Inputs/Outputs
-- [x] Determinism
-- [x] QC/QA
-- [x] Logging/Tracing
+### target
 
-## TestItem — docs/pipelines/07-testitem-extraction.md
-- [x] CLI
-- [ ] Configuration
-- [ ] Schemas
-- [ ] Inputs/Outputs
-- [ ] Determinism
+- [ ] CLI
+- [ ] Конфигурация
+- [ ] Схемы валидации
+- [ ] Входы/выходы
+- [ ] Детерминизм
 - [ ] QC/QA
-- [ ] Logging/Tracing
+- [ ] Логирование и трассировка
+
+### document
+
+- [ ] CLI
+- [ ] Конфигурация
+- [ ] Схемы валидации
+- [ ] Входы/выходы
+- [ ] Детерминизм
+- [ ] QC/QA
+- [ ] Логирование и трассировка
+
+### testitem
+
+- [ ] CLI
+- [ ] Конфигурация
+- [ ] Схемы валидации
+- [ ] Входы/выходы
+- [ ] Детерминизм
+- [ ] QC/QA
+- [ ] Логирование и трассировка
+
+## Общие проверки
+
+- [ ] Все противоречия разрешены
+- [ ] Все битые ссылки исправлены
+- [ ] Все обязательные разделы заполнены
+- [ ] Пути к конфигам унифицированы
+- [ ] CLI команды согласованы
+
+## Глоссарий терминов
+
+### CLI команды
+- `activity`
+- `assay`
+- `chembl_activity`
+- `crossref`
+- `document`
+- `gtp_iuphar`
+- `list`
+- `openalex`
+- `pubchem`
+- `pubmed`
+- `semantic_scholar`
+- `target`
+- `testitem`
+- `testitem_pubchem`
+- `uniprot`
+- `uniprot_protein`
+- `Описание`
+
+### Pipeline names
+- `activity`
+- `assay`
+- `document`
+- `target`
+- `testitem`
+
+### Config paths (варианты)
+- `configs/pipelines/chembl/activity.yaml`
+- `configs/pipelines/chembl/assay.yaml`
+- `configs/pipelines/chembl/document.yaml`
+- `configs/pipelines/chembl/target.yaml`
+- `configs/pipelines/chembl/testitem.yaml`
+- `pipelines/chembl/activity.yaml`
+- `pipelines/chembl/assay.yaml`
+- `pipelines/chembl/document.yaml`
+- `pipelines/chembl/target.yaml`
+- `pipelines/chembl/testitem.yaml`
