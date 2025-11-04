@@ -8,13 +8,13 @@ A "deterministic output" in the `bioetl` project guarantees that two pipeline ru
 
 The following invariants **must** be upheld for every deterministic run:
 
--   **Stable Row Order**: Rows in the output dataset must be in a consistent, predictable order.
--   **Stable Column Order**: Columns must appear in a fixed, predefined order.
--   **Consistent Serialization**: Data types (numbers, dates, booleans) must be serialized to strings in a uniform format.
--   **Fixed Environment**: All operations must behave as if they are in a fixed locale (`C`) and timezone (`UTC`).
--   **Frozen Schema**: The data must conform to a versioned Pandera schema.
--   **Reproducible Hashes**: Integrity hashes (`hash_row`, `hash_business_key`) must be identical across identical runs.
--   **Atomic Writes**: Output artifacts are written atomically to prevent partial or corrupt files.
+- **Stable Row Order**: Rows in the output dataset must be in a consistent, predictable order.
+- **Stable Column Order**: Columns must appear in a fixed, predefined order.
+- **Consistent Serialization**: Data types (numbers, dates, booleans) must be serialized to strings in a uniform format.
+- **Fixed Environment**: All operations must behave as if they are in a fixed locale (`C`) and timezone (`UTC`).
+- **Frozen Schema**: The data must conform to a versioned Pandera schema.
+- **Reproducible Hashes**: Integrity hashes (`hash_row`, `hash_business_key`) must be identical across identical runs.
+- **Atomic Writes**: Output artifacts are written atomically to prevent partial or corrupt files.
 
 This policy is enforced by the `PipelineBase` orchestrator, which applies settings from standard configuration profiles. The CLI automatically includes `base.yaml` and `determinism.yaml` for every run, ensuring these invariants are applied consistently.
 
@@ -37,12 +37,12 @@ To guarantee a stable row order, every pipeline **must** define a `determinism.s
 
 Before any sorting or hashing operations, all data values must be brought to a standard, "canonical" form. This prevents inconsistencies arising from different data representations.
 
--   **Whitespace**: All strings must be trimmed of leading and trailing whitespace.
--   **Case Normalization**: Identifiers and controlled vocabulary fields should be normalized to a consistent case (typically lowercase).
--   **Null Values**: All forms of nulls (`None`, `np.nan`, `pd.NA`) must be unified to a single representation (e.g., an empty string `""` in CSVs, as defined in `na_rep`).
--   **Numbers**: Floating-point numbers must be serialized to a fixed precision (e.g., 6 decimal places).
--   **Dates and Times**: All datetime values must be converted to UTC and serialized in ISO-8601 format (e.g., `YYYY-MM-DDTHH:MM:SS.ffffffZ`).
--   **Complex Types**: Lists and dictionaries must be serialized to JSON with `sort_keys=True` to ensure a stable string representation.
+- **Whitespace**: All strings must be trimmed of leading and trailing whitespace.
+- **Case Normalization**: Identifiers and controlled vocabulary fields should be normalized to a consistent case (typically lowercase).
+- **Null Values**: All forms of nulls (`None`, `np.nan`, `pd.NA`) must be unified to a single representation (e.g., an empty string `""` in CSVs, as defined in `na_rep`).
+- **Numbers**: Floating-point numbers must be serialized to a fixed precision (e.g., 6 decimal places).
+- **Dates and Times**: All datetime values must be converted to UTC and serialized in ISO-8601 format (e.g., `YYYY-MM-DDTHH:MM:SS.ffffffZ`).
+- **Complex Types**: Lists and dictionaries must be serialized to JSON with `sort_keys=True` to ensure a stable string representation.
 
 ## 4. Hash Policy
 
@@ -50,25 +50,25 @@ The framework uses hashes to verify data integrity. The current implementation u
 
 [ref: repo:src/bioetl/core/hashing.py@refactoring_001]
 
--   **`hash_row`**:
-    -   **Purpose**: To verify the integrity of an entire data row.
-    -   **Process**:
-        1.  Select the subset of columns defined in the `determinism.hashing.row_fields` configuration key.
-        2.  For each row, create a dictionary of these fields.
-        3.  Apply the canonicalization rules from the previous section to the values.
-        4.  Remove any keys where the value is null.
-        5.  Serialize the dictionary to a compact JSON string with sorted keys.
-        6.  The `hash_row` is the SHA256 hexdigest of this UTF-8 encoded JSON string.
-    -   **Exclusions**: Fields that are non-deterministic by nature, such as `generated_at` or `run_id`, **must not** be included in the `hash_row` calculation.
+- **`hash_row`**:
+  - **Purpose**: To verify the integrity of an entire data row.
+  - **Process**:
+    1. Select the subset of columns defined in the `determinism.hashing.row_fields` configuration key.
+    2. For each row, create a dictionary of these fields.
+    3. Apply the canonicalization rules from the previous section to the values.
+    4. Remove any keys where the value is null.
+    5. Serialize the dictionary to a compact JSON string with sorted keys.
+    6. The `hash_row` is the SHA256 hexdigest of this UTF-8 encoded JSON string.
+  - **Exclusions**: Fields that are non-deterministic by nature, such as `generated_at` or `run_id`, **must not** be included in the `hash_row` calculation.
 
--   **`hash_business_key`**:
-    -   **Purpose**: To provide a stable, unique identifier for a business entity across pipeline runs.
-    -   **Process**:
-        1.  Concatenate the canonicalized values of the business key columns.
-        2.  The `hash_business_key` is the SHA256 hexdigest of this UTF-8 encoded string.
-    -   **Salting**: No salt is used.
+- **`hash_business_key`**:
+  - **Purpose**: To provide a stable, unique identifier for a business entity across pipeline runs.
+  - **Process**:
+    1. Concatenate the canonicalized values of the business key columns.
+    2. The `hash_business_key` is the SHA256 hexdigest of this UTF-8 encoded string.
+  - **Salting**: No salt is used.
 
--   **Schema Migration**: If a schema change alters the data type or content of a field included in a hash, the `hash_row` for affected rows **will change**. This is expected behavior and a key feature of integrity checking. Any such change must be accompanied by a schema version bump and regeneration of golden test files.
+- **Schema Migration**: If a schema change alters the data type or content of a field included in a hash, the `hash_row` for affected rows **will change**. This is expected behavior and a key feature of integrity checking. Any such change must be accompanied by a schema version bump and regeneration of golden test files.
 
 ## 5. `meta.yaml` Structure
 
@@ -152,19 +152,19 @@ determinism:
 
 The primary strategy for testing determinism is "golden testing."
 
--   **Location**: Golden files are stored in `tests/golden/<pipeline_name>/`.
--   **Process**:
-    1.  A test runs a pipeline against a fixed input dataset.
-    2.  The output dataset file and `meta.yaml` file are captured.
-    3.  The test compares the SHA256 hash of the new outputs against the hashes of the "golden" files stored in the repository.
-    4.  A secondary check verifies that the column order in the output matches the expected order.
--   **Exclusions**: For `meta.yaml`, fields that are expected to change with every run (`generated_at_utc`, `run_id`) must be excluded from the comparison.
+- **Location**: Golden files are stored in `tests/golden/<pipeline_name>/`.
+- **Process**:
+  1. A test runs a pipeline against a fixed input dataset.
+  2. The output dataset file and `meta.yaml` file are captured.
+  3. The test compares the SHA256 hash of the new outputs against the hashes of the "golden" files stored in the repository.
+  4. A secondary check verifies that the column order in the output matches the expected order.
+- **Exclusions**: For `meta.yaml`, fields that are expected to change with every run (`generated_at_utc`, `run_id`) must be excluded from the comparison.
 
 ## 8. Schema Migration Rules
 
--   **Versioning**: All Pandera schemas must be versioned. The version is recorded in `meta.yaml`.
--   **Compatibility**: Changes to a schema (e.g., adding a nullable column) are considered backward-compatible. Breaking changes (e.g., changing a data type, removing a column, changing a sort key) require a major version bump.
--   **Golden Artifacts**: Any schema change that alters the output artifacts **must** be accompanied by a regeneration of the corresponding golden test files.
+- **Versioning**: All Pandera schemas must be versioned. The version is recorded in `meta.yaml`.
+- **Compatibility**: Changes to a schema (e.g., adding a nullable column) are considered backward-compatible. Breaking changes (e.g., changing a data type, removing a column, changing a sort key) require a major version bump.
+- **Golden Artifacts**: Any schema change that alters the output artifacts **must** be accompanied by a regeneration of the corresponding golden test files.
 
 ## 9. `write()` Finalization Pseudocode
 
@@ -229,6 +229,6 @@ The determinism policy is automatically enforced by the CLI.
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001]
 
--   **Profile Injection**: The `README.md` and CLI implementation confirm that the `determinism.yaml` profile is automatically loaded for every pipeline run, establishing its settings as the default.
--   **Priority**: Parameters defined directly in a pipeline's specific YAML file (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
--   **Error Codes**: Failures related to determinism (e.g., a golden test mismatch) result in a non-zero exit code.
+- **Profile Injection**: The `README.md` and CLI implementation confirm that the `determinism.yaml` profile is automatically loaded for every pipeline run, establishing its settings as the default.
+- **Priority**: Parameters defined directly in a pipeline's specific YAML file (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
+- **Error Codes**: Failures related to determinism (e.g., a golden test mismatch) result in a non-zero exit code.
