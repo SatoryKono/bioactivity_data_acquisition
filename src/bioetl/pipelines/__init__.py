@@ -1,9 +1,9 @@
 """Pipeline orchestration primitives."""
 
-from .base import PipelineBase, RunArtifacts, WriteArtifacts
+from .base import PipelineBase, RunResult, WriteResult
 
 __all__ = [
     "PipelineBase",
-    "RunArtifacts",
-    "WriteArtifacts",
+    "RunResult",
+    "WriteResult",
 ]
