@@ -10,7 +10,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
+import time
 from pathlib import Path
+
+from bioetl.configs.models import PipelineConfig
 
 
 @dataclass(frozen=True)
@@ -35,6 +38,30 @@ class RunArtifacts:
     extras: dict[str, Path] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class WriteResult:
+    """Materialised artifacts produced by the write stage."""
+
+    dataset: Path
+    metadata: Path
+    quality_report: Path | None = None
+    correlation_report: Path | None = None
+    qc_metrics: Path | None = None
+    extras: dict[str, Path] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class RunResult:
+    """Final result of a pipeline execution."""
+
+    run_id: str
+    write_result: WriteResult
+    run_directory: Path
+    manifest: Path
+    log_file: Path
+    stage_durations_ms: dict[str, float] = field(default_factory=dict)
+
+
 class PipelineBase(ABC):
     """Shared orchestration helpers for ETL pipelines."""
 
@@ -44,17 +71,13 @@ class PipelineBase(ABC):
     log_extension: str = "log"
     deterministic_folder_prefix: str = "_"
 
-    def __init__(
-        self,
-        pipeline_code: str,
-        output_root: Path | None = None,
-        logs_root: Path | None = None,
-        retention_runs: int = 5,
-    ) -> None:
-        self.pipeline_code = pipeline_code
-        self.output_root = Path(output_root or Path("data") / "output")
-        self.logs_root = Path(logs_root or Path("data") / "logs")
-        self.retention_runs = retention_runs
+    def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        self.config = config
+        self.run_id = run_id
+        self.pipeline_code = config.pipeline.name
+        self.output_root = Path(config.materialization.root)
+        self.logs_root = self.output_root.parent / "logs"
+        self.retention_runs = 5
         self.pipeline_directory = self._ensure_pipeline_directory()
         self.logs_directory = self._ensure_logs_directory()
 
@@ -175,7 +198,59 @@ class PipelineBase(ABC):
     def transform(self, payload: object) -> object:
         """Subclasses transform raw payloads into normalized tabular data."""
 
-    @abstractmethod
-    def run(self, *args: object, **kwargs: object) -> RunArtifacts:
-        """Execute the pipeline and return the collected artifacts."""
+    def write(self, payload: object, artifacts: RunArtifacts) -> WriteResult:
+        """Default implementation building a :class:`WriteResult`."""
+
+        return WriteResult(
+            dataset=artifacts.write.dataset,
+            metadata=artifacts.write.metadata,
+            quality_report=artifacts.write.quality_report,
+            correlation_report=artifacts.write.correlation_report,
+            qc_metrics=artifacts.write.qc_metrics,
+            extras=dict(artifacts.extras),
+        )
+
+    def run(
+        self,
+        *args: object,
+        mode: str | None = None,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = True,
+        extras: dict[str, Path] | None = None,
+        **kwargs: object,
+    ) -> RunResult:
+        """Execute the pipeline lifecycle and return collected artifacts."""
+
+        stage_durations_ms: dict[str, float] = {}
+
+        extract_start = time.perf_counter()
+        extracted = self.extract(*args, **kwargs)
+        stage_durations_ms["extract"] = (time.perf_counter() - extract_start) * 1000.0
+
+        transform_start = time.perf_counter()
+        transformed = self.transform(extracted)
+        stage_durations_ms["transform"] = (time.perf_counter() - transform_start) * 1000.0
+
+        artifacts = self.plan_run_artifacts(
+            run_tag=self.run_id,
+            mode=mode,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+            extras=extras,
+        )
+
+        write_start = time.perf_counter()
+        write_result = self.write(transformed, artifacts)
+        stage_durations_ms["write"] = (time.perf_counter() - write_start) * 1000.0
+
+        self.apply_retention_policy()
+
+        return RunResult(
+            run_id=self.run_id,
+            write_result=write_result,
+            run_directory=artifacts.run_directory,
+            manifest=artifacts.manifest,
+            log_file=artifacts.log_file,
+            stage_durations_ms=stage_durations_ms,
+        )
 
