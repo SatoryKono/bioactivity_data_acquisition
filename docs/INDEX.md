@@ -18,7 +18,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Pipeline Documentation
 
-- **[ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)**: A detailed catalog of all ChEMBL data extraction pipelines.
+- **[Pipelines Catalog](pipelines/10-pipelines-catalog.md)**: A detailed catalog of all data extraction pipelines.
 - **[Source Interface Matrix](sources/INTERFACE_MATRIX.md)**: A matrix mapping each pipeline to its specific component implementations.
 
 ## Style Guides
@@ -92,7 +92,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-pipeline-base.md](pipelines/00-pipeline-base.md) - Pipeline base documentation
 - [03-data-extraction.md](pipelines/03-data-extraction.md) - Data extraction pipeline
-- [10-chembl-pipelines-catalog.md](pipelines/10-chembl-pipelines-catalog.md) - ChEMBL pipelines catalog
+- [10-pipelines-catalog.md](pipelines/10-pipelines-catalog.md) - Pipelines catalog
 
 #### ChEMBL Pipelines
 
@@ -123,7 +123,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 > **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents:
 >
-> - [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)
+> - [Pipelines Catalog](pipelines/10-pipelines-catalog.md)
 > - [PubChem TestItem Pipeline](pipelines/testitem-pubchem/00-testitem-pubchem-overview.md)
 > - [UniProt Target Pipeline](pipelines/target-uniprot/00-target-uniprot-overview.md)
 > - [IUPHAR Target Pipeline](pipelines/target-iuphar/00-target-iuphar-overview.md)
@@ -167,4 +167,4 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 1. When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.
 2. Before committing, run the project's QA scripts (e.g., `npx markdownlint-cli2 "**/*.md"`).
-3. If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001]`.
+3. If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-pipelines-catalog.md@refactoring_001]`.

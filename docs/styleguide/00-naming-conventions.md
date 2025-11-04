@@ -71,7 +71,7 @@ Primary index files or landing pages for a directory **SHOULD** be named `INDEX.
 `README.md` files **SHOULD** be used as landing pages for specific subdirectories, especially within `docs/pipelines/sources/`, to provide a brief overview of the contents.
 
 - **Format**: `README.md`
-- **Example**: `docs/pipelines/10-chembl-pipelines-catalog.md` (ChEMBL source documentation was consolidated into the main catalog)
+- **Example**: `docs/pipelines/10-pipelines-catalog.md` (Source documentation was consolidated into the main catalog)
 
 ## 3. Summary of Conventions
 

@@ -42,9 +42,9 @@ The configuration extends the following profiles:
 
 Configuration can be overridden via:
 
-- Environment variables (highest priority)
-- `--set` CLI flags
-- Configuration file values (lowest priority)
+1. Environment variables (highest priority)
+2. `--set` CLI flags
+3. Configuration file values (lowest priority)
 
 ## Related Documentation
 
