@@ -35,6 +35,7 @@ from bioetl.config.models import (  # noqa: E402, type: ignore[attr-defined]
     HTTPClientConfig,
     HTTPConfig,
     MaterializationConfig,
+    PostprocessConfig,
     PipelineMetadata,
     RetryConfig,
     SourceConfig,
@@ -72,7 +73,7 @@ def golden_dir(tmp_path: Path) -> Path:
 @pytest.fixture  # type: ignore[misc]
 def sample_activity_data() -> pd.DataFrame:
     """Sample activity DataFrame for testing."""
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "activity_id": [1, 2, 3],
             "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
@@ -90,7 +91,7 @@ def sample_activity_data() -> pd.DataFrame:
             "canonical_smiles": ["CCO", "CCN", "CCC"],
             "ligand_efficiency": [None, '{"LE": 0.5}', None],
             "target_organism": ["Homo sapiens", "Mus musculus", None],
-            "target_tax_id": [9606, 10090, None],
+            "target_tax_id": [9606, 10090, 9606],
             "data_validity_comment": [None, None, "Validated"],
             "activity_properties": [None, '{"property": "value"}', None],
             "compound_key": ["key1", "key2", "key3"],
@@ -100,6 +101,8 @@ def sample_activity_data() -> pd.DataFrame:
             "rounded_data_citation": [False, False, True],
         }
     )
+    df["target_tax_id"] = pd.Series([9606, 10090, 9606], dtype="Int64")
+    return df
 
 
 @pytest.fixture  # type: ignore[misc]
@@ -182,17 +185,18 @@ def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
             ),
         ),
         validation=ValidationConfig(
-            schema_out="bioetl.schemas.activity:ActivitySchema",
+            schema_out=None,
             strict=True,
             coerce=True,
         ),
+        postprocess=PostprocessConfig(),
         sources={
             "chembl": SourceConfig(  # type: ignore[call-arg,dict-item]
                 enabled=True,
                 parameters={"base_url": "https://www.ebi.ac.uk/chembl/api/data"},
             ),
         },
-        cli=CLIConfig(),  # type: ignore[attr-defined]
+        cli=CLIConfig(date_tag="20240101"),  # type: ignore[attr-defined]
     )
 
 

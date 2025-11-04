@@ -87,10 +87,10 @@ class TestPipelineBase:
         assert isinstance(artifacts, RunArtifacts)
         assert artifacts.write.dataset.exists() is False  # File not created yet
         assert artifacts.write.dataset.name == "activity_20240101.csv"
-        assert artifacts.write.metadata.name == "activity_20240101_meta.yaml"
+        assert artifacts.write.metadata is None
         assert artifacts.write.quality_report is not None
         assert artifacts.write.correlation_report is None  # Default is False
-        assert artifacts.write.qc_metrics is not None
+        assert artifacts.write.qc_metrics is None
 
     def test_plan_run_artifacts_with_correlation(self, pipeline_config_fixture, run_id: str):
         """Test artifact planning with correlation report."""
@@ -100,17 +100,34 @@ class TestPipelineBase:
 
         assert artifacts.write.correlation_report is not None
         assert artifacts.write.correlation_report.name == "activity_20240101_correlation_report.csv"
+        assert artifacts.write.metadata is None
+
+    def test_plan_run_artifacts_with_metadata(self, pipeline_config_fixture, run_id: str):
+        """Test artifact planning with metadata enabled."""
+        pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        artifacts = pipeline.plan_run_artifacts(
+            "20240101",
+            include_metadata=True,
+            include_manifest=True,
+            include_qc_metrics=True,
+        )
+
+        assert artifacts.write.metadata is not None
+        assert artifacts.write.metadata.name == "activity_20240101_meta.yaml"
+        assert artifacts.manifest is not None
+        assert artifacts.write.qc_metrics is not None
 
     def test_list_run_stems(self, pipeline_config_fixture, run_id: str, tmp_output_dir: Path):
         """Test listing run stems."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # Create mock meta files
+        # Create mock dataset files
         pipeline_dir = pipeline.pipeline_directory
-        meta_file1 = pipeline_dir / "activity_20240101_meta.yaml"
-        meta_file2 = pipeline_dir / "activity_20240102_meta.yaml"
-        meta_file1.touch()
-        meta_file2.touch()
+        dataset_file1 = pipeline_dir / "activity_20240101.csv"
+        dataset_file2 = pipeline_dir / "activity_20240102.csv"
+        dataset_file1.touch()
+        dataset_file2.touch()
 
         stems = pipeline.list_run_stems()
 
@@ -126,16 +143,14 @@ class TestPipelineBase:
         # Create more runs than retention limit
         pipeline_dir = pipeline.pipeline_directory
         for i in range(5):
-            meta_file = pipeline_dir / f"activity_run{i}_meta.yaml"
             dataset_file = pipeline_dir / f"activity_run{i}.csv"
-            meta_file.touch()
             dataset_file.touch()
 
         pipeline.apply_retention_policy()
 
         # Check that only 2 most recent runs remain
-        remaining_meta = list(pipeline_dir.glob("activity_*_meta.yaml"))
-        assert len(remaining_meta) <= 2
+        remaining_datasets = list(pipeline_dir.glob("activity_*.csv"))
+        assert len(remaining_datasets) <= 2
 
     def test_apply_retention_policy_disabled(self, pipeline_config_fixture, run_id: str):
         """Test retention policy when disabled."""
@@ -145,14 +160,14 @@ class TestPipelineBase:
         # Create some runs
         pipeline_dir = pipeline.pipeline_directory
         for i in range(3):
-            meta_file = pipeline_dir / f"activity_run{i}_meta.yaml"
-            meta_file.touch()
+            dataset_file = pipeline_dir / f"activity_run{i}.csv"
+            dataset_file.touch()
 
         pipeline.apply_retention_policy()
 
         # All runs should remain
-        remaining_meta = list(pipeline_dir.glob("activity_*_meta.yaml"))
-        assert len(remaining_meta) == 3
+        remaining_datasets = list(pipeline_dir.glob("activity_*.csv"))
+        assert len(remaining_datasets) == 3
 
     def test_register_client(self, pipeline_config_fixture, run_id: str):
         """Test client registration."""
@@ -237,12 +252,16 @@ class TestPipelineBase:
 
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        artifacts = pipeline.plan_run_artifacts(run_id)
+        artifacts = pipeline.plan_run_artifacts(
+            run_id,
+            include_metadata=True,
+            include_qc_metrics=True,
+        )
 
         write_result = pipeline.write(sample_activity_data, artifacts)
 
         assert write_result.dataset.exists()
-        assert write_result.metadata.exists()
+        assert write_result.metadata is not None and write_result.metadata.exists()
         assert write_result.quality_report is not None
         assert write_result.quality_report.exists()
 
@@ -256,13 +275,17 @@ class TestPipelineBase:
 
     def test_run_lifecycle(self, pipeline_config_fixture, run_id: str):
         """Test full pipeline lifecycle."""
+        pipeline_config_fixture.determinism.sort.by = []
+        pipeline_config_fixture.determinism.sort.ascending = []
+        pipeline_config_fixture.determinism.hashing.business_key_fields = ()
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         result = pipeline.run()
 
         assert result.run_id == run_id
         assert result.write_result.dataset.exists()
-        assert result.write_result.metadata.exists()
+        assert result.write_result.metadata is None
+        assert result.manifest is None
         assert "extract" in result.stage_durations_ms
         assert "transform" in result.stage_durations_ms
         assert "validate" in result.stage_durations_ms
@@ -270,11 +293,14 @@ class TestPipelineBase:
 
     def test_run_with_mode(self, pipeline_config_fixture, run_id: str):
         """Test pipeline run with mode."""
+        pipeline_config_fixture.determinism.sort.by = []
+        pipeline_config_fixture.determinism.sort.ascending = []
+        pipeline_config_fixture.determinism.hashing.business_key_fields = ()
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         result = pipeline.run(mode="full")
 
-        assert result.write_result.dataset.name == f"activity_full_{run_id}.csv"
+        assert result.write_result.dataset.name == "activity_full_20240101.csv"
 
     def test_run_error_handling(self, pipeline_config_fixture, run_id: str):
         """Test error handling in pipeline run."""

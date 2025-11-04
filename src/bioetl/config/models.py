@@ -321,6 +321,10 @@ class CLIConfig(BaseModel):
         default=False,
         description="If true, enable extended QC artifacts and metrics.",
     )
+    date_tag: str | None = Field(
+        default=None,
+        description="Optional YYYYMMDD tag injected into deterministic artifact names.",
+    )
     golden: str | None = Field(
         default=None,
         description="Path to golden dataset for bitwise determinism comparison.",
@@ -328,6 +332,28 @@ class CLIConfig(BaseModel):
     set_overrides: Mapping[str, Any] = Field(
         default_factory=dict,
         description="Key/value overrides provided via --set CLI arguments.",
+    )
+
+
+class PostprocessCorrelationConfig(BaseModel):
+    """Post-processing options for correlation analysis."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description="If true, emit correlation reports alongside the dataset.",
+    )
+
+
+class PostprocessConfig(BaseModel):
+    """Top-level post-processing configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    correlation: PostprocessCorrelationConfig = Field(
+        default_factory=PostprocessCorrelationConfig,
+        description="Correlation report controls.",
     )
 
 
@@ -387,6 +413,7 @@ class PipelineConfig(BaseModel):
     materialization: MaterializationConfig = Field(default_factory=MaterializationConfig)
     fallbacks: FallbacksConfig = Field(default_factory=FallbacksConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
+    postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     sources: dict[str, SourceConfig] = Field(
         default_factory=dict,
         description="Per-source settings keyed by a short identifier.",
