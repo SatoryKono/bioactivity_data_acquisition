@@ -1,46 +1,48 @@
-# 14 Activity ChEMBL QC
+# Activity ChEMBL: Quality Control
 
-**Version:** 1.0.0  
-**Date:** 2025-01-29  
-**Author:** Data Acquisition Team
+This document describes the custom Quality Control (QC) metrics generated for the ChEMBL Activity pipeline. The `ChemblActivityPipeline` overrides the default `build_quality_report` method to produce a richer, more context-specific quality report.
 
-## Purpose
+## 1. Overview
 
-This document describes the quality control (QC) metrics and thresholds for the Activity (ChEMBL) pipeline.
+The QC report for the `activity_chembl` pipeline is a CSV file that provides a detailed summary of the data quality of the generated dataset. It is created by the `build_quality_report()` method, which combines the base QC metrics with a set of pipeline-specific checks.
 
-## QC Metrics
+## 2. Base Quality Report
 
-### Mandatory Metrics
+The method first calls the default `build_default_quality_report` function, which provides a standard set of metrics for each column in the dataset, including:
 
-- **Total Records**: Count of activity records processed
-- **Duplicate Ratio**: Percentage of duplicate `activity_id` values (must be 0.0)
-- **Missing Values**: Coverage statistics for key fields
-- **Measurement Type Distribution**: Counts by `standard_type`
-- **Unit Distribution**: Counts by `standard_units`
-- **Foreign Key Integrity**: Validation of `assay_id` and `molecule_chembl_id` references
-- **ChEMBL Validity Flags**: Counts of records with validity issues
+-   `null_count`: The number of missing values.
+-   `distinct_count`: The number of unique values.
+-   `duplicate_count`: The number of duplicate values, using `activity_id` as the business key.
 
-### Optional Metrics
+## 3. Custom QC Metrics
 
-- **Correlation Analysis**: Pairwise correlations between measurement types (when enabled)
+After generating the base report, the method adds several custom metrics that are specific to the ChEMBL activity data. These are added as new rows to the quality report DataFrame.
 
-## QC Thresholds
+### 3.1. Foreign Key Integrity
 
-- `duplicate_ratio`: 0.0 (critical: no duplicates allowed)
-- `missing_value_ratio`: Configurable per field
-- `foreign_key_integrity`: 1.0 (all references must exist)
+For each of the main ChEMBL foreign key fields, a set of metrics is calculated to assess referential integrity.
 
-## QC Report
+-   **Fields**: `assay_chembl_id`, `molecule_chembl_id`, `target_chembl_id`, `document_chembl_id`.
+-   **Metrics per field**:
+    -   `integrity_ratio`: The ratio of validly formatted identifiers to the total number of non-null identifiers.
+    -   `valid_count`: The number of identifiers that match the `^CHEMBL\d+$` format.
+    -   `invalid_count`: The number of identifiers that do not match the format.
+    -   `total_count`: The total number of non-null identifiers.
 
-The QC report includes:
+### 3.2. Measurement Distribution
 
-- Summary statistics
-- Distribution plots (when applicable)
-- Threshold violations
-- Recommendations
+To provide insight into the composition of the activity data, the report includes distribution counts for key measurement fields.
 
-## Related Documentation
+-   **`standard_type_count`**: For each unique value in the `standard_type` column (e.g., "IC50", "Ki"), the report includes a row with the total count of records of that type.
+-   **`standard_units_count`**: Similarly, for each unique value in the `standard_units` column (e.g., "nM", "μM"), the report includes a row with the total count.
 
-- [11-activity-chembl-validation.md](11-activity-chembl-validation.md) — Validation stage
-- [QC Overview](../qc/00-qc-overview.md) — QC framework
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline overview
+### 3.3. ChEMBL Validity Flags
+
+The pipeline also reports on the presence of several boolean flags that ChEMBL provides to indicate data quality or context.
+
+-   **Fields**: `is_citation`, `high_citation_rate`, `exact_data_citation`, `rounded_data_citation`.
+-   **Metric**: For each flag, the report includes a `{flag_name}_count` metric, which is the total count of records where the flag is `True`.
+
+## 4. Output
+
+The final output is a single quality report CSV file containing both the base and custom metrics. This report provides a comprehensive overview of the dataset's quality, enabling downstream users to understand its characteristics and limitations.
