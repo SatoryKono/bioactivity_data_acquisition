@@ -16,24 +16,25 @@ class ChemblClient:
     def __init__(self, client: UnifiedAPIClient) -> None:
         self._client = client
         self._log = UnifiedLogger.get(__name__).bind(component="chembl_client")
-        self._status_cache: Mapping[str, Any] | None = None
+        self._status_cache: dict[str, Mapping[str, Any]] = {}
 
     # ------------------------------------------------------------------
     # Discovery / handshake
     # ------------------------------------------------------------------
 
-    def handshake(self) -> Mapping[str, Any]:
-        """Perform the `/status` handshake once and cache the payload."""
+    def handshake(self, endpoint: str = "/status") -> Mapping[str, Any]:
+        """Perform the handshake for ``endpoint`` once and cache the payload."""
 
-        if self._status_cache is None:
-            payload = self._client.get("/status").json()
-            self._status_cache = payload
+        if endpoint not in self._status_cache:
+            payload = self._client.get(endpoint).json()
+            self._status_cache[endpoint] = payload
             self._log.info(
                 "chembl.handshake",
+                endpoint=endpoint,
                 chembl_release=payload.get("chembl_db_version"),
                 api_version=payload.get("api_version"),
             )
-        return self._status_cache
+        return self._status_cache[endpoint]
 
     # ------------------------------------------------------------------
     # Pagination helpers
