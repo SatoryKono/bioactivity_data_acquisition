@@ -350,7 +350,7 @@ class ChemblActivityPipeline(PipelineBase):
                 if invalid_mask.any():  # type: ignore[misc]
                     invalid_count += int(invalid_mask.sum())  # type: ignore[misc]
                     df.loc[invalid_mask, field] = None
-                    normalized_count += int((mask & valid_mask).sum())
+                    normalized_count += int((mask & valid_mask).astype(int).sum())  # type: ignore[misc]
 
         for field in bao_fields:
             if field not in df.columns:
@@ -762,15 +762,15 @@ class ChemblActivityPipeline(PipelineBase):
 
             # Add column name if available
             if "column" in error_row and pd.notna(error_row["column"]):  # type: ignore[misc]
-                error_details["column"] = str(error_row["column"])
+                error_details["column"] = str(error_row["column"])  # type: ignore[arg-type]
 
             # Add schema context if available
             if "schema_context" in error_row and pd.notna(error_row["schema_context"]):  # type: ignore[misc]
-                error_details["schema_context"] = str(error_row["schema_context"])
+                error_details["schema_context"] = str(error_row["schema_context"])  # type: ignore[arg-type]
 
             # Add error message if available
             if "failure_case" in error_row and pd.notna(error_row["failure_case"]):  # type: ignore[misc]
-                error_details["failure_case"] = str(error_row["failure_case"])
+                error_details["failure_case"] = str(error_row["failure_case"])  # type: ignore[arg-type]
 
             log.error("validation_error_detail", **error_details)  # type: ignore[misc]
 
