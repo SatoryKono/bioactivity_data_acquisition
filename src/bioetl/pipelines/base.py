@@ -12,6 +12,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 import time
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
@@ -24,6 +25,12 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
+from bioetl.qc.report import (
+    build_correlation_report as build_default_correlation_report,
+    build_quality_report as build_default_quality_report,
+    build_qc_metrics_payload,
+)
+from bioetl.schemas import SchemaRegistryEntry, get_schema
 
 
 @dataclass(frozen=True)
@@ -93,6 +100,8 @@ class PipelineBase(ABC):
         self._stage_durations_ms: dict[str, float] = {}
         self._registered_clients: dict[str, Callable[[], None]] = {}
         self._trace_id, self._root_span_id = self._derive_trace_and_span()
+        self._validation_schema: SchemaRegistryEntry | None = None
+        self._validation_summary: dict[str, Any] | None = None
 
     def _ensure_pipeline_directory(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
@@ -226,17 +235,19 @@ class PipelineBase(ABC):
     def build_quality_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
         """Return a QC dataframe for the quality report artefact."""
 
-        return None
+        business_key = self.config.determinism.hashing.business_key_fields
+        return build_default_quality_report(df, business_key_fields=business_key)
 
     def build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
         """Return a correlation report artefact payload."""
 
-        return None
+        return build_default_correlation_report(df)
 
     def build_qc_metrics(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
         """Return aggregated QC metrics for persistence."""
 
-        return None
+        business_key = self.config.determinism.hashing.business_key_fields
+        return build_qc_metrics_payload(df, business_key_fields=business_key)
 
     def augment_metadata(
         self,
@@ -331,6 +342,22 @@ class PipelineBase(ABC):
             raise TypeError(msg)
         metadata = dict(metadata_payload)
 
+        metrics_payload = self.build_qc_metrics(prepared.dataframe)
+        metrics_summary: dict[str, Any] | None = None
+        if isinstance(metrics_payload, Mapping):
+            metrics_summary = {key: metrics_payload[key] for key in metrics_payload}
+        elif isinstance(metrics_payload, pd.DataFrame):
+            metrics_summary = {
+                str(row.get("metric", index)): row.get("value")
+                for index, row in metrics_payload.to_dict(orient="index").items()
+            }
+
+        if self._validation_summary:
+            metadata.setdefault("validation", {}).update(self._validation_summary)
+
+        if metrics_summary:
+            metadata.setdefault("quality", {}).setdefault("metrics", {}).update(metrics_summary)
+
         log.debug(
             "write_artifacts_prepared",
             rows=len(prepared.dataframe),
@@ -360,7 +387,6 @@ class PipelineBase(ABC):
             artifact_name="correlation_report",
         )
 
-        metrics_payload = self.build_qc_metrics(prepared.dataframe)
         metrics_path = emit_qc_artifact(
             metrics_payload,
             artifacts.write.qc_metrics,
@@ -426,6 +452,15 @@ class PipelineBase(ABC):
                 rows = self._safe_len(transformed)
                 log.info("transform_completed", duration_ms=duration, rows=rows)
 
+            with UnifiedLogger.stage("validate", component=self._component_for_stage("validate")):
+                log.info("validate_started")
+                validate_start = time.perf_counter()
+                validated = self.validate(transformed)
+                duration = (time.perf_counter() - validate_start) * 1000.0
+                stage_durations_ms["validate"] = duration
+                rows = self._safe_len(validated)
+                log.info("validate_completed", duration_ms=duration, rows=rows)
+
             with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
                 artifacts = self.plan_run_artifacts(
                     run_tag=self.run_id,
@@ -440,7 +475,7 @@ class PipelineBase(ABC):
                     metadata=str(artifacts.write.metadata),
                 )
                 write_start = time.perf_counter()
-                write_result = self.write(transformed, artifacts)
+                write_result = self.write(validated, artifacts)
                 duration = (time.perf_counter() - write_start) * 1000.0
                 stage_durations_ms["write"] = duration
                 log.info(
@@ -478,3 +513,63 @@ class PipelineBase(ABC):
                     log.warning("cleanup_failed", error=str(cleanup_error))
                 log.info("cleanup_completed")
 
+    def validate(self, payload: object) -> pd.DataFrame:
+        """Validate ``payload`` against the configured Pandera schema."""
+
+        if not isinstance(payload, pd.DataFrame):
+            msg = "PipelineBase.validate expects a pandas DataFrame payload"
+            raise TypeError(msg)
+
+        schema_identifier = self.config.validation.schema_out
+        log = UnifiedLogger.get(__name__)
+        if not schema_identifier:
+            log.debug("validation_skipped", reason="no_schema_configured")
+            self._validation_schema = None
+            self._validation_summary = None
+            return payload
+
+        schema_entry = get_schema(schema_identifier)
+        schema = schema_entry.schema.replace(
+            strict=self.config.validation.strict,
+            coerce=self.config.validation.coerce,
+        )
+        log.debug(
+            "validation_schema_loaded",
+            schema=schema_entry.identifier,
+            version=schema_entry.version,
+        )
+
+        validated = schema.validate(payload, lazy=True)
+        validated = self._reorder_columns(validated, schema_entry.column_order)
+
+        self._validation_schema = schema_entry
+        self._validation_summary = {
+            "schema_identifier": schema_entry.identifier,
+            "schema_name": schema_entry.name,
+            "schema_version": schema_entry.version,
+            "column_order": list(schema_entry.column_order),
+            "strict": bool(self.config.validation.strict),
+            "coerce": bool(self.config.validation.coerce),
+            "row_count": int(len(validated)),
+        }
+
+        log.debug(
+            "validation_completed",
+            schema=schema_entry.identifier,
+            version=schema_entry.version,
+            rows=len(validated),
+        )
+
+        return validated
+
+    def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
+        if not column_order:
+            return df
+        missing = [column for column in column_order if column not in df.columns]
+        if missing:
+            msg = f"Dataframe missing columns required by schema: {missing}"
+            raise ValueError(msg)
+        extras = [column for column in df.columns if column not in column_order]
+        if not extras:
+            return df[column_order]
+        return df[[*column_order, *extras]]
