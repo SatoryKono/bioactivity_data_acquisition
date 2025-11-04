@@ -1,18 +1,6 @@
-Аудит документации BioETL (ветка refactoring_001)
-
-Общая картина:
-- Найдено 1 противоречий в документации, из них 1 критичных
-- Обнаружено 0 пробелов в документации пайплайнов, из них 0 высокого приоритета
-- Найдено 0 битых ссылок в документации
-- Проанализировано 5 страниц пайплайнов
-- Проверено обязательных разделов: 7 на страницу
-
-Основные риски:
-1. Критичные противоречия в CLI командах и путях к конфигам могут привести к ошибкам при запуске пайплайнов
-2. Отсутствие обязательных разделов в документации пайплайнов затрудняет воспроизводимость и поддержку
-3. Битые ссылки нарушают навигацию и могут указывать на устаревшую информацию
-
-Рекомендации:
-- Приоритизировать исправление противоречий типа D (терминологические) и E (конфиги)
-- Заполнить пробелы в документации пайплайнов, начиная с HIGH приоритета
-- Исправить все битые ссылки для обеспечения корректной навигации
+1. README позиционирует все ChEMBL-пайплайны как production и предоставляет боевые CLI-команды, однако спецификации `target` и `testitem` прямо помечены как "planned" и описывают ненаписанную реализацию, что ставит под сомнение готовность контура.[ref: repo:README.md@refactoring_001][ref: repo:docs/pipelines/08-target-data-extraction.md@refactoring_001][ref: repo:docs/pipelines/07-testitem-extraction.md@refactoring_001]
+2. CLI-инструкции расходятся: README и каталог пайплайнов оперируют командами `python -m bioetl.cli.main <pipeline>`, в то время как страница ассая требует абстрактного `bioetl pipeline run`, что нарушает единый интерфейс запуска.[ref: repo:README.md@refactoring_001][ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001][ref: repo:docs/pipelines/05-assay-extraction.md@refactoring_001]
+3. Конфигурационные пути несогласованы: README и каталог ссылаются на `configs/pipelines/chembl/<entity>.yaml`, тогда как страницы activity/document/assay требуют файлов без подкаталога `chembl`, которых в репозитории нет.[ref: repo:README.md@refactoring_001][ref: repo:docs/pipelines/10-chembl-pipelines-catalog.md@refactoring_001][ref: repo:docs/pipelines/06-activity-data-extraction.md@refactoring_001][ref: repo:docs/pipelines/05-assay-extraction.md@refactoring_001][ref: repo:docs/pipelines/09-document-chembl-extraction.md@refactoring_001]
+4. Обязательные разделы заполнены не везде: спецификации `target` и `testitem` ограничиваются кратким описанием и таблицей компонентов, не раскрывая конфиги, схемы, IO, QC и логи, что блокирует аудит ETL-контракта.[ref: repo:docs/pipelines/08-target-data-extraction.md@refactoring_001][ref: repo:docs/pipelines/07-testitem-extraction.md@refactoring_001]
+5. Линк-чек выявил десятки битых ссылок: внутренние документы (`docs/acceptance-criteria.md`, `docs/pipelines/04-normalization-validation.md`) отсутствуют, а внешние URL ChEMBL/OpenAlex/Crossref возвращают 404.[ref: repo:docs/pipelines/03-data-extraction.md@refactoring_001][ref: repo:docs/pipelines/05-assay-extraction.md@refactoring_001][ref: repo:docs/pipelines/06-activity-data-extraction.md@refactoring_001][ref: repo:docs/pipelines/09-document-chembl-extraction.md@refactoring_001]
+6. Конфигурация `.lychee.toml` некорректна: поле `retry_wait_time` задано строкой "2s", из-за чего утилита не может применить настройки и требует интерактивного ввода.[ref: repo:.lychee.toml@refactoring_001]
