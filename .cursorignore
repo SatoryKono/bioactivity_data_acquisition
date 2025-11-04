@@ -79,7 +79,12 @@ node_modules/
 .env.*.local
 
 # Cursor specific
-.cursor/
+
+# Exclude specific Cursor directories from ignoring
+!.cursor/@rules/
+!.cursor/@commands/
+!.cursor/@.agent-tools/
+
 .vscode/
 .idea/
 

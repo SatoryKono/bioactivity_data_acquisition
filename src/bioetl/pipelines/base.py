@@ -8,9 +8,9 @@ rules with executable references.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Sequence
 
 
 @dataclass(frozen=True)
@@ -19,9 +19,9 @@ class WriteArtifacts:
 
     dataset: Path
     metadata: Path
-    quality_report: Optional[Path] = None
-    correlation_report: Optional[Path] = None
-    qc_metrics: Optional[Path] = None
+    quality_report: Path | None = None
+    correlation_report: Path | None = None
+    qc_metrics: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ class RunArtifacts:
     run_directory: Path
     manifest: Path
     log_file: Path
-    extras: Dict[str, Path] = field(default_factory=dict)
+    extras: dict[str, Path] = field(default_factory=dict)
 
 
 class PipelineBase(ABC):
@@ -47,8 +47,8 @@ class PipelineBase(ABC):
     def __init__(
         self,
         pipeline_code: str,
-        output_root: Optional[Path] = None,
-        logs_root: Optional[Path] = None,
+        output_root: Path | None = None,
+        logs_root: Path | None = None,
         retention_runs: int = 5,
     ) -> None:
         self.pipeline_code = pipeline_code
@@ -72,23 +72,26 @@ class PipelineBase(ABC):
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
-    def build_run_stem(self, run_tag: str, mode: Optional[str] = None) -> str:
+    def build_run_stem(self, run_tag: str, mode: str | None = None) -> str:
         """Return the filename stem for artifacts in a run.
 
         The stem combines the pipeline code, optional mode (e.g. "all" or
         "incremental"), and a deterministic tag such as a run date.
         """
-
-        parts: Sequence[str] = (self.pipeline_code, *(mode,) if mode else (), run_tag)
+        parts: Sequence[str]
+        if mode:
+            parts = (self.pipeline_code, mode, run_tag)
+        else:
+            parts = (self.pipeline_code, run_tag)
         return "_".join(parts)
 
     def plan_run_artifacts(
         self,
         run_tag: str,
-        mode: Optional[str] = None,
+        mode: str | None = None,
         include_correlation: bool = False,
         include_qc_metrics: bool = True,
-        extras: Optional[Dict[str, Path]] = None,
+        extras: dict[str, Path] | None = None,
     ) -> RunArtifacts:
         """Return the artifact map for a deterministic run.
 

@@ -2042,6 +2042,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 - Профильный файл: `configs/pipelines/document.yaml` (`extends: "../base.yaml"`).
 
 > **Примечание:** Данный пайплайн извлекает данные только из ChEMBL. Параметры конфигурации для внешних источников (PubMed, Crossref, OpenAlex, Semantic Scholar) описаны в соответствующих документах пайплайнов:
+>
 > - `22-document-pubmed-extraction.md` (раздел 5. Configuration)
 > - `24-document-crossref-extraction.md` (раздел 5. Configuration)
 > - `23-document-openalex-extraction.md` (раздел 5. Configuration)
@@ -2491,6 +2492,7 @@ python -m scripts.get_document_data \
 Document pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
 
 **Обязательные поля в логах:**
+
 - `run_id`: Уникальный идентификатор запуска пайплайна
 - `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
 - `pipeline`: Имя пайплайна (`document`)
@@ -2498,6 +2500,7 @@ Document pipeline использует `UnifiedLogger` для структури
 - `row_count`: Количество обработанных строк
 
 **Структурированные события:**
+
 - `pipeline_started`: Начало выполнения пайплайна
 - `extract_started`: Начало стадии извлечения
 - `extract_completed`: Завершение стадии извлечения с метриками
@@ -2549,11 +2552,13 @@ Document pipeline использует `UnifiedLogger` для структури
 ```
 
 **Формат вывода:**
+
 - Консоль: текстовый формат для удобства чтения
 - Файлы: JSON формат для машинной обработки и анализа
 - Ротация: автоматическая ротация лог-файлов (10MB × 10 файлов)
 
 **Трассировка:**
+
 - Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
 - Каждая стадия логирует начало и завершение с метриками производительности
 - Ошибки логируются с полным контекстом и stack trace
@@ -2663,4 +2668,3 @@ For detailed logging configuration and API, see [Logging Overview](docs/logging/
 - [Semantic Scholar API](https://api.semanticscholar.org/)
 
 - [Semantic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)
-ntic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)

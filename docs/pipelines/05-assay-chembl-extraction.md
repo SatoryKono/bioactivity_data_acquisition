@@ -1150,7 +1150,8 @@ postprocess:
 4. **Кросс-полевые инварианты:** Проверка согласованности (например, длина `sort.by` и `sort.ascending`)
 
 **Пример ошибки валидации:**
-```
+
+```text
 1 validation error for PipelineConfig
 sources.chembl.batch_size
   Value error, sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit
@@ -1455,6 +1456,7 @@ Workflow для изменения схемы:
 Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.main assay`. Подробности архитектуры CLI см. в [CLI Overview](docs/cli/00-cli-overview.md).
 
 **Инвокация:**
+
 ```bash
 python -m bioetl.cli.main assay [OPTIONS]
 ```
@@ -1507,6 +1509,7 @@ CLI загружает конфигурацию в следующем поряд
 ### 9.5 Примеры использования
 
 **Базовый запуск:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1514,6 +1517,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Проверка конфигурации (dry-run):**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1522,6 +1526,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Ограничение количества записей (smoke test):**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1530,6 +1535,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Случайная выборка с детерминированным seed:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1539,6 +1545,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Сравнение с golden-файлом:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1547,6 +1554,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Переопределение параметров ChEMBL:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1556,6 +1564,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Строгая валидация схемы:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1565,6 +1574,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **С входным файлом:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1573,6 +1583,7 @@ python -m bioetl.cli.main assay \
 ```
 
 **Детальное логирование:**
+
 ```bash
 python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
@@ -1963,7 +1974,8 @@ Assay pipeline логирует следующие структурирован�
 - **Использование:** Локальная разработка (не подходит для продакшена)
 
 **Пример консольного вывода:**
-```
+
+```text
 2025-01-15T10:30:00.123Z [info     ] Extraction complete.         run_id=a1b2c3d4e5f6g7h8 stage=extract rows=5000
 ```
 

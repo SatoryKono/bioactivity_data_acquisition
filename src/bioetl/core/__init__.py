@@ -2,9 +2,9 @@
 
 from .logger import (
     DEFAULT_LOG_LEVEL,
+    MANDATORY_FIELDS,
     LogConfig,
     LogFormat,
-    MANDATORY_FIELDS,
     bind_global_context,
     configure_logging,
     get_logger,

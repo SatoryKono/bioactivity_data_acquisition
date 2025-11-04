@@ -108,13 +108,16 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 #### Pipeline Sources (`pipelines/sources/`)
 
 - [crossref/README.md](pipelines/sources/crossref/README.md) - Crossref source documentation
-- [iuphar/README.md](pipelines/sources/iuphar/README.md) - IUPHAR source documentation
 - [openalex/README.md](pipelines/sources/openalex/README.md) - OpenAlex source documentation
 - [pubmed/README.md](pipelines/sources/pubmed/README.md) - PubMed source documentation
 - [semantic_scholar/README.md](pipelines/sources/semantic_scholar/README.md) - Semantic Scholar source documentation
-- [uniprot/README.md](pipelines/sources/uniprot/README.md) - UniProt source documentation
 
-> **Note**: ChEMBL and PubChem source documentation has been consolidated into the main pipeline documents: [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md) and [PubChem TestItem Pipeline](pipelines/21-testitem-pubchem-extraction.md).
+> **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents:
+> - [ChEMBL Pipelines Catalog](pipelines/10-chembl-pipelines-catalog.md)
+> - [PubChem TestItem Pipeline](pipelines/21-testitem-pubchem-extraction.md)
+> - [UniProt Target Pipeline](pipelines/26-target-uniprot-extraction.md)
+> - [IUPHAR Target Pipeline](pipelines/27-target-iuphar-extraction.md)
+> - [ChEMBL to UniProt Mapping Pipeline](pipelines/28-chembl2uniprot-mapping.md)
 
 ### Quality Control (`qc/`)
 

@@ -8,11 +8,12 @@ as by golden tests.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-from functools import partial
 import logging
+from collections.abc import Iterable, MutableMapping, Sequence
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Iterable, MutableMapping, Sequence
+from functools import partial
+from typing import Any
 
 import structlog
 from structlog.contextvars import bind_contextvars, clear_contextvars

@@ -50,6 +50,7 @@ python -m bioetl.cli.main activity \
   --config configs/pipelines/chembl/activity.yaml \
   --set sources.chembl.batch_size=10
 ```
+
 【F:docs/configs/00-typed-configs-and-profiles.md†L90-L98】
 
 ---
@@ -86,6 +87,7 @@ python -m bioetl.cli.main assay \
   --config configs/pipelines/chembl/assay.yaml \
   --set sources.chembl.batch_size=20
 ```
+
 【F:docs/pipelines/05-assay-chembl-extraction.md†L75-L85】
 
 ---
@@ -98,9 +100,9 @@ python -m bioetl.cli.main assay \
 
 | Key | Requirement / Default | Notes |
 | --- | --- | --- |
-| `sources.chembl.*` profile | Shared include supplies base URL, batching, headers, and jitter controls for ChEMBL calls. See [Common Configuration](#common-configuration) below. |
-| `sources.uniprot.enabled` / `sources.uniprot.batch_size` | Toggle UniProt enrichment and tune paging for ID-mapping/ortholog services.【F:docs/pipelines/sources/uniprot/README.md†L26-L32】 |
-| `sources.iuphar.*` | Configure API key, caching, and minimum enrichment ratios for Guide to Pharmacology augmentations.【F:docs/pipelines/sources/iuphar/README.md†L24-L33】 |
+| `sources.chembl.*` profile | Shared include supplies base URL, batching, headers, and jitter controls for ChEMBL calls. See [Common Configuration](#common-configuration) below. | |
+| `sources.uniprot.enabled` / `sources.uniprot.batch_size` | Toggle UniProt enrichment and tune paging for ID-mapping/ortholog services. See [UniProt Target Pipeline](26-target-uniprot-extraction.md) and [ChEMBL to UniProt Mapping Pipeline](28-chembl2uniprot-mapping.md). | |
+| `sources.iuphar.*` | Configure API key, caching, and minimum enrichment ratios for Guide to Pharmacology augmentations. See [IUPHAR Target Pipeline](27-target-iuphar-extraction.md). | |
 
 **Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/08-target-chembl-extraction.md†L31-L43】【F:docs/sources/INTERFACE_MATRIX.md†L7-L12】
 
@@ -121,7 +123,8 @@ python -m bioetl.cli.main target \
   --config configs/pipelines/chembl/target.yaml \
   --set sources.uniprot.enabled=false
 ```
-【F:docs/pipelines/08-target-chembl-extraction.md†L15-L25】【F:docs/pipelines/sources/uniprot/README.md†L26-L32】
+
+【F:docs/pipelines/08-target-chembl-extraction.md†L15-L25】【F:docs/pipelines/26-target-uniprot-extraction.md†L33-L263】
 
 ---
 
@@ -158,6 +161,7 @@ python -m bioetl.cli.main document \
   --config configs/pipelines/chembl/document.yaml \
   --set sources.pubmed.enabled=false
 ```
+
 【F:docs/pipelines/09-document-chembl-extraction.md†L2788-L2803】
 
 ---
@@ -200,6 +204,7 @@ python -m bioetl.cli.main testitem \
   --set sources.chembl.batch_size=10 \
   --limit 100
 ```
+
 【F:docs/pipelines/07-testitem-chembl-extraction.md†L35-L53】
 
 ## Determinism & Invariant Matrix

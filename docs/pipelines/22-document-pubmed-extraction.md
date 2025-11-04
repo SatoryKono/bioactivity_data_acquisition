@@ -24,6 +24,7 @@ The `document_pubmed` pipeline extracts publication metadata from PubMed E-utili
 ### Scope
 
 The pipeline extracts:
+
 - **Core metadata**: PMID, DOI, title, abstract, journal, publication dates
 - **Bibliographic details**: volume, issue, pages, ISSN
 - **Author information**: authors list
@@ -64,6 +65,7 @@ flowchart LR
 ### Components
 
 **Extract Stage:**
+
 - PubMed E-utilities Client (ESearch, EPost, EFetch)
 - History Server for batch operations
 - TTL cache (24 hours)
@@ -71,16 +73,19 @@ flowchart LR
 - Fallback manager
 
 **Transform Stage:**
+
 - XML Parser (PubMed XML format)
 - Normalize: PMID, DOI, dates, authors, journal
 - Type coercion and validation
 
 **Validate Stage:**
+
 - Pandera schema validation
 - QC coverage checks
 - Duplicate detection
 
 **Write Stage:**
+
 - Atomic writer (run_id-scoped temp dirs)
 - Canonical serialization (hash generation)
 - Metadata builder (full provenance)
@@ -102,6 +107,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils
 **Purpose:** Search PubMed database and retrieve UIDs.
 
 **Parameters:**
+
 - `db`: `pubmed` (required)
 - `term`: Search query (required)
 - `retmax`: Maximum number of results (default: 20, max: 10000)
@@ -109,6 +115,7 @@ https://eutils.ncbi.nlm.nih.gov/entrez/eutils
 - `usehistory`: `y` (recommended for large batches)
 
 **Example:**
+
 ```bash
 curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=12345678[PMID]&retmax=1&usehistory=y"
 ```
@@ -120,11 +127,13 @@ curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=
 **Purpose:** Upload UIDs to History Server.
 
 **Parameters:**
+
 - `db`: `pubmed` (required)
 - `id`: Comma-separated list of UIDs (required)
 - `webenv`: Web environment (if updating existing history)
 
 **Example:**
+
 ```bash
 curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed&id=12345678,23456789"
 ```
@@ -136,6 +145,7 @@ curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/epost.fcgi?db=pubmed&id=1234
 **Purpose:** Retrieve full records in XML format.
 
 **Parameters:**
+
 - `db`: `pubmed` (required)
 - `id`: Comma-separated list of UIDs (or use `query_key` and `webenv`)
 - `rettype`: `abstract` or `medline` (default: `abstract`)
@@ -223,13 +233,17 @@ Two possible locations in XML (depending on DTD version):
 Both locations should be checked and recorded in `doi_source` column for audit.
 
 **Authors:**
+
 `//AuthorList/Author` contains:
+
 - `LastName`, `ForeName`, `Initials`
 - `AffiliationInfo/Affiliation`
 - `Identifier[@Source='ORCID']` (if available)
 
 **MeSH Terminology:**
+
 `//MeshHeadingList/MeshHeading`:
+
 - `DescriptorName[@UI, @MajorTopicYN]`
 - `QualifierName[@UI]`
 

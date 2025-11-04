@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Annotated, Dict, List, Literal, Mapping, MutableMapping, Optional, Sequence, Tuple
+from collections.abc import Mapping, MutableMapping, Sequence
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, model_validator
 
@@ -26,7 +27,7 @@ class RetryConfig(BaseModel):
         default=60.0,
         description="Maximum delay in seconds between retry attempts.",
     )
-    statuses: Tuple[StatusCode, ...] = Field(
+    statuses: tuple[StatusCode, ...] = Field(
         default=(408, 429, 500, 502, 503, 504),
         description="HTTP status codes that should trigger a retry.",
     )
@@ -121,11 +122,11 @@ class MaterializationConfig(BaseModel):
         default="parquet",
         description="Default output format for tabular data (e.g., parquet, csv).",
     )
-    pipeline_subdir: Optional[str] = Field(
+    pipeline_subdir: str | None = Field(
         default=None,
         description="Optional subdirectory under the output root for this pipeline run.",
     )
-    filename_template: Optional[str] = Field(
+    filename_template: str | None = Field(
         default=None,
         description="Optional template for dataset filenames (supports Jinja-style placeholders).",
     )
@@ -140,7 +141,7 @@ class FallbacksConfig(BaseModel):
         default=True,
         description="Whether the pipeline should attempt configured fallback strategies.",
     )
-    max_depth: Optional[PositiveInt] = Field(
+    max_depth: PositiveInt | None = Field(
         default=None,
         description="Maximum fallback depth allowed before failing fast.",
     )
@@ -162,7 +163,7 @@ class DeterminismSerializationConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     csv: DeterminismSerializationCSVConfig = Field(default_factory=DeterminismSerializationCSVConfig)
-    booleans: Tuple[str, str] = Field(
+    booleans: tuple[str, str] = Field(
         default=("True", "False"),
         description="Canonical string representations for boolean values.",
     )
@@ -174,8 +175,8 @@ class DeterminismSortingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    by: List[str] = Field(default_factory=list, description="Columns defining the deterministic sort order.")
-    ascending: List[bool] = Field(
+    by: list[str] = Field(default_factory=list, description="Columns defining the deterministic sort order.")
+    ascending: list[bool] = Field(
         default_factory=list,
         description="Sort direction per column; defaults to ascending when empty.",
     )
@@ -272,7 +273,7 @@ class DeterminismConfig(BaseModel):
     meta: DeterminismMetaConfig = Field(default_factory=DeterminismMetaConfig)
 
     @model_validator(mode="after")
-    def validate_sorting(self) -> "DeterminismConfig":
+    def validate_sorting(self) -> DeterminismConfig:
         if self.sort.ascending and len(self.sort.ascending) != len(self.sort.by):
             msg = "determinism.sort.ascending must be empty or match determinism.sort.by length"
             raise ValueError(msg)
@@ -284,11 +285,11 @@ class ValidationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    schema_in: Optional[str] = Field(
+    schema_in: str | None = Field(
         default=None,
         description="Dotted path to the Pandera schema validating extracted data.",
     )
-    schema_out: Optional[str] = Field(
+    schema_out: str | None = Field(
         default=None,
         description="Dotted path to the Pandera schema validating transformed data.",
     )
@@ -306,7 +307,7 @@ class CLIConfig(BaseModel):
         description="Profiles requested via the --profile flag (in order).",
     )
     dry_run: bool = Field(default=False, description="If true, skip the write/materialization stage.")
-    limit: Optional[PositiveInt] = Field(
+    limit: PositiveInt | None = Field(
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
     )
@@ -322,16 +323,16 @@ class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True, description="Toggle processing of this data source.")
-    description: Optional[str] = Field(default=None, description="Human readable description of the source.")
-    http_profile: Optional[str] = Field(
+    description: str | None = Field(default=None, description="Human readable description of the source.")
+    http_profile: str | None = Field(
         default=None,
         description="Reference to a named HTTP profile defined under http.profiles.",
     )
-    http: Optional[HTTPClientConfig] = Field(
+    http: HTTPClientConfig | None = Field(
         default=None,
         description="Inline HTTP overrides that take precedence over profile settings.",
     )
-    batch_size: Optional[PositiveInt] = Field(
+    batch_size: PositiveInt | None = Field(
         default=None,
         description="Batch size used when paginating requests for this source.",
     )
@@ -348,8 +349,8 @@ class PipelineMetadata(BaseModel):
 
     name: str = Field(..., description="Unique name of the pipeline (e.g., activity, assay).")
     version: str = Field(..., description="Semantic version of the pipeline implementation.")
-    owner: Optional[str] = Field(default=None, description="Team or individual responsible for the pipeline.")
-    description: Optional[str] = Field(default=None, description="Short human readable description.")
+    owner: str | None = Field(default=None, description="Team or individual responsible for the pipeline.")
+    description: str | None = Field(default=None, description="Short human readable description.")
 
 
 class PipelineConfig(BaseModel):
@@ -372,14 +373,14 @@ class PipelineConfig(BaseModel):
     materialization: MaterializationConfig = Field(default_factory=MaterializationConfig)
     fallbacks: FallbacksConfig = Field(default_factory=FallbacksConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
-    sources: Dict[str, SourceConfig] = Field(
+    sources: dict[str, SourceConfig] = Field(
         default_factory=dict,
         description="Per-source settings keyed by a short identifier.",
     )
     cli: CLIConfig = Field(default_factory=CLIConfig)
 
     @model_validator(mode="after")
-    def ensure_column_order_when_set(self) -> "PipelineConfig":
+    def ensure_column_order_when_set(self) -> PipelineConfig:
         if self.determinism.column_order and not self.validation.schema_out:
             msg = (
                 "determinism.column_order requires validation.schema_out to be set so the schema "
