@@ -22,9 +22,16 @@ from bioetl.core.logger import UnifiedLogger
 
 __all__ = [
     "TokenBucketLimiter",
+    "CircuitBreakerOpenError",
     "UnifiedAPIClient",
     "merge_http_configs",
 ]
+
+
+class CircuitBreakerOpenError(RequestException):
+    """Raised when the circuit breaker blocks outbound requests."""
+
+    pass
 
 
 @dataclass(slots=True, frozen=True)
@@ -128,6 +135,7 @@ class UnifiedAPIClient:
         self._retry_statuses = set(config.retries.statuses)
         self._backoff_multiplier = float(config.retries.backoff_multiplier)
         self._backoff_max = float(config.retries.backoff_max)
+        self._max_url_length = int(config.max_url_length)
         self._rate_limiter = TokenBucketLimiter(
             config.rate_limit.max_calls,
             config.rate_limit.period,
@@ -163,7 +171,27 @@ class UnifiedAPIClient:
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> Response:
-        return self.request("GET", endpoint, params=params, headers=headers)
+        params_dict: dict[str, Any] = dict(params or {})
+        full_url: str | None = None
+        if params_dict and (self.base_url or endpoint.startswith(("http://", "https://"))):
+            full_url = self._prepare_full_url(endpoint, params_dict)
+            if self._max_url_length and len(full_url) > self._max_url_length:
+                override_headers = dict(headers or {})
+                override_headers.setdefault("X-HTTP-Method-Override", "GET")
+                self._logger.info(
+                    "http.request.method_override",
+                    endpoint=full_url,
+                    url_length=len(full_url),
+                    max_length=self._max_url_length,
+                    client=self.name,
+                )
+                return self.request(
+                    "POST",
+                    endpoint,
+                    data=params_dict,
+                    headers=override_headers,
+                )
+        return self.request("GET", endpoint, params=params_dict or None, headers=headers)
 
     def request(
         self,
@@ -308,6 +336,11 @@ class UnifiedAPIClient:
         if not self.base_url:
             return endpoint
         return urljoin(self.base_url + "/", endpoint.lstrip("/"))
+
+    def _prepare_full_url(self, endpoint: str, params: Mapping[str, Any]) -> str:
+        url = self._resolve_url(endpoint)
+        prepared = requests.Request("GET", url, params=params).prepare()
+        return prepared.url or url
 
     def _should_retry(self, status_code: int) -> bool:
         if status_code in self._retry_statuses:

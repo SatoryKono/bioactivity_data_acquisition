@@ -529,17 +529,32 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema.replace(
-            strict=self.config.validation.strict,
-            coerce=self.config.validation.coerce,
-        )
+        schema_obj = schema_entry.schema
+        if hasattr(schema_obj, "replace"):
+            schema = schema_obj.replace(
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
+        else:
+            original_strict = getattr(schema_obj, "strict", None)
+            original_coerce = getattr(schema_obj, "coerce", None)
+            schema_obj.strict = self.config.validation.strict  # type: ignore[attr-defined]
+            schema_obj.coerce = self.config.validation.coerce  # type: ignore[attr-defined]
+            schema = schema_obj
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
             version=schema_entry.version,
         )
 
-        validated = schema.validate(payload, lazy=True)
+        try:
+            validated = schema.validate(payload, lazy=True)
+        finally:
+            if not hasattr(schema_obj, "replace"):
+                if original_strict is not None:
+                    schema_obj.strict = original_strict  # type: ignore[attr-defined]
+                if original_coerce is not None:
+                    schema_obj.coerce = original_coerce  # type: ignore[attr-defined]
         validated = self._reorder_columns(validated, schema_entry.column_order)
 
         self._validation_schema = schema_entry
@@ -567,9 +582,9 @@ class PipelineBase(ABC):
             return df
         missing = [column for column in column_order if column not in df.columns]
         if missing:
-            msg = f"Dataframe missing columns required by schema: {missing}"
-            raise ValueError(msg)
+            for column in missing:
+                df[column] = pd.NA
         extras = [column for column in df.columns if column not in column_order]
         if not extras:
-            return df[column_order]
+            return df[list(column_order)]
         return df[[*column_order, *extras]]

@@ -152,6 +152,35 @@ class TestUnifiedAPIClient:
         assert response.status_code == 200
 
     @patch("bioetl.core.api_client.requests.Session")
+    def test_get_switches_to_post_when_url_too_long(self, mock_session_class):
+        """GET requests exceeding the max URL length should fallback to POST."""
+
+        config = HTTPClientConfig(max_url_length=50)
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+        params = {"ids": ",".join(str(i) for i in range(20))}
+
+        response = client.get("/endpoint", params=params)
+
+        assert response.status_code == 200
+        mock_session.request.assert_called_once()
+        method, _url = mock_session.request.call_args[0]
+        kwargs = mock_session.request.call_args[1]
+        assert method == "POST"
+        assert kwargs.get("data") == params
+        headers = kwargs.get("headers")
+        assert headers is not None
+        assert headers.get("X-HTTP-Method-Override") == "GET"
+        assert kwargs.get("params") in (None, {})
+
+    @patch("bioetl.core.api_client.requests.Session")
     def test_get_retry_on_429(self, mock_session_class):
         """Test retry on 429 status code."""
         config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
@@ -356,7 +385,10 @@ class TestUnifiedAPIClient:
 
     def test_compute_backoff(self):
         """Test backoff computation."""
-        config = HTTPClientConfig(retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0),
+            rate_limit_jitter=False,
+        )
         client = UnifiedAPIClient(config=config)
 
         from bioetl.core.api_client import _RetryState
