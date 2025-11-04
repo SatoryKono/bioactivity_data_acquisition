@@ -183,6 +183,8 @@ def activity(
             typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
             raise typer.Exit(code=0)
 
+        except typer.Exit:
+            raise
         except Exception as exc:
             # Check if it's an API/external error
             # Handle requests exceptions and network errors

@@ -209,6 +209,7 @@ class TestChemblActivityPipelineTransformations:
                 "pchembl_value": ["7.98", None, "8.28"],
                 "is_citation": [1, 0, "1"],
                 "high_citation_rate": [True, False, None],
+                "potential_duplicate": [1, 0, None],
             }
         )
 
@@ -220,6 +221,7 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["pchembl_value"].dtype.name == "float64"
         assert normalized["is_citation"].dtype.name == "bool"
         assert normalized["high_citation_rate"].dtype.name == "bool"
+        assert normalized["potential_duplicate"].dtype.name == "bool"
 
     def test_validate_foreign_keys(self, pipeline_config_fixture, run_id: str):
         """Test foreign key validation."""
@@ -288,21 +290,24 @@ class TestChemblActivityPipelineTransformations:
 
         assert result.empty
 
-    def test_transform_with_aliases(self, pipeline_config_fixture, run_id: str):
-        """Test that transform creates aliases for sorting."""
+    def test_transform_harmonizes_identifier_columns(self, pipeline_config_fixture, run_id: str):
+        """Test that transform harmonizes identifier columns and drops aliases."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
-                "assay_chembl_id": ["CHEMBL100", "CHEMBL101"],
+                "assay_id": ["CHEMBL100", "CHEMBL101"],
                 "molecule_chembl_id": ["CHEMBL1", "CHEMBL2"],
+                "testitem_id": ["CHEMBL1", "CHEMBL2"],
             }
         )
 
         transformed = pipeline.transform(df)
 
-        assert "assay_id" in transformed.columns
-        assert "testitem_id" in transformed.columns
-        assert transformed["assay_id"].equals(transformed["assay_chembl_id"])
-        assert transformed["testitem_id"].equals(transformed["molecule_chembl_id"])
+        assert "assay_chembl_id" in transformed.columns
+        assert "testitem_chembl_id" in transformed.columns
+        assert "assay_id" not in transformed.columns
+        assert "testitem_id" not in transformed.columns
+        assert transformed["assay_chembl_id"].tolist() == ["CHEMBL100", "CHEMBL101"]
+        assert transformed["testitem_chembl_id"].equals(transformed["molecule_chembl_id"])
 

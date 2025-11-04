@@ -529,10 +529,18 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema.replace(
-            strict=self.config.validation.strict,
-            coerce=self.config.validation.coerce,
-        )
+        schema = schema_entry.schema
+        if hasattr(schema, "replace"):
+            schema = schema.replace(
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
+        else:
+            schema = self._clone_schema_with_options(
+                schema,
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
@@ -562,6 +570,39 @@ class PipelineBase(ABC):
 
         return validated
 
+    @staticmethod
+    def _clone_schema_with_options(
+        schema: Any,
+        *,
+        strict: bool | None,
+        coerce: bool | None,
+    ) -> Any:
+        """Clone ``schema`` applying strict/coerce flags for DataFrameSchema compatibility."""
+
+        if schema.__class__.__name__ != "DataFrameSchema":
+            return schema
+
+        schema_cls = schema.__class__
+        return schema_cls(
+            schema.columns,
+            checks=schema.checks,
+            index=schema.index,
+            dtype=schema.dtype,
+            coerce=schema.coerce if coerce is None else coerce,
+            strict=schema.strict if strict is None else strict,
+            name=schema.name,
+            ordered=schema.ordered,
+            unique=schema.unique,
+            report_duplicates=schema.report_duplicates,
+            unique_column_names=schema.unique_column_names,
+            add_missing_columns=schema.add_missing_columns,
+            drop_invalid_rows=schema.drop_invalid_rows,
+            title=schema.title,
+            description=schema.description,
+            metadata=schema.metadata,
+            parsers=schema.parsers,
+        )
+
     def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
         if not column_order:
             return df
@@ -570,6 +611,7 @@ class PipelineBase(ABC):
             msg = f"Dataframe missing columns required by schema: {missing}"
             raise ValueError(msg)
         extras = [column for column in df.columns if column not in column_order]
+        ordered = list(column_order)
         if not extras:
-            return df[column_order]
-        return df[[*column_order, *extras]]
+            return df[ordered]
+        return df[[*ordered, *extras]]

@@ -7,9 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import typer
-from typer.testing import CliRunner
+from click.testing import CliRunner
+from typer.main import get_command
 
 from bioetl.cli.main import _parse_set_overrides, _validate_config_path, _validate_output_dir, app
+
+CLI_APP = get_command(app)
 
 
 @pytest.mark.unit
@@ -84,7 +87,7 @@ class TestCLICommands:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -97,9 +100,8 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            app,
+            CLI_APP,
             [
-                "activity",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -119,9 +121,8 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            app,
+            CLI_APP,
             [
-                "activity",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -130,7 +131,7 @@ http:
         )
 
         assert result.exit_code == 2
-        assert "not found" in result.stdout
+        assert "not found" in result.stderr
 
     def test_activity_command_with_limit(self, tmp_path: Path):
         """Test activity command with --limit option."""
@@ -141,7 +142,7 @@ http:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -158,7 +159,17 @@ sources:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class:
+        with (
+            patch("bioetl.cli.main.load_config") as mock_load_config,
+            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+        ):
+            from bioetl.config import load_config as real_load_config
+
+            real_config = real_load_config(
+                config_path=config_file,
+                include_default_profiles=False,
+            )
+            mock_load_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -167,9 +178,8 @@ sources:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                app,
+                CLI_APP,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -181,7 +191,8 @@ sources:
 
             # Check that limit was passed to config
             assert mock_pipeline_class.called
-            call_config = mock_pipeline_class.call_args[0][0]
+            call_kwargs = mock_pipeline_class.call_args.kwargs
+            call_config = call_kwargs["config"]
             assert call_config.cli.limit == 10
 
     def test_activity_command_with_set_overrides(self, tmp_path: Path):
@@ -193,7 +204,7 @@ sources:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -215,9 +226,8 @@ http:
             mock_load_config.return_value = mock_config
 
             result = runner.invoke(
-                app,
+                CLI_APP,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -246,7 +256,7 @@ http:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -258,7 +268,17 @@ http:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class:
+        with (
+            patch("bioetl.cli.main.load_config") as mock_load_config,
+            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+        ):
+            from bioetl.config import load_config as real_load_config
+
+            real_config = real_load_config(
+                config_path=config_file,
+                include_default_profiles=False,
+            )
+            mock_load_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -267,9 +287,8 @@ http:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                app,
+                CLI_APP,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",

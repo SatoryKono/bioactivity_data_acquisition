@@ -16,7 +16,7 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.schemas.activity import RELATIONS, STANDARD_TYPES
+from bioetl.schemas.activity import COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunArtifacts, WriteResult
 
@@ -121,6 +121,9 @@ class ChemblActivityPipeline(PipelineBase):
         else:
             df = payload.copy()
 
+        df = self._harmonize_identifier_columns(df, log)
+        df = self._ensure_schema_columns(df, log)
+
         if df.empty:
             log.debug("transform_empty_dataframe")  # type: ignore[misc]
             return df
@@ -134,12 +137,8 @@ class ChemblActivityPipeline(PipelineBase):
         df = self._normalize_data_types(df, log)
         df = self._validate_foreign_keys(df, log)
 
-        # Add aliases for deterministic sorting as per documentation
-        # assay_id -> assay_chembl_id, testitem_id -> molecule_chembl_id
-        if "assay_chembl_id" in df.columns and "assay_id" not in df.columns:
-            df["assay_id"] = df["assay_chembl_id"]
-        if "molecule_chembl_id" in df.columns and "testitem_id" not in df.columns:
-            df["testitem_id"] = df["molecule_chembl_id"]
+        df = self._finalize_identifier_columns(df, log)
+        df = self._finalize_output_columns(df, log)
 
         log.info("transform_completed", rows=len(df))  # type: ignore[misc]
         return df
@@ -326,6 +325,72 @@ class ChemblActivityPipeline(PipelineBase):
     # Transformation helpers
     # ------------------------------------------------------------------
 
+    def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Ensure canonical identifier columns are present before normalization."""
+
+        df = df.copy()
+        actions: list[str] = []
+
+        if "assay_chembl_id" not in df.columns and "assay_id" in df.columns:
+            df["assay_chembl_id"] = df["assay_id"]
+            actions.append("assay_id->assay_chembl_id")
+
+        if "testitem_chembl_id" not in df.columns:
+            if "testitem_id" in df.columns:
+                df["testitem_chembl_id"] = df["testitem_id"]
+                actions.append("testitem_id->testitem_chembl_id")
+            elif "molecule_chembl_id" in df.columns:
+                df["testitem_chembl_id"] = df["molecule_chembl_id"]
+                actions.append("molecule_chembl_id->testitem_chembl_id")
+
+        if "molecule_chembl_id" not in df.columns and "testitem_chembl_id" in df.columns:
+            df["molecule_chembl_id"] = df["testitem_chembl_id"]
+            actions.append("testitem_chembl_id->molecule_chembl_id")
+
+        required_columns = ["activity_id", "assay_chembl_id", "testitem_chembl_id", "molecule_chembl_id"]
+        missing_required = [column for column in required_columns if column not in df.columns]
+        if missing_required:
+            for column in missing_required:
+                df[column] = pd.Series([None] * len(df), dtype="object")
+            actions.append(f"created_missing:{','.join(missing_required)}")
+
+        alias_columns = [column for column in ("assay_id", "testitem_id") if column in df.columns]
+        if alias_columns:
+            df = df.drop(columns=alias_columns)
+            actions.append(f"dropped_aliases:{','.join(alias_columns)}")
+
+        if actions:
+            log.debug("identifier_harmonization", actions=actions)  # type: ignore[misc]
+
+        return df
+
+    def _ensure_schema_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Add missing schema columns so downstream normalization can operate safely."""
+
+        df = df.copy()
+        if df.empty:
+            return df
+
+        expected = list(COLUMN_ORDER)
+        boolean_columns = {
+            "is_citation",
+            "high_citation_rate",
+            "exact_data_citation",
+            "rounded_data_citation",
+            "potential_duplicate",
+        }
+
+        missing = [column for column in expected if column not in df.columns]
+        if missing:
+            for column in missing:
+                if column in boolean_columns:
+                    df[column] = pd.Series([pd.NA] * len(df), dtype="boolean")
+                else:
+                    df[column] = pd.Series([pd.NA] * len(df), dtype="object")
+            log.debug("schema_columns_added", columns=missing)  # type: ignore[misc]
+
+        return df
+
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL and BAO identifiers with regex validation."""
 
@@ -333,7 +398,13 @@ class ChemblActivityPipeline(PipelineBase):
         chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
         bao_id_pattern = re.compile(r"^BAO_\d{7}$")
 
-        chembl_fields = ["molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id"]
+        chembl_fields = [
+            "assay_chembl_id",
+            "testitem_chembl_id",
+            "molecule_chembl_id",
+            "target_chembl_id",
+            "document_chembl_id",
+        ]
         bao_fields = ["bao_endpoint", "bao_format"]
 
         normalized_count = 0
@@ -373,6 +444,63 @@ class ChemblActivityPipeline(PipelineBase):
             )
 
         return df
+
+    def _finalize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Align identifier columns after normalization and drop aliases."""
+
+        df = df.copy()
+
+        if {"molecule_chembl_id", "testitem_chembl_id"}.issubset(df.columns):
+            mismatch_mask = (
+                df["molecule_chembl_id"].notna()
+                & df["testitem_chembl_id"].notna()
+                & (df["molecule_chembl_id"] != df["testitem_chembl_id"])
+            )
+            if mismatch_mask.any():  # type: ignore[misc]
+                mismatch_count = int(mismatch_mask.sum())  # type: ignore[misc]
+                samples = (
+                    df.loc[mismatch_mask, ["molecule_chembl_id", "testitem_chembl_id"]]
+                    .drop_duplicates()
+                    .head(5)
+                    .to_dict("records")
+                )
+                log.warning(  # type: ignore[misc]
+                    "identifier_mismatch",
+                    count=mismatch_count,
+                    samples=samples,
+                )
+                df.loc[mismatch_mask, "testitem_chembl_id"] = df.loc[mismatch_mask, "molecule_chembl_id"]
+
+        required_columns = ["activity_id", "assay_chembl_id", "testitem_chembl_id", "molecule_chembl_id"]
+        missing_columns = [column for column in required_columns if column not in df.columns]
+        if missing_columns:
+            for column in missing_columns:
+                df[column] = pd.Series([None] * len(df), dtype="object")
+            log.warning("identifier_columns_missing", columns=missing_columns)  # type: ignore[misc]
+
+        return df
+
+    def _finalize_output_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Align final column order with schema and drop unexpected fields."""
+
+        df = df.copy()
+        expected = list(COLUMN_ORDER)
+
+        extras = [column for column in df.columns if column not in expected]
+        if extras:
+            df = df.drop(columns=extras)
+            log.debug("output_columns_dropped", columns=extras)  # type: ignore[misc]
+
+        missing = [column for column in expected if column not in df.columns]
+        if missing:
+            for column in missing:
+                df[column] = pd.Series([pd.NA] * len(df), dtype="object")
+            log.warning("output_columns_missing", columns=missing)  # type: ignore[misc]
+
+        if not expected:
+            return df
+
+        return df[expected]
 
     def _normalize_measurements(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize standard_value, standard_units, standard_relation, and standard_type."""
@@ -556,7 +684,13 @@ class ChemblActivityPipeline(PipelineBase):
             "pchembl_value": "float64",
         }
 
-        bool_fields = ["is_citation", "high_citation_rate", "exact_data_citation", "rounded_data_citation"]
+        bool_fields = [
+            "is_citation",
+            "high_citation_rate",
+            "exact_data_citation",
+            "rounded_data_citation",
+            "potential_duplicate",
+        ]
 
         for field, dtype in type_mappings.items():
             if field not in df.columns:
@@ -583,7 +717,13 @@ class ChemblActivityPipeline(PipelineBase):
         """Validate foreign key integrity and format of ChEMBL IDs."""
 
         chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
-        chembl_fields = ["molecule_chembl_id", "assay_chembl_id", "target_chembl_id", "document_chembl_id"]
+        chembl_fields = [
+            "assay_chembl_id",
+            "testitem_chembl_id",
+            "molecule_chembl_id",
+            "target_chembl_id",
+            "document_chembl_id",
+        ]
 
         warnings = []
 
@@ -629,7 +769,13 @@ class ChemblActivityPipeline(PipelineBase):
     def _check_foreign_key_integrity(self, df: pd.DataFrame, log: Any) -> None:
         """Check foreign key integrity for ChEMBL IDs (format validation for non-null values)."""
 
-        reference_fields = ["assay_chembl_id", "molecule_chembl_id", "target_chembl_id", "document_chembl_id"]
+        reference_fields = [
+            "assay_chembl_id",
+            "testitem_chembl_id",
+            "molecule_chembl_id",
+            "target_chembl_id",
+            "document_chembl_id",
+        ]
         chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
         errors: list[str] = []
 
@@ -882,8 +1028,8 @@ class ChemblActivityPipeline(PipelineBase):
         UnifiedLogger.bind(actor=self.actor)
 
         # Ensure sort configuration is set for activity pipeline
-        # Use original column names from schema: assay_chembl_id, molecule_chembl_id, activity_id
-        sort_keys = ["assay_chembl_id", "molecule_chembl_id", "activity_id"]
+        # Use canonical identifier columns from schema: assay_chembl_id, testitem_chembl_id, activity_id
+        sort_keys = ["assay_chembl_id", "testitem_chembl_id", "activity_id"]
 
         # Check if all sort keys exist in the DataFrame
         # If DataFrame is empty or missing columns, fall back to original sort config

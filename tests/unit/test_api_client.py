@@ -356,7 +356,10 @@ class TestUnifiedAPIClient:
 
     def test_compute_backoff(self):
         """Test backoff computation."""
-        config = HTTPClientConfig(retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0),
+            rate_limit_jitter=False,
+        )
         client = UnifiedAPIClient(config=config)
 
         from bioetl.core.api_client import _RetryState
