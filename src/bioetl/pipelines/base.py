@@ -8,12 +8,22 @@ rules with executable references.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 import time
 from pathlib import Path
 
+import pandas as pd
+
 from bioetl.configs.models import PipelineConfig
+from bioetl.core.logger import UnifiedLogger
+from bioetl.core.output import (
+    DeterministicWriteArtifacts,
+    build_write_artifacts,
+    emit_qc_artifact,
+    write_dataset_atomic,
+    write_yaml_atomic,
+)
 
 
 @dataclass(frozen=True)
@@ -80,6 +90,9 @@ class PipelineBase(ABC):
         self.retention_runs = 5
         self.pipeline_directory = self._ensure_pipeline_directory()
         self.logs_directory = self._ensure_logs_directory()
+        self._stage_durations_ms: dict[str, float] = {}
+        self._registered_clients: dict[str, Callable[[], None]] = {}
+        self._trace_id, self._root_span_id = self._derive_trace_and_span()
 
     def _ensure_pipeline_directory(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
@@ -94,6 +107,14 @@ class PipelineBase(ABC):
         directory = self.logs_root / self.pipeline_code
         directory.mkdir(parents=True, exist_ok=True)
         return directory
+
+    def _derive_trace_and_span(self) -> tuple[str, str]:
+        seed = "".join(character for character in self.run_id if character.isalnum()) or "0"
+        repeat_count = (32 // len(seed)) + 2
+        expanded = (seed * repeat_count)
+        trace_id = expanded[:32].ljust(32, "0")
+        span_id = expanded[32:48].ljust(16, "0")
+        return trace_id, span_id
 
     def build_run_stem(self, run_tag: str, mode: str | None = None) -> str:
         """Return the filename stem for artifacts in a run.
@@ -198,15 +219,162 @@ class PipelineBase(ABC):
     def transform(self, payload: object) -> object:
         """Subclasses transform raw payloads into normalized tabular data."""
 
+    # ------------------------------------------------------------------
+    # Optional hooks overridable by subclasses
+    # ------------------------------------------------------------------
+
+    def build_quality_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+        """Return a QC dataframe for the quality report artefact."""
+
+        return None
+
+    def build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+        """Return a correlation report artefact payload."""
+
+        return None
+
+    def build_qc_metrics(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+        """Return aggregated QC metrics for persistence."""
+
+        return None
+
+    def augment_metadata(
+        self,
+        metadata: Mapping[str, object],
+        df: pd.DataFrame,
+    ) -> Mapping[str, object]:
+        """Hook allowing subclasses to enrich ``meta.yaml`` content."""
+
+        return metadata
+
+    def close_resources(self) -> None:
+        """Release additional resources during cleanup."""
+
+        return None
+
+    def register_client(
+        self,
+        name: str,
+        client: Callable[[], None] | object,
+        *,
+        close_method: str = "close",
+    ) -> None:
+        """Register a client for automatic cleanup during ``run()`` finalisation."""
+
+        if name in self._registered_clients:
+            msg = f"Client '{name}' is already registered"
+            raise ValueError(msg)
+
+        closer: Callable[[], None]
+        if callable(client):
+            closer = client  # type: ignore[assignment]
+        else:
+            candidate = getattr(client, close_method, None)
+            if candidate is None or not callable(candidate):
+                msg = (
+                    f"Client '{name}' does not expose callable '{close_method}' and is not itself callable"
+                )
+                raise TypeError(msg)
+            closer = candidate
+
+        self._registered_clients[name] = closer
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _component_for_stage(self, stage: str) -> str:
+        return f"{self.pipeline_code}.{stage}"
+
+    def _safe_len(self, payload: object) -> int | None:
+        if isinstance(payload, pd.DataFrame):
+            return int(payload.shape[0])
+        if hasattr(payload, "__len__"):
+            try:
+                return int(len(payload))  # type: ignore[arg-type]
+            except TypeError:
+                return None
+        return None
+
+    def _cleanup_registered_clients(self) -> None:
+        if not self._registered_clients:
+            return
+        log = UnifiedLogger.get(__name__)
+        for name, closer in list(self._registered_clients.items())[::-1]:
+            try:
+                closer()
+            except Exception as exc:  # pragma: no cover - defensive cleanup path
+                log.warning("client_cleanup_failed", client=name, error=str(exc))
+            finally:
+                self._registered_clients.pop(name, None)
+
     def write(self, payload: object, artifacts: RunArtifacts) -> WriteResult:
-        """Default implementation building a :class:`WriteResult`."""
+        """Default deterministic write implementation used by pipelines."""
+
+        if not isinstance(payload, pd.DataFrame):
+            msg = "PipelineBase.write expects a pandas DataFrame payload"
+            raise TypeError(msg)
+
+        log = UnifiedLogger.get(__name__)
+        prepared: DeterministicWriteArtifacts = build_write_artifacts(
+            payload,
+            config=self.config,
+            run_id=self.run_id,
+            pipeline_code=self.pipeline_code,
+            dataset_path=artifacts.write.dataset,
+            stage_durations_ms=self._stage_durations_ms,
+        )
+
+        metadata_payload = self.augment_metadata(prepared.metadata, prepared.dataframe)
+        if not isinstance(metadata_payload, Mapping):
+            msg = "augment_metadata must return a mapping"
+            raise TypeError(msg)
+        metadata = dict(metadata_payload)
+
+        log.debug(
+            "write_artifacts_prepared",
+            rows=len(prepared.dataframe),
+            dataset=str(artifacts.write.dataset),
+        )
+
+        write_dataset_atomic(prepared.dataframe, artifacts.write.dataset, config=self.config)
+        log.debug("dataset_written", path=str(artifacts.write.dataset))
+        write_yaml_atomic(metadata, artifacts.write.metadata)
+        log.debug("metadata_written", path=str(artifacts.write.metadata))
+
+        quality_payload = self.build_quality_report(prepared.dataframe)
+        quality_path = emit_qc_artifact(
+            quality_payload,
+            artifacts.write.quality_report,
+            config=self.config,
+            log=log,
+            artifact_name="quality_report",
+        )
+
+        correlation_payload = self.build_correlation_report(prepared.dataframe)
+        correlation_path = emit_qc_artifact(
+            correlation_payload,
+            artifacts.write.correlation_report,
+            config=self.config,
+            log=log,
+            artifact_name="correlation_report",
+        )
+
+        metrics_payload = self.build_qc_metrics(prepared.dataframe)
+        metrics_path = emit_qc_artifact(
+            metrics_payload,
+            artifacts.write.qc_metrics,
+            config=self.config,
+            log=log,
+            artifact_name="qc_metrics",
+        )
 
         return WriteResult(
             dataset=artifacts.write.dataset,
             metadata=artifacts.write.metadata,
-            quality_report=artifacts.write.quality_report,
-            correlation_report=artifacts.write.correlation_report,
-            qc_metrics=artifacts.write.qc_metrics,
+            quality_report=quality_path,
+            correlation_report=correlation_path,
+            qc_metrics=metrics_path,
             extras=dict(artifacts.extras),
         )
 
@@ -221,36 +389,92 @@ class PipelineBase(ABC):
     ) -> RunResult:
         """Execute the pipeline lifecycle and return collected artifacts."""
 
-        stage_durations_ms: dict[str, float] = {}
-
-        extract_start = time.perf_counter()
-        extracted = self.extract(*args, **kwargs)
-        stage_durations_ms["extract"] = (time.perf_counter() - extract_start) * 1000.0
-
-        transform_start = time.perf_counter()
-        transformed = self.transform(extracted)
-        stage_durations_ms["transform"] = (time.perf_counter() - transform_start) * 1000.0
-
-        artifacts = self.plan_run_artifacts(
-            run_tag=self.run_id,
-            mode=mode,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
-            extras=extras,
-        )
-
-        write_start = time.perf_counter()
-        write_result = self.write(transformed, artifacts)
-        stage_durations_ms["write"] = (time.perf_counter() - write_start) * 1000.0
-
-        self.apply_retention_policy()
-
-        return RunResult(
+        log = UnifiedLogger.get(__name__)
+        UnifiedLogger.bind(
             run_id=self.run_id,
-            write_result=write_result,
-            run_directory=artifacts.run_directory,
-            manifest=artifacts.manifest,
-            log_file=artifacts.log_file,
-            stage_durations_ms=stage_durations_ms,
+            pipeline=self.pipeline_code,
+            dataset=self.pipeline_code,
+            component=f"{self.pipeline_code}.pipeline",
+            trace_id=self._trace_id,
+            span_id=self._root_span_id,
         )
+
+        stage_durations_ms: dict[str, float] = {}
+        self._stage_durations_ms = stage_durations_ms
+
+        artifacts: RunArtifacts | None = None
+
+        UnifiedLogger.bind(stage="bootstrap")
+        log.info("pipeline_started", mode=mode)
+
+        try:
+            with UnifiedLogger.stage("extract", component=self._component_for_stage("extract")):
+                log.info("extract_started")
+                extract_start = time.perf_counter()
+                extracted = self.extract(*args, **kwargs)
+                duration = (time.perf_counter() - extract_start) * 1000.0
+                stage_durations_ms["extract"] = duration
+                rows = self._safe_len(extracted)
+                log.info("extract_completed", duration_ms=duration, rows=rows)
+
+            with UnifiedLogger.stage("transform", component=self._component_for_stage("transform")):
+                log.info("transform_started")
+                transform_start = time.perf_counter()
+                transformed = self.transform(extracted)
+                duration = (time.perf_counter() - transform_start) * 1000.0
+                stage_durations_ms["transform"] = duration
+                rows = self._safe_len(transformed)
+                log.info("transform_completed", duration_ms=duration, rows=rows)
+
+            with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
+                artifacts = self.plan_run_artifacts(
+                    run_tag=self.run_id,
+                    mode=mode,
+                    include_correlation=include_correlation,
+                    include_qc_metrics=include_qc_metrics,
+                    extras=extras,
+                )
+                log.info(
+                    "write_started",
+                    dataset=str(artifacts.write.dataset),
+                    metadata=str(artifacts.write.metadata),
+                )
+                write_start = time.perf_counter()
+                write_result = self.write(transformed, artifacts)
+                duration = (time.perf_counter() - write_start) * 1000.0
+                stage_durations_ms["write"] = duration
+                log.info(
+                    "write_completed",
+                    duration_ms=duration,
+                    dataset=str(write_result.dataset),
+                )
+
+            self.apply_retention_policy()
+            log.info("pipeline_completed", stage_durations_ms=stage_durations_ms)
+
+            if artifacts is None:
+                raise RuntimeError("Artifacts must be initialised during the write stage")
+
+            return RunResult(
+                run_id=self.run_id,
+                write_result=write_result,
+                run_directory=artifacts.run_directory,
+                manifest=artifacts.manifest,
+                log_file=artifacts.log_file,
+                stage_durations_ms=stage_durations_ms,
+            )
+
+        except Exception as exc:
+            log.error("pipeline_failed", error=str(exc), exc_info=True)
+            raise
+
+        finally:
+            with UnifiedLogger.stage("cleanup", component=self._component_for_stage("cleanup")):
+                log.info("cleanup_started")
+                self._cleanup_registered_clients()
+                try:
+                    self.close_resources()
+                except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
+                    log.warning("cleanup_failed", error=str(cleanup_error))
+                log.info("cleanup_completed")
 

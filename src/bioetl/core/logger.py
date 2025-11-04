@@ -16,7 +16,12 @@ from functools import partial
 from typing import Any
 
 import structlog
-from structlog.contextvars import bind_contextvars, clear_contextvars
+from structlog.contextvars import (
+    bind_contextvars,
+    clear_contextvars,
+    get_contextvars,
+    unbind_contextvars,
+)
 
 __all__ = [
     "LogFormat",
@@ -27,6 +32,8 @@ __all__ = [
     "bind_global_context",
     "reset_global_context",
     "get_logger",
+    "LoggerConfig",
+    "UnifiedLogger",
 ]
 
 
@@ -140,11 +147,17 @@ def _renderer_for(format: LogFormat) -> Any:
     return structlog.processors.JSONRenderer(sort_keys=True, ensure_ascii=False)
 
 
-def configure_logging(config: LogConfig | None = None) -> None:
+def configure_logging(
+    config: LogConfig | None = None,
+    *,
+    additional_processors: Sequence[Any] | None = None,
+) -> None:
     """Initialise logging based on the supplied configuration."""
 
     cfg = config or LogConfig()
     shared_processors = _shared_processors(cfg)
+    if additional_processors:
+        shared_processors = [*shared_processors, *additional_processors]
     renderer = _renderer_for(cfg.format)
 
     formatter = structlog.stdlib.ProcessorFormatter(
@@ -189,3 +202,81 @@ def get_logger(name: str = "bioetl") -> structlog.stdlib.BoundLogger:
     """Return a configured bound logger."""
 
     return structlog.get_logger(name)
+
+
+# ---------------------------------------------------------------------------
+# Unified logger facade
+# ---------------------------------------------------------------------------
+
+# ``LoggerConfig`` maintains backwards compatibility with the documentation
+# that refers to this alias while the implementation historically exposed
+# ``LogConfig``.  Both names intentionally point to the exact same dataclass so
+# that call sites can use either identifier without behavioural differences.
+LoggerConfig = LogConfig
+
+
+def _restore_previous_context(previous: dict[str, Any]) -> None:
+    """Re-bind context values that existed before a scoped override."""
+
+    if not previous:
+        return
+    bind_contextvars(**previous)
+
+
+class UnifiedLogger:
+    """Facade that exposes a minimal, documented logging API."""
+
+    _default_logger_name = "bioetl"
+
+    @staticmethod
+    def configure(
+        config: LoggerConfig | None = None,
+        *,
+        additional_processors: Sequence[Any] | None = None,
+    ) -> None:
+        """Configure the underlying structured logger."""
+
+        configure_logging(config, additional_processors=additional_processors)
+
+    @staticmethod
+    def get(name: str | None = None) -> structlog.stdlib.BoundLogger:
+        """Return a configured bound logger."""
+
+        return get_logger(name or UnifiedLogger._default_logger_name)
+
+    @staticmethod
+    def bind(**context: Any) -> None:
+        """Bind context that should be included with all subsequent log events."""
+
+        bind_global_context(**context)
+
+    @staticmethod
+    def reset() -> None:
+        """Reset all bound context variables."""
+
+        reset_global_context()
+
+    @staticmethod
+    def scoped(**context: Any) -> "ContextManager[None]":
+        """Return a context manager that temporarily overrides bound context."""
+
+        from contextlib import contextmanager
+
+        @contextmanager
+        def _scope() -> Iterable[None]:
+            existing = get_contextvars()
+            previous = {key: existing[key] for key in context if key in existing}
+            bind_contextvars(**context)
+            try:
+                yield
+            finally:
+                unbind_contextvars(*context.keys())
+                _restore_previous_context(previous)
+
+        return _scope()
+
+    @staticmethod
+    def stage(stage: str, **context: Any) -> "ContextManager[None]":
+        """Shortcut for temporarily binding the ``stage`` context field."""
+
+        return UnifiedLogger.scoped(stage=stage, **context)
