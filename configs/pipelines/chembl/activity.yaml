@@ -1,0 +1,76 @@
+# Activity ChEMBL Pipeline Configuration
+#
+# This configuration defines the pipeline for extracting biological activity
+# records from the ChEMBL API and normalizing them to the project schema.
+
+# Inherit from base and determinism profiles
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
+
+# Pipeline metadata
+pipeline:
+  name: activity
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract biological activity records from ChEMBL API"
+
+# ChEMBL source configuration
+sources:
+  chembl:
+    enabled: true
+    description: "ChEMBL REST API"
+    batch_size: 25
+    parameters:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      max_url_length: 2000
+
+# Determinism configuration for activity pipeline
+determinism:
+  sort:
+    by:
+      - assay_chembl_id
+      - molecule_chembl_id
+      - activity_id
+    ascending:
+      - true
+      - true
+      - true
+    na_position: "last"
+  column_order:
+    - activity_id
+    - molecule_chembl_id
+    - assay_chembl_id
+    - target_chembl_id
+    - document_chembl_id
+    - standard_type
+    - standard_relation
+    - standard_value
+    - standard_units
+    - pchembl_value
+    - bao_endpoint
+    - bao_format
+    - bao_label
+    - canonical_smiles
+    - ligand_efficiency
+    - target_organism
+    - target_tax_id
+    - data_validity_comment
+    - activity_properties
+    - compound_key
+
+  hashing:
+    algorithm: "sha256"
+    row_fields: []
+    business_key_fields:
+      - activity_id
+    exclude_fields:
+      - generated_at
+      - run_id
+
+# Validation schema
+validation:
+  schema_out: "bioetl.schemas.activity.ActivitySchema"
+  strict: true
+  coerce: true
+

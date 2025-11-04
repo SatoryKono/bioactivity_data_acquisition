@@ -1,0 +1,409 @@
+"""Unit tests for UnifiedAPIClient with HTTP mocking."""
+
+from __future__ import annotations
+
+import time
+from unittest.mock import MagicMock, patch
+
+import pytest
+import requests
+from requests import Response
+from requests.exceptions import ConnectionError, Timeout
+
+from bioetl.configs.models import HTTPClientConfig, RetryConfig, RateLimitConfig
+from bioetl.core.api_client import UnifiedAPIClient, TokenBucketLimiter
+
+
+@pytest.mark.unit
+class TestTokenBucketLimiter:
+    """Test suite for TokenBucketLimiter."""
+
+    def test_init(self):
+        """Test TokenBucketLimiter initialization."""
+        limiter = TokenBucketLimiter(max_calls=10, period=1.0)
+
+        assert limiter.max_calls == 10
+        assert limiter.period == 1.0
+        assert limiter.jitter is True
+
+    def test_init_invalid_max_calls(self):
+        """Test that invalid max_calls raises error."""
+        with pytest.raises(ValueError, match="max_calls must be > 0"):
+            TokenBucketLimiter(max_calls=0, period=1.0)
+
+    def test_init_invalid_period(self):
+        """Test that invalid period raises error."""
+        with pytest.raises(ValueError, match="period must be > 0"):
+            TokenBucketLimiter(max_calls=10, period=0.0)
+
+    def test_acquire_no_wait(self):
+        """Test token acquisition when no wait is needed."""
+        limiter = TokenBucketLimiter(max_calls=10, period=1.0)
+
+        waited = limiter.acquire()
+
+        assert waited == 0.0
+
+    def test_acquire_with_rate_limit(self):
+        """Test token acquisition with rate limiting."""
+        limiter = TokenBucketLimiter(max_calls=2, period=1.0, jitter=False)
+
+        # Acquire first two tokens immediately
+        assert limiter.acquire() == 0.0
+        assert limiter.acquire() == 0.0
+
+        # Third call should wait
+        start = time.time()
+        waited = limiter.acquire()
+        duration = time.time() - start
+
+        assert waited > 0.0
+        assert duration >= 0.5  # Should wait at least half the period
+
+
+@pytest.mark.unit
+class TestUnifiedAPIClient:
+    """Test suite for UnifiedAPIClient."""
+
+    def test_init(self):
+        """Test UnifiedAPIClient initialization."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config)
+
+        assert client.config == config
+        assert client.name == "default"
+        assert client.base_url == ""
+
+    def test_init_with_base_url(self):
+        """Test initialization with base URL."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+
+        assert client.base_url == "https://api.example.com"
+
+    def test_init_with_name(self):
+        """Test initialization with custom name."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config, name="custom_client")
+
+        assert client.name == "custom_client"
+
+    def test_close(self):
+        """Test client close."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config)
+
+        # Should not raise
+        client.close()
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_success(self, mock_session_class):
+        """Test successful GET request."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+        response = client.get("/endpoint")
+
+        assert response.status_code == 200
+        assert response.json() == {"data": "test"}
+        mock_session.request.assert_called_once()
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_with_params(self, mock_session_class):
+        """Test GET request with parameters."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        response = client.get("/endpoint", params={"key": "value"})
+
+        assert response.status_code == 200
+        call_kwargs = mock_session.request.call_args[1]
+        assert call_kwargs["params"] == {"key": "value"}
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_with_headers(self, mock_session_class):
+        """Test GET request with custom headers."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        response = client.get("/endpoint", headers={"X-Custom": "value"})
+
+        assert response.status_code == 200
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_retry_on_429(self, mock_session_class):
+        """Test retry on 429 status code."""
+        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        mock_session = MagicMock()
+        mock_response_429 = MagicMock(spec=Response)
+        mock_response_429.status_code = 429
+        mock_response_429.headers = {"Retry-After": "1"}
+        mock_response_200 = MagicMock(spec=Response)
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {"data": "test"}
+        mock_response_200.headers = {}
+        mock_session.request.side_effect = [mock_response_429, mock_response_200]
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        response = client.get("/endpoint")
+
+        assert response.status_code == 200
+        assert mock_session.request.call_count == 2
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_retry_on_500(self, mock_session_class):
+        """Test retry on 500 status code."""
+        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        mock_session = MagicMock()
+        mock_response_500 = MagicMock(spec=Response)
+        mock_response_500.status_code = 500
+        mock_response_500.headers = {}
+        mock_response_200 = MagicMock(spec=Response)
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {"data": "test"}
+        mock_response_200.headers = {}
+        mock_session.request.side_effect = [mock_response_500, mock_response_200]
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        response = client.get("/endpoint")
+
+        assert response.status_code == 200
+        assert mock_session.request.call_count == 2
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_retry_exhausted(self, mock_session_class):
+        """Test retry exhaustion."""
+        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        mock_session = MagicMock()
+        mock_response_500 = MagicMock(spec=Response)
+        mock_response_500.status_code = 500
+        mock_response_500.headers = {}
+        mock_response_500.raise_for_status = MagicMock()
+        mock_session.request.return_value = mock_response_500
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        with pytest.raises(Timeout):
+            client.get("/endpoint")
+
+        assert mock_session.request.call_count == 3  # Initial + 2 retries
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_connection_error_with_retry(self, mock_session_class):
+        """Test retry on connection error."""
+        config = HTTPClientConfig(retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0))
+        mock_session = MagicMock()
+        mock_session.request.side_effect = [ConnectionError("Connection failed"), MagicMock(spec=Response)]
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.side_effect = [ConnectionError("Connection failed"), mock_response]
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        response = client.get("/endpoint")
+
+        assert response.status_code == 200
+        assert mock_session.request.call_count == 2
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_timeout_error(self, mock_session_class):
+        """Test timeout error handling."""
+        config = HTTPClientConfig(retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0))
+        mock_session = MagicMock()
+        mock_session.request.side_effect = Timeout("Request timeout")
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        with pytest.raises(Timeout, match="Request timeout"):
+            client.get("/endpoint")
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_get_400_error(self, mock_session_class):
+        """Test that 400 errors are not retried."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 400
+        mock_response.headers = {}
+        mock_response.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("400 Client Error"))
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        with pytest.raises(requests.exceptions.HTTPError):
+            client.get("/endpoint")
+
+        assert mock_session.request.call_count == 1  # No retry for 400
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_request_json(self, mock_session_class):
+        """Test request_json method."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+        result = client.request_json("GET", "/endpoint")
+
+        assert result == {"data": "test"}
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_request_with_absolute_url(self, mock_session_class):
+        """Test request with absolute URL."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+        response = client.get("https://other.example.com/endpoint")
+
+        assert response.status_code == 200
+        # Should use absolute URL as-is
+        call_args = mock_session.request.call_args
+        assert "https://other.example.com/endpoint" in str(call_args)
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_request_with_relative_url(self, mock_session_class):
+        """Test request with relative URL."""
+        config = HTTPClientConfig()
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+        response = client.get("/endpoint")
+
+        assert response.status_code == 200
+        call_args = mock_session.request.call_args
+        assert "https://api.example.com/endpoint" in str(call_args)
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_rate_limiting(self, mock_session_class):
+        """Test rate limiting."""
+        config = HTTPClientConfig(rate_limit=RateLimitConfig(max_calls=2, period=1.0))
+        mock_session = MagicMock()
+        mock_response = MagicMock(spec=Response)
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"data": "test"}
+        mock_response.headers = {}
+        mock_session.request.return_value = mock_response
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        # Make multiple requests
+        start = time.time()
+        for _ in range(3):
+            client.get("/endpoint")
+        duration = time.time() - start
+
+        # Should have waited for rate limit
+        assert duration >= 0.3  # At least some wait time
+        assert mock_session.request.call_count == 3
+
+    def test_should_retry(self):
+        """Test retry decision logic."""
+        config = HTTPClientConfig(retries=RetryConfig(statuses=(429, 500)))
+        client = UnifiedAPIClient(config=config)
+
+        assert client._should_retry(429) is True
+        assert client._should_retry(500) is True
+        assert client._should_retry(502) is True  # 5xx range
+        assert client._should_retry(400) is False
+        assert client._should_retry(200) is False
+
+    def test_compute_backoff(self):
+        """Test backoff computation."""
+        config = HTTPClientConfig(retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0))
+        client = UnifiedAPIClient(config=config)
+
+        from bioetl.core.api_client import _RetryState
+
+        # First attempt (index 0)
+        backoff = client._compute_backoff(_RetryState(attempt=1, response=None))
+        assert backoff == 1.0  # 2^0 = 1
+
+        # Second attempt (index 1)
+        backoff = client._compute_backoff(_RetryState(attempt=2, response=None))
+        assert backoff == 2.0  # 2^1 = 2
+
+        # Third attempt (index 2)
+        backoff = client._compute_backoff(_RetryState(attempt=3, response=None))
+        assert backoff == 4.0  # 2^2 = 4
+
+    def test_compute_backoff_with_retry_after(self):
+        """Test backoff with Retry-After header."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config)
+
+        from bioetl.core.api_client import _RetryState
+
+        backoff = client._compute_backoff(_RetryState(attempt=2, response=None, retry_after=5.0))
+        assert backoff == 5.0  # Should use Retry-After value
+
+    def test_resolve_url_absolute(self):
+        """Test URL resolution with absolute URL."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+
+        url = client._resolve_url("https://other.example.com/endpoint")
+        assert url == "https://other.example.com/endpoint"
+
+    def test_resolve_url_relative(self):
+        """Test URL resolution with relative URL."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config, base_url="https://api.example.com")
+
+        url = client._resolve_url("/endpoint")
+        assert url == "https://api.example.com/endpoint"
+
+    def test_resolve_url_no_base(self):
+        """Test URL resolution without base URL."""
+        config = HTTPClientConfig()
+        client = UnifiedAPIClient(config=config)
+
+        url = client._resolve_url("/endpoint")
+        assert url == "/endpoint"
+

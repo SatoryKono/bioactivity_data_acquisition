@@ -34,8 +34,8 @@ COLUMN_ORDER = (
     "rounded_data_citation",
 )
 
-_STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
-_RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
+STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
+RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
 
 ActivitySchema = DataFrameSchema(
     {
@@ -44,8 +44,8 @@ ActivitySchema = DataFrameSchema(
         "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
         "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
         "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "standard_type": Column(pa.String, Check.isin(_STANDARD_TYPES), nullable=True),
-        "standard_relation": Column(pa.String, Check.isin(_RELATIONS), nullable=True),
+        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
+        "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
         "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),
         "standard_units": Column(pa.String, nullable=True),
         "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),
@@ -69,4 +69,4 @@ ActivitySchema = DataFrameSchema(
     name=f"ActivitySchema_v{SCHEMA_VERSION}",
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "ActivitySchema"]
+__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "STANDARD_TYPES", "RELATIONS", "ActivitySchema"]

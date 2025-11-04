@@ -317,6 +317,14 @@ class CLIConfig(BaseModel):
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
     )
+    extended: bool = Field(
+        default=False,
+        description="If true, enable extended QC artifacts and metrics.",
+    )
+    golden: str | None = Field(
+        default=None,
+        description="Path to golden dataset for bitwise determinism comparison.",
+    )
     set_overrides: Mapping[str, Any] = Field(
         default_factory=dict,
         description="Key/value overrides provided via --set CLI arguments.",

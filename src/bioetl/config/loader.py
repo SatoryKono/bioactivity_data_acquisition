@@ -55,7 +55,19 @@ def load_config(
         ``determinism`` profiles.
     """
 
-    path = Path(config_path).expanduser().resolve()
+    # Resolve relative paths relative to current working directory first
+    candidate = Path(config_path).expanduser()
+    if candidate.is_absolute():
+        path = candidate.resolve()
+    else:
+        # Try current working directory first for relative paths
+        cwd_path = (Path.cwd() / candidate).resolve()
+        if cwd_path.exists():
+            path = cwd_path
+        else:
+            # Fall back to resolving relative to candidate's parent
+            path = candidate.resolve()
+
     if not path.exists():
         msg = f"Configuration file not found: {path}"
         raise FileNotFoundError(msg)
