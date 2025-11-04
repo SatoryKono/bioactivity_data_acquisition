@@ -173,10 +173,10 @@ class ChemblActivityPipeline(PipelineBase):
                 schema=self.config.validation.schema_out,
                 strict=self.config.validation.strict,
                 coerce=self.config.validation.coerce,
-            )
-            return validated
-        except pandera.errors.SchemaErrors as exc:
-                        # Extract detailed error information
+                          )
+              return validated
+          except pandera.errors.SchemaErrors as exc:
+            # Extract detailed error information
             error_count = len(exc.failure_cases) if hasattr(exc, "failure_cases") else 0  # type: ignore[misc]
             error_summary = self._extract_validation_errors(exc)
 
@@ -203,7 +203,7 @@ class ChemblActivityPipeline(PipelineBase):
             )
             raise ValueError(msg) from exc
         except Exception as exc:
-            log.error(
+            log.error(  # type: ignore[misc]
                 "validation_error",
                 error=str(exc),
                 schema=self.config.validation.schema_out,
@@ -400,11 +400,11 @@ class ChemblActivityPipeline(PipelineBase):
 
                 # Check for negative values (should be >= 0)
                 negative_mask = mask & (df["standard_value"] < 0)
-                if negative_mask.any():
+                if negative_mask.any():  # type: ignore[misc]
                     log.warning("negative_standard_value", count=int(negative_mask.sum()))  # type: ignore[misc]
                     df.loc[negative_mask, "standard_value"] = None
 
-                normalized_count += int(mask.sum())
+                normalized_count += int(mask.sum())  # type: ignore[misc]
 
         if "standard_relation" in df.columns:
             unicode_to_ascii = {
