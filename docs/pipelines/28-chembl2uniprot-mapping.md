@@ -618,7 +618,7 @@ ChEMBL2UniProt Mapping pipeline обеспечивает детерминиро�
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-policy.md).
+For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 

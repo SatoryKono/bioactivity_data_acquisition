@@ -120,12 +120,12 @@ Golden-тесты зелёные на CI.
 
 Изменение порядка колонок, локали, таймзоны или сериализации приводит к предсказуемому фейлу тестов.
 
-Документ размещён в docs/determinism/01-determinism-policy.md и связан из docs/INDEX.md.
+Документ размещён в docs/determinism/00-determinism-policy.md и связан из docs/INDEX.md.
 
 Формат результата
 
 Выдай два файла в одном ответе:
 
-docs/determinism/01-determinism-policy.md — полная спецификация по пунктам выше с таблицами, псевдокодом и примером meta.yaml.
+docs/determinism/00-determinism-policy.md — полная спецификация по пунктам выше с таблицами, псевдокодом и примером meta.yaml.
 
 configs/profiles/determinism.yaml — минимально работоспособный профиль с комментариями.

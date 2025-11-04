@@ -207,7 +207,7 @@ class DocumentInputSchema(pa.DataFrameModel):
 
 **Параметры:**
 
-- `chunk_size` по умолчанию: 10
+- `batch_size` по умолчанию: 10
 
 - **Максимальный размер батча: 25 ID** (жёсткое ограничение)
 
@@ -2053,7 +2053,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 | Секция | Ключ | Значение | Ограничение | Комментарий |
 |--------|------|----------|-------------|-------------|
 | Pipeline | `pipeline.name` | `document_chembl` | — | Используется в логах и `run_config.yaml`. |
-| Sources / ChEMBL | `sources.chembl.chunk_size` | `10` | `≤ 25` | Гарантирует лимит URL (~1800 символов). Максимальный размер батча: 25 ID (жёсткое ограничение). |
+| Sources / ChEMBL | `sources.chembl.batch_size` | `10` | `≤ 25` | Гарантирует лимит URL (~1800 символов). Максимальный размер батча: 25 ID (жёсткое ограничение). |
 | Sources / ChEMBL | `sources.chembl.max_url_length` | `2000` | `≤ 2000` | Используется для предиктивного троттлинга запросов. |
 | Sources / ChEMBL | `sources.chembl.base_url` | `https://www.ebi.ac.uk/chembl/api/data` | — | Base URL для ChEMBL API. |
 | Sources / ChEMBL | `sources.chembl.rate_limit.max_calls` | `10` | — | Максимальное количество запросов в секунду. |
@@ -2070,7 +2070,7 @@ def check_qc_thresholds(metrics: dict[str, float], cfg: Config) -> list[str]:
 ### 13.2 Переопределения CLI/ENV
 
 - CLI примеры:
-  - `--set sources.chembl.chunk_size=20` — изменение размера батча (не более 25).
+  - `--set sources.chembl.batch_size=20` — изменение размера батча (не более 25).
   - `--set determinism.sort.by='["document_chembl_id"]'` — изменение ключей сортировки.
   - `--set materialization.format=csv` — изменение формата выходных данных.
 
@@ -2098,7 +2098,7 @@ materialization:
 sources:
   chembl:
     base_url: "https://www.ebi.ac.uk/chembl/api/data"
-    chunk_size: 10
+    batch_size: 10
     max_url_length: 2000
     rate_limit:
       max_calls: 10
@@ -2156,7 +2156,7 @@ qc:
 - Используется `PipelineConfig.validate_yaml('configs/pipelines/document.yaml')`.
 
 - Дополнительные проверки:
-  - `sources.chembl.chunk_size` ≤ 25 (жёсткое ограничение ChEMBL API).
+  - `sources.chembl.batch_size` ≤ 25 (жёсткое ограничение ChEMBL API).
   - `sources.chembl.max_url_length` ≤ 2000.
   - `determinism.sort.by` должен начинаться с `document_chembl_id`.
   - `determinism.column_order` должен содержать полный список колонок из `DocumentSchema`.

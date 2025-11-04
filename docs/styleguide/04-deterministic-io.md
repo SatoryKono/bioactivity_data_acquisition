@@ -22,11 +22,12 @@ def sort_dataframe(df: pd.DataFrame, sort_keys: list[str]) -> pd.DataFrame:
     return df.sort_values(by=sort_keys, kind="stable").reset_index(drop=True)
 ```
 
-**Configuration**: Sort keys defined in pipeline config under `write.sort_by`:
+**Configuration**: Sort keys defined in pipeline config under `determinism.sort.by`:
 
 ```yaml
-write:
-  sort_by: ["assay_id", "testitem_id", "activity_id"]
+determinism:
+  sort:
+    by: ["assay_id", "testitem_id", "activity_id"]
 ```
 
 ### Column Ordering

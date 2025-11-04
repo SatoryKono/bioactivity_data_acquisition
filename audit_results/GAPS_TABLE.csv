@@ -1,0 +1,14 @@
+pipeline,doc_path,missing_cli,missing_config,missing_schema,missing_io,missing_determinism,missing_qc,missing_logging,priority
+activity,docs/pipelines/06-activity-chembl-extraction.md,No,No,No,No,No,No,No,LOW
+assay,docs/pipelines/05-assay-chembl-extraction.md,No,No,No,No,No,No,No,LOW
+target,docs/pipelines/08-target-chembl-extraction.md,No,No,No,No,No,No,No,LOW
+document,docs/pipelines/09-document-chembl-extraction.md,No,No,No,No,No,No,No,LOW
+testitem,docs/pipelines/07-testitem-chembl-extraction.md,No,No,No,No,No,No,No,LOW
+pubchem,docs/pipelines/21-testitem-pubchem-extraction.md,No,No,No,No,No,No,No,LOW
+uniprot,docs/pipelines/26-target-uniprot-extraction.md,No,No,No,No,No,No,No,LOW
+iuphar,docs/pipelines/27-target-iuphar-extraction.md,No,No,No,No,No,No,No,LOW
+pubmed,docs/pipelines/22-document-pubmed-extraction.md,No,No,No,No,No,No,No,LOW
+crossref,docs/pipelines/24-document-crossref-extraction.md,No,No,No,No,No,No,No,LOW
+openalex,docs/pipelines/23-document-openalex-extraction.md,No,No,No,No,No,No,No,LOW
+semantic_scholar,docs/pipelines/25-document-semantic-scholar-extraction.md,No,No,No,No,No,No,No,LOW
+chembl2uniprot,docs/pipelines/28-chembl2uniprot-mapping.md,No,No,No,No,No,No,No,LOW

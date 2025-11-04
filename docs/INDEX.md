@@ -6,7 +6,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - **[ETL Contract](etl_contract/00-etl-overview.md)**: An overview of the fundamental principles and architecture of the `bioetl` framework, including the `PipelineBase` contract.
 - **[Source Architecture](sources/00-sources-architecture.md)**: Describes the layered component stack for data sources (Client, Parser, Normalizer) and the flow of data.
-- **[Determinism Policy](determinism/01-determinism-policy.md)**: The specification for ensuring byte-for-byte reproducible outputs.
+- **[Determinism Policy](determinism/00-determinism-policy.md)**: The specification for ensuring byte-for-byte reproducible outputs.
 
 ## Technical Specifications
 
@@ -67,8 +67,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ### Determinism (`determinism/`)
 
-- [00-determinism-policy.md](determinism/00-determinism-policy.md) - Determinism policy overview
-- [01-determinism-policy.md](determinism/01-determinism-policy.md) - Determinism policy specification
+- [00-determinism-policy.md](determinism/00-determinism-policy.md) - Determinism policy specification
 
 ### HTTP Clients (`http/`)
 

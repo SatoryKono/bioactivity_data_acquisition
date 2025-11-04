@@ -359,7 +359,7 @@ supporting reproducible pipeline runs.【F:docs/pipelines/00-pipeline-base.md†
 
 The framework guarantees that a pipeline run with the same configuration will produce a bit-for-bit identical output.
 
--   **Stable Sorting**: Before writing, the final DataFrame is sorted by the columns specified in the `write.sort_by` key in the configuration.
+-   **Stable Sorting**: Before writing, the final DataFrame is sorted by the columns specified in the `determinism.sort.by` key in the configuration.
 -   **Integrity Hashes**: The `write` stage calculates two critical hashes that are stored in `meta.yaml`:
     -   `hash_business_key`: A hash of the columns forming the unique business identifier.
     -   `hash_row`: A hash of all columns specified, ensuring row-level integrity.

@@ -14,12 +14,13 @@ Determinism is achieved through a series of strict, automated steps performed by
 
 ### 1. Stable Sorting
 
-Before being written to a file, the final DataFrame is **always** sorted. The columns to sort by are defined in the `write.sort_by` section of the pipeline's configuration. This step is critical; without a stable sort order, the row order in the output file could change between runs, leading to different file hashes even if the data content is identical.
+Before being written to a file, the final DataFrame is **always** sorted. The columns to sort by are defined in the `determinism.sort.by` section of the pipeline's configuration. This step is critical; without a stable sort order, the row order in the output file could change between runs, leading to different file hashes even if the data content is identical.
 
 ```yaml
 # config.yaml
-write:
-  sort_by: ["assay_id", "testitem_id", "activity_id"]
+determinism:
+  sort:
+    by: ["assay_id", "testitem_id", "activity_id"]
 ```
 
 ### 2. Fixed Column Order
@@ -41,7 +42,7 @@ The metadata file is crucial for:
 
 ### Full `meta.yaml` Example
 
-Below is a complete example of a `meta.yaml` file. The structure is standardized across all pipelines. For the authoritative specification, see [Determinism Policy](../determinism/01-determinism-policy.md#5-metayaml-structure).
+Below is a complete example of a `meta.yaml` file. The structure is standardized across all pipelines. For the authoritative specification, see [Determinism Policy](../determinism/00-determinism-policy.md#5-metayaml-structure).
 
 ```yaml
 # Full meta.yaml Example

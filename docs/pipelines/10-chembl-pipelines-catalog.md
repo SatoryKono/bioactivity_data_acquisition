@@ -106,7 +106,7 @@ python -m bioetl.cli.main assay \
 
 **Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/08-target-chembl-extraction.md†L31-L43】【F:docs/sources/INTERFACE_MATRIX.md†L7-L12】
 
-**Outputs.** Emits the unified target dataset and standard determinism metadata/hashes described in the global `meta.yaml` contract, allowing downstream reproducibility checks.【F:docs/determinism/01-determinism-policy.md†L73-L118】
+**Outputs.** Emits the unified target dataset and standard determinism metadata/hashes described in the global `meta.yaml` contract, allowing downstream reproducibility checks.【F:docs/determinism/00-determinism-policy.md†L73-L118】
 
 **Quality controls.** Configuration monitors enrichment success rates and fallback usage across the external sources so unexpected coverage drops are surfaced in QC artifacts. See [Merge Policy Summary](#merge-policy-summary) below.
 
@@ -211,13 +211,13 @@ python -m bioetl.cli.main testitem \
 
 | Pipeline | Sort keys | Hashing invariants | Schema reference |
 | --- | --- | --- | --- |
-| Activity | `['assay_id', 'testitem_id', 'activity_id']` | Row/business hashes generated with canonicalized values under the SHA256 policy (`hash_row`, `hash_business_key`).【F:docs/determinism/01-determinism-policy.md†L28-L70】 | `chembl_activity` schema module in the source interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Assay | `['assay_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/01-determinism-policy.md†L28-L70】 | `chembl_assay` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Target | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/01-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Document | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/01-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| TestItem | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/01-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Activity | `['assay_id', 'testitem_id', 'activity_id']` | Row/business hashes generated with canonicalized values under the SHA256 policy (`hash_row`, `hash_business_key`).【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_activity` schema module in the source interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Assay | `['assay_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_assay` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Target | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Document | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| TestItem | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
 
-The determinism policy also standardizes value canonicalization, serialization, and `meta.yaml` shape, ensuring cross-pipeline reproducibility when identical inputs and configurations are supplied.【F:docs/determinism/01-determinism-policy.md†L36-L118】
+The determinism policy also standardizes value canonicalization, serialization, and `meta.yaml` shape, ensuring cross-pipeline reproducibility when identical inputs and configurations are supplied.【F:docs/determinism/00-determinism-policy.md†L36-L118】
 
 ## Module Layout
 

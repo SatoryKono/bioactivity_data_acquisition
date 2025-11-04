@@ -62,13 +62,13 @@ CSV or Parquet datasets, optional correlation reports, and required
 | `<stem>_quality_report.csv` | Deterministic QC metrics (row counts, duplicates, missingness). | Always generated in the standard output mode. 【F:docs/pipelines/06-activity-data-extraction.md†L1037-L1044】 |
 | `<stem>_correlation_report.csv` | Optional correlation matrix for numeric fields. | Only present when correlation post-processing is enabled. 【F:docs/pipelines/06-activity-data-extraction.md†L1039-L1046】 |
 | `<stem>_qc.csv` | Aggregated QC summary derived from validation hooks. | Declared as part of the shared artifact plan so downstream QA can diff deterministic runs. 【F:src/bioetl/pipelines/base.py†L85-L127】 |
-| `<stem>_meta.yaml` | Canonical metadata record containing configuration fingerprints, schema versions, row counts, hash details, and lineage. | Captures the full structure defined in the determinism policy. 【F:docs/determinism/01-determinism-policy.md†L73-L119】 |
+| `<stem>_meta.yaml` | Canonical metadata record containing configuration fingerprints, schema versions, row counts, hash details, and lineage. | Captures the full structure defined in the determinism policy. 【F:docs/determinism/00-determinism-policy.md†L73-L119】 |
 | `<stem>_run_manifest.json` | Run manifest enumerating generated files and checksums (extended mode). | Added by the extended artifact mode described in the activity pipeline specification. 【F:docs/pipelines/06-activity-data-extraction.md†L1047-L1051】 |
 | Logs (`/data/logs/<pipeline>/<stem>.log`) | Structured log output tied to the same stem for traceability. | Created alongside filesystem artifacts by the orchestrator. 【F:src/bioetl/pipelines/base.py†L68-L113】 |
 
 The `meta.yaml` artifact links everything together: it lists every output file,
 their hashes, the schema version, and the configuration fingerprint. This file
-is the canonical lineage document and must accompany any dataset sharing. 【F:docs/determinism/01-determinism-policy.md†L73-L119】
+is the canonical lineage document and must accompany any dataset sharing. 【F:docs/determinism/00-determinism-policy.md†L73-L119】
 
 Run manifests complement `meta.yaml` by providing a machine-readable list of
 artifacts that can be ingested by downstream automation such as golden tests and
@@ -86,7 +86,7 @@ extended run of the activity pipeline on 2025-10-28 uses the stem
   `activity_all_20251028_qc.csv`. 【F:docs/pipelines/06-activity-data-extraction.md†L1037-L1046】【F:src/bioetl/pipelines/base.py†L85-L127】
 - Metadata: `activity_all_20251028_meta.yaml` records the configuration hash,
   schema version, row counts, hashes, QC summary, and lineage fields shown in the
-  determinism policy example. 【F:docs/determinism/01-determinism-policy.md†L73-L119】
+  determinism policy example. 【F:docs/determinism/00-determinism-policy.md†L73-L119】
 - Run manifest: `activity_all_20251028_run_manifest.json` enumerates the same
   files for artifact audits. 【F:docs/pipelines/06-activity-data-extraction.md†L1047-L1051】
 - Logs: `/data/logs/activity/activity_all_20251028.log` houses the structured

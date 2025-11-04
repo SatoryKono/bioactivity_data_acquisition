@@ -531,7 +531,7 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 ```
 
-For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-policy.md).
+For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
 
 ## 11. QC/QA
 

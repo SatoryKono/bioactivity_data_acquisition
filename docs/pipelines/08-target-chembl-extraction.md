@@ -734,7 +734,7 @@ Target pipeline гарантирует:
 5. **Атомарная запись:** Файлы записываются атомарно, предотвращая частичные записи
 6. **Воспроизводимые метаданные:** Все метаданные фиксируются в `meta.yaml` для полной трассируемости
 
-For detailed policy, see [Determinism Policy](docs/determinism/01-determinism-policy.md).
+For detailed policy, see [Determinism Policy](docs/determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 

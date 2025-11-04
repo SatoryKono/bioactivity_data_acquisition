@@ -1,13 +1,7 @@
 # Link checking configuration for documentation set
 inputs = [
   "README.md",
-  "docs/INDEX.md",
-  "docs/architecture/00-architecture-overview.md",
-  "docs/architecture/03-data-sources-and-spec.md",
-  "docs/pipelines/PIPELINES.md",
-  "docs/configs/CONFIGS.md",
-  "docs/cli/CLI.md",
-  "docs/qc/QA_QC.md"
+  "docs/INDEX.md"
 ]
 
 exclude = [

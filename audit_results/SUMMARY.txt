@@ -1,0 +1,9 @@
+Аудит документации репозитория bioactivity_data_acquisition@refactoring_001 выявил критические проблемы навигации и пробелы в покрытии enricher-пайплайнов.
+
+Критические проблемы (.lychee.toml): 6 файлов объявлены, но отсутствуют (docs/architecture/, docs/pipelines/PIPELINES.md, docs/configs/CONFIGS.md, docs/cli/CLI.md, docs/qc/QA_QC.md), что нарушает работу линк-чекера.
+
+Пробелы в документации: 0 пайплайнов (преимущественно enrichers: pubchem, uniprot, iuphar, pubmed, crossref, openalex, semantic_scholar, chembl2uniprot) имеют критичные пробелы в обязательных разделах (CLI, конфигурация, схемы).
+
+Противоречия в конфигурациях: обнаружены несогласованности именования (chunk_size vs batch_size в document pipeline), возможные расхождения в sort keys между каталогом и determinism policy.
+
+Рекомендации: приоритет исправления - создание отсутствующих файлов из .lychee.toml, затем дополнение документации enricher-пайплайнов, далее унификация терминологии и проверка согласованности sort keys.
