@@ -10,7 +10,7 @@ import pytest
 
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
-from bioetl.schemas.activity import ActivitySchema
+from bioetl.schemas.activity_chembl import ActivitySchema
 
 
 @pytest.mark.unit

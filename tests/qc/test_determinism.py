@@ -23,7 +23,7 @@ class TestDeterminismQC:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that hash_row is consistent across runs."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.hashing.row_fields = ["activity_id", "molecule_chembl_id"]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -57,7 +57,7 @@ class TestDeterminismQC:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that hash_business_key is consistent."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
 
@@ -87,7 +87,7 @@ class TestDeterminismQC:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that sort order is stable."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -114,7 +114,7 @@ class TestDeterminismQC:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that CSV file checksums are consistent."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
 
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)

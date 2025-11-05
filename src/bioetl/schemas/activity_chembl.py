@@ -22,7 +22,6 @@ COLUMN_ORDER = (
     "assay_description",
     "assay_organism",
     "assay_tax_id",
-    "testitem_chembl_id",
     "molecule_chembl_id",
     "parent_molecule_chembl_id",
     "molecule_pref_name",
@@ -238,3 +237,4 @@ __all__ = [
     "ACTIVITY_PROPERTY_KEYS",
     "ActivitySchema",
 ]
+

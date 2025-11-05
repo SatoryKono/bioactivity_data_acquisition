@@ -41,7 +41,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity:ActivitySchema"
+  schema_out: "bioetl.schemas.activity_chembl:ActivitySchema"
 determinism:
   sort:
     by: ["activity_id"]
@@ -113,7 +113,7 @@ determinism:
                         ),
                     ),
                     validation=ValidationConfig(
-                        schema_out="bioetl.schemas.activity:ActivitySchema",
+                        schema_out="bioetl.schemas.activity_chembl:ActivitySchema",
                         strict=True,
                         coerce=True,
                     ),

@@ -126,7 +126,7 @@ chembl:
 
 # Validation schema
 validation:
-  schema_out: "bioetl.schemas.document.DocumentSchema"
+  schema_out: "bioetl.schemas.document_chembl.DocumentSchema"
   strict: true
   coerce: true
 

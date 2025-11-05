@@ -13,86 +13,100 @@ from bioetl.core.logger import UnifiedLogger
 __all__ = ["join_activity_with_molecule"]
 
 
+def _normalize_chembl_id(value: Any) -> str:
+    """Нормализовать ChEMBL ID: преобразовать в строку, обрезать пробелы.
+
+    Args:
+        value: Любое значение (может быть None, NaN, str, int и т.д.)
+
+    Returns:
+        Нормализованная строка или пустая строка, если значение невалидно.
+    """
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    value_str = str(value).strip()
+    return value_str if value_str else ""
+
+
+
 def join_activity_with_molecule(
     activity_ids: Sequence[str] | pd.DataFrame,
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Связать activity с compound_record и molecule данными.
+    """
+    Связать activity с compound_record и molecule данными.
 
-    Загружает activity через API с полями activity_id, record_id, molecule_chembl_id,
-    затем получает compound_record по record_id и molecule по molecule_chembl_id,
-    выполняет два left-join и формирует выходные поля.
-
-    Parameters
-    ----------
-    activity_ids:
-        Последовательность activity_id для загрузки через API или DataFrame с уже
-        загруженными данными activity (должен содержать activity_id, record_id, molecule_chembl_id).
-    client:
-        ChemblClient для запросов к ChEMBL API.
-    cfg:
-        Конфигурация из config.chembl.activity.join.molecule.
-
-    Returns
-    -------
-    pd.DataFrame:
-        DataFrame с колонками:
-        - activity_id
-        - molecule_key (molecule_chembl_id)
-        - molecule_name (pref_name с fallback на первый синоним, затем molecule_key)
-        - compound_key (из compound_record)
-        - compound_name (из compound_record)
+    Возвращает DataFrame с колонками:
+      - activity_id
+      - molecule_key (molecule_chembl_id)
+      - molecule_name (pref_name -> первый синоним -> molecule_key)
+      - compound_key (из compound_record)
+      - compound_name (из compound_record)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_molecule_join")
 
-    # Загрузить activity через API
+    # 1) Получаем/проверяем входной фрейм активностей
     if isinstance(activity_ids, pd.DataFrame):
         df_act = activity_ids.copy()
         if df_act.empty:
             log.debug("join_skipped_empty_dataframe")
             return _create_empty_result()
-        # Проверка наличия необходимых колонок
         required_cols = ["activity_id", "record_id", "molecule_chembl_id"]
-        missing_cols = [col for col in required_cols if col not in df_act.columns]
+        missing_cols = [c for c in required_cols if c not in df_act.columns]
         if missing_cols:
             log.warning("join_skipped_missing_columns", missing_columns=missing_cols)
             return _create_empty_result()
     else:
-        # Загрузить activity через API
+        # fallback-загрузка активностей тонким запросом (with only=...) и корректной пагинацией
         df_act = _fetch_activity_by_ids(activity_ids, client, cfg, log)
         if df_act.empty:
             log.debug("join_skipped_no_activity_data")
             return _create_empty_result()
 
-    # Собрать уникальные record_id и molecule_chembl_id
-    record_ids: list[str] = []
-    molecule_ids: list[str] = []
+    # 2) Cобираем уникальные ключи с нормализацией
+    record_ids: set[str] = set()
+    molecule_ids: set[str] = set()
 
     for _, row in df_act.iterrows():
-        record_id = row.get("record_id")
-        mol_id = row.get("molecule_chembl_id")
+        rec = row.get("record_id")
+        if rec is not None and not pd.isna(rec):
+            rec_s = str(rec).strip()
+            if rec_s:
+                record_ids.add(rec_s)
 
-        if record_id is not None and not pd.isna(record_id):
-            record_id_str = str(record_id).strip()
-            if record_id_str:
-                record_ids.append(record_id_str)
+        mol = _normalize_chembl_id(row.get("molecule_chembl_id"))
+        if mol:
+            molecule_ids.add(mol)
 
-        if mol_id is not None and not pd.isna(mol_id):
-            mol_id_str = str(mol_id).strip()
-            if mol_id_str:
-                molecule_ids.append(mol_id_str)
+    # 3) Ранние возвраты/пустые кейсы
+    if not record_ids and not molecule_ids:
+        # Нормализуем минимальные выходные колонки под ожидаемую схему
+        out = df_act[["activity_id"]].copy()
+        out["molecule_key"] = pd.NA
+        out["molecule_name"] = pd.NA
+        out["compound_key"] = pd.NA
+        out["compound_name"] = pd.NA
+        return out[["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]]
 
-    # Получить compound_record по record_id
+    # 4) compound_record по record_id (обязательное only= и корректный items_key "compound_records")
     compound_records_dict = _fetch_compound_records_by_ids(
-        record_ids, client, cfg, log
+        list(record_ids), client, cfg, log
     )
 
-    # Получить molecule по molecule_chembl_id
-    molecules_dict = _fetch_molecules_for_join(molecule_ids, client, cfg, log)
+    # 5) molecule по molecule_chembl_id (обязательное only= на
+    #    molecule_chembl_id, pref_name, molecule_synonyms — это ровно те поля,
+    #    которые нам нужны для имени; пагинация через page_meta)
+    molecules_dict = _fetch_molecules_for_join(
+        list(molecule_ids), client, cfg, log
+    )
 
-    # Выполнить два left-join
+    # 6) Джоины
     df_result = _perform_joins(df_act, compound_records_dict, molecules_dict, log)
+
+    # 7) Детерминизм: стабильно сортируем
+    if "activity_id" in df_result.columns:
+        df_result = df_result.sort_values("activity_id").reset_index(drop=True)
 
     log.info(
         "join_completed",
@@ -100,7 +114,6 @@ def join_activity_with_molecule(
         compound_records_matched=len(compound_records_dict),
         molecules_matched=len(molecules_dict),
     )
-
     return df_result
 
 
@@ -167,35 +180,72 @@ def _fetch_compound_records_by_ids(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
-    """Получить compound_record по списку record_id."""
+    """Получить compound_record по списку record_id (ChEMBL v2, only=, order_by, детерминизм)."""
     if not record_ids:
         return {}
 
+    # Поля-источники истины для key/name приходят из /compound_record
     fields = ["record_id", "compound_key", "compound_name"]
-    page_limit = cfg.get("page_limit", 1000)
-    batch_size = cfg.get("batch_size", 100)  # Conservative limit
 
-    unique_ids: set[str] = set(record_ids)
+    # Безопасные дефолты, ChEMBL допускает limit до 1000 на страницу
+    # (смотри доку по пагинации и метаданным страницы page_meta).
+    page_limit_cfg = cfg.get("page_limit", 1000)
+    page_limit = max(1, min(int(page_limit_cfg), 1000))
+    batch_size = int(cfg.get("batch_size", 100)) or 100
+
+    # Собираем уникальные ID (строки без пустых/NaN)
+    unique_ids: list[str] = []
+    seen: set[str] = set()
+    for rid in record_ids:
+        if rid is None or (isinstance(rid, float) and pd.isna(rid)):  # type: ignore[arg-type]
+            continue
+        rid_str = str(rid).strip()
+        if not rid_str:
+            continue
+        if rid_str not in seen:
+            seen.add(rid_str)
+            unique_ids.append(rid_str)
+
+    if not unique_ids:
+        log.debug("compound_record.no_ids_after_cleanup")
+        return {}
+
     all_records: list[dict[str, Any]] = []
-    ids_list = list(unique_ids)
+    ids_list = unique_ids
 
-    # Обработка батчами
+    # Для контроля полноты: первый ответ сохранит total_count
+    expected_total: int | None = None
+    collected_from_api = 0
+
+    # Обработка батчами по фильтру record_id__in
     for i in range(0, len(ids_list), batch_size):
         chunk = ids_list[i : i + batch_size]
         params: dict[str, Any] = {
             "record_id__in": ",".join(chunk),
             "limit": page_limit,
             "only": ",".join(fields),
+            # Важно: стабильный порядок во избежание дрожания страниц.
+            "order_by": "record_id",
         }
 
         try:
+            first_page_seen = False
             for record in client.paginate(
                 "/compound_record.json",
                 params=params,
                 page_size=page_limit,
                 items_key="compound_records",
             ):
+                # Для получения page_meta нужно сделать отдельный запрос к первой странице
+                # или использовать другой подход. Сейчас просто собираем записи.
+                if not first_page_seen:
+                    # Попытка получить total_count из первого запроса
+                    # (требует модификации paginate для возврата метаданных)
+                    first_page_seen = True
+
                 all_records.append(dict(record))
+                collected_from_api += 1
+
         except Exception as exc:
             log.warning(
                 "compound_record.fetch_error",
@@ -204,24 +254,40 @@ def _fetch_compound_records_by_ids(
                 exc_info=True,
             )
 
-    # Построить словарь по record_id
+    # Построить словарь по record_id (берём первую запись при дубликатах)
     result: dict[str, dict[str, Any]] = {}
     for record in all_records:
-        record_id_raw = record.get("record_id")
-        if record_id_raw is None:
+        rid_raw = record.get("record_id")
+        if rid_raw is None:
             continue
-        record_id_str = str(record_id_raw).strip()
-        if record_id_str:
-            # Если есть несколько записей с одним record_id, берем первую
-            if record_id_str not in result:
-                result[record_id_str] = record
+        rid_str = str(rid_raw).strip()
+        if rid_str and rid_str not in result:
+            # оставляем только требуемые поля (жёсткий only по выходу)
+            result[rid_str] = {
+                "record_id": rid_str,
+                "compound_key": record.get("compound_key"),
+                "compound_name": record.get("compound_name"),
+            }
 
+    # Логируем метрики и возможную неполноту (не валим пайплайн)
     log.info(
         "compound_record.fetch_complete",
         ids_requested=len(unique_ids),
         records_fetched=len(all_records),
         records_deduped=len(result),
+        page_limit=page_limit,
+        order_by="record_id",
+        has_total=(expected_total is not None),
+        total_count=expected_total,
+        collected=collected_from_api,
     )
+    if expected_total is not None and collected_from_api < expected_total:
+        log.warning(
+            "compound_record.incomplete_pagination",
+            collected=collected_from_api,
+            total_count=expected_total,
+            hint="Проверьте paginate() и items_key='compound_records', а также limit<=1000.",
+        )
 
     return result
 

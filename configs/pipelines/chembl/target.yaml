@@ -88,7 +88,7 @@ transform:
 
 # Validation schema
 validation:
-  schema_out: "bioetl.schemas.chembl.target.TargetSchema"
+  schema_out: "bioetl.schemas.target_chembl.TargetSchema"
   strict: true
   coerce: false
 

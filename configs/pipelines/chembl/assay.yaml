@@ -130,7 +130,7 @@ postprocess:
 
 # Validation schema
 validation:
-  schema_out: "bioetl.schemas.assay.AssaySchema"
+  schema_out: "bioetl.schemas.assay_chembl.AssaySchema"
   strict: true
   coerce: true
 

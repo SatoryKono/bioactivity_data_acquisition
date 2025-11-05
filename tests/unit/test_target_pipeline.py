@@ -136,7 +136,7 @@ class TestChemblTargetPipeline:
         result = pipeline._ensure_schema_columns(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         # All schema columns should be present
-        from bioetl.schemas.chembl.target import COLUMN_ORDER
+        from bioetl.schemas.target_chembl import COLUMN_ORDER
 
         for col in COLUMN_ORDER:
             assert col in result.columns

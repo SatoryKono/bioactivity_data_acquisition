@@ -22,7 +22,7 @@ from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.qc.report import build_quality_report as build_default_quality_report
-from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
+from bioetl.schemas.activity_chembl import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunResult
 from .activity_enrichment import (

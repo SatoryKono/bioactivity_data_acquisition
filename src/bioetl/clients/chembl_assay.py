@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import deque
-from typing import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from urllib.parse import urlencode
 
 from bioetl.clients.chembl import ChemblClient
@@ -103,8 +103,7 @@ class ChemblAssayClient:
             params: dict[str, object] = {"assay_chembl_id__in": ",".join(chunk)}
             if select_fields:
                 params["only"] = ",".join(select_fields)
-            for item in self._client.paginate("/assay.json", params=params, page_size=len(chunk)):
-                yield item
+            yield from self._client.paginate("/assay.json", params=params, page_size=len(chunk))
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -125,7 +124,7 @@ class ChemblAssayClient:
     ) -> Iterable[Sequence[str]]:
         chunk: deque[str] = deque()
         for identifier in assay_ids:
-            if not isinstance(identifier, str) or not identifier:
+            if not identifier:
                 continue
             candidate_size = len(chunk) + 1
             candidate_param = self._encode_in_query(tuple(list(chunk) + [identifier]), select_fields=select_fields)
@@ -151,3 +150,4 @@ class ChemblAssayClient:
         params = urlencode(params_dict)
         # Account for base endpoint length to approximate the final URL length.
         return len("/assay.json?") + len(params)
+

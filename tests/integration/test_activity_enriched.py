@@ -39,7 +39,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity.ActivitySchema"
+  schema_out: "bioetl.schemas.activity_chembl.ActivitySchema"
   strict: true
   coerce: true
 determinism:
@@ -153,7 +153,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity.ActivitySchema"
+  schema_out: "bioetl.schemas.activity_chembl.ActivitySchema"
   strict: false
   coerce: true
 determinism:

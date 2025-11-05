@@ -191,7 +191,7 @@ postprocess:
 
 # Validation schema
 validation:
-  schema_out: "bioetl.schemas.chembl.testitem.TestItemSchema"
+  schema_out: "bioetl.schemas.testitem_chembl.TestItemSchema"
   strict: true
   coerce: true
 

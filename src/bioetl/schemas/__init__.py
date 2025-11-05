@@ -99,14 +99,14 @@ def _split_identifier(identifier: str) -> tuple[str, str]:
 SCHEMA_REGISTRY = SchemaRegistry()
 
 # Register built-in schemas.
-from .activity import (  # noqa: E402  (import after registry definition)
+from .activity_chembl import (  # noqa: E402  (import after registry definition)
     ActivitySchema,
     COLUMN_ORDER as ACTIVITY_COLUMN_ORDER,
     SCHEMA_VERSION as ACTIVITY_SCHEMA_VERSION,
 )
 
 SCHEMA_REGISTRY.register(
-    "bioetl.schemas.activity.ActivitySchema",
+    "bioetl.schemas.activity_chembl.ActivitySchema",
     schema=ActivitySchema,
     version=ACTIVITY_SCHEMA_VERSION,
     column_order=ACTIVITY_COLUMN_ORDER,
@@ -114,14 +114,14 @@ SCHEMA_REGISTRY.register(
 )
 
 # Register testitem schema
-from .chembl.testitem import (  # noqa: E402  (import after registry definition)
+from .testitem_chembl import (  # noqa: E402  (import after registry definition)
     TestItemSchema,
     COLUMN_ORDER as TESTITEM_COLUMN_ORDER,
     SCHEMA_VERSION as TESTITEM_SCHEMA_VERSION,
 )
 
 SCHEMA_REGISTRY.register(
-    "bioetl.schemas.chembl.testitem.TestItemSchema",
+    "bioetl.schemas.testitem_chembl.TestItemSchema",
     schema=TestItemSchema,
     version=TESTITEM_SCHEMA_VERSION,
     column_order=TESTITEM_COLUMN_ORDER,
@@ -129,14 +129,14 @@ SCHEMA_REGISTRY.register(
 )
 
 # Register assay schema
-from .assay import (  # noqa: E402  (import after registry definition)
+from .assay_chembl import (  # noqa: E402  (import after registry definition)
     AssaySchema,
     COLUMN_ORDER as ASSAY_COLUMN_ORDER,
     SCHEMA_VERSION as ASSAY_SCHEMA_VERSION,
 )
 
 SCHEMA_REGISTRY.register(
-    "bioetl.schemas.assay.AssaySchema",
+    "bioetl.schemas.assay_chembl.AssaySchema",
     schema=AssaySchema,
     version=ASSAY_SCHEMA_VERSION,
     column_order=ASSAY_COLUMN_ORDER,
@@ -144,14 +144,14 @@ SCHEMA_REGISTRY.register(
 )
 
 # Register document schema
-from .document import (  # noqa: E402  (import after registry definition)
+from .document_chembl import (  # noqa: E402  (import after registry definition)
     DocumentSchema,
     COLUMN_ORDER as DOCUMENT_COLUMN_ORDER,
     SCHEMA_VERSION as DOCUMENT_SCHEMA_VERSION,
 )
 
 SCHEMA_REGISTRY.register(
-    "bioetl.schemas.document.DocumentSchema",
+    "bioetl.schemas.document_chembl.DocumentSchema",
     schema=DocumentSchema,
     version=DOCUMENT_SCHEMA_VERSION,
     column_order=DOCUMENT_COLUMN_ORDER,
@@ -159,14 +159,14 @@ SCHEMA_REGISTRY.register(
 )
 
 # Register target schema
-from .chembl.target import (  # noqa: E402  (import after registry definition)
+from .target_chembl import (  # noqa: E402  (import after registry definition)
     TargetSchema,
     COLUMN_ORDER as TARGET_COLUMN_ORDER,
     SCHEMA_VERSION as TARGET_SCHEMA_VERSION,
 )
 
 SCHEMA_REGISTRY.register(
-    "bioetl.schemas.chembl.target.TargetSchema",
+    "bioetl.schemas.target_chembl.TargetSchema",
     schema=TargetSchema,
     version=TARGET_SCHEMA_VERSION,
     column_order=TARGET_COLUMN_ORDER,

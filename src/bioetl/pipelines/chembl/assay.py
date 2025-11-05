@@ -10,12 +10,12 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.chembl_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.schemas.assay import COLUMN_ORDER
+from bioetl.schemas.assay_chembl import COLUMN_ORDER
 
-from ...sources.chembl.assay import ChemblAssayClient
 from ..base import PipelineBase
 from .assay_enrichment import enrich_with_assay_classifications, enrich_with_assay_parameters
 from .assay_transform import serialize_array_fields

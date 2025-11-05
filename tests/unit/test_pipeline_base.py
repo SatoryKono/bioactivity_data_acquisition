@@ -215,7 +215,7 @@ class TestPipelineBase:
     ) -> None:
         """Test validation with Pandera schema."""
         # Update config to use activity schema
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -255,7 +255,7 @@ class TestPipelineBase:
     ) -> None:
         """Schema errors are logged and execution continues when fail-open is enabled."""
 
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -276,7 +276,7 @@ class TestPipelineBase:
         self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
     ) -> None:
         """Test write stage."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
