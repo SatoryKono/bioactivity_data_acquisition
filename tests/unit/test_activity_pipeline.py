@@ -189,16 +189,96 @@ class TestChemblActivityPipelineTransformations:
         df = pd.DataFrame(
             {
                 "ligand_efficiency": [{"LE": 0.5}, None, '{"LE": 0.3}'],
-                "activity_properties": [{"property": "value"}, None, None],
+                "activity_properties": [
+                    {"type": "Ki", "value": 5.0, "units": "nM"},
+                    None,
+                    [],
+                ],
             }
         )
 
         normalized = pipeline._normalize_nested_structures(df, MagicMock())
 
-        # Should be JSON strings
         assert isinstance(normalized["ligand_efficiency"].iloc[0], str)
         assert pd.isna(normalized["ligand_efficiency"].iloc[1])
         assert normalized["ligand_efficiency"].iloc[2] == '{"LE": 0.3}'
+
+        props_row = json.loads(normalized["activity_properties"].iloc[0])
+        assert props_row == [
+            {
+                "type": "Ki",
+                "relation": None,
+                "units": "nM",
+                "value": 5.0,
+                "text_value": None,
+                "result_flag": None,
+            }
+        ]
+        assert pd.isna(normalized["activity_properties"].iloc[1])
+        assert json.loads(normalized["activity_properties"].iloc[2]) == []
+
+    def test_normalize_activity_properties_mixed_payloads(
+        self, pipeline_config_fixture, run_id: str
+    ):
+        """Ensure numeric/text payloads and result flag survive normalization."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_properties": [
+                    [
+                        {
+                            "type": "IC50",
+                            "relation": "=",
+                            "units": "nM",
+                            "value": 10.0,
+                            "text_value": None,
+                            "result_flag": True,
+                            "extra": "drop",
+                        },
+                        {
+                            "type": "Comment",
+                            "text_value": "Active",
+                        },
+                    ],
+                    '{"type": "Ki", "value": "5", "text_value": "not numeric"}',
+                ]
+            }
+        )
+
+        normalized = pipeline._normalize_nested_structures(df, MagicMock())
+
+        first_payload = json.loads(normalized["activity_properties"].iloc[0])
+        assert len(first_payload) == 2
+        assert first_payload[0] == {
+            "type": "IC50",
+            "relation": "=",
+            "units": "nM",
+            "value": 10.0,
+            "text_value": None,
+            "result_flag": True,
+        }
+        assert first_payload[1] == {
+            "type": "Comment",
+            "relation": None,
+            "units": None,
+            "value": None,
+            "text_value": "Active",
+            "result_flag": None,
+        }
+
+        second_payload = json.loads(normalized["activity_properties"].iloc[1])
+        assert second_payload == [
+            {
+                "type": "Ki",
+                "relation": None,
+                "units": None,
+                "value": "5",
+                "text_value": "not numeric",
+                "result_flag": None,
+            }
+        ]
 
     def test_normalize_data_types(self, pipeline_config_fixture, run_id: str):
         """Test data type conversions."""
@@ -377,7 +457,13 @@ class TestChemblActivityPipelineTransformations:
         assert list(result["activity_id"]) == [10, 11]
         assert all(result["data_validity_comment"].str.contains("Fallback"))
         metadata = result["activity_properties"].apply(json.loads)
-        assert all(item["source_system"] == "ChEMBL_FALLBACK" for item in metadata)
+        for item in metadata:
+            assert isinstance(item, list)
+            assert len(item) == 1
+            payload = item[0]
+            assert payload["type"] == "fallback_metadata"
+            details = json.loads(payload["text_value"])
+            assert details["source_system"] == "ChEMBL_FALLBACK"
         stats = pipeline._last_batch_extract_stats
         assert stats is not None
         assert stats["fallback"] == 2

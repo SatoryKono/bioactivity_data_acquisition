@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import json
+import math
+from numbers import Number
+
+import pandas as pd
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 COLUMN_ORDER = (
     "activity_id",
@@ -34,6 +39,84 @@ COLUMN_ORDER = (
 
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
+ACTIVITY_PROPERTY_KEYS = (
+    "type",
+    "relation",
+    "units",
+    "value",
+    "text_value",
+    "result_flag",
+)
+
+
+def _is_valid_activity_property_item(item: dict[str, object]) -> bool:
+    """Return True if the payload item only contains the allowed keys and value types."""
+
+    if set(item.keys()) != set(ACTIVITY_PROPERTY_KEYS):
+        return False
+
+    type_value = item["type"]
+    if type_value is not None and not isinstance(type_value, str):
+        return False
+
+    relation_value = item["relation"]
+    if relation_value is not None and not isinstance(relation_value, str):
+        return False
+
+    units_value = item["units"]
+    if units_value is not None and not isinstance(units_value, str):
+        return False
+
+    value_value = item["value"]
+    if value_value is not None and not isinstance(value_value, (Number, str)):
+        return False
+
+    text_value = item["text_value"]
+    if text_value is not None and not isinstance(text_value, str):
+        return False
+
+    result_flag = item["result_flag"]
+    if result_flag is not None and not isinstance(result_flag, bool):
+        if isinstance(result_flag, int):
+            if result_flag not in (0, 1):
+                return False
+        else:
+            return False
+
+    return True
+
+
+def _is_valid_activity_properties(value: object) -> bool:
+    """Element-wise validator ensuring activity_properties stores normalized JSON arrays."""
+
+    if value is None:
+        return True
+    if value is pd.NA:
+        return True
+    if isinstance(value, Number) and not isinstance(value, bool):
+        try:
+            if math.isnan(value):
+                return True
+        except TypeError:
+            pass
+    if not isinstance(value, str):
+        return False
+
+    try:
+        payload = json.loads(value)
+    except (TypeError, ValueError):
+        return False
+
+    if not isinstance(payload, list):
+        return False
+
+    for item in payload:
+        if not isinstance(item, dict):
+            return False
+        if not _is_valid_activity_property_item(item):
+            return False
+
+    return True
 
 ActivitySchema = DataFrameSchema(
     {
@@ -61,7 +144,11 @@ ActivitySchema = DataFrameSchema(
         ),
         "data_validity_comment": Column(pa.String, nullable=True),
         "potential_duplicate": Column(pa.Bool, nullable=True),
-        "activity_properties": Column(pa.String, nullable=True),
+        "activity_properties": Column(
+            pa.String,
+            Check(_is_valid_activity_properties, element_wise=True),
+            nullable=True,
+        ),
         "compound_key": Column(pa.String, nullable=True),
     },
     ordered=True,
@@ -69,4 +156,11 @@ ActivitySchema = DataFrameSchema(
     name=f"ActivitySchema_v{SCHEMA_VERSION}",
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "STANDARD_TYPES", "RELATIONS", "ActivitySchema"]
+__all__ = [
+    "SCHEMA_VERSION",
+    "COLUMN_ORDER",
+    "STANDARD_TYPES",
+    "RELATIONS",
+    "ACTIVITY_PROPERTY_KEYS",
+    "ActivitySchema",
+]
