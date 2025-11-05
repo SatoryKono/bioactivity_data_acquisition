@@ -338,3 +338,92 @@ class ChemblClient:
         if isinstance(value, str):
             return value.lower() in ("true", "1", "yes", "on")
         return bool(value)
+
+    # ------------------------------------------------------------------
+    # Document term fetching
+    # ------------------------------------------------------------------
+
+    def fetch_document_terms_by_ids(
+        self,
+        ids: Iterable[str],
+        fields: Sequence[str],
+        page_limit: int = 1000,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch document_term entries by document_chembl_id.
+
+        Parameters
+        ----------
+        ids:
+            Iterable of document_chembl_id values.
+        fields:
+            List of field names to fetch from document_term API.
+        page_limit:
+            Page size for pagination requests.
+
+        Returns
+        -------
+        dict[str, list[dict[str, Any]]]:
+            Dictionary keyed by document_chembl_id -> list of record dicts.
+            Each document can have multiple terms, so values are lists.
+        """
+        # Collect unique IDs, filtering out None/NA values
+        unique_ids: set[str] = set()
+        for doc_id in ids:
+            if doc_id and not (isinstance(doc_id, float) and pd.isna(doc_id)):
+                unique_ids.add(str(doc_id).strip())
+
+        if not unique_ids:
+            self._log.debug("document_term.no_ids", message="No valid IDs to fetch")
+            return {}
+
+        # Process in chunks to avoid URL length limits
+        chunk_size = 100  # Conservative limit for document_chembl_id__in
+        all_records: list[dict[str, Any]] = []
+        ids_list = list(unique_ids)
+
+        for i in range(0, len(ids_list), chunk_size):
+            chunk = ids_list[i : i + chunk_size]
+            params: dict[str, Any] = {
+                "document_chembl_id__in": ",".join(chunk),
+                "limit": page_limit,
+            }
+            # Build fields parameter for .only() equivalent
+            if fields:
+                params["only"] = ",".join(fields)
+
+            try:
+                for record in self.paginate(
+                    "/document_term.json",
+                    params=params,
+                    page_size=page_limit,
+                    items_key="document_terms",
+                ):
+                    all_records.append(dict(record))
+            except Exception as exc:
+                self._log.warning(
+                    "document_term.fetch_error",
+                    document_count=len(chunk),
+                    error=str(exc),
+                    exc_info=True,
+                )
+
+        # Build result dictionary keyed by document_chembl_id -> list of records
+        result: dict[str, list[dict[str, Any]]] = {}
+        for record in all_records:
+            doc_id_raw = record.get("document_chembl_id")
+            if not doc_id_raw:
+                continue
+            if not isinstance(doc_id_raw, str):
+                continue
+            doc_id = doc_id_raw
+            if doc_id not in result:
+                result[doc_id] = []
+            result[doc_id].append(record)
+
+        self._log.info(
+            "document_term.fetch_complete",
+            ids_requested=len(unique_ids),
+            records_fetched=len(all_records),
+            documents_with_terms=len(result),
+        )
+        return result

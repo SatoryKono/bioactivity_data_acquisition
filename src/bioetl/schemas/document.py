@@ -9,13 +9,17 @@ SCHEMA_VERSION = "1.0.0"
 
 COLUMN_ORDER = (
     "document_chembl_id",
+    "doc_type",
+    "journal",
+    "journal_full_title",
+    "doi",
+    "doi_chembl",
+    "src_id",
     "title",
     "abstract",
-    "doi",
     "doi_clean",
     "pubmed_id",
     "year",
-    "journal",
     "journal_abbrev",
     "volume",
     "issue",
@@ -26,6 +30,8 @@ COLUMN_ORDER = (
     "source",
     "hash_business_key",
     "hash_row",
+    "term",
+    "weight",
 )
 
 DocumentSchema = DataFrameSchema(
@@ -36,9 +42,14 @@ DocumentSchema = DataFrameSchema(
             nullable=False,
             unique=True,
         ),
+        "doc_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "journal": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "journal_full_title": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "doi": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "doi_chembl": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "src_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "title": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "abstract": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "doi": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "doi_clean": Column(  # type: ignore[assignment]
             pa.String,  # type: ignore[arg-type]
             Check.str_matches(r"^10\.\d{4,9}/\S+$"),  # type: ignore[arg-type]
@@ -54,7 +65,6 @@ DocumentSchema = DataFrameSchema(
             checks=[Check.ge(1500), Check.le(2100)],  # type: ignore[arg-type]
             nullable=True,
         ),
-        "journal": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "journal_abbrev": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "volume": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "issue": Column(pa.String, nullable=True),  # type: ignore[assignment]
@@ -69,6 +79,8 @@ DocumentSchema = DataFrameSchema(
         "source": Column(pa.String, Check.eq("ChEMBL"), nullable=False),  # type: ignore[assignment]
         "hash_business_key": Column(pa.String, Check.str_length(64, 64), nullable=False),  # type: ignore[assignment]
         "hash_row": Column(pa.String, Check.str_length(64, 64), nullable=False),  # type: ignore[assignment]
+        "term": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "weight": Column(pa.String, nullable=True),  # type: ignore[assignment]
     },
     ordered=True,
     coerce=False,

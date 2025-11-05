@@ -17,6 +17,7 @@ from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.schemas.chembl.target import COLUMN_ORDER
 
 from ..base import PipelineBase
+from .target_transform import serialize_target_arrays
 
 
 class ChemblTargetPipeline(PipelineBase):
@@ -233,6 +234,9 @@ class ChemblTargetPipeline(PipelineBase):
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
+
+        # Serialize array fields (cross_references, target_components, target_component_synonyms)
+        df = serialize_target_arrays(df, self.config)
 
         # Enrich with target_component data
         if not self.config.cli.dry_run:

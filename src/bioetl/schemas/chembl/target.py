@@ -15,6 +15,9 @@ COLUMN_ORDER = (
     "organism",
     "tax_id",
     "species_group_flag",
+    "cross_references__flat",
+    "target_components__flat",
+    "target_component_synonyms__flat",
     "uniprot_accessions",
     "protein_class_desc",
     "component_count",
@@ -33,6 +36,9 @@ TargetSchema = DataFrameSchema(
         "organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "tax_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "species_group_flag": Column(pd.Int64Dtype(), Check.isin([0, 1]), nullable=True),  # type: ignore[arg-type]
+        "cross_references__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "target_components__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "target_component_synonyms__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "uniprot_accessions": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "protein_class_desc": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "component_count": Column(pd.Int64Dtype(), Check.ge(0), nullable=True),  # type: ignore[arg-type]

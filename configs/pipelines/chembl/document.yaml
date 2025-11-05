@@ -26,11 +26,15 @@ sources:
       max_url_length: 2000  # Used for predictive throttling of batch requests
       select_fields:
         - document_chembl_id
+        - doc_type
+        - journal
+        - journal_full_title
+        - doi
+        - doi_chembl
+        - src_id
         - title
         - abstract
-        - doi
         - year
-        - journal
         - journal_abbrev
         - volume
         - issue
@@ -68,13 +72,17 @@ determinism:
     na_position: "last"
   column_order:
     - document_chembl_id
+    - doc_type
+    - journal
+    - journal_full_title
+    - doi
+    - doi_chembl
+    - src_id
     - title
     - abstract
-    - doi
     - doi_clean
     - pubmed_id
     - year
-    - journal
     - journal_abbrev
     - volume
     - issue
@@ -85,6 +93,8 @@ determinism:
     - source
     - hash_business_key
     - hash_row
+    - term
+    - weight
 
   hashing:
     algorithm: "sha256"
@@ -98,6 +108,21 @@ determinism:
 postprocess:
   correlation:
     enabled: false
+
+# ChEMBL enrichment configuration
+chembl:
+  document:
+    enrich:
+      document_term:
+        enabled: false
+        select_fields:
+          - document_chembl_id
+          - term
+          - weight
+        page_limit: 1000
+        sort: weight_desc
+        max_retries: 3
+        retry_backoff: 1.5
 
 # Validation schema
 validation:

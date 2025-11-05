@@ -31,6 +31,8 @@ sources:
         - organism
         - tax_id
         - species_group_flag
+        - cross_references
+        - target_components
 
 # Input file support (optional)
 # You can specify input_file in two ways:
@@ -62,6 +64,9 @@ determinism:
     - organism
     - tax_id
     - species_group_flag
+    - cross_references__flat
+    - target_components__flat
+    - target_component_synonyms__flat
     - uniprot_accessions
     - protein_class_desc
     - component_count
@@ -74,6 +79,12 @@ determinism:
     exclude_fields:
       - generated_at
       - run_id
+
+# Transform configuration
+transform:
+  arrays_to_header_rows:
+    - cross_references
+    - target_components
 
 # Validation schema
 validation:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -65,7 +65,10 @@ def header_rows_serialize(items: Any) -> str:
         json_str = json.dumps(items, ensure_ascii=False, sort_keys=True)
         return escape_delims(json_str)
 
-    if not items:
+    # Type narrowing: items is now list[Any]
+    typed_items: list[Any] = cast(list[Any], items)
+
+    if not typed_items:
         return ""
 
     # Gather keys deterministically:
@@ -75,8 +78,8 @@ def header_rows_serialize(items: Any) -> str:
     seen_set: set[str] = set()
 
     # First pass: collect keys from first item in order
-    if len(items) > 0 and isinstance(items[0], dict):
-        first_item = items[0]
+    if len(typed_items) > 0 and isinstance(typed_items[0], dict):
+        first_item: dict[str, Any] = cast(dict[str, Any], typed_items[0])
         for key in first_item.keys():
             if key not in seen_set:
                 ordered_keys.append(key)
@@ -84,9 +87,10 @@ def header_rows_serialize(items: Any) -> str:
 
     # Second pass: collect remaining keys from other items, then sort alphabetically
     remaining_keys: set[str] = set()
-    for item in items[1:]:
+    for item in typed_items[1:]:
         if isinstance(item, dict):
-            for key in item.keys():
+            remaining_item: dict[str, Any] = cast(dict[str, Any], item)
+            for key in remaining_item.keys():
                 if key not in seen_set:
                     remaining_keys.add(key)
                     seen_set.add(key)
@@ -99,7 +103,7 @@ def header_rows_serialize(items: Any) -> str:
 
     # Build rows
     rows: list[str] = []
-    for item in items:
+    for item in typed_items:
         if not isinstance(item, dict):
             # Fallback: JSON serialize non-dict item
             json_str = json.dumps(item, ensure_ascii=False, sort_keys=True)
@@ -107,9 +111,10 @@ def header_rows_serialize(items: Any) -> str:
             continue
 
         # Extract values for each key
+        item_dict: dict[str, Any] = cast(dict[str, Any], item)
         values: list[str] = []
         for key in ordered_keys:
-            value = item.get(key)
+            value: Any | None = item_dict.get(key)
             if value is None:
                 values.append("")
             elif isinstance(value, (list, dict)):
