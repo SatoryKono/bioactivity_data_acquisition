@@ -25,7 +25,11 @@ from bioetl.qc.report import build_quality_report as build_default_quality_repor
 from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunResult
-from .activity_enrichment import enrich_with_assay, enrich_with_compound_record, enrich_with_data_validity
+from .activity_enrichment import (
+    enrich_with_assay,
+    enrich_with_compound_record,
+    enrich_with_data_validity,
+)
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -208,6 +212,12 @@ class ChemblActivityPipeline(PipelineBase):
         elif "activity_id" in dataframe.columns:
             dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
 
+        # Гарантия присутствия полей комментариев
+        dataframe = self._ensure_comment_fields(dataframe, log)
+
+        # Логирование метрик заполненности
+        self._log_validity_comments_metrics(dataframe, log)
+
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
             "chembl_activity.extract_summary",
@@ -290,6 +300,7 @@ class ChemblActivityPipeline(PipelineBase):
         df = self._normalize_measurements(df, log)
         df = self._normalize_string_fields(df, log)
         df = self._normalize_nested_structures(df, log)
+        df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, log)
         df = self._validate_foreign_keys(df, log)
         df = self._ensure_schema_columns(df, log)
@@ -349,6 +360,9 @@ class ChemblActivityPipeline(PipelineBase):
         # Pre-validation checks
         self._check_activity_id_uniqueness(df, log)
         self._check_foreign_key_integrity(df, log)
+
+        # Soft enum валидация для data_validity_comment
+        self._validate_data_validity_comment_soft_enum(df, log)
 
         # Call base validation with error handling
         # Temporarily disable coercion to preserve nullable Int64 types for target_tax_id
@@ -858,6 +872,14 @@ class ChemblActivityPipeline(PipelineBase):
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
             dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
+
+        # Гарантия присутствия полей комментариев
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        dataframe = self._ensure_comment_fields(dataframe, log)
+
+        # Логирование метрик заполненности
+        self._log_validity_comments_metrics(dataframe, log)
+
         return dataframe
 
     def _check_cache(
@@ -1005,6 +1027,117 @@ class ChemblActivityPipeline(PipelineBase):
                 fallback_properties
             ),
         }
+
+    def _ensure_comment_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Гарантировать присутствие полей комментариев в DataFrame.
+
+        Если поля отсутствуют, добавляет их с pd.NA (dtype="string").
+
+        Parameters
+        ----------
+        df:
+            DataFrame для проверки и дополнения.
+        log:
+            Logger instance.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame с гарантированным наличием полей комментариев.
+        """
+        if df.empty:
+            return df
+
+        required_comment_fields = ["activity_comment", "data_validity_comment", "data_validity_description"]
+        missing_fields = [field for field in required_comment_fields if field not in df.columns]
+
+        if missing_fields:
+            for field in missing_fields:
+                df[field] = pd.Series([pd.NA] * len(df), dtype="string")
+            log.debug("comment_fields_ensured", fields=missing_fields)
+
+        return df
+
+    def _log_validity_comments_metrics(self, df: pd.DataFrame, log: Any) -> None:
+        """Логировать метрики заполненности полей комментариев.
+
+        Вычисляет:
+        - Долю NA для каждого из трех полей
+        - Топ-10 наиболее частых значений data_validity_comment
+        - Количество неизвестных значений data_validity_comment (не в whitelist)
+
+        Parameters
+        ----------
+        df:
+            DataFrame с данными activity.
+        log:
+            Logger instance.
+        """
+        if df.empty:
+            return
+
+        # Вычисление долей NA
+        metrics: dict[str, Any] = {}
+        comment_fields = ["activity_comment", "data_validity_comment", "data_validity_description"]
+
+        for field in comment_fields:
+            if field in df.columns:
+                na_count = int(df[field].isna().sum())
+                total_count = len(df)
+                na_rate = float(na_count) / float(total_count) if total_count > 0 else 0.0
+                metrics[f"{field}_na_rate"] = na_rate
+                metrics[f"{field}_na_count"] = na_count
+                metrics[f"{field}_total_count"] = total_count
+
+        # Топ-10 наиболее частых значений data_validity_comment
+        if "data_validity_comment" in df.columns:
+            non_null_comments = df["data_validity_comment"].dropna()
+            if len(non_null_comments) > 0:
+                value_counts = non_null_comments.value_counts().head(10)
+                top_10 = value_counts.to_dict()  # type: ignore[reportUnknownArgumentType]
+                metrics["top_10_data_validity_comments"] = top_10
+
+        # Количество неизвестных значений data_validity_comment
+        whitelist = self._get_data_validity_comment_whitelist()
+        if whitelist and "data_validity_comment" in df.columns:
+            non_null_comments = df["data_validity_comment"].dropna()
+            if len(non_null_comments) > 0:
+                whitelist_set = set(whitelist)
+                unknown_mask = ~non_null_comments.isin(whitelist_set)  # type: ignore[reportUnknownArgumentType]
+                unknown_count = int(unknown_mask.sum())
+                if unknown_count > 0:
+                    unknown_values = non_null_comments[unknown_mask].value_counts().head(10).to_dict()  # type: ignore[reportUnknownArgumentType]
+                    metrics["unknown_data_validity_comments_count"] = unknown_count
+                    metrics["unknown_data_validity_comments_samples"] = unknown_values
+                    log.warning(
+                        "unknown_data_validity_comments_detected",
+                        unknown_count=unknown_count,
+                        samples=unknown_values,
+                        whitelist=whitelist,
+                    )
+
+        if metrics:
+            log.info("validity_comments_metrics", **metrics)
+
+    def _get_data_validity_comment_whitelist(self) -> list[str] | None:
+        """Получить whitelist допустимых значений для data_validity_comment из конфига.
+
+        Returns
+        -------
+        list[str] | None:
+            Список допустимых значений или None, если не настроен.
+        """
+        if not self.config.validation:
+            return None
+
+        whitelist = getattr(self.config.validation, "data_validity_comment_whitelist", None)
+        if whitelist is None:
+            return None
+
+        if isinstance(whitelist, Sequence) and not isinstance(whitelist, (str, bytes)):
+            return [str(item) for item in whitelist]  # type: ignore[reportUnknownArgumentType]
+
+        return None
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:
         """Extract fields from nested assay and molecule objects."""
@@ -1645,6 +1778,17 @@ class ChemblActivityPipeline(PipelineBase):
             "qudt_units": {"trim": True, "empty_to_null": True},
         }
 
+        # Проверка инварианта: data_validity_description заполнено при data_validity_comment = NA
+        if "data_validity_description" in df.columns and "data_validity_comment" in df.columns:
+            invalid_mask = df["data_validity_description"].notna() & df["data_validity_comment"].isna()
+            if invalid_mask.any():
+                invalid_count = int(invalid_mask.sum())
+                log.warning(
+                    "invariant_data_validity_description_without_comment",
+                    count=invalid_count,
+                    message="data_validity_description is filled while data_validity_comment is NA",
+                )
+
         for field, options in string_fields.items():
             if field not in df.columns:
                 continue
@@ -1790,6 +1934,31 @@ class ChemblActivityPipeline(PipelineBase):
             return df[list(COLUMN_ORDER)]
         return df[[*COLUMN_ORDER, *extras]]
 
+    def _add_row_metadata(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Add required row metadata fields (row_subtype, row_index)."""
+
+        df = df.copy()
+        if df.empty:
+            return df
+
+        # Add row_subtype: "activity" for all rows
+        if "row_subtype" not in df.columns:
+            df["row_subtype"] = "activity"
+            log.debug("row_subtype_added", value="activity")
+        elif df["row_subtype"].isna().all():
+            df["row_subtype"] = "activity"
+            log.debug("row_subtype_filled", value="activity")
+
+        # Add row_index: sequential index starting from 0
+        if "row_index" not in df.columns:
+            df["row_index"] = range(len(df))
+            log.debug("row_index_added", count=len(df))
+        elif df["row_index"].isna().all():
+            df["row_index"] = range(len(df))
+            log.debug("row_index_filled", count=len(df))
+
+        return df
+
     def _normalize_data_types(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Convert data types according to the Pandera schema."""
 
@@ -1802,6 +1971,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Nullable integer fields
         nullable_int_fields = {
+            "row_index": "Int64",
             "target_tax_id": "int64",
             "assay_tax_id": "int64",
             "record_id": "int64",
@@ -1844,23 +2014,31 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
-                # Convert to numeric, preserving NA values
-                nullable_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
-                )
-                # Use Int64 (nullable integer) to preserve NA values
-                df[field] = nullable_numeric_series.astype("Int64")
-                # For nullable fields, ensure values >= 1 if not NA
-                mask_valid = df[field].notna()
-                if mask_valid.any():
-                    invalid_mask = mask_valid & (df[field] < 1)
-                    if invalid_mask.any():
-                        log.warning(
-                            "invalid_positive_integer",
-                            field=field,
-                            count=int(invalid_mask.sum()),
-                        )
-                        df.loc[invalid_mask, field] = pd.NA
+                if field == "row_index":
+                    # row_index should be non-nullable, but use Int64 for consistency
+                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    df[field] = numeric_series_row.astype("Int64")
+                    # Fill any NA values with sequential index
+                    if df[field].isna().any():
+                        df[field] = range(len(df))
+                else:
+                    # Convert to numeric, preserving NA values
+                    nullable_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        df[field], errors="coerce"
+                    )
+                    # Use Int64 (nullable integer) to preserve NA values
+                    df[field] = nullable_numeric_series.astype("Int64")
+                    # For nullable fields, ensure values >= 1 if not NA
+                    mask_valid = df[field].notna()
+                    if mask_valid.any():
+                        invalid_mask = mask_valid & (df[field] < 1)
+                        if invalid_mask.any():
+                            log.warning(
+                                "invalid_positive_integer",
+                                field=field,
+                                count=int(invalid_mask.sum()),
+                            )
+                            df.loc[invalid_mask, field] = pd.NA
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
 
@@ -1975,6 +2153,45 @@ class ChemblActivityPipeline(PipelineBase):
             raise ValueError(msg)
 
         log.debug("activity_id_uniqueness_verified", unique_count=df["activity_id"].nunique())
+
+    def _validate_data_validity_comment_soft_enum(self, df: pd.DataFrame, log: Any) -> None:
+        """Soft enum валидация для data_validity_comment.
+
+        Проверяет значения против whitelist из конфига. Неизвестные значения
+        логируются как warning, но не блокируют валидацию (soft enum).
+
+        Parameters
+        ----------
+        df:
+            DataFrame для валидации.
+        log:
+            Logger instance.
+        """
+        if df.empty or "data_validity_comment" not in df.columns:
+            return
+
+        whitelist = self._get_data_validity_comment_whitelist()
+        if not whitelist:
+            return
+
+        non_null_comments = df["data_validity_comment"].dropna()
+        if len(non_null_comments) == 0:
+            return
+
+        whitelist_set = set(whitelist)
+        unknown_mask = ~non_null_comments.isin(whitelist_set)  # type: ignore[reportUnknownArgumentType]
+        unknown_count = int(unknown_mask.sum())
+
+        if unknown_count > 0:
+            unknown_values = non_null_comments[unknown_mask].value_counts().head(10).to_dict()  # type: ignore[reportUnknownArgumentType]
+            log.warning(
+                "soft_enum_unknown_data_validity_comment",
+                unknown_count=unknown_count,
+                total_count=len(non_null_comments),
+                samples=unknown_values,
+                whitelist=whitelist,
+                message="Unknown data_validity_comment values detected (soft enum: not blocking)",
+            )
 
     def _check_foreign_key_integrity(self, df: pd.DataFrame, log: Any) -> None:
         """Check foreign key integrity for ChEMBL IDs (format validation for non-null values)."""

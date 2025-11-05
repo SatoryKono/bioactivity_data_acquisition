@@ -100,6 +100,8 @@ determinism:
     na_position: "last"
   column_order:
     - activity_id
+    - row_subtype
+    - row_index    
     - assay_chembl_id
     - assay_type
     - assay_description
@@ -153,6 +155,8 @@ determinism:
     row_fields: []
     business_key_fields:
       - activity_id
+      - row_subtype
+      - row_index
     exclude_fields:
       - generated_at
       - run_id
@@ -186,7 +190,7 @@ chembl:
         max_retries: 3
         retry_backoff: 1.5
       data_validity:
-        enabled: false
+        enabled: true
         fields:
           - data_validity_comment
           - description
@@ -200,4 +204,11 @@ validation:
   schema_out: "bioetl.schemas.activity.ActivitySchema"
   strict: true
   coerce: true
+  data_validity_comment_whitelist:
+    - "Manually validated"
+    - "Potential transcription error"
+    - "Potential missing data"
+    - "Outside typical range"
+    - "Non standard unit for type"
+    - "Author confirmed error"
 

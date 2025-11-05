@@ -15,6 +15,8 @@ SCHEMA_VERSION = "1.5.0"
 
 COLUMN_ORDER = (
     "activity_id",
+    "row_subtype",
+    "row_index",
     "assay_chembl_id",
     "assay_type",
     "assay_description",
@@ -148,6 +150,8 @@ def _is_valid_activity_properties(value: object) -> bool:
 ActivitySchema = DataFrameSchema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),  # type: ignore[assignment]
+        "row_subtype": Column(pa.String, nullable=False),  # type: ignore[assignment]
+        "row_index": Column(pa.Int64, Check.ge(0), nullable=False),  # type: ignore[assignment]
         "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
         "assay_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "assay_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
@@ -203,7 +207,12 @@ ActivitySchema = DataFrameSchema(
             Check.ge(1),  # type: ignore[arg-type]
             nullable=True,
         ),
-        "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "data_validity_comment": Column(
+            pa.String,
+            nullable=True,
+            # Soft enum: валидация через whitelist в pipeline.validate(), не через Check
+            # Неизвестные значения логируются как warning, но не блокируют валидацию
+        ),  # type: ignore[assignment]
         "data_validity_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "potential_duplicate": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
         "activity_properties": Column(  # type: ignore[assignment]
