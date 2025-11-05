@@ -24,6 +24,7 @@ The `document_crossref` pipeline extracts publication metadata from Crossref RES
 ### Scope
 
 The pipeline extracts:
+
 - **Core metadata**: DOI, title, container title (journal), publication dates
 - **Bibliographic details**: volume, issue, pages, ISSN (print/electronic)
 - **Publisher information**: publisher name, member ID
@@ -65,6 +66,7 @@ flowchart LR
 ### Components
 
 **Extract Stage:**
+
 - Crossref REST API Client
 - Batch DOI retrieval (up to 200 per request)
 - Polite Pool support
@@ -73,16 +75,19 @@ flowchart LR
 - Fallback manager
 
 **Transform Stage:**
+
 - JSON Parser (Crossref JSON format)
 - Normalize: dates, authors, journal names
 - Type coercion and validation
 
 **Validate Stage:**
+
 - Pandera schema validation
 - QC coverage checks
 - Duplicate detection
 
 **Write Stage:**
+
 - Atomic writer (run_id-scoped temp dirs)
 - Canonical serialization (hash generation)
 - Metadata builder (full provenance)
@@ -104,9 +109,11 @@ https://api.crossref.org
 **Purpose:** Retrieve a single work by DOI.
 
 **Parameters:**
+
 - `doi`: DOI (e.g., `10.1234/example`)
 
 **Headers:**
+
 - `User-Agent`: Required, should include `mailto:` for Polite Pool
 - `Accept`: `application/json` (default)
 
@@ -124,9 +131,11 @@ curl -H "User-Agent: bioactivity_etl/1.0 (mailto:owner@example.org)" \
 **Purpose:** Retrieve multiple works by DOIs in a single request.
 
 **Parameters:**
+
 - `ids`: Comma-separated list of DOIs (max: 200 per request)
 
 **Headers:**
+
 - `User-Agent`: Required, should include `mailto:` for Polite Pool
 - `Content-Type`: `application/json`
 
@@ -153,23 +162,27 @@ curl -X POST \
 Crossref provides two access pools:
 
 **Public Pool (without identification):**
+
 - Rate limit: ~50 requests/second
 - Unstable performance
 - May throttle under high load
 
 **Polite Pool (recommended):**
+
 - Add `mailto=` in query string or User-Agent header
 - Rate limit: up to 50+ requests/second with priority
 - Stable performance
 - Recommended for production use
 
 **How to Use Polite Pool:**
+
 1. Include `mailto=` in User-Agent header: `User-Agent: app/version (mailto:owner@example.org)`
 2. Or include `mailto=` in query string: `?mailto=owner@example.org`
 
 ### Rate Limiting
 
 **Our Strategy (Conservative):**
+
 - Default: 2 requests/second (Polite Pool)
 - With burst capacity: up to 5 requests in burst
 - Workers: 2-4 parallel threads
@@ -224,6 +237,7 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor={valu
 ### Date Extraction Priority
 
 **Priority order:**
+
 1. `published-print.date-parts` - print publication date (preferred)
 2. `published-online.date-parts` - online publication date
 3. `issued.date-parts` - issued date (if available)
@@ -274,16 +288,20 @@ def normalize_orcid(orcid_value):
     return None
 ```
 
-### Error Handling
+### Crossref API Error Handling
 
 **404 Not Found:** Create tombstone record
+
 **400 Bad Request:** Invalid DOI format
+
 **503 Service Unavailable:** Retry with exponential backoff
+
 **429 Rate Limiting:** Exponential backoff with jitter
 
 ### Licensing
 
 Crossref metadata under CC0 (public domain):
+
 - Can be used freely
 - Attribution: "Data from Crossref"
 - Link to Terms of Use is required
@@ -428,29 +446,34 @@ qc:
 #### Polite Pool vs Public Pool
 
 **Public Pool (without identification):**
+
 - Rate limit: ~50 requests/second
 - Unstable performance
 - May throttle under high load
 
 **Polite Pool (recommended):**
+
 - Add `mailto=` in query string or User-Agent header
 - Rate limit: up to 50+ requests/second with priority
 - Stable performance
 
 **Crossref Plus (with API token):**
+
 - Requires registration and token
 - Additional metadata
 - Increased limits
 
-#### Cursor-based Pagination
+#### Cursor-based Pagination Summary
 
 For large lists, cursor-based pagination is recommended:
+
 - First request: `cursor=*`
 - Next requests: `cursor={value_from_previous_response}`
 
-#### Rate Limiting
+#### Rate Limiting Strategy
 
 **Our strategy (conservative):**
+
 - Default: 2 requests/second (polite pool)
 - With burst capacity: up to 5 requests in burst
 - Workers: 2-4 parallel threads
@@ -504,6 +527,7 @@ The following table describes the expected keys in the `document_crossref.yaml` 
 ### Input Data Format
 
 **Minimum Requirements:**
+
 - `doi` (string, unique) - DOI
 
 **Pandera InputSchema:**
@@ -529,6 +553,7 @@ The extraction process uses Crossref REST API components:
 ### Client
 
 The `CrossrefClient` ([ref: repo:src/bioetl/sources/crossref/client/client.py@refactoring_001]) handles:
+
 - HTTP requests to Crossref API
 - Timeouts, retries with exponential backoff
 - Rate limiting (2 rps with burst capacity)
@@ -538,6 +563,7 @@ The `CrossrefClient` ([ref: repo:src/bioetl/sources/crossref/client/client.py@re
 ### Batch Processor
 
 For multiple DOIs:
+
 1. **Batch requests**: Group DOIs into batches (max 200 per request)
 2. **POST request**: Use `/works` endpoint with JSON body
 3. **Error handling**: Split batch on errors, retry individual DOIs
@@ -545,6 +571,7 @@ For multiple DOIs:
 ### Parser
 
 The parser ([ref: repo:src/bioetl/sources/crossref/parser/parser.py@refactoring_001]) extracts:
+
 - DOI, title, container title (journal)
 - Publication dates (print/online)
 - Volume, issue, pages, ISSN (print/electronic)
@@ -557,6 +584,7 @@ The parser ([ref: repo:src/bioetl/sources/crossref/parser/parser.py@refactoring_
 ### Normalizer
 
 The `CrossrefNormalizer` ([ref: repo:src/bioetl/sources/crossref/normalizer/normalizer.py@refactoring_001]) performs:
+
 - Date normalization (ISO 8601 format)
 - DOI validation and normalization
 - Author name formatting
@@ -566,6 +594,7 @@ The `CrossrefNormalizer` ([ref: repo:src/bioetl/sources/crossref/normalizer/norm
 ### Pandera Schema
 
 A Pandera schema ([ref: repo:src/bioetl/sources/crossref/schema/schema.py@refactoring_001]) validates:
+
 - Data types and constraints
 - Required fields
 - Business key uniqueness (DOI)
@@ -573,6 +602,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/crossref/schema/schema.py@refact
 - Nullable policy
 
 **Schema Configuration:**
+
 - `strict=True`
 - `ordered=True`
 - `coerce=True`
@@ -582,6 +612,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/crossref/schema/schema.py@refact
 ### Artifact Format
 
 The pipeline produces output files:
+
 - `document_crossref_{date}.csv` or `.parquet` - Main dataset
 - `document_crossref_{date}_quality_report.csv` - QC metrics
 - `document_crossref_{date}_meta.yaml` - Metadata and provenance
@@ -589,11 +620,13 @@ The pipeline produces output files:
 ### Sort Keys
 
 Output data is sorted by:
+
 - Primary: `doi` (ascending)
 
 ### Hashing
 
 Each row includes:
+
 - `hash_row`: SHA-256 hash of entire row data
 - `hash_business_key`: SHA-256 hash of business key (`doi`)
 
@@ -645,6 +678,7 @@ The following QC metrics are collected and reported:
 ### QC Thresholds
 
 Configuration thresholds:
+
 - `qc.min_doi_coverage`: Minimum DOI coverage (default: 0.95)
 - `qc.max_404_rate`: Maximum 404 rate (default: 0.05)
 
@@ -661,17 +695,20 @@ The pipeline uses the following exit codes:
 ### Error Handling
 
 **Network Errors:**
+
 - Retry with exponential backoff
 - Maximum 5 retries
 - Fallback to cached data if available
 
 **API Errors:**
+
 - 429 (Too Many Requests): Wait and retry with backoff
 - 400 (Bad Request): Log error and skip record
 - 404 (Not Found): Log warning and continue (DOI may not exist)
 - 500 (Server Error): Retry with backoff
 
 **Validation Errors:**
+
 - Schema validation failures: Log error and skip record
 - QC threshold violations: Fail pipeline with detailed report
 

@@ -12,7 +12,7 @@ The Document (ChEMBL) pipeline deterministically extracts, normalizes, and valid
 
 The pipeline follows the standard ETL stages:
 
-```
+```plaintext
 Extract → Transform → Validate → Write
 ```
 

@@ -143,6 +143,36 @@ SCHEMA_REGISTRY.register(
     name=AssaySchema.name,
 )
 
+# Register document schema
+from .document import (  # noqa: E402  (import after registry definition)
+    DocumentSchema,
+    COLUMN_ORDER as DOCUMENT_COLUMN_ORDER,
+    SCHEMA_VERSION as DOCUMENT_SCHEMA_VERSION,
+)
+
+SCHEMA_REGISTRY.register(
+    "bioetl.schemas.document.DocumentSchema",
+    schema=DocumentSchema,
+    version=DOCUMENT_SCHEMA_VERSION,
+    column_order=DOCUMENT_COLUMN_ORDER,
+    name=DocumentSchema.name,
+)
+
+# Register target schema
+from .chembl.target import (  # noqa: E402  (import after registry definition)
+    TargetSchema,
+    COLUMN_ORDER as TARGET_COLUMN_ORDER,
+    SCHEMA_VERSION as TARGET_SCHEMA_VERSION,
+)
+
+SCHEMA_REGISTRY.register(
+    "bioetl.schemas.chembl.target.TargetSchema",
+    schema=TargetSchema,
+    version=TARGET_SCHEMA_VERSION,
+    column_order=TARGET_COLUMN_ORDER,
+    name=TargetSchema.name,
+)
+
 
 def get_schema(identifier: str) -> SchemaRegistryEntry:
     """Return the schema entry identified by ``identifier``."""

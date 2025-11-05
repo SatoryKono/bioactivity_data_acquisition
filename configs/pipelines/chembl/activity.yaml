@@ -178,7 +178,7 @@ chembl:
         max_retries: 3
         retry_backoff: 1.5
       assay:
-        enabled: false  # По умолчанию выключено для обратной совместимости
+        enabled: true
         fields:
           - assay_chembl_id
           - assay_organism

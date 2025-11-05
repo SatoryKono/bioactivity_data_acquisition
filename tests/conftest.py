@@ -353,3 +353,118 @@ def sample_chembl_status_response() -> dict[str, Any]:
         "release_date": "2024-01-01",
     }
 
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_api_client() -> MagicMock:
+    """Mock ChEMBL API client with standard responses."""
+    mock_client = MagicMock(spec=UnifiedAPIClient)
+    
+    # Create standard status response
+    mock_status_response = MagicMock()
+    mock_status_response.json.return_value = {"chembl_release": "33", "chembl_db_version": "33", "api_version": "1.0"}
+    mock_status_response.status_code = 200
+    mock_status_response.headers = {}
+    
+    # Create empty data response by default
+    mock_data_response = MagicMock()
+    mock_data_response.json.return_value = {
+        "page_meta": {"offset": 0, "limit": 25, "count": 0, "next": None},
+        "activities": [],
+    }
+    mock_data_response.status_code = 200
+    mock_data_response.headers = {}
+    
+    # Default side_effect: status first, then data
+    mock_client.get.side_effect = [mock_status_response, mock_data_response]
+    
+    return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_api_client_factory_patch(mock_chembl_api_client: MagicMock) -> Any:
+    """Pytest fixture that provides a context manager for mocking APIClientFactory.for_source."""
+    from contextlib import contextmanager
+    from unittest.mock import patch
+    
+    @contextmanager
+    def _factory(mock_client: MagicMock | None = None):
+        """Context manager for patching APIClientFactory.for_source."""
+        client = mock_client or mock_chembl_api_client
+        with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
+            mock_factory.return_value = client
+            yield mock_factory
+    
+    return _factory
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_client_with_data(sample_activity_data_raw: list[dict[str, Any]]) -> MagicMock:
+    """Mock ChEMBL API client with sample activity data."""
+    mock_client = MagicMock(spec=UnifiedAPIClient)
+    
+    # Status response
+    mock_status_response = MagicMock()
+    mock_status_response.json.return_value = {"chembl_release": "33", "chembl_db_version": "33"}
+    mock_status_response.status_code = 200
+    mock_status_response.headers = {}
+    
+    # Activity data response
+    mock_activity_response = MagicMock()
+    mock_activity_response.json.return_value = {
+        "page_meta": {"offset": 0, "limit": 25, "count": len(sample_activity_data_raw), "next": None},
+        "activities": sample_activity_data_raw,
+    }
+    mock_activity_response.status_code = 200
+    mock_activity_response.headers = {}
+    
+    mock_client.get.side_effect = [mock_status_response, mock_activity_response]
+    
+    return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_responses_for_endpoint() -> Any:
+    """Factory fixture to create mock responses for specific ChEMBL endpoints."""
+    def _create_responses(
+        endpoint_data: dict[str, Any] | list[dict[str, Any]],
+        endpoint_type: str = "activities",
+        count: int | None = None,
+    ) -> tuple[MagicMock, MagicMock]:
+        """Create mock status and data responses.
+        
+        Args:
+            endpoint_data: Data for the endpoint (dict for single, list for multiple)
+            endpoint_type: Type of endpoint (activities, assays, targets, etc.)
+            count: Number of items (auto-detected if None)
+        
+        Returns:
+            Tuple of (status_response, data_response)
+        """
+        # Status response
+        mock_status_response = MagicMock()
+        mock_status_response.json.return_value = {"chembl_release": "33", "chembl_db_version": "33"}
+        mock_status_response.status_code = 200
+        mock_status_response.headers = {}
+        
+        # Determine count
+        if count is None:
+            if isinstance(endpoint_data, list):
+                count = len(endpoint_data)
+            else:
+                count = 1
+                endpoint_data = [endpoint_data]
+        elif isinstance(endpoint_data, dict):
+            endpoint_data = [endpoint_data]
+        
+        # Data response
+        mock_data_response = MagicMock()
+        mock_data_response.json.return_value = {
+            "page_meta": {"offset": 0, "limit": 25, "count": count, "next": None},
+            endpoint_type: endpoint_data if isinstance(endpoint_data, list) else [endpoint_data],
+        }
+        mock_data_response.status_code = 200
+        mock_data_response.headers = {}
+        
+        return mock_status_response, mock_data_response
+    
+    return _create_responses

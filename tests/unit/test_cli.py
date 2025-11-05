@@ -182,7 +182,7 @@ sources:
 
             real_config = real_load_config(
                 config_path=config_file,
-                include_default_profiles=False,
+                include_default_profiles=True,
             )
             mock_load_config.return_value = real_config
             mock_pipeline = MagicMock()
@@ -192,7 +192,7 @@ sources:
             mock_pipeline.run.return_value = mock_result
             mock_pipeline_class.return_value = mock_pipeline
 
-            runner.invoke(
+            result = runner.invoke(
                 CLI_APP,
                 [
                     "activity_chembl",
@@ -205,6 +205,7 @@ sources:
                 ],
             )
 
+            assert result.exit_code == 0, f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
             # Check that limit was passed to config
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)

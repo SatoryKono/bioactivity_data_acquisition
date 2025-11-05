@@ -24,6 +24,7 @@ The `document_openalex` pipeline extracts publication metadata from OpenAlex Wor
 ### Scope
 
 The pipeline extracts:
+
 - **Core metadata**: OpenAlex ID, DOI, PMID, title, abstract, publication dates
 - **Bibliographic details**: journal/venue, type, language
 - **Open access information**: OA status, OA URL, license
@@ -66,6 +67,7 @@ flowchart LR
 ### Components
 
 **Extract Stage:**
+
 - OpenAlex Works API Client
 - Cursor-based pagination
 - TTL cache (24 hours)
@@ -73,16 +75,19 @@ flowchart LR
 - Fallback manager
 
 **Transform Stage:**
+
 - JSON Parser (OpenAlex JSON format)
 - Normalize: dates, concepts, OA status, authors
 - Title search fallback with fuzzy matching
 
 **Validate Stage:**
+
 - Pandera schema validation
 - QC coverage checks
 - Duplicate detection
 
 **Write Stage:**
+
 - Atomic writer (run_id-scoped temp dirs)
 - Canonical serialization (hash generation)
 - Metadata builder (full provenance)
@@ -104,6 +109,7 @@ https://api.openalex.org
 **Purpose:** Retrieve a single work by OpenAlex ID, DOI, PMID, or MAG ID.
 
 **Parameters:**
+
 - `work_id`: OpenAlex ID (`W1234567890`), DOI (`https://doi.org/10.1234/example`), PMID (`pmid:12345678`), or MAG ID (`mag:1234567890`)
 
 **Example:**
@@ -119,6 +125,7 @@ curl "https://api.openalex.org/works/https://doi.org/10.1234/example"
 **Purpose:** Retrieve multiple works using filters.
 
 **Parameters:**
+
 - `filter`: Filter criteria (e.g., `doi:10.1234/example|pmid:12345678`)
 - `per_page`: Number of results per page (max: 200, default: 25)
 - `cursor`: Cursor for pagination (use `*` for first page)
@@ -136,6 +143,7 @@ curl "https://api.openalex.org/works?filter=doi:10.1234/example|10.5678/example&
 **Purpose:** Search works by title or other fields (fallback method).
 
 **Parameters:**
+
 - `search`: Search query (title, abstract, etc.)
 - `per_page`: Number of results per page (max: 200)
 - `cursor`: Cursor for pagination
@@ -149,6 +157,7 @@ curl "https://api.openalex.org/works?search=title:Machine%20Learning&per_page=10
 ### Cursor-based Pagination
 
 OpenAlex uses cursor-based pagination:
+
 1. First request: `cursor=*`
 2. Subsequent requests: `cursor={value_from_previous_response}`
 3. Continue until `meta.next_cursor` is `null`
@@ -156,12 +165,14 @@ OpenAlex uses cursor-based pagination:
 ### Rate Limiting
 
 **OpenAlex Policy:**
+
 - No API key required (completely open service)
 - "Reasonable use" policy
 - Recommended: minimum 100ms between requests
 - No official rate limit, but recommended: 10 requests/second
 
 **Our Strategy:**
+
 - Conservative: 10 requests/second with token bucket
 - 2-4 workers for parallelism
 - Exponential backoff on any errors
@@ -169,6 +180,7 @@ OpenAlex uses cursor-based pagination:
 ### Open Data Policy
 
 OpenAlex is a completely open service:
+
 - ✅ **Free**: no API keys
 - ✅ **Generous limits**: "reasonable use"
 - ✅ **Open data**: under CC0 license
@@ -208,6 +220,7 @@ OpenAlex is a completely open service:
 ### OA Status Values
 
 Possible values for `oa_status`:
+
 - `gold` — article in open access through publisher
 - `green` — article available through repository
 - `hybrid` — article in hybrid journal
@@ -217,6 +230,7 @@ Possible values for `oa_status`:
 ### Concepts and Subject Areas
 
 Extract top 3 concepts by score for `concepts_top3` field:
+
 - Sort by `score` (descending)
 - Select first 3 concepts
 - Save as array or comma-separated string
@@ -224,6 +238,7 @@ Extract top 3 concepts by score for `concepts_top3` field:
 ### Title-based Search (Fallback)
 
 When DOI or PMID is unavailable, use title-based search:
+
 - Exact match by title
 - Fuzzy matching if no exact match
 - Select result with similarity score > threshold (default 0.8)
@@ -359,51 +374,58 @@ qc:
 
 ### 5.6 Special Features
 
-#### Open Data Policy
+#### Configuration: Open Data Policy
 
 OpenAlex — completely open service:
+
 - ✅ **Free**: no API keys
 - ✅ **Generous limits**: "reasonable use"
 - ✅ **Open data**: under CC0 license
 - ✅ **Public code**: GitHub repository
 
-#### Rate Limiting
+#### Configuration: Rate Limiting
 
 **Official recommendations:**
+
 - No more than 100K requests/day per IP
 - Minimum 100ms between requests
 - Do not use parallel requests in aggressive mode
 
 **Our strategy:**
+
 - 10 requests/second with token bucket
 - 2-4 workers for parallelism
 - Exponential backoff on any errors
 
-#### Cursor-based Pagination
+#### Configuration: Cursor-based Pagination
 
 For large lists, cursor-based pagination is recommended:
+
 - First request: `cursor=*`
 - Next requests: `cursor={value_from_previous_response}`
 
-#### Title-based Search (Fallback)
+#### Configuration: Title-based Search (Fallback)
 
 If no DOI or PMID, use title-based search:
+
 - Exact match by title
 - Fuzzy matching if no exact match
 - Select result with score > threshold (default 0.8)
 
-#### OA Status
+#### Configuration: OA Status
 
 Possible values `oa_status`:
+
 - `gold` — article in open access through publisher
 - `green` — article available through repository
 - `hybrid` — article in hybrid journal
 - `bronze` — article available without license
 - `closed` — article not in open access
 
-#### Concepts and Subject Areas
+#### Configuration: Concepts and Subject Areas
 
 Extract top 3 concepts by score for `concepts_top3` field:
+
 - Sort by `score` (descending)
 - Select first 3 concepts
 - Save as array or comma-separated string
@@ -454,9 +476,11 @@ The following table describes the expected keys in the `document_openalex.yaml` 
 ### Input Data Format
 
 **Minimum Requirements:**
+
 - At least one of: `doi`, `pmid`, or `openalex_id`
 
 **Optional:**
+
 - `title` (for fallback search if DOI/PMID unavailable)
 
 **Pandera InputSchema:**
@@ -495,6 +519,7 @@ The extraction process uses OpenAlex Works API components:
 ### Client
 
 The `OpenAlexClient` ([ref: repo:src/bioetl/sources/openalex/client/client.py@refactoring_001]) handles:
+
 - HTTP requests to OpenAlex API
 - Timeouts, retries with exponential backoff
 - Rate limiting (10 rps with token bucket)
@@ -503,6 +528,7 @@ The `OpenAlexClient` ([ref: repo:src/bioetl/sources/openalex/client/client.py@re
 ### Paginator
 
 For large result sets:
+
 1. **First request**: `cursor=*`
 2. **Subsequent requests**: Use `meta.next_cursor` from previous response
 3. Continue until `meta.next_cursor` is `null`
@@ -510,6 +536,7 @@ For large result sets:
 ### Parser
 
 The parser ([ref: repo:src/bioetl/sources/openalex/parser/parser.py@refactoring_001]) extracts:
+
 - OpenAlex ID, DOI, PMID
 - Title, abstract, publication dates
 - Journal/venue, type, language
@@ -521,6 +548,7 @@ The parser ([ref: repo:src/bioetl/sources/openalex/parser/parser.py@refactoring_
 ### Title Search Fallback
 
 If DOI or PMID unavailable:
+
 1. **Exact match**: Search by title
 2. **Fuzzy match**: If no exact match, use Jaccard similarity
 3. **Select best**: Choose result with similarity > threshold (default: 0.8)
@@ -531,6 +559,7 @@ If DOI or PMID unavailable:
 ### Normalizer
 
 The `OpenAlexNormalizer` ([ref: repo:src/bioetl/sources/openalex/normalizer/normalizer.py@refactoring_001]) performs:
+
 - Date normalization (ISO 8601 format)
 - Concept extraction (top 3 by score)
 - OA status normalization (gold, green, hybrid, bronze, closed)
@@ -540,6 +569,7 @@ The `OpenAlexNormalizer` ([ref: repo:src/bioetl/sources/openalex/normalizer/norm
 ### Pandera Schema
 
 A Pandera schema ([ref: repo:src/bioetl/sources/openalex/schema/schema.py@refactoring_001]) validates:
+
 - Data types and constraints
 - Required fields
 - Business key uniqueness (OpenAlex ID or DOI)
@@ -547,6 +577,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/openalex/schema/schema.py@refact
 - Nullable policy
 
 **Schema Configuration:**
+
 - `strict=True`
 - `ordered=True`
 - `coerce=True`
@@ -556,6 +587,7 @@ A Pandera schema ([ref: repo:src/bioetl/sources/openalex/schema/schema.py@refact
 ### Artifact Format
 
 The pipeline produces output files:
+
 - `document_openalex_{date}.csv` or `.parquet` - Main dataset
 - `document_openalex_{date}_quality_report.csv` - QC metrics
 - `document_openalex_{date}_meta.yaml` - Metadata and provenance
@@ -563,12 +595,14 @@ The pipeline produces output files:
 ### Sort Keys
 
 Output data is sorted by:
+
 - Primary: `openalex_id` (ascending)
 - Secondary: `doi` (ascending)
 
 ### Hashing
 
 Each row includes:
+
 - `hash_row`: SHA-256 hash of entire row data
 - `hash_business_key`: SHA-256 hash of business key (`openalex_id` or `doi`)
 
@@ -622,6 +656,7 @@ The following QC metrics are collected and reported:
 ### QC Thresholds
 
 Configuration thresholds:
+
 - `qc.min_doi_coverage`: Minimum DOI coverage (default: 0.8)
 - `qc.max_title_fallback_rate`: Maximum title fallback rate (default: 0.1)
 
@@ -638,17 +673,20 @@ The pipeline uses the following exit codes:
 ### Error Handling
 
 **Network Errors:**
+
 - Retry with exponential backoff
 - Maximum 5 retries
 - Fallback to cached data if available
 
 **API Errors:**
+
 - 429 (Too Many Requests): Wait and retry with backoff
 - 400 (Bad Request): Log error and skip record
 - 404 (Not Found): Log warning and continue (may use title search)
 - 500 (Server Error): Retry with backoff
 
 **Validation Errors:**
+
 - Schema validation failures: Log error and skip record
 - QC threshold violations: Fail pipeline with detailed report
 

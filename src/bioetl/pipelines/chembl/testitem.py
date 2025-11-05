@@ -101,10 +101,9 @@ class TestItemChemblPipeline(PipelineBase):
         pages = 0
 
         # Apply filters if configured
-        if hasattr(source_config, "filters") and source_config.filters:
-            if params is None:
-                params = {}
-            params.update(source_config.filters)
+        filters = getattr(source_config, "filters", None)
+        if filters:
+            params.update(filters)  # params is guaranteed to be non-None here
 
         while next_endpoint:
             page_start = time.perf_counter()
@@ -299,6 +298,12 @@ class TestItemChemblPipeline(PipelineBase):
         # Ensure all schema columns exist with proper types
         df = self._ensure_schema_columns(df, log)
 
+        # Normalize numeric fields (type coercion, negative values -> None)
+        df = self._normalize_numeric_fields(df, log)
+
+        # Remove columns not in schema
+        df = self._remove_extra_columns(df, log)
+
         # Add version fields
         df["_chembl_db_version"] = self._chembl_db_version or ""
         df["_api_version"] = self._api_version or ""
@@ -309,6 +314,15 @@ class TestItemChemblPipeline(PipelineBase):
         # Sort by molecule_chembl_id for determinism
         if "molecule_chembl_id" in df.columns:
             df = df.sort_values("molecule_chembl_id").reset_index(drop=True)
+
+        # Reorder columns according to schema COLUMN_ORDER
+        from bioetl.schemas.chembl.testitem import COLUMN_ORDER
+
+        ordered = list(COLUMN_ORDER)
+        existing = [col for col in ordered if col in df.columns]
+        extras = [col for col in df.columns if col not in ordered]
+        if existing:
+            df = df[[*existing, *extras]]
 
         log.info("transform_completed", rows=len(df))
         return df
@@ -365,15 +379,16 @@ class TestItemChemblPipeline(PipelineBase):
         """Resolve max pages from source config or defaults."""
         parameters = getattr(source_config, "parameters", {})
         if isinstance(parameters, Mapping):
-            max_pages: Any = parameters.get("max_pages")
-            if isinstance(max_pages, int) and max_pages > 0:
-                return max_pages
+            parameters_typed: Mapping[str, Any] = cast(Mapping[str, Any], parameters)
+            max_pages_raw = parameters_typed.get("max_pages")
+            if isinstance(max_pages_raw, int) and max_pages_raw > 0:
+                return max_pages_raw
         return None
 
     def _fetch_chembl_versions(
         self,
         client: UnifiedAPIClient,
-        log: UnifiedLogger,
+        log: Any,
     ) -> None:
         """Fetch ChEMBL DB and API versions from /status endpoint."""
 
@@ -456,7 +471,7 @@ class TestItemChemblPipeline(PipelineBase):
                 return next_link
         return None
 
-    def _flatten_nested_structures(self, df: pd.DataFrame, log: UnifiedLogger) -> pd.DataFrame:
+    def _flatten_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Flatten nested molecule_structures and molecule_properties into flat columns."""
 
         if df.empty:
@@ -464,7 +479,9 @@ class TestItemChemblPipeline(PipelineBase):
 
         # Flatten molecule_structures
         if "molecule_structures" in df.columns:
-            structures_df = pd.json_normalize(df["molecule_structures"].tolist())
+            structures_df = pd.json_normalize(  # pyright: ignore[reportUnknownMemberType]
+                df["molecule_structures"].tolist(),
+            )
             if "canonical_smiles" in structures_df.columns:
                 df["canonical_smiles"] = structures_df["canonical_smiles"]
             if "standard_inchi_key" in structures_df.columns:
@@ -472,7 +489,9 @@ class TestItemChemblPipeline(PipelineBase):
 
         # Flatten molecule_properties
         if "molecule_properties" in df.columns:
-            properties_df = pd.json_normalize(df["molecule_properties"].tolist())
+            properties_df = pd.json_normalize(  # pyright: ignore[reportUnknownMemberType]
+                df["molecule_properties"].tolist(),
+            )
             property_columns = [
                 "full_mwt",
                 "mw_freebase",
@@ -491,7 +510,7 @@ class TestItemChemblPipeline(PipelineBase):
         log.debug("flatten_nested_structures_completed", columns=list(df.columns))
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: UnifiedLogger) -> pd.DataFrame:
+    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL identifiers and InChI keys."""
 
         if df.empty:
@@ -507,12 +526,15 @@ class TestItemChemblPipeline(PipelineBase):
                 df["standard_inchi_key"].astype(str).str.upper().str.strip()
             )
             # Replace empty strings with NaN
-            df["standard_inchi_key"] = df["standard_inchi_key"].replace("", pd.NA)
+            df["standard_inchi_key"] = df["standard_inchi_key"].replace(  # pyright: ignore[reportUnknownMemberType]
+                "",
+                pd.NA,
+            )
 
         log.debug("normalize_identifiers_completed")
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: UnifiedLogger) -> pd.DataFrame:
+    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields: trim, replace empty strings with NaN."""
 
         if df.empty:
@@ -526,12 +548,15 @@ class TestItemChemblPipeline(PipelineBase):
         for col in string_columns:
             if col in df.columns:
                 df[col] = df[col].astype(str).str.strip()
-                df[col] = df[col].replace("", pd.NA)
+                df[col] = df[col].replace(  # pyright: ignore[reportUnknownMemberType]
+                    "",
+                    pd.NA,
+                )
 
         log.debug("normalize_string_fields_completed")
         return df
 
-    def _ensure_schema_columns(self, df: pd.DataFrame, log: UnifiedLogger) -> pd.DataFrame:
+    def _ensure_schema_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Ensure all schema columns exist with proper types."""
 
         if df.empty:
@@ -573,7 +598,72 @@ class TestItemChemblPipeline(PipelineBase):
         log.debug("ensure_schema_columns_completed", columns=list(df.columns))
         return df
 
-    def _deduplicate_molecules(self, df: pd.DataFrame, log: UnifiedLogger) -> pd.DataFrame:
+    def _normalize_numeric_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Normalize numeric fields: convert types, replace negative values with None."""
+
+        if df.empty:
+            return df
+
+        # Integer columns that should be >= 0
+        int_ge_zero_columns = [
+            "chirality",
+            "availability_type",
+            "hbd",
+            "hba",
+            "aromatic_rings",
+            "rtb",
+            "num_ro5_violations",
+        ]
+
+        # Integer columns that can have specific ranges
+        int_columns = [
+            "max_phase",
+            "first_approval",
+            "black_box_warning",
+        ]
+
+        # Convert all integer columns, handling None/NaN properly
+        for col in int_ge_zero_columns + int_columns:
+            if col in df.columns:
+                # Convert to numeric, coercing errors and None to NaN
+                numeric_series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                    df[col],
+                    errors="coerce",
+                )
+                # For columns that should be >= 0, replace negative values with NaN
+                if col in int_ge_zero_columns:
+                    # Replace negative values with NaN
+                    numeric_series = numeric_series.where(numeric_series >= 0)
+                # Convert to nullable Int64 type
+                # This will automatically convert NaN to pd.NA for nullable integers
+                df[col] = numeric_series.astype("Int64")
+
+        log.debug("normalize_numeric_fields_completed")
+        return df
+
+    def _remove_extra_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Remove columns that are not in the schema."""
+
+        if df.empty:
+            return df
+
+        from bioetl.schemas.chembl.testitem import COLUMN_ORDER
+
+        schema_columns = set(COLUMN_ORDER)
+        existing_columns = set(df.columns)
+        extra_columns = existing_columns - schema_columns
+
+        if extra_columns:
+            df = df.drop(columns=list(extra_columns))
+            log.debug(
+                "remove_extra_columns_completed",
+                removed_columns=list(extra_columns),
+                remaining_columns=list(df.columns),
+            )
+
+        return df
+
+    def _deduplicate_molecules(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Deduplicate molecules by standard_inchi_key (fallback to molecule_chembl_id)."""
 
         if df.empty:

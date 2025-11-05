@@ -499,11 +499,13 @@ class ChemblActivityPipeline(PipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать клиент ChEMBL
+        # Создать или переиспользовать клиент ChEMBL
         source_config = self._resolve_source_config("chembl")
         base_url = self._resolve_base_url(source_config.parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_enrichment_client", api_client)
+        # Регистрируем клиент только если он еще не зарегистрирован
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(api_client)
 
         # Вызвать функцию обогащения
@@ -558,11 +560,13 @@ class ChemblActivityPipeline(PipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать клиент ChEMBL
+        # Создать или переиспользовать клиент ChEMBL
         source_config = self._resolve_source_config("chembl")
         base_url = self._resolve_base_url(source_config.parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_enrichment_client", api_client)
+        # Регистрируем клиент только если он еще не зарегистрирован
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(api_client)
 
         # Вызвать функцию обогащения
@@ -1079,20 +1083,22 @@ class ChemblActivityPipeline(PipelineBase):
             next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
             next_link: str | None = cast(str | None, next_link_raw) if next_link_raw is not None else None
             if isinstance(next_link, str) and next_link:
-                base_path = urlparse(base_url).path.rstrip("/")
+                # urlparse returns ParseResult with str path when input is str
+                base_path_parse_result = urlparse(base_url)
+                base_path: str = str(base_path_parse_result.path).rstrip("/")  # type: ignore[assignment]
 
                 # If next_link is a full URL, extract only the relative path
                 if next_link.startswith("http://") or next_link.startswith("https://"):
                     parsed = urlparse(next_link)
                     base_parsed = urlparse(base_url)
 
-                    # Get paths
-                    path = parsed.path
-                    base_path_from_url = base_parsed.path
+                    # Get paths - urlparse returns str path when input is str
+                    path: str = str(parsed.path)  # type: ignore[assignment]
+                    base_path_from_url: str = str(base_parsed.path)  # type: ignore[assignment]
 
                     # Normalize: remove trailing slashes for comparison
-                    path_normalized = path.rstrip("/")
-                    base_path_normalized = base_path_from_url.rstrip("/")
+                    path_normalized: str = path.rstrip("/")
+                    base_path_normalized: str = base_path_from_url.rstrip("/")
 
                     # Remove base_path prefix from path if it exists
                     # This ensures we only return the endpoint part relative to base_url

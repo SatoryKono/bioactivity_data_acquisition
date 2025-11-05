@@ -50,14 +50,26 @@ def build_command_config_assay() -> CommandConfig:
 
 def build_command_config_target() -> CommandConfig:
     """Build command configuration for target pipeline."""
-    # TODO: Import when target pipeline is implemented
-    raise NotImplementedError("Target pipeline not yet implemented")
+    from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+
+    return CommandConfig(
+        name="target",
+        description="Extract target records from ChEMBL API and normalize them to the project schema.",
+        pipeline_class=ChemblTargetPipeline,
+        default_config_path=Path("configs/pipelines/chembl/target.yaml"),
+    )
 
 
 def build_command_config_document() -> CommandConfig:
     """Build command configuration for document pipeline."""
-    # TODO: Import when document pipeline is implemented
-    raise NotImplementedError("Document pipeline not yet implemented")
+    from bioetl.pipelines.chembl.document import ChemblDocumentPipeline
+
+    return CommandConfig(
+        name="document",
+        description="Extract document records from ChEMBL API and normalize them to the project schema.",
+        pipeline_class=ChemblDocumentPipeline,
+        default_config_path=Path("configs/pipelines/chembl/document.yaml"),
+    )
 
 
 def build_command_config_testitem() -> CommandConfig:
@@ -118,10 +130,10 @@ def build_command_config_semantic_scholar() -> CommandConfig:
 COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
     "activity_chembl": build_command_config_activity,
     "assay_chembl": build_command_config_assay,
-    "testitem": build_command_config_testitem,
     "testitem_chembl": build_command_config_testitem,  # Alias
-    # "target": build_command_config_target,
-    # "document": build_command_config_document,
+    "target": build_command_config_target,
+    "target_chembl": build_command_config_target,  # Alias
+    "document_chembl": build_command_config_document,  # Alias
     # "pubchem": build_command_config_pubchem,
     # "uniprot": build_command_config_uniprot,
     # "gtp_iuphar": build_command_config_iuphar,

@@ -2,6 +2,12 @@
 
 These tests verify that all CLI examples from README and pipeline documentation
 execute successfully with --dry-run flag.
+
+Note: These tests use subprocess to run CLI commands in separate processes.
+Since all tests use --dry-run flag, API calls are prevented by the pipeline
+logic (dry_run mode returns empty DataFrames without making API calls).
+Therefore, mocking is not needed for these tests, but they serve as smoke
+tests to verify that CLI commands work correctly.
 """
 
 import subprocess

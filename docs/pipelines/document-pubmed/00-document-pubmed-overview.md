@@ -12,7 +12,7 @@ The Document (PubMed) pipeline is a standalone pipeline that extracts publicatio
 
 The pipeline follows the standard ETL stages:
 
-```
+```plaintext
 Extract → Transform → Validate → Write
 ```
 

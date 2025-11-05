@@ -224,8 +224,8 @@ class ChemblAssayPipeline(PipelineBase):
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_string_fields(df, log)
-        df = self._serialize_array_fields(df, log)
         df = self._normalize_nested_structures(df, log)
+        df = self._serialize_array_fields(df, log)
         df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, log)
         df = self._ensure_schema_columns(df, log)
@@ -390,29 +390,45 @@ class ChemblAssayPipeline(PipelineBase):
 
         df = df.copy()
 
-        # Extract assay_class_id from bao_format if available
+        # Extract assay_class_id from bao_format if available (top-level field)
         if "bao_format" in df.columns and "assay_class_id" in df.columns:
             mask = df["bao_format"].notna() & df["assay_class_id"].isna()
             if mask.any():
                 df.loc[mask, "assay_class_id"] = df.loc[mask, "bao_format"]
                 log.debug("assay_class_id_extracted_from_bao_format", count=int(mask.sum()))
 
-        # Extract assay_class_id from assay_classifications if available
+        # Extract assay_class_id from assay_classifications array if available
         if "assay_classifications" in df.columns and "assay_class_id" in df.columns:
             mask = df["assay_classifications"].notna() & df["assay_class_id"].isna()
             if mask.any():
+                # Keys to search for in order of priority
+                id_keys = ["assay_class_id", "class_id", "id", "bao_format"]
+                extracted_count = 0
+
                 for idx in df[mask].index:
                     classifications = df.loc[idx, "assay_classifications"]
                     if isinstance(classifications, (list, Sequence)) and len(classifications) > 0:
-                        # Extract first classification if it's a dict with bao_format
-                        first_class = classifications[0]
-                        if isinstance(first_class, Mapping):
-                            # Приводим Mapping к dict для явной типизации
-                            first_class_dict: dict[str, Any] = cast(dict[str, Any], dict(first_class))
-                            bao_format: Any | None = first_class_dict.get("bao_format")
-                            if bao_format and isinstance(bao_format, str):
-                                df.loc[idx, "assay_class_id"] = bao_format
-                log.debug("assay_class_id_extracted_from_classifications", count=int(mask.sum()))
+                        # Collect all IDs from all elements in the array
+                        found_ids: list[str] = []
+                        for item in classifications:
+                            if isinstance(item, Mapping):
+                                item_dict: dict[str, Any] = cast(dict[str, Any], dict(item))
+                                # Search for ID in order of priority
+                                for key in id_keys:
+                                    value = item_dict.get(key)
+                                    if value is not None:
+                                        value_str = str(value).strip()
+                                        if value_str and value_str not in found_ids:
+                                            found_ids.append(value_str)
+                                            break  # Use first found key per item
+
+                        # Aggregate IDs with ";"
+                        if found_ids:
+                            df.loc[idx, "assay_class_id"] = ";".join(found_ids)
+                            extracted_count += 1
+
+                if extracted_count > 0:
+                    log.debug("assay_class_id_extracted_from_classifications", count=extracted_count)
 
         # Note: assay_parameters and assay_classifications are now serialized
         # in _serialize_array_fields() and kept in the final schema

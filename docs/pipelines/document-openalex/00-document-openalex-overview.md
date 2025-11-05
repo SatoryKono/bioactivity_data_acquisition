@@ -12,7 +12,7 @@ The Document (OpenAlex) pipeline is a standalone pipeline that extracts publicat
 
 The pipeline follows the standard ETL stages:
 
-```
+```plaintext
 Extract → Transform → Validate → Write
 ```
 
