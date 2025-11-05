@@ -6,9 +6,10 @@ Adding a new pipeline requires explicitly adding its configuration to this regis
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 __all__ = ["CommandConfig", "COMMAND_REGISTRY"]
 

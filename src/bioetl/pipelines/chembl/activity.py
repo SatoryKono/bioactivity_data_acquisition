@@ -20,15 +20,10 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.schemas.activity import (
-    ACTIVITY_PROPERTY_KEYS,
-    COLUMN_ORDER,
-    RELATIONS,
-    STANDARD_TYPES,
-)
+from bioetl.schemas.activity import (ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER,
+                                     RELATIONS, STANDARD_TYPES)
 
 from ..base import PipelineBase, RunResult
-
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -1058,8 +1053,7 @@ class ChemblActivityPipeline(PipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
-                relations_set: set[str] = RELATIONS
-                invalid_mask = mask & ~df["standard_relation"].isin(relations_set)  # pyright: ignore[reportUnknownMemberType]
+                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)
                 if invalid_mask.any():
                     log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
@@ -1125,8 +1119,7 @@ class ChemblActivityPipeline(PipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "relation"] = series
-                relations_set: set[str] = RELATIONS
-                invalid_mask = mask & ~df["relation"].isin(relations_set)
+                invalid_mask = mask & ~df["relation"].isin(RELATIONS)
                 if invalid_mask.any():
                     log.warning("invalid_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "relation"] = None
@@ -1247,9 +1240,9 @@ class ChemblActivityPipeline(PipelineBase):
             try:
                 parsed = json.loads(stripped)
             except (TypeError, ValueError):
-                base = {key: None for key in ACTIVITY_PROPERTY_KEYS}
-                base["text_value"] = stripped
-                return [base]
+                fallback_base: dict[str, Any | None] = dict.fromkeys(ACTIVITY_PROPERTY_KEYS, None)
+                fallback_base["text_value"] = stripped
+                return [fallback_base]
             else:
                 value = parsed
 
@@ -1270,15 +1263,15 @@ class ChemblActivityPipeline(PipelineBase):
             if item is None:
                 continue
             if isinstance(item, Mapping):
-                normalized_item = {key: item.get(key) for key in ACTIVITY_PROPERTY_KEYS}
+                normalized_item: dict[str, Any | None] = {key: item.get(key) for key in ACTIVITY_PROPERTY_KEYS}
                 result_flag_value = normalized_item.get("result_flag")
                 if isinstance(result_flag_value, int) and result_flag_value in (0, 1):
                     normalized_item["result_flag"] = bool(result_flag_value)
                 normalized.append(normalized_item)
             elif isinstance(item, str):
-                base = {key: None for key in ACTIVITY_PROPERTY_KEYS}
-                base["text_value"] = item
-                normalized.append(base)
+                str_base: dict[str, Any | None] = dict.fromkeys(ACTIVITY_PROPERTY_KEYS, None)
+                str_base["text_value"] = item
+                normalized.append(str_base)
             else:
                 if log is not None:
                     log.warning(

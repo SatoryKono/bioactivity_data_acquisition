@@ -1,0 +1,600 @@
+{
+  "pipeline_base": {
+    "apply_retention_policy": {
+      "name": "apply_retention_policy",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        }
+      ],
+      "return_annotation": "None",
+      "is_abstract": false
+    },
+    "augment_metadata": {
+      "name": "augment_metadata",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "metadata",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Mapping[str, object]",
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        }
+      ],
+      "return_annotation": "Mapping[str, object]",
+      "is_abstract": false
+    },
+    "build_correlation_report": {
+      "name": "build_correlation_report",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        }
+      ],
+      "return_annotation": "pd.DataFrame | dict[str, object] | None",
+      "is_abstract": false
+    },
+    "build_qc_metrics": {
+      "name": "build_qc_metrics",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        }
+      ],
+      "return_annotation": "pd.DataFrame | dict[str, object] | None",
+      "is_abstract": false
+    },
+    "build_quality_report": {
+      "name": "build_quality_report",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        }
+      ],
+      "return_annotation": "pd.DataFrame | dict[str, object] | None",
+      "is_abstract": false
+    },
+    "build_run_stem": {
+      "name": "build_run_stem",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "run_tag",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str | None",
+          "default": null
+        },
+        {
+          "name": "mode",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "str",
+      "is_abstract": false
+    },
+    "close_resources": {
+      "name": "close_resources",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        }
+      ],
+      "return_annotation": "None",
+      "is_abstract": false
+    },
+    "execute_enrichment_stages": {
+      "name": "execute_enrichment_stages",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        },
+        {
+          "name": "stages",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "Sequence[str] | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "pd.DataFrame",
+      "is_abstract": false
+    },
+    "extract": {
+      "name": "extract",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "args",
+          "kind": "VAR_POSITIONAL",
+          "annotation": "object",
+          "default": null
+        },
+        {
+          "name": "kwargs",
+          "kind": "VAR_KEYWORD",
+          "annotation": "object",
+          "default": null
+        }
+      ],
+      "return_annotation": "object",
+      "is_abstract": false
+    },
+    "finalize_with_standard_metadata": {
+      "name": "finalize_with_standard_metadata",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "metadata",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Mapping[str, Any]",
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "pd.DataFrame | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "dict[str, Any]",
+      "is_abstract": false
+    },
+    "init_chembl_client": {
+      "name": "init_chembl_client",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "base_url",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "UnifiedAPIClient",
+      "is_abstract": false
+    },
+    "list_run_stems": {
+      "name": "list_run_stems",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        }
+      ],
+      "return_annotation": "Sequence[str]",
+      "is_abstract": false
+    },
+    "plan_run_artifacts": {
+      "name": "plan_run_artifacts",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "run_tag",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str | None",
+          "default": null
+        },
+        {
+          "name": "mode",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "include_correlation",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "include_qc_metrics",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "include_metadata",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "include_manifest",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "extras",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "dict[str, Path] | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "RunArtifacts",
+      "is_abstract": false
+    },
+    "read_input_table": {
+      "name": "read_input_table",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "path",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Path",
+          "default": null
+        },
+        {
+          "name": "limit",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "sample",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "int | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "pd.DataFrame",
+      "is_abstract": false
+    },
+    "record_validation_issue": {
+      "name": "record_validation_issue",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "severity",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str",
+          "default": "warning"
+        },
+        {
+          "name": "dataset",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str",
+          "default": "primary"
+        },
+        {
+          "name": "column",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "check",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str | None",
+          "default": "None"
+        },
+        {
+          "name": "count",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "int | None",
+          "default": "None"
+        },
+        {
+          "name": "error",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "None",
+      "is_abstract": false
+    },
+    "register_client": {
+      "name": "register_client",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "name",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str",
+          "default": null
+        },
+        {
+          "name": "client",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Callable[[], None] | object",
+          "default": null
+        },
+        {
+          "name": "close_method",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str",
+          "default": "close"
+        }
+      ],
+      "return_annotation": "None",
+      "is_abstract": false
+    },
+    "reset_stage_context": {
+      "name": "reset_stage_context",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "stage",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str",
+          "default": null
+        }
+      ],
+      "return_annotation": "None",
+      "is_abstract": false
+    },
+    "run": {
+      "name": "run",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "output_path",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Path",
+          "default": null
+        },
+        {
+          "name": "args",
+          "kind": "VAR_POSITIONAL",
+          "annotation": "object",
+          "default": null
+        },
+        {
+          "name": "extended",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "bool",
+          "default": "False"
+        },
+        {
+          "name": "kwargs",
+          "kind": "VAR_KEYWORD",
+          "annotation": "object",
+          "default": null
+        }
+      ],
+      "return_annotation": "RunResult",
+      "is_abstract": false
+    },
+    "run_schema_validation": {
+      "name": "run_schema_validation",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        },
+        {
+          "name": "schema_identifier",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "str",
+          "default": null
+        },
+        {
+          "name": "dataset_name",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "str",
+          "default": "secondary"
+        }
+      ],
+      "return_annotation": "pd.DataFrame",
+      "is_abstract": false
+    },
+    "set_export_metadata_from_dataframe": {
+      "name": "set_export_metadata_from_dataframe",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        },
+        {
+          "name": "metadata",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "Mapping[str, Any] | None",
+          "default": "None"
+        }
+      ],
+      "return_annotation": "dict[str, Any]",
+      "is_abstract": false
+    },
+    "transform": {
+      "name": "transform",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "payload",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "object",
+          "default": null
+        }
+      ],
+      "return_annotation": "object",
+      "is_abstract": false
+    },
+    "validate": {
+      "name": "validate",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "payload",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "object",
+          "default": null
+        }
+      ],
+      "return_annotation": "pd.DataFrame",
+      "is_abstract": false
+    },
+    "write": {
+      "name": "write",
+      "parameters": [
+        {
+          "name": "self",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": null,
+          "default": null
+        },
+        {
+          "name": "df",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "pd.DataFrame",
+          "default": null
+        },
+        {
+          "name": "output_path",
+          "kind": "POSITIONAL_OR_KEYWORD",
+          "annotation": "Path",
+          "default": null
+        },
+        {
+          "name": "extended",
+          "kind": "KEYWORD_ONLY",
+          "annotation": "bool",
+          "default": "False"
+        }
+      ],
+      "return_annotation": "RunResult",
+      "is_abstract": false
+    }
+  },
+  "config_models": {
+    "error": "Failed to import config models: No module named 'bioetl.configs'"
+  },
+  "cli_commands": [
+    "activity_chembl",
+    "assay_chembl",
+    "testitem",
+    "testitem_chembl"
+  ]
+}

@@ -123,8 +123,6 @@ def _is_valid_activity_properties(value: object) -> bool:
     # Явная типизация для mypy
     payload_list: list[dict[str, object]] = cast(list[dict[str, object]], payload)
     for item in payload_list:
-        if not isinstance(item, dict):
-            return False
         if not _is_valid_activity_property_item(item):
             return False
 
@@ -159,14 +157,14 @@ ActivitySchema = DataFrameSchema(
         "ligand_efficiency": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "target_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "target_tax_id": Column(  # type: ignore[assignment]
-            pa.Int64,
-            Check.ge(1),
+            pa.Int64,  # type: ignore[arg-type]
+            Check.ge(1),  # type: ignore[arg-type]
             nullable=True,
         ),
         "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "potential_duplicate": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
         "activity_properties": Column(  # type: ignore[assignment]
-            pa.String,
+            pa.String,  # type: ignore[arg-type]
             Check(_is_valid_activity_properties, element_wise=True),
             nullable=True,
         ),

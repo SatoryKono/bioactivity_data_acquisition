@@ -9,14 +9,14 @@ from typing import Any
 
 import pandas as pd
 
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.clients.chembl import ChemblClient
 from bioetl.schemas.assay import COLUMN_ORDER
 
-from ..base import PipelineBase
 from ...sources.chembl.assay import ChemblAssayClient
+from ..base import PipelineBase
 
 
 class ChemblAssayPipeline(PipelineBase):
@@ -154,7 +154,7 @@ class ChemblAssayPipeline(PipelineBase):
     @staticmethod
     def _resolve_base_url(source_config: AssaySourceConfig) -> str:
         base_url = source_config.parameters.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-        if not isinstance(base_url, str) or not base_url.strip():
+        if not base_url.strip():
             msg = "sources.chembl.parameters.base_url must be a non-empty string"
             raise ValueError(msg)
         return base_url.rstrip("/")
@@ -282,8 +282,8 @@ class ChemblAssayPipeline(PipelineBase):
                         # Extract first classification if it's a dict with bao_format
                         first_class = classifications[0]
                         if isinstance(first_class, Mapping):
-                            bao_format = first_class.get("bao_format")
-                            if bao_format:
+                            bao_format: Any = first_class.get("bao_format")
+                            if bao_format and isinstance(bao_format, str):
                                 df.loc[idx, "assay_class_id"] = bao_format
                 log.debug("assay_class_id_extracted_from_classifications", count=int(mask.sum()))
 
@@ -333,21 +333,21 @@ class ChemblAssayPipeline(PipelineBase):
         }
 
         # Handle nullable integers - preserve NA values
-        for field, dtype in nullable_int_fields.items():
+        for field, _ in nullable_int_fields.items():
             if field not in df.columns:
                 continue
             try:
                 if field == "row_index":
                     # row_index should be non-nullable, but use Int64 for consistency
-                    numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
-                    df[field] = numeric_series.astype("Int64")
+                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                    df[field] = numeric_series_row.astype("Int64")
                     # Fill any NA values with sequential index
                     if df[field].isna().any():
                         df[field] = range(len(df))
                 elif field == "confidence_score":
                     # confidence_score is nullable
-                    numeric_series = pd.to_numeric(df[field], errors="coerce")
-                    df[field] = numeric_series.astype("Int64")
+                    numeric_series_conf: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                    df[field] = numeric_series_conf.astype("Int64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
 
