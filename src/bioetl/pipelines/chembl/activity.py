@@ -25,6 +25,40 @@ from bioetl.schemas.activity import COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 from ..base import PipelineBase, RunResult
 
 
+API_ACTIVITY_FIELDS: tuple[str, ...] = (
+    "activity_id",
+    "assay_chembl_id",
+    "testitem_chembl_id",
+    "molecule_chembl_id",
+    "target_chembl_id",
+    "document_chembl_id",
+    "type",
+    "relation",
+    "value",
+    "units",
+    "standard_type",
+    "standard_relation",
+    "standard_value",
+    "standard_units",
+    "standard_text_value",
+    "standard_flag",
+    "upper_value",
+    "lower_value",
+    "pchembl_value",
+    "activity_comment",
+    "bao_endpoint",
+    "bao_format",
+    "bao_label",
+    "canonical_smiles",
+    "ligand_efficiency",
+    "target_organism",
+    "target_tax_id",
+    "data_validity_comment",
+    "potential_duplicate",
+    "activity_properties",
+)
+
+
 class ChemblActivityPipeline(PipelineBase):
     """ETL pipeline extracting activity records from the ChEMBL API."""
 
@@ -85,7 +119,10 @@ class ChemblActivityPipeline(PipelineBase):
 
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
-        params: Mapping[str, Any] | None = {"limit": page_size}
+        params: Mapping[str, Any] | None = {
+            "limit": page_size,
+            "only": ",".join(API_ACTIVITY_FIELDS),
+        }
         pages = 0
 
         while next_endpoint:
@@ -422,7 +459,10 @@ class ChemblActivityPipeline(PipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
-                    params = {"activity_id__in": ",".join(batch_keys)}
+                    params = {
+                        "activity_id__in": ",".join(batch_keys),
+                        "only": ",".join(API_ACTIVITY_FIELDS),
+                    }
                     response = client.get("/activity.json", params=params)
                     api_calls += 1
                     payload = self._coerce_mapping(response.json())
@@ -1050,6 +1090,25 @@ class ChemblActivityPipeline(PipelineBase):
                 df.loc[mask, "standard_units"] = series
                 normalized_count += int(mask.sum())
 
+        if "relation" in df.columns:
+            unicode_to_ascii = {
+                "≤": "<=",
+                "≥": ">=",
+                "≠": "~",
+            }
+            mask = df["relation"].notna()
+            if mask.any():
+                series = df.loc[mask, "relation"].astype(str).str.strip()
+                for unicode_char, ascii_repl in unicode_to_ascii.items():
+                    series = series.str.replace(unicode_char, ascii_repl, regex=False)
+                df.loc[mask, "relation"] = series
+                relations_set: set[str] = RELATIONS
+                invalid_mask = mask & ~df["relation"].isin(relations_set)
+                if invalid_mask.any():
+                    log.warning("invalid_relation", count=int(invalid_mask.sum()))
+                    df.loc[invalid_mask, "relation"] = None
+                normalized_count += int(mask.sum())
+
         if normalized_count > 0:
             log.debug("measurements_normalized", normalized_count=normalized_count)
 
@@ -1065,6 +1124,10 @@ class ChemblActivityPipeline(PipelineBase):
             "bao_label": {"trim": True, "empty_to_null": True, "max_length": 128},
             "target_organism": {"trim": True, "empty_to_null": True, "title_case": True},
             "data_validity_comment": {"trim": True, "empty_to_null": True},
+            "activity_comment": {"trim": True, "empty_to_null": True},
+            "standard_text_value": {"trim": True, "empty_to_null": True},
+            "type": {"trim": True, "empty_to_null": True},
+            "units": {"trim": True, "empty_to_null": True},
         }
 
         for field, options in string_fields.items():
@@ -1153,10 +1216,16 @@ class ChemblActivityPipeline(PipelineBase):
         float_fields = {
             "standard_value": "float64",
             "pchembl_value": "float64",
+            "upper_value": "float64",
+            "lower_value": "float64",
         }
 
         bool_fields = [
             "potential_duplicate",
+        ]
+
+        binary_flag_fields = [
+            "standard_flag",
         ]
 
         # Handle non-nullable integers
@@ -1211,6 +1280,27 @@ class ChemblActivityPipeline(PipelineBase):
                 df[field] = filled_series.astype(bool)
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
+
+        for field in binary_flag_fields:
+            if field not in df.columns:
+                continue
+            try:
+                numeric_series_flag: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                df[field] = numeric_series_flag.astype("Int64")
+                mask_valid = df[field].notna()
+                if mask_valid.any():
+                    valid_values = df.loc[mask_valid, field]
+                    invalid_valid_mask = ~valid_values.isin([0, 1])
+                    if invalid_valid_mask.any():
+                        invalid_index = valid_values.index[invalid_valid_mask]
+                        log.warning(
+                            "invalid_standard_flag",
+                            field=field,
+                            count=int(invalid_valid_mask.sum()),
+                        )
+                        df.loc[invalid_index, field] = pd.NA
+            except (ValueError, TypeError) as exc:
+                log.warning("type_conversion_failed", field=field, error=str(exc))
 
         return df
 
