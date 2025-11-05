@@ -679,32 +679,44 @@ class ChemblActivityPipeline(PipelineBase):
         if isinstance(page_meta, Mapping):
             next_link: str | None = cast(str | None, page_meta.get("next"))  # type: ignore[arg-type]
             if isinstance(next_link, str) and next_link:
+                base_path = urlparse(base_url).path.rstrip("/")
+
                 # If next_link is a full URL, extract only the relative path
                 if next_link.startswith("http://") or next_link.startswith("https://"):
                     parsed = urlparse(next_link)
-                    base_parsed = urlparse(base_url)
-
-                    # Extract the path part
                     path = parsed.path
-                    base_path = base_parsed.path.rstrip("/")
 
-                    # Remove base_path prefix from path if it exists
                     if base_path and path.startswith(base_path):
-                        # Extract the part after base_path
                         relative_path = path[len(base_path) :]
                     else:
-                        # If base_path doesn't match, use the path as-is
                         relative_path = path
 
-                    # Ensure relative_path starts with / (but not double //)
                     if not relative_path.startswith("/"):
                         relative_path = f"/{relative_path}"
 
-                    # Add query string if present
                     if parsed.query:
                         relative_path = f"{relative_path}?{parsed.query}"
 
                     return relative_path
+
+                # Handle relative URLs that redundantly include the base path
+                if base_path:
+                    normalized_base = base_path.lstrip("/")
+                    stripped_link = next_link.lstrip("/")
+
+                    if stripped_link.startswith(normalized_base + "/"):
+                        stripped_link = stripped_link[len(normalized_base) :]
+                    elif stripped_link == normalized_base:
+                        stripped_link = ""
+
+                    next_link = stripped_link
+
+                next_link = next_link.lstrip("/")
+                if next_link:
+                    next_link = f"/{next_link}"
+                else:
+                    next_link = "/"
+
                 return next_link
         return None
 
