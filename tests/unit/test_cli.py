@@ -99,7 +99,6 @@ http:
         result = runner.invoke(
             app,
             [
-                "activity",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -128,7 +127,6 @@ http:
         result = runner.invoke(
             app,
             [
-                "activity",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -178,7 +176,6 @@ sources:
             result = runner.invoke(
                 app,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -190,8 +187,99 @@ sources:
 
             # Check that limit was passed to config
             assert mock_pipeline_class.called
-            call_config = mock_pipeline_class.call_args[0][0]
+            call_config = mock_pipeline_class.call_args.kwargs["config"]
             assert call_config.cli.limit == 10
+            assert call_config.cli.sample is None
+
+    def test_activity_command_with_sample(self, tmp_path: Path):
+        """Test activity command with --sample option."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+sources:
+  chembl:
+    enabled: true
+    parameters:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+"""
+        )
+
+        output_dir = tmp_path / "output"
+
+        with patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class:
+            mock_pipeline = MagicMock()
+            mock_result = MagicMock()
+            mock_result.write_result.dataset = Path("test.csv")
+            mock_result.stage_durations_ms = {"extract": 100.0, "transform": 50.0}
+            mock_pipeline.run.return_value = mock_result
+            mock_pipeline_class.return_value = mock_pipeline
+
+            result = runner.invoke(
+                app,
+                [
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                    "--sample",
+                    "5",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert mock_pipeline_class.called
+            call_config = mock_pipeline_class.call_args.kwargs["config"]
+            assert call_config.cli.sample == 5
+            assert call_config.cli.limit is None
+
+    def test_activity_command_sample_limit_mutually_exclusive(self, tmp_path: Path):
+        """Ensure --limit and --sample cannot be used together."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+"""
+        )
+
+        output_dir = tmp_path / "output"
+
+        result = runner.invoke(
+            app,
+            [
+                "--config",
+                str(config_file),
+                "--output-dir",
+                str(output_dir),
+                "--limit",
+                "5",
+                "--sample",
+                "5",
+            ],
+        )
+
+        assert result.exit_code == 2
+        assert "mutually exclusive" in result.stderr
 
     def test_activity_command_with_set_overrides(self, tmp_path: Path):
         """Test activity command with --set overrides."""
@@ -226,7 +314,6 @@ http:
             result = runner.invoke(
                 app,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -245,6 +332,68 @@ http:
             call_kwargs = mock_load_config.call_args[1]
             assert "cli.limit" in call_kwargs["cli_overrides"]
             assert "http.default.timeout_sec" in call_kwargs["cli_overrides"]
+
+    def test_activity_command_with_verbose_and_schema_flags(self, tmp_path: Path):
+        """Test verbose logging and schema drift flags."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+sources:
+  chembl:
+    enabled: true
+    parameters:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+validation:
+  schema_out: "bioetl.schemas.activity:ActivitySchema"
+"""
+        )
+
+        output_dir = tmp_path / "output"
+
+        with (
+            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.cli.main.UnifiedLogger.configure") as mock_logger_configure,
+        ):
+            mock_pipeline = MagicMock()
+            mock_result = MagicMock()
+            mock_result.write_result.dataset = Path("test.csv")
+            mock_result.stage_durations_ms = {}
+            mock_pipeline.run.return_value = mock_result
+            mock_pipeline_class.return_value = mock_pipeline
+
+            result = runner.invoke(
+                app,
+                [
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                    "--verbose",
+                    "--allow-schema-drift",
+                    "--no-validate-columns",
+                ],
+            )
+
+            assert result.exit_code == 0
+            assert mock_logger_configure.called
+            logger_config = mock_logger_configure.call_args[0][0]
+            assert logger_config.level == "DEBUG"
+            call_config = mock_pipeline_class.call_args.kwargs["config"]
+            assert call_config.cli.verbose is True
+            assert call_config.cli.fail_on_schema_drift is False
+            assert call_config.cli.validate_columns is False
+            assert call_config.validation.strict is False
 
     def test_activity_command_with_extended(self, tmp_path: Path):
         """Test activity command with --extended flag."""
@@ -278,7 +427,6 @@ http:
             result = runner.invoke(
                 app,
                 [
-                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",

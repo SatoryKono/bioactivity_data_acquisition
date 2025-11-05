@@ -12,7 +12,7 @@ from typing import Any
 import typer
 
 from bioetl.config import load_config
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
 from zoneinfo import ZoneInfo
 
@@ -86,10 +86,31 @@ def activity(
         help="Process at most N rows (useful for smoke runs)",
         min=1,
     ),
+    sample: int | None = typer.Option(
+        None,
+        "--sample",
+        help="Randomly sample N rows using a deterministic seed",
+        min=1,
+    ),
     extended: bool = typer.Option(
         False,
         "--extended",
         help="Enable extended QC artifacts and metrics",
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        help="Enable verbose (DEBUG-level) logging output",
+    ),
+    fail_on_schema_drift: bool = typer.Option(
+        True,
+        "--fail-on-schema-drift/--allow-schema-drift",
+        help="Fail the run on schema drift (disable to log and continue)",
+    ),
+    validate_columns: bool = typer.Option(
+        True,
+        "--validate-columns/--no-validate-columns",
+        help="Enforce strict column validation (disable to ignore column drift)",
     ),
     set_overrides: list[str] = typer.Option(
         [],
@@ -109,6 +130,9 @@ def activity(
         # Validate inputs
         _validate_config_path(config)
         _validate_output_dir(output_dir)
+
+        if limit is not None and sample is not None:
+            raise typer.BadParameter("--limit and --sample are mutually exclusive")
 
         # Parse --set overrides
         cli_overrides: dict[str, Any] = {}
@@ -139,12 +163,23 @@ def activity(
         pipeline_config.cli.dry_run = dry_run
         if limit is not None:
             pipeline_config.cli.limit = limit
+        if sample is not None:
+            pipeline_config.cli.sample = sample
         pipeline_config.cli.extended = extended
         if golden is not None:
             pipeline_config.cli.golden = str(golden)
+        pipeline_config.cli.verbose = verbose
+        pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
+        pipeline_config.cli.validate_columns = validate_columns
+        if not validate_columns:
+            pipeline_config.validation.strict = False
 
         # Update materialization root if output_dir is provided
         pipeline_config.materialization.root = str(output_dir)
+
+        # Configure logging prior to pipeline execution
+        log_level = "DEBUG" if verbose else "INFO"
+        UnifiedLogger.configure(LoggerConfig(level=log_level))
 
         # Validate configuration
         if dry_run:
@@ -199,6 +234,11 @@ def activity(
             typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
             raise typer.Exit(code=0)
 
+        except typer.Exit as exit_exc:
+            raise exit_exc
+        except typer.BadParameter as param_exc:
+            raise param_exc
+
         except Exception as exc:
             # Check if it's an API/external error
             # Handle requests exceptions and network errors
@@ -216,6 +256,8 @@ def activity(
 
     except typer.Exit:
         raise
+    except typer.BadParameter as param_exc:
+        raise param_exc
     except Exception as exc:
         typer.echo(f"Unexpected error: {exc}", err=True)
         raise typer.Exit(code=1) from exc
