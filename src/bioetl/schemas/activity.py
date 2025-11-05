@@ -208,7 +208,7 @@ ActivitySchema = DataFrameSchema(
             nullable=True,
         ),
         "data_validity_comment": Column(
-            pa.String,
+            pa.String,  # type: ignore[arg-type]
             nullable=True,
             # Soft enum: валидация через whitelist в pipeline.validate(), не через Check
             # Неизвестные значения логируются как warning, но не блокируют валидацию

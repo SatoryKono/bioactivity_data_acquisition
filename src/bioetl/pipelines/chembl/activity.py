@@ -76,7 +76,7 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "standard_upper_value",
     "uo_units",
     "qudt_units",
-    "data_validity_description",
+    # data_validity_description извлекается отдельным запросом в extract через fetch_data_validity_lookup()
     "curated_by",  # Для вычисления curated: (curated_by IS NOT NULL) -> bool
 )
 
@@ -214,6 +214,10 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Гарантия присутствия полей комментариев
         dataframe = self._ensure_comment_fields(dataframe, log)
+
+        # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
+        chembl_client = ChemblClient(client)
+        dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
         # Логирование метрик заполненности
         self._log_validity_comments_metrics(dataframe, log)
@@ -640,6 +644,17 @@ class ChemblActivityPipeline(PipelineBase):
                 message="Using default enrichment config",
             )
 
+        # Проверка: если data_validity_description уже заполнено (не все NA), логировать информационное сообщение
+        if "data_validity_description" in df.columns:
+            non_na_count = int(df["data_validity_description"].notna().sum())
+            if non_na_count > 0:
+                log.info(
+                    "enrichment_data_validity_description_already_filled",
+                    non_na_count=non_na_count,
+                    total_count=len(df),
+                    message="data_validity_description already populated from extract, enrichment will update/overwrite",
+                )
+
         # Создать или переиспользовать клиент ChEMBL
         source_config = self._resolve_source_config("chembl")
         base_url = self._resolve_base_url(source_config.parameters)
@@ -649,7 +664,7 @@ class ChemblActivityPipeline(PipelineBase):
             self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(api_client)
 
-        # Вызвать функцию обогащения
+        # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
         return enrich_with_data_validity(df, chembl_client, enrich_cfg)
 
     def _fetch_chembl_release(
@@ -877,6 +892,13 @@ class ChemblActivityPipeline(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         dataframe = self._ensure_comment_fields(dataframe, log)
 
+        # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        extract_client = self._client_factory.for_source("chembl", base_url=base_url)
+        chembl_client = ChemblClient(extract_client)
+        dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
+
         # Логирование метрик заполненности
         self._log_validity_comments_metrics(dataframe, log)
 
@@ -1032,6 +1054,7 @@ class ChemblActivityPipeline(PipelineBase):
         """Гарантировать присутствие полей комментариев в DataFrame.
 
         Если поля отсутствуют, добавляет их с pd.NA (dtype="string").
+        data_validity_description извлекается отдельным запросом в extract через _extract_data_validity_descriptions().
 
         Parameters
         ----------
@@ -1057,6 +1080,133 @@ class ChemblActivityPipeline(PipelineBase):
             log.debug("comment_fields_ensured", fields=missing_fields)
 
         return df
+
+    def _extract_data_validity_descriptions(
+        self, df: pd.DataFrame, client: ChemblClient, log: Any
+    ) -> pd.DataFrame:
+        """Извлечь data_validity_description из DATA_VALIDITY_LOOKUP через отдельный запрос.
+
+        Собирает уникальные непустые значения data_validity_comment из DataFrame,
+        вызывает fetch_data_validity_lookup() и выполняет LEFT JOIN обратно к DataFrame.
+
+        Parameters
+        ----------
+        df:
+            DataFrame с данными activity, должен содержать data_validity_comment.
+        client:
+            ChemblClient для запросов к ChEMBL API.
+        log:
+            Logger instance.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame с заполненной колонкой data_validity_description.
+        """
+        if df.empty:
+            return df
+
+        if "data_validity_comment" not in df.columns:
+            log.debug("extract_data_validity_descriptions_skipped", reason="data_validity_comment_column_missing")
+            return df
+
+        # Собрать уникальные непустые значения data_validity_comment
+        validity_comments: list[str] = []
+        for _, row in df.iterrows():
+            comment = row.get("data_validity_comment")
+
+            # Пропускаем NaN/None значения
+            if pd.isna(comment) or comment is None:
+                continue
+
+            # Преобразуем в строку
+            comment_str = str(comment).strip()
+
+            if comment_str:
+                validity_comments.append(comment_str)
+
+        if not validity_comments:
+            log.debug("extract_data_validity_descriptions_skipped", reason="no_valid_comments")
+            # Гарантируем наличие колонки с pd.NA
+            if "data_validity_description" not in df.columns:
+                df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
+            return df
+
+        # Вызвать fetch_data_validity_lookup для получения descriptions
+        unique_comments = list(set(validity_comments))
+        log.info("extract_data_validity_descriptions_fetching", comments_count=len(unique_comments))
+
+        try:
+            records_dict = client.fetch_data_validity_lookup(
+                comments=unique_comments,
+                fields=["data_validity_comment", "description"],
+                page_limit=1000,
+            )
+        except Exception as exc:
+            log.warning(
+                "extract_data_validity_descriptions_fetch_error",
+                error=str(exc),
+                exc_info=True,
+            )
+            # Гарантируем наличие колонки с pd.NA
+            if "data_validity_description" not in df.columns:
+                df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
+            return df
+
+        # Создать DataFrame для join
+        enrichment_data: list[dict[str, Any]] = []
+        for comment in unique_comments:
+            record = records_dict.get(comment)
+            if record:
+                enrichment_data.append({
+                    "data_validity_comment": comment,
+                    "data_validity_description": record.get("description"),
+                })
+            else:
+                # Если запись не найдена, оставляем description как NULL
+                enrichment_data.append({
+                    "data_validity_comment": comment,
+                    "data_validity_description": None,
+                })
+
+        if not enrichment_data:
+            log.debug("extract_data_validity_descriptions_no_records")
+            # Гарантируем наличие колонки с pd.NA
+            if "data_validity_description" not in df.columns:
+                df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
+            return df
+
+        df_enrich = pd.DataFrame(enrichment_data)
+
+        # Сохранить исходный порядок строк через индекс
+        original_index = df.index.copy()
+
+        # LEFT JOIN обратно к df на data_validity_comment
+        df_result = df.merge(
+            df_enrich,
+            on=["data_validity_comment"],
+            how="left",
+            suffixes=("", "_enrich"),
+        )
+
+        # Убедиться, что колонка присутствует (заполнить NA для отсутствующих)
+        if "data_validity_description" not in df_result.columns:
+            df_result["data_validity_description"] = pd.Series([pd.NA] * len(df_result), dtype="string")
+        else:
+            # Если колонка уже была, нормализовать типы
+            df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
+
+        # Восстановить исходный порядок
+        df_result = df_result.reindex(original_index)
+
+        log.info(
+            "extract_data_validity_descriptions_complete",
+            comments_requested=len(unique_comments),
+            records_fetched=len(enrichment_data),
+            rows_enriched=len(df_result),
+        )
+
+        return df_result
 
     def _log_validity_comments_metrics(self, df: pd.DataFrame, log: Any) -> None:
         """Логировать метрики заполненности полей комментариев.
@@ -1578,7 +1728,7 @@ class ChemblActivityPipeline(PipelineBase):
         if df.empty:
             return df
 
-        required_fields = ["assay_chembl_id", "testitem_chembl_id", "molecule_chembl_id"]
+        required_fields = ["assay_chembl_id",  "molecule_chembl_id"]
         missing_fields = [field for field in required_fields if field not in df.columns]
         if missing_fields:
             log.warning(
@@ -1590,9 +1740,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Create mask for rows with all required fields populated
         valid_mask = (
-            df["assay_chembl_id"].notna()
-            & df["testitem_chembl_id"].notna()
-            & df["molecule_chembl_id"].notna()
+            df["assay_chembl_id"].notna()  & df["molecule_chembl_id"].notna()
         )
 
         invalid_count = int((~valid_mask).sum())

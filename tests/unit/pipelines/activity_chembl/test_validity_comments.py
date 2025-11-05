@@ -383,5 +383,61 @@ class TestValidityCommentsOnlyFields:
         only_fields = only_fields_str.split(",")
         assert "activity_comment" in only_fields
         assert "data_validity_comment" in only_fields
-        assert "data_validity_description" in only_fields
+        # data_validity_description НЕ должен быть в only=, т.к. не существует в /activity endpoint
+        assert "data_validity_description" not in only_fields
+
+    def test_extract_data_validity_description(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that data_validity_description is extracted via fetch_data_validity_lookup in extract."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Создать DataFrame с data_validity_comment
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3],
+                "data_validity_comment": [
+                    "Manually validated",
+                    "Outside typical range",
+                    None,
+                ],
+            }
+        )
+
+        # Mock ChemblClient и fetch_data_validity_lookup
+        from bioetl.clients.chembl import ChemblClient
+
+        mock_api_client = MagicMock()
+        mock_chembl_client = ChemblClient(mock_api_client)
+        mock_chembl_client.fetch_data_validity_lookup = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                "Manually validated": {
+                    "data_validity_comment": "Manually validated",
+                    "description": "This record has been manually validated",
+                },
+                "Outside typical range": {
+                    "data_validity_comment": "Outside typical range",
+                    "description": "Value is outside the typical range",
+                },
+            }
+        )
+
+        log = MagicMock()
+        result = pipeline._extract_data_validity_descriptions(df, mock_chembl_client, log)  # type: ignore[reportPrivateUsage]
+
+        # Проверка что fetch_data_validity_lookup был вызван
+        mock_chembl_client.fetch_data_validity_lookup.assert_called_once()
+
+        # Проверка что data_validity_description добавлен
+        assert "data_validity_description" in result.columns
+
+        # Проверка что значения корректно заполнены
+        assert result["data_validity_description"].iloc[0] == "This record has been manually validated"
+        assert result["data_validity_description"].iloc[1] == "Value is outside the typical range"
+        assert pd.isna(result["data_validity_description"].iloc[2])  # None для пустого comment
+
+        # Проверка что вызов был с правильными параметрами
+        call_args = mock_chembl_client.fetch_data_validity_lookup.call_args
+        assert set(call_args.kwargs["comments"]) == {"Manually validated", "Outside typical range"}
+        assert call_args.kwargs["fields"] == ["data_validity_comment", "description"]
 

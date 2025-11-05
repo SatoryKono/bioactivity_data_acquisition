@@ -42,6 +42,16 @@ http:
     # synchronized clients from causing "thundering herd" problems.
     rate_limit_jitter: true
 
+    # --- Circuit Breaker ---
+    # Corresponds to the `CircuitBreakerConfig` model.
+    circuit_breaker:
+      # Number of consecutive failures before the circuit breaker opens.
+      failure_threshold: 5
+      # Time in seconds the circuit breaker will stay open before transitioning to half-open.
+      timeout: 60.0
+      # Maximum number of calls allowed in half-open state before transitioning back to closed or open.
+      half_open_max_calls: 1
+
     # --- Default Headers ---
     # Headers to include in every request. Can be overridden at the source level.
     headers:

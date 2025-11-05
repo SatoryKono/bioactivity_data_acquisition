@@ -18,23 +18,12 @@ def enrich_with_assay(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity полями из assay.
+    """Обогатить DataFrame activity полями из /assay (ChEMBL v2).
 
-    Parameters
-    ----------
-    df_act:
-        DataFrame с данными activity, должен содержать assay_chembl_id.
-    client:
-        ChemblClient для запросов к ChEMBL API.
-    cfg:
-        Конфигурация обогащения из config.chembl.activity.enrich.assay.
-
-    Returns
-    -------
-    pd.DataFrame:
-        Обогащенный DataFrame с добавленными колонками:
-        - assay_organism (nullable string)
-        - assay_tax_id (nullable Int64)
+    Требуемые входные колонки: assay_chembl_id.
+    Добавляет:
+      - assay_organism : pandas.StringDtype (nullable)
+      - assay_tax_id   : pandas.Int64Dtype  (nullable)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
@@ -42,104 +31,100 @@ def enrich_with_assay(
         log.debug("enrichment_skipped_empty_dataframe")
         return df_act
 
-    # Проверка наличия необходимых колонок
-    required_cols = ["assay_chembl_id"]
-    missing_cols = [col for col in required_cols if col not in df_act.columns]
-    if missing_cols:
-        log.warning(
-            "enrichment_skipped_missing_columns",
-            missing_columns=missing_cols,
-        )
+    # 1) Валидация наличия ключа
+    if "assay_chembl_id" not in df_act.columns:
+        log.warning("enrichment_skipped_missing_columns", missing_columns=["assay_chembl_id"])
         return df_act
 
-    # Собрать уникальные assay_chembl_id, dropna
-    assay_ids: list[str] = []
-    for _, row in df_act.iterrows():
-        assay_id = row.get("assay_chembl_id")
+    # 2) Собрать уникальные валидные идентификаторы (без iterrows: быстрее и чище)
+    assay_ids = (
+        df_act["assay_chembl_id"]
+        .dropna()
+        .astype(str)
+        .str.strip()
+    )
+    assay_ids = assay_ids[assay_ids.ne("")].unique().tolist()
 
-        # Пропускаем NaN/None значения
-        if pd.isna(assay_id) or assay_id is None:
-            continue
-
-        # Преобразуем в строку
-        assay_id_str = str(assay_id).strip()
-
-        if assay_id_str:
-            assay_ids.append(assay_id_str)
-
+    # Гарантируем наличие выходных колонок даже при пустом наборе ID
     if not assay_ids:
+        for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+            if col not in df_act.columns:
+                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
         log.debug("enrichment_skipped_no_valid_ids")
-        # Добавим пустые колонки
-        for col in ["assay_organism", "assay_tax_id"]:
-            if col not in df_act.columns:
-                df_act[col] = pd.NA
         return df_act
 
-    # Получить конфигурацию
-    fields = cfg.get("fields", ["assay_chembl_id", "assay_organism", "assay_tax_id"])
-    page_limit = cfg.get("page_limit", 1000)
+    # 3) Конфигурация (явно фиксируем корректные имена полей ChEMBL /assay)
+    #    NB: В ChEMBL JSON поле называется 'assay_organism', не 'organism'
+    fields_cfg = cfg.get(
+        "fields",
+        ["assay_chembl_id", "assay_organism", "assay_tax_id"],
+    )
+    # Жёстко гарантируем, что критические поля присутствуют
+    required_fields = {"assay_chembl_id", "assay_organism", "assay_tax_id"}
+    fields = list(dict.fromkeys(list(fields_cfg) + list(required_fields)))
 
-    # Вызвать client.fetch_assays_by_ids
-    log.info("enrichment_fetching_assays", ids_count=len(set(assay_ids)))
-    records_dict = client.fetch_assays_by_ids(
+    page_limit = int(cfg.get("page_limit", 1000))
+
+    # 4) Вызов клиента
+    # Ожидается, что клиент:
+    #  - проставит only=fields
+    #  - корректно пройдёт пагинацию по page_meta (limit/offset/next/total_count)
+    #  - вернёт dict: {assay_chembl_id: record_dict}
+    log.info("enrichment_fetching_assays", ids_count=len(assay_ids))
+    records_by_id = client.fetch_assays_by_ids(
         ids=assay_ids,
-        fields=list(fields),
+        fields=fields,
         page_limit=page_limit,
-    )
+    ) or {}
 
-    # Создать DataFrame для join
-    enrichment_data: list[dict[str, Any]] = []
-    for assay_id, record in records_dict.items():
-        enrichment_data.append({
-            "assay_chembl_id": assay_id,
-            "assay_organism": record.get("assay_organism"),
-            "assay_tax_id": record.get("assay_tax_id"),
-        })
-
-    if not enrichment_data:
-        log.debug("enrichment_no_records_found")
-        # Добавим пустые колонки
-        for col in ["assay_organism", "assay_tax_id"]:
+    # 5) Построить таблицу обогащения (только нужные выходные поля)
+    if not records_by_id:
+        for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
             if col not in df_act.columns:
-                df_act[col] = pd.NA
+                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
+        log.debug("enrichment_no_records_found")
         return df_act
 
-    df_enrich = pd.DataFrame(enrichment_data)
-
-    # Left-join обратно к df_act на assay_chembl_id
-    # Сохраняем исходный порядок строк через индекс
-    original_index = df_act.index.copy()
-    df_result = df_act.merge(
-        df_enrich,
-        on=["assay_chembl_id"],
-        how="left",
-        suffixes=("", "_enrich"),
-    )
-
-    # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
-    for col in ["assay_organism", "assay_tax_id"]:
-        if col not in df_result.columns:
-            df_result[col] = pd.NA
-
-    # Восстановить исходный порядок
-    df_result = df_result.reindex(original_index)
-
-    # Нормализовать типы
-    df_result["assay_organism"] = df_result["assay_organism"].astype("string")
-    # assay_tax_id может быть строкой в API, но в схеме activity это Int64
-    # Преобразуем в Int64, если возможно
-    if "assay_tax_id" in df_result.columns:
-        numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            df_result["assay_tax_id"], errors="coerce"
+    enrichment_rows: list[dict[str, Any]] = []
+    for assay_id, rec in records_by_id.items():
+        enrichment_rows.append(
+            {
+                "assay_chembl_id": assay_id,
+                "assay_organism": rec.get("assay_organism"),
+                "assay_tax_id": rec.get("assay_tax_id"),
+            }
         )
-        df_result["assay_tax_id"] = numeric_series.astype("Int64")
+
+    df_enrich = pd.DataFrame(enrichment_rows)
+
+    # 6) Левый джойн по ключу, порядок строк — как во входном df_act
+    original_index = df_act.index
+    df_merged = df_act.merge(
+        df_enrich,
+        on="assay_chembl_id",
+        how="left",
+        sort=False,
+        suffixes=("", "_enrich"),
+    ).reindex(original_index)
+
+    # 7) Приведение типов (софт)
+    if "assay_organism" not in df_merged.columns:
+        df_merged["assay_organism"] = pd.NA
+    if "assay_tax_id" not in df_merged.columns:
+        df_merged["assay_tax_id"] = pd.NA
+
+    df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
+
+    # assay_tax_id может приходить строкой — приводим к Int64 с NA
+    tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_merged["assay_tax_id"], errors="coerce")  # type: ignore[arg-type]
+    df_merged["assay_tax_id"] = tax_id_numeric.astype("Int64")
 
     log.info(
         "enrichment_completed",
-        rows_enriched=df_result.shape[0],
-        records_matched=len(records_dict),
+        rows_enriched=int(df_merged.shape[0]),
+        records_matched=int(len(records_by_id)),
     )
-    return df_result
+    return df_merged
 
 
 def enrich_with_compound_record(

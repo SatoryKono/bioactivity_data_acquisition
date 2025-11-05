@@ -83,14 +83,41 @@ If a `Retry-After` header is present in a `429` or `503` response, its value **M
 - A retry that follows a `Retry-After` header waits for the advised duration and then re-acquires the token bucket permit, preventing retry storms that could violate upstream quotas.【F:src/bioetl/core/api_client.py†L1292-L1363】
 - Jitter is applied both when the limiter hands out tokens and when calculating exponential backoff delays, which keeps parallel workers from re-issuing retries in lockstep. This stabilises aggregate QPS under high contention.【F:src/bioetl/core/api_client.py†L325-L384】
 
-## 5. Quotas, Limits, and `429 Too Many Requests`
+## 5. Circuit Breaker
+
+The `UnifiedAPIClient` includes a **circuit breaker** to protect against cascading failures. The circuit breaker has three states:
+
+- **Closed**: Normal operation, requests pass through. Failures are tracked and counted.
+- **Open**: Circuit is open after exceeding the failure threshold. Requests are immediately rejected with `CircuitBreakerOpenError` without calling the upstream service.
+- **Half-Open**: After the timeout period, the circuit transitions to half-open to test if the service has recovered. A limited number of requests are allowed to pass through.
+
+**Circuit Breaker Configuration:**
+
+| Key | Default | Description |
+|---|---|---|
+| `circuit_breaker.failure_threshold` | `5` | Number of consecutive failures before the circuit breaker opens. |
+| `circuit_breaker.timeout` | `60.0` | Time in seconds the circuit breaker will stay open before transitioning to half-open. |
+| `circuit_breaker.half_open_max_calls` | `1` | Maximum number of calls allowed in half-open state before transitioning back to closed or open. |
+
+**State Transitions:**
+
+1. **Closed → Open**: When `failure_count >= failure_threshold`, the circuit opens and all subsequent requests are blocked.
+2. **Open → Half-Open**: After `timeout` seconds have elapsed, the circuit transitions to half-open to allow a test request.
+3. **Half-Open → Closed**: If the test request succeeds, the circuit closes and normal operation resumes.
+4. **Half-Open → Open**: If the test request fails, the circuit immediately reopens.
+
+**Error Handling:**
+
+When the circuit breaker is open, the client raises `CircuitBreakerOpenError`, which should be caught and handled appropriately (e.g., by using fallback data or returning a graceful error response).
+
+## 6. Quotas, Limits, and `429 Too Many Requests`
 
 The client handles rate limiting in two ways:
 1. **Proactive Rate Limiting**: The `TokenBucketLimiter` class ensures that the client does not exceed the `rate_limit.max_calls` per `rate_limit.period` defined in the configuration.
 2. **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client **MUST** prioritize the `Retry-After` header from the response to determine the backoff delay.
 - **Reference**: [RFC 6585, Section 4: 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4)
 
-## 6. Telemetry and Logging
+## 7. Telemetry and Logging
 
 The `UnifiedAPIClient` is instrumented with structured logging via the `UnifiedLogger`. The `http_log_context` automatically injects the following fields into log records related to HTTP requests, providing a rich context for debugging and monitoring.
 
@@ -155,7 +182,7 @@ This is an example of a structured log record for a retryable error, as it would
 ## 8. Response and Error Handling
 
 - **Response Processing**: The `request_json` and `request_text` methods handle the decoding of response bodies.
-- **Error Hierarchy**: The client uses standard `requests.exceptions`, primarily `HTTPError` for `4xx`/`5xx` responses and `RequestException` for other network issues. A custom `CircuitBreakerOpenError` is raised if the circuit breaker is open.
+- **Error Hierarchy**: The client uses standard `requests.exceptions`, primarily `HTTPError` for `4xx`/`5xx` responses and `RequestException` for other network issues. A custom `CircuitBreakerOpenError` is raised when the circuit breaker is in the open state and blocks requests.
 
 ## 9. Test Plan
 

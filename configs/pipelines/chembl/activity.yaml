@@ -20,7 +20,7 @@ sources:
   chembl:
     enabled: true
     description: "ChEMBL REST API"
-    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit
+    batch_size: 20  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
       max_url_length: 2000  # Used for predictive throttling of batch requests
@@ -68,7 +68,6 @@ sources:
         - standard_upper_value
         - uo_units
         - qudt_units
-        - data_validity_description
         - curated_by
 
 # Input file support (optional)
@@ -91,7 +90,7 @@ determinism:
   sort:
     by:
       - assay_chembl_id
-      - testitem_chembl_id
+      - molecule_chembl_id
       - activity_id
     ascending:
       - true

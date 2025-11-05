@@ -11,8 +11,13 @@ import requests
 from requests import Response
 from requests.exceptions import ConnectionError, Timeout
 
-from bioetl.config.models import HTTPClientConfig, RateLimitConfig, RetryConfig
-from bioetl.core.api_client import TokenBucketLimiter, UnifiedAPIClient
+from bioetl.config.models import CircuitBreakerConfig, HTTPClientConfig, RateLimitConfig, RetryConfig
+from bioetl.core.api_client import (
+    CircuitBreaker,
+    CircuitBreakerOpenError,
+    TokenBucketLimiter,
+    UnifiedAPIClient,
+)
 
 
 @pytest.mark.unit
@@ -439,4 +444,219 @@ class TestUnifiedAPIClient:
 
         url = client._resolve_url("/endpoint")  # type: ignore[reportPrivateUsage]
         assert url == "/endpoint"
+
+
+@pytest.mark.unit
+class TestCircuitBreaker:
+    """Test suite for CircuitBreaker."""
+
+    def test_init(self):
+        """Test CircuitBreaker initialization."""
+        config = CircuitBreakerConfig()
+        cb = CircuitBreaker(config)
+
+        assert cb.config == config
+        assert cb.name == "default"
+        assert cb.state == "closed"
+        assert cb.failure_count == 0
+
+    def test_init_with_name(self):
+        """Test CircuitBreaker initialization with custom name."""
+        config = CircuitBreakerConfig()
+        cb = CircuitBreaker(config, name="custom_cb")
+
+        assert cb.name == "custom_cb"
+
+    def test_call_success_closed(self):
+        """Test successful call in closed state."""
+        config = CircuitBreakerConfig(failure_threshold=3)
+        cb = CircuitBreaker(config)
+
+        def func():
+            return "success"
+
+        result = cb.call(func)
+
+        assert result == "success"
+        assert cb.state == "closed"
+        assert cb.failure_count == 0
+
+    def test_call_failure_closed(self):
+        """Test failure in closed state."""
+        config = CircuitBreakerConfig(failure_threshold=3)
+        cb = CircuitBreaker(config)
+
+        def func():
+            raise ValueError("error")
+
+        with pytest.raises(ValueError, match="error"):
+            cb.call(func)
+
+        assert cb.state == "closed"
+        assert cb.failure_count == 1
+
+    def test_call_opens_after_threshold(self):
+        """Test circuit breaker opens after threshold failures."""
+        config = CircuitBreakerConfig(failure_threshold=3, timeout=1.0)
+        cb = CircuitBreaker(config)
+
+        def failing_func():
+            raise ConnectionError("connection failed")
+
+        # Fail 3 times to open circuit
+        for _ in range(3):
+            with pytest.raises(ConnectionError):
+                cb.call(failing_func)
+
+        assert cb.state == "open"
+        assert cb.failure_count == 3
+
+        # Next call should raise CircuitBreakerOpenError
+        with pytest.raises(CircuitBreakerOpenError):
+            cb.call(failing_func)
+
+    def test_call_transitions_to_half_open(self):
+        """Test circuit breaker transitions to half-open after timeout."""
+        config = CircuitBreakerConfig(failure_threshold=2, timeout=0.1)
+        cb = CircuitBreaker(config)
+
+        def failing_func():
+            raise ConnectionError("connection failed")
+
+        # Open the circuit
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                cb.call(failing_func)
+
+        assert cb.state == "open"
+
+        # Wait for timeout
+        time.sleep(0.15)
+
+        # Next call should transition to half-open
+        with pytest.raises(ConnectionError):
+            cb.call(failing_func)
+
+        assert cb.state == "half-open"
+
+    def test_call_success_in_half_open_closes(self):
+        """Test successful call in half-open state closes circuit."""
+        config = CircuitBreakerConfig(failure_threshold=2, timeout=0.1)
+        cb = CircuitBreaker(config)
+
+        def failing_func():
+            raise ConnectionError("connection failed")
+
+        def success_func():
+            return "success"
+
+        # Open the circuit
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                cb.call(failing_func)
+
+        assert cb.state == "open"
+
+        # Wait for timeout
+        time.sleep(0.15)
+
+        # Successful call should close circuit
+        result = cb.call(success_func)
+
+        assert result == "success"
+        assert cb.state == "closed"
+        assert cb.failure_count == 0
+
+    def test_call_failure_in_half_open_reopens(self):
+        """Test failure in half-open state reopens circuit."""
+        config = CircuitBreakerConfig(failure_threshold=2, timeout=0.1)
+        cb = CircuitBreaker(config)
+
+        def failing_func():
+            raise ConnectionError("connection failed")
+
+        # Open the circuit
+        for _ in range(2):
+            with pytest.raises(ConnectionError):
+                cb.call(failing_func)
+
+        assert cb.state == "open"
+
+        # Wait for timeout
+        time.sleep(0.15)
+
+        # Failure in half-open should reopen circuit
+        with pytest.raises(ConnectionError):
+            cb.call(failing_func)
+
+        assert cb.state == "open"
+
+
+@pytest.mark.unit
+class TestUnifiedAPIClientCircuitBreaker:
+    """Test suite for UnifiedAPIClient with Circuit Breaker."""
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_circuit_breaker_opens_on_failures(self, mock_session_class: Any) -> None:
+        """Test circuit breaker opens after threshold failures."""
+        config = HTTPClientConfig(
+            circuit_breaker=CircuitBreakerConfig(failure_threshold=3, timeout=60.0),
+            retries=RetryConfig(total=0),  # Disable retries for cleaner test
+        )
+        mock_session = MagicMock()
+        mock_response_500 = MagicMock(spec=Response)
+        mock_response_500.status_code = 500
+        mock_response_500.headers = {}
+        mock_response_500.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("500 Server Error"))
+        mock_session.request.return_value = mock_response_500
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        # Fail 3 times to open circuit
+        for _ in range(3):
+            with pytest.raises(requests.exceptions.HTTPError):
+                client.get("/endpoint")
+
+        # Next call should raise CircuitBreakerOpenError
+        with pytest.raises(CircuitBreakerOpenError):
+            client.get("/endpoint")
+
+        assert client._circuit_breaker.state == "open"  # type: ignore[reportPrivateUsage]
+
+    @patch("bioetl.core.api_client.requests.Session")
+    def test_circuit_breaker_recovers_after_timeout(self, mock_session_class: Any) -> None:
+        """Test circuit breaker recovers after timeout."""
+        config = HTTPClientConfig(
+            circuit_breaker=CircuitBreakerConfig(failure_threshold=2, timeout=0.1),
+            retries=RetryConfig(total=0),
+        )
+        mock_session = MagicMock()
+        mock_response_500 = MagicMock(spec=Response)
+        mock_response_500.status_code = 500
+        mock_response_500.headers = {}
+        mock_response_500.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("500 Server Error"))
+        mock_response_200 = MagicMock(spec=Response)
+        mock_response_200.status_code = 200
+        mock_response_200.json.return_value = {"data": "test"}
+        mock_response_200.headers = {}
+        mock_session.request.side_effect = [mock_response_500, mock_response_500, mock_response_200]
+        mock_session_class.return_value = mock_session
+
+        client = UnifiedAPIClient(config=config)
+
+        # Open the circuit
+        for _ in range(2):
+            with pytest.raises(requests.exceptions.HTTPError):
+                client.get("/endpoint")
+
+        assert client._circuit_breaker.state == "open"  # type: ignore[reportPrivateUsage]
+
+        # Wait for timeout
+        time.sleep(0.15)
+
+        # Successful call should close circuit
+        response = client.get("/endpoint")
+        assert response.status_code == 200
+        assert client._circuit_breaker.state == "closed"  # type: ignore[reportPrivateUsage]
 

@@ -48,6 +48,25 @@ class RateLimitConfig(BaseModel):
     )
 
 
+class CircuitBreakerConfig(BaseModel):
+    """Circuit breaker configuration for protecting against cascading failures."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    failure_threshold: PositiveInt = Field(
+        default=5,
+        description="Number of consecutive failures before the circuit breaker opens.",
+    )
+    timeout: PositiveFloat = Field(
+        default=60.0,
+        description="Time in seconds the circuit breaker will stay open before transitioning to half-open.",
+    )
+    half_open_max_calls: PositiveInt = Field(
+        default=1,
+        description="Maximum number of calls allowed in half-open state before transitioning back to closed or open.",
+    )
+
+
 class HTTPClientConfig(BaseModel):
     """Configuration for a single logical HTTP client."""
 
@@ -68,6 +87,7 @@ class HTTPClientConfig(BaseModel):
         default=True,
         description="Whether to add jitter to rate limited calls to avoid thundering herds.",
     )
+    circuit_breaker: CircuitBreakerConfig = Field(default_factory=CircuitBreakerConfig)
     headers: Mapping[str, str] = Field(
         default_factory=lambda: {
             "User-Agent": "BioETL/1.0 (UnifiedAPIClient)",
