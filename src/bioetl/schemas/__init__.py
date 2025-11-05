@@ -113,6 +113,21 @@ SCHEMA_REGISTRY.register(
     name=ActivitySchema.name,
 )
 
+# Register testitem schema
+from .chembl.testitem import (  # noqa: E402  (import after registry definition)
+    TestItemSchema,
+    COLUMN_ORDER as TESTITEM_COLUMN_ORDER,
+    SCHEMA_VERSION as TESTITEM_SCHEMA_VERSION,
+)
+
+SCHEMA_REGISTRY.register(
+    "bioetl.schemas.chembl.testitem.TestItemSchema",
+    schema=TestItemSchema,
+    version=TESTITEM_SCHEMA_VERSION,
+    column_order=TESTITEM_COLUMN_ORDER,
+    name=TestItemSchema.name,
+)
+
 
 def get_schema(identifier: str) -> SchemaRegistryEntry:
     """Return the schema entry identified by ``identifier``."""

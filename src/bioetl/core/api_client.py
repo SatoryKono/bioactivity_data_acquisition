@@ -6,10 +6,11 @@ import random
 import threading
 import time
 from collections import deque
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any, Mapping, MutableMapping
+from typing import Any
 from urllib.parse import urljoin
 from uuid import uuid4
 
@@ -96,8 +97,6 @@ def _parse_retry_after(value: str | None) -> float | None:
         parsed = parsedate_to_datetime(value)
     except (TypeError, ValueError):
         return None
-    if parsed is None:
-        return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     now = datetime.now(timezone.utc)
@@ -108,7 +107,7 @@ def _parse_retry_after(value: str | None) -> float | None:
 def _deep_merge(base: MutableMapping[str, Any], override: Mapping[str, Any]) -> MutableMapping[str, Any]:
     for key, value in override.items():
         if key in base and isinstance(base[key], MutableMapping) and isinstance(value, Mapping):
-            _deep_merge(base[key], value)
+            _deep_merge(base[key], value)  # type: ignore[arg-type]
         else:
             base[key] = value  # type: ignore[index]
     return base
@@ -324,9 +323,21 @@ class UnifiedAPIClient:
     # ------------------------------------------------------------------
 
     def _apply_headers(self, extra: Mapping[str, str] | None) -> Mapping[str, str]:
+        # Convert headers to str-only dict, handling both str and bytes values
+        session_headers: dict[str, str] = {}
+        for k, v in self._session.headers.items():
+            if isinstance(v, str):
+                session_headers[k] = v
+            else:
+                # Handle bytes (requests headers can be bytes) or other types
+                try:
+                    session_headers[k] = v.decode("utf-8")  # type: ignore[union-attr]
+                except (AttributeError, UnicodeDecodeError):
+                    session_headers[k] = str(v)
+
         if not extra:
-            return self._session.headers
-        merged: dict[str, str] = dict(self._session.headers)
+            return session_headers
+        merged: dict[str, str] = dict(session_headers)
         merged.update(extra)
         return merged
 
@@ -335,7 +346,14 @@ class UnifiedAPIClient:
             return endpoint
         if not self.base_url:
             return endpoint
-        return urljoin(self.base_url + "/", endpoint.lstrip("/"))
+        resolved = urljoin(self.base_url + "/", endpoint.lstrip("/"))
+        self._logger.debug(
+            "http.resolve_url",
+            endpoint=endpoint,
+            base_url=self.base_url,
+            resolved=resolved,
+        )
+        return resolved
 
     def _prepare_full_url(self, endpoint: str, params: Mapping[str, Any]) -> str:
         url = self._resolve_url(endpoint)

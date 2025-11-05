@@ -1,0 +1,98 @@
+# TestItem ChEMBL Pipeline Configuration
+#
+# This configuration defines the pipeline for extracting molecule records
+# from the ChEMBL API and normalizing them to the project schema.
+
+# Inherit from base and determinism profiles
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
+
+# Pipeline metadata
+pipeline:
+  name: testitem_chembl
+  version: "0.1.0"
+  owner: "bioetl-team"
+  description: "ChEMBL Molecules (/molecule) → normalized test items"
+
+# ChEMBL source configuration
+sources:
+  chembl:
+    enabled: true
+    description: "ChEMBL REST API"
+    batch_size: 200
+    parameters:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      max_url_length: 2000
+      max_pages: null  # null = all pages, or set to limit for dev/ci
+      filters: {}  # e.g., molecule_properties__full_mwt__lte: "1000"
+
+# Determinism configuration for testitem pipeline
+determinism:
+  sort:
+    by:
+      - molecule_chembl_id
+    ascending:
+      - true
+    na_position: "last"
+  column_order:
+    - molecule_chembl_id
+    - pref_name
+    - molecule_type
+    - max_phase
+    - first_approval
+    - chirality
+    - black_box_warning
+    - availability_type
+    - canonical_smiles
+    - standard_inchi_key
+    - full_mwt
+    - mw_freebase
+    - alogp
+    - hbd
+    - hba
+    - psa
+    - aromatic_rings
+    - rtb
+    - num_ro5_violations
+    - _chembl_db_version
+    - _api_version
+
+  hashing:
+    algorithm: "sha256"
+    row_fields: []
+    business_key_fields:
+      - molecule_chembl_id
+    exclude_fields:
+      - generated_at
+      - run_id
+
+postprocess:
+  correlation:
+    enabled: false
+
+# Validation schema
+validation:
+  schema_out: "bioetl.schemas.chembl.testitem.TestItemSchema"
+  strict: true
+  coerce: true
+
+# Profiles for different environments
+profiles:
+  dev:
+    sources:
+      chembl:
+        parameters:
+          max_pages: 5
+  prod:
+    sources:
+      chembl:
+        parameters:
+          max_pages: null
+  ci:
+    sources:
+      chembl:
+        parameters:
+          max_pages: 1
+          batch_size: 50
+

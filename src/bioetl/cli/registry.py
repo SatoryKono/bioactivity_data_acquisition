@@ -61,8 +61,14 @@ def build_command_config_document() -> CommandConfig:
 
 def build_command_config_testitem() -> CommandConfig:
     """Build command configuration for testitem pipeline."""
-    # TODO: Import when testitem pipeline is implemented
-    raise NotImplementedError("TestItem pipeline not yet implemented")
+    from bioetl.pipelines.chembl.testitem import TestItemChemblPipeline
+
+    return CommandConfig(
+        name="testitem_chembl",
+        description="Extract molecule records from ChEMBL API and normalize them to test items.",
+        pipeline_class=TestItemChemblPipeline,
+        default_config_path=Path("configs/pipelines/chembl/testitem.yaml"),
+    )
 
 
 def build_command_config_pubchem() -> CommandConfig:
@@ -111,9 +117,10 @@ def build_command_config_semantic_scholar() -> CommandConfig:
 COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
     "activity_chembl": build_command_config_activity,
     "assay_chembl": build_command_config_assay,
+    "testitem": build_command_config_testitem,
+    "testitem_chembl": build_command_config_testitem,  # Alias
     # "target": build_command_config_target,
     # "document": build_command_config_document,
-    # "testitem": build_command_config_testitem,
     # "pubchem": build_command_config_pubchem,
     # "uniprot": build_command_config_uniprot,
     # "gtp_iuphar": build_command_config_iuphar,
