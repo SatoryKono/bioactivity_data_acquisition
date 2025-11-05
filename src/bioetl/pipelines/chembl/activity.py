@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 import time
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
@@ -93,6 +94,19 @@ class ChemblActivityPipeline(PipelineBase):
             response = client.get(next_endpoint, params=params)
             payload = self._coerce_mapping(response.json())
             page_items = self._extract_page_items(payload)
+
+            supplemental_payload = self._collect_activity_supplementals(
+                client,
+                [item.get("activity_id") for item in page_items],
+            )
+            if supplemental_payload:
+                for item in page_items:
+                    activity_value = item.get("activity_id")
+                    if activity_value is None:
+                        continue
+                    supplemental_value = supplemental_payload.get(str(activity_value))
+                    if supplemental_value is not None:
+                        item["activity_supplemental"] = supplemental_value
 
             if limit is not None:
                 remaining = max(limit - len(records), 0)
@@ -431,6 +445,15 @@ class ChemblActivityPipeline(PipelineBase):
                         if activity_value is None:
                             continue
                         batch_records[str(activity_value)] = item
+                    supplemental_payload = self._collect_activity_supplementals(
+                        client,
+                        batch_keys,
+                    )
+                    if supplemental_payload:
+                        for key, supplemental_value in supplemental_payload.items():
+                            record = batch_records.get(key)
+                            if record is not None:
+                                record["activity_supplemental"] = supplemental_value
                     self._store_cache(batch_keys, batch_records, self._chembl_release)
 
                 success_in_batch = 0
@@ -651,7 +674,197 @@ class ChemblActivityPipeline(PipelineBase):
             "activity_id": activity_id,
             "data_validity_comment": message,
             "activity_properties": json.dumps(metadata, sort_keys=True, default=str),
+            "activity_supplemental": None,
         }
+
+    def _collect_activity_supplementals(
+        self,
+        client: UnifiedAPIClient,
+        activity_ids: Sequence[Any],
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Fetch and aggregate supplemental records for ``activity_ids``."""
+
+        if not activity_ids:
+            return {}
+
+        normalized_ids: list[str] = []
+        seen: set[str] = set()
+        for raw_id in activity_ids:
+            if raw_id is None or (isinstance(raw_id, float) and pd.isna(raw_id)):
+                continue
+            try:
+                if isinstance(raw_id, str):
+                    candidate = raw_id.strip()
+                    if not candidate:
+                        continue
+                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
+                elif isinstance(raw_id, (int, float)):
+                    numeric_id = int(raw_id)
+                else:
+                    numeric_id = int(raw_id)
+            except (TypeError, ValueError):
+                continue
+            key = str(numeric_id)
+            if key not in seen:
+                seen.add(key)
+                normalized_ids.append(key)
+
+        if not normalized_ids:
+            return {}
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.supplementals")
+        params = {"activity_id__in": ",".join(normalized_ids)}
+
+        try:
+            supp_records = self._fetch_paginated_endpoint(client, "/activity_supp.json", params)
+        except RequestException as exc:
+            log.warning("activity_supp.fetch_failed", error=str(exc))
+            supp_records = []
+
+        try:
+            supp_map_records = self._fetch_paginated_endpoint(client, "/activity_supp_map.json", params)
+        except RequestException as exc:
+            log.warning("activity_supp_map.fetch_failed", error=str(exc))
+            supp_map_records = []
+
+        aggregated = self._aggregate_supplemental_records(
+            normalized_ids,
+            supp_records,
+            supp_map_records,
+        )
+
+        if aggregated:
+            log.debug(
+                "activity_supplemental.aggregated",
+                activities=len(aggregated),
+                total_groups=sum(len(groups) for groups in aggregated.values()),
+            )
+
+        return aggregated
+
+    def _fetch_paginated_endpoint(
+        self,
+        client: UnifiedAPIClient,
+        endpoint: str,
+        params: Mapping[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Fetch all pages for ``endpoint`` and return collected records."""
+
+        records: list[dict[str, Any]] = []
+        next_endpoint: str | None = endpoint
+        next_params: Mapping[str, Any] | None = params
+        base_url = client.base_url or ""
+
+        while next_endpoint:
+            response = client.get(next_endpoint, params=next_params)
+            payload = self._coerce_mapping(response.json())
+            items = self._extract_page_items(payload)
+            records.extend(items)
+            next_link = self._next_link(payload, base_url=base_url)
+            if not next_link:
+                break
+            next_endpoint = next_link
+            next_params = None
+
+        return records
+
+    def _aggregate_supplemental_records(
+        self,
+        activity_ids: Sequence[str],
+        supp_rows: Sequence[Mapping[str, Any]],
+        supp_map_rows: Sequence[Mapping[str, Any]],
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Group supplemental rows by activity and RGID/SMID."""
+
+        activity_filter = {str(value) for value in activity_ids}
+        grouped: dict[str, dict[str, dict[str, Any]]] = {}
+
+        for row in supp_rows:
+            if not isinstance(row, Mapping):
+                continue
+            activity_value = row.get("activity_id")
+            rgid_value = row.get("rgid")
+            if activity_value is None or rgid_value is None:
+                continue
+            activity_key = str(activity_value)
+            if activity_filter and activity_key not in activity_filter:
+                continue
+            rgid_key = str(rgid_value)
+            activity_bucket = grouped.setdefault(activity_key, {})
+            group_entry = activity_bucket.setdefault(
+                rgid_key,
+                {"rgid": rgid_key, "activity_supp": [], "smids": defaultdict(list)},
+            )
+            cleaned = self._clean_supplemental_payload(row, drop_keys={"activity_id", "rgid"})
+            if cleaned:
+                group_entry["activity_supp"].append(cleaned)
+
+        for row in supp_map_rows:
+            if not isinstance(row, Mapping):
+                continue
+            activity_value = row.get("activity_id")
+            rgid_value = row.get("rgid")
+            smid_value = row.get("smid")
+            if activity_value is None or rgid_value is None or smid_value is None:
+                continue
+            activity_key = str(activity_value)
+            if activity_filter and activity_key not in activity_filter:
+                continue
+            rgid_key = str(rgid_value)
+            smid_key = str(smid_value)
+            activity_bucket = grouped.setdefault(activity_key, {})
+            group_entry = activity_bucket.setdefault(
+                rgid_key,
+                {"rgid": rgid_key, "activity_supp": [], "smids": defaultdict(list)},
+            )
+            cleaned = self._clean_supplemental_payload(row, drop_keys={"activity_id", "rgid", "smid"})
+            group_entry["smids"][smid_key].append(cleaned)
+
+        result: dict[str, list[dict[str, Any]]] = {}
+        for activity_key, rgid_groups in grouped.items():
+            groups: list[dict[str, Any]] = []
+            for rgid_key in sorted(rgid_groups.keys()):
+                entry = rgid_groups[rgid_key]
+                smids_dict: defaultdict[str, list[dict[str, Any]]] = entry.get("smids", defaultdict(list))
+                smids_list: list[dict[str, Any]] = []
+                for smid_key in sorted(smids_dict.keys()):
+                    smid_records = [record for record in smids_dict[smid_key] if record]
+                    smids_list.append({"smid": smid_key, "records": smid_records})
+                groups.append(
+                    {
+                        "rgid": entry["rgid"],
+                        "activity_supp": entry.get("activity_supp", []),
+                        "activity_supp_map": smids_list,
+                    }
+                )
+            if groups:
+                result[activity_key] = groups
+
+        return result
+
+    @staticmethod
+    def _clean_supplemental_payload(
+        record: Mapping[str, Any],
+        *,
+        drop_keys: set[str],
+    ) -> dict[str, Any]:
+        """Remove drop keys and null-ish values from supplemental payload."""
+
+        cleaned: dict[str, Any] = {}
+        for key, value in record.items():
+            if key in drop_keys:
+                continue
+            if value is None:
+                continue
+            if isinstance(value, float) and pd.isna(value):
+                continue
+            try:
+                if pd.isna(value):
+                    continue
+            except TypeError:
+                pass
+            cleaned[key] = value
+        return cleaned
 
     @staticmethod
     def _coerce_mapping(payload: Any) -> dict[str, Any]:
@@ -672,7 +885,7 @@ class ChemblActivityPipeline(PipelineBase):
     @staticmethod
     def _extract_page_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
         candidates: list[dict[str, Any]] = []
-        for key in ("activities", "data", "items", "results"):
+        for key in ("activities", "data", "items", "results", "activity_supp", "activity_supp_map"):
             value: Any = payload.get(key)
             if isinstance(value, Sequence):
                 candidates = [
@@ -1092,7 +1305,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         df = df.copy()
 
-        nested_fields = ["ligand_efficiency", "activity_properties"]
+        nested_fields = ["ligand_efficiency", "activity_properties", "activity_supplemental"]
 
         for field in nested_fields:
             if field not in df.columns:

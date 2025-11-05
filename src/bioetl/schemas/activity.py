@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 COLUMN_ORDER = (
     "activity_id",
@@ -29,6 +29,7 @@ COLUMN_ORDER = (
     "data_validity_comment",
     "potential_duplicate",
     "activity_properties",
+    "activity_supplemental",
     "compound_key",
 )
 
@@ -62,6 +63,7 @@ ActivitySchema = DataFrameSchema(
         "data_validity_comment": Column(pa.String, nullable=True),
         "potential_duplicate": Column(pa.Bool, nullable=True),
         "activity_properties": Column(pa.String, nullable=True),
+        "activity_supplemental": Column(pa.String, nullable=True),
         "compound_key": Column(pa.String, nullable=True),
     },
     ordered=True,
