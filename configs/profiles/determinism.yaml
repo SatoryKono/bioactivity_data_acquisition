@@ -32,8 +32,10 @@ determinism:
 
   hashing:
     algorithm: "sha256"
-    row_fields: []
+    business_key_col: "hash_business_key"
+    row_hash_col: "hash_row"
     business_key_fields: []
+    row_fields: []
     exclude_fields: ["generated_at", "run_id"]
 
   environment:

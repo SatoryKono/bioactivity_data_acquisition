@@ -24,6 +24,8 @@ from structlog.contextvars import (
     unbind_contextvars,
 )
 
+from bioetl.config.models import LoggingConfig as PydanticLoggingConfig
+
 __all__ = [
     "LogFormat",
     "LogConfig",
@@ -75,7 +77,11 @@ _KEY_ORDER: Sequence[str] = (
 
 @dataclass(frozen=True, slots=True)
 class LogConfig:
-    """User configurable logging parameters."""
+    """User configurable logging parameters.
+
+    This dataclass is kept for backward compatibility.
+    For new code, prefer using PydanticLoggingConfig from bioetl.config.models.
+    """
 
     level: int | str = DEFAULT_LOG_LEVEL
     format: LogFormat = LogFormat.JSON
@@ -151,14 +157,39 @@ def _renderer_for(format: LogFormat) -> Any:
     return structlog.processors.JSONRenderer(sort_keys=True, ensure_ascii=False)
 
 
+def _pydantic_config_to_dataclass(pydantic_config: PydanticLoggingConfig) -> LogConfig:
+    """Convert Pydantic LoggingConfig to dataclass LogConfig."""
+    format_value = LogFormat.JSON
+    if isinstance(pydantic_config.format, str):
+        try:
+            format_value = LogFormat(pydantic_config.format)
+        except ValueError:
+            format_value = LogFormat.JSON
+    return LogConfig(
+        level=pydantic_config.level,
+        format=format_value,
+        redact_fields=tuple(pydantic_config.redact_fields),
+    )
+
+
 def configure_logging(
-    config: LogConfig | None = None,
+    config: LogConfig | PydanticLoggingConfig | None = None,
     *,
     additional_processors: Sequence[Any] | None = None,
 ) -> None:
-    """Initialise logging based on the supplied configuration."""
+    """Initialise logging based on the supplied configuration.
 
-    cfg = config or LogConfig()
+    Parameters
+    ----------
+    config:
+        Either a LogConfig dataclass or PydanticLoggingConfig from models.
+    additional_processors:
+        Optional additional structlog processors.
+    """
+    if isinstance(config, PydanticLoggingConfig):
+        cfg = _pydantic_config_to_dataclass(config)
+    else:
+        cfg = config or LogConfig()
     shared_processors = _shared_processors(cfg)
     if additional_processors:
         shared_processors = [*shared_processors, *additional_processors]
@@ -234,12 +265,19 @@ class UnifiedLogger:
 
     @staticmethod
     def configure(
-        config: LoggerConfig | None = None,
+        config: LoggerConfig | PydanticLoggingConfig | None = None,
         *,
         additional_processors: Sequence[Any] | None = None,
     ) -> None:
-        """Configure the underlying structured logger."""
+        """Configure the underlying structured logger.
 
+        Parameters
+        ----------
+        config:
+            Either a LoggerConfig dataclass or PydanticLoggingConfig from models.
+        additional_processors:
+            Optional additional structlog processors.
+        """
         configure_logging(config, additional_processors=additional_processors)
 
     @staticmethod

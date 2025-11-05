@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 import typer
 
 from bioetl.config import load_config
-from bioetl.core.logger import LoggerConfig, UnifiedLogger
+from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
 __all__ = ["create_pipeline_command", "CommonOptions"]
@@ -232,9 +232,10 @@ def create_pipeline_command(
 
         pipeline_config.materialization.root = str(output_dir)
 
-        # Configure logging
-        log_level = "DEBUG" if verbose else "INFO"
-        UnifiedLogger.configure(LoggerConfig(level=log_level))
+        # Configure logging from config
+        if verbose:
+            pipeline_config.logging.level = "DEBUG"
+        UnifiedLogger.configure(pipeline_config.logging)
 
         if dry_run:
             typer.echo("Configuration validated successfully (dry-run mode)")

@@ -120,6 +120,8 @@ def load_config(
     if env_overrides:
         merged = _deep_merge(merged, env_overrides)
 
+    # Note: pydantic-settings is available for future deeper integration with BaseSettings
+    # Current implementation supports ENV variables via _collect_env_overrides
     return PipelineConfig.model_validate(merged)
 
 

@@ -10,6 +10,21 @@ from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, m
 StatusCode = Annotated[int, Field(ge=100, le=599)]
 
 
+class RuntimeConfig(BaseModel):
+    """Runtime execution parameters."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    parallelism: PositiveInt = Field(
+        default=1,
+        description="Level of parallelism for tasks that can be multi-threaded.",
+    )
+    chunk_rows: PositiveInt = Field(
+        default=1000,
+        description="Size of data chunks to process at a time.",
+    )
+
+
 class RetryConfig(BaseModel):
     """Retry policy for HTTP clients."""
 
@@ -72,6 +87,10 @@ class HTTPClientConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    base_url: str | None = Field(
+        default=None,
+        description="Base URL for the HTTP client (will be prepended to all requests).",
+    )
     timeout_sec: PositiveFloat = Field(default=60.0, description="Total request timeout in seconds.")
     connect_timeout_sec: PositiveFloat = Field(
         default=15.0,
@@ -154,6 +173,18 @@ class MaterializationConfig(BaseModel):
         default=None,
         description="Optional template for dataset filenames (supports Jinja-style placeholders).",
     )
+    partition_by: Sequence[str] | None = Field(
+        default=None,
+        description="Columns to partition output by (e.g., for Parquet partitioning).",
+    )
+    overwrite: bool = Field(
+        default=False,
+        description="Allow overwriting existing files if True.",
+    )
+    input_format: str | None = Field(
+        default=None,
+        description="Format of input data files (e.g., csv, parquet, json).",
+    )
 
 
 class FallbacksConfig(BaseModel):
@@ -207,24 +238,36 @@ class DeterminismSortingConfig(BaseModel):
     na_position: str = Field(default="last", description="Where to place null values during sorting.")
 
 
-class DeterminismHashingConfig(BaseModel):
-    """Hashing policy for determinism checks."""
+class HashingConfig(BaseModel):
+    """Hashing policy for determinism checks (variant C)."""
 
     model_config = ConfigDict(extra="forbid")
 
     algorithm: str = Field(default="sha256", description="Hash algorithm used for row/business key hashes.")
-    row_fields: Sequence[str] = Field(
-        default_factory=tuple,
-        description="Columns included in the per-row hash calculation.",
+    business_key_col: str = Field(
+        default="hash_business_key",
+        description="Name of the resulting column for business key hash.",
+    )
+    row_hash_col: str = Field(
+        default="hash_row",
+        description="Name of the resulting column for row hash.",
     )
     business_key_fields: Sequence[str] = Field(
         default_factory=tuple,
         description="Columns used to compute the business key hash.",
     )
+    row_fields: Sequence[str] = Field(
+        default_factory=tuple,
+        description="Columns included in the per-row hash calculation.",
+    )
     exclude_fields: Sequence[str] = Field(
         default_factory=lambda: ("generated_at", "run_id"),
         description="Fields excluded from deterministic hashing.",
     )
+
+
+# Backward compatibility alias
+DeterminismHashingConfig = HashingConfig
 
 
 class DeterminismEnvironmentConfig(BaseModel):
@@ -291,7 +334,7 @@ class DeterminismConfig(BaseModel):
         description="Expected column order for the final dataset.",
     )
     serialization: DeterminismSerializationConfig = Field(default_factory=DeterminismSerializationConfig)
-    hashing: DeterminismHashingConfig = Field(default_factory=DeterminismHashingConfig)
+    hashing: HashingConfig = Field(default_factory=HashingConfig)
     environment: DeterminismEnvironmentConfig = Field(default_factory=DeterminismEnvironmentConfig)
     write: DeterminismWriteConfig = Field(default_factory=DeterminismWriteConfig)
     meta: DeterminismMetaConfig = Field(default_factory=DeterminismMetaConfig)
@@ -331,6 +374,67 @@ class ValidationConfig(BaseModel):
     )
 
 
+class LoggingConfig(BaseModel):
+    """Logging configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    level: str | int = Field(default="INFO", description="Log level (DEBUG, INFO, WARNING, ERROR).")
+    format: Literal["json", "key_value"] = Field(
+        default="json",
+        description="Output format for logs (json or key_value).",
+    )
+    redact_fields: Sequence[str] = Field(
+        default_factory=lambda: ("api_key", "access_token", "password"),
+        description="Fields to redact from logs.",
+    )
+    file_enabled: bool = Field(
+        default=False,
+        description="Enable file-based logging if True.",
+    )
+    file_path: str | None = Field(
+        default=None,
+        description="Path to log file (if file_enabled is True).",
+    )
+    file_format: Literal["json"] = Field(
+        default="json",
+        description="Format for file logs (only json is supported).",
+    )
+    max_bytes: int = Field(
+        default=10 * 1024 * 1024,
+        description="Maximum log file size in bytes before rotation.",
+    )
+    backup_count: int = Field(
+        default=10,
+        description="Number of backup log files to keep.",
+    )
+
+
+class TelemetryConfig(BaseModel):
+    """OpenTelemetry configuration."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable OpenTelemetry integration if True.",
+    )
+    exporter_type: Literal["console", "otlp", "jaeger"] | None = Field(
+        default=None,
+        description="Type of telemetry exporter (console, otlp, jaeger).",
+    )
+    sampling_rate: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Sampling rate for traces (0.0 to 1.0).",
+    )
+    endpoint: str | None = Field(
+        default=None,
+        description="Endpoint URL for telemetry exporter (e.g., OTLP collector).",
+    )
+
+
 class CLIConfig(BaseModel):
     """Runtime overrides captured from the CLI layer."""
 
@@ -341,6 +445,10 @@ class CLIConfig(BaseModel):
         description="Profiles requested via the --profile flag (in order).",
     )
     dry_run: bool = Field(default=False, description="If true, skip the write/materialization stage.")
+    seed: int | None = Field(
+        default=None,
+        description="Random seed for deterministic sampling and shuffling.",
+    )
     limit: PositiveInt | None = Field(
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
@@ -485,6 +593,7 @@ class PipelineConfig(BaseModel):
         description="Optional list of profile paths merged before this configuration.",
     )
     pipeline: PipelineMetadata = Field(..., description="Metadata describing the pipeline.")
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig)
     http: HTTPConfig = Field(..., description="HTTP client defaults and profiles.")
     cache: CacheConfig = Field(default_factory=CacheConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
@@ -494,6 +603,8 @@ class PipelineConfig(BaseModel):
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     transform: TransformConfig = Field(default_factory=TransformConfig)
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     sources: dict[str, SourceConfig] = Field(
         default_factory=dict,
         description="Per-source settings keyed by a short identifier.",

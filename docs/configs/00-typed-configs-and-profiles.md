@@ -17,6 +17,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `PipelineConfig` | `version` | `Literal[1]` | Yes | — | Версия схемы конфигурации.[ref: repo:src/bioetl/configs/models.py†L360-L362] |
 | `PipelineConfig` | `extends[]` | `Sequence[str]` | No | `[]` | Профили, которые мерджатся перед основным YAML.[ref: repo:src/bioetl/configs/models.py†L363-L366] |
 | `PipelineConfig` | `pipeline` | `PipelineMetadata` | Yes | — | Метаданные пайплайна.[ref: repo:src/bioetl/configs/models.py†L349-L352][ref: repo:src/bioetl/configs/models.py†L355-L379] |
+| `PipelineConfig` | `runtime` | `RuntimeConfig` | No | см. таблицу ниже | Параметры выполнения (parallelism, chunk_rows).[ref: repo:src/bioetl/config/models.py] |
 | `PipelineConfig` | `http` | `HTTPConfig` | Yes | — | HTTP-профили и базовые настройки клиентов.[ref: repo:src/bioetl/configs/models.py†L80-L91] |
 | `PipelineConfig` | `cache` | `CacheConfig` | No | см. таблицу ниже | Параметры HTTP-кэша.[ref: repo:src/bioetl/configs/models.py†L94-L101] |
 | `PipelineConfig` | `paths` | `PathsConfig` | No | см. таблицу ниже | Каталоги ввода/вывода.[ref: repo:src/bioetl/configs/models.py†L104-L111] |
@@ -24,6 +25,8 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `PipelineConfig` | `materialization` | `MaterializationConfig` | No | см. таблицу ниже | Настройки записи артефактов.[ref: repo:src/bioetl/configs/models.py†L114-L131] |
 | `PipelineConfig` | `fallbacks` | `FallbacksConfig` | No | см. таблицу ниже | Поведение fallback-механизмов.[ref: repo:src/bioetl/configs/models.py†L134-L146] |
 | `PipelineConfig` | `validation` | `ValidationConfig` | No | см. таблицу ниже | Ссылки на Pandera-схемы и строгий режим.[ref: repo:src/bioetl/configs/models.py†L282-L296] |
+| `PipelineConfig` | `logging` | `LoggingConfig` | No | см. таблицу ниже | Настройки логирования.[ref: repo:src/bioetl/config/models.py] |
+| `PipelineConfig` | `telemetry` | `TelemetryConfig` | No | см. таблицу ниже | Настройки OpenTelemetry.[ref: repo:src/bioetl/config/models.py] |
 | `PipelineConfig` | `sources{}` | `Dict[str, SourceConfig]` | No | `{}` | Переопределения для отдельных источников.[ref: repo:src/bioetl/configs/models.py†L319-L341] |
 | `PipelineConfig` | `cli` | `CLIConfig` | No | см. таблицу ниже | Захваченные значения CLI-флагов.[ref: repo:src/bioetl/configs/models.py†L299-L316] |
 
@@ -36,10 +39,18 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `owner` | `str` | No | `null` | Ответственный инженер/команда.[ref: repo:src/bioetl/configs/models.py†L351-L352] |
 | `description` | `str` | No | `null` | Краткое описание.[ref: repo:src/bioetl/configs/models.py†L351-L352] |
 
-### 2.3 `http`
+### 2.3 `runtime`
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
+| `parallelism` | `PositiveInt` | No | `1` | Уровень параллелизма для многопоточных задач.[ref: repo:src/bioetl/config/models.py] |
+| `chunk_rows` | `PositiveInt` | No | `1000` | Размер чанков данных для обработки.[ref: repo:src/bioetl/config/models.py] |
+
+### 2.4 `http`
+
+| Key | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `default.base_url` | `str \| None` | No | `null` | Базовый URL для HTTP-клиента (добавляется ко всем запросам).[ref: repo:src/bioetl/config/models.py] |
 | `default.timeout_sec` | `PositiveFloat` | No | `60.0` | Общий таймаут запроса.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
 | `default.connect_timeout_sec` | `PositiveFloat` | No | `15.0` | Таймаут соединения.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
 | `default.read_timeout_sec` | `PositiveFloat` | No | `60.0` | Таймаут чтения сокета.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
@@ -65,7 +76,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `max_calls` | `PositiveInt` | `10` | Запросов в окне.[ref: repo:src/bioetl/configs/models.py†L40-L43] |
 | `period` | `PositiveFloat` | `1.0` | Длина окна в секундах.[ref: repo:src/bioetl/configs/models.py†L44-L47] |
 
-### 2.4 Инфраструктурные блоки
+### 2.5 Инфраструктурные блоки
 
 | Section | Key | Default | Description |
 | --- | --- | --- | --- |
@@ -79,14 +90,30 @@ This document provides a comprehensive specification for the `bioetl` configurat
 |  | `default_format` | `"parquet"` | Формат по умолчанию.[ref: repo:src/bioetl/configs/models.py†L119-L123] |
 |  | `pipeline_subdir` | `null` | Доп. подкаталог.[ref: repo:src/bioetl/configs/models.py†L124-L127] |
 |  | `filename_template` | `null` | Jinja-шаблон имени файла.[ref: repo:src/bioetl/configs/models.py†L128-L131] |
+|  | `partition_by[]` | `null` | Колонки для партиционирования вывода.[ref: repo:src/bioetl/config/models.py] |
+|  | `overwrite` | `false` | Разрешить перезапись существующих файлов.[ref: repo:src/bioetl/config/models.py] |
+|  | `input_format` | `null` | Формат входных данных (csv, parquet, json).[ref: repo:src/bioetl/config/models.py] |
 | `fallbacks` | `enabled` | `true` | Включает fallback-стратегии.[ref: repo:src/bioetl/configs/models.py†L139-L146] |
 |  | `max_depth` | `null` | Ограничение глубины fallback.[ref: repo:src/bioetl/configs/models.py†L139-L146] |
 | `validation` | `schema_in` | `null` | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/configs/models.py†L287-L296] |
 |  | `schema_out` | `null` | Путь к выходной схеме.[ref: repo:src/bioetl/configs/models.py†L291-L296] |
 |  | `strict` | `true` | Требует строгого порядка колонок.[ref: repo:src/bioetl/configs/models.py†L295-L296] |
 |  | `coerce` | `true` | Приводит типы в Pandera.[ref: repo:src/bioetl/configs/models.py†L295-L296] |
+| `logging` | `level` | `"INFO"` | Уровень логирования (DEBUG, INFO, WARNING, ERROR).[ref: repo:src/bioetl/config/models.py] |
+|  | `format` | `"json"` | Формат вывода логов (json, key_value).[ref: repo:src/bioetl/config/models.py] |
+|  | `redact_fields[]` | `["api_key", "access_token", "password"]` | Поля для редикции в логах.[ref: repo:src/bioetl/config/models.py] |
+|  | `file_enabled` | `false` | Включить файловое логирование.[ref: repo:src/bioetl/config/models.py] |
+|  | `file_path` | `null` | Путь к файлу логов (если `file_enabled=true`).[ref: repo:src/bioetl/config/models.py] |
+|  | `file_format` | `"json"` | Формат файла логов (только json).[ref: repo:src/bioetl/config/models.py] |
+|  | `max_bytes` | `10485760` | Максимальный размер лог-файла перед ротацией.[ref: repo:src/bioetl/config/models.py] |
+|  | `backup_count` | `10` | Количество резервных копий лог-файлов.[ref: repo:src/bioetl/config/models.py] |
+| `telemetry` | `enabled` | `false` | Включить интеграцию OpenTelemetry.[ref: repo:src/bioetl/config/models.py] |
+|  | `exporter_type` | `null` | Тип экспортера (console, otlp, jaeger).[ref: repo:src/bioetl/config/models.py] |
+|  | `sampling_rate` | `1.0` | Частота выборки трейсов (0.0-1.0).[ref: repo:src/bioetl/config/models.py] |
+|  | `endpoint` | `null` | URL эндпоинта экспортера (например, OTLP коллектор).[ref: repo:src/bioetl/config/models.py] |
 | `cli` | `profiles[]` | `[]` | Профили, переданные через `--profile`.[ref: repo:src/bioetl/configs/models.py†L304-L316] |
 |  | `dry_run` | `false` | Флаг `--dry-run`.[ref: repo:src/bioetl/configs/models.py†L308-L316] |
+|  | `seed` | `null` | Случайное зерно для детерминированной выборки.[ref: repo:src/bioetl/config/models.py] |
 |  | `limit` | `null` | Лимит записей (`--limit`).[ref: repo:src/bioetl/configs/models.py†L309-L312] |
 |  | `set_overrides{}` | `{}` | Пары `--set key=value`.[ref: repo:src/bioetl/configs/models.py†L313-L316] |
 | `sources.<id>` | `enabled` | `true` | Отключение источника.[ref: repo:src/bioetl/configs/models.py†L324-L341] |
@@ -96,7 +123,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 |  | `batch_size` | `null` | Размер батча для пагинации.[ref: repo:src/bioetl/configs/models.py†L334-L337] |
 |  | `parameters{}` | `{}` | Произвольные параметры источника.[ref: repo:src/bioetl/configs/models.py†L338-L341] |
 
-### 2.5 `determinism`
+### 2.6 `determinism`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -114,10 +141,12 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `serialization.csv.na_rep` | `str` | `""` | Представление `NA` в CSV.[ref: repo:src/bioetl/configs/models.py†L154-L156] |
 | `serialization.booleans[]` | `Tuple[str,str]` | `("True","False")` | Строковые значения для bool.[ref: repo:src/bioetl/configs/models.py†L164-L168] |
 | `serialization.nan_rep` | `str` | `"NaN"` | Представление `NaN`.[ref: repo:src/bioetl/configs/models.py†L164-L169] |
-| `hashing.algorithm` | `str` | `"sha256"` | Алгоритм хеширования.[ref: repo:src/bioetl/configs/models.py†L185-L201] |
-| `hashing.row_fields[]` | `Sequence[str]` | `[]` | Поля для `hash_row`.[ref: repo:src/bioetl/configs/models.py†L190-L197] |
-| `hashing.business_key_fields[]` | `Sequence[str]` | `[]` | Поля бизнес-ключа.[ref: repo:src/bioetl/configs/models.py†L195-L198] |
-| `hashing.exclude_fields[]` | `Sequence[str]` | `("generated_at","run_id")` | Поля, исключаемые из хешей.[ref: repo:src/bioetl/configs/models.py†L199-L201] |
+| `hashing.algorithm` | `str` | `"sha256"` | Алгоритм хеширования.[ref: repo:src/bioetl/config/models.py] |
+| `hashing.business_key_col` | `str` | `"hash_business_key"` | Имя результирующей колонки для бизнес-ключа хеша.[ref: repo:src/bioetl/config/models.py] |
+| `hashing.row_hash_col` | `str` | `"hash_row"` | Имя результирующей колонки для row хеша.[ref: repo:src/bioetl/config/models.py] |
+| `hashing.business_key_fields[]` | `Sequence[str]` | `[]` | Поля для вычисления бизнес-ключа хеша.[ref: repo:src/bioetl/config/models.py] |
+| `hashing.row_fields[]` | `Sequence[str]` | `[]` | Поля для вычисления row хеша.[ref: repo:src/bioetl/config/models.py] |
+| `hashing.exclude_fields[]` | `Sequence[str]` | `("generated_at","run_id")` | Поля, исключаемые из хешей.[ref: repo:src/bioetl/config/models.py] |
 | `environment.timezone` | `str` | `"UTC"` | Часовой пояс исполнения.[ref: repo:src/bioetl/configs/models.py†L205-L212] |
 | `environment.locale` | `str` | `"C"` | Локаль для форматирования.[ref: repo:src/bioetl/configs/models.py†L205-L212] |
 | `write.strategy` | `str` | `"atomic"` | Стратегия записи артефактов.[ref: repo:src/bioetl/configs/models.py†L214-L220] |
@@ -215,6 +244,24 @@ fallbacks:
 validation:
   strict: true
   coerce: true
+
+runtime:
+  parallelism: 1
+  chunk_rows: 1000
+
+logging:
+  level: "INFO"
+  format: "json"
+  redact_fields:
+    - "api_key"
+    - "access_token"
+    - "password"
+
+telemetry:
+  enabled: false
+  exporter_type: null
+  sampling_rate: 1.0
+  endpoint: null
 ```
 
 【F:configs/profiles/base.yaml†L1-L48】
@@ -247,8 +294,10 @@ determinism:
     nan_rep: "NaN"
   hashing:
     algorithm: "sha256"
-    row_fields: []
+    business_key_col: "hash_business_key"
+    row_hash_col: "hash_row"
     business_key_fields: []
+    row_fields: []
     exclude_fields: ["generated_at", "run_id"]
   environment:
     timezone: "UTC"
@@ -299,8 +348,10 @@ determinism:
     by: ["assay_id", "activity_id"]
     ascending: [true, true]
   hashing:
-    row_fields: ["activity_id", "standard_value"]
+    business_key_col: "hash_business_key"
+    row_hash_col: "hash_row"
     business_key_fields: ["activity_id"]
+    row_fields: ["activity_id", "standard_value"]
 
 validation:
   schema_out: "bioetl.schemas.chembl.activity.ActivityOutputSchema"
