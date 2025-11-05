@@ -855,13 +855,13 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 | `target_organism` | string | Организм таргета | True |
 | `target_tax_id` | int | Taxonomy ID | True |
 | `data_validity_comment` | string | Комментарии о валидности | True |
-| `activity_properties` | array | Вложенные свойства (nested array) | True |
+| `activity_properties` | array | Вложенные свойства (JSON массив объектов) | True |
 
 **Nested структуры:**
 
 - `ligand_efficiency` содержит: `BEI`, `LE`, `LLE`, `SEI`
 
-- `activity_properties` — массив объектов с произвольными свойствами
+- `activity_properties` — массив объектов вида `{type, relation, units, value, text_value, result_flag}` (значения `null` допустимы)
 
 ### Контракт сохранения данных
 
@@ -915,7 +915,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 | ACTIVITY.target_tax_id | target_tax_id | int | 9606 | int | >=1 or null | /activity | - |
 
 | ACTIVITY.data_validity_comment | data_validity_comment | string | Outside typical range | trim | enum per FAQ or null | /activity | см. FAQ |
-| ACTIVITY.activity_properties | activity_properties | string | {...} | stable json dumps | json parseable or null | /activity | - |
+| ACTIVITY.activity_properties | activity_properties | string | [{"type":"IC50","relation":"=","units":"nM","value":10.0,"text_value":null,"result_flag":true}] | normalized json array | каждый объект содержит только {type, relation, units, value, text_value, result_flag} | /activity | - |
 
 | ACTIVITY.compound_key | compound_key | string | CHEMBL998\|Ki\|CHEMBL231 | concat | len<=256 | derived | бизнес-ключ |
 
