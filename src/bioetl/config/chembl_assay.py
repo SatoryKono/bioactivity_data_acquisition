@@ -6,7 +6,7 @@ from typing import Any, Mapping
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
-from bioetl.config.models import HTTPClientConfig, SourceConfig
+from .models import HTTPClientConfig, SourceConfig
 
 
 def _coerce_bool(value: Any) -> bool:
@@ -113,3 +113,4 @@ class AssaySourceConfig(BaseModel):
             msg = "max_url_length must be a positive integer"
             raise ValueError(msg)
         return value
+

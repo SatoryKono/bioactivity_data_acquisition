@@ -10,7 +10,7 @@ import requests
 from requests import Response
 from requests.exceptions import ConnectionError, Timeout
 
-from bioetl.configs.models import HTTPClientConfig, RetryConfig, RateLimitConfig
+from bioetl.config.models import HTTPClientConfig, RetryConfig, RateLimitConfig
 from bioetl.core.api_client import UnifiedAPIClient, TokenBucketLimiter
 
 
@@ -356,7 +356,11 @@ class TestUnifiedAPIClient:
 
     def test_compute_backoff(self):
         """Test backoff computation."""
-        config = HTTPClientConfig(retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0))
+        # Disable jitter for deterministic test
+        config = HTTPClientConfig(
+            retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0),
+            rate_limit_jitter=False,
+        )
         client = UnifiedAPIClient(config=config)
 
         from bioetl.core.api_client import _RetryState

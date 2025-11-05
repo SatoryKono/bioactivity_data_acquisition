@@ -17,7 +17,7 @@ import requests
 from requests import Response
 from requests.exceptions import HTTPError, RequestException, Timeout
 
-from bioetl.configs.models import HTTPClientConfig
+from bioetl.config.models import HTTPClientConfig
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = [

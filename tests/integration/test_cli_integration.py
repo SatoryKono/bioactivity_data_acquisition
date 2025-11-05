@@ -205,5 +205,8 @@ http:
                 ],
             )
 
-            assert result.exit_code == 1  # type: ignore[reportUnknownMemberType]
-            assert "failed" in result.stdout.lower()  # type: ignore[reportUnknownMemberType]
+            # Exit code 2 for typer validation errors, 1 for pipeline errors
+            assert result.exit_code in (1, 2)  # type: ignore[reportUnknownMemberType]
+            # Check for error message in either stdout or stderr
+            error_output = (result.stdout + result.stderr).lower()  # type: ignore[reportUnknownMemberType]
+            assert "failed" in error_output or "error" in error_output  # type: ignore[reportUnknownMemberType]

@@ -8,12 +8,11 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.config import PipelineConfig
+from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.clients.chembl import ChemblClient
 
 from ..base import PipelineBase
-from .assay_config import AssaySourceConfig
 from ...sources.chembl.assay import ChemblAssayClient
 
 
