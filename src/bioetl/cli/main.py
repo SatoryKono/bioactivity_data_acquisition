@@ -194,14 +194,14 @@ def _validate_output_dir(output_dir: Path) -> None:
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    config: Path = typer.Option(  # type: ignore[assignment]
+    config: Path | None = typer.Option(
         None,
         "--config",
         "-c",
         help="Path to configuration file",
         exists=False,
     ),
-    output_dir: Path = typer.Option(  # type: ignore[assignment]
+    output_dir: Path | None = typer.Option(
         None,
         "--output-dir",
         "-o",
