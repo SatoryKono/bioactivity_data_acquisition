@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 import pandera as pa
-from pandera import Check, Column, DataFrameSchema
+from pandera import Check, Column
+
+from ._common import (
+    chembl_id_column,
+    create_chembl_schema,
+    doi_column,
+    hash_column,
+    non_negative_int_column,
+    positive_int_column,
+    standard_string_column,
+)
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -34,57 +44,39 @@ COLUMN_ORDER = (
     "weight",
 )
 
-DocumentSchema = DataFrameSchema(
+DocumentSchema = create_chembl_schema(
     {
-        "document_chembl_id": Column(  # type: ignore[assignment]
-            pa.String,  # type: ignore[arg-type]
-            Check.str_matches(r"^CHEMBL\d+$"),  # type: ignore[arg-type]
-            nullable=False,
-            unique=True,
-        ),
-        "doc_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "journal": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "journal_full_title": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "doi": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "doi_chembl": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "src_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "title": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "abstract": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "doi_clean": Column(  # type: ignore[assignment]
-            pa.String,  # type: ignore[arg-type]
-            Check.str_matches(r"^10\.\d{4,9}/\S+$"),  # type: ignore[arg-type]
-            nullable=True,
-        ),
-        "pubmed_id": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(1),  # type: ignore[arg-type]
-            nullable=True,
-        ),
+        "document_chembl_id": chembl_id_column(nullable=False, unique=True),
+        "doc_type": standard_string_column(),
+        "journal": standard_string_column(),
+        "journal_full_title": standard_string_column(),
+        "doi": standard_string_column(),
+        "doi_chembl": standard_string_column(),
+        "src_id": standard_string_column(),
+        "title": standard_string_column(),
+        "abstract": standard_string_column(),
+        "doi_clean": doi_column(),
+        "pubmed_id": positive_int_column(),
         "year": Column(  # type: ignore[assignment]
             pa.Int64,  # type: ignore[arg-type]
             checks=[Check.ge(1500), Check.le(2100)],  # type: ignore[arg-type]
             nullable=True,
         ),
-        "journal_abbrev": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "volume": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "issue": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "first_page": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "last_page": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "authors": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "authors_count": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(0),  # type: ignore[arg-type]
-            nullable=True,
-        ),
+        "journal_abbrev": standard_string_column(),
+        "volume": standard_string_column(),
+        "issue": standard_string_column(),
+        "first_page": standard_string_column(),
+        "last_page": standard_string_column(),
+        "authors": standard_string_column(),
+        "authors_count": non_negative_int_column(),
         "source": Column(pa.String, Check.eq("ChEMBL"), nullable=False),  # type: ignore[assignment]
-        "hash_business_key": Column(pa.String, Check.str_length(64, 64), nullable=False),  # type: ignore[assignment]
-        "hash_row": Column(pa.String, Check.str_length(64, 64), nullable=False),  # type: ignore[assignment]
-        "term": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "weight": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "hash_business_key": hash_column(nullable=False),
+        "hash_row": hash_column(nullable=False),
+        "term": standard_string_column(),
+        "weight": standard_string_column(),
     },
-    ordered=True,
-    coerce=False,
-    name=f"DocumentSchema_v{SCHEMA_VERSION}",
+    schema_name="DocumentSchema",
+    version=SCHEMA_VERSION,
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "DocumentSchema"]

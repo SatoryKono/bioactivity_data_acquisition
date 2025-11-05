@@ -44,19 +44,19 @@ This pipeline documentation is organized by stage and topic:
 ```bash
 # Full enrichment run
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/chembl/target_chembl.yaml \
   --output-dir data/output/target
 
 # Disable UniProt enrichment for a connectivity check
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/chembl/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.uniprot.enabled=false
 ```
 
 ## Configuration
 
-Configuration is defined in `src/bioetl/configs/pipelines/chembl/target.yaml`. Key settings include:
+Configuration is defined in `src/bioetl/configs/pipelines/chembl/target_chembl.yaml`. Key settings include:
 
 - ChEMBL source configuration (shared profile)
 - UniProt enrichment (enabled/disabled, batch size for ID mapping)

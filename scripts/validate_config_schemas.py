@@ -45,9 +45,9 @@ def main():
     
     print("Checking config files...")
     config_files = [
-        ROOT / "configs" / "pipelines" / "chembl" / "activity.yaml",
-        ROOT / "configs" / "pipelines" / "chembl" / "assay.yaml",
-        ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml",
+        ROOT / "configs" / "pipelines" / "chembl" / "activity_chembl.yaml",
+        ROOT / "configs" / "pipelines" / "chembl" / "assay_chembl.yaml",
+        ROOT / "configs" / "pipelines" / "chembl" / "testitem_chembl.yaml",
     ]
     
     report = {

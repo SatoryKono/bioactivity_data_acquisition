@@ -14,7 +14,7 @@ from bioetl.clients.chembl_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.schemas.assay_chembl import COLUMN_ORDER
+from ...schemas.assay_chembl import COLUMN_ORDER
 
 from ..base import PipelineBase
 from .assay_enrichment import enrich_with_assay_classifications, enrich_with_assay_parameters

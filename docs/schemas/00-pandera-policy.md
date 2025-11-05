@@ -104,3 +104,4 @@ Operational guidance:
 
 By following this policy, BioETL ensures that schema evolution is intentional, auditable, and compatible with deterministic
 pipelines and reproducible analytics.
+

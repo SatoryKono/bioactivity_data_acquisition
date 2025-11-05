@@ -1,0 +1,2 @@
+"""Assay schema module."""
+

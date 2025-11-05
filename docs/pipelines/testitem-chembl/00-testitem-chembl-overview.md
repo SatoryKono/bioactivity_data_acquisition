@@ -43,12 +43,12 @@ This pipeline documentation is organized by stage and topic:
 ```bash
 # Base molecule export
 python -m bioetl.cli.main testitem \
-  --config configs/pipelines/chembl/testitem.yaml \
+  --config configs/pipelines/chembl/testitem_chembl.yaml \
   --output-dir data/output/testitem
 
 # Override batch size for smoke test
 python -m bioetl.cli.main testitem \
-  --config configs/pipelines/chembl/testitem.yaml \
+  --config configs/pipelines/chembl/testitem_chembl.yaml \
   --output-dir data/output/testitem \
   --set sources.chembl.batch_size=10 \
   --limit 100
@@ -56,7 +56,7 @@ python -m bioetl.cli.main testitem \
 
 ## Configuration
 
-Configuration is defined in `src/bioetl/configs/pipelines/chembl/testitem.yaml`. Key settings include:
+Configuration is defined in `src/bioetl/configs/pipelines/chembl/testitem_chembl.yaml`. Key settings include:
 
 - ChEMBL source configuration (batch_size ≤ 25, max_url_length ≤ 2000)
 - Determinism sort keys: `['molecule_chembl_id']`

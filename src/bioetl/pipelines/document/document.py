@@ -17,7 +17,7 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.schemas.document_chembl import COLUMN_ORDER
+from ...schemas.document_chembl import COLUMN_ORDER
 
 from ..base import PipelineBase
 from .document_enrich import enrich_with_document_terms

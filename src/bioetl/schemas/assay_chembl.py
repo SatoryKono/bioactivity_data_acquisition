@@ -3,7 +3,14 @@
 from __future__ import annotations
 
 import pandera as pa
-from pandera import Check, Column, DataFrameSchema
+from pandera import Column
+
+from ._common import (
+    chembl_id_column,
+    create_chembl_schema,
+    non_negative_int_column,
+    standard_string_column,
+)
 
 SCHEMA_VERSION = "1.1.0"
 
@@ -11,6 +18,7 @@ COLUMN_ORDER = (
     "assay_chembl_id",
     "row_subtype",
     "row_index",
+
     "description",
     "assay_type",
     "assay_type_description",
@@ -38,40 +46,39 @@ COLUMN_ORDER = (
     "curation_level",
 )
 
-AssaySchema = DataFrameSchema(
+AssaySchema = create_chembl_schema(
     {
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False, unique=True),  # type: ignore[assignment]
-        "row_subtype": Column(pa.String, nullable=False),  # type: ignore[assignment]
-        "row_index": Column(pa.Int64, Check.ge(0), nullable=False),  # type: ignore[assignment]
-        "description": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_type_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_test_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_category": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_tax_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_strain": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_tissue": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_cell_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_subcellular_fraction": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "src_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "src_assay_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "cell_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "tissue_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "assay_group": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "assay_chembl_id": chembl_id_column(nullable=False, unique=True),
+        "row_subtype": standard_string_column(nullable=False),
+        "row_index": non_negative_int_column(nullable=False),
+        "description": standard_string_column(),
+        "assay_type": standard_string_column(),
+        "assay_type_description": standard_string_column(),
+        "assay_test_type": standard_string_column(),
+        "assay_category": standard_string_column(),
+        "assay_organism": standard_string_column(),
+        "assay_tax_id": standard_string_column(),  # String type, not Int64
+        "assay_strain": standard_string_column(),
+        "assay_tissue": standard_string_column(),
+        "assay_cell_type": standard_string_column(),
+        "assay_subcellular_fraction": standard_string_column(),
+        "target_chembl_id": chembl_id_column(),
+        "document_chembl_id": chembl_id_column(),
+        "src_id": standard_string_column(),
+        "src_assay_id": standard_string_column(),
+        "cell_chembl_id": chembl_id_column(),
+        "tissue_chembl_id": chembl_id_column(),
+        "assay_group": standard_string_column(),
         "confidence_score": Column(pa.Int64, nullable=True),  # type: ignore[assignment]
-        "confidence_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "variant_sequence": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_classifications": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_parameters": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_class_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "curation_level": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "confidence_description": standard_string_column(),
+        "variant_sequence": standard_string_column(),
+        "assay_classifications": standard_string_column(),
+        "assay_parameters": standard_string_column(),
+        "assay_class_id": standard_string_column(),
+        "curation_level": standard_string_column(),
     },
-    ordered=True,
-    coerce=False,  # Disable coercion at schema level - types are normalized in transform
-    name=f"AssaySchema_v{SCHEMA_VERSION}",
+    schema_name="AssaySchema",
+    version=SCHEMA_VERSION,
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "AssaySchema"]

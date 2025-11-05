@@ -3,10 +3,11 @@
 # This configuration defines the pipeline for extracting assay records
 # from the ChEMBL API and normalizing them to the project schema.
 
-# Inherit from base and determinism profiles
+# Inherit from base, determinism, and common ChEMBL profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
+  - ../../profiles/common_chembl.yaml
 
 # Pipeline metadata
 pipeline:
@@ -18,12 +19,10 @@ pipeline:
 # ChEMBL source configuration
 sources:
   chembl:
-    enabled: true
-    description: "ChEMBL REST API"
+    <<: *chembl_source_base
     batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
-      base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000  # Used for predictive throttling of batch requests
+      <<: *chembl_source_params
       select_fields:
         - assay_chembl_id
         - description
@@ -76,7 +75,7 @@ determinism:
       - true
       - true
       - true
-    na_position: "last"
+    <<: *chembl_sort_common
   column_order:
     - assay_chembl_id
     - row_subtype
@@ -108,15 +107,11 @@ determinism:
     - curation_level
 
   hashing:
-    algorithm: "sha256"
-    row_fields: []
+    <<: *chembl_hashing_common
     business_key_fields:
       - assay_chembl_id
       - row_subtype
       - row_index
-    exclude_fields:
-      - generated_at
-      - run_id
 
 # Transform configuration
 transform:
@@ -125,12 +120,11 @@ transform:
     - assay_parameters
 
 postprocess:
-  correlation:
-    enabled: false
+  <<: *chembl_postprocess_common
 
 # Validation schema
 validation:
   schema_out: "bioetl.schemas.assay_chembl.AssaySchema"
-  strict: true
+  <<: *chembl_validation_common
   coerce: true
 

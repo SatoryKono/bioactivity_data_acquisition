@@ -110,7 +110,7 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_serializes_array_fields(self, tmp_path: Path) -> None:
         """Test that target pipeline serializes array fields to strings."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory
@@ -144,7 +144,7 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that target pipeline extracts all required scalar fields."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory
@@ -184,7 +184,7 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_array_fields_format(self, tmp_path: Path) -> None:
         """Test that array fields follow header+rows format."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory
@@ -236,7 +236,7 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_handles_empty_arrays(self, tmp_path: Path) -> None:
         """Test that target pipeline handles empty arrays correctly."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "target_chembl.yaml"
         config = load_config(config_path)
 
         # Create targets with empty arrays

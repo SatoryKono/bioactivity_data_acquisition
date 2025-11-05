@@ -118,7 +118,7 @@ class TestDocumentPipelineSmoke:
 
     def test_document_pipeline_without_enrichment(self, tmp_path: Path) -> None:
         """Test document pipeline without enrichment (enabled: false)."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document_chembl.yaml"
         config = load_config(config_path)
 
         # Ensure enrichment is disabled
@@ -151,7 +151,7 @@ class TestDocumentPipelineSmoke:
 
     def test_document_pipeline_with_enrichment(self, tmp_path: Path) -> None:
         """Test document pipeline with enrichment enabled."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document_chembl.yaml"
         config = load_config(config_path)
 
         # Enable enrichment
@@ -207,7 +207,7 @@ class TestDocumentPipelineSmoke:
 
     def test_document_pipeline_columns_order(self, tmp_path: Path) -> None:
         """Test that document pipeline maintains correct column order."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "document_chembl.yaml"
         config = load_config(config_path)
 
         mock_documents = create_mock_document_data(count=2)

@@ -1,0 +1,2 @@
+"""Activity schema module."""
+

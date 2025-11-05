@@ -451,7 +451,7 @@ Pipelines are automatically discovered and exposed as commands in the Typer-base
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config src/bioetl/configs/pipelines/chembl/activity.yaml \
+  --config src/bioetl/configs/pipelines/chembl/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
 ```

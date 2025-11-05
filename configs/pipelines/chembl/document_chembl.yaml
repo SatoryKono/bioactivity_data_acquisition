@@ -3,10 +3,11 @@
 # This configuration defines the pipeline for extracting document records
 # from the ChEMBL API and normalizing them to the project schema.
 
-# Inherit from base and determinism profiles
+# Inherit from base, determinism, and common ChEMBL profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
+  - ../../profiles/common_chembl.yaml
 
 # Pipeline metadata
 pipeline:
@@ -18,12 +19,10 @@ pipeline:
 # ChEMBL source configuration
 sources:
   chembl:
-    enabled: true
-    description: "ChEMBL REST API"
+    <<: *chembl_source_base
     batch_size: 10  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
-      base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000  # Used for predictive throttling of batch requests
+      <<: *chembl_source_params
       select_fields:
         - document_chembl_id
         - doc_type
@@ -69,7 +68,7 @@ determinism:
       - true
       - true
       - true
-    na_position: "last"
+    <<: *chembl_sort_common
   column_order:
     - document_chembl_id
     - doc_type
@@ -97,17 +96,12 @@ determinism:
     - weight
 
   hashing:
-    algorithm: "sha256"
-    row_fields: []
+    <<: *chembl_hashing_common
     business_key_fields:
       - document_chembl_id
-    exclude_fields:
-      - generated_at
-      - run_id
 
 postprocess:
-  correlation:
-    enabled: false
+  <<: *chembl_postprocess_common
 
 # ChEMBL enrichment configuration
 chembl:
@@ -127,6 +121,6 @@ chembl:
 # Validation schema
 validation:
   schema_out: "bioetl.schemas.document_chembl.DocumentSchema"
-  strict: true
+  <<: *chembl_validation_common
   coerce: true
 

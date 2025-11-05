@@ -61,8 +61,8 @@ def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
 def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str, str]:
     """Run a pipeline with --dry-run and return exit code, stdout, stderr."""
     config_map = {
-        "activity_chembl": "configs/pipelines/chembl/activity.yaml",
-        "assay_chembl": "configs/pipelines/chembl/assay.yaml",
+        "activity_chembl": "configs/pipelines/chembl/activity_chembl.yaml",
+        "assay_chembl": "configs/pipelines/chembl/assay_chembl.yaml",
     }
 
     if pipeline_name not in config_map:

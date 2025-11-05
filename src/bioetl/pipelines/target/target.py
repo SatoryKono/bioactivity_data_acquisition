@@ -14,7 +14,7 @@ from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.schemas.target_chembl import COLUMN_ORDER
+from ...schemas.target_chembl import COLUMN_ORDER
 
 from ..base import PipelineBase
 from .target_transform import serialize_target_arrays

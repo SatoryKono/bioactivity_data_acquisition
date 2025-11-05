@@ -17,12 +17,12 @@ import pandera.errors
 from requests.exceptions import RequestException
 
 from bioetl.clients.chembl import ChemblClient
-from bioetl.config import PipelineConfig
+from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.qc.report import build_quality_report as build_default_quality_report
-from bioetl.schemas.activity_chembl import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
+from ...schemas.activity_chembl import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunResult
 from .activity_enrichment import (
@@ -141,21 +141,22 @@ class ChemblActivityPipeline(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
 
-        source_config = self._resolve_source_config("chembl")
-        base_url = self._resolve_base_url(source_config.parameters)
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        base_url = self._resolve_base_url(source_config)
         client = self._client_factory.for_source("chembl", base_url=base_url)
         self.register_client("chembl_activity_client", client)
 
         self._chembl_release = self._fetch_chembl_release(client, log)
 
-        batch_size = self._resolve_batch_size(source_config)
+        batch_size = source_config.batch_size
         limit = self.config.cli.limit
         page_size = min(batch_size, 25)
         if limit is not None:
             page_size = min(page_size, limit)
         page_size = max(page_size, 1)
 
-        select_fields = self._resolve_select_fields(source_config)
+        select_fields = self._resolve_select_fields(source_config) or []
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
@@ -248,14 +249,15 @@ class ChemblActivityPipeline(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
 
-        source_config = self._resolve_source_config("chembl")
-        base_url = self._resolve_base_url(source_config.parameters)
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        base_url = self._resolve_base_url(source_config)
         client = self._client_factory.for_source("chembl", base_url=base_url)
         self.register_client("chembl_activity_client", client)
 
         self._chembl_release = self._fetch_chembl_release(client, log)
 
-        batch_size = self._resolve_batch_size(source_config)
+        batch_size = source_config.batch_size
         limit = self.config.cli.limit
 
         # Convert list of IDs to DataFrame for compatibility with _extract_from_chembl
@@ -438,39 +440,18 @@ class ChemblActivityPipeline(PipelineBase):
             raise KeyError(msg) from exc
 
     @staticmethod
-    def _resolve_base_url(parameters: Mapping[str, Any]) -> str:
-        base_url = parameters.get("base_url")
-        if not isinstance(base_url, str) or not base_url.strip():
+    def _resolve_base_url(source_config: ActivitySourceConfig) -> str:
+        """Resolve base URL from source config."""
+        base_url = source_config.parameters.base_url
+        if not base_url or not base_url.strip():
             msg = "sources.chembl.parameters.base_url must be a non-empty string"
             raise ValueError(msg)
-        return base_url
+        return base_url.rstrip("/")
 
-    @staticmethod
-    def _resolve_batch_size(source_config: SourceConfig) -> int:
-        batch_size: int | None = getattr(source_config, "batch_size", None)
-        if batch_size is None:
-            parameters = getattr(source_config, "parameters", {})
-            if isinstance(parameters, Mapping):
-                candidate: Any = parameters.get("batch_size")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-                if isinstance(candidate, int) and candidate > 0:
-                    batch_size = candidate
-        if batch_size is None or batch_size <= 0:
-            batch_size = 25
-        return batch_size
-
-    def _resolve_select_fields(self, source_config: SourceConfig) -> list[str]:
+    def _resolve_select_fields(self, source_config: ActivitySourceConfig) -> list[str]:
         """Resolve select_fields from config or use default API_ACTIVITY_FIELDS."""
-        parameters_raw = getattr(source_config, "parameters", {})
-        if isinstance(parameters_raw, Mapping):
-            parameters = cast(Mapping[str, Any], parameters_raw)
-            select_fields_raw = parameters.get("select_fields")
-            if (
-                select_fields_raw is not None
-                and isinstance(select_fields_raw, Sequence)
-                and not isinstance(select_fields_raw, (str, bytes))
-            ):
-                select_fields = cast(Sequence[Any], select_fields_raw)
-                return [str(field) for field in select_fields]
+        if source_config.parameters.select_fields:
+            return list(source_config.parameters.select_fields)
         return list(API_ACTIVITY_FIELDS)
 
     def _should_enrich_compound_record(self) -> bool:
@@ -762,7 +743,9 @@ class ChemblActivityPipeline(PipelineBase):
             log.info("chembl_activity.batch_summary", **summary)
             return pd.DataFrame()
 
-        effective_batch_size = batch_size or self._resolve_batch_size(self._resolve_source_config("chembl"))
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        effective_batch_size = batch_size or source_config.batch_size
         effective_batch_size = max(min(int(effective_batch_size), 25), 1)
 
         records: list[dict[str, Any]] = []
@@ -785,7 +768,7 @@ class ChemblActivityPipeline(PipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
-                    select_fields = self._resolve_select_fields(source_config)
+                    select_fields = self._resolve_select_fields(source_config) or []
                     params = {
                         "activity_id__in": ",".join(batch_keys),
                         "only": ",".join(select_fields),

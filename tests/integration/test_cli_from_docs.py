@@ -35,7 +35,7 @@ def test_list_command():
 @pytest.mark.integration
 def test_activity_chembl_dry_run():
     """Test activity_chembl command with --dry-run from README."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "activity.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "chembl" / "activity_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "activity"
     
     result = subprocess.run(
@@ -61,7 +61,7 @@ def test_activity_chembl_dry_run():
 @pytest.mark.integration
 def test_assay_chembl_dry_run():
     """Test assay_chembl command with --dry-run from docs/pipelines/assay-chembl/16-assay-chembl-cli.md."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "assay.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "chembl" / "assay_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "assay"
     
     result = subprocess.run(
@@ -87,7 +87,7 @@ def test_assay_chembl_dry_run():
 @pytest.mark.integration
 def test_testitem_dry_run():
     """Test testitem command with --dry-run from docs/pipelines/testitem-chembl/16-testitem-chembl-cli.md."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
     
     result = subprocess.run(
@@ -113,7 +113,7 @@ def test_testitem_dry_run():
 @pytest.mark.integration
 def test_testitem_chembl_alias_dry_run():
     """Test testitem_chembl alias command with --dry-run."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
     
     result = subprocess.run(

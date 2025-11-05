@@ -78,13 +78,13 @@ The pipelines expose the following public APIs:
 ```bash
 # Deterministic run with the canonical config
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/chembl/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Override batch size for a smoke test (env > --set precedence)
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=50
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/chembl/activity_chembl.yaml \
   --set sources.chembl.batch_size=10
 ```
 
@@ -129,12 +129,12 @@ python -m bioetl.cli.main activity \
 ```bash
 # Standard production extraction
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/chembl/assay_chembl.yaml \
   --output-dir data/output/assay
 
 # Throttle the client for troubleshooting
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/chembl/assay_chembl.yaml \
   --set sources.chembl.batch_size=20
 ```
 
@@ -178,12 +178,12 @@ python -m bioetl.cli.main assay \
 ```bash
 # Full enrichment run
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/chembl/target_chembl.yaml \
   --output-dir data/output/target
 
 # Disable UniProt enrichment for a connectivity check
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/chembl/target_chembl.yaml \
   --set sources.uniprot.enabled=false
 ```
 
@@ -229,12 +229,12 @@ python -m bioetl.cli.main target \
 ```bash
 # All-source enrichment run
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/chembl/document_chembl.yaml \
   --output-dir data/output/document
 
 # ChEMBL + Crossref only (disable PubMed)
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/chembl/document_chembl.yaml \
   --set sources.pubmed.enabled=false
 ```
 

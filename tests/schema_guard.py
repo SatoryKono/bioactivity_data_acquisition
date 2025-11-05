@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Schema guard: validate pipeline configurations against Pydantic models.
 
-This script loads activity.yaml and assay.yaml configurations, validates them
+This script loads activity_chembl.yaml and assay_chembl.yaml configurations, validates them
 through load_config (which uses Pydantic models), and reports any validation errors.
 """
 
@@ -72,8 +72,8 @@ def main() -> int:
     print("Validating pipeline configurations...\n")
 
     configs_to_check = [
-        ("activity", CONFIGS / "activity.yaml"),
-        ("assay", CONFIGS / "assay.yaml"),
+        ("activity", CONFIGS / "activity_chembl.yaml"),
+        ("assay", CONFIGS / "assay_chembl.yaml"),
     ]
 
     results: dict[str, dict[str, Any]] = {}

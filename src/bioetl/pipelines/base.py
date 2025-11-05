@@ -40,7 +40,7 @@ from bioetl.qc.report import (
 from bioetl.qc.report import (
     build_quality_report as build_default_quality_report,
 )
-from bioetl.schemas import SchemaRegistryEntry, get_schema
+from ..schemas import SchemaRegistryEntry, get_schema
 
 
 @dataclass(frozen=True)

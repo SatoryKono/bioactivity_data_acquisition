@@ -4,7 +4,15 @@ from __future__ import annotations
 
 import pandas as pd
 import pandera as pa
-from pandera import Check, Column, DataFrameSchema
+from pandera import Column
+
+from ._common import (
+    boolean_flag_column,
+    chembl_id_column,
+    create_chembl_schema,
+    non_negative_int_column,
+    standard_string_column,
+)
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -23,30 +31,24 @@ COLUMN_ORDER = (
     "component_count",
 )
 
-TargetSchema = DataFrameSchema(
+TargetSchema = create_chembl_schema(
     {
-        "target_chembl_id": Column(  # type: ignore[assignment]
-            pa.String,  # type: ignore[arg-type]
-            Check.str_matches(r"^CHEMBL\d+$"),  # type: ignore[arg-type]
-            nullable=False,
-            unique=True,
-        ),
-        "pref_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "tax_id": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "species_group_flag": Column(pd.Int64Dtype(), Check.isin([0, 1]), nullable=True),  # type: ignore[arg-type]
-        "cross_references__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_components__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_component_synonyms__flat": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "uniprot_accessions": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "protein_class_desc": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "component_count": Column(pd.Int64Dtype(), Check.ge(0), nullable=True),  # type: ignore[arg-type]
+        "target_chembl_id": chembl_id_column(nullable=False, unique=True),
+        "pref_name": standard_string_column(),
+        "target_type": standard_string_column(),
+        "organism": standard_string_column(),
+        "tax_id": standard_string_column(),  # String type, not Int64
+        "species_group_flag": boolean_flag_column(),
+        "cross_references__flat": standard_string_column(),
+        "target_components__flat": standard_string_column(),
+        "target_component_synonyms__flat": standard_string_column(),
+        "uniprot_accessions": standard_string_column(),
+        "protein_class_desc": standard_string_column(),
+        "component_count": non_negative_int_column(dtype=pd.Int64Dtype()),
     },
+    schema_name="TargetSchema",
+    version=SCHEMA_VERSION,
     strict=True,
-    ordered=True,
-    coerce=False,  # Disable coercion at schema level - types are normalized in transform
-    name=f"TargetSchema_v{SCHEMA_VERSION}",
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TargetSchema"]

@@ -19,18 +19,18 @@ python -m bioetl.cli.main activity_chembl
 ```bash
 # Standard production run
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/chembl/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Dry run to validate configuration
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/chembl/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
 
 # Override batch size for testing
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/chembl/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \
   --limit 100

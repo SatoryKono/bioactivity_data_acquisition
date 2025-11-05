@@ -269,7 +269,7 @@ class TestItemChemblPipeline(PipelineBase):
             df = df.sort_values("molecule_chembl_id").reset_index(drop=True)
 
         # Reorder columns according to schema COLUMN_ORDER
-        from bioetl.schemas.testitem_chembl import COLUMN_ORDER
+        from ...schemas.testitem_chembl import COLUMN_ORDER
 
         ordered = list(COLUMN_ORDER)
         existing = [col for col in ordered if col in df.columns]
@@ -534,7 +534,7 @@ class TestItemChemblPipeline(PipelineBase):
             return df
 
         # Get all schema columns from COLUMN_ORDER
-        from bioetl.schemas.testitem_chembl import COLUMN_ORDER
+        from ...schemas.testitem_chembl import COLUMN_ORDER
 
         schema_columns = list(COLUMN_ORDER)
 
@@ -706,7 +706,7 @@ class TestItemChemblPipeline(PipelineBase):
         if df.empty:
             return df
 
-        from bioetl.schemas.testitem_chembl import COLUMN_ORDER
+        from ...schemas.testitem_chembl import COLUMN_ORDER
 
         schema_columns = set(COLUMN_ORDER)
         existing_columns = set(df.columns)

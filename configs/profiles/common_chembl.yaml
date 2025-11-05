@@ -1,0 +1,37 @@
+# Common ChEMBL Pipeline Profile
+#
+# This profile contains common settings shared across all ChEMBL pipelines.
+# It uses YAML anchors to allow individual pipeline configs to merge these
+# common settings using merge keys (<<: *anchor_name).
+
+# Common ChEMBL source parameters (anchor for use in merge keys)
+chembl_source_params: &chembl_source_params
+  base_url: "https://www.ebi.ac.uk/chembl/api/data"
+  max_url_length: 2000  # Used for predictive throttling of batch requests
+
+# Common ChEMBL source configuration (anchor for use in merge keys)
+chembl_source_base: &chembl_source_base
+  enabled: true
+  description: "ChEMBL REST API"
+
+# Common hashing configuration (anchor for use in merge keys)
+chembl_hashing_common: &chembl_hashing_common
+  algorithm: "sha256"
+  row_fields: []
+  exclude_fields:
+    - generated_at
+    - run_id
+
+# Common sort configuration (anchor for use in merge keys)
+chembl_sort_common: &chembl_sort_common
+  na_position: "last"
+
+# Common validation configuration (anchor for use in merge keys)
+chembl_validation_common: &chembl_validation_common
+  strict: true
+
+# Common postprocess configuration (anchor for use in merge keys)
+chembl_postprocess_common: &chembl_postprocess_common
+  correlation:
+    enabled: false
+

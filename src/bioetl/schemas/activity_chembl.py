@@ -9,7 +9,18 @@ from typing import cast
 
 import pandas as pd
 import pandera as pa
-from pandera import Check, Column, DataFrameSchema
+from pandera import Check, Column
+
+from ._common import (
+    bao_id_column,
+    chembl_id_column,
+    create_chembl_schema,
+    non_negative_float_column,
+    non_negative_int_column,
+    positive_int_column,
+    standard_string_column,
+    tax_id_column,
+)
 
 SCHEMA_VERSION = "1.5.0"
 
@@ -17,6 +28,7 @@ COLUMN_ORDER = (
     "activity_id",
     "row_subtype",
     "row_index",
+     
     "assay_chembl_id",
     "assay_type",
     "assay_description",
@@ -65,8 +77,69 @@ COLUMN_ORDER = (
     "removed",
 )
 
-STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
-RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
+STANDARD_TYPES = {"IC50",  "Ki"} #"EC50", "XC50", "AC50", "Kd", "Potency", "ED50"
+RELATIONS = {"="} #, ">", "<", ">=", "<=", "~"
+
+# Допустимые единицы измерения для колонки units (все варианты)
+ALLOWED_UNITS = {
+    # Канонические формы
+    "nM",
+    "μM",
+    "mM",
+    "pM",
+    # Варианты для nM
+    "nanomolar",
+    "nmol",
+    "nm",
+    "NM",
+    # Варианты для μM
+    "µM",
+    "uM",
+    "UM",
+    "micromolar",
+    "microM",
+    "umol",
+    # Варианты для mM
+    "millimolar",
+    "milliM",
+    "mmol",
+    "MM",
+    # Варианты для pM
+    "picomolar",
+    "picomol",
+    "PM",
+}
+
+# Допустимые единицы измерения для колонки standard_units (только молярные концентрации)
+ALLOWED_STANDARD_UNITS = {
+    # Канонические формы
+    "nM",
+    "μM",
+    "mM",
+    "pM",
+    # Варианты для nM
+    "nanomolar",
+    "nmol",
+    "nm",
+    "NM",
+    # Варианты для μM
+    "µM",
+    "uM",
+    "UM",
+    "micromolar",
+    "microM",
+    "umol",
+    # Варианты для mM
+    "millimolar",
+    "milliM",
+    "mmol",
+    "MM",
+    # Варианты для pM
+    "picomolar",
+    "picomol",
+    "PM",
+}
+
 ACTIVITY_PROPERTY_KEYS = (
     "type",
     "relation",
@@ -146,87 +219,67 @@ def _is_valid_activity_properties(value: object) -> bool:
 
     return True
 
-ActivitySchema = DataFrameSchema(
+ActivitySchema = create_chembl_schema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),  # type: ignore[assignment]
-        "row_subtype": Column(pa.String, nullable=False),  # type: ignore[assignment]
-        "row_index": Column(pa.Int64, Check.ge(0), nullable=False),  # type: ignore[assignment]
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
-        "assay_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "assay_tax_id": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(1),  # type: ignore[arg-type]
-            nullable=True,
-        ),
-        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
-        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
-        "parent_molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "molecule_pref_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "target_pref_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
-        "record_id": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(1),  # type: ignore[arg-type]
-            nullable=True,
-        ),
-        "src_id": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(1),  # type: ignore[arg-type]
-            nullable=True,
-        ),
-        "type": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "row_subtype": standard_string_column(nullable=False),
+        "row_index": non_negative_int_column(nullable=False),
+        "assay_chembl_id": chembl_id_column(nullable=False),
+        "assay_type": standard_string_column(),
+        "assay_description": standard_string_column(),
+        "assay_organism": standard_string_column(),
+        "assay_tax_id": tax_id_column(),
+        "testitem_chembl_id": chembl_id_column(nullable=False),
+        "molecule_chembl_id": chembl_id_column(nullable=False),
+        "parent_molecule_chembl_id": chembl_id_column(),
+        "molecule_pref_name": standard_string_column(),
+        "target_chembl_id": chembl_id_column(),
+        "target_pref_name": standard_string_column(),
+        "document_chembl_id": chembl_id_column(),
+        "record_id": positive_int_column(),
+        "src_id": positive_int_column(),
+        "type": standard_string_column(),
         "relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
         "value": Column(pa.Object, nullable=True),  # type: ignore[assignment]
-        "units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "units": Column(pa.String, Check.isin(ALLOWED_UNITS), nullable=True),  # type: ignore[assignment]
         "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),  # type: ignore[assignment]
         "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
-        "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "standard_upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "standard_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "standard_text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "standard_value": non_negative_float_column(),
+        "standard_upper_value": non_negative_float_column(),
+        "standard_units": Column(pa.String, Check.isin(ALLOWED_STANDARD_UNITS), nullable=True),  # type: ignore[assignment]
+        "standard_text_value": standard_string_column(),
         "standard_flag": Column(pa.Int64, Check.isin({0, 1}), nullable=True),  # type: ignore[assignment]
-        "upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "lower_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "uo_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "qudt_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "activity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
-        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
-        "bao_label": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "canonical_smiles": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "ligand_efficiency": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "target_tax_id": Column(  # type: ignore[assignment]
-            pa.Int64,  # type: ignore[arg-type]
-            Check.ge(1),  # type: ignore[arg-type]
-            nullable=True,
-        ),
-        "data_validity_comment": Column(
-            pa.String,  # type: ignore[arg-type]
-            nullable=True,
-            # Soft enum: валидация через whitelist в pipeline.validate(), не через Check
-            # Неизвестные значения логируются как warning, но не блокируют валидацию
-        ),  # type: ignore[assignment]
-        "data_validity_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "upper_value": non_negative_float_column(),
+        "lower_value": non_negative_float_column(),
+        "pchembl_value": non_negative_float_column(),
+        "uo_units": standard_string_column(),
+        "qudt_units": standard_string_column(),
+        "text_value": standard_string_column(),
+        "activity_comment": standard_string_column(),
+        "bao_endpoint": bao_id_column(),
+        "bao_format": bao_id_column(),
+        "bao_label": standard_string_column(),
+        "canonical_smiles": standard_string_column(),
+        "ligand_efficiency": standard_string_column(),
+        "target_organism": standard_string_column(),
+        "target_tax_id": tax_id_column(),
+        "data_validity_comment": standard_string_column(),
+        # Soft enum: валидация через whitelist в pipeline.validate(), не через Check
+        # Неизвестные значения логируются как warning, но не блокируют валидацию
+        "data_validity_description": standard_string_column(),
         "potential_duplicate": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
         "activity_properties": Column(  # type: ignore[assignment]
             pa.String,  # type: ignore[arg-type]
             Check(_is_valid_activity_properties, element_wise=True),
             nullable=True,
         ),
-        "compound_key": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "compound_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "compound_key": standard_string_column(),
+        "compound_name": standard_string_column(),
         "curated": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
         "removed": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
     },
-    ordered=True,
-    coerce=False,  # Disable coercion at schema level - types are normalized in transform
-    name=f"ActivitySchema_v{SCHEMA_VERSION}",
+    schema_name="ActivitySchema",
+    version=SCHEMA_VERSION,
 )
 
 __all__ = [
@@ -234,6 +287,8 @@ __all__ = [
     "COLUMN_ORDER",
     "STANDARD_TYPES",
     "RELATIONS",
+    "ALLOWED_UNITS",
+    "ALLOWED_STANDARD_UNITS",
     "ACTIVITY_PROPERTY_KEYS",
     "ActivitySchema",
 ]

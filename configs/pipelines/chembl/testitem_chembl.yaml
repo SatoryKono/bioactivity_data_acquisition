@@ -3,10 +3,11 @@
 # This configuration defines the pipeline for extracting molecule records
 # from the ChEMBL API and normalizing them to the project schema.
 
-# Inherit from base and determinism profiles
+# Inherit from base, determinism, and common ChEMBL profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
+  - ../../profiles/common_chembl.yaml
 
 # Pipeline metadata
 pipeline:
@@ -18,12 +19,10 @@ pipeline:
 # ChEMBL source configuration
 sources:
   chembl:
-    enabled: true
-    description: "ChEMBL REST API"
+    <<: *chembl_source_base
     batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit (for batch extraction)
     parameters:
-      base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000  # Used for predictive throttling of batch requests
+      <<: *chembl_source_params
       max_pages: null  # null = all pages, or set to limit for dev/ci (for full pagination)
       filters: {}  # e.g., molecule_properties__full_mwt__lte: "1000"
       select_fields:
@@ -75,7 +74,7 @@ determinism:
       - molecule_chembl_id
     ascending:
       - true
-    na_position: "last"
+    <<: *chembl_sort_common
   column_order:
     # Scalars
     - molecule_chembl_id
@@ -133,13 +132,9 @@ determinism:
     - _api_version
 
   hashing:
-    algorithm: "sha256"
-    row_fields: []
+    <<: *chembl_hashing_common
     business_key_fields:
       - molecule_chembl_id
-    exclude_fields:
-      - generated_at
-      - run_id
 
 # Transform configuration
 transform:
@@ -182,12 +177,11 @@ transform:
       - standard_inchi_key
 
 postprocess:
-  correlation:
-    enabled: false
+  <<: *chembl_postprocess_common
 
 # Validation schema
 validation:
   schema_out: "bioetl.schemas.testitem_chembl.TestItemSchema"
-  strict: true
+  <<: *chembl_validation_common
   coerce: true
 

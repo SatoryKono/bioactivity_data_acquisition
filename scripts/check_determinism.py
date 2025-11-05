@@ -46,9 +46,9 @@ def run_pipeline(pipeline: str, config_path: Path, output_dir: Path, run_id: int
 def main():
     """Основная функция determinism check."""
     pipelines = [
-        ("activity_chembl", ROOT / "configs" / "pipelines" / "chembl" / "activity.yaml"),
-        ("assay_chembl", ROOT / "configs" / "pipelines" / "chembl" / "assay.yaml"),
-        ("testitem", ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml"),
+        ("activity_chembl", ROOT / "configs" / "pipelines" / "chembl" / "activity_chembl.yaml"),
+        ("assay_chembl", ROOT / "configs" / "pipelines" / "chembl" / "assay_chembl.yaml"),
+        ("testitem", ROOT / "configs" / "pipelines" / "chembl" / "testitem_chembl.yaml"),
     ]
     
     output_dir = ROOT / "data" / "output"

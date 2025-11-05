@@ -32,7 +32,7 @@ def build_command_config_activity() -> CommandConfig:
         name="activity_chembl",
         description="Extract biological activity records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblActivityPipeline,
-        default_config_path=Path("configs/pipelines/chembl/activity.yaml"),
+        default_config_path=Path("configs/pipelines/chembl/activity_chembl.yaml"),
     )
 
 
@@ -44,7 +44,7 @@ def build_command_config_assay() -> CommandConfig:
         name="assay_chembl",
         description="Extract assay records from ChEMBL API.",
         pipeline_class=ChemblAssayPipeline,
-        default_config_path=Path("configs/pipelines/chembl/assay.yaml"),
+        default_config_path=Path("configs/pipelines/chembl/assay_chembl.yaml"),
     )
 
 
@@ -56,7 +56,7 @@ def build_command_config_target() -> CommandConfig:
         name="target",
         description="Extract target records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblTargetPipeline,
-        default_config_path=Path("configs/pipelines/chembl/target.yaml"),
+        default_config_path=Path("configs/pipelines/chembl/target_chembl.yaml"),
     )
 
 
@@ -68,7 +68,7 @@ def build_command_config_document() -> CommandConfig:
         name="document",
         description="Extract document records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblDocumentPipeline,
-        default_config_path=Path("configs/pipelines/chembl/document.yaml"),
+        default_config_path=Path("configs/pipelines/chembl/document_chembl.yaml"),
     )
 
 
@@ -80,7 +80,7 @@ def build_command_config_testitem() -> CommandConfig:
         name="testitem_chembl",
         description="Extract molecule records from ChEMBL API and normalize them to test items.",
         pipeline_class=TestItemChemblPipeline,
-        default_config_path=Path("configs/pipelines/chembl/testitem.yaml"),
+        default_config_path=Path("configs/pipelines/chembl/testitem_chembl.yaml"),
     )
 
 
