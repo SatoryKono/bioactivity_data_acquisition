@@ -111,6 +111,7 @@ class TestChemblActivityPipelineTransformations:
         df = pd.DataFrame(
             {
                 "standard_relation": ["=", "<=", "≥", "≤", "invalid"],
+                "relation": ["=", " ≤", "≥", "invalid", None],
             }
         )
 
@@ -121,6 +122,12 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["standard_relation"].iloc[2] == ">="  # Unicode to ASCII
         assert normalized["standard_relation"].iloc[3] == "<="  # Unicode to ASCII
         assert pd.isna(normalized["standard_relation"].iloc[4])  # Invalid becomes None
+
+        assert normalized["relation"].iloc[0] == "="
+        assert normalized["relation"].iloc[1] == "<="
+        assert normalized["relation"].iloc[2] == ">="
+        assert pd.isna(normalized["relation"].iloc[3])
+        assert pd.isna(normalized["relation"].iloc[4])
 
     def test_normalize_measurements_standard_type(self, pipeline_config_fixture, run_id: str):
         """Test normalization of standard_type."""
@@ -170,6 +177,10 @@ class TestChemblActivityPipelineTransformations:
                 "bao_label": ["Binding", "  ", None],
                 "target_organism": ["homo sapiens", "mus musculus", None],
                 "data_validity_comment": ["Comment", "", None],
+                "activity_comment": [" comment ", "", None],
+                "standard_text_value": ["  >10 ", "", None],
+                "type": ["  IC50  ", "", None],
+                "units": ["  nM ", "", None],
             }
         )
 
@@ -181,6 +192,18 @@ class TestChemblActivityPipelineTransformations:
 
         assert normalized["target_organism"].iloc[0] == "Homo Sapiens"  # Title case
         assert normalized["target_organism"].iloc[1] == "Mus Musculus"
+
+        assert normalized["activity_comment"].iloc[0] == "comment"
+        assert pd.isna(normalized["activity_comment"].iloc[1])
+
+        assert normalized["standard_text_value"].iloc[0] == ">10"
+        assert pd.isna(normalized["standard_text_value"].iloc[1])
+
+        assert normalized["type"].iloc[0] == "IC50"
+        assert pd.isna(normalized["type"].iloc[1])
+
+        assert normalized["units"].iloc[0] == "nM"
+        assert pd.isna(normalized["units"].iloc[1])
 
     def test_normalize_nested_structures(self, pipeline_config_fixture, run_id: str):
         """Test normalization of nested structures to JSON strings."""
@@ -211,6 +234,9 @@ class TestChemblActivityPipelineTransformations:
                 "standard_value": ["10.5", "20.0", None],
                 "pchembl_value": ["7.98", None, "8.28"],
                 "potential_duplicate": [1, 0, None],
+                "standard_flag": ["1", "0", None],
+                "upper_value": ["15.0", None, "30"],
+                "lower_value": [None, "5", "10"],
             }
         )
 
@@ -221,6 +247,10 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["standard_value"].dtype.name == "float64"
         assert normalized["pchembl_value"].dtype.name == "float64"
         assert normalized["potential_duplicate"].dtype.name == "bool"
+        assert normalized["standard_flag"].dtype.name == "Int64"
+        assert normalized["standard_flag"].tolist() == [1, 0, pd.NA]
+        assert normalized["upper_value"].dtype.name == "float64"
+        assert normalized["lower_value"].dtype.name == "float64"
 
     def test_validate_foreign_keys(self, pipeline_config_fixture, run_id: str):
         """Test foreign key validation."""
@@ -309,6 +339,46 @@ class TestChemblActivityPipelineTransformations:
         assert "testitem_id" not in transformed.columns
         assert transformed["assay_chembl_id"].tolist() == ["CHEMBL100", "CHEMBL101"]
         assert transformed["testitem_chembl_id"].equals(transformed["molecule_chembl_id"])
+
+    def test_transform_preserves_raw_measurements(self, pipeline_config_fixture, run_id: str):
+        """Ensure transform keeps raw measurement fields alongside standardized ones."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [1],
+                "assay_chembl_id": ["CHEMBL100"],
+                "testitem_chembl_id": ["CHEMBL1"],
+                "molecule_chembl_id": ["CHEMBL1"],
+                "type": [" Ki "],
+                "relation": ["≤"],
+                "value": ["~10"],
+                "units": [" μM"],
+                "standard_type": [None],
+                "standard_relation": [None],
+                "standard_value": [None],
+                "standard_units": [None],
+                "standard_text_value": ["  about 10"],
+                "standard_flag": ["0"],
+                "upper_value": ["15"],
+                "lower_value": [5],
+                "activity_comment": [" raw measurement"],
+            }
+        )
+
+        transformed = pipeline.transform(df)
+
+        assert transformed.loc[0, "type"] == "Ki"
+        assert transformed.loc[0, "relation"] == "<="
+        assert transformed.loc[0, "value"] == "~10"
+        assert transformed.loc[0, "units"] == "μM"
+        assert transformed.loc[0, "standard_flag"] == 0
+        assert transformed.loc[0, "upper_value"] == 15.0
+        assert transformed.loc[0, "lower_value"] == 5.0
+        assert transformed.loc[0, "activity_comment"] == "raw measurement"
+        assert pd.isna(transformed.loc[0, "standard_value"])
+        assert pd.isna(transformed.loc[0, "standard_type"])
 
     def test_extract_from_chembl_batches_and_cache(
         self,
