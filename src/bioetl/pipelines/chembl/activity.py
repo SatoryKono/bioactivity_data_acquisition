@@ -25,7 +25,7 @@ from bioetl.qc.report import build_quality_report as build_default_quality_repor
 from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunResult
-from .activity_enrichment import enrich_with_assay, enrich_with_compound_record
+from .activity_enrichment import enrich_with_assay, enrich_with_compound_record, enrich_with_data_validity
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -73,6 +73,7 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "uo_units",
     "qudt_units",
     "data_validity_description",
+    "curated_by",  # Для вычисления curated: (curated_by IS NOT NULL) -> bool
 )
 
 
@@ -300,6 +301,10 @@ class ChemblActivityPipeline(PipelineBase):
         # Enrichment: assay fields
         if self._should_enrich_assay():
             df = self._enrich_assay(df)
+
+        # Enrichment: data_validity fields
+        if self._should_enrich_data_validity():
+            df = self._enrich_data_validity(df)
 
         df = self._order_schema_columns(df)
 
@@ -571,6 +576,67 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Вызвать функцию обогащения
         return enrich_with_assay(df, chembl_client, enrich_cfg)
+
+    def _should_enrich_data_validity(self) -> bool:
+        """Проверить, включено ли обогащение data_validity в конфиге."""
+        if not self.config.chembl:
+            return False
+        try:
+            chembl_section = self.config.chembl
+            activity_section: Any = chembl_section.get("activity")
+            if not isinstance(activity_section, Mapping):
+                return False
+            activity_section = cast(Mapping[str, Any], activity_section)
+            enrich_section: Any = activity_section.get("enrich")
+            if not isinstance(enrich_section, Mapping):
+                return False
+            enrich_section = cast(Mapping[str, Any], enrich_section)
+            data_validity_section: Any = enrich_section.get("data_validity")
+            if not isinstance(data_validity_section, Mapping):
+                return False
+            data_validity_section = cast(Mapping[str, Any], data_validity_section)
+            enabled: Any = data_validity_section.get("enabled")
+            return bool(enabled) if enabled is not None else False
+        except (AttributeError, KeyError, TypeError):
+            return False
+
+    def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Обогатить DataFrame полями из data_validity_lookup."""
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+
+        # Получить конфигурацию обогащения
+        enrich_cfg: dict[str, Any] = {}
+        try:
+            if self.config.chembl:
+                chembl_section = self.config.chembl
+                activity_section: Any = chembl_section.get("activity")
+                if isinstance(activity_section, Mapping):
+                    activity_section = cast(Mapping[str, Any], activity_section)
+                    enrich_section: Any = activity_section.get("enrich")
+                    if isinstance(enrich_section, Mapping):
+                        enrich_section = cast(Mapping[str, Any], enrich_section)
+                        data_validity_section: Any = enrich_section.get("data_validity")
+                        if isinstance(data_validity_section, Mapping):
+                            data_validity_section = cast(Mapping[str, Any], data_validity_section)
+                            enrich_cfg = dict(data_validity_section)
+        except (AttributeError, KeyError, TypeError) as exc:
+            log.warning(
+                "enrichment_config_error",
+                error=str(exc),
+                message="Using default enrichment config",
+            )
+
+        # Создать или переиспользовать клиент ChEMBL
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        # Регистрируем клиент только если он еще не зарегистрирован
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
+        chembl_client = ChemblClient(api_client)
+
+        # Вызвать функцию обогащения
+        return enrich_with_data_validity(df, chembl_client, enrich_cfg)
 
     def _fetch_chembl_release(
         self,
@@ -956,10 +1022,28 @@ class ChemblActivityPipeline(PipelineBase):
             if "pref_name" in molecule:
                 record.setdefault("molecule_pref_name", molecule["pref_name"])
 
+        # Extract curated from curated_by: (curated_by IS NOT NULL) -> bool
+        if "curated_by" in record:
+            curated_by = record.get("curated_by")
+            if curated_by is not None and not pd.isna(curated_by):
+                record.setdefault("curated", True)
+            else:
+                record.setdefault("curated", False)
+        elif "curated" not in record:
+            record.setdefault("curated", None)
+
         return record
 
     def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
-        """Extract fields from activity_properties array."""
+        """Extract fields from activity_properties array.
+
+        Поля извлекаются из activity_properties только если они отсутствуют
+        в основном ответе API (приоритет у прямых полей из ACTIVITIES).
+        """
+        # Сначала убедимся, что прямые поля из API ответа сохранены
+        # Поля из ACTIVITIES: upper_value, lower_value, text_value, standard_upper_value,
+        # standard_text_value, activity_comment уже должны быть в record из API ответа
+
         if "activity_properties" not in record:
             return record
 
@@ -980,6 +1064,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Type narrowing: properties is now a Sequence but not str/bytes
         # Process each property item
+        # Поля из activity_properties используются только как fallback, если поле отсутствует в основном ответе
         for prop in properties:  # type: ignore[assignment]
             if not isinstance(prop, Mapping):
                 continue
@@ -991,7 +1076,7 @@ class ChemblActivityPipeline(PipelineBase):
 
             prop_type_lower = prop_type.lower()
 
-            # Extract upper_value, lower_value, standard_upper_value
+            # Extract upper_value, lower_value, standard_upper_value (только если отсутствуют)
             if "upper" in prop_type_lower or prop_type_lower in ("upper_value", "upper_limit"):
                 value = prop.get("value")
                 if value is not None and record.get("upper_value") is None:
@@ -1009,7 +1094,7 @@ class ChemblActivityPipeline(PipelineBase):
                 if value is not None and record.get("standard_upper_value") is None:
                     record.setdefault("standard_upper_value", value)
 
-            # Extract text_value and standard_text_value
+            # Extract text_value and standard_text_value (только если отсутствуют)
             if prop.get("text_value"):
                 if record.get("text_value") is None:
                     record.setdefault("text_value", prop.get("text_value"))
@@ -1017,20 +1102,20 @@ class ChemblActivityPipeline(PipelineBase):
                 if "standard" in prop_type_lower and record.get("standard_text_value") is None:
                     record.setdefault("standard_text_value", prop.get("text_value"))
 
-            # Extract activity_comment
+            # Extract activity_comment (только если отсутствует)
             if "comment" in prop_type_lower or "activity_comment" in prop_type_lower:
                 value = prop.get("value") or prop.get("text_value")
                 if value is not None and record.get("activity_comment") is None:
                     record.setdefault("activity_comment", value)
 
-            # Extract data_validity_comment and data_validity_description
+            # Extract data_validity_comment (только если отсутствует)
+            # data_validity_description извлекается через enrichment из DATA_VALIDITY_LOOKUP
             if "data_validity" in prop_type_lower or "validity" in prop_type_lower:
                 value = prop.get("value") or prop.get("text_value")
-                if value is not None:
-                    if "description" in prop_type_lower and record.get("data_validity_description") is None:
-                        record.setdefault("data_validity_description", value)
-                    elif record.get("data_validity_comment") is None:
-                        record.setdefault("data_validity_comment", value)
+                if value is not None and record.get("data_validity_comment") is None:
+                    # Не устанавливаем data_validity_description из activity_properties,
+                    # оно должно приходить из DATA_VALIDITY_LOOKUP через enrichment
+                    record.setdefault("data_validity_comment", value)
 
         return record
 
@@ -1209,6 +1294,8 @@ class ChemblActivityPipeline(PipelineBase):
         expected = list(COLUMN_ORDER)
         boolean_columns = {
             "potential_duplicate",
+            "curated",
+            "removed",
         }
 
         missing = [column for column in expected if column not in df.columns]
@@ -1732,6 +1819,8 @@ class ChemblActivityPipeline(PipelineBase):
 
         bool_fields = [
             "potential_duplicate",
+            "curated",
+            "removed",
         ]
 
         binary_flag_fields = [
@@ -1791,13 +1880,19 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
-                # Convert to numeric first, preserving NA values
-                bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
-                )
-                # Use nullable boolean dtype to preserve NA values
-                # Convert numeric values to boolean: 0 -> False, non-zero -> True, NaN -> NA
-                df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                # Для curated и removed: если уже boolean, оставляем как есть
+                if field in ("curated", "removed") and df[field].dtype == "boolean":
+                    continue
+                # Конвертируем в boolean, сохраняя NA значения
+                if field in ("curated", "removed"):
+                    # Конвертируем напрямую в boolean dtype, сохраняя NA
+                    df[field] = df[field].astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                else:
+                    # Для остальных bool полей используем стандартную логику
+                    bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        df[field], errors="coerce"
+                    )
+                    df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
 

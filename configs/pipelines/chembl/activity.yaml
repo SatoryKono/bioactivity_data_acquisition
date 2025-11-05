@@ -69,6 +69,7 @@ sources:
         - uo_units
         - qudt_units
         - data_validity_description
+        - curated_by
 
 # Input file support (optional)
 # You can specify input_file in two ways:
@@ -167,12 +168,9 @@ chembl:
       compound_record:
         enabled: true
         fields:
-          - compound_name
-          - compound_key
-          - curated
-          - removed
           - molecule_chembl_id
-          - document_chembl_id
+          - pref_name
+          - molecule_structures
         page_limit: 1000
         request_timeout: 60
         max_retries: 3
@@ -183,6 +181,15 @@ chembl:
           - assay_chembl_id
           - assay_organism
           - assay_tax_id
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+      data_validity:
+        enabled: false
+        fields:
+          - data_validity_comment
+          - description
         page_limit: 1000
         request_timeout: 60
         max_retries: 3

@@ -9,12 +9,13 @@ from urllib.parse import urlparse
 
 import pandas as pd
 
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.core.api_client import UnifiedAPIClient
 
 from ..base import PipelineBase
+from .testitem_transform import transform as transform_testitem
 
 
 class TestItemChemblPipeline(PipelineBase):
@@ -73,11 +74,11 @@ class TestItemChemblPipeline(PipelineBase):
 
         source_config = self._resolve_source_config("chembl")
         base_url = self._resolve_base_url(source_config.parameters)
-        client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_testitem_client", client)
+        http_client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_testitem_http", http_client)
 
-        # Fetch status to get ChEMBL versions
-        self._fetch_chembl_versions(client, log)
+        chembl_client = ChemblClient(http_client)
+        self._chembl_db_version = self._fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -90,57 +91,27 @@ class TestItemChemblPipeline(PipelineBase):
             )
             return pd.DataFrame()
 
-        # Pagination parameters
         page_size = self._resolve_page_size(source_config)
         limit = self.config.cli.limit
-        max_pages = self._resolve_max_pages(source_config)
+        select_fields = self._resolve_select_fields(source_config)
+        records: list[Mapping[str, Any]] = []
 
-        records: list[dict[str, Any]] = []
-        next_endpoint: str | None = "/molecule.json"
-        params: Mapping[str, Any] | None = {"limit": page_size, "format": "json"}
-        pages = 0
+        params: Mapping[str, Any] | None = None
+        if select_fields:
+            params = {
+                "limit": page_size,
+                "only": ",".join(select_fields),
+            }
 
-        # Apply filters if configured
-        filters = getattr(source_config, "filters", None)
-        if filters:
-            params.update(filters)  # params is guaranteed to be non-None here
-
-        while next_endpoint:
-            page_start = time.perf_counter()
-            response = client.get(next_endpoint, params=params)
-            payload = self._coerce_mapping(response.json())
-            page_items = self._extract_page_items(payload)
-
-            if limit is not None:
-                remaining = max(limit - len(records), 0)
-                if remaining == 0:
-                    break
-                page_items = page_items[:remaining]
-
-            records.extend(page_items)
-            pages += 1
-            page_duration_ms = (time.perf_counter() - page_start) * 1000.0
-            log.debug(
-                "chembl_testitem.page_fetched",
-                endpoint=next_endpoint,
-                batch_size=len(page_items),
-                total_records=len(records),
-                duration_ms=page_duration_ms,
-            )
-
-            next_link = self._next_link(payload, base_url=base_url)
-            if not next_link or (limit is not None and len(records) >= limit):
+        for item in chembl_client.paginate(
+            "/molecule.json",
+            params=params,
+            page_size=page_size,
+            items_key="molecules",
+        ):
+            records.append(item)
+            if limit is not None and len(records) >= limit:
                 break
-            if max_pages is not None and pages >= max_pages:
-                break
-
-            log.debug(
-                "chembl_testitem.next_link_resolved",
-                next_link=next_link,
-                base_url=base_url,
-            )
-            next_endpoint = next_link
-            params = None  # ChEMBL provides full URL with params in next link
 
         dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
         if dataframe.empty:
@@ -155,7 +126,7 @@ class TestItemChemblPipeline(PipelineBase):
             duration_ms=duration_ms,
             chembl_db_version=self._chembl_db_version,
             api_version=self._api_version,
-            pages=pages,
+            limit=limit,
         )
         return dataframe
 
@@ -177,11 +148,11 @@ class TestItemChemblPipeline(PipelineBase):
 
         source_config = self._resolve_source_config("chembl")
         base_url = self._resolve_base_url(source_config.parameters)
-        client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_testitem_client", client)
+        http_client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_testitem_http", http_client)
 
-        # Fetch status to get ChEMBL versions
-        self._fetch_chembl_versions(client, log)
+        chembl_client = ChemblClient(http_client)
+        self._chembl_db_version = self._fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -194,60 +165,43 @@ class TestItemChemblPipeline(PipelineBase):
             )
             return pd.DataFrame()
 
-        # Batch extraction parameters
         batch_size = self._resolve_page_size(source_config)
         # Ensure batch_size <= 25 for ChEMBL API URL length limit
         batch_size = min(batch_size, 25)
         limit = self.config.cli.limit
+        select_fields = self._resolve_select_fields(source_config)
 
-        records: list[dict[str, Any]] = []
-        total_batches = 0
+        records: list[Mapping[str, Any]] = []
+        ids_list = list(ids)
 
-        # Process IDs in batches
-        for i in range(0, len(ids), batch_size):
-            batch_ids = ids[i : i + batch_size]
-            batch_start = time.perf_counter()
-
-            # Construct batch request
-            params: Mapping[str, Any] = {
-                "molecule_chembl_id__in": ",".join(batch_ids),
-                "format": "json",
-                "limit": len(batch_ids),
+        # Process IDs in chunks to avoid URL length limits
+        chunk_size = min(batch_size, 25)  # Conservative limit for molecule_chembl_id__in
+        for i in range(0, len(ids_list), chunk_size):
+            chunk = ids_list[i : i + chunk_size]
+            params: dict[str, Any] = {
+                "molecule_chembl_id__in": ",".join(chunk),
+                "limit": min(batch_size, 25),
             }
+            if select_fields:
+                params["only"] = ",".join(select_fields)
 
             try:
-                response = client.get("/molecule.json", params=params)
-                payload = self._coerce_mapping(response.json())
-                page_items = self._extract_page_items(payload)
-
-                # Apply limit if specified
-                if limit is not None:
-                    remaining = max(limit - len(records), 0)
-                    if remaining == 0:
+                for item in chembl_client.paginate(
+                    "/molecule.json",
+                    params=params,
+                    page_size=min(batch_size, 25),
+                    items_key="molecules",
+                ):
+                    records.append(item)
+                    if limit is not None and len(records) >= limit:
                         break
-                    page_items = page_items[:remaining]
-
-                records.extend(page_items)
-                total_batches += 1
-
-                batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
-                log.debug(
-                    "chembl_testitem.batch_fetched",
-                    batch_size=len(batch_ids),
-                    fetched=len(page_items),
-                    total_records=len(records),
-                    duration_ms=batch_duration_ms,
-                )
-
-            except Exception as exc:  # pragma: no cover - defensive path
-                log.error(
-                    "chembl_testitem.batch_error",
-                    batch_size=len(batch_ids),
+            except Exception as exc:
+                log.warning(
+                    "chembl_testitem.fetch_error",
+                    molecule_count=len(chunk),
                     error=str(exc),
                     exc_info=True,
                 )
-                # Continue with next batch instead of failing completely
-                total_batches += 1
 
             if limit is not None and len(records) >= limit:
                 break
@@ -263,7 +217,6 @@ class TestItemChemblPipeline(PipelineBase):
             "chembl_testitem.extract_by_ids_summary",
             rows=int(dataframe.shape[0]),
             requested=len(ids),
-            batches=total_batches,
             duration_ms=duration_ms,
             chembl_db_version=self._chembl_db_version,
             api_version=self._api_version,
@@ -286,8 +239,8 @@ class TestItemChemblPipeline(PipelineBase):
 
         log.info("transform_started", rows=len(df))
 
-        # Flatten nested structures
-        df = self._flatten_nested_structures(df, log)
+        # Apply transform module: flatten nested objects and serialize arrays
+        df = transform_testitem(df, self.config)
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
@@ -385,27 +338,42 @@ class TestItemChemblPipeline(PipelineBase):
                 return max_pages_raw
         return None
 
-    def _fetch_chembl_versions(
-        self,
-        client: UnifiedAPIClient,
-        log: Any,
-    ) -> None:
-        """Fetch ChEMBL DB and API versions from /status endpoint."""
+    def _resolve_select_fields(self, source_config: SourceConfig) -> list[str] | None:
+        """Resolve select_fields from config or return None."""
+        parameters_raw = getattr(source_config, "parameters", {})
+        if isinstance(parameters_raw, Mapping):
+            parameters = cast(Mapping[str, Any], parameters_raw)
+            select_fields_raw = parameters.get("select_fields")
+            if (
+                select_fields_raw is not None
+                and isinstance(select_fields_raw, Sequence)
+                and not isinstance(select_fields_raw, (str, bytes))
+            ):
+                select_fields = cast(Sequence[Any], select_fields_raw)
+                return [str(field) for field in select_fields]
+        return None
 
+    def _fetch_chembl_release(self, client: ChemblClient, log: Any) -> str | None:
+        """Fetch ChEMBL release version from /status endpoint."""
         try:
-            response = client.get("/status.json")
-            status_payload = self._coerce_mapping(response.json())
-            self._chembl_db_version = status_payload.get("chembl_db_version")
-            self._api_version = status_payload.get("api_version")
+            status = client.handshake("/status")
+            release_value = status.get("chembl_db_version")
+            api_value = status.get("api_version")
+            if isinstance(release_value, str):
+                self._chembl_db_version = release_value
+            if isinstance(api_value, str):
+                self._api_version = api_value
             log.info(
                 "chembl_testitem.status",
                 chembl_db_version=self._chembl_db_version,
                 api_version=self._api_version,
             )
-        except Exception as exc:  # pragma: no cover - defensive path
+            return self._chembl_db_version
+        except Exception as exc:
             log.warning("chembl_testitem.status_failed", error=str(exc))
             self._chembl_db_version = None
             self._api_version = None
+            return None
 
     @staticmethod
     def _coerce_mapping(payload: Any) -> dict[str, Any]:
@@ -521,12 +489,14 @@ class TestItemChemblPipeline(PipelineBase):
             df["molecule_chembl_id"] = df["molecule_chembl_id"].astype(str).str.strip()
 
         # Normalize standard_inchi_key (uppercase, trim)
-        if "standard_inchi_key" in df.columns:
-            df["standard_inchi_key"] = (
-                df["standard_inchi_key"].astype(str).str.upper().str.strip()
+        # Check both old and new column names for backward compatibility
+        inchi_key_col = "molecule_structures__standard_inchi_key" if "molecule_structures__standard_inchi_key" in df.columns else "standard_inchi_key"
+        if inchi_key_col in df.columns:
+            df[inchi_key_col] = (
+                df[inchi_key_col].astype(str).str.upper().str.strip()
             )
             # Replace empty strings with NaN
-            df["standard_inchi_key"] = df["standard_inchi_key"].replace(  # pyright: ignore[reportUnknownMemberType]
+            df[inchi_key_col] = df[inchi_key_col].replace(  # pyright: ignore[reportUnknownMemberType]
                 "",
                 pd.NA,
             )
@@ -543,7 +513,8 @@ class TestItemChemblPipeline(PipelineBase):
         string_columns = [
             "pref_name",
             "molecule_type",
-            "canonical_smiles",
+            "molecule_structures__canonical_smiles",  # New flattened column name
+            "canonical_smiles",  # Keep for backward compatibility
         ]
         for col in string_columns:
             if col in df.columns:
@@ -562,35 +533,58 @@ class TestItemChemblPipeline(PipelineBase):
         if df.empty:
             return df
 
-        schema_columns = [
-            "molecule_chembl_id",
-            "pref_name",
-            "molecule_type",
+        # Get all schema columns from COLUMN_ORDER
+        from bioetl.schemas.chembl.testitem import COLUMN_ORDER
+
+        schema_columns = list(COLUMN_ORDER)
+
+        # Define types for columns based on schema
+        int_columns = [
             "max_phase",
             "first_approval",
-            "chirality",
-            "black_box_warning",
+            "first_in_class",
             "availability_type",
-            "canonical_smiles",
-            "standard_inchi_key",
-            "full_mwt",
-            "mw_freebase",
-            "alogp",
-            "hbd",
-            "hba",
-            "psa",
-            "aromatic_rings",
-            "rtb",
-            "num_ro5_violations",
-            "_chembl_db_version",
-            "_api_version",
+            "black_box_warning",
+            "chirality",
+            "dosed_ingredient",
+            "inorganic_flag",
+            "natural_product",
+            "prodrug",
+            "therapeutic_flag",
         ]
+        float_columns = []
+        # Integer columns with molecule_properties__ prefix
+        int_columns.extend([  # pyright: ignore[reportUnknownMemberType]
+            "molecule_properties__aromatic_rings",
+            "molecule_properties__hba",
+            "molecule_properties__hba_lipinski",
+            "molecule_properties__hbd",
+            "molecule_properties__hbd_lipinski",
+            "molecule_properties__heavy_atoms",
+            "molecule_properties__num_lipinski_ro5_violations",
+            "molecule_properties__num_ro5_violations",
+            "molecule_properties__ro3_pass",
+            "molecule_properties__rtb",
+        ])
+        # Float columns with molecule_properties__ prefix
+        float_columns.extend([  # pyright: ignore[reportUnknownMemberType]
+            "molecule_properties__alogp",
+            "molecule_properties__cx_logd",
+            "molecule_properties__cx_logp",
+            "molecule_properties__cx_most_apka",
+            "molecule_properties__cx_most_bpka",
+            "molecule_properties__full_mwt",
+            "molecule_properties__mw_freebase",
+            "molecule_properties__mw_monoisotopic",
+            "molecule_properties__psa",
+            "molecule_properties__qed_weighted",
+        ])
 
         for col in schema_columns:
             if col not in df.columns:
-                if col in ["max_phase", "first_approval", "chirality", "black_box_warning", "availability_type", "hbd", "hba", "aromatic_rings", "rtb", "num_ro5_violations"]:
+                if col in int_columns:
                     df[col] = pd.Series(dtype="Int64")
-                elif col in ["full_mwt", "mw_freebase", "alogp", "psa"]:
+                elif col in float_columns:
                     df[col] = pd.Series(dtype="Float64")
                 else:
                     df[col] = pd.Series(dtype="string")
@@ -622,8 +616,18 @@ class TestItemChemblPipeline(PipelineBase):
             "black_box_warning",
         ]
 
+        # Boolean-like columns (0/1/-1) - convert -1 to None
+        boolean_columns = [
+            "first_in_class",
+            "inorganic_flag",
+            "natural_product",
+            "prodrug",
+            "therapeutic_flag",
+            "dosed_ingredient",
+        ]
+
         # Convert all integer columns, handling None/NaN properly
-        for col in int_ge_zero_columns + int_columns:
+        for col in int_ge_zero_columns + int_columns + boolean_columns:
             if col in df.columns:
                 # Convert to numeric, coercing errors and None to NaN
                 numeric_series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
@@ -634,9 +638,64 @@ class TestItemChemblPipeline(PipelineBase):
                 if col in int_ge_zero_columns:
                     # Replace negative values with NaN
                     numeric_series = numeric_series.where(numeric_series >= 0)
+                # For boolean-like columns, replace -1 with NaN (unknown)
+                elif col in boolean_columns:
+                    numeric_series = numeric_series.where(numeric_series >= 0)
+                    # Also ensure values are only 0 or 1
+                    numeric_series = numeric_series.where((numeric_series == 0) | (numeric_series == 1) | numeric_series.isna())
                 # Convert to nullable Int64 type
                 # This will automatically convert NaN to pd.NA for nullable integers
                 df[col] = numeric_series.astype("Int64")
+
+        # Handle molecule_properties__ prefixed columns
+        for col in df.columns:
+            if col.startswith("molecule_properties__"):
+                prop_name = col.replace("molecule_properties__", "")
+                # Special handling for ro3_pass (Y/N to 1/0)
+                if prop_name == "ro3_pass":
+                    # Convert Y/N to 1/0
+                    mask = df[col].notna()
+                    if mask.any():
+                        # Convert to string and uppercase for comparison
+                        col_str = df.loc[mask, col].astype(str).str.upper().str.strip()
+                        # Create new series with converted values
+                        converted = df[col].copy()
+                        # Map Y to 1, N to 0
+                        converted.loc[mask & (col_str == "Y")] = 1
+                        converted.loc[mask & (col_str == "N")] = 0
+                        # For values that are not Y/N, try numeric conversion
+                        other_mask = mask & ~col_str.isin(["Y", "N"])  # pyright: ignore[reportUnknownMemberType]
+                        if other_mask.any():
+                            # Try to convert existing numeric values
+                            numeric_vals = pd.to_numeric(df.loc[other_mask, col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                            # Keep only valid numeric values (0 or 1)
+                            valid_numeric = numeric_vals.notna() & numeric_vals.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
+                            # Set all other_mask values to NA first
+                            converted.loc[other_mask] = pd.NA
+                            # Then restore valid numeric values
+                            if valid_numeric.any():
+                                valid_indices = numeric_vals.index[valid_numeric]
+                                converted.loc[valid_indices] = numeric_vals.loc[valid_indices]
+                        df[col] = converted
+                    # Convert to Int64, ensuring only 0 or 1
+                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = numeric_series.where((numeric_series == 0) | (numeric_series == 1) | numeric_series.isna())
+                    df[col] = numeric_series.astype("Int64")
+                # Handle other numeric properties
+                elif prop_name in [
+                    "aromatic_rings",
+                    "hba",
+                    "hba_lipinski",
+                    "hbd",
+                    "hbd_lipinski",
+                    "heavy_atoms",
+                    "num_lipinski_ro5_violations",
+                    "num_ro5_violations",
+                    "rtb",
+                ]:
+                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = numeric_series.where(numeric_series >= 0)
+                    df[col] = numeric_series.astype("Int64")
 
         log.debug("normalize_numeric_fields_completed")
         return df
@@ -671,23 +730,29 @@ class TestItemChemblPipeline(PipelineBase):
 
         rows_before = len(df)
 
+        # Check for standard_inchi_key in both old and new column names
+        inchi_key_col = "molecule_structures__standard_inchi_key" if "molecule_structures__standard_inchi_key" in df.columns else "standard_inchi_key"
+        canonical_smiles_col = "molecule_structures__canonical_smiles" if "molecule_structures__canonical_smiles" in df.columns else "canonical_smiles"
+        full_mwt_col = "molecule_properties__full_mwt" if "molecule_properties__full_mwt" in df.columns else "full_mwt"
+        alogp_col = "molecule_properties__alogp" if "molecule_properties__alogp" in df.columns else "alogp"
+
         # Prioritize records with non-empty canonical_smiles and more complete properties
-        if "standard_inchi_key" in df.columns:
+        if inchi_key_col in df.columns:
             # Sort by completeness (more complete first)
-            completeness_cols = ["canonical_smiles", "full_mwt", "alogp"]
+            completeness_cols = [canonical_smiles_col, full_mwt_col, alogp_col]
             available_completeness = [col for col in completeness_cols if col in df.columns]
             if available_completeness:
                 # Count non-null values in completeness columns
                 df["_completeness"] = df[available_completeness].notna().sum(axis=1)
                 df = df.sort_values(
-                    ["_completeness", "canonical_smiles"],
+                    ["_completeness", canonical_smiles_col],
                     ascending=[False, False],
                     na_position="last",
                 )
                 df = df.drop(columns=["_completeness"])
 
             # Deduplicate by standard_inchi_key, keeping first (most complete)
-            df = df.drop_duplicates(subset=["standard_inchi_key"], keep="first")
+            df = df.drop_duplicates(subset=[inchi_key_col], keep="first")
         else:
             # Fallback: deduplicate by molecule_chembl_id
             df = df.drop_duplicates(subset=["molecule_chembl_id"], keep="first")

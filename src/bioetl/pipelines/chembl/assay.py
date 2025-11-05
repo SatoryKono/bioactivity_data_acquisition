@@ -17,6 +17,7 @@ from bioetl.schemas.assay import COLUMN_ORDER
 
 from ...sources.chembl.assay import ChemblAssayClient
 from ..base import PipelineBase
+from .assay_enrichment import enrich_with_assay_classifications, enrich_with_assay_parameters
 from .assay_transform import serialize_array_fields
 
 
@@ -118,6 +119,9 @@ class ChemblAssayPipeline(PipelineBase):
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
+        # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
+        dataframe = self._check_missing_columns(dataframe, log)
+
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
             "chembl_assay.extract_summary",
@@ -195,6 +199,9 @@ class ChemblAssayPipeline(PipelineBase):
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
+        # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
+        dataframe = self._check_missing_columns(dataframe, log)
+
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
             "chembl_assay.extract_by_ids_summary",
@@ -224,6 +231,7 @@ class ChemblAssayPipeline(PipelineBase):
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_string_fields(df, log)
+        df = self._enrich_with_related_data(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._serialize_array_fields(df, log)
         df = self._add_row_metadata(df, log)
@@ -361,7 +369,15 @@ class ChemblAssayPipeline(PipelineBase):
         return df
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields (assay_type, assay_category, assay_organism, curation_level)."""
+        """Normalize string fields (assay_type, assay_category, assay_organism, curation_level).
+
+        ВАЖНО: Все поля извлекаются напрямую из API-ответа, без вычислений из суррогатов.
+        - assay_category: из ASSAYS.ASSAY_CATEGORY (не из assay_type или BAO)
+        - assay_strain: из ASSAYS.ASSAY_STRAIN (не из target/organism)
+        - src_assay_id: из ASSAYS.SRC_ASSAY_ID (не из других источников)
+        - assay_group: из ASSAYS.ASSAY_GROUP
+        - curation_level: из явной колонки (если есть), иначе NULL
+        """
 
         df = df.copy()
 
@@ -369,6 +385,9 @@ class ChemblAssayPipeline(PipelineBase):
             "assay_type",
             "assay_category",
             "assay_organism",
+            "assay_strain",
+            "src_assay_id",
+            "assay_group",
             "curation_level",
         ]
 
@@ -383,55 +402,32 @@ class ChemblAssayPipeline(PipelineBase):
                 if empty_mask.any():
                     df.loc[empty_mask, field] = None
 
+        # Проверка curation_level: если поле отсутствует в исходных данных, выставляем NULL
+        if "curation_level" not in df.columns:
+            df["curation_level"] = pd.NA
+            log.warning(
+                "curation_level_missing",
+                message="curation_level not found in API response, setting to NULL",
+            )
+
         return df
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Process nested structures (assay_parameters, assay_classifications) and extract BAO format."""
+        """Process nested structures (assay_parameters, assay_classifications).
+
+        ВАЖНО: Не используем суррогаты для извлечения assay_class_id.
+        assay_class_id должен извлекаться из ASSAY_CLASS_MAP через enrichment.
+        Если enrichment не выполнен, оставляем NULL.
+        """
 
         df = df.copy()
 
-        # Extract assay_class_id from bao_format if available (top-level field)
-        if "bao_format" in df.columns and "assay_class_id" in df.columns:
-            mask = df["bao_format"].notna() & df["assay_class_id"].isna()
-            if mask.any():
-                df.loc[mask, "assay_class_id"] = df.loc[mask, "bao_format"]
-                log.debug("assay_class_id_extracted_from_bao_format", count=int(mask.sum()))
+        # ВАЖНО: Не извлекаем assay_class_id из bao_format или других суррогатов.
+        # assay_class_id должен заполняться через enrichment из ASSAY_CLASS_MAP.
+        # Если enrichment не был выполнен и поле пустое, оставляем NULL.
 
-        # Extract assay_class_id from assay_classifications array if available
-        if "assay_classifications" in df.columns and "assay_class_id" in df.columns:
-            mask = df["assay_classifications"].notna() & df["assay_class_id"].isna()
-            if mask.any():
-                # Keys to search for in order of priority
-                id_keys = ["assay_class_id", "class_id", "id", "bao_format"]
-                extracted_count = 0
-
-                for idx in df[mask].index:
-                    classifications = df.loc[idx, "assay_classifications"]
-                    if isinstance(classifications, (list, Sequence)) and len(classifications) > 0:
-                        # Collect all IDs from all elements in the array
-                        found_ids: list[str] = []
-                        for item in classifications:
-                            if isinstance(item, Mapping):
-                                item_dict: dict[str, Any] = cast(dict[str, Any], dict(item))
-                                # Search for ID in order of priority
-                                for key in id_keys:
-                                    value = item_dict.get(key)
-                                    if value is not None:
-                                        value_str = str(value).strip()
-                                        if value_str and value_str not in found_ids:
-                                            found_ids.append(value_str)
-                                            break  # Use first found key per item
-
-                        # Aggregate IDs with ";"
-                        if found_ids:
-                            df.loc[idx, "assay_class_id"] = ";".join(found_ids)
-                            extracted_count += 1
-
-                if extracted_count > 0:
-                    log.debug("assay_class_id_extracted_from_classifications", count=extracted_count)
-
-        # Note: assay_parameters and assay_classifications are now serialized
-        # in _serialize_array_fields() and kept in the final schema
+        # Note: assay_parameters and assay_classifications сериализуются
+        # в _serialize_array_fields() и сохраняются в финальной схеме
 
         return df
 
@@ -521,3 +517,117 @@ class ChemblAssayPipeline(PipelineBase):
             return df[list(COLUMN_ORDER)]
         # Return schema columns first, then extras
         return df[[*COLUMN_ORDER, *extras]]
+
+    def _check_missing_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Проверка отсутствующих колонок для версионности ChEMBL (v34/v35).
+
+        Добавляет отсутствующие опциональные колонки с NULL значениями и логирует предупреждения.
+
+        Parameters
+        ----------
+        df:
+            DataFrame с данными assay.
+        log:
+            UnifiedLogger для логирования.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame с добавленными отсутствующими колонками.
+        """
+        df = df.copy()
+
+        # Опциональные колонки, которые могут отсутствовать в разных версиях ChEMBL
+        optional_columns = {
+            "assay_strain": "v34",  # Добавлено в v34
+            "assay_group": "v35",  # Добавлено в v35
+            "curation_level": "unknown",  # Может отсутствовать в некоторых релизах
+        }
+
+        missing_columns: list[str] = []
+        for column, version in optional_columns.items():
+            if column not in df.columns:
+                # Добавляем колонку с NULL значениями
+                df[column] = pd.NA
+                missing_columns.append(column)
+                log.warning(
+                    "missing_optional_column",
+                    column=column,
+                    version_introduced=version,
+                    chembl_release=self._chembl_release,
+                    message=f"Column {column} not found in API response, setting to NULL",
+                )
+
+        if missing_columns:
+            log.debug(
+                "missing_columns_handled",
+                columns=missing_columns,
+                chembl_release=self._chembl_release,
+            )
+
+        return df
+
+    def _enrich_with_related_data(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Обогатить DataFrame данными из связанных таблиц (ASSAY_CLASS_MAP, ASSAY_PARAMETERS).
+
+        Parameters
+        ----------
+        df:
+            DataFrame с данными assay.
+        log:
+            UnifiedLogger для логирования.
+
+        Returns
+        -------
+        pd.DataFrame:
+            Обогащенный DataFrame с данными из связанных таблиц.
+        """
+        if df.empty:
+            return df
+
+        # Создать HTTP клиент для запросов к API
+        # Используем тот же источник что и в extract
+        source_raw = self._resolve_source_config("chembl")
+        source_config = AssaySourceConfig.from_source_config(source_raw)
+        base_url = self._resolve_base_url(source_config)
+
+        http_client = self._client_factory.for_source("chembl", base_url=base_url)
+
+        # Создать ChemblClient
+        chembl_client = ChemblClient(http_client)
+
+        # Получить конфигурацию enrichment из config.chembl.assay.enrich
+        chembl_config = getattr(self.config, "chembl", None)
+        if chembl_config is None:
+            log.debug("enrichment_skipped_no_chembl_config", message="ChEMBL config not found")
+            return df
+
+        if not isinstance(chembl_config, Mapping):
+            log.debug("enrichment_skipped_no_chembl_config", message="ChEMBL config is not a Mapping")
+            return df
+
+        assay_config = cast(Mapping[str, Any], chembl_config).get("assay")
+        if not isinstance(assay_config, Mapping):
+            log.debug("enrichment_skipped_no_assay_config", message="Assay config not found")
+            return df
+
+        enrich_config = cast(Mapping[str, Any], assay_config).get("enrich")
+        if not isinstance(enrich_config, Mapping):
+            log.debug("enrichment_skipped_no_enrich_config", message="Enrich config not found")
+            return df
+
+        # Обогатить классификациями
+        classifications_cfg = cast(Mapping[str, Any], enrich_config).get("classifications")
+        if classifications_cfg is not None:
+            log.info("enrichment_classifications_started")
+            df = enrich_with_assay_classifications(df, chembl_client, cast(Mapping[str, Any], classifications_cfg))
+            log.info("enrichment_classifications_completed")
+
+        # Обогатить параметрами
+        parameters_cfg = cast(Mapping[str, Any], enrich_config).get("parameters")
+        if parameters_cfg is not None:
+            log.info("enrichment_parameters_started")
+            df = enrich_with_assay_parameters(df, chembl_client, cast(Mapping[str, Any], parameters_cfg))
+            log.info("enrichment_parameters_completed")
+
+        return df

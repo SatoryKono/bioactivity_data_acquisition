@@ -919,27 +919,44 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 | ACTIVITY.compound_key | compound_key | string | CHEMBL998\|Ki\|CHEMBL231 | concat | len<=256 | derived | бизнес-ключ |
 
-### Дополнительные поля (business logic, derived)
+### Дополнительные поля (enrichment из связанных источников)
 
-Поля, не присутствующие в ChEMBL API, производятся на этапе обогащения:
+Поля извлекаются из связанных источников ChEMBL через enrichment функции:
 
-- `compound_key` — вычисляемый бизнес-ключ (concat молекула + тип + таргет)
+- `assay_organism`, `assay_tax_id` — из ASSAYS через `enrich_with_assay()`
+  - Источник: `ASSAYS.ASSAY_ORGANISM`, `ASSAYS.ASSAY_TAX_ID`
 
-- `compound_name` — кастомное имя соединения
+- `compound_name` — из MOLECULE_DICTIONARY через `enrich_with_compound_record()`
+  - Источник: `MOLECULE_DICTIONARY.PREF_NAME` (fallback: `MOLECULE_DICTIONARY.CHEMBL_ID`)
 
-- `IUPHAR_class`, `IUPHAR_subclass` — обогащение через IUPHAR API
+- `compound_key` — из COMPOUND_STRUCTURES через `enrich_with_compound_record()`
+  - Источник: `COMPOUND_STRUCTURES.STANDARD_INCHI_KEY`
 
-- `taxon_index`, `gene_index` — индексы для категоризации
+- `curated` — из ACTIVITIES через `_extract_nested_fields()`
+  - Источник: `(ACTIVITIES.CURATED_BY IS NOT NULL)` → bool
+
+- `removed` — всегда NULL на стадии извлечения (не извлекается из ChEMBL)
+
+- `data_validity_description` — из DATA_VALIDITY_LOOKUP через `enrich_with_data_validity()`
+  - Источник: `DATA_VALIDITY_LOOKUP.DESCRIPTION` (LEFT JOIN по `data_validity_comment`)
+
+**Маппинг полей из ACTIVITIES (прямо из API):**
+
+- `upper_value`, `lower_value`, `text_value` — сырые значения из `ACTIVITIES`
+- `standard_upper_value`, `standard_text_value` — стандартизованные значения из `ACTIVITIES`
+- `activity_comment` — из `ACTIVITIES.ACTIVITY_COMMENT`
+- `data_validity_comment` — из `ACTIVITIES.DATA_VALIDITY_COMMENT`
 
 **Контракт:**
 
-- Внешние/вычисляемые поля производятся на этапе обогащения
-
+- Поля извлекаются напрямую из ChEMBL API с согласованным маппингом по источникам/типам
 - При отсутствии источника — `null`
+- Enrichment функции выполняются в порядке: assay → compound_record → data_validity
 
 **Критерии:**
 
 - Заморозка порядка колонок через `COLUMN_ORDER` из Pandera-схемы
+- Инварианты: `standard_text_value IS NOT NULL ⇒ standard_value IS NULL`, `text_value IS NOT NULL ⇒ value IS NULL`, `data_validity_comment IS NOT NULL ⇒ data_validity_description IS NOT NULL` (после LEFT JOIN)
 
 ---
 
