@@ -132,45 +132,45 @@ def _is_valid_activity_properties(value: object) -> bool:
 
 ActivitySchema = DataFrameSchema(
     {
-        "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "type": Column(pa.String, nullable=True),
-        "relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
-        "value": Column(pa.Object, nullable=True),
-        "units": Column(pa.String, nullable=True),
-        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
-        "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
-        "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "standard_units": Column(pa.String, nullable=True),
-        "standard_text_value": Column(pa.String, nullable=True),
-        "standard_flag": Column(pa.Int64, Check.isin({0, 1}), nullable=True),
-        "upper_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "lower_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "activity_comment": Column(pa.String, nullable=True),
-        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
-        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
-        "bao_label": Column(pa.String, nullable=True),
-        "canonical_smiles": Column(pa.String, nullable=True),
-        "ligand_efficiency": Column(pa.String, nullable=True),
-        "target_organism": Column(pa.String, nullable=True),
-        "target_tax_id": Column(
+        "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),  # type: ignore[assignment]
+        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
+        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
+        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
+        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
+        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
+        "type": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
+        "value": Column(pa.Object, nullable=True),  # type: ignore[assignment]
+        "units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),  # type: ignore[assignment]
+        "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
+        "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "standard_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "standard_text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "standard_flag": Column(pa.Int64, Check.isin({0, 1}), nullable=True),  # type: ignore[assignment]
+        "upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "lower_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "activity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
+        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
+        "bao_label": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "canonical_smiles": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "ligand_efficiency": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "target_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "target_tax_id": Column(  # type: ignore[assignment]
             pa.Int64,
             Check.ge(1),
             nullable=True,
         ),
-        "data_validity_comment": Column(pa.String, nullable=True),
-        "potential_duplicate": Column(pa.Bool, nullable=True),
-        "activity_properties": Column(
+        "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "potential_duplicate": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
+        "activity_properties": Column(  # type: ignore[assignment]
             pa.String,
             Check(_is_valid_activity_properties, element_wise=True),
             nullable=True,
         ),
-        "compound_key": Column(pa.String, nullable=True),
+        "compound_key": Column(pa.String, nullable=True),  # type: ignore[assignment]
     },
     ordered=True,
     coerce=False,  # Disable coercion at schema level - types are normalized in transform
