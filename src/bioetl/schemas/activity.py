@@ -11,15 +11,24 @@ import pandas as pd
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 
-SCHEMA_VERSION = "1.3.0"
+SCHEMA_VERSION = "1.4.0"
 
 COLUMN_ORDER = (
     "activity_id",
     "assay_chembl_id",
+    "assay_type",
+    "assay_description",
+    "assay_organism",
+    "assay_tax_id",
     "testitem_chembl_id",
     "molecule_chembl_id",
+    "parent_molecule_chembl_id",
+    "molecule_pref_name",
     "target_chembl_id",
+    "target_pref_name",
     "document_chembl_id",
+    "record_id",
+    "src_id",
     "type",
     "relation",
     "value",
@@ -27,12 +36,20 @@ COLUMN_ORDER = (
     "standard_type",
     "standard_relation",
     "standard_value",
+    "standard_upper_value",
     "standard_units",
     "standard_text_value",
     "standard_flag",
     "upper_value",
     "lower_value",
     "pchembl_value",
+    "published_type",
+    "published_relation",
+    "published_value",
+    "published_units",
+    "uo_units",
+    "qudt_units",
+    "text_value",
     "activity_comment",
     "bao_endpoint",
     "bao_format",
@@ -42,6 +59,7 @@ COLUMN_ORDER = (
     "target_organism",
     "target_tax_id",
     "data_validity_comment",
+    "data_validity_description",
     "potential_duplicate",
     "activity_properties",
     "compound_key",
@@ -132,10 +150,31 @@ ActivitySchema = DataFrameSchema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),  # type: ignore[assignment]
         "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
+        "assay_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "assay_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "assay_organism": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "assay_tax_id": Column(  # type: ignore[assignment]
+            pa.Int64,  # type: ignore[arg-type]
+            Check.ge(1),  # type: ignore[arg-type]
+            nullable=True,
+        ),
         "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
         "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[assignment]
+        "parent_molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
+        "molecule_pref_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
+        "target_pref_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[assignment]
+        "record_id": Column(  # type: ignore[assignment]
+            pa.Int64,  # type: ignore[arg-type]
+            Check.ge(1),  # type: ignore[arg-type]
+            nullable=True,
+        ),
+        "src_id": Column(  # type: ignore[assignment]
+            pa.Int64,  # type: ignore[arg-type]
+            Check.ge(1),  # type: ignore[arg-type]
+            nullable=True,
+        ),
         "type": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
         "value": Column(pa.Object, nullable=True),  # type: ignore[assignment]
@@ -143,12 +182,20 @@ ActivitySchema = DataFrameSchema(
         "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),  # type: ignore[assignment]
         "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
         "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "standard_upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
         "standard_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "standard_text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "standard_flag": Column(pa.Int64, Check.isin({0, 1}), nullable=True),  # type: ignore[assignment]
         "upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
         "lower_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
         "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "published_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "published_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
+        "published_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
+        "published_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "uo_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "qudt_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "activity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
         "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[assignment]
@@ -162,6 +209,7 @@ ActivitySchema = DataFrameSchema(
             nullable=True,
         ),
         "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "data_validity_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "potential_duplicate": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
         "activity_properties": Column(  # type: ignore[assignment]
             pa.String,  # type: ignore[arg-type]

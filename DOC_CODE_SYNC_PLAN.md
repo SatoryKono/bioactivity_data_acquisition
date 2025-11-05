@@ -40,37 +40,44 @@
 ### Профильные разделы документации
 
 **Навигация**:
+
 - `docs/INDEX.md` — карта всей документации
 - `README.md` — быстрый старт, ссылки на ключевые разделы
 
 **ETL-контракт** (жёсткие контракты):
+
 - `docs/etl_contract/00-etl-overview.md` — обзор принципов
 - `docs/etl_contract/01-pipeline-contract.md` — **API PipelineBase** (стадии, сигнатуры методов)
 - `docs/etl_contract/02-pipeline-config.md` — структура конфигов
 - `docs/etl_contract/07-cli-integration.md` — интеграция CLI
 
 **Каталог пайплайнов**:
+
 - `docs/pipelines/00-pipeline-base.md` — спецификация PipelineBase
 - `docs/pipelines/10-pipelines-catalog.md` — каталог всех пайплайнов
 - `docs/pipelines/activity-chembl/00-activity-chembl-overview.md` — обзор Activity
 - `docs/pipelines/assay-chembl/00-assay-chembl-overview.md` — обзор Assay
 
 **Конфиги** (жёсткие контракты):
+
 - `docs/configs/00-typed-configs-and-profiles.md` — типизированные конфиги, Pydantic-модели
 - Профили: `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`
 
 **CLI** (жёсткие контракты):
+
 - `docs/cli/00-cli-overview.md` — обзор CLI
 - `docs/cli/01-cli-commands.md` — **команды и флаги CLI**
 - `docs/cli/02-cli-exit_codes.md` — коды выхода
 
 **Детерминизм** (жёсткие контракты):
+
 - `docs/determinism/00-determinism-policy.md` — политика детерминизма
 - Сортировки: Activity — `["assay_id", "testitem_id", "activity_id"]`, Assay — `["assay_id"]`
 
 ### Типы контрактов
 
 **Обязательные (жёсткие)**:
+
 - API `PipelineBase`: сигнатуры `extract()`, `transform()`, `validate()`, `write()`, `run()`
 - Стадии жизненного цикла: `extract → transform → validate → write`
 - Структуры `RunResult` и `WriteResult` (обязательные поля)
@@ -80,6 +87,7 @@
 - Сортировки детерминизма: ключи из конфигов пайплайнов
 
 **Рекомендуемые**:
+
 - Расширенные поля `RunResult`/`WriteResult` (`additional_datasets`, `qc_summary`, `debug_dataset`)
 - Опциональные флаги CLI (`--sample`, `--golden`, `--mode`)
 - Дополнительные поля в конфигах (enrichment, адаптеры)
@@ -107,6 +115,7 @@
 | `README.md`: пример CLI `python -m bioetl.cli.main activity --config ... --dry-run` | `src/bioetl/cli/app.py:list_commands()` | activity | обяз. | gap | Добавить doctest для примера из README |
 
 **Примечания к матрице**:
+
 - Контрадикции CONTR-001–CONTR-007 документированы в `audit_results/CONTRADICTIONS.md`
 - Пробелы (gaps) требуют дополнения кода/доков
 - Статус "ok" означает соответствие
@@ -118,6 +127,7 @@
 ### 1. Инвентаризация документации (T-shirt: S, часы: 2)
 
 **Задачи**:
+
 - Собрать список всех `.md` файлов в `docs/` с хэшами (SHA256)
 - Прогнать линк-чек через `lychee --config .lychee.toml` и сформировать `audit_results/LINKCHECK.md`
 - Выявить отсутствующие файлы, упомянутые в `docs/INDEX.md`
@@ -139,6 +149,7 @@ lychee --config .lychee.toml --no-progress --verbose > audit_results/LINKCHECK.m
 ### 2. Каталогизация символов кода (T-shirt: M, часы: 4)
 
 **Задачи**:
+
 - Извлечь сигнатуры `PipelineBase` (методы, типы возврата)
 - Извлечь CLI-команды из `COMMAND_REGISTRY` (`activity_chembl`, `assay_chembl`)
 - Извлечь модели конфигов (`PipelineConfig`, профили)
@@ -164,12 +175,14 @@ python -c "from bioetl.config import load_config; c = load_config('configs/pipel
 ### 3. Семантический diff Doc→Code (T-shirt: L, часы: 8)
 
 **Задачи**:
+
 - Сопоставить API стадий: `extract()`, `transform()`, `validate()`, `write()`, `run()`
 - Сопоставить поля конфигов: `pipeline.name`, `sources.chembl.batch_size`, `determinism.sort.by`
 - Сопоставить параметры CLI: `--config`, `--output-dir`, `--dry-run`
 - Проверить поведение `--dry-run`: должен валидировать конфиги без выполнения
 
 **Методология**:
+
 1. Парсинг доков: извлечение блоков кода с сигнатурами методов
 2. Парсинг кода: AST-анализ `src/bioetl/pipelines/base.py` для извлечения сигнатур
 3. Сопоставление: сравнение сигнатур, типов возврата, параметров
@@ -182,6 +195,7 @@ python -c "from bioetl.config import load_config; c = load_config('configs/pipel
 ### 4. Правки кода под документацию (T-shirt: XL, часы: 16)
 
 **Приоритеты** (по CONTRADICTIONS.md):
+
 1. **CONTR-006 (HIGH)**: Унифицировать имя команды Assay (`assay` → `assay_chembl` в CLI или наоборот)
 2. **CONTR-007 (MEDIUM)**: Унифицировать имя команды Activity
 3. **CONTR-001 (HIGH)**: Привести `PipelineBase.run()` к сигнатуре из доков
@@ -189,6 +203,7 @@ python -c "from bioetl.config import load_config; c = load_config('configs/pipel
 5. **CONTR-003/004 (MEDIUM)**: Синхронизировать структуры `WriteResult`/`RunResult`
 
 **Правила**:
+
 - Код изменяется под документацию
 - Если доки устарели — создаётся issue с обоснованием, но до апрува доки остаются истиной
 - Все изменения проходят тесты: `pytest tests/`
@@ -200,6 +215,7 @@ python -c "from bioetl.config import load_config; c = load_config('configs/pipel
 ### 5. Doc-тесты CLI (T-shirt: M, часы: 6)
 
 **Задачи**:
+
 - Извлечь примеры CLI из README и `docs/cli/01-cli-commands.md`
 - Создать smoke-тесты для всех примеров с `--dry-run`
 
@@ -218,6 +234,7 @@ python -m bioetl.cli.main assay_chembl \
 ```
 
 **Реализация**: Создать `tests/integration/test_cli_doctest.py`:
+
 ```python
 import subprocess
 import pytest
@@ -254,11 +271,13 @@ def test_cli_assay_dry_run():
 ### 6. Валидация профилей конфигов (T-shirt: S, часы: 3)
 
 **Задачи**:
+
 - Загрузить `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml`
 - Проверить соответствие Pydantic-моделям `PipelineConfig`
 - Убедиться, что CLI автоматически применяет эти профили
 
 **Команды**:
+
 ```bash
 python -c "
 from bioetl.config import load_config
@@ -281,11 +300,13 @@ print('determinism.yaml loaded:', det.determinism.sort.by if hasattr(det, 'deter
 ### 7. Обновление артефактов качества (T-shirt: M, часы: 4)
 
 **Задачи**:
+
 - Обновить `audit_results/GAPS_TABLE.csv` (создать, если отсутствует) с выявленными пробелами
 - Обновить `audit_results/CONTRADICTIONS.md` с новыми контрадикциями
 - Отметить пункты в `audit_results/CHECKLIST.md` как выполненные
 
 **Формат GAPS_TABLE.csv**:
+
 ```csv
 gap_id,doc_reference,code_reference,pipeline,severity,action,status
 GAP-001,docs/cli/01-cli-commands.md:activity,src/bioetl/cli/registry.py:activity_chembl,activity,HIGH,Unify command name,open
@@ -302,6 +323,7 @@ GAP-001,docs/cli/01-cli-commands.md:activity,src/bioetl/cli/registry.py:activity
 **Джоба CI**: `.github/workflows/ci.yaml` → `link-check`
 
 **Команда**:
+
 ```bash
 lychee --config .lychee.toml --no-progress --verbose
 ```
@@ -317,11 +339,13 @@ lychee --config .lychee.toml --no-progress --verbose
 **Джоба CI**: `.github/workflows/ci.yaml` → `doc-audit` (новая джоба)
 
 **Команда**:
+
 ```bash
 python audit_docs.py
 ```
 
 **Проверки**:
+
 - Наличие всех обязательных разделов документации для каждого пайплайна
 - Соответствие имён файлов конвенции `<NN>-<entity>-<source>-<topic>.md`
 - Наличие ссылок на все файлы в `docs/INDEX.md`
@@ -337,11 +361,13 @@ python audit_docs.py
 **Джоба CI**: `.github/workflows/ci.yaml` → `cli-doctest` (новая джоба)
 
 **Команда**:
+
 ```bash
 pytest tests/integration/test_cli_doctest.py -v
 ```
 
 **Проверки**:
+
 - Все CLI-примеры из README выполняются с `--dry-run`
 - Команда `list` работает и показывает `activity_chembl`, `assay_chembl`
 - Все примеры завершаются с кодом 0
@@ -355,6 +381,7 @@ pytest tests/integration/test_cli_doctest.py -v
 **Джоба CI**: `.github/workflows/ci.yaml` → `schema-guard` (новая джоба)
 
 **Команда**:
+
 ```bash
 python -c "
 from bioetl.config import load_config
@@ -373,6 +400,7 @@ for pipeline in ['activity', 'assay']:
 ```
 
 **Проверки**:
+
 - Конфиги `configs/pipelines/chembl/activity.yaml` и `configs/pipelines/chembl/assay.yaml` загружаются без ошибок
 - Все поля конфигов соответствуют `PipelineConfig` Pydantic-модели
 - Профили `base.yaml` и `determinism.yaml` применяются автоматически
@@ -386,6 +414,7 @@ for pipeline in ['activity', 'assay']:
 **Джоба CI**: `.github/workflows/ci.yaml` → `determinism-check` (новая джоба)
 
 **Команда**:
+
 ```bash
 # Первый прогон
 python -m bioetl.cli.main activity_chembl \
@@ -404,6 +433,7 @@ python -m bioetl.cli.main activity_chembl \
 ```
 
 **Проверки**:
+
 - Два последовательных прогона с одинаковыми параметрами дают идентичные логи (для детерминированных полей)
 - В реальном прогоне (без `--dry-run`) выходные файлы имеют идентичные хэши при идентичных входах
 
@@ -416,11 +446,13 @@ python -m bioetl.cli.main activity_chembl \
 1. **Любое расхождение документируется** в `audit_results/CONTRADICTIONS.md` с присвоением ID (CONTR-XXX).
 
 2. **Классификация**:
+
    - **HIGH**: Критичные расхождения (API методы, обязательные поля, CLI команды)
    - **MEDIUM**: Расхождения в опциональных полях, дополнительных функциях
    - **LOW**: Стилистические различия, не влияющие на функциональность
 
 3. **Процесс разрешения**:
+
    - Создать issue/PR с описанием расхождения
    - До апрува правки доков — код приводится к документации
    - После апрува — синхронизируются код и доки, обновляется `CONTRADICTIONS.md`
@@ -434,16 +466,19 @@ python -m bioetl.cli.main activity_chembl \
 ## Обновления документации
 
 **Конвенции**:
+
 - Именование файлов: `<NN>-<entity>-<source>-<topic>.md` (см. `docs/styleguide/00-naming-conventions.md`)
 - Навигация через `docs/INDEX.md`
 - Ссылки на код: `[ref: repo:path@branch]`
 
 **Для новых/обновлённых разделов**:
+
 - Обновить `docs/INDEX.md` при добавлении новых файлов
 - Проверить все внутренние ссылки через линк-чек
 - Обновить `CHANGELOG.md` при breaking changes
 
 **Синхронизация с кодом**:
+
 - При изменении API `PipelineBase` — обновить `docs/etl_contract/01-pipeline-contract.md` и `docs/pipelines/00-pipeline-base.md`
 - При изменении CLI — обновить `docs/cli/01-cli-commands.md` и README
 - При изменении конфигов — обновить `docs/configs/00-typed-configs-and-profiles.md`
@@ -490,6 +525,7 @@ python -m bioetl.cli.main activity_chembl \
 | Несоответствие имён CLI команд | Высокая | Высокое | Пользователи не могут запустить пайплайны | Унифицировать имена, обновить README и доки |
 
 **Шаги отката**:
+
 - Revert PR при критичных ошибках
 - Флаг `--skip-doc-sync` в CI для временного обхода проверок
 - Временный skip с тикетом: добавить `[skip-doc-sync]` в commit message
@@ -500,7 +536,8 @@ python -m bioetl.cli.main activity_chembl \
 
 1. ✅ **Линк-чек зелёный**: `audit_results/LINKCHECK.md` без критичных ошибок (битые внутренние ссылки отсутствуют).
 
-2. ✅ **Все CLI-примеры из доков/README выполняются**: 
+2. ✅ **Все CLI-примеры из доков/README выполняются**:
+
    - `python -m bioetl.cli.main list` → код 0
    - `python -m bioetl.cli.main activity_chembl --config ... --dry-run` → код 0
    - `python -m bioetl.cli.main assay_chembl --config ... --dry-run` → код 0

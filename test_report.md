@@ -22,10 +22,12 @@
 ### Покрытие по модулям
 
 #### Хорошо покрытые модули (>80%)
+
 - `src/bioetl/config/models.py` - 95%
 - `src/bioetl/core/api_client.py` - 86%
 
 #### Среднее покрытие (50-80%)
+
 - `src/bioetl/core/logger.py` - 76%
 - `src/bioetl/cli/main.py` - 75%
 - `src/bioetl/config/loader.py` - 64%
@@ -33,6 +35,7 @@
 - `src/bioetl/schemas/__init__.py` - 55%
 
 #### Низкое покрытие (<50%)
+
 - `src/bioetl/core/output.py` - 20%
 - `src/bioetl/pipelines/base.py` - 27%
 - `src/bioetl/core/client_factory.py` - 32%
@@ -45,10 +48,12 @@
 ## Провалившиеся тесты
 
 ### 1. `test_activity_command_with_limit`
+
 **Файл:** `tests/unit/test_cli.py:209`  
 **Ошибка:** `KeyError: 'config'`
 
 **Причина:** Тест ожидает, что `ChemblActivityPipeline` вызывается с именованными аргументами (`kwargs["config"]`), но фактически вызов происходит с позиционными аргументами:
+
 ```python
 pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 ```
@@ -56,6 +61,7 @@ pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 **Решение:** Исправить тест, использовать `call_args.args[0]` вместо `call_args.kwargs["config"]`.
 
 ### 2. `test_activity_command_with_sample`
+
 **Файл:** `tests/unit/test_cli.py:259`  
 **Ошибка:** `assert 2 == 0` (CLI возвращает код ошибки 2)
 
@@ -64,6 +70,7 @@ pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 **Решение:** Либо изменить тест, чтобы вызывать `activity` subcommand, либо добавить опцию `--sample` в root command.
 
 ### 3. `test_activity_command_sample_limit_mutually_exclusive`
+
 **Файл:** `tests/unit/test_cli.py:301`  
 **Ошибка:** `assert 'mutually exclusive' in result.stderr` - сообщение не найдено
 
@@ -72,6 +79,7 @@ pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 **Решение:** Изменить тест, чтобы вызывать `activity` subcommand, где доступны обе опции.
 
 ### 4. `test_activity_command_with_verbose_and_schema_flags`
+
 **Файл:** `tests/unit/test_cli.py:407`  
 **Ошибка:** `assert 2 == 0` (CLI возвращает код ошибки 2)
 
@@ -80,6 +88,7 @@ pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 **Решение:** Изменить тест, чтобы вызывать `activity` subcommand.
 
 ### 5. `test_init` (PipelineBase)
+
 **Файл:** `tests/unit/test_pipeline_base.py:43`  
 **Ошибка:** `AssertionError: assert 'activity_chembl' == 'activity'`
 
@@ -129,4 +138,3 @@ pipeline = ChemblActivityPipeline(pipeline_config, run_id)
 3. **Некоторые модули имеют очень низкое покрытие** и требуют дополнительных тестов
 
 После исправления провалившихся тестов и увеличения покрытия кода проект будет соответствовать требованиям CI.
-

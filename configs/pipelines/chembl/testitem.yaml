@@ -20,12 +20,27 @@ sources:
   chembl:
     enabled: true
     description: "ChEMBL REST API"
-    batch_size: 200
+    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit (for batch extraction)
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000
-      max_pages: null  # null = all pages, or set to limit for dev/ci
+      max_url_length: 2000  # Used for predictive throttling of batch requests
+      max_pages: null  # null = all pages, or set to limit for dev/ci (for full pagination)
       filters: {}  # e.g., molecule_properties__full_mwt__lte: "1000"
+
+# Input file support (optional)
+# You can specify input_file in two ways:
+# 1. In this YAML config via cli.input_file (see below)
+# 2. Via CLI option --input-file (overrides YAML value if provided)
+#
+# The CSV/Parquet file must contain a 'molecule_chembl_id' column for batch extraction.
+# If not provided, pipeline uses full pagination.
+# Example CSV file: data/input/molecule_ids.csv with column 'molecule_chembl_id'
+
+# CLI configuration (optional overrides)
+cli:
+  # Optional path to input file (CSV/Parquet) containing molecule_chembl_id column
+  # for batch extraction. Can be overridden via --input-file CLI option.
+   input_file: "data/input/testitem.csv"
 
 # Determinism configuration for testitem pipeline
 determinism:
@@ -76,23 +91,4 @@ validation:
   schema_out: "bioetl.schemas.chembl.testitem.TestItemSchema"
   strict: true
   coerce: true
-
-# Profiles for different environments
-profiles:
-  dev:
-    sources:
-      chembl:
-        parameters:
-          max_pages: 5
-  prod:
-    sources:
-      chembl:
-        parameters:
-          max_pages: null
-  ci:
-    sources:
-      chembl:
-        parameters:
-          max_pages: 1
-          batch_size: 50
 

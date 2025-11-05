@@ -20,10 +20,25 @@ sources:
   chembl:
     enabled: true
     description: "ChEMBL REST API"
-    batch_size: 25
+    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000
+      max_url_length: 2000  # Used for predictive throttling of batch requests
+
+# Input file support (optional)
+# You can specify input_file in two ways:
+# 1. In this YAML config via cli.input_file (see below)
+# 2. Via CLI option --input-file (overrides YAML value if provided)
+#
+# The CSV/Parquet file must contain an 'assay_chembl_id' column for batch extraction.
+# If not provided, pipeline uses full pagination.
+# Example CSV file: data/input/assay_ids.csv with column 'assay_chembl_id'
+
+# CLI configuration (optional overrides)
+cli:
+  # Optional path to input file (CSV/Parquet) containing assay_chembl_id column
+  # for batch extraction. Can be overridden via --input-file CLI option.
+    input_file: "data/input/assay.csv"
 
 # Determinism configuration for assay pipeline
 determinism:

@@ -18,7 +18,7 @@ class TestTestItemChemblPipeline:
 
     def test_init(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test TestItemChemblPipeline initialization."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
@@ -28,7 +28,7 @@ class TestTestItemChemblPipeline:
 
     def test_fetch_chembl_versions(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test fetching ChEMBL versions from status endpoint."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         mock_client = Mock(spec=UnifiedAPIClient)
         mock_response = Mock()
@@ -48,7 +48,7 @@ class TestTestItemChemblPipeline:
 
     def test_flatten_nested_structures(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test flattening of nested molecule_structures and molecule_properties."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({
             "molecule_chembl_id": ["CHEMBL1", "CHEMBL2"],
@@ -77,7 +77,7 @@ class TestTestItemChemblPipeline:
 
     def test_normalize_identifiers(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test normalization of ChEMBL identifiers and InChI keys."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({
             "molecule_chembl_id": [" CHEMBL1 ", "CHEMBL2"],
@@ -95,7 +95,7 @@ class TestTestItemChemblPipeline:
 
     def test_normalize_string_fields(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test normalization of string fields."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({
             "pref_name": [" Ethanol ", " Methane"],
@@ -113,7 +113,7 @@ class TestTestItemChemblPipeline:
 
     def test_deduplicate_molecules(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test deduplication of molecules."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({
             "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
@@ -133,7 +133,7 @@ class TestTestItemChemblPipeline:
 
     def test_transform_with_nested_data(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test transform with nested ChEMBL data."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
@@ -161,7 +161,7 @@ class TestTestItemChemblPipeline:
 
     def test_augment_metadata(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test metadata augmentation with ChEMBL versions."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 

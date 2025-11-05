@@ -60,6 +60,25 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "data_validity_comment",
     "potential_duplicate",
     "activity_properties",
+    # New fields
+    "assay_type",
+    "assay_description",
+    "assay_organism",
+    "assay_tax_id",
+    "parent_molecule_chembl_id",
+    "molecule_pref_name",
+    "record_id",
+    "src_id",
+    "target_pref_name",
+    "text_value",
+    "standard_upper_value",
+    "published_type",
+    "published_relation",
+    "published_value",
+    "published_units",
+    "uo_units",
+    "qudt_units",
+    "data_validity_description",
 )
 
 
@@ -81,7 +100,44 @@ class ChemblActivityPipeline(PipelineBase):
         return self._chembl_release
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch activity payloads from ChEMBL using the unified HTTP client."""
+        """Fetch activity payloads from ChEMBL using the unified HTTP client.
+
+        Checks for input_file in config.cli.input_file and calls extract_by_ids()
+        if present, otherwise calls extract_all().
+        """
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_activity.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        # Legacy support: check kwargs for activity_ids (deprecated)
+        payload_activity_ids = kwargs.get("activity_ids")
+        if payload_activity_ids is not None:
+            log.warning(
+                "chembl_activity.deprecated_kwargs",
+                message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
+            )
+            if isinstance(payload_activity_ids, Sequence):
+                sequence_ids: Sequence[str | int] = cast(Sequence[str | int], payload_activity_ids)
+                ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
+            else:
+                ids_list = [str(payload_activity_ids)]
+            return self.extract_by_ids(ids_list)
+
+        log.info("chembl_activity.extract_mode", mode="full")
+        return self.extract_all()
+
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all activity records from ChEMBL using pagination."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
@@ -100,32 +156,12 @@ class ChemblActivityPipeline(PipelineBase):
             page_size = min(page_size, limit)
         page_size = max(page_size, 1)
 
-        payload_activity_ids = kwargs.get("activity_ids")
-        if payload_activity_ids is not None:
-            batch_dataframe = self._extract_from_chembl(
-                payload_activity_ids,
-                client,
-                batch_size=batch_size,
-                limit=limit,
-            )
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            batch_stats = self._last_batch_extract_stats or {}
-            log.info(
-                "chembl_activity.extract_summary",
-                rows=int(batch_dataframe.shape[0]),
-                duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
-                batches=batch_stats.get("batches"),
-                api_calls=batch_stats.get("api_calls"),
-                cache_hits=batch_stats.get("cache_hits"),
-            )
-            return batch_dataframe
-
+        select_fields = self._resolve_select_fields(source_config)
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
             "limit": page_size,
-            "only": ",".join(API_ACTIVITY_FIELDS),
+            "only": ",".join(select_fields),
         }
         pages = 0
 
@@ -180,21 +216,64 @@ class ChemblActivityPipeline(PipelineBase):
         )
         return dataframe
 
-    def transform(self, payload: object) -> pd.DataFrame:
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract activity records by a specific list of IDs using batch extraction.
+
+        Parameters
+        ----------
+        ids:
+            Sequence of activity_id values to extract (as strings or integers).
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame containing extracted activity records.
+        """
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        stage_start = time.perf_counter()
+
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_activity_client", client)
+
+        self._chembl_release = self._fetch_chembl_release(client, log)
+
+        batch_size = self._resolve_batch_size(source_config)
+        limit = self.config.cli.limit
+
+        # Convert list of IDs to DataFrame for compatibility with _extract_from_chembl
+        input_frame = pd.DataFrame({"activity_id": list(ids)})
+
+        batch_dataframe = self._extract_from_chembl(
+            input_frame,
+            client,
+            batch_size=batch_size,
+            limit=limit,
+        )
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        batch_stats = self._last_batch_extract_stats or {}
+        log.info(
+            "chembl_activity.extract_by_ids_summary",
+            rows=int(batch_dataframe.shape[0]),
+            requested=len(ids),
+            duration_ms=duration_ms,
+            chembl_release=self._chembl_release,
+            batches=batch_stats.get("batches"),
+            api_calls=batch_stats.get("api_calls"),
+            cache_hits=batch_stats.get("cache_hits"),
+        )
+        return batch_dataframe
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw activity data by normalizing measurements, identifiers, and data types."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.transform")
 
-        if not isinstance(payload, pd.DataFrame):
-            if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
-                df = pd.DataFrame(payload)
-            elif isinstance(payload, Mapping):
-                df = pd.DataFrame([payload])
-            else:
-                log.warning("transform_invalid_payload", payload_type=type(payload).__name__)
-                return pd.DataFrame()
-        else:
-            df = payload.copy()
+        # According to documentation, transform should accept df: pd.DataFrame
+        # df is already a pd.DataFrame, so we can use it directly
+        df = df.copy()
 
         df = self._harmonize_identifier_columns(df, log)
         df = self._ensure_schema_columns(df, log)
@@ -220,44 +299,40 @@ class ChemblActivityPipeline(PipelineBase):
         log.info("transform_completed", rows=len(df))
         return df
 
-    def validate(self, payload: object) -> pd.DataFrame:
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate payload against ActivitySchema with detailed error handling."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
-        if not isinstance(payload, pd.DataFrame):
-            msg = "ChemblActivityPipeline.validate expects a pandas DataFrame payload"
-            raise TypeError(msg)
-
-        if payload.empty:
+        if df.empty:
             log.debug("validate_empty_dataframe")
-            return payload
+            return df
 
         if self.config.validation.strict:
             allowed_columns = set(COLUMN_ORDER)
-            extra_columns = [column for column in payload.columns if column not in allowed_columns]
+            extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
                 log.debug(
                     "drop_extra_columns_before_validation",
                     extras=extra_columns,
                 )
-                payload = payload.drop(columns=extra_columns)
+                df = df.drop(columns=extra_columns)
 
-        log.info("validate_started", rows=len(payload))
+        log.info("validate_started", rows=len(df))
 
         # Ensure target_tax_id has correct nullable integer type before validation
-        if "target_tax_id" in payload.columns:
-            dtype_name: str = str(payload["target_tax_id"].dtype.name)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+        if "target_tax_id" in df.columns:
+            dtype_name: str = str(df["target_tax_id"].dtype.name)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
             if dtype_name != "Int64":
                 # Convert to nullable Int64 if not already
                 numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    payload["target_tax_id"], errors="coerce"
+                    df["target_tax_id"], errors="coerce"
                 )
-                payload["target_tax_id"] = numeric_series.astype("Int64")
+                df["target_tax_id"] = numeric_series.astype("Int64")
 
         # Pre-validation checks
-        self._check_activity_id_uniqueness(payload, log)
-        self._check_foreign_key_integrity(payload, log)
+        self._check_activity_id_uniqueness(df, log)
+        self._check_foreign_key_integrity(df, log)
 
         # Call base validation with error handling
         # Temporarily disable coercion to preserve nullable Int64 types for target_tax_id
@@ -265,7 +340,7 @@ class ChemblActivityPipeline(PipelineBase):
         original_coerce = self.config.validation.coerce
         try:
             self.config.validation.coerce = False
-            validated = super().validate(payload)
+            validated = super().validate(df)
             log.info(
                 "validate_completed",
                 rows=len(validated),
@@ -299,7 +374,7 @@ class ChemblActivityPipeline(PipelineBase):
                 )
                 log.error("validation_failure_cases", failure_cases=failure_cases_summary)
                 # Log individual errors with row index and activity_id as per documentation
-                self._log_detailed_validation_errors(failure_cases_df, payload, log)
+                self._log_detailed_validation_errors(failure_cases_df, df, log)
 
             msg = (
                 f"Validation failed with {error_count} error(s) against schema "
@@ -349,6 +424,21 @@ class ChemblActivityPipeline(PipelineBase):
             batch_size = 25
         return batch_size
 
+    def _resolve_select_fields(self, source_config: SourceConfig) -> list[str]:
+        """Resolve select_fields from config or use default API_ACTIVITY_FIELDS."""
+        parameters_raw = getattr(source_config, "parameters", {})
+        if isinstance(parameters_raw, Mapping):
+            parameters = cast(Mapping[str, Any], parameters_raw)
+            select_fields_raw = parameters.get("select_fields")
+            if (
+                select_fields_raw is not None
+                and isinstance(select_fields_raw, Sequence)
+                and not isinstance(select_fields_raw, (str, bytes))
+            ):
+                select_fields = cast(Sequence[Any], select_fields_raw)
+                return [str(field) for field in select_fields]
+        return list(API_ACTIVITY_FIELDS)
+
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient,
@@ -373,6 +463,7 @@ class ChemblActivityPipeline(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
+        source_config = self._resolve_source_config("chembl")
 
         if isinstance(dataset, pd.Series):
             input_frame = dataset.to_frame(name="activity_id")
@@ -466,9 +557,10 @@ class ChemblActivityPipeline(PipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
+                    select_fields = self._resolve_select_fields(source_config)
                     params = {
                         "activity_id__in": ",".join(batch_keys),
-                        "only": ",".join(API_ACTIVITY_FIELDS),
+                        "only": ",".join(select_fields),
                     }
                     response = client.get("/activity.json", params=params)
                     api_calls += 1
@@ -1032,10 +1124,10 @@ class ChemblActivityPipeline(PipelineBase):
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
 
                 # Convert to numeric (NaN for empty/invalid values)
-                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                numeric_series_std: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
                     series, errors="coerce"
                 )
-                df.loc[mask, "standard_value"] = numeric_series
+                df.loc[mask, "standard_value"] = numeric_series_std
 
                 # Check for negative values (should be >= 0)
                 negative_mask = mask & (df["standard_value"] < 0)
@@ -1057,7 +1149,7 @@ class ChemblActivityPipeline(PipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
-                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)
+                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
@@ -1123,10 +1215,69 @@ class ChemblActivityPipeline(PipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "relation"] = series
-                invalid_mask = mask & ~df["relation"].isin(RELATIONS)
+                invalid_mask = mask & ~df["relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning("invalid_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "relation"] = None
+                normalized_count += int(mask.sum())
+
+        # Normalize published_* fields
+        if "published_value" in df.columns:
+            mask = df["published_value"].notna()
+            if mask.any():
+                series = df.loc[mask, "published_value"].astype(str).str.strip()
+                series = series.str.replace(r"[,\s]", "", regex=True)
+                series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
+                numeric_series_pub: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                    series, errors="coerce"
+                )
+                df.loc[mask, "published_value"] = numeric_series_pub
+                negative_mask = mask & (df["published_value"] < 0)
+                if negative_mask.any():
+                    log.warning("negative_published_value", count=int(negative_mask.sum()))
+                    df.loc[negative_mask, "published_value"] = None
+                normalized_count += int(mask.sum())
+
+        if "published_relation" in df.columns:
+            unicode_to_ascii = {
+                "≤": "<=",
+                "≥": ">=",
+                "≠": "~",
+            }
+            mask = df["published_relation"].notna()
+            if mask.any():
+                series = df.loc[mask, "published_relation"].astype(str).str.strip()
+                for unicode_char, ascii_repl in unicode_to_ascii.items():
+                    series = series.str.replace(unicode_char, ascii_repl, regex=False)
+                df.loc[mask, "published_relation"] = series
+                invalid_mask = mask & ~df["published_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
+                if invalid_mask.any():
+                    log.warning("invalid_published_relation", count=int(invalid_mask.sum()))
+                    df.loc[invalid_mask, "published_relation"] = None
+                normalized_count += int(mask.sum())
+
+        if "published_type" in df.columns:
+            mask = df["published_type"].notna()
+            if mask.any():
+                df.loc[mask, "published_type"] = (
+                    df.loc[mask, "published_type"].astype(str).str.strip()
+                )
+                normalized_count += int(mask.sum())
+
+        if "standard_upper_value" in df.columns:
+            mask = df["standard_upper_value"].notna()
+            if mask.any():
+                series = df.loc[mask, "standard_upper_value"].astype(str).str.strip()
+                series = series.str.replace(r"[,\s]", "", regex=True)
+                series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
+                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                    series, errors="coerce"
+                )
+                df.loc[mask, "standard_upper_value"] = numeric_series
+                negative_mask = mask & (df["standard_upper_value"] < 0)
+                if negative_mask.any():
+                    log.warning("negative_standard_upper_value", count=int(negative_mask.sum()))
+                    df.loc[negative_mask, "standard_upper_value"] = None
                 normalized_count += int(mask.sum())
 
         if normalized_count > 0:
@@ -1143,11 +1294,23 @@ class ChemblActivityPipeline(PipelineBase):
             "canonical_smiles": {"trim": True, "empty_to_null": True},
             "bao_label": {"trim": True, "empty_to_null": True, "max_length": 128},
             "target_organism": {"trim": True, "empty_to_null": True, "title_case": True},
+            "assay_organism": {"trim": True, "empty_to_null": True, "title_case": True},
             "data_validity_comment": {"trim": True, "empty_to_null": True},
+            "data_validity_description": {"trim": True, "empty_to_null": True},
             "activity_comment": {"trim": True, "empty_to_null": True},
             "standard_text_value": {"trim": True, "empty_to_null": True},
+            "text_value": {"trim": True, "empty_to_null": True},
             "type": {"trim": True, "empty_to_null": True},
             "units": {"trim": True, "empty_to_null": True},
+            "assay_type": {"trim": True, "empty_to_null": True},
+            "assay_description": {"trim": True, "empty_to_null": True},
+            "molecule_pref_name": {"trim": True, "empty_to_null": True},
+            "target_pref_name": {"trim": True, "empty_to_null": True},
+            "published_type": {"trim": True, "empty_to_null": True},
+            "published_relation": {"trim": True, "empty_to_null": True},
+            "published_units": {"trim": True, "empty_to_null": True},
+            "uo_units": {"trim": True, "empty_to_null": True},
+            "qudt_units": {"trim": True, "empty_to_null": True},
         }
 
         for field, options in string_fields.items():
@@ -1253,7 +1416,7 @@ class ChemblActivityPipeline(PipelineBase):
         if isinstance(value, Mapping):
             items: list[Any] = [value]
         elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-            items = list(value)
+            items = list(value)  # pyright: ignore[reportUnknownArgumentType]
         else:
             if log is not None:
                 log.warning(
@@ -1267,7 +1430,9 @@ class ChemblActivityPipeline(PipelineBase):
             if item is None:
                 continue
             if isinstance(item, Mapping):
-                normalized_item: dict[str, Any | None] = {key: item.get(key) for key in ACTIVITY_PROPERTY_KEYS}
+                # Приводим Mapping к dict для явной типизации
+                item_mapping = cast(Mapping[str, Any], item)
+                normalized_item: dict[str, Any | None] = {key: item_mapping.get(key) for key in ACTIVITY_PROPERTY_KEYS}
                 result_flag_value = normalized_item.get("result_flag")
                 if isinstance(result_flag_value, int) and result_flag_value in (0, 1):
                     normalized_item["result_flag"] = bool(result_flag_value)
@@ -1306,14 +1471,19 @@ class ChemblActivityPipeline(PipelineBase):
         # Nullable integer fields
         nullable_int_fields = {
             "target_tax_id": "int64",
+            "assay_tax_id": "int64",
+            "record_id": "int64",
+            "src_id": "int64",
         }
 
         # Float fields
         float_fields = {
             "standard_value": "float64",
+            "standard_upper_value": "float64",
             "pchembl_value": "float64",
             "upper_value": "float64",
             "lower_value": "float64",
+            "published_value": "float64",
         }
 
         bool_fields = [
@@ -1389,12 +1559,12 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_flag: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                numeric_series_flag: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
                 df[field] = numeric_series_flag.astype("Int64")
                 mask_valid = df[field].notna()
                 if mask_valid.any():
                     valid_values = df.loc[mask_valid, field]
-                    invalid_valid_mask = ~valid_values.isin([0, 1])
+                    invalid_valid_mask = ~valid_values.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
                     if invalid_valid_mask.any():
                         invalid_index = valid_values.index[invalid_valid_mask]
                         log.warning(
@@ -1418,6 +1588,7 @@ class ChemblActivityPipeline(PipelineBase):
             "molecule_chembl_id",
             "target_chembl_id",
             "document_chembl_id",
+            "parent_molecule_chembl_id",
         ]
 
         warnings: list[str] = []
@@ -1473,6 +1644,7 @@ class ChemblActivityPipeline(PipelineBase):
             "molecule_chembl_id",
             "target_chembl_id",
             "document_chembl_id",
+            "parent_molecule_chembl_id",
         ]
         chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
         errors: list[str] = []

@@ -55,7 +55,7 @@ determinism:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.main.load_config") as mock_load_config,
+            patch("bioetl.cli.command.load_config") as mock_load_config,
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             from pathlib import Path as PathType
@@ -146,6 +146,7 @@ determinism:
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
                 CLI_APP,
                 [
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -181,8 +182,8 @@ http:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.main.load_config") as mock_load_config,
-            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.cli.command.create_pipeline_command") as mock_create_command,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -192,13 +193,17 @@ http:
                 include_default_profiles=False,
             )
             mock_load_config.return_value = real_config
-            mock_pipeline = MagicMock()
-            mock_pipeline.run.side_effect = ValueError("Pipeline error")
-            mock_pipeline_class.return_value = mock_pipeline
+
+            # Create a mock command that raises an error
+            def mock_command(*args: Any, **kwargs: Any) -> None:
+                raise ValueError("Pipeline error")
+
+            mock_create_command.return_value = mock_command
 
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
                 CLI_APP,
                 [
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",

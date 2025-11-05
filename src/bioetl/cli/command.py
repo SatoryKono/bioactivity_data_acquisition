@@ -175,6 +175,13 @@ def create_pipeline_command(
             help="Path to golden dataset for bitwise determinism comparison",
             exists=False,
         ),
+        input_file: Path | None = typer.Option(
+            None,
+            "--input-file",
+            "-i",
+            help="Optional path to input file (CSV/Parquet) containing IDs for batch extraction",
+            exists=False,
+        ),
     ) -> None:
         """Execute the pipeline command."""
         if limit is not None and sample is not None:
@@ -215,6 +222,8 @@ def create_pipeline_command(
         pipeline_config.cli.extended = extended
         if golden is not None:
             pipeline_config.cli.golden = str(golden)
+        if input_file is not None:
+            pipeline_config.cli.input_file = str(input_file)
         pipeline_config.cli.verbose = verbose
         pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
         pipeline_config.cli.validate_columns = validate_columns

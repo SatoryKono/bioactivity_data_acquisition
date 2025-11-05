@@ -107,6 +107,7 @@ http:
         result = runner.invoke(
             CLI_APP,
             [
+                "activity_chembl",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -174,8 +175,8 @@ sources:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.cli.main.load_config") as mock_load_config,
-            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -194,6 +195,7 @@ sources:
             runner.invoke(
                 CLI_APP,
                 [
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -238,7 +240,7 @@ sources:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class:
+        with patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -249,7 +251,7 @@ sources:
             result = runner.invoke(
                 CLI_APP,
                 [
-                    "activity",
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -291,17 +293,17 @@ http:
 
         result = runner.invoke(
             CLI_APP,
-            [
-                "activity",
-                "--config",
-                str(config_file),
-                "--output-dir",
-                str(output_dir),
-                "--limit",
-                "5",
-                "--sample",
-                "5",
-            ],
+                [
+                    "activity_chembl",
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                    "--limit",
+                    "5",
+                    "--sample",
+                    "5",
+                ],
         )
 
         assert result.exit_code == 2
@@ -328,7 +330,7 @@ http:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.main.load_config") as mock_load_config:
+        with patch("bioetl.cli.command.load_config") as mock_load_config:
             mock_config = MagicMock()
             mock_config.cli.dry_run = False
             mock_config.cli.limit = None
@@ -340,6 +342,7 @@ http:
             result = runner.invoke(
                 CLI_APP,
                 [
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -388,8 +391,8 @@ validation:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
-            patch("bioetl.cli.main.UnifiedLogger.configure") as mock_logger_configure,
+            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -401,7 +404,7 @@ validation:
             result = runner.invoke(
                 CLI_APP,
                 [
-                    "activity",
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -447,8 +450,8 @@ http:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.cli.main.load_config") as mock_load_config,
-            patch("bioetl.cli.main.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -467,6 +470,7 @@ http:
             result = runner.invoke(
                 CLI_APP,
                 [
+                    "activity_chembl",
                     "--config",
                     str(config_file),
                     "--output-dir",

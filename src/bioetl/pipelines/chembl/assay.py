@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -40,7 +40,30 @@ class ChemblAssayPipeline(PipelineBase):
     # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch assay payloads from ChEMBL using the configured HTTP client."""
+        """Fetch assay payloads from ChEMBL using the configured HTTP client.
+
+        Checks for input_file in config.cli.input_file and calls extract_by_ids()
+        if present, otherwise calls extract_all().
+        """
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_assay.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        log.info("chembl_assay.extract_mode", mode="full")
+        return self.extract_all()
+
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all assay records from ChEMBL using pagination."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
         stage_start = time.perf_counter()
@@ -89,7 +112,7 @@ class ChemblAssayPipeline(PipelineBase):
         for item in assay_client.iterate_all(limit=limit, page_size=page_size):
             records.append(item)
 
-        dataframe = pd.DataFrame.from_records(records)
+        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
@@ -104,21 +127,88 @@ class ChemblAssayPipeline(PipelineBase):
         )
         return dataframe
 
-    def transform(self, payload: object) -> pd.DataFrame:
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract assay records by a specific list of IDs using batch extraction.
+
+        Parameters
+        ----------
+        ids:
+            Sequence of assay_chembl_id values to extract.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame containing extracted assay records.
+        """
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        stage_start = time.perf_counter()
+
+        source_raw = self._resolve_source_config("chembl")
+        source_config = AssaySourceConfig.from_source_config(source_raw)
+        base_url = self._resolve_base_url(source_config)
+
+        http_client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_assay_http", http_client)
+
+        chembl_client = ChemblClient(http_client)
+        assay_client = ChemblAssayClient(
+            chembl_client,
+            batch_size=source_config.batch_size,
+            max_url_length=source_config.max_url_length,
+        )
+
+        assay_client.handshake(
+            endpoint=source_config.parameters.handshake_endpoint,
+            enabled=source_config.parameters.handshake_enabled,
+        )
+        self._chembl_release = assay_client.chembl_release
+
+        log.info(
+            "chembl_assay.handshake",
+            chembl_release=self._chembl_release,
+            handshake_endpoint=source_config.parameters.handshake_endpoint,
+            handshake_enabled=source_config.parameters.handshake_enabled,
+        )
+
+        if self.config.cli.dry_run:
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                "chembl_assay.extract_skipped",
+                dry_run=True,
+                duration_ms=duration_ms,
+                chembl_release=self._chembl_release,
+            )
+            return pd.DataFrame()
+
+        records: list[Mapping[str, Any]] = []
+        limit = self.config.cli.limit
+
+        for item in assay_client.iterate_by_ids(ids):
+            records.append(item)
+            if limit is not None and len(records) >= limit:
+                break
+
+        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        log.info(
+            "chembl_assay.extract_by_ids_summary",
+            rows=int(dataframe.shape[0]),
+            requested=len(ids),
+            duration_ms=duration_ms,
+            chembl_release=self._chembl_release,
+            limit=limit,
+        )
+        return dataframe
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw assay data by normalizing identifiers, types, and nested structures."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("transform"))
 
-        if not isinstance(payload, pd.DataFrame):
-            if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
-                df = pd.DataFrame(payload)
-            elif isinstance(payload, Mapping):
-                df = pd.DataFrame([payload])
-            else:
-                log.warning("transform_invalid_payload", payload_type=type(payload).__name__)
-                return pd.DataFrame()
-        else:
-            df = payload.copy()
+        df = df.copy()
 
         df = self._harmonize_identifier_columns(df, log)
         df = self._ensure_schema_columns(df, log)
@@ -282,7 +372,9 @@ class ChemblAssayPipeline(PipelineBase):
                         # Extract first classification if it's a dict with bao_format
                         first_class = classifications[0]
                         if isinstance(first_class, Mapping):
-                            bao_format: Any = first_class.get("bao_format")
+                            # Приводим Mapping к dict для явной типизации
+                            first_class_dict: dict[str, Any] = cast(dict[str, Any], dict(first_class))
+                            bao_format: Any | None = first_class_dict.get("bao_format")
                             if bao_format and isinstance(bao_format, str):
                                 df.loc[idx, "assay_class_id"] = bao_format
                 log.debug("assay_class_id_extracted_from_classifications", count=int(mask.sum()))
@@ -339,14 +431,14 @@ class ChemblAssayPipeline(PipelineBase):
             try:
                 if field == "row_index":
                     # row_index should be non-nullable, but use Int64 for consistency
-                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
                     df[field] = numeric_series_row.astype("Int64")
                     # Fill any NA values with sequential index
                     if df[field].isna().any():
                         df[field] = range(len(df))
                 elif field == "confidence_score":
                     # confidence_score is nullable
-                    numeric_series_conf: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                    numeric_series_conf: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
                     df[field] = numeric_series_conf.astype("Int64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))

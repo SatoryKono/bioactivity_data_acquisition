@@ -1049,12 +1049,22 @@ http:
 
 **Унифицированная стратегия для ChEMBL pipelines (v3.0):**
 
+Все ChEMBL pipelines поддерживают два режима извлечения:
+
+1. **Full pagination** (по умолчанию): извлечение всех записей через пагинацию без фильтров
+2. **Batch IDs** (опционально): извлечение по списку ID из входного файла через `--input-file`
+
 | Pipeline | Стратегия | Параметр | Batch Size | URL Limit | Endpoint |
 |----------|-----------|----------|------------|-----------|----------|
-| Assay | Batch IDs | `assay_chembl_id__in` | 25 | 2000 | `/assay.json` |
-| Testitem | Batch IDs | `molecule_chembl_id__in` | 25 | 2000 | `/molecule.json` |
-| Activity | Batch IDs | `activity_id__in` | 25 | 2000 | `/activity.json` |
-| Target | Batch IDs | `target_chembl_id__in` | 25 | 2000 | `/target.json` |
+| Assay | Full / Batch IDs | `assay_chembl_id__in` (batch) | 25 | 2000 | `/assay.json` |
+| Testitem | Full / Batch IDs | `molecule_chembl_id__in` (batch) | 25 | 2000 | `/molecule.json` |
+| Activity | Full / Batch IDs | `activity_id__in` (batch) | 25 | 2000 | `/activity.json` |
+| Target | Full / Batch IDs | `target_chembl_id__in` (batch) | 25 | 2000 | `/target.json` |
+
+**Режим извлечения определяется автоматически:**
+
+- Если указан `--input-file` с колонкой ID (например, `assay_chembl_id`, `activity_id`, `molecule_chembl_id`), используется batch extraction
+- Если `--input-file` не указан, используется full pagination всех записей
 
 **Общие стратегии для других API:**
 
@@ -1130,7 +1140,12 @@ assert response1.items == response2.items  # Идемпотентность
 
 **Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
 
-**⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на batch IDs стратегию.
+**⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на поддержку batch IDs стратегии.
+
+**Режимы работы:**
+
+- **Full mode** (по умолчанию): пагинация всех записей без входного файла
+- **Batch mode** (опционально): batch extraction по списку ID из входного файла (`--input-file`)
 
 **Недопустимо:**
 
@@ -1144,7 +1159,7 @@ params = {"page": 1, "cursor": "abc123"}  # Ошибка! Непредсказу
 
 params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
 
-# Смешивание batch IDs с другими стратегиями
+# Смешивание batch IDs с другими стратегиями пагинации
 
 params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2", "offset": 0}  # Ошибка!
 

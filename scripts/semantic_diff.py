@@ -101,7 +101,7 @@ def extract_pipeline_base_from_docs() -> Dict[str, Any]:
 def extract_config_fields_from_code() -> Dict[str, Any]:
     """Извлекает поля конфигов из Pydantic моделей."""
     try:
-        from bioetl.configs.models import PipelineConfig
+        from bioetl.config.models import PipelineConfig
         
         fields = {}
         
@@ -260,7 +260,7 @@ def compare_methods(code_methods: Dict[str, Any], doc_methods: Dict[str, Any]) -
     return differences
 
 
-def main():
+def main() -> None:
     """Основная функция семантического diff."""
     print("Extracting PipelineBase methods from code...")
     code_methods = extract_pipeline_base_methods()

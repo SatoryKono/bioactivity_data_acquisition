@@ -37,7 +37,7 @@ class TestGoldenDeterminism:
         )
 
         # Run pipeline twice
-        result1 = pipeline.write(sample_activity_data, artifacts)
+        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
 
         # Create new pipeline instance with same config
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
@@ -46,11 +46,11 @@ class TestGoldenDeterminism:
             include_metadata=True,
             include_qc_metrics=True,
         )
-        result2 = pipeline2.write(sample_activity_data, artifacts2)
+        result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
 
         # Compare CSV files byte-by-byte
-        csv1_content = result1.dataset.read_bytes()
-        csv2_content = result2.dataset.read_bytes()
+        csv1_content = result1.write_result.dataset.read_bytes()
+        csv2_content = result2.write_result.dataset.read_bytes()
 
         assert csv1_content == csv2_content, "CSV artifacts should be bit-identical"
 
@@ -74,10 +74,11 @@ class TestGoldenDeterminism:
             include_qc_metrics=True,
         )
 
-        result = pipeline.write(sample_activity_data, artifacts)
+        result = pipeline.write(sample_activity_data, artifacts.run_directory, extended=True)
 
         # Load and verify meta.yaml structure
-        meta_content = yaml.safe_load(result.metadata.read_text())
+        assert result.write_result.metadata is not None, "metadata should be created with extended=True"
+        meta_content = yaml.safe_load(result.write_result.metadata.read_text())
 
         # Verify required fields based on actual metadata structure
         assert "pipeline" in meta_content
@@ -105,10 +106,10 @@ class TestGoldenDeterminism:
             include_qc_metrics=True,
         )
 
-        result = pipeline.write(sample_activity_data, artifacts)
+        result = pipeline.write(sample_activity_data, artifacts.run_directory)
 
         # Read CSV and verify column order
-        df = pd.read_csv(result.dataset)  # type: ignore[reportUnknownMemberType]
+        df = pd.read_csv(result.write_result.dataset)  # type: ignore[reportUnknownMemberType]
 
         # First column should be activity_id (from schema COLUMN_ORDER)
         assert df.columns[0] == "activity_id"

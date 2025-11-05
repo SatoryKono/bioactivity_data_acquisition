@@ -232,9 +232,29 @@ chembl_base_url: str  # URL для воспроизводимости
 3. Все последующие запросы **БЛОКИРУЮТСЯ** при смене release
 4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `molecule:{release}:{molecule_chembl_id}`
 
-### 6.2 Батчевое извлечение из ChEMBL API
+### 6.2 Режимы извлечения
 
-**Метод:** `TestItemPipeline._fetch_molecule_data()`
+Pipeline поддерживает два режима извлечения:
+
+1. **Full pagination** (по умолчанию): извлечение всех записей через `extract_all()`
+2. **Batch extraction** (опционально): извлечение по списку ID через `extract_by_ids()` при наличии `--input-file`
+
+Режим определяется автоматически в методе `extract()`:
+
+- Если указан `--input-file` с колонкой `molecule_chembl_id`, вызывается `extract_by_ids()`
+- Если `--input-file` не указан, вызывается `extract_all()`
+
+### 6.3 Полное извлечение (Full Pagination)
+
+**Метод:** `TestItemChemblPipeline.extract_all()`
+
+**Эндпоинт ChEMBL:** `/molecule.json` (пагинация без фильтров)
+
+**Описание:** Итерируется по всем доступным молекулам через пагинацию ChEMBL API с использованием `page_meta.next` для навигации.
+
+### 6.4 Батчевое извлечение из ChEMBL API
+
+**Метод:** `TestItemChemblPipeline.extract_by_ids()`
 
 **Эндпоинт ChEMBL:** `/molecule.json?molecule_chembl_id__in={ids}`
 
@@ -254,22 +274,38 @@ if batch_size > 25:
 **Алгоритм:**
 
 ```python
-def _fetch_molecule_data(self, molecule_ids: list[str]) -> pd.DataFrame:
-    """Fetch molecule data from ChEMBL API with release-scoped caching."""
+def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+    """Extract molecule records by a specific list of IDs using batch extraction."""
     
-    records, stats = self.chembl_client.fetch_molecules(molecule_ids)
+    # Batch extraction parameters
+    batch_size = min(self._resolve_page_size(source_config), 25)
+    limit = self.config.cli.limit
     
-    # Логирование статистики
-    logger.info(
-        "molecule_fetch_summary",
-        requested=len(molecule_ids),
-        fetched=len(records),
-        cache_hits=stats.get("cache_hits", 0),
-        api_success_count=stats.get("api_success_count", 0),
-        fallback_count=stats.get("fallback_count", 0),
-    )
+    records: list[dict[str, Any]] = []
+    total_batches = 0
     
-    return pd.DataFrame(records)
+    # Process IDs in batches
+    for i in range(0, len(ids), batch_size):
+        batch_ids = ids[i : i + batch_size]
+        
+        # Construct batch request
+        params = {
+            "molecule_chembl_id__in": ",".join(batch_ids),
+            "format": "json",
+            "limit": len(batch_ids),
+        }
+        
+        response = client.get("/molecule.json", params=params)
+        payload = self._coerce_mapping(response.json())
+        page_items = self._extract_page_items(payload)
+        
+        records.extend(page_items)
+        total_batches += 1
+        
+        if limit is not None and len(records) >= limit:
+            break
+    
+    return pd.DataFrame.from_records(records)
 ```
 
 ### 6.3 Field Extraction and Flattening

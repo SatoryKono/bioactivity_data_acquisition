@@ -68,7 +68,7 @@ def extract_pipeline_base_signatures() -> Dict[str, Any]:
 def extract_config_models() -> Dict[str, Any]:
     """Извлекает модели конфигов из Pydantic."""
     try:
-        from bioetl.configs.models import PipelineConfig, PipelineMetadata, DeterminismConfig
+        from bioetl.config.models import PipelineConfig, PipelineMetadata, DeterminismConfig
         
         models = {}
         

@@ -349,6 +349,10 @@ class CLIConfig(BaseModel):
         default=True,
         description="If true, enforce strict column validation during Pandera checks.",
     )
+    input_file: str | None = Field(
+        default=None,
+        description="Optional path to input file (CSV/Parquet) containing IDs for batch extraction.",
+    )
     set_overrides: Mapping[str, Any] = Field(
         default_factory=dict,
         description="Key/value overrides provided via --set CLI arguments.",

@@ -640,7 +640,7 @@ export BIOETL__CACHE__TTL=7200
 
 - `offset` — смещение для offset-based pagination
 
-**⚠️ Breaking Change (v3.0):** Activity pipeline теперь использует **batch IDs** стратегию (`activity_id__in`) вместо offset-пагинации. См. раздел "Батчевое извлечение" ниже.
+**⚠️ Breaking Change (v3.0):** Activity pipeline теперь поддерживает **batch IDs** стратегию (`activity_id__in`) через опциональный входной файл, а также полную пагинацию по умолчанию. См. раздел "Режимы извлечения" ниже.
 
 **Расширенные фильтры:**
 
@@ -677,8 +677,8 @@ export BIOETL__CACHE__TTL=7200
 
 ```python
 
-def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
-    """Extract activity data with 25-item batching."""
+def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+    """Extract activity records by a specific list of IDs using batch extraction."""
 
     # Счетчики метрик
 
@@ -692,7 +692,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
     BATCH_SIZE = 25
 
-    activity_ids = data["activity_id"].tolist()
+    activity_ids = list(ids)  # IDs из входного файла
 
     # Батчевое извлечение
 

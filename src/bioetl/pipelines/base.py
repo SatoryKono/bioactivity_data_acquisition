@@ -305,12 +305,41 @@ class PipelineBase(ABC):
         yield self.pipeline_directory / f"{stem}_run_manifest.{self.manifest_extension}"
 
     @abstractmethod
-    def extract(self, *args: object, **kwargs: object) -> object:
-        """Subclasses fetch raw data and return domain-specific payloads."""
+    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
+        """Subclasses fetch raw data and return domain-specific payloads.
+
+        Subclasses should check for input_file in config.cli.input_file and
+        call extract_by_ids() if present, otherwise call extract_all().
+        """
+        # According to documentation, extract should return pd.DataFrame
 
     @abstractmethod
-    def transform(self, payload: object) -> object:
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all records from the source using pagination.
+
+        This method should paginate through all available records
+        from the external source without requiring a list of IDs.
+        """
+
+    @abstractmethod
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract records by a specific list of IDs using batch extraction.
+
+        Parameters
+        ----------
+        ids:
+            Sequence of identifiers to extract (e.g., assay_chembl_id, activity_id, molecule_chembl_id).
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame containing extracted records.
+        """
+
+    @abstractmethod
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Subclasses transform raw payloads into normalized tabular data."""
+        # According to documentation, transform should accept df: pd.DataFrame and return pd.DataFrame
 
     # ------------------------------------------------------------------
     # Optional hooks overridable by subclasses
@@ -428,12 +457,12 @@ class PipelineBase(ABC):
         log.info("reading_input", path=str(resolved_path), limit=limit, sample=sample)
 
         # Determine file format from extension
-        if resolved_path.suffix.lower() == ".parquet":
-            df = pd.read_parquet(resolved_path)  # type: ignore[assignment]
-        else:
-            # Default to CSV
-            df = pd.read_csv(resolved_path, low_memory=False)  # type: ignore[assignment]
-
+        # Note: pandas read methods have complex overloads; type checker cannot fully infer return type
+        df = (
+            pd.read_parquet(resolved_path)  # pyright: ignore[reportUnknownMemberType]
+            if resolved_path.suffix.lower() == ".parquet"
+            else pd.read_csv(resolved_path, low_memory=False)  # pyright: ignore[reportUnknownMemberType]
+        )
         if df.empty:
             log.debug("input_file_empty", path=str(resolved_path))
             return df
@@ -456,6 +485,131 @@ class PipelineBase(ABC):
             )
 
         return df.reset_index(drop=True)
+
+    def _read_input_ids(
+        self,
+        *,
+        id_column_name: str,
+        limit: int | None = None,
+        sample: int | None = None,
+    ) -> list[str]:
+        """Read IDs from input file for batch extraction.
+
+        This method reads the input file specified in config.cli.input_file
+        and extracts the specified ID column as a sorted list of unique IDs.
+
+        Parameters
+        ----------
+        id_column_name:
+            Name of the column containing IDs (e.g., 'assay_chembl_id', 'activity_id', 'molecule_chembl_id').
+        limit:
+            Optional limit on number of IDs to read.
+        sample:
+            Optional sample size for deterministic sampling.
+
+        Returns
+        -------
+        list[str]:
+            Sorted list of unique IDs from the input file.
+        """
+        log = UnifiedLogger.get(__name__)
+
+        if not self.config.cli.input_file:
+            log.debug("no_input_file", id_column=id_column_name)
+            return []
+
+        input_path = Path(self.config.cli.input_file)
+        if not input_path.is_absolute():
+            # Resolve relative to input_root if configured
+            input_root = Path(self.config.paths.input_root)
+            # Check if path already starts with input_root to avoid duplication
+            input_file_str = str(input_path).replace("\\", "/")
+            input_root_str = str(input_root).replace("\\", "/")
+            # Normalize: ensure both use forward slashes for comparison
+            if input_file_str.startswith(input_root_str + "/") or input_file_str == input_root_str:
+                # Path already contains input_root, use as-is (resolve to absolute)
+                input_path = input_path.resolve()
+            else:
+                # Path is relative, resolve via input_root
+                input_path = (input_root / input_path).resolve()
+
+        df = self.read_input_table(input_path, limit=limit, sample=sample)
+
+        if df.empty:
+            log.warning("input_file_empty_ids", path=str(input_path), id_column=id_column_name)
+            return []
+
+        if id_column_name not in df.columns:
+            available_columns = list(df.columns)
+            log.error(
+                "input_file_missing_id_column",
+                path=str(input_path),
+                id_column=id_column_name,
+                available_columns=available_columns,
+            )
+            msg = f"Input file {input_path} missing required column '{id_column_name}'. Available columns: {available_columns}"
+            raise ValueError(msg)
+
+        # Extract unique IDs, drop NaN, convert to string, sort for determinism
+        ids = (
+            df[id_column_name]
+            .dropna()
+            .astype(str)
+            .unique()
+            .tolist()
+        )
+        ids.sort()  # Deterministic ordering
+
+        log.info(
+            "input_ids_read",
+            path=str(input_path),
+            id_column=id_column_name,
+            count=len(ids),
+            limit=limit,
+            sample=sample,
+        )
+
+        return ids
+
+    def _get_id_column_name(self) -> str:
+        """Return the ID column name based on pipeline type.
+
+        This is a helper method that maps pipeline names to their
+        corresponding ID column names. Subclasses can override this
+        if they need custom logic.
+
+        Returns
+        -------
+        str:
+            Name of the ID column (e.g., 'assay_chembl_id', 'activity_id', 'molecule_chembl_id').
+        """
+        pipeline_name = self.pipeline_code.lower()
+
+        # Map pipeline names to ID column names
+        id_column_map: dict[str, str] = {
+            "assay_chembl": "assay_chembl_id",
+            "activity_chembl": "activity_id",
+            "testitem_chembl": "molecule_chembl_id",
+            "target_chembl": "target_chembl_id",
+            "document_chembl": "document_chembl_id",
+        }
+
+        # Try exact match first
+        if pipeline_name in id_column_map:
+            return id_column_map[pipeline_name]
+
+        # Try partial match (e.g., "assay" -> "assay_chembl_id")
+        for key, value in id_column_map.items():
+            if key.startswith(pipeline_name) or pipeline_name.startswith(key.split("_")[0]):
+                return value
+
+        # Fallback: construct from pipeline name
+        # Convert "assay_chembl" -> "assay_chembl_id"
+        if "_" in pipeline_name:
+            parts = pipeline_name.split("_")
+            return "_".join(parts[:-1]) + "_id" if len(parts) > 1 else f"{pipeline_name}_id"
+
+        return f"{pipeline_name}_id"
 
     def execute_enrichment_stages(
         self,
@@ -994,9 +1148,8 @@ class PipelineBase(ABC):
                 rows = self._safe_len(transformed)
                 log.info("transform_completed", duration_ms=duration, rows=rows)
 
-            prepared_for_validation = transformed
-            if isinstance(transformed, pd.DataFrame):
-                prepared_for_validation = self._apply_cli_sample(transformed)
+            # transformed is always pd.DataFrame according to transform signature
+            prepared_for_validation = self._apply_cli_sample(transformed)
 
             with UnifiedLogger.stage("validate", component=self._component_for_stage("validate")):
                 log.info("validate_started")
@@ -1038,20 +1191,18 @@ class PipelineBase(ABC):
                     log.warning("cleanup_failed", error=str(cleanup_error))
                 log.info("cleanup_completed")
 
-    def validate(self, payload: object) -> pd.DataFrame:
-        """Validate ``payload`` against the configured Pandera schema."""
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Validate ``df`` against the configured Pandera schema.
 
-        if not isinstance(payload, pd.DataFrame):
-            msg = "PipelineBase.validate expects a pandas DataFrame payload"
-            raise TypeError(msg)
-
+        According to documentation, this method should accept df: pd.DataFrame.
+        """
         schema_identifier = self.config.validation.schema_out
         log = UnifiedLogger.get(__name__)
         if not schema_identifier:
             log.debug("validation_skipped", reason="no_schema_configured")
             self._validation_schema = None
             self._validation_summary = None
-            return payload
+            return df
 
         schema_entry = get_schema(schema_identifier)
         schema = schema_entry.schema
@@ -1081,7 +1232,7 @@ class PipelineBase(ABC):
         error_summary: str | None = None
 
         try:
-            validated = schema.validate(payload, lazy=True)
+            validated = schema.validate(df, lazy=True)
             if not isinstance(validated, pd.DataFrame):
                 msg = "Schema validation did not return a DataFrame"
                 raise TypeError(msg)
@@ -1101,7 +1252,7 @@ class PipelineBase(ABC):
                 error=error_summary,
                 failure_count=failure_count,
             )
-            validated = payload
+            validated = df
             schema_valid = False
 
         self._validation_schema = schema_entry

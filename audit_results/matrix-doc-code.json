@@ -1,0 +1,128 @@
+[
+  {
+    "doc_point": "extract signature: extract(*args, **kwargs) -> pd.DataFrame",
+    "code_file": "src/bioetl/pipelines/base.py",
+    "code_symbol": "PipelineBase.extract",
+    "pipeline": "base",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "transform signature: transform(df: pd.DataFrame) -> pd.DataFrame",
+    "code_file": "src/bioetl/pipelines/base.py",
+    "code_symbol": "PipelineBase.transform",
+    "pipeline": "base",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "validate signature: validate(df: pd.DataFrame) -> pd.DataFrame",
+    "code_file": "src/bioetl/pipelines/base.py",
+    "code_symbol": "PipelineBase.validate",
+    "pipeline": "base",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "write signature: write(df: pd.DataFrame, output_path: Path, extended: bool = False) -> RunResult",
+    "code_file": "src/bioetl/pipelines/base.py",
+    "code_symbol": "PipelineBase.write",
+    "pipeline": "base",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "run signature: run(output_path: Path, extended: bool = False, *args, **kwargs) -> RunResult",
+    "code_file": "src/bioetl/pipelines/base.py",
+    "code_symbol": "PipelineBase.run",
+    "pipeline": "base",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "CLI command: activity_chembl",
+    "code_file": "src/bioetl/cli/registry.py",
+    "code_symbol": "COMMAND_REGISTRY['activity_chembl']",
+    "pipeline": "activity",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Config: configs/pipelines/chembl/activity.yaml",
+    "code_file": "configs/pipelines/chembl/activity.yaml",
+    "code_symbol": "activity.yaml",
+    "pipeline": "activity",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Class: ChemblActivityPipeline(PipelineBase)",
+    "code_file": "src/bioetl/pipelines/chembl/activity.py",
+    "code_symbol": "ChemblActivityPipeline",
+    "pipeline": "activity",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "CLI command: assay_chembl",
+    "code_file": "src/bioetl/cli/registry.py",
+    "code_symbol": "COMMAND_REGISTRY['assay_chembl']",
+    "pipeline": "assay",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Config: configs/pipelines/chembl/assay.yaml",
+    "code_file": "configs/pipelines/chembl/assay.yaml",
+    "code_symbol": "assay.yaml",
+    "pipeline": "assay",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Class: ChemblAssayPipeline(PipelineBase)",
+    "code_file": "src/bioetl/pipelines/chembl/assay.py",
+    "code_symbol": "ChemblAssayPipeline",
+    "pipeline": "assay",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "CLI command: testitem",
+    "code_file": "src/bioetl/cli/registry.py",
+    "code_symbol": "COMMAND_REGISTRY['testitem']",
+    "pipeline": "testitem",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Config: configs/pipelines/chembl/testitem.yaml",
+    "code_file": "configs/pipelines/chembl/testitem.yaml",
+    "code_symbol": "testitem.yaml",
+    "pipeline": "testitem",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  },
+  {
+    "doc_point": "Class: TestItemChemblPipeline(PipelineBase)",
+    "code_file": "src/bioetl/pipelines/chembl/testitem.py",
+    "code_symbol": "TestItemChemblPipeline",
+    "pipeline": "testitem",
+    "contract": "обязательный",
+    "status": "ok",
+    "action": "verify"
+  }
+]

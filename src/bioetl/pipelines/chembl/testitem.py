@@ -43,7 +43,30 @@ class TestItemChemblPipeline(PipelineBase):
     # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch molecule payloads from ChEMBL using the unified HTTP client."""
+        """Fetch molecule payloads from ChEMBL using the unified HTTP client.
+
+        Checks for input_file in config.cli.input_file and calls extract_by_ids()
+        if present, otherwise calls extract_all().
+        """
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_testitem.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        log.info("chembl_testitem.extract_mode", mode="full")
+        return self.extract_all()
+
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all molecule records from ChEMBL using pagination."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
         stage_start = time.perf_counter()
@@ -137,21 +160,126 @@ class TestItemChemblPipeline(PipelineBase):
         )
         return dataframe
 
-    def transform(self, payload: object) -> pd.DataFrame:
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract molecule records by a specific list of IDs using batch extraction.
+
+        Parameters
+        ----------
+        ids:
+            Sequence of molecule_chembl_id values to extract.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame containing extracted molecule records.
+        """
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        stage_start = time.perf_counter()
+
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_testitem_client", client)
+
+        # Fetch status to get ChEMBL versions
+        self._fetch_chembl_versions(client, log)
+
+        if self.config.cli.dry_run:
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                "chembl_testitem.extract_skipped",
+                dry_run=True,
+                duration_ms=duration_ms,
+                chembl_db_version=self._chembl_db_version,
+                api_version=self._api_version,
+            )
+            return pd.DataFrame()
+
+        # Batch extraction parameters
+        batch_size = self._resolve_page_size(source_config)
+        # Ensure batch_size <= 25 for ChEMBL API URL length limit
+        batch_size = min(batch_size, 25)
+        limit = self.config.cli.limit
+
+        records: list[dict[str, Any]] = []
+        total_batches = 0
+
+        # Process IDs in batches
+        for i in range(0, len(ids), batch_size):
+            batch_ids = ids[i : i + batch_size]
+            batch_start = time.perf_counter()
+
+            # Construct batch request
+            params: Mapping[str, Any] = {
+                "molecule_chembl_id__in": ",".join(batch_ids),
+                "format": "json",
+                "limit": len(batch_ids),
+            }
+
+            try:
+                response = client.get("/molecule.json", params=params)
+                payload = self._coerce_mapping(response.json())
+                page_items = self._extract_page_items(payload)
+
+                # Apply limit if specified
+                if limit is not None:
+                    remaining = max(limit - len(records), 0)
+                    if remaining == 0:
+                        break
+                    page_items = page_items[:remaining]
+
+                records.extend(page_items)
+                total_batches += 1
+
+                batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
+                log.debug(
+                    "chembl_testitem.batch_fetched",
+                    batch_size=len(batch_ids),
+                    fetched=len(page_items),
+                    total_records=len(records),
+                    duration_ms=batch_duration_ms,
+                )
+
+            except Exception as exc:  # pragma: no cover - defensive path
+                log.error(
+                    "chembl_testitem.batch_error",
+                    batch_size=len(batch_ids),
+                    error=str(exc),
+                    exc_info=True,
+                )
+                # Continue with next batch instead of failing completely
+                total_batches += 1
+
+            if limit is not None and len(records) >= limit:
+                break
+
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+        elif "molecule_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("molecule_chembl_id").reset_index(drop=True)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        log.info(
+            "chembl_testitem.extract_by_ids_summary",
+            rows=int(dataframe.shape[0]),
+            requested=len(ids),
+            batches=total_batches,
+            duration_ms=duration_ms,
+            chembl_db_version=self._chembl_db_version,
+            api_version=self._api_version,
+            limit=limit,
+        )
+        return dataframe
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw molecule data by normalizing fields and extracting nested properties."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("transform"))
 
-        if not isinstance(payload, pd.DataFrame):
-            if isinstance(payload, Sequence) and not isinstance(payload, (str, bytes)):
-                df = pd.DataFrame(payload)
-            elif isinstance(payload, Mapping):
-                df = pd.DataFrame([payload])
-            else:
-                log.warning("transform_invalid_payload", payload_type=type(payload).__name__)
-                return pd.DataFrame()
-        else:
-            df = payload.copy()
+        # According to documentation, transform should accept df: pd.DataFrame
+        # df is already a pd.DataFrame, so we can use it directly
+        df = df.copy()
 
         if df.empty:
             log.debug("transform_empty_dataframe")

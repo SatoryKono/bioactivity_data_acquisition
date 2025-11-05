@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -19,15 +20,25 @@ class TestPipeline(PipelineBase):
         """Return sample DataFrame."""
         return pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
 
-    def transform(self, payload: object) -> pd.DataFrame:
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all records - returns sample DataFrame for testing."""
+        return pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
+
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract records by IDs - returns filtered sample DataFrame for testing."""
+        base_df = pd.DataFrame({"id": [1, 2, 3], "value": [10, 20, 30]})
+        id_ints: list[int] = [int(id_val) for id_val in ids if id_val.isdigit()]
+        if id_ints:
+            return base_df[base_df["id"].isin(id_ints)]  # type: ignore[arg-type]
+        return pd.DataFrame({"id": [], "value": []})
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform payload."""
-        if isinstance(payload, pd.DataFrame):
-            df = payload.copy()
-            df["value_doubled"] = df["value"] * 2
-            if "id" in df.columns and "activity_id" not in df.columns:
-                df["activity_id"] = df["id"]
-            return df
-        return pd.DataFrame()
+        df = df.copy()
+        df["value_doubled"] = df["value"] * 2
+        if "id" in df.columns and "activity_id" not in df.columns:
+            df["activity_id"] = df["id"]
+        return df
 
 
 @pytest.mark.unit
@@ -214,7 +225,7 @@ class TestPipelineBase:
         valid_sample = sample_activity_data.copy()
         if "target_tax_id" in valid_sample.columns:
             valid_sample["target_tax_id"] = valid_sample["target_tax_id"].fillna(1).astype(int)  # type: ignore[arg-type]
-        pipeline.transform = lambda payload: valid_sample
+        pipeline.transform = lambda df: valid_sample
 
         validated = pipeline.validate(valid_sample)
 

@@ -20,10 +20,74 @@ sources:
   chembl:
     enabled: true
     description: "ChEMBL REST API"
-    batch_size: 25
+    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
-      max_url_length: 2000
+      max_url_length: 2000  # Used for predictive throttling of batch requests
+      select_fields:
+        - activity_id
+        - assay_chembl_id
+        - testitem_chembl_id
+        - molecule_chembl_id
+        - target_chembl_id
+        - document_chembl_id
+        - type
+        - relation
+        - value
+        - units
+        - standard_type
+        - standard_relation
+        - standard_value
+        - standard_units
+        - standard_text_value
+        - standard_flag
+        - upper_value
+        - lower_value
+        - pchembl_value
+        - activity_comment
+        - bao_endpoint
+        - bao_format
+        - bao_label
+        - canonical_smiles
+        - ligand_efficiency
+        - target_organism
+        - target_tax_id
+        - data_validity_comment
+        - potential_duplicate
+        - activity_properties
+        - assay_type
+        - assay_description
+        - assay_organism
+        - assay_tax_id
+        - parent_molecule_chembl_id
+        - molecule_pref_name
+        - record_id
+        - src_id
+        - target_pref_name
+        - text_value
+        - standard_upper_value
+        - published_type
+        - published_relation
+        - published_value
+        - published_units
+        - uo_units
+        - qudt_units
+        - data_validity_description
+
+# Input file support (optional)
+# You can specify input_file in two ways:
+# 1. In this YAML config via cli.input_file (see below)
+# 2. Via CLI option --input-file (overrides YAML value if provided)
+#
+# The CSV/Parquet file must contain an 'activity_id' column for batch extraction.
+# If not provided, pipeline uses full pagination.
+# Example CSV file: data/input/activity_ids.csv with column 'activity_id'
+
+# CLI configuration (optional overrides)
+cli:
+  # Optional path to input file (CSV/Parquet) containing activity_id column
+  # for batch extraction. Can be overridden via --input-file CLI option.
+   input_file: "data/input/activity.csv"
 
 # Determinism configuration for activity pipeline
 determinism:
@@ -40,15 +104,41 @@ determinism:
   column_order:
     - activity_id
     - assay_chembl_id
+    - assay_type
+    - assay_description
+    - assay_organism
+    - assay_tax_id
     - testitem_chembl_id
     - molecule_chembl_id
+    - parent_molecule_chembl_id
+    - molecule_pref_name
     - target_chembl_id
+    - target_pref_name
     - document_chembl_id
+    - record_id
+    - src_id
+    - type
+    - relation
+    - value
+    - units
     - standard_type
     - standard_relation
     - standard_value
+    - standard_upper_value
     - standard_units
+    - standard_text_value
+    - standard_flag
+    - upper_value
+    - lower_value
     - pchembl_value
+    - published_type
+    - published_relation
+    - published_value
+    - published_units
+    - uo_units
+    - qudt_units
+    - text_value
+    - activity_comment
     - bao_endpoint
     - bao_format
     - bao_label
@@ -57,6 +147,7 @@ determinism:
     - target_organism
     - target_tax_id
     - data_validity_comment
+    - data_validity_description
     - potential_duplicate
     - activity_properties
     - compound_key

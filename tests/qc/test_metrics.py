@@ -74,13 +74,13 @@ class TestQCMetrics:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result = pipeline.write(sample_activity_data, artifacts)
+        result = pipeline.write(sample_activity_data, artifacts.run_directory)
 
         # Should have QC artifacts
-        assert result.quality_report is not None
-        assert result.quality_report.exists()
+        assert result.write_result.quality_report is not None
+        assert result.write_result.quality_report.exists()
 
         # Verify QC report is readable
-        report_df = pd.read_csv(result.quality_report)
+        report_df = pd.read_csv(result.write_result.quality_report)
         assert not report_df.empty
 

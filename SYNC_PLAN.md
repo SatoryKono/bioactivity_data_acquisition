@@ -27,23 +27,28 @@
 ### Профильные разделы документации
 
 **Навигация:**
+
 - `docs/INDEX.md` — карта документации
 - `README.md` — разделы "Где искать документацию", "Быстрый старт", таблица поддерживаемых пайплайнов
 
 **ETL-контракт:**
+
 - `docs/etl_contract/01-pipeline-contract.md` — контракт `PipelineBase` (стадии `extract`, `transform`, `validate`, `write`, метод `run()`)
 - `docs/etl_contract/02-pipeline-config.md` — структура конфигурации пайплайнов
 - `docs/etl_contract/07-cli-integration.md` — интеграция CLI
 
 **Каталог пайплайнов:**
+
 - `docs/pipelines/10-pipelines-catalog.md` — каталог всех пайплайнов
 - `docs/pipelines/activity-chembl/` — документация Activity (16-activity-chembl-cli.md, 17-activity-chembl-config.md)
 - `docs/pipelines/assay-chembl/` — документация Assay (16-assay-chembl-cli.md, 17-assay-chembl-config.md)
 
 **Конфиги:**
+
 - `docs/configs/00-typed-configs-and-profiles.md` — система конфигураций Pydantic, профили `base.yaml`, `determinism.yaml`
 
 **CLI:**
+
 - `docs/cli/00-cli-overview.md` — обзор CLI
 - `docs/cli/01-cli-commands.md` — справочник команд
 - `docs/cli/02-cli-exit_codes.md` — коды выхода
@@ -51,26 +56,31 @@
 ### Жёсткие контракты
 
 **API PipelineBase:**
+
 - Стадии: `extract() -> object`, `transform(payload: object) -> object`, `validate(payload: object) -> pd.DataFrame`, `write(df: pd.DataFrame, output_path: Path, extended: bool = False) -> RunResult`
 - Метод `run(output_path: Path, extended: bool = False, *args, **kwargs) -> RunResult`
 - Структуры: `RunResult` (write_result, run_directory, manifest, additional_datasets, qc_summary, debug_dataset), `WriteResult` (dataset, quality_report, metadata)
 
 **Стадии:**
+
 - Последовательность: `extract → transform → validate → write`
 - Логирование через `UnifiedLogger` с контекстом стадии
 - Обработка ошибок и cleanup зарегистрированных клиентов
 
 **Схемы/поля конфигов:**
+
 - `PipelineConfig` (Pydantic) — обязательные: `version: Literal[1]`, `pipeline: PipelineMetadata`, `http: HTTPConfig`
 - Профили: `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml` — автоматически мерджатся через `include_default_profiles=True`
 - Пайплайн-конфиги: `configs/pipelines/chembl/activity.yaml`, `configs/pipelines/chembl/assay.yaml` (пути согласно README)
 
 **Флаги CLI:**
+
 - Обязательные: `--config`, `--output-dir`
 - Опциональные: `--dry-run`, `--verbose`, `--limit`, `--sample`, `--extended`, `--fail-on-schema-drift`, `--validate-columns`, `--set KEY=VALUE`
 - Команды: `list`, `activity`, `assay`
 
 **Поведение `--dry-run`:**
+
 - Загрузка и валидация конфигурации (включая профили)
 - Проверка доступности источников (handshake)
 - Пропуск стадий `extract` (если нет данных) и `write`
@@ -97,12 +107,15 @@
 ### Обновление артефактов качества
 
 **GAPS_TABLE.csv:**
+
 - Добавить строку: `assay, docs/pipelines/assay-chembl/, No, No, No, No, No, No, No, HIGH` (если не реализован)
 
 **CONTRADICTIONS.md:**
+
 - CONTR-005: Путь конфига Activity — расхождение между README (`configs/...`) и документацией (`src/bioetl/configs/...`). Решение: унифицировать на `configs/pipelines/chembl/activity.yaml` (относительно корня проекта).
 
 **CHECKLIST.md:**
+
 - Отметить завершённые пункты: инвентаризация документации, каталогизация кода, матрица Doc↔Code.
 
 ---
@@ -112,68 +125,80 @@
 ### 1. Инвентаризация документации (2h)
 
 **Задачи:**
+
 - [x] Запустить `audit_docs.py` для сбора списка файлов и BLAKE2-хэшей
 - [x] Прогнать линк-чек по `.lychee.toml`, сформировать `LINKCHECK.md`
 - [x] Зафиксировать статус в `CHECKLIST.md`
 
 **Результаты:**
+
 - `audit_results/LINKCHECK.md` — 83 битые ссылки, 6 отсутствующих файлов
 - `audit_results/GAPS_TABLE.csv` — таблица пробелов в документации
 
 ### 2. Каталогизация кода и конфигов (3h)
 
 **Задачи:**
+
 - [x] Извлечь сигнатуру `PipelineBase` из `src/bioetl/pipelines/base.py` (публичные стадии, хуки, методы `run()`, `write()`)
 - [x] Собрать Typer-команды из `src/bioetl/cli/main.py`, `src/bioetl/cli/app.py`, `src/bioetl/cli/registry.py` (команды `list`, `activity_chembl`, `assay_chembl`, флаги `--dry-run`, `--config`, `--output-dir`)
 - [x] Проанализировать Pydantic-модели в `src/bioetl/config/models.py` и профили `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`
 - [x] Извлечь пути конфигов для activity/assay из README и `src/bioetl/cli/registry.py`
 
 **Результаты:**
+
 - Каталог символов кода: PipelineBase API, CLI-команды, модели конфигов, пути конфигов
 
 ### 3. Матрица трассировки Doc↔Code (4h)
 
 **Задачи:**
+
 - [ ] Сформировать таблицу «док-пункт → код → пайплайн → тип контракта → статус → действие»
 - [ ] Зафиксировать пробелы в `GAPS_TABLE.csv`
 - [ ] Зафиксировать противоречия в `CONTRADICTIONS.md`
 - [ ] Отметить чек-пункты в `CHECKLIST.md`
 
 **Результаты:**
+
 - Матрица Doc↔Code (см. раздел выше)
 - Обновлённые `GAPS_TABLE.csv`, `CONTRADICTIONS.md`, `CHECKLIST.md`
 
 ### 4. Семантический diff и правки (6h)
 
 **Задачи:**
+
 - [ ] Проверить соответствие стадий `extract/transform/validate/write`, CLI-флагов, структур конфигов документации
 - [ ] Подготовить изменения кода для `PipelineBase`, `activity`, `assay` в пользу документации
 - [ ] Обновить Pandera-схемы, профили, логирование при необходимости
 - [ ] Обновить документацию только при наличии одобренного тикета; иначе описать расхождения в артефактах качества
 
 **Результаты:**
+
 - Изменения кода: унификация путей конфигов, регистрация команды `assay` (если реализована)
 - Обновлённые артефакты качества
 
 ### 5. Тесты и автоматизация (5h)
 
 **Задачи:**
+
 - [ ] Сформировать doc-smoke скрипты: `python -m bioetl.cli.main list`, `activity_chembl` и `assay_chembl` с `--dry-run` (пути из README)
 - [ ] Настроить в CI стадии: link-check, `audit_docs.py`, doc→CLI doctest, schema-guard (сверка YAML↔Pydantic), determinism check (двойной прогон `--dry-run`, сравнение логов)
 - [ ] Отразить пайплайн качества и пороги фейлов в README/доках согласно профилю «CI»
 
 **Результаты:**
+
 - Скрипты doc-smoke тестов
 - CI-конфигурация (GitHub Actions / GitLab CI)
 
 ### 6. Подготовка поставки (2h)
 
 **Задачи:**
+
 - [ ] Сформировать комплект изменений: код, обновлённые доки, `GAPS_TABLE.csv`, `CONTRADICTIONS.md`, `LINKCHECK.md`, закрытый `CHECKLIST.md`
 - [ ] Описать риски и план отката
 - [ ] Убедиться, что DoD выполняется
 
 **Результаты:**
+
 - PR с изменениями
 - Артефакты поставки
 
@@ -186,6 +211,7 @@
 ### 1. Link-check (`.lychee.toml`)
 
 **Проверка:**
+
 ```bash
 lychee --config .lychee.toml
 ```
@@ -195,6 +221,7 @@ lychee --config .lychee.toml
 **Отчёт:** `audit_results/LINKCHECK.md`
 
 **CI-интеграция:**
+
 ```yaml
 - name: Link Check
   run: |
@@ -208,16 +235,19 @@ lychee --config .lychee.toml
 ### 2. Doc-audit (`audit_docs.py`)
 
 **Проверка:**
+
 ```bash
 python audit_docs.py
 ```
 
 **Ожидаемые отчёты:**
+
 - `audit_results/GAPS_TABLE.csv` — таблица пробелов
 - `audit_results/LINKCHECK.md` — отчёт линк-чека
 - `audit_results/CONTRADICTIONS.md` — противоречия (обновляется вручную)
 
 **CI-интеграция:**
+
 ```yaml
 - name: Doc Audit
   run: |
@@ -230,6 +260,7 @@ python audit_docs.py
 **Проверка:** автоматический запуск всех CLI-примеров из README и документации с `--dry-run`.
 
 **Примеры из README:**
+
 ```bash
 # Навигация по зарегистрированным пайплайнам
 python -m bioetl.cli.main list
@@ -248,6 +279,7 @@ python -m bioetl.cli.main assay_chembl \
 ```
 
 **CI-интеграция:**
+
 ```yaml
 - name: CLI Doctest
   run: |
@@ -261,10 +293,12 @@ python -m bioetl.cli.main assay_chembl \
 **Проверка:** соответствие описанных в доках полей конфигов реализованным моделям Pydantic.
 
 **Пайплайн-конфиги:**
+
 - `configs/pipelines/chembl/activity.yaml` — должен соответствовать `PipelineConfig`
 - `configs/pipelines/chembl/assay.yaml` — должен соответствовать `PipelineConfig`
 
 **CI-интеграция:**
+
 ```yaml
 - name: Schema Guard
   run: |
@@ -288,6 +322,7 @@ python -m bioetl.cli.main assay_chembl \
 **Проверка:** двойной прогон activity и assay в `--dry-run` и сравнение логов/выходов.
 
 **CI-интеграция:**
+
 ```yaml
 - name: Determinism Check
   run: |
@@ -326,6 +361,7 @@ python -m bioetl.cli.main assay_chembl \
 ### Конвенции именования
 
 Следовать конвенциям из README:
+
 - Файлы документации пайплайнов: `<NN>-<entity>-<source>-<topic>.md` (например, `16-activity-chembl-cli.md`)
 - Навигация через `docs/INDEX.md`
 - Каталог пайплайнов в `docs/pipelines/10-pipelines-catalog.md`
@@ -410,4 +446,3 @@ python -m bioetl.cli.main assay_chembl \
 ```
 
 Пути и команды в примерах подтверждены README: CLI/конфиги для Activity и Assay.
-

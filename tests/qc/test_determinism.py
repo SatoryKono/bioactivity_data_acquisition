@@ -7,6 +7,7 @@ import hashlib
 import pandas as pd
 import pytest
 
+from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
 
 
@@ -17,7 +18,7 @@ class TestDeterminismQC:
 
     def test_hash_row_consistency(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         sample_activity_data: pd.DataFrame,
     ):
@@ -30,10 +31,10 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts)
+        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
 
         # Read CSV and check hash_row column
-        df1 = pd.read_csv(result1.dataset)
+        df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
 
         if "hash_row" in df1.columns:
             # Hash should be consistent for same data
@@ -42,16 +43,16 @@ class TestDeterminismQC:
             # Run again
             pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
             artifacts2 = pipeline2.plan_run_artifacts(run_id)
-            result2 = pipeline2.write(sample_activity_data, artifacts2)
+            result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
 
-            df2 = pd.read_csv(result2.dataset)
+            df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
             hash2 = df2["hash_row"].iloc[0]
 
             assert hash1 == hash2, "hash_row should be consistent across runs"
 
     def test_hash_business_key_consistency(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         sample_activity_data: pd.DataFrame,
     ):
@@ -63,8 +64,8 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts)
-        df1 = pd.read_csv(result1.dataset)
+        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
 
         if "hash_business_key" in df1.columns:
             hash1 = df1["hash_business_key"].iloc[0]
@@ -72,16 +73,16 @@ class TestDeterminismQC:
             # Run again
             pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
             artifacts2 = pipeline2.plan_run_artifacts(run_id)
-            result2 = pipeline2.write(sample_activity_data, artifacts2)
+            result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
 
-            df2 = pd.read_csv(result2.dataset)
+            df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
             hash2 = df2["hash_business_key"].iloc[0]
 
             assert hash1 == hash2, "hash_business_key should be consistent"
 
     def test_sort_order_stability(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         sample_activity_data: pd.DataFrame,
     ):
@@ -93,22 +94,22 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts)
-        df1 = pd.read_csv(result1.dataset)
+        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
 
         # Run again
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts2 = pipeline2.plan_run_artifacts(run_id)
-        result2 = pipeline2.write(sample_activity_data, artifacts2)
+        result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
 
-        df2 = pd.read_csv(result2.dataset)
+        df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
 
         # Row order should be identical
         assert df1["activity_id"].tolist() == df2["activity_id"].tolist()
 
     def test_csv_checksum_consistency(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         sample_activity_data: pd.DataFrame,
     ):
@@ -119,16 +120,16 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts)
-        content1 = result1.dataset.read_bytes()
+        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        content1 = result1.write_result.dataset.read_bytes()
         checksum1 = hashlib.sha256(content1).hexdigest()
 
         # Run again
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts2 = pipeline2.plan_run_artifacts(run_id)
-        result2 = pipeline2.write(sample_activity_data, artifacts2)
+        result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
 
-        content2 = result2.dataset.read_bytes()
+        content2 = result2.write_result.dataset.read_bytes()
         checksum2 = hashlib.sha256(content2).hexdigest()
 
         assert checksum1 == checksum2, "CSV file checksums should be identical"

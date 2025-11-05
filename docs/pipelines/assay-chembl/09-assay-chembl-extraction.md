@@ -88,9 +88,9 @@ class AssayInputSchema(pa.DataFrameModel):
 
 ### 2.1 Инициализация пайплайна
 
-**Класс:** `AssayPipeline` (`src/library/assay/pipeline.py`)
+**Класс:** `ChemblAssayPipeline` (`src/bioetl/pipelines/chembl/assay.py`)
 
-**Наследование:** `PipelineBase[AssayConfig]`
+**Наследование:** `PipelineBase[PipelineConfig]`
 
 **Run-level метаданные:**
 
@@ -120,9 +120,29 @@ chembl_base_url: str  # URL для воспроизводимости
 
 4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `assay:{release}:{assay_chembl_id}`
 
-### 2.2 Батчевое извлечение из ChEMBL API
+### 2.2 Режимы извлечения
 
-**Метод:** `AssayPipeline._extract_from_chembl()`
+Pipeline поддерживает два режима извлечения:
+
+1. **Full pagination** (по умолчанию): извлечение всех записей через `extract_all()`
+2. **Batch extraction** (опционально): извлечение по списку ID через `extract_by_ids()` при наличии `--input-file`
+
+Режим определяется автоматически в методе `extract()`:
+
+- Если указан `--input-file` с колонкой `assay_chembl_id`, вызывается `extract_by_ids()`
+- Если `--input-file` не указан, вызывается `extract_all()`
+
+### 2.3 Полное извлечение (Full Pagination)
+
+**Метод:** `ChemblAssayPipeline.extract_all()`
+
+**Эндпоинт ChEMBL:** `/assay.json` (пагинация без фильтров)
+
+**Описание:** Итерируется по всем доступным ассаям через пагинацию ChEMBL API.
+
+### 2.4 Батчевое извлечение из ChEMBL API
+
+**Метод:** `ChemblAssayPipeline.extract_by_ids()`
 
 **Эндпоинт ChEMBL:** `/assay.json?assay_chembl_id__in={ids}`
 
@@ -147,8 +167,8 @@ if batch_size > 25:
 
 ```python
 
-def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
-    """Extract assay data with 25-item batching."""
+def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+    """Extract assay records by a specific list of IDs using batch extraction."""
 
     # Счетчики метрик
 
@@ -162,7 +182,7 @@ def _extract_from_chembl(self, data: pd.DataFrame) -> pd.DataFrame:
 
     BATCH_SIZE = 25
 
-    assay_ids = data["assay_chembl_id"].tolist()
+    assay_ids = list(ids)  # IDs из входного файла
 
     # Батчевое извлечение
 

@@ -12,7 +12,7 @@ The Assay (ChEMBL) pipeline extracts assay metadata from ChEMBL API with determi
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 
