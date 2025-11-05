@@ -20,8 +20,12 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.schemas.activity import (ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER,
-                                     RELATIONS, STANDARD_TYPES)
+from bioetl.schemas.activity import (
+    ACTIVITY_PROPERTY_KEYS,
+    COLUMN_ORDER,
+    RELATIONS,
+    STANDARD_TYPES,
+)
 
 from ..base import PipelineBase, RunResult
 
