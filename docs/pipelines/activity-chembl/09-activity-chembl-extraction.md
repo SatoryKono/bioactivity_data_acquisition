@@ -474,10 +474,6 @@ determinism:
     - "data_validity_comment"
     - "activity_properties"
     - "compound_key"
-    - "is_citation"
-    - "high_citation_rate"
-    - "exact_data_citation"
-    - "rounded_data_citation"
 
 postprocess:
   correlation:
@@ -922,10 +918,6 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 | ACTIVITY.activity_properties | activity_properties | string | {...} | stable json dumps | json parseable or null | /activity | - |
 
 | ACTIVITY.compound_key | compound_key | string | CHEMBL998\|Ki\|CHEMBL231 | concat | len<=256 | derived | бизнес-ключ |
-| ACTIVITY.is_citation | is_citation | bool | true | as-is | boolean | derived | по document linkage |
-| ACTIVITY.high_citation_rate | high_citation_rate | bool | false | as-is | boolean | derived | евристика |
-| ACTIVITY.exact_data_citation | exact_data_citation | bool | true | as-is | boolean | derived | формируем из источника |
-| ACTIVITY.rounded_data_citation | rounded_data_citation | bool | false | as-is | boolean | derived | формируем из источника |
 
 ### Дополнительные поля (business logic, derived)
 
@@ -938,10 +930,6 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 - `IUPHAR_class`, `IUPHAR_subclass` — обогащение через IUPHAR API
 
 - `taxon_index`, `gene_index` — индексы для категоризации
-
-- `is_citation`, `high_citation_rate` — флаги QC
-
-- `exact_data_citation`, `rounded_data_citation` — флаги качества данных
 
 **Контракт:**
 
@@ -1081,8 +1069,7 @@ COLUMN_ORDER = [
     "standard_units", "pchembl_value", "bao_endpoint", "bao_format", "bao_label",
     "canonical_smiles", "ligand_efficiency", "target_organism", "target_tax_id",
     "data_validity_comment", "activity_properties",
-    "compound_key", "is_citation", "high_citation_rate",
-    "exact_data_citation", "rounded_data_citation"
+    "compound_key"
 ]
 
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
@@ -1116,10 +1103,6 @@ ActivitySchema = DataFrameSchema(
         "data_validity_comment": Column(pa.String, nullable=True),
         "activity_properties": Column(pa.String, nullable=True),
         "compound_key": Column(pa.String, nullable=True),
-        "is_citation": Column(pa.Bool, nullable=True),
-        "high_citation_rate": Column(pa.Bool, nullable=True),
-        "exact_data_citation": Column(pa.Bool, nullable=True),
-        "rounded_data_citation": Column(pa.Bool, nullable=True),
     },
     ordered=True,
     coerce=True,
@@ -1608,8 +1591,7 @@ artifacts:
     "standard_units", "pchembl_value", "bao_endpoint", "bao_format", "bao_label",
     "canonical_smiles", "ligand_efficiency", "target_organism", "target_tax_id",
     "data_validity_comment", "activity_properties",
-    "compound_key", "is_citation", "high_citation_rate",
-    "exact_data_citation", "rounded_data_citation"
+    "compound_key"
   ]
 checksums:
   csv_sha256: "13d5deb55a24b8286fb261f6d3c74dff08360089d25f75c6cc2723ef0d126234"

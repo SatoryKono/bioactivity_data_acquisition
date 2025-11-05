@@ -97,10 +97,6 @@ def sample_activity_data() -> pd.DataFrame:
             "potential_duplicate": [False, True, None],
             "activity_properties": [None, '{"property": "value"}', None],
             "compound_key": ["key1", "key2", "key3"],
-            "is_citation": [True, False, True],
-            "high_citation_rate": [False, True, False],
-            "exact_data_citation": [True, True, False],
-            "rounded_data_citation": [False, False, True],
         }
     )
     df["target_tax_id"] = pd.Series([9606, 10090, 9606], dtype="Int64")
@@ -129,10 +125,6 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
             "canonical_smiles": "CCO",
             "target_organism": "Homo sapiens",
             "target_tax_id": 9606,
-            "is_citation": True,
-            "high_citation_rate": False,
-            "exact_data_citation": True,
-            "rounded_data_citation": False,
             "potential_duplicate": 0,
         },
         {
@@ -153,10 +145,6 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
             "target_organism": "Mus musculus",
             "target_tax_id": 10090,
             "activity_properties": {"property": "value"},
-            "is_citation": False,
-            "high_citation_rate": True,
-            "exact_data_citation": True,
-            "rounded_data_citation": False,
             "potential_duplicate": 1,
         },
     ]

@@ -210,8 +210,6 @@ class TestChemblActivityPipelineTransformations:
                 "target_tax_id": ["9606", "10090", None],
                 "standard_value": ["10.5", "20.0", None],
                 "pchembl_value": ["7.98", None, "8.28"],
-                "is_citation": [1, 0, "1"],
-                "high_citation_rate": [True, False, None],
                 "potential_duplicate": [1, 0, None],
             }
         )
@@ -222,8 +220,6 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["target_tax_id"].dtype.name == "Int64"
         assert normalized["standard_value"].dtype.name == "float64"
         assert normalized["pchembl_value"].dtype.name == "float64"
-        assert normalized["is_citation"].dtype.name == "bool"
-        assert normalized["high_citation_rate"].dtype.name == "bool"
         assert normalized["potential_duplicate"].dtype.name == "bool"
 
     def test_validate_foreign_keys(self, pipeline_config_fixture, run_id: str):

@@ -123,7 +123,7 @@ class ChemblActivityPipeline(PipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -204,19 +204,30 @@ class ChemblActivityPipeline(PipelineBase):
 
         log.info("validate_started", rows=len(payload))
 
+        # Ensure target_tax_id has correct nullable integer type before validation
+        if "target_tax_id" in payload.columns:
+            if payload["target_tax_id"].dtype.name != "Int64":
+                # Convert to nullable Int64 if not already
+                numeric_series: pd.Series[Any] = pd.to_numeric(payload["target_tax_id"], errors="coerce")
+                payload["target_tax_id"] = numeric_series.astype("Int64")
+
         # Pre-validation checks
         self._check_activity_id_uniqueness(payload, log)
         self._check_foreign_key_integrity(payload, log)
 
         # Call base validation with error handling
+        # Temporarily disable coercion to preserve nullable Int64 types for target_tax_id
+        # Schema has coerce=False, but base.validate uses config.validation.coerce
+        original_coerce = self.config.validation.coerce
         try:
+            self.config.validation.coerce = False
             validated = super().validate(payload)
             log.info(
                 "validate_completed",
                 rows=len(validated),
                 schema=self.config.validation.schema_out,
                 strict=self.config.validation.strict,
-                coerce=self.config.validation.coerce,
+                coerce=original_coerce,  # Log original value for clarity
             )
             return validated
         except pandera.errors.SchemaErrors as exc:
@@ -232,7 +243,7 @@ class ChemblActivityPipeline(PipelineBase):
                 error_count=error_count,
                 schema=self.config.validation.schema_out,
                 strict=self.config.validation.strict,
-                coerce=self.config.validation.coerce,
+                coerce=original_coerce,  # Log original value for clarity
                 error_summary=error_summary,
                 exc_info=True,
             )
@@ -259,6 +270,8 @@ class ChemblActivityPipeline(PipelineBase):
                 exc_info=True,
             )
             raise
+        finally:
+            self.config.validation.coerce = original_coerce
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -285,7 +298,7 @@ class ChemblActivityPipeline(PipelineBase):
         if batch_size is None:
             parameters = getattr(source_config, "parameters", {})
             if isinstance(parameters, Mapping):
-                candidate: Any = parameters.get("batch_size")  # type: ignore[assignment]
+                candidate: Any = parameters.get("batch_size")
                 if isinstance(candidate, int) and candidate > 0:
                     batch_size = candidate
         if batch_size is None or batch_size <= 0:
@@ -324,7 +337,7 @@ class ChemblActivityPipeline(PipelineBase):
         elif isinstance(dataset, Mapping):
             input_frame = pd.DataFrame([cast(dict[str, Any], dataset)])
         elif isinstance(dataset, Sequence) and not isinstance(dataset, (str, bytes)):
-            dataset_list: list[Any] = list(dataset)  # type: ignore[arg-type]
+            dataset_list: list[Any] = list(dataset)
             input_frame = pd.DataFrame({"activity_id": dataset_list})
         else:
             msg = (
@@ -500,7 +513,7 @@ class ChemblActivityPipeline(PipelineBase):
         self._last_batch_extract_stats = summary
         log.info("chembl_activity.batch_summary", **summary)
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -664,7 +677,7 @@ class ChemblActivityPipeline(PipelineBase):
             if isinstance(value, Sequence):
                 candidates = [
                     cast(dict[str, Any], item)
-                    for item in value  # type: ignore[misc]
+                    for item in value
                     if isinstance(item, Mapping)
                 ]
                 if candidates:
@@ -675,7 +688,7 @@ class ChemblActivityPipeline(PipelineBase):
             if isinstance(value, Sequence):
                 candidates = [
                     cast(dict[str, Any], item)
-                    for item in value  # type: ignore[misc]
+                    for item in value
                     if isinstance(item, Mapping)
                 ]
                 if candidates:
@@ -686,7 +699,7 @@ class ChemblActivityPipeline(PipelineBase):
     def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
         page_meta: Any = payload.get("page_meta")
         if isinstance(page_meta, Mapping):
-            next_link_raw: Any = page_meta.get("next")  # type: ignore[assignment]
+            next_link_raw: Any = page_meta.get("next")
             next_link: str | None = cast(str | None, next_link_raw) if next_link_raw is not None else None
             if isinstance(next_link, str) and next_link:
                 base_path = urlparse(base_url).path.rstrip("/")
@@ -812,10 +825,6 @@ class ChemblActivityPipeline(PipelineBase):
 
         expected = list(COLUMN_ORDER)
         boolean_columns = {
-            "is_citation",
-            "high_citation_rate",
-            "exact_data_citation",
-            "rounded_data_citation",
             "potential_duplicate",
         }
 
@@ -901,7 +910,7 @@ class ChemblActivityPipeline(PipelineBase):
                     df.loc[mismatch_mask, ["molecule_chembl_id", "testitem_chembl_id"]]
                     .drop_duplicates()
                     .head(5)
-                    .to_dict("records")  # type: ignore[assignment]
+                    .to_dict("records")
                 )
                 samples: list[dict[str, Any]] = cast(list[dict[str, Any]], samples_raw)
                 log.warning(
@@ -963,7 +972,7 @@ class ChemblActivityPipeline(PipelineBase):
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
 
                 # Convert to numeric (NaN for empty/invalid values)
-                numeric_series: pd.Series[Any] = pd.to_numeric(series, errors="coerce")  # type: ignore[arg-type, assignment]
+                numeric_series: pd.Series[Any] = pd.to_numeric(series, errors="coerce")
                 df.loc[mask, "standard_value"] = numeric_series
 
                 # Check for negative values (should be >= 0)
@@ -987,7 +996,7 @@ class ChemblActivityPipeline(PipelineBase):
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
                 relations_set: set[str] = RELATIONS
-                invalid_mask = mask & ~df["standard_relation"].isin(relations_set)  # type: ignore[arg-type]
+                invalid_mask = mask & ~df["standard_relation"].isin(relations_set)
                 if invalid_mask.any():
                     log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
@@ -1000,7 +1009,7 @@ class ChemblActivityPipeline(PipelineBase):
                     df.loc[mask, "standard_type"].astype(str).str.strip()
                 )
                 standard_types_set: set[str] = STANDARD_TYPES
-                invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # type: ignore[arg-type]
+                invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)
                 if invalid_mask.any():
                     log.warning("invalid_standard_type", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_type"] = None
@@ -1130,31 +1139,66 @@ class ChemblActivityPipeline(PipelineBase):
 
         df = df.copy()
 
-        type_mappings = {
+        # Non-nullable integer fields
+        non_nullable_int_fields = {
             "activity_id": "int64",
+        }
+
+        # Nullable integer fields
+        nullable_int_fields = {
             "target_tax_id": "int64",
+        }
+
+        # Float fields
+        float_fields = {
             "standard_value": "float64",
             "pchembl_value": "float64",
         }
 
         bool_fields = [
-            "is_citation",
-            "high_citation_rate",
-            "exact_data_citation",
-            "rounded_data_citation",
             "potential_duplicate",
         ]
 
-        for field, dtype in type_mappings.items():
+        # Handle non-nullable integers
+        for field in non_nullable_int_fields:
             if field not in df.columns:
                 continue
             try:
-                if dtype == "int64":
-                    numeric_series_int: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
-                    df[field] = numeric_series_int.astype("Int64")
-                elif dtype == "float64":
-                    numeric_series_float: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
-                    df[field] = numeric_series_float.astype("float64")
+                numeric_series_int: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                df[field] = numeric_series_int.astype("Int64")
+            except (ValueError, TypeError) as exc:
+                log.warning("type_conversion_failed", field=field, error=str(exc))
+
+        # Handle nullable integers - preserve NA values
+        for field in nullable_int_fields:
+            if field not in df.columns:
+                continue
+            try:
+                # Convert to numeric, preserving NA values
+                nullable_numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                # Use Int64 (nullable integer) to preserve NA values
+                df[field] = nullable_numeric_series.astype("Int64")
+                # For nullable fields, ensure values >= 1 if not NA
+                mask_valid = df[field].notna()
+                if mask_valid.any():
+                    invalid_mask = mask_valid & (df[field] < 1)
+                    if invalid_mask.any():
+                        log.warning(
+                            "invalid_positive_integer",
+                            field=field,
+                            count=int(invalid_mask.sum()),
+                        )
+                        df.loc[invalid_mask, field] = pd.NA
+            except (ValueError, TypeError) as exc:
+                log.warning("type_conversion_failed", field=field, error=str(exc))
+
+        # Handle float fields
+        for field in float_fields:
+            if field not in df.columns:
+                continue
+            try:
+                numeric_series_float: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                df[field] = numeric_series_float.astype("float64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
 
@@ -1162,8 +1206,8 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
-                bool_numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
-                filled_series: pd.Series[Any] = bool_numeric_series.fillna(False)  # type: ignore[arg-type, assignment]
+                bool_numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")
+                filled_series: pd.Series[Any] = bool_numeric_series.fillna(False)
                 df[field] = filled_series.astype(bool)
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
@@ -1290,7 +1334,7 @@ class ChemblActivityPipeline(PipelineBase):
 
             if "schema_context" in failure_cases.columns:
                 error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts()
-                error_types_raw = error_counts_series.to_dict()  # type: ignore[assignment]
+                error_types_raw = error_counts_series.to_dict()
                 error_types_result: dict[Any, int] = cast(dict[Any, int], error_types_raw)
                 summary["error_types"] = dict(error_types_result)
 
@@ -1322,21 +1366,21 @@ class ChemblActivityPipeline(PipelineBase):
         # Group by error type if schema_context is available
         if "schema_context" in failure_cases.columns:
             error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts().head(10)
-            error_types_raw = error_counts_series.to_dict()  # type: ignore[assignment]
+            error_types_raw = error_counts_series.to_dict()
             error_types: dict[Any, int] = cast(dict[Any, int], error_types_raw)
             formatted["error_types"] = dict(error_types)
 
         # Group by column if available
         if "column" in failure_cases.columns:
             column_counts_series: pd.Series[Any] = failure_cases["column"].value_counts().head(10)
-            column_errors_raw = column_counts_series.to_dict()  # type: ignore[assignment]
+            column_errors_raw = column_counts_series.to_dict()
             column_errors: dict[Any, int] = cast(dict[Any, int], column_errors_raw)
             formatted["column_errors"] = dict(column_errors)
 
         # Sample of failure cases (first 5)
         if len(failure_cases) > 0:
             sample = failure_cases.head(5)
-            sample_raw = sample.to_dict("records")  # type: ignore[assignment]
+            sample_raw = sample.to_dict("records")
             formatted["sample"] = cast(list[dict[str, Any]], sample_raw)
 
         return formatted
@@ -1423,7 +1467,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         rows: list[dict[str, Any]] = []
         if not base_report.empty:
-            records_raw = base_report.to_dict("records")  # type: ignore[assignment]
+            records_raw = base_report.to_dict("records")
             records: list[dict[str, Any]] = cast(list[dict[str, Any]], records_raw)
             for record in records:
                 rows.append({str(k): v for k, v in record.items()})
@@ -1461,7 +1505,7 @@ class ChemblActivityPipeline(PipelineBase):
         # Add measurement type distribution
         if "standard_type" in df.columns:
             type_counts_series: pd.Series[Any] = df["standard_type"].value_counts()
-            type_dist_raw = type_counts_series.to_dict()  # type: ignore[assignment]
+            type_dist_raw = type_counts_series.to_dict()
             type_dist: dict[Any, int] = cast(dict[Any, int], type_dist_raw)
             for type_value, count in type_dist.items():
                 rows.append(
@@ -1477,7 +1521,7 @@ class ChemblActivityPipeline(PipelineBase):
         # Add unit distribution
         if "standard_units" in df.columns:
             unit_counts_series: pd.Series[Any] = df["standard_units"].value_counts()
-            unit_dist_raw = unit_counts_series.to_dict()  # type: ignore[assignment]
+            unit_dist_raw = unit_counts_series.to_dict()
             unit_dist: dict[Any, int] = cast(dict[Any, int], unit_dist_raw)
             for unit_value, count in unit_dist.items():
                 rows.append(
@@ -1487,28 +1531,6 @@ class ChemblActivityPipeline(PipelineBase):
                         "column": "standard_units",
                         "value": str(unit_value) if unit_value is not None else "null",
                         "count": int(count),
-                    }
-                )
-
-        # Add ChEMBL validity flags
-        validity_flags = [
-            "is_citation",
-            "high_citation_rate",
-            "exact_data_citation",
-            "rounded_data_citation",
-        ]
-        for flag in validity_flags:
-            if flag in df.columns:
-                if df[flag].dtype == bool:
-                    true_count = int(df[flag].sum())
-                else:
-                    true_count = int(df[flag].astype(bool).sum())
-                rows.append(
-                    {
-                        "section": "validity",
-                        "metric": f"{flag}_count",
-                        "column": flag,
-                        "value": int(true_count),
                     }
                 )
 
