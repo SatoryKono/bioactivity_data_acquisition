@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 from numbers import Number
+from typing import cast
 
 import pandas as pd
 import pandera as pa
@@ -119,7 +120,9 @@ def _is_valid_activity_properties(value: object) -> bool:
     if not isinstance(payload, list):
         return False
 
-    for item in payload:
+    # Явная типизация для mypy
+    payload_list: list[dict[str, object]] = cast(list[dict[str, object]], payload)
+    for item in payload_list:
         if not isinstance(item, dict):
             return False
         if not _is_valid_activity_property_item(item):
