@@ -443,6 +443,10 @@ class PipelineConfig(BaseModel):
         description="Per-source settings keyed by a short identifier.",
     )
     cli: CLIConfig = Field(default_factory=CLIConfig)
+    chembl: Mapping[str, Any] | None = Field(
+        default=None,
+        description="ChEMBL-specific configuration (e.g., enrichment settings).",
+    )
 
     @model_validator(mode="after")
     def ensure_column_order_when_set(self) -> PipelineConfig:

@@ -11,7 +11,7 @@ import pandas as pd
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 
-SCHEMA_VERSION = "1.4.0"
+SCHEMA_VERSION = "1.5.0"
 
 COLUMN_ORDER = (
     "activity_id",
@@ -63,6 +63,9 @@ COLUMN_ORDER = (
     "potential_duplicate",
     "activity_properties",
     "compound_key",
+    "compound_name",
+    "curated",
+    "removed",
 )
 
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
@@ -217,6 +220,9 @@ ActivitySchema = DataFrameSchema(
             nullable=True,
         ),
         "compound_key": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "compound_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
+        "curated": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
+        "removed": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
     },
     ordered=True,
     coerce=False,  # Disable coercion at schema level - types are normalized in transform

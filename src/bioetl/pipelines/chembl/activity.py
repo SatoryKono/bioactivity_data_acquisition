@@ -16,18 +16,16 @@ import pandas as pd
 import pandera.errors
 from requests.exceptions import RequestException
 
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.schemas.activity import (
-    ACTIVITY_PROPERTY_KEYS,
-    COLUMN_ORDER,
-    RELATIONS,
-    STANDARD_TYPES,
-)
+from bioetl.schemas.activity import (ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER,
+                                     RELATIONS, STANDARD_TYPES)
 
 from ..base import PipelineBase, RunResult
+from .activity_enrichment import enrich_with_compound_record
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -171,19 +169,26 @@ class ChemblActivityPipeline(PipelineBase):
             payload = self._coerce_mapping(response.json())
             page_items = self._extract_page_items(payload)
 
+            # Process nested fields for each item
+            processed_items: list[dict[str, Any]] = []
+            for item in page_items:
+                processed_item = self._extract_nested_fields(dict(item))
+                processed_item = self._extract_activity_properties_fields(processed_item)
+                processed_items.append(processed_item)
+
             if limit is not None:
                 remaining = max(limit - len(records), 0)
                 if remaining == 0:
                     break
-                page_items = page_items[:remaining]
+                processed_items = processed_items[:remaining]
 
-            records.extend(page_items)
+            records.extend(processed_items)
             pages += 1
             page_duration_ms = (time.perf_counter() - page_start) * 1000.0
             log.debug(
                 "chembl_activity.page_fetched",
                 endpoint=next_endpoint,
-                batch_size=len(page_items),
+                batch_size=len(processed_items),
                 total_records=len(records),
                 duration_ms=page_duration_ms,
             )
@@ -291,6 +296,11 @@ class ChemblActivityPipeline(PipelineBase):
         df = self._normalize_data_types(df, log)
         df = self._validate_foreign_keys(df, log)
         df = self._ensure_schema_columns(df, log)
+
+        # Enrichment: compound_record fields
+        if self._should_enrich_compound_record():
+            df = self._enrich_compound_record(df)
+
         df = self._order_schema_columns(df)
 
         df = self._finalize_identifier_columns(df, log)
@@ -439,6 +449,65 @@ class ChemblActivityPipeline(PipelineBase):
                 return [str(field) for field in select_fields]
         return list(API_ACTIVITY_FIELDS)
 
+    def _should_enrich_compound_record(self) -> bool:
+        """Проверить, включено ли обогащение compound_record в конфиге."""
+        if not self.config.chembl:
+            return False
+        try:
+            chembl_section = self.config.chembl
+            activity_section: Any = chembl_section.get("activity")
+            if not isinstance(activity_section, Mapping):
+                return False
+            activity_section = cast(Mapping[str, Any], activity_section)
+            enrich_section: Any = activity_section.get("enrich")
+            if not isinstance(enrich_section, Mapping):
+                return False
+            enrich_section = cast(Mapping[str, Any], enrich_section)
+            compound_record_section: Any = enrich_section.get("compound_record")
+            if not isinstance(compound_record_section, Mapping):
+                return False
+            compound_record_section = cast(Mapping[str, Any], compound_record_section)
+            enabled: Any = compound_record_section.get("enabled")
+            return bool(enabled) if enabled is not None else False
+        except (AttributeError, KeyError, TypeError):
+            return False
+
+    def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Обогатить DataFrame полями из compound_record."""
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+
+        # Получить конфигурацию обогащения
+        enrich_cfg: dict[str, Any] = {}
+        try:
+            if self.config.chembl:
+                chembl_section = self.config.chembl
+                activity_section: Any = chembl_section.get("activity")
+                if isinstance(activity_section, Mapping):
+                    activity_section = cast(Mapping[str, Any], activity_section)
+                    enrich_section: Any = activity_section.get("enrich")
+                    if isinstance(enrich_section, Mapping):
+                        enrich_section = cast(Mapping[str, Any], enrich_section)
+                        compound_record_section: Any = enrich_section.get("compound_record")
+                        if isinstance(compound_record_section, Mapping):
+                            compound_record_section = cast(Mapping[str, Any], compound_record_section)
+                            enrich_cfg = dict(compound_record_section)
+        except (AttributeError, KeyError, TypeError) as exc:
+            log.warning(
+                "enrichment_config_error",
+                error=str(exc),
+                message="Using default enrichment config",
+            )
+
+        # Создать клиент ChEMBL
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_enrichment_client", api_client)
+        chembl_client = ChemblClient(api_client)
+
+        # Вызвать функцию обогащения
+        return enrich_with_compound_record(df, chembl_client, enrich_cfg)
+
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient,
@@ -577,6 +646,8 @@ class ChemblActivityPipeline(PipelineBase):
                     record = batch_records.get(key)
                     if record and not record.get("error"):
                         materialised = dict(record)
+                        materialised = self._extract_nested_fields(materialised)
+                        materialised = self._extract_activity_properties_fields(materialised)
                         materialised.setdefault("activity_id", numeric_id)
                         records.append(materialised)
                         success_count += 1
@@ -804,6 +875,113 @@ class ChemblActivityPipeline(PipelineBase):
                 fallback_properties
             ),
         }
+
+    def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:
+        """Extract fields from nested assay and molecule objects."""
+        # Extract assay_organism and assay_tax_id from nested assay object
+        if "assay" in record and isinstance(record["assay"], Mapping):
+            assay = cast(Mapping[str, Any], record["assay"])
+            if "organism" in assay:
+                record.setdefault("assay_organism", assay["organism"])
+            if "tax_id" in assay:
+                record.setdefault("assay_tax_id", assay["tax_id"])
+
+        # Extract molecule_pref_name from nested molecule object
+        if "molecule" in record and isinstance(record["molecule"], Mapping):
+            molecule = cast(Mapping[str, Any], record["molecule"])
+            if "pref_name" in molecule:
+                record.setdefault("molecule_pref_name", molecule["pref_name"])
+
+        return record
+
+    def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
+        """Extract fields from activity_properties array."""
+        if "activity_properties" not in record:
+            return record
+
+        properties = record["activity_properties"]
+        if properties is None:
+            return record
+
+        # Parse JSON string if needed
+        if isinstance(properties, str):
+            try:
+                properties = json.loads(properties)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return record
+
+        # Handle list of properties
+        if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
+            return record
+
+        # Type narrowing: properties is now a Sequence but not str/bytes
+        properties_list = cast(Sequence[Any], properties)
+
+        # Process each property item
+        for prop in properties_list:
+            if not isinstance(prop, Mapping):
+                continue
+
+            prop = cast(Mapping[str, Any], prop)
+            prop_type = prop.get("type")
+            if not isinstance(prop_type, str):
+                continue
+
+            prop_type_lower = prop_type.lower()
+
+            # Extract published_* fields
+            if "published" in prop_type_lower or prop_type_lower in ("published_type", "published_value"):
+                if "type" in prop and record.get("published_type") is None:
+                    record.setdefault("published_type", prop.get("type"))
+                if "relation" in prop and record.get("published_relation") is None:
+                    record.setdefault("published_relation", prop.get("relation"))
+                if "value" in prop and record.get("published_value") is None:
+                    record.setdefault("published_value", prop.get("value"))
+                if "units" in prop and record.get("published_units") is None:
+                    record.setdefault("published_units", prop.get("units"))
+
+            # Extract upper_value, lower_value, standard_upper_value
+            if "upper" in prop_type_lower or prop_type_lower in ("upper_value", "upper_limit"):
+                value = prop.get("value")
+                if value is not None and record.get("upper_value") is None:
+                    record.setdefault("upper_value", value)
+                if "standard" in prop_type_lower and record.get("standard_upper_value") is None:
+                    record.setdefault("standard_upper_value", value)
+
+            if "lower" in prop_type_lower or prop_type_lower in ("lower_value", "lower_limit"):
+                value = prop.get("value")
+                if value is not None and record.get("lower_value") is None:
+                    record.setdefault("lower_value", value)
+
+            if "standard_upper" in prop_type_lower:
+                value = prop.get("value")
+                if value is not None and record.get("standard_upper_value") is None:
+                    record.setdefault("standard_upper_value", value)
+
+            # Extract text_value and standard_text_value
+            if prop.get("text_value"):
+                if record.get("text_value") is None:
+                    record.setdefault("text_value", prop.get("text_value"))
+                # Check if this is a standard_text_value
+                if "standard" in prop_type_lower and record.get("standard_text_value") is None:
+                    record.setdefault("standard_text_value", prop.get("text_value"))
+
+            # Extract activity_comment
+            if "comment" in prop_type_lower or "activity_comment" in prop_type_lower:
+                value = prop.get("value") or prop.get("text_value")
+                if value is not None and record.get("activity_comment") is None:
+                    record.setdefault("activity_comment", value)
+
+            # Extract data_validity_comment and data_validity_description
+            if "data_validity" in prop_type_lower or "validity" in prop_type_lower:
+                value = prop.get("value") or prop.get("text_value")
+                if value is not None:
+                    if "description" in prop_type_lower and record.get("data_validity_description") is None:
+                        record.setdefault("data_validity_description", value)
+                    elif record.get("data_validity_comment") is None:
+                        record.setdefault("data_validity_comment", value)
+
+        return record
 
     @staticmethod
     def _coerce_mapping(payload: Any) -> dict[str, Any]:
@@ -1826,7 +2004,8 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Build base quality report with activity_id as business key for duplicate checking
         business_key = ["activity_id"] if "activity_id" in df.columns else None
-        from bioetl.qc.report import build_quality_report as build_default_quality_report
+        from bioetl.qc.report import \
+            build_quality_report as build_default_quality_report
 
         base_report = build_default_quality_report(df, business_key_fields=business_key)
         # build_default_quality_report always returns pd.DataFrame by contract

@@ -151,6 +151,9 @@ determinism:
     - potential_duplicate
     - activity_properties
     - compound_key
+    - compound_name
+    - curated
+    - removed
 
   hashing:
     algorithm: "sha256"
@@ -164,6 +167,24 @@ determinism:
 postprocess:
   correlation:
     enabled: false
+
+# ChEMBL enrichment configuration
+chembl:
+  activity:
+    enrich:
+      compound_record:
+        enabled: true
+        fields:
+          - compound_name
+          - compound_key
+          - curated
+          - removed
+          - molecule_chembl_id
+          - document_chembl_id
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
 
 # Validation schema
 validation:
