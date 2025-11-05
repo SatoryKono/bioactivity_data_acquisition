@@ -10,7 +10,12 @@ import typer
 from click.testing import CliRunner
 from typer.main import get_command
 
-from bioetl.cli.main import _parse_set_overrides, _validate_config_path, _validate_output_dir, app
+from bioetl.cli.main import (
+    _parse_set_overrides,  # type: ignore[reportPrivateUsage]
+    _validate_config_path,  # type: ignore[reportPrivateUsage]
+    _validate_output_dir,  # type: ignore[reportPrivateUsage]
+    app,
+)
 
 CLI_APP = get_command(app)
 
@@ -186,7 +191,7 @@ sources:
             mock_pipeline.run.return_value = mock_result
             mock_pipeline_class.return_value = mock_pipeline
 
-            result = runner.invoke(
+            runner.invoke(
                 CLI_APP,
                 [
                     "--config",
@@ -240,7 +245,7 @@ sources:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                app,
+                CLI_APP,
                 [
                     "--config",
                     str(config_file),
@@ -279,7 +284,7 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            app,
+            CLI_APP,
             [
                 "--config",
                 str(config_file),
@@ -387,7 +392,7 @@ validation:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                app,
+                CLI_APP,
                 [
                     "--config",
                     str(config_file),

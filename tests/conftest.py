@@ -24,10 +24,10 @@ elif str(_current_project_src) not in sys.path:
     sys.path.insert(0, str(_current_project_src))
 
 import pandas as pd  # noqa: E402
-import pytest  # noqa: E402, type: ignore[missing-import]
+import pytest  # noqa: E402
 
 from bioetl.config import PipelineConfig  # noqa: E402
-from bioetl.config.models import (  # noqa: E402, type: ignore[attr-defined]
+from bioetl.config.models import (  # noqa: E402, type: ignore[attr-defined]  # noqa: ISC001
     CLIConfig,
     DeterminismConfig,
     DeterminismHashingConfig,
@@ -35,8 +35,8 @@ from bioetl.config.models import (  # noqa: E402, type: ignore[attr-defined]
     HTTPClientConfig,
     HTTPConfig,
     MaterializationConfig,
-    PostprocessConfig,
     PipelineMetadata,
+    PostprocessConfig,
     RetryConfig,
     SourceConfig,
     ValidationConfig,

@@ -7,14 +7,14 @@ rules with executable references.
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
-from datetime import datetime
 import hashlib
 import time
+from abc import ABC, abstractmethod
+from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -31,8 +31,12 @@ from bioetl.core.output import (
 )
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
-    build_quality_report as build_default_quality_report,
+)
+from bioetl.qc.report import (
     build_qc_metrics_payload,
+)
+from bioetl.qc.report import (
+    build_quality_report as build_default_quality_report,
 )
 from bioetl.schemas import SchemaRegistryEntry, get_schema
 
@@ -132,7 +136,7 @@ class PipelineBase(ABC):
     def _normalise_run_tag(self, run_tag: str | None = None) -> str:
         """Return a YYYYMMDD tag using overrides or the current date."""
 
-        candidates = []
+        candidates: list[str | None] = []
         if run_tag:
             candidates.append(run_tag)
         if self.config.cli.date_tag:
@@ -304,7 +308,9 @@ class PipelineBase(ABC):
         """Return aggregated QC metrics for persistence."""
 
         business_key = self.config.determinism.hashing.business_key_fields
-        return build_qc_metrics_payload(df, business_key_fields=business_key)
+        payload = build_qc_metrics_payload(df, business_key_fields=business_key)
+        # Convert Mapping[str, Any] to dict[str, object]
+        return dict(payload)
 
     def augment_metadata(
         self,
@@ -335,7 +341,12 @@ class PipelineBase(ABC):
 
         closer: Callable[[], None]
         if callable(client):
-            closer = client  # type: ignore[assignment]
+            # Wrap to ensure return type is None
+            def wrapped() -> None:
+                client()
+                return None
+
+            closer = wrapped
         else:
             candidate = getattr(client, close_method, None)
             if candidate is None or not callable(candidate):
@@ -343,7 +354,13 @@ class PipelineBase(ABC):
                     f"Client '{name}' does not expose callable '{close_method}' and is not itself callable"
                 )
                 raise TypeError(msg)
-            closer = candidate
+
+            # Wrap to ensure return type is None
+            def wrapped() -> None:
+                candidate()
+                return None
+
+            closer = wrapped
 
         self._registered_clients[name] = closer
 
@@ -357,9 +374,9 @@ class PipelineBase(ABC):
     def _safe_len(self, payload: object) -> int | None:
         if isinstance(payload, pd.DataFrame):
             return int(payload.shape[0])
-        if hasattr(payload, "__len__"):
+        if isinstance(payload, Sized):
             try:
-                return int(len(payload))  # type: ignore[arg-type]
+                return int(len(payload))
             except TypeError:
                 return None
         return None
@@ -394,26 +411,30 @@ class PipelineBase(ABC):
         )
 
         metadata_payload = self.augment_metadata(prepared.metadata, prepared.dataframe)
-        if not isinstance(metadata_payload, Mapping):
-            msg = "augment_metadata must return a mapping"
-            raise TypeError(msg)
         metadata = dict(metadata_payload)
 
         metrics_payload = self.build_qc_metrics(prepared.dataframe)
         metrics_summary: dict[str, Any] | None = None
         if isinstance(metrics_payload, Mapping):
-            metrics_summary = {key: metrics_payload[key] for key in metrics_payload}
+            metrics_summary = dict(metrics_payload)
         elif isinstance(metrics_payload, pd.DataFrame):
+            metrics_dict_result: dict[Any, dict[str, Any]] = metrics_payload.to_dict(orient="index")  # type: ignore[assignment]
             metrics_summary = {
                 str(row.get("metric", index)): row.get("value")
-                for index, row in metrics_payload.to_dict(orient="index").items()
+                for index, row in metrics_dict_result.items()
             }
 
         if self._validation_summary:
-            metadata.setdefault("validation", {}).update(self._validation_summary)
+            validation_default: dict[str, Any] = {}
+            validation_dict = cast(dict[str, Any], metadata.setdefault("validation", validation_default))
+            validation_dict.update(self._validation_summary)
 
         if metrics_summary:
-            metadata.setdefault("quality", {}).setdefault("metrics", {}).update(metrics_summary)
+            quality_default: dict[str, Any] = {}
+            quality_dict = cast(dict[str, Any], metadata.setdefault("quality", quality_default))
+            metrics_default: dict[str, Any] = {}
+            metrics_dict = cast(dict[str, Any], quality_dict.setdefault("metrics", metrics_default))
+            metrics_dict.update(metrics_summary)
 
         log.debug(
             "write_artifacts_prepared",
@@ -570,9 +591,6 @@ class PipelineBase(ABC):
             self.apply_retention_policy()
             log.info("pipeline_completed", stage_durations_ms=stage_durations_ms)
 
-            if artifacts is None:
-                raise RuntimeError("Artifacts must be initialised during the write stage")
-
             return RunResult(
                 run_id=self.run_id,
                 write_result=write_result,
@@ -613,8 +631,8 @@ class PipelineBase(ABC):
 
         schema_entry = get_schema(schema_identifier)
         schema = schema_entry.schema
-        if hasattr(schema, "replace"):
-            schema = schema.replace(
+        if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
+            schema = cast(Any, schema).replace(
                 strict=self.config.validation.strict,
                 coerce=self.config.validation.coerce,
             )
@@ -640,11 +658,17 @@ class PipelineBase(ABC):
 
         try:
             validated = schema.validate(payload, lazy=True)
+            if not isinstance(validated, pd.DataFrame):
+                msg = "Schema validation did not return a DataFrame"
+                raise TypeError(msg)
             validated = self._reorder_columns(validated, schema_entry.column_order)
         except pandera.errors.SchemaErrors as exc:
             if not fail_open:
                 raise
-            failure_count = len(exc.failure_cases) if hasattr(exc, "failure_cases") else None
+            failure_cases_df: pd.DataFrame | None = None
+            if hasattr(exc, "failure_cases"):
+                failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
+            failure_count = len(failure_cases_df) if failure_cases_df is not None else None
             error_summary = str(exc)
             log.warning(
                 "schema_validation_failed",
@@ -664,7 +688,7 @@ class PipelineBase(ABC):
             "column_order": list(schema_entry.column_order),
             "strict": bool(self.config.validation.strict),
             "coerce": bool(self.config.validation.coerce),
-            "row_count": int(len(validated)) if isinstance(validated, pd.DataFrame) else None,
+            "row_count": int(len(validated)),
             "schema_valid": schema_valid,
         }
         if error_summary is not None:

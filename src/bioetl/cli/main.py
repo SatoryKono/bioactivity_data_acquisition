@@ -8,13 +8,13 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import typer
 
 from bioetl.config import load_config
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
-from zoneinfo import ZoneInfo
 
 app = typer.Typer(
     name="bioetl",
@@ -223,13 +223,13 @@ def main(
         "--extended",
         help="Enable extended QC artifacts and metrics",
     ),
-    set_overrides: list[str] = typer.Option(  # type: ignore[assignment]
+    set_overrides: list[str] = typer.Option(
         [],
         "--set",
         "-S",
         help="Override individual configuration keys at runtime (KEY=VALUE). Repeatable.",
     ),
-    golden: Path | None = typer.Option(  # type: ignore[assignment]
+    golden: Path | None = typer.Option(
         None,
         "--golden",
         help="Path to golden dataset for bitwise determinism comparison",

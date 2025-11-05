@@ -5,10 +5,11 @@ from __future__ import annotations
 import csv
 import json
 import os
+from collections.abc import Callable, Hashable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Literal, cast
 
 import pandas as pd
 import yaml
@@ -16,6 +17,10 @@ import yaml
 from bioetl.config import PipelineConfig
 
 from .logger import UnifiedLogger
+
+# CSV quoting type for pandas to_csv
+# Values: 0=QUOTE_MINIMAL, 1=QUOTE_ALL, 2=QUOTE_NONNUMERIC, 3=QUOTE_NONE
+CSVQuotingLiteral = Literal[0, 1, 2, 3]
 
 __all__ = [
     "DeterministicWriteArtifacts",
@@ -52,19 +57,35 @@ def _normalise_scalar(value: Any, *, config: PipelineConfig) -> str:
         precision = config.determinism.float_precision
         return f"{value:.{precision}f}"
     if isinstance(value, datetime):
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=timezone.utc)
-        else:
-            value = value.astimezone(timezone.utc)
-        return value.isoformat().replace("+00:00", "Z")
+        normalized_value = (
+            value.replace(tzinfo=timezone.utc)
+            if value.tzinfo is None
+            else value.astimezone(timezone.utc)
+        )
+        iso_value = normalized_value.isoformat()
+        return iso_value.replace("+00:00", "Z")
     if isinstance(value, pd.Timestamp):
-        ts = value.tz_convert("UTC") if value.tzinfo is not None else value.tz_localize("UTC")
-        return ts.isoformat().replace("+00:00", "Z")
+        timestamp_utc = (
+            value.tz_convert("UTC")
+            if value.tzinfo is not None
+            else value.tz_localize("UTC")
+        )
+        iso_value_ts = timestamp_utc.isoformat()
+        return iso_value_ts.replace("+00:00", "Z")
     if isinstance(value, (list, tuple)):
-        return json.dumps([_normalise_scalar(item, config=config) for item in value], ensure_ascii=False, sort_keys=True)
+        sequence_value = cast(Sequence[Any], value)
+        normalized_items = [
+            _normalise_scalar(item, config=config)
+            for item in sequence_value
+        ]
+        return json.dumps(normalized_items, ensure_ascii=False, sort_keys=True)
     if isinstance(value, Mapping):
-        normalised = {str(k): _normalise_scalar(v, config=config) for k, v in value.items()}
-        return json.dumps(normalised, ensure_ascii=False, sort_keys=True)
+        mapping_value = cast(Mapping[Hashable, object], value)
+        normalised_dict: dict[str, str] = {
+            str(key): _normalise_scalar(item, config=config)
+            for key, item in mapping_value.items()
+        }
+        return json.dumps(normalised_dict, ensure_ascii=False, sort_keys=True)
     return str(value)
 
 
@@ -80,7 +101,7 @@ def _hash_fields(row: pd.Series, fields: Sequence[str], *, config: PipelineConfi
         msg = f"Unsupported hash algorithm: {algorithm}"
         raise ValueError(msg) from exc
 
-    serialised_values = []
+    serialised_values: list[str] = []
     for field in fields:
         if field not in row:
             msg = f"Field '{field}' required for hashing is missing from dataframe"
@@ -116,24 +137,30 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     sort_config = config.determinism.sort
     if not sort_config.by:
         return df
-    
+
     # Check if all sort columns exist in the DataFrame
     missing_columns = [col for col in sort_config.by if col not in df.columns]
-    
+
     # If DataFrame is empty and columns are missing, skip sorting (empty DataFrame)
     if df.empty and missing_columns:
         return df
-    
+
     # If DataFrame is not empty but columns are missing, raise error
     if missing_columns:
         msg = f"Sort columns missing from dataframe: {missing_columns}"
         raise KeyError(msg)
-    
-    ascending = sort_config.ascending or [True] * len(sort_config.by)
+
+    ascending_list: list[bool] = list(sort_config.ascending) if sort_config.ascending else [True] * len(sort_config.by)
+    if sort_config.na_position == "first" or sort_config.na_position == "last":
+        na_pos_str = sort_config.na_position
+    else:
+        na_pos_str = "last"
+    assert na_pos_str in ("first", "last")
+    na_pos: Literal["first", "last"] = na_pos_str  # type: ignore[assignment]  # assert ensures type
     return df.sort_values(
         by=sort_config.by,
-        ascending=ascending,
-        na_position=sort_config.na_position,
+        ascending=ascending_list,
+        na_position=na_pos,
         kind="stable",
     ).reset_index(drop=True)
 
@@ -158,10 +185,19 @@ def prepare_dataframe(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFra
     return prepared
 
 
-def _csv_quoting(config: PipelineConfig) -> int:
+def _csv_quoting(config: PipelineConfig) -> CSVQuotingLiteral:
     quoting_name = config.determinism.serialization.csv.quoting.upper()
     try:
-        return getattr(csv, f"QUOTE_{quoting_name}")
+        quote_value = getattr(csv, f"QUOTE_{quoting_name}")
+        if not isinstance(quote_value, int):
+            msg = f"Invalid CSV quoting constant: {quoting_name}"
+            raise ValueError(msg)
+        # Ensure it's one of the valid CSV quoting constants
+        if quote_value not in (csv.QUOTE_ALL, csv.QUOTE_MINIMAL, csv.QUOTE_NONNUMERIC, csv.QUOTE_NONE):
+            msg = f"Invalid CSV quoting constant value: {quote_value}"
+            raise ValueError(msg)
+        # Return validated quote value (guaranteed to be one of 0,1,2,3)
+        return quote_value  # type: ignore[return-value]  # Literal type narrowing
     except AttributeError as exc:  # pragma: no cover - configuration error
         msg = f"Unsupported CSV quoting option: {quoting_name}"
         raise ValueError(msg) from exc
@@ -174,13 +210,14 @@ def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     csv_config = config.determinism.serialization.csv
     float_format = f"%.{config.determinism.float_precision}f"
+    quoting_value = _csv_quoting(config)
     df.to_csv(
-        tmp_path,
+        path_or_buf=str(tmp_path),
         index=False,
         sep=csv_config.separator,
         na_rep=csv_config.na_rep,
         encoding="utf-8",
-        quoting=_csv_quoting(config),
+        quoting=quoting_value,
         lineterminator="\n",
         float_format=float_format,
     )

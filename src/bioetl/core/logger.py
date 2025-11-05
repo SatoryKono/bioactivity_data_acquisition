@@ -9,7 +9,8 @@ as by golden tests.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, MutableMapping, Sequence
+from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -260,18 +261,18 @@ class UnifiedLogger:
         reset_global_context()
 
     @staticmethod
-    def scoped(**context: Any) -> "ContextManager[None]":
+    def scoped(**context: Any) -> AbstractContextManager[None]:
         """Return a context manager that temporarily overrides bound context."""
 
         from contextlib import contextmanager
 
         @contextmanager
-        def _scope() -> Iterable[None]:
+        def _scope() -> Iterator[None]:
             existing = get_contextvars()
             previous = {key: existing[key] for key in context if key in existing}
             bind_contextvars(**context)
             try:
-                yield
+                yield None
             finally:
                 unbind_contextvars(*context.keys())
                 _restore_previous_context(previous)
@@ -279,7 +280,7 @@ class UnifiedLogger:
         return _scope()
 
     @staticmethod
-    def stage(stage: str, **context: Any) -> "ContextManager[None]":
+    def stage(stage: str, **context: Any) -> AbstractContextManager[None]:
         """Shortcut for temporarily binding the ``stage`` context field."""
 
         return UnifiedLogger.scoped(stage=stage, **context)
