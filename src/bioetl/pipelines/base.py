@@ -612,27 +612,45 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema
-        original_strict = schema.strict
-        original_coerce = schema.coerce
-        schema.strict = self.config.validation.strict
-        schema.coerce = self.config.validation.coerce
+        schema_obj = schema_entry.schema
+        original_strict: bool | None = None
+        original_coerce: bool | None = None
+        if hasattr(schema_obj, "replace"):
+            schema = schema_obj.replace(
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
+        else:
+            original_strict = getattr(schema_obj, "strict", None)
+            original_coerce = getattr(schema_obj, "coerce", None)
+            schema_obj.strict = self.config.validation.strict  # type: ignore[attr-defined]
+            schema_obj.coerce = self.config.validation.coerce  # type: ignore[attr-defined]
+            schema = schema_obj
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
             version=schema_entry.version,
         )
 
-        fail_open = (not self.config.cli.fail_on_schema_drift) or (not self.config.cli.validate_columns)
+        fail_open = (not getattr(self.config.cli, "fail_on_schema_drift", True)) or (
+            not getattr(self.config.cli, "validate_columns", True)
+        )
+
+        schema_valid = True
+        failure_count: int | None = None
+        error_summary: str | None = None
 
         try:
             validated = schema.validate(payload, lazy=True)
             validated = self._reorder_columns(validated, schema_entry.column_order)
-            schema_valid = True
-            failure_count: int | None = None
-            error_summary: str | None = None
         except pandera.errors.SchemaErrors as exc:
             if not fail_open:
+                # Restore schema state before re-raising
+                if not hasattr(schema_obj, "replace"):
+                    if original_strict is not None:
+                        schema_obj.strict = original_strict  # type: ignore[attr-defined]
+                    if original_coerce is not None:
+                        schema_obj.coerce = original_coerce  # type: ignore[attr-defined]
                 raise
             failure_count = len(exc.failure_cases) if hasattr(exc, "failure_cases") else None
             error_summary = str(exc)
@@ -646,8 +664,11 @@ class PipelineBase(ABC):
             validated = payload
             schema_valid = False
         finally:
-            schema.strict = original_strict
-            schema.coerce = original_coerce
+            if not hasattr(schema_obj, "replace"):
+                if original_strict is not None:
+                    schema_obj.strict = original_strict  # type: ignore[attr-defined]
+                if original_coerce is not None:
+                    schema_obj.coerce = original_coerce  # type: ignore[attr-defined]
 
         self._validation_schema = schema_entry
         self._validation_summary = {

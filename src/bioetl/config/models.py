@@ -76,6 +76,10 @@ class HTTPClientConfig(BaseModel):
         },
         description="Default headers that will be sent with each request.",
     )
+    max_url_length: PositiveInt = Field(
+        default=2000,
+        description="Maximum URL length before falling back to POST with X-HTTP-Method-Override.",
+    )
 
 
 class HTTPConfig(BaseModel):

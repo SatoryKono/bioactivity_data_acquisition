@@ -2,21 +2,25 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlparse
 
 import pandas as pd
 import pandera.errors
+from requests.exceptions import RequestException
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.schemas.activity import RELATIONS, STANDARD_TYPES
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.schemas.activity import COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunArtifacts, WriteResult
 
@@ -30,6 +34,7 @@ class ChemblActivityPipeline(PipelineBase):
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
         self._chembl_release: str | None = None
+        self._last_batch_extract_stats: dict[str, Any] | None = None
 
     @property
     def chembl_release(self) -> str | None:
@@ -56,6 +61,27 @@ class ChemblActivityPipeline(PipelineBase):
         if limit is not None:
             page_size = min(page_size, limit)
         page_size = max(page_size, 1)
+
+        payload_activity_ids = kwargs.get("activity_ids")
+        if payload_activity_ids is not None:
+            dataframe = self._extract_from_chembl(
+                payload_activity_ids,
+                client,
+                batch_size=batch_size,
+                limit=limit,
+            )
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            batch_stats = self._last_batch_extract_stats or {}
+            log.info(  # type: ignore[misc]
+                "chembl_activity.extract_summary",
+                rows=int(dataframe.shape[0]),
+                duration_ms=duration_ms,
+                chembl_release=self._chembl_release,
+                batches=batch_stats.get("batches"),
+                api_calls=batch_stats.get("api_calls"),
+                cache_hits=batch_stats.get("cache_hits"),
+            )
+            return dataframe
 
         records: list[Mapping[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
@@ -91,9 +117,11 @@ class ChemblActivityPipeline(PipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe = pd.DataFrame.from_records(records)
-        if not dataframe.empty and "activity_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
+        dataframe = pd.DataFrame.from_records(records)  # type: ignore[misc]
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+        elif "activity_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)  # type: ignore[misc]
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -133,8 +161,10 @@ class ChemblActivityPipeline(PipelineBase):
         df = self._normalize_nested_structures(df, log)
         df = self._normalize_data_types(df, log)
         df = self._validate_foreign_keys(df, log)
+        df = self._ensure_schema_columns(df, log)
+        df = self._order_schema_columns(df)
 
-        # Add aliases for deterministic sorting as per documentation
+        # Add aliases for deterministic sorting when downstream consumers require them
         # assay_id -> assay_chembl_id, testitem_id -> molecule_chembl_id
         if "assay_chembl_id" in df.columns and "assay_id" not in df.columns:
             df["assay_id"] = df["assay_chembl_id"]
@@ -157,7 +187,17 @@ class ChemblActivityPipeline(PipelineBase):
             log.debug("validate_empty_dataframe")
             return payload
 
-        log.info("validate_started", rows=len(payload))
+        if self.config.validation.strict:
+            allowed_columns = set(COLUMN_ORDER)
+            extra_columns = [column for column in payload.columns if column not in allowed_columns]
+            if extra_columns:
+                log.debug(  # type: ignore[misc]
+                    "drop_extra_columns_before_validation",
+                    extras=extra_columns,
+                )
+                payload = payload.drop(columns=extra_columns)
+
+        log.info("validate_started", rows=len(payload))  # type: ignore[misc]
 
         # Pre-validation checks
         self._check_activity_id_uniqueness(payload, log)
@@ -254,6 +294,339 @@ class ChemblActivityPipeline(PipelineBase):
         release_value = self._extract_chembl_release(status_payload)
         log.info("chembl_activity.status", chembl_release=release_value)
         return release_value
+
+    def _extract_from_chembl(
+        self,
+        dataset: object,
+        client: UnifiedAPIClient,
+        *,
+        batch_size: int | None = None,
+        limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Extract activity records by batching ``activity_id`` values."""
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")  # type: ignore[misc]
+        method_start = time.perf_counter()
+        self._last_batch_extract_stats = None
+
+        if isinstance(dataset, pd.Series):
+            input_frame = dataset.to_frame(name="activity_id")
+        elif isinstance(dataset, pd.DataFrame):
+            input_frame = dataset
+        elif isinstance(dataset, Mapping):
+            input_frame = pd.DataFrame([dataset])
+        elif isinstance(dataset, Sequence) and not isinstance(dataset, (str, bytes)):
+            input_frame = pd.DataFrame({"activity_id": list(dataset)})
+        else:
+            msg = (
+                "ChemblActivityPipeline._extract_from_chembl expects a DataFrame, Series, "
+                "mapping, or sequence of activity_id values"
+            )
+            raise TypeError(msg)
+
+        if "activity_id" not in input_frame.columns:
+            msg = "Input dataset must contain an 'activity_id' column"
+            raise ValueError(msg)
+
+        normalized_ids: list[tuple[int, str]] = []
+        invalid_ids: list[Any] = []
+        seen: set[str] = set()
+        for raw_id in input_frame["activity_id"].tolist():
+            if pd.isna(raw_id):  # type: ignore[misc]
+                continue
+            try:
+                if isinstance(raw_id, str):
+                    candidate = raw_id.strip()
+                    if not candidate:
+                        continue
+                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
+                elif isinstance(raw_id, (int, float)):
+                    numeric_id = int(raw_id)
+                else:
+                    numeric_id = int(raw_id)  # type: ignore[arg-type]
+            except (TypeError, ValueError):
+                invalid_ids.append(raw_id)
+                continue
+            key = str(numeric_id)
+            if key not in seen:
+                seen.add(key)
+                normalized_ids.append((numeric_id, key))
+
+        if invalid_ids:
+            log.warning(  # type: ignore[misc]
+                "chembl_activity.invalid_activity_ids",
+                invalid_count=len(invalid_ids),
+            )
+
+        if limit is not None:
+            normalized_ids = normalized_ids[: max(int(limit), 0)]
+
+        if not normalized_ids:
+            summary: dict[str, Any] = {
+                "total_activities": 0,
+                "success": 0,
+                "fallback": 0,
+                "errors": 0,
+                "api_calls": 0,
+                "cache_hits": 0,
+                "batches": 0,
+                "duration_ms": 0.0,
+                "success_rate": 0.0,
+            }
+            self._last_batch_extract_stats = summary
+            log.info("chembl_activity.batch_summary", **summary)  # type: ignore[misc]
+            return pd.DataFrame()
+
+        effective_batch_size = batch_size or self._resolve_batch_size(self._resolve_source_config("chembl"))
+        effective_batch_size = max(min(int(effective_batch_size), 25), 1)
+
+        records: list[Mapping[str, Any]] = []
+        success_count = 0
+        fallback_count = 0
+        error_count = 0
+        cache_hits = 0
+        api_calls = 0
+        total_batches = 0
+
+        for index in range(0, len(normalized_ids), effective_batch_size):
+            batch = normalized_ids[index : index + effective_batch_size]
+            batch_keys = [key for _, key in batch]
+            batch_start = time.perf_counter()
+            try:
+                cached_records = self._check_cache(batch_keys, self._chembl_release)
+                from_cache = cached_records is not None
+                batch_records: dict[str, Mapping[str, Any]] = {}
+                if cached_records is not None:
+                    batch_records = cached_records
+                    cache_hits += len(batch_keys)
+                else:
+                    params = {"activity_id__in": ",".join(batch_keys)}
+                    response = client.get("/activity.json", params=params)
+                    api_calls += 1
+                    payload = self._coerce_mapping(response.json())
+                    for item in self._extract_page_items(payload):
+                        activity_value = item.get("activity_id")
+                        if activity_value is None:
+                            continue
+                        batch_records[str(activity_value)] = dict(item)
+                    self._store_cache(batch_keys, batch_records, self._chembl_release)
+
+                success_in_batch = 0
+                for numeric_id, key in batch:
+                    record = batch_records.get(key)
+                    if record and not record.get("error"):
+                        materialised = dict(record)
+                        materialised.setdefault("activity_id", numeric_id)
+                        records.append(materialised)
+                        success_count += 1
+                        success_in_batch += 1
+                    else:
+                        fallback_record = self._create_fallback_record(numeric_id)
+                        records.append(fallback_record)
+                        fallback_count += 1
+                        error_count += 1
+                total_batches += 1
+                batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
+                log.debug(  # type: ignore[misc]
+                    "chembl_activity.batch_processed",
+                    batch_size=len(batch_keys),
+                    from_cache=from_cache,
+                    success_in_batch=success_in_batch,
+                    fallback_in_batch=len(batch_keys) - success_in_batch,
+                    duration_ms=batch_duration_ms,
+                )
+            except CircuitBreakerOpenError as exc:
+                total_batches += 1
+                log.warning(  # type: ignore[misc]
+                    "chembl_activity.batch_circuit_breaker",
+                    batch_size=len(batch_keys),
+                    error=str(exc),
+                )
+                for numeric_id, _ in batch:
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+            except RequestException as exc:
+                total_batches += 1
+                log.error(  # type: ignore[misc]
+                    "chembl_activity.batch_request_error",
+                    batch_size=len(batch_keys),
+                    error=str(exc),
+                )
+                for numeric_id, _ in batch:
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+            except Exception as exc:  # pragma: no cover - defensive path
+                total_batches += 1
+                log.error(  # type: ignore[misc]
+                    "chembl_activity.batch_unhandled_error",
+                    batch_size=len(batch_keys),
+                    error=str(exc),
+                    exc_info=True,
+                )
+                for numeric_id, _ in batch:
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+
+        duration_ms = (time.perf_counter() - method_start) * 1000.0
+        total_records = len(normalized_ids)
+        success_rate = (
+            float(success_count + fallback_count) / float(total_records)
+            if total_records
+            else 0.0
+        )
+        summary = {
+            "total_activities": total_records,
+            "success": success_count,
+            "fallback": fallback_count,
+            "errors": error_count,
+            "api_calls": api_calls,
+            "cache_hits": cache_hits,
+            "batches": total_batches,
+            "duration_ms": duration_ms,
+            "success_rate": success_rate,
+        }
+        self._last_batch_extract_stats = summary
+        log.info("chembl_activity.batch_summary", **summary)  # type: ignore[misc]
+
+        dataframe = pd.DataFrame.from_records(records)
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+        elif "activity_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)  # type: ignore[misc]
+        return dataframe
+
+    def _check_cache(
+        self,
+        batch_ids: Sequence[str],
+        release: str | None,
+    ) -> dict[str, Mapping[str, Any]] | None:
+        cache_config = self.config.cache
+        if not cache_config.enabled:
+            return None
+
+        normalized_ids = [str(identifier) for identifier in batch_ids]
+        cache_file = self._cache_file_path(normalized_ids, release)
+        if not cache_file.exists():
+            return None
+
+        try:
+            stat = cache_file.stat()
+        except OSError:
+            return None
+
+        ttl_seconds = int(cache_config.ttl)
+        if ttl_seconds > 0 and (time.time() - stat.st_mtime) > ttl_seconds:
+            try:
+                cache_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
+
+        try:
+            payload = json.loads(cache_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            try:
+                cache_file.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return None
+
+        if not isinstance(payload, dict):
+            return None
+
+        missing = [identifier for identifier in normalized_ids if identifier not in payload]
+        if missing:
+            return None
+
+        return {identifier: payload[identifier] for identifier in normalized_ids}
+
+    def _store_cache(
+        self,
+        batch_ids: Sequence[str],
+        batch_data: Mapping[str, Mapping[str, Any]],
+        release: str | None,
+    ) -> None:
+        cache_config = self.config.cache
+        if not cache_config.enabled or not batch_ids or not batch_data:
+            return
+
+        normalized_ids = [str(identifier) for identifier in batch_ids]
+        cache_file = self._cache_file_path(normalized_ids, release)
+        normalized_set = set(normalized_ids)
+        data_to_store = {key: batch_data[key] for key in normalized_set if key in batch_data}
+        if not data_to_store:
+            return
+
+        try:
+            cache_file.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = cache_file.with_suffix(cache_file.suffix + ".tmp")
+            tmp_path.write_text(
+                json.dumps(data_to_store, sort_keys=True, default=str),
+                encoding="utf-8",
+            )
+            tmp_path.replace(cache_file)
+        except Exception as exc:  # pragma: no cover - cache best-effort
+            log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")  # type: ignore[misc]
+            log.debug("chembl_activity.cache_store_failed", error=str(exc))  # type: ignore[misc]
+
+    def _cache_file_path(self, batch_ids: Sequence[str], release: str | None) -> Path:
+        directory = self._cache_directory(release)
+        cache_key = self._cache_key(batch_ids, release)
+        return directory / f"{cache_key}.json"
+
+    def _cache_directory(self, release: str | None) -> Path:
+        cache_root = Path(self.config.paths.cache_root)
+        directory_name = (self.config.cache.directory or "http_cache").strip() or "http_cache"
+        release_component = self._sanitize_cache_component(release or "unknown")
+        pipeline_component = self._sanitize_cache_component(self.pipeline_code)
+        version_component = self._sanitize_cache_component(self.config.pipeline.version or "unknown")
+        return cache_root / directory_name / pipeline_component / release_component / version_component
+
+    def _cache_key(self, batch_ids: Sequence[str], release: str | None) -> str:
+        payload = {
+            "ids": list(batch_ids),
+            "release": release or "unknown",
+            "pipeline": self.pipeline_code,
+            "pipeline_version": self.config.pipeline.version or "unknown",
+        }
+        raw = json.dumps(payload, sort_keys=True)
+        return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _sanitize_cache_component(value: str) -> str:
+        sanitized = re.sub(r"[^0-9A-Za-z_.-]", "_", value)
+        return sanitized or "default"
+
+    def _create_fallback_record(self, activity_id: int, error: Exception | None = None) -> dict[str, Any]:
+        """Create fallback record enriched with error metadata."""
+
+        base_message = "Fallback: ChEMBL activity unavailable"
+        message = f"{base_message} ({error})" if error else base_message
+        timestamp = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        metadata: dict[str, Any] = {
+            "source_system": "ChEMBL_FALLBACK",
+            "error_type": error.__class__.__name__ if error else None,
+            "chembl_release": self._chembl_release,
+            "run_id": self.run_id,
+            "timestamp": timestamp,
+        }
+        if isinstance(error, RequestException):
+            response = getattr(error, "response", None)
+            status_code = getattr(response, "status_code", None)
+            if status_code is not None:
+                metadata["http_status"] = status_code
+            metadata["error_message"] = str(error)
+        elif error is not None:
+            metadata["error_message"] = str(error)
+
+        return {
+            "activity_id": activity_id,
+            "data_validity_comment": message,
+            "activity_properties": json.dumps(metadata, sort_keys=True, default=str),
+        }
 
     @staticmethod
     def _coerce_mapping(payload: Any) -> Mapping[str, Any]:
@@ -552,6 +925,24 @@ class ChemblActivityPipeline(PipelineBase):
                 )
 
         return df
+
+    def _ensure_schema_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Ensure all schema columns exist prior to validation."""
+
+        df = df.copy()
+        missing_columns = [column for column in COLUMN_ORDER if column not in df.columns]
+        for column in missing_columns:
+            log.debug("add_missing_column", column=column)  # type: ignore[misc]
+            df[column] = pd.NA
+        return df
+
+    def _order_schema_columns(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Return DataFrame with schema columns ordered ahead of extras."""
+
+        extras = [column for column in df.columns if column not in COLUMN_ORDER]
+        if self.config.validation.strict:
+            return df[list(COLUMN_ORDER)]
+        return df[[*COLUMN_ORDER, *extras]]
 
     def _normalize_data_types(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Convert data types according to the Pandera schema."""

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
+from requests.exceptions import RequestException
 
+from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
 
 
@@ -305,4 +308,103 @@ class TestChemblActivityPipelineTransformations:
         assert "testitem_id" in transformed.columns
         assert transformed["assay_id"].equals(transformed["assay_chembl_id"])
         assert transformed["testitem_id"].equals(transformed["molecule_chembl_id"])
+
+    def test_extract_from_chembl_batches_and_cache(
+        self,
+        pipeline_config_fixture,
+        run_id: str,
+        tmp_path,
+    ) -> None:
+        """Ensure batched extraction invokes the API and warms the cache."""
+
+        pipeline_config_fixture.paths.cache_root = str(tmp_path)
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline._chembl_release = "33"
+
+        dataset = pd.DataFrame({"activity_id": [1, 2, 3]})
+
+        client = MagicMock()
+        response_batch_one = MagicMock()
+        response_batch_one.json.return_value = {
+            "activities": [
+                {"activity_id": 1, "standard_type": "IC50"},
+                {"activity_id": 2, "standard_type": "IC50"},
+            ]
+        }
+        response_batch_two = MagicMock()
+        response_batch_two.json.return_value = {
+            "activities": [{"activity_id": 3, "standard_type": "IC50"}]
+        }
+        client.get.side_effect = [response_batch_one, response_batch_two]
+
+        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)
+
+        assert list(result["activity_id"]) == [1, 2, 3]
+        stats = pipeline._last_batch_extract_stats
+        assert stats is not None
+        assert stats["api_calls"] == 2
+        assert stats["cache_hits"] == 0
+
+        cached_client = MagicMock()
+        cached_result = pipeline._extract_from_chembl(dataset, cached_client, batch_size=2)
+
+        assert list(cached_result["activity_id"]) == [1, 2, 3]
+        assert cached_client.get.call_count == 0
+        cached_stats = pipeline._last_batch_extract_stats
+        assert cached_stats is not None
+        assert cached_stats["cache_hits"] == 3
+
+    def test_extract_from_chembl_handles_request_error(
+        self,
+        pipeline_config_fixture,
+        run_id: str,
+        tmp_path,
+    ) -> None:
+        """Network failures should produce fallback records."""
+
+        pipeline_config_fixture.paths.cache_root = str(tmp_path)
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline._chembl_release = "33"
+
+        dataset = pd.DataFrame({"activity_id": [10, 11]})
+        client = MagicMock()
+        client.get.side_effect = RequestException("boom")
+
+        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)
+
+        assert client.get.call_count == 1
+        assert list(result["activity_id"]) == [10, 11]
+        assert all(result["data_validity_comment"].str.contains("Fallback"))
+        metadata = result["activity_properties"].apply(json.loads)
+        assert all(item["source_system"] == "ChEMBL_FALLBACK" for item in metadata)
+        stats = pipeline._last_batch_extract_stats
+        assert stats is not None
+        assert stats["fallback"] == 2
+        assert stats["errors"] == 2
+
+    def test_extract_from_chembl_handles_circuit_breaker(
+        self,
+        pipeline_config_fixture,
+        run_id: str,
+        tmp_path,
+    ) -> None:
+        """Circuit breaker errors should also yield fallback records."""
+
+        pipeline_config_fixture.paths.cache_root = str(tmp_path)
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline._chembl_release = "34"
+
+        dataset = pd.DataFrame({"activity_id": [42]})
+        client = MagicMock()
+        client.get.side_effect = CircuitBreakerOpenError("open")
+
+        result = pipeline._extract_from_chembl(dataset, client, batch_size=1)
+
+        assert client.get.call_count == 1
+        assert result.shape[0] == 1
+        assert "Fallback" in result["data_validity_comment"].iloc[0]
+        stats = pipeline._last_batch_extract_stats
+        assert stats is not None
+        assert stats["fallback"] == 1
+        assert stats["errors"] == 1
 
