@@ -337,11 +337,6 @@ def activity(
     )
 
 
-def main() -> None:
-    """Entry point for CLI application."""
-    app()
-
-
 def run() -> None:
     """Entry point for CLI application (alias for main)."""
     app()

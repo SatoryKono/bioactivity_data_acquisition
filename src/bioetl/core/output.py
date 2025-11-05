@@ -116,6 +116,19 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     sort_config = config.determinism.sort
     if not sort_config.by:
         return df
+    
+    # Check if all sort columns exist in the DataFrame
+    missing_columns = [col for col in sort_config.by if col not in df.columns]
+    
+    # If DataFrame is empty and columns are missing, skip sorting (empty DataFrame)
+    if df.empty and missing_columns:
+        return df
+    
+    # If DataFrame is not empty but columns are missing, raise error
+    if missing_columns:
+        msg = f"Sort columns missing from dataframe: {missing_columns}"
+        raise KeyError(msg)
+    
     ascending = sort_config.ascending or [True] * len(sort_config.by)
     return df.sort_values(
         by=sort_config.by,
