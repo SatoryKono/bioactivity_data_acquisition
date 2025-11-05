@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import pytest
 
 from bioetl.pipelines.chembl.assay_transform import header_rows_serialize, serialize_array_fields
-
-import pandas as pd
 
 
 @pytest.mark.unit

@@ -305,6 +305,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         df = self._finalize_identifier_columns(df, log)
         df = self._finalize_output_columns(df, log)
+        df = self._filter_invalid_required_fields(df, log)
 
         log.info("transform_completed", rows=len(df))
         return df
@@ -1326,6 +1327,66 @@ class ChemblActivityPipeline(PipelineBase):
             return df
 
         return df[expected]
+
+    def _filter_invalid_required_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Filter out rows with NULL values in required identifier fields.
+
+        Removes rows where any of the required fields (assay_chembl_id,
+        testitem_chembl_id, molecule_chembl_id) are NULL, as these cannot
+        pass schema validation.
+
+        Parameters
+        ----------
+        df:
+            DataFrame to filter.
+        log:
+            Logger instance.
+
+        Returns
+        -------
+        pd.DataFrame:
+            Filtered DataFrame with only rows having all required fields populated.
+        """
+        df = df.copy()
+
+        if df.empty:
+            return df
+
+        required_fields = ["assay_chembl_id", "testitem_chembl_id", "molecule_chembl_id"]
+        missing_fields = [field for field in required_fields if field not in df.columns]
+        if missing_fields:
+            log.warning(
+                "filter_skipped_missing_columns",
+                missing_columns=missing_fields,
+                message="Cannot filter: required columns are missing",
+            )
+            return df
+
+        # Create mask for rows with all required fields populated
+        valid_mask = (
+            df["assay_chembl_id"].notna()
+            & df["testitem_chembl_id"].notna()
+            & df["molecule_chembl_id"].notna()
+        )
+
+        invalid_count = int((~valid_mask).sum())
+        if invalid_count > 0:
+            # Log sample of invalid rows for debugging
+            invalid_rows = df[~valid_mask]
+            sample_size = min(5, len(invalid_rows))
+            sample_activity_ids = (
+                invalid_rows["activity_id"].head(sample_size).tolist() if "activity_id" in invalid_rows.columns else []
+            )
+            log.warning(
+                "filtered_invalid_rows",
+                filtered_count=invalid_count,
+                remaining_count=int(valid_mask.sum()),
+                sample_activity_ids=sample_activity_ids,
+                message="Rows with NULL in required identifier fields were filtered out",
+            )
+            df = df[valid_mask].reset_index(drop=True)
+
+        return df
 
     def _normalize_measurements(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize standard_value, standard_units, standard_relation, and standard_type."""
