@@ -1,0 +1,125 @@
+"""Static command registry for BioETL CLI.
+
+This module defines the static registry of all available pipeline commands.
+Adding a new pipeline requires explicitly adding its configuration to this registry.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Callable
+
+__all__ = ["CommandConfig", "COMMAND_REGISTRY"]
+
+
+@dataclass(frozen=True)
+class CommandConfig:
+    """Configuration for a pipeline command."""
+
+    name: str
+    description: str
+    pipeline_class: type[Any]
+    default_config_path: Path | None = None
+
+
+def build_command_config_activity() -> CommandConfig:
+    """Build command configuration for activity pipeline."""
+    from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+
+    return CommandConfig(
+        name="activity_chembl",
+        description="Extract biological activity records from ChEMBL API and normalize them to the project schema.",
+        pipeline_class=ChemblActivityPipeline,
+        default_config_path=Path("configs/pipelines/chembl/activity.yaml"),
+    )
+
+
+def build_command_config_assay() -> CommandConfig:
+    """Build command configuration for assay pipeline."""
+    from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
+
+    return CommandConfig(
+        name="assay_chembl",
+        description="Extract assay records from ChEMBL API.",
+        pipeline_class=ChemblAssayPipeline,
+        default_config_path=Path("configs/pipelines/chembl/assay.yaml"),
+    )
+
+
+def build_command_config_target() -> CommandConfig:
+    """Build command configuration for target pipeline."""
+    # TODO: Import when target pipeline is implemented
+    raise NotImplementedError("Target pipeline not yet implemented")
+
+
+def build_command_config_document() -> CommandConfig:
+    """Build command configuration for document pipeline."""
+    # TODO: Import when document pipeline is implemented
+    raise NotImplementedError("Document pipeline not yet implemented")
+
+
+def build_command_config_testitem() -> CommandConfig:
+    """Build command configuration for testitem pipeline."""
+    # TODO: Import when testitem pipeline is implemented
+    raise NotImplementedError("TestItem pipeline not yet implemented")
+
+
+def build_command_config_pubchem() -> CommandConfig:
+    """Build command configuration for pubchem pipeline."""
+    # TODO: Import when pubchem pipeline is implemented
+    raise NotImplementedError("PubChem pipeline not yet implemented")
+
+
+def build_command_config_uniprot() -> CommandConfig:
+    """Build command configuration for uniprot pipeline."""
+    # TODO: Import when uniprot pipeline is implemented
+    raise NotImplementedError("UniProt pipeline not yet implemented")
+
+
+def build_command_config_iuphar() -> CommandConfig:
+    """Build command configuration for iuphar pipeline."""
+    # TODO: Import when iuphar pipeline is implemented
+    raise NotImplementedError("IUPHAR pipeline not yet implemented")
+
+
+def build_command_config_openalex() -> CommandConfig:
+    """Build command configuration for openalex pipeline."""
+    # TODO: Import when openalex pipeline is implemented
+    raise NotImplementedError("OpenAlex pipeline not yet implemented")
+
+
+def build_command_config_crossref() -> CommandConfig:
+    """Build command configuration for crossref pipeline."""
+    # TODO: Import when crossref pipeline is implemented
+    raise NotImplementedError("Crossref pipeline not yet implemented")
+
+
+def build_command_config_pubmed() -> CommandConfig:
+    """Build command configuration for pubmed pipeline."""
+    # TODO: Import when pubmed pipeline is implemented
+    raise NotImplementedError("PubMed pipeline not yet implemented")
+
+
+def build_command_config_semantic_scholar() -> CommandConfig:
+    """Build command configuration for semantic_scholar pipeline."""
+    # TODO: Import when semantic_scholar pipeline is implemented
+    raise NotImplementedError("Semantic Scholar pipeline not yet implemented")
+
+
+# Static registry mapping command names to their build functions
+COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
+    "activity_chembl": build_command_config_activity,
+    "assay_chembl": build_command_config_assay,
+    # "target": build_command_config_target,
+    # "document": build_command_config_document,
+    # "testitem": build_command_config_testitem,
+    # "pubchem": build_command_config_pubchem,
+    # "uniprot": build_command_config_uniprot,
+    # "gtp_iuphar": build_command_config_iuphar,
+    # "openalex": build_command_config_openalex,
+    # "crossref": build_command_config_crossref,
+    # "pubmed": build_command_config_pubmed,
+    # "semantic_scholar": build_command_config_semantic_scholar,
+}
+

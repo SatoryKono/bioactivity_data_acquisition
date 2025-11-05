@@ -22,7 +22,7 @@ from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.schemas.activity import COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
-from ..base import PipelineBase, RunArtifacts, WriteResult
+from ..base import PipelineBase, RunResult
 
 
 class ChemblActivityPipeline(PipelineBase):
@@ -83,7 +83,7 @@ class ChemblActivityPipeline(PipelineBase):
             )
             return batch_dataframe
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {"limit": page_size}
         pages = 0
@@ -114,6 +114,12 @@ class ChemblActivityPipeline(PipelineBase):
             next_link = self._next_link(payload, base_url=base_url)
             if not next_link or (limit is not None and len(records) >= limit):
                 break
+            # Debug: log the next_link before using it
+            log.debug(
+                "chembl_activity.next_link_resolved",
+                next_link=next_link,
+                base_url=base_url,
+            )
             next_endpoint = next_link
             params = None
 
@@ -316,7 +322,7 @@ class ChemblActivityPipeline(PipelineBase):
         elif isinstance(dataset, pd.DataFrame):
             input_frame = dataset
         elif isinstance(dataset, Mapping):
-            input_frame = pd.DataFrame([dataset])
+            input_frame = pd.DataFrame([cast(dict[str, Any], dataset)])
         elif isinstance(dataset, Sequence) and not isinstance(dataset, (str, bytes)):
             dataset_list: list[Any] = list(dataset)  # type: ignore[arg-type]
             input_frame = pd.DataFrame({"activity_id": dataset_list})
@@ -383,7 +389,7 @@ class ChemblActivityPipeline(PipelineBase):
         effective_batch_size = batch_size or self._resolve_batch_size(self._resolve_source_config("chembl"))
         effective_batch_size = max(min(int(effective_batch_size), 25), 1)
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         success_count = 0
         fallback_count = 0
         error_count = 0
@@ -393,12 +399,12 @@ class ChemblActivityPipeline(PipelineBase):
 
         for index in range(0, len(normalized_ids), effective_batch_size):
             batch = normalized_ids[index : index + effective_batch_size]
-            batch_keys = [key for _, key in batch]
+            batch_keys: list[str] = [key for _, key in batch]
             batch_start = time.perf_counter()
             try:
                 cached_records = self._check_cache(batch_keys, self._chembl_release)
                 from_cache = cached_records is not None
-                batch_records: dict[str, Mapping[str, Any]] = {}
+                batch_records: dict[str, dict[str, Any]] = {}
                 if cached_records is not None:
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
@@ -411,7 +417,7 @@ class ChemblActivityPipeline(PipelineBase):
                         activity_value = item.get("activity_id")
                         if activity_value is None:
                             continue
-                        batch_records[str(activity_value)] = dict(item)
+                        batch_records[str(activity_value)] = item
                     self._store_cache(batch_keys, batch_records, self._chembl_release)
 
                 success_in_batch = 0
@@ -505,7 +511,7 @@ class ChemblActivityPipeline(PipelineBase):
         self,
         batch_ids: Sequence[str],
         release: str | None,
-    ) -> dict[str, Mapping[str, Any]] | None:
+    ) -> dict[str, dict[str, Any]] | None:
         cache_config = self.config.cache
         if not cache_config.enabled:
             return None
@@ -544,7 +550,10 @@ class ChemblActivityPipeline(PipelineBase):
         if missing:
             return None
 
-        return {identifier: payload[identifier] for identifier in normalized_ids}
+        return {
+            identifier: cast(dict[str, Any], payload[identifier])
+            for identifier in normalized_ids
+        }
 
     def _store_cache(
         self,
@@ -632,9 +641,9 @@ class ChemblActivityPipeline(PipelineBase):
         }
 
     @staticmethod
-    def _coerce_mapping(payload: Any) -> Mapping[str, Any]:
+    def _coerce_mapping(payload: Any) -> dict[str, Any]:
         if isinstance(payload, Mapping):
-            return cast(Mapping[str, Any], payload)
+            return cast(dict[str, Any], payload)
         return {}
 
     @staticmethod
@@ -648,14 +657,14 @@ class ChemblActivityPipeline(PipelineBase):
         return None
 
     @staticmethod
-    def _extract_page_items(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-        candidates: list[Mapping[str, Any]] = []
+    def _extract_page_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
+        candidates: list[dict[str, Any]] = []
         for key in ("activities", "data", "items", "results"):
             value: Any = payload.get(key)
             if isinstance(value, Sequence):
                 candidates = [
-                    cast(Mapping[str, Any], item)  # type: ignore[misc, arg-type]
-                    for item in value  # type: ignore[arg-type]
+                    cast(dict[str, Any], item)
+                    for item in value  # type: ignore[misc]
                     if isinstance(item, Mapping)
                 ]
                 if candidates:
@@ -665,8 +674,8 @@ class ChemblActivityPipeline(PipelineBase):
                 continue
             if isinstance(value, Sequence):
                 candidates = [
-                    cast(Mapping[str, Any], item)  # type: ignore[misc, arg-type]
-                    for item in value  # type: ignore[arg-type]
+                    cast(dict[str, Any], item)
+                    for item in value  # type: ignore[misc]
                     if isinstance(item, Mapping)
                 ]
                 if candidates:
@@ -677,34 +686,80 @@ class ChemblActivityPipeline(PipelineBase):
     def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
         page_meta: Any = payload.get("page_meta")
         if isinstance(page_meta, Mapping):
-            next_link: str | None = cast(str | None, page_meta.get("next"))  # type: ignore[arg-type]
+            next_link_raw: Any = page_meta.get("next")  # type: ignore[assignment]
+            next_link: str | None = cast(str | None, next_link_raw) if next_link_raw is not None else None
             if isinstance(next_link, str) and next_link:
                 # If next_link is a full URL, extract only the relative path
                 if next_link.startswith("http://") or next_link.startswith("https://"):
                     parsed = urlparse(next_link)
                     base_parsed = urlparse(base_url)
 
-                    # Extract the path part
-                    path = parsed.path
+                    # Normalize paths: remove trailing slashes for comparison
+                    path = parsed.path.rstrip("/")
                     base_path = base_parsed.path.rstrip("/")
 
+                    # Debug logging
+                    log = UnifiedLogger.get(__name__)
+                    log.debug(
+                        "chembl_activity._next_link_debug",
+                        next_link=next_link,
+                        base_url=base_url,
+                        path=path,
+                        base_path=base_path,
+                    )
+
                     # Remove base_path prefix from path if it exists
+                    # This ensures we only return the endpoint part relative to base_url
                     if base_path and path.startswith(base_path):
                         # Extract the part after base_path
                         relative_path = path[len(base_path) :]
+                        # Ensure relative_path starts with /
+                        if not relative_path.startswith("/"):
+                            relative_path = f"/{relative_path}"
+                        log.debug(
+                            "chembl_activity._next_link_extracted",
+                            method="base_path_prefix",
+                            relative_path=relative_path,
+                        )
                     else:
-                        # If base_path doesn't match, use the path as-is
-                        relative_path = path
+                        # If base_path doesn't match, extract using /api/data/ pattern
+                        # ChEMBL API URLs typically follow: .../chembl/api/data/<endpoint>
+                        if "/api/data/" in path:
+                            # Extract everything after /api/data/
+                            parts = path.split("/api/data/", 1)
+                            if len(parts) > 1:
+                                relative_path = "/" + parts[1]
+                            else:
+                                relative_path = path
+                            log.debug(
+                                "chembl_activity._next_link_extracted",
+                                method="api_data_pattern",
+                                relative_path=relative_path,
+                            )
+                        else:
+                            # Fallback: use the path as-is
+                            relative_path = path
+                            # Ensure it starts with /
+                            if not relative_path.startswith("/"):
+                                relative_path = f"/{relative_path}"
+                            log.debug(
+                                "chembl_activity._next_link_extracted",
+                                method="fallback",
+                                relative_path=relative_path,
+                            )
 
-                    # Ensure relative_path starts with / (but not double //)
-                    if not relative_path.startswith("/"):
-                        relative_path = f"/{relative_path}"
-
-                    # Add query string if present
+                    # Add query string if present (preserve original query params)
                     if parsed.query:
                         relative_path = f"{relative_path}?{parsed.query}"
 
+                    log.debug(
+                        "chembl_activity._next_link_final",
+                        relative_path=relative_path,
+                    )
                     return relative_path
+                # If next_link is already a relative path, ensure it starts with /
+                if not next_link.startswith("/"):
+                    return f"/{next_link}"
                 return next_link
         return None
 
@@ -845,13 +900,13 @@ class ChemblActivityPipeline(PipelineBase):
             )
             if mismatch_mask.any():
                 mismatch_count = int(mismatch_mask.sum())
-                samples: list[dict[str, Any]] = cast(
-                    list[dict[str, Any]],
+                samples_raw = (
                     df.loc[mismatch_mask, ["molecule_chembl_id", "testitem_chembl_id"]]
                     .drop_duplicates()
                     .head(5)
-                    .to_dict("records"),  # type: ignore[arg-type]
+                    .to_dict("records")  # type: ignore[assignment]
                 )
+                samples: list[dict[str, Any]] = cast(list[dict[str, Any]], samples_raw)
                 log.warning(
                     "identifier_mismatch",
                     count=mismatch_count,
@@ -911,7 +966,7 @@ class ChemblActivityPipeline(PipelineBase):
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
 
                 # Convert to numeric (NaN for empty/invalid values)
-                numeric_series: pd.Series[Any] = pd.to_numeric(series, errors="coerce")  # type: ignore[assignment]
+                numeric_series: pd.Series[Any] = pd.to_numeric(series, errors="coerce")  # type: ignore[arg-type, assignment]
                 df.loc[mask, "standard_value"] = numeric_series
 
                 # Check for negative values (should be >= 0)
@@ -934,7 +989,8 @@ class ChemblActivityPipeline(PipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
-                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)  # type: ignore[arg-type]
+                relations_set: set[str] = RELATIONS
+                invalid_mask = mask & ~df["standard_relation"].isin(relations_set)  # type: ignore[arg-type]
                 if invalid_mask.any():
                     log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
@@ -946,7 +1002,8 @@ class ChemblActivityPipeline(PipelineBase):
                 df.loc[mask, "standard_type"] = (
                     df.loc[mask, "standard_type"].astype(str).str.strip()
                 )
-                invalid_mask = mask & ~df["standard_type"].isin(STANDARD_TYPES)  # type: ignore[arg-type]
+                standard_types_set: set[str] = STANDARD_TYPES
+                invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # type: ignore[arg-type]
                 if invalid_mask.any():
                     log.warning("invalid_standard_type", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_type"] = None
@@ -1019,7 +1076,7 @@ class ChemblActivityPipeline(PipelineBase):
                     if isinstance(max_len, int):
                         series = series.str[:max_len]
                 if options.get("empty_to_null"):
-                    series = series.replace("", None)  # type: ignore[assignment]
+                    series = series.replace("", None)
                 df.loc[mask, field] = series
 
         return df
@@ -1096,11 +1153,11 @@ class ChemblActivityPipeline(PipelineBase):
                 continue
             try:
                 if dtype == "int64":
-                    numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[assignment]
-                    df[field] = numeric_series.astype("Int64")
+                    numeric_series_int: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
+                    df[field] = numeric_series_int.astype("Int64")
                 elif dtype == "float64":
-                    numeric_series = pd.to_numeric(df[field], errors="coerce")  # type: ignore[assignment]
-                    df[field] = numeric_series.astype("float64")
+                    numeric_series_float: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
+                    df[field] = numeric_series_float.astype("float64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
 
@@ -1108,8 +1165,8 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
-                bool_numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[assignment]
-                filled_series: pd.Series[Any] = bool_numeric_series.fillna(False)  # type: ignore[assignment]
+                bool_numeric_series: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # type: ignore[arg-type, assignment]
+                filled_series: pd.Series[Any] = bool_numeric_series.fillna(False)  # type: ignore[arg-type, assignment]
                 df[field] = filled_series.astype(bool)
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
@@ -1236,7 +1293,8 @@ class ChemblActivityPipeline(PipelineBase):
 
             if "schema_context" in failure_cases.columns:
                 error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts()
-                error_types_result: dict[Any, int] = cast(dict[Any, int], error_counts_series.to_dict())  # type: ignore[arg-type]
+                error_types_raw = error_counts_series.to_dict()  # type: ignore[assignment]
+                error_types_result: dict[Any, int] = cast(dict[Any, int], error_types_raw)
                 summary["error_types"] = dict(error_types_result)
 
             if "column" in failure_cases.columns:
@@ -1267,19 +1325,22 @@ class ChemblActivityPipeline(PipelineBase):
         # Group by error type if schema_context is available
         if "schema_context" in failure_cases.columns:
             error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts().head(10)
-            error_types: dict[Any, int] = cast(dict[Any, int], error_counts_series.to_dict())  # type: ignore[arg-type]
+            error_types_raw = error_counts_series.to_dict()  # type: ignore[assignment]
+            error_types: dict[Any, int] = cast(dict[Any, int], error_types_raw)
             formatted["error_types"] = dict(error_types)
 
         # Group by column if available
         if "column" in failure_cases.columns:
             column_counts_series: pd.Series[Any] = failure_cases["column"].value_counts().head(10)
-            column_errors: dict[Any, int] = cast(dict[Any, int], column_counts_series.to_dict())  # type: ignore[arg-type]
+            column_errors_raw = column_counts_series.to_dict()  # type: ignore[assignment]
+            column_errors: dict[Any, int] = cast(dict[Any, int], column_errors_raw)
             formatted["column_errors"] = dict(column_errors)
 
         # Sample of failure cases (first 5)
         if len(failure_cases) > 0:
             sample = failure_cases.head(5)
-            formatted["sample"] = cast(list[dict[str, Any]], sample.to_dict("records"))  # type: ignore[arg-type]
+            sample_raw = sample.to_dict("records")  # type: ignore[assignment]
+            formatted["sample"] = cast(list[dict[str, Any]], sample_raw)
 
         return formatted
 
@@ -1365,10 +1426,8 @@ class ChemblActivityPipeline(PipelineBase):
 
         rows: list[dict[str, Any]] = []
         if not base_report.empty:
-            records_raw: list[dict[str, Any]] = cast(
-                list[dict[str, Any]], base_report.to_dict("records")  # type: ignore[arg-type]
-            )
-            records: list[dict[str, Any]] = records_raw
+            records_raw = base_report.to_dict("records")  # type: ignore[assignment]
+            records: list[dict[str, Any]] = cast(list[dict[str, Any]], records_raw)
             for record in records:
                 rows.append({str(k): v for k, v in record.items()})
 
@@ -1405,7 +1464,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Add measurement type distribution
         if "standard_type" in df.columns:
             type_counts_series: pd.Series[Any] = df["standard_type"].value_counts()
-            type_dist: dict[Any, int] = cast(dict[Any, int], type_counts_series.to_dict())  # type: ignore[arg-type]
+            type_dist_raw = type_counts_series.to_dict()  # type: ignore[assignment]
+            type_dist: dict[Any, int] = cast(dict[Any, int], type_dist_raw)
             for type_value, count in type_dist.items():
                 rows.append(
                     {
@@ -1420,7 +1480,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Add unit distribution
         if "standard_units" in df.columns:
             unit_counts_series: pd.Series[Any] = df["standard_units"].value_counts()
-            unit_dist: dict[Any, int] = cast(dict[Any, int], unit_counts_series.to_dict())  # type: ignore[arg-type]
+            unit_dist_raw = unit_counts_series.to_dict()  # type: ignore[assignment]
+            unit_dist: dict[Any, int] = cast(dict[Any, int], unit_dist_raw)
             for unit_value, count in unit_dist.items():
                 rows.append(
                     {
@@ -1456,13 +1517,29 @@ class ChemblActivityPipeline(PipelineBase):
 
         return pd.DataFrame(rows)
 
-    def write(self, payload: object, artifacts: RunArtifacts) -> WriteResult:
-        """Override write() to bind actor and ensure deterministic sorting."""
+    def write(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = False,
+    ) -> RunResult:
+        """Override write() to bind actor and ensure deterministic sorting.
 
-        if not isinstance(payload, pd.DataFrame):
-            msg = "ChemblActivityPipeline.write expects a pandas DataFrame payload"
-            raise TypeError(msg)
+        Parameters
+        ----------
+        df:
+            The DataFrame to write.
+        output_path:
+            The base output path for all artifacts.
+        extended:
+            Whether to include extended QC artifacts.
 
+        Returns
+        -------
+        RunResult:
+            All artifacts generated by the write operation.
+        """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.write")
 
         # Bind actor to logs for all write operations
@@ -1474,9 +1551,9 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Check if all sort keys exist in the DataFrame
         # If DataFrame is empty or missing columns, fall back to original sort config
-        if payload.empty or not all(key in payload.columns for key in sort_keys):
+        if df.empty or not all(key in df.columns for key in sort_keys):
             # Use original sort config if DataFrame is empty or missing required columns
-            return super().write(payload, artifacts)
+            return super().write(df, output_path, extended=extended)
 
         # Temporarily override sort config if not already set
         original_sort_by = self.config.determinism.sort.by
@@ -1504,7 +1581,7 @@ class ChemblActivityPipeline(PipelineBase):
             self.config = modified_config
 
             try:
-                result = super().write(payload, artifacts)
+                result = super().write(df, output_path, extended=extended)
             finally:
                 # Restore original config
                 self.config = original_config
@@ -1512,4 +1589,4 @@ class ChemblActivityPipeline(PipelineBase):
             return result
 
         # If sort config already matches, proceed normally
-        return super().write(payload, artifacts)
+        return super().write(df, output_path, extended=extended)

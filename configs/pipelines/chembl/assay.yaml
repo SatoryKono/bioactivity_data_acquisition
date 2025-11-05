@@ -1,0 +1,73 @@
+# Assay ChEMBL Pipeline Configuration
+#
+# This configuration defines the pipeline for extracting assay records
+# from the ChEMBL API and normalizing them to the project schema.
+
+# Inherit from base and determinism profiles
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
+
+# Pipeline metadata
+pipeline:
+  name: assay_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract assay records from ChEMBL API"
+
+# ChEMBL source configuration
+sources:
+  chembl:
+    enabled: true
+    description: "ChEMBL REST API"
+    batch_size: 25
+    parameters:
+      base_url: "https://www.ebi.ac.uk/chembl/api/data"
+      max_url_length: 2000
+
+# Determinism configuration for assay pipeline
+determinism:
+  sort:
+    by:
+      - assay_chembl_id
+      - row_subtype
+      - row_index
+    ascending:
+      - true
+      - true
+      - true
+    na_position: "last"
+  column_order:
+    - assay_chembl_id
+    - row_subtype
+    - row_index
+    - assay_type
+    - assay_category
+    - assay_class_id
+    - assay_organism
+    - target_chembl_id
+    - confidence_score
+    - curation_level
+
+  hashing:
+    algorithm: "sha256"
+    row_fields: []
+    business_key_fields:
+      - assay_chembl_id
+      - row_subtype
+      - row_index
+    exclude_fields:
+      - generated_at
+      - run_id
+
+postprocess:
+  correlation:
+    enabled: false
+
+# Validation schema
+# TODO: Add schema_out when AssaySchema is implemented
+validation:
+  schema_out: null
+  strict: true
+  coerce: true
+

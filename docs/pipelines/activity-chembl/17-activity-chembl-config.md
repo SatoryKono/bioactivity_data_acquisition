@@ -10,7 +10,7 @@ This document describes the configuration keys and profiles for the Activity (Ch
 
 ## Configuration File
 
-The pipeline configuration is defined in `src/bioetl/configs/pipelines/chembl/activity.yaml`.
+The pipeline configuration is defined in `configs/pipelines/chembl/activity.yaml`.
 
 ## Profile Inheritance
 

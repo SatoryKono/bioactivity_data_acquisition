@@ -11,15 +11,22 @@ This document describes the pipeline-specific CLI configuration for the Assay (C
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main assay
+python -m bioetl.cli.main assay_chembl
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main assay \
+# Standard production run
+python -m bioetl.cli.main assay_chembl \
   --config configs/pipelines/chembl/assay.yaml \
   --output-dir data/output/assay
+
+# Dry run to validate configuration
+python -m bioetl.cli.main assay_chembl \
+  --config configs/pipelines/chembl/assay.yaml \
+  --output-dir data/output/assay \
+  --dry-run
 ```
 
 ## Related Documentation

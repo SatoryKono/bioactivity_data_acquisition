@@ -28,7 +28,7 @@ python -m bioetl.cli.main list
 
 ### `<pipeline-name>`
 
-Each registered pipeline is available as a subcommand (e.g., `activity`, `assay`). This is the command used to execute a pipeline run.
+Each registered pipeline is available as a subcommand (e.g., `activity_chembl`, `assay_chembl`). This is the command used to execute a pipeline run.
 
 **Usage:**
 
@@ -39,7 +39,7 @@ python -m bioetl.cli.main <pipeline-name> [OPTIONS]
 **Example:**
 
 ```bash
-python -m bioetl.cli.main activity --config configs/pipelines/chembl/activity.yaml --output-dir /data/output/activity
+python -m bioetl.cli.main activity_chembl --config configs/pipelines/chembl/activity.yaml --output-dir /data/output/activity
 ```
 
 ## Standard Command-Line Arguments

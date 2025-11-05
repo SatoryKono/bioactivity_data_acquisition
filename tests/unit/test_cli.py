@@ -10,12 +10,12 @@ import typer
 from click.testing import CliRunner
 from typer.main import get_command
 
-from bioetl.cli.main import (
+from bioetl.cli.command import (
     _parse_set_overrides,  # type: ignore[reportPrivateUsage]
     _validate_config_path,  # type: ignore[reportPrivateUsage]
     _validate_output_dir,  # type: ignore[reportPrivateUsage]
-    app,
 )
+from bioetl.cli.main import app
 
 CLI_APP = get_command(app)
 
@@ -205,8 +205,10 @@ sources:
 
             # Check that limit was passed to config
             assert mock_pipeline_class.called
-            call_kwargs = mock_pipeline_class.call_args.kwargs
-            call_config = call_kwargs["config"]
+            # ChemblActivityPipeline is called with positional args: (config, run_id)
+            call_args = mock_pipeline_class.call_args
+            call_config = call_args.args[0] if call_args.args else call_args.kwargs.get("config")
+            assert call_config is not None
             assert call_config.cli.limit == 10
             assert call_config.cli.sample is None
 
@@ -247,6 +249,7 @@ sources:
             result = runner.invoke(
                 CLI_APP,
                 [
+                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -258,7 +261,10 @@ sources:
 
             assert result.exit_code == 0
             assert mock_pipeline_class.called
-            call_config = mock_pipeline_class.call_args.kwargs["config"]
+            # ChemblActivityPipeline is called with positional args: (config, run_id)
+            call_args = mock_pipeline_class.call_args
+            call_config = call_args.args[0] if call_args.args else call_args.kwargs.get("config")
+            assert call_config is not None
             assert call_config.cli.sample == 5
             assert call_config.cli.limit is None
 
@@ -286,6 +292,7 @@ http:
         result = runner.invoke(
             CLI_APP,
             [
+                "activity",
                 "--config",
                 str(config_file),
                 "--output-dir",
@@ -394,6 +401,7 @@ validation:
             result = runner.invoke(
                 CLI_APP,
                 [
+                    "activity",
                     "--config",
                     str(config_file),
                     "--output-dir",
@@ -408,7 +416,10 @@ validation:
             assert mock_logger_configure.called
             logger_config = mock_logger_configure.call_args[0][0]
             assert logger_config.level == "DEBUG"
-            call_config = mock_pipeline_class.call_args.kwargs["config"]
+            # ChemblActivityPipeline is called with positional args: (config, run_id)
+            call_args = mock_pipeline_class.call_args
+            call_config = call_args.args[0] if call_args.args else call_args.kwargs.get("config")
+            assert call_config is not None
             assert call_config.cli.verbose is True
             assert call_config.cli.fail_on_schema_drift is False
             assert call_config.cli.validate_columns is False

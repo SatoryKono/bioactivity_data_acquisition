@@ -21,6 +21,8 @@ import pandas as pd
 import pandera.errors
 
 from bioetl.config import PipelineConfig
+from bioetl.core import APIClientFactory
+from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output import (
     DeterministicWriteArtifacts,
@@ -65,11 +67,19 @@ class RunArtifacts:
 
 @dataclass(frozen=True)
 class WriteResult:
-    """Materialised artifacts produced by the write stage."""
+    """Materialised artifacts produced by the write stage.
+
+    According to documentation, this should contain:
+    - dataset: Path
+    - quality_report: Path
+    - metadata: Path
+
+    Additional fields are kept for backward compatibility.
+    """
 
     dataset: Path
-    metadata: Path | None = None
     quality_report: Path | None = None
+    metadata: Path | None = None
     correlation_report: Path | None = None
     qc_metrics: Path | None = None
     extras: dict[str, Path] = field(default_factory=dict)
@@ -77,13 +87,26 @@ class WriteResult:
 
 @dataclass(frozen=True)
 class RunResult:
-    """Final result of a pipeline execution."""
+    """Final result of a pipeline execution.
 
-    run_id: str
+    According to documentation, this should contain:
+    - write_result: WriteResult
+    - run_directory: Path
+    - manifest: Path
+    - additional_datasets: Dict[str, Path]
+    - qc_summary: Optional[Path]
+    - debug_dataset: Optional[Path]
+    """
+
     write_result: WriteResult
     run_directory: Path
-    manifest: Path | None
-    log_file: Path
+    manifest: Path | None = None
+    additional_datasets: dict[str, Path] = field(default_factory=dict)
+    qc_summary: Path | None = None
+    debug_dataset: Path | None = None
+    # Additional fields kept for backward compatibility
+    run_id: str | None = None
+    log_file: Path | None = None
     stage_durations_ms: dict[str, float] = field(default_factory=dict)
 
 
@@ -365,6 +388,349 @@ class PipelineBase(ABC):
         self._registered_clients[name] = closer
 
     # ------------------------------------------------------------------
+    # Stage utilities (required by documentation)
+    # ------------------------------------------------------------------
+
+    def read_input_table(
+        self,
+        path: Path,
+        *,
+        limit: int | None = None,
+        sample: int | None = None,
+    ) -> pd.DataFrame:
+        """Read input table from file with logging and deterministic limits.
+
+        This method handles file inputs with consistent logging, deterministic
+        limiting, and empty-file handling. It respects CLI `limit`/`sample`
+        options for deterministic sampling.
+
+        Parameters
+        ----------
+        path:
+            Path to the input file (CSV or Parquet).
+        limit:
+            Optional limit on number of rows to read.
+        sample:
+            Optional sample size for deterministic sampling.
+
+        Returns
+        -------
+        pd.DataFrame:
+            The loaded DataFrame, optionally limited or sampled.
+        """
+        log = UnifiedLogger.get(__name__)
+        resolved_path = path.resolve()
+
+        if not resolved_path.exists():
+            log.warning("input_file_not_found", path=str(resolved_path))
+            return pd.DataFrame()
+
+        log.info("reading_input", path=str(resolved_path), limit=limit, sample=sample)
+
+        # Determine file format from extension
+        if resolved_path.suffix.lower() == ".parquet":
+            df = pd.read_parquet(resolved_path)  # type: ignore[assignment]
+        else:
+            # Default to CSV
+            df = pd.read_csv(resolved_path, low_memory=False)  # type: ignore[assignment]
+
+        if df.empty:
+            log.debug("input_file_empty", path=str(resolved_path))
+            return df
+
+        # Apply limit if specified
+        if limit is not None and limit > 0:
+            if limit < len(df):
+                df = df.head(limit)
+                log.info("input_limit_active", limit=limit, rows=len(df))
+
+        # Apply sample if specified
+        if sample is not None and sample > 0 and sample < len(df):
+            seed = self._deterministic_sample_seed()
+            df = df.sample(n=sample, random_state=seed, replace=False).sort_index()
+            log.info(
+                "sample_applied",
+                sample_size=sample,
+                population=len(df),
+                seed=seed,
+            )
+
+        return df.reset_index(drop=True)
+
+    def execute_enrichment_stages(
+        self,
+        df: pd.DataFrame,
+        *,
+        stages: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Execute registered enrichment hooks.
+
+        This method runs registered enrichment stages in sequence. Subclasses
+        can override this to add custom enrichment logic.
+
+        Parameters
+        ----------
+        df:
+            The DataFrame to enrich.
+        stages:
+            Optional sequence of stage names to execute. If None, all
+            registered stages are executed.
+
+        Returns
+        -------
+        pd.DataFrame:
+            The enriched DataFrame.
+        """
+        log = UnifiedLogger.get(__name__)
+        if df.empty:
+            return df
+
+        # Default implementation: no enrichment stages
+        # Subclasses can override to add custom enrichment logic
+        log.debug("enrichment_stages_completed", stages=stages or [])
+        return df
+
+    def run_schema_validation(
+        self,
+        df: pd.DataFrame,
+        schema_identifier: str,
+        *,
+        dataset_name: str = "secondary",
+    ) -> pd.DataFrame:
+        """Validate a secondary dataset against a schema.
+
+        This method validates a DataFrame against a Pandera schema for
+        secondary datasets (not the primary output schema).
+
+        Parameters
+        ----------
+        df:
+            The DataFrame to validate.
+        schema_identifier:
+            The schema identifier from the registry.
+        dataset_name:
+            Optional name for the dataset (for logging).
+
+        Returns
+        -------
+        pd.DataFrame:
+            The validated DataFrame (may be unchanged if validation fails in fail-open mode).
+        """
+        log = UnifiedLogger.get(__name__)
+        if df.empty:
+            return df
+
+        try:
+            schema_entry = get_schema(schema_identifier)
+            schema = schema_entry.schema
+            if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
+                schema = cast(Any, schema).replace(
+                    strict=self.config.validation.strict,
+                    coerce=self.config.validation.coerce,
+                )
+
+            validated = schema.validate(df, lazy=True)
+            if not isinstance(validated, pd.DataFrame):
+                msg = "Schema validation did not return a DataFrame"
+                raise TypeError(msg)
+            validated = self._reorder_columns(validated, schema_entry.column_order)
+            log.debug(
+                "schema_validation_completed",
+                dataset=dataset_name,
+                schema=schema_entry.identifier,
+                version=schema_entry.version,
+                rows=len(validated),
+            )
+            return validated
+        except pandera.errors.SchemaErrors as exc:
+            fail_open = (not getattr(self.config.cli, "fail_on_schema_drift", True)) or (
+                not getattr(self.config.cli, "validate_columns", True)
+            )
+            if not fail_open:
+                raise
+            failure_cases_df: pd.DataFrame | None = None
+            if hasattr(exc, "failure_cases"):
+                failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
+            failure_count = len(failure_cases_df) if failure_cases_df is not None else None
+            log.warning(
+                "schema_validation_failed",
+                dataset=dataset_name,
+                schema=schema_identifier,
+                error=str(exc),
+                failure_count=failure_count,
+            )
+            return df
+
+    def finalize_with_standard_metadata(
+        self,
+        metadata: Mapping[str, Any],
+        *,
+        df: pd.DataFrame | None = None,
+    ) -> dict[str, Any]:
+        """Finalize metadata with standard fields.
+
+        This method adds standard metadata fields to the provided metadata
+        dictionary, ensuring consistency across all pipeline runs.
+
+        Parameters
+        ----------
+        metadata:
+            The base metadata dictionary.
+        df:
+            Optional DataFrame to extract metadata from.
+
+        Returns
+        -------
+        dict[str, Any]:
+            The finalized metadata dictionary.
+        """
+        finalized: dict[str, Any] = dict(metadata)
+
+        # Add standard fields
+        finalized["pipeline_version"] = self.config.pipeline.version
+        finalized["pipeline_name"] = self.config.pipeline.name
+        finalized["run_id"] = self.run_id
+
+        if df is not None:
+            finalized["row_count"] = len(df)
+            finalized["schema_version"] = (
+                self._validation_schema.version if self._validation_schema else None
+            )
+
+        return finalized
+
+    def set_export_metadata_from_dataframe(
+        self,
+        df: pd.DataFrame,
+        *,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Set export metadata from DataFrame.
+
+        This method extracts metadata from a DataFrame and merges it with
+        optional existing metadata.
+
+        Parameters
+        ----------
+        df:
+            The DataFrame to extract metadata from.
+        metadata:
+            Optional existing metadata dictionary.
+
+        Returns
+        -------
+        dict[str, Any]:
+            The merged metadata dictionary.
+        """
+        base_metadata: dict[str, Any] = dict(metadata) if metadata else {}
+
+        # Extract basic statistics
+        base_metadata["row_count"] = len(df)
+        base_metadata["column_count"] = len(df.columns)
+        base_metadata["columns"] = list(df.columns)
+
+        if self._validation_schema:
+            base_metadata["schema_identifier"] = self._validation_schema.identifier
+            base_metadata["schema_version"] = self._validation_schema.version
+
+        return base_metadata
+
+    def record_validation_issue(
+        self,
+        *,
+        severity: str = "warning",
+        dataset: str = "primary",
+        column: str | None = None,
+        check: str | None = None,
+        count: int | None = None,
+        error: str | None = None,
+    ) -> None:
+        """Record a validation issue for QC reporting.
+
+        This method accumulates validation issues that are logged during
+        validation but do not cause pipeline failure.
+
+        Parameters
+        ----------
+        severity:
+            Severity level (e.g., "warning", "error", "info").
+        dataset:
+            Name of the dataset (e.g., "primary", "secondary").
+        column:
+            Optional column name if issue is column-specific.
+        check:
+            Optional check name that failed.
+        count:
+            Optional count of affected rows.
+        error:
+            Optional error message.
+        """
+        log = UnifiedLogger.get(__name__)
+        log.warning(
+            "validation_issue_recorded",
+            severity=severity,
+            dataset=dataset,
+            column=column,
+            check=check,
+            count=count,
+            error=error,
+        )
+
+    def reset_stage_context(self, stage: str) -> None:
+        """Reset logging context for a stage.
+
+        This method resets the logging context to the specified stage,
+        clearing any transient state.
+
+        Parameters
+        ----------
+        stage:
+            The stage name (e.g., "extract", "transform", "validate", "write").
+        """
+        UnifiedLogger.bind(stage=stage, component=self._component_for_stage(stage))
+
+    def init_chembl_client(self, *, base_url: str | None = None) -> UnifiedAPIClient:
+        """Initialize and register a ChEMBL API client.
+
+        This method creates a ChEMBL client using the unified HTTP client
+        with default retry/backoff, throttling, and observability policies.
+        The client is automatically registered for cleanup during pipeline finalization.
+
+        Parameters
+        ----------
+        base_url:
+            Optional base URL for the ChEMBL API. If not provided, it will
+            be resolved from the source configuration.
+
+        Returns
+        -------
+        UnifiedAPIClient:
+            The configured ChEMBL API client.
+        """
+        factory = APIClientFactory(self.config)
+        source_config = self.config.sources.get("chembl")
+        if source_config is None:
+            msg = "ChEMBL source configuration not found"
+            raise ValueError(msg)
+
+        # Resolve base URL from source config if not provided
+        if base_url is None:
+            parameters = source_config.parameters or {}
+            base_url = parameters.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
+
+        # Ensure base_url is str (guaranteed by .get() with default, but type checker doesn't know)
+        if not isinstance(base_url, str):
+            msg = "base_url must be a string"
+            raise TypeError(msg)
+
+        client = factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_client", client)
+
+        log = UnifiedLogger.get(__name__)
+        log.debug("chembl_client_initialized", base_url=base_url)
+        return client
+
+    # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
 
@@ -393,16 +759,78 @@ class PipelineBase(ABC):
             finally:
                 self._registered_clients.pop(name, None)
 
-    def write(self, payload: object, artifacts: RunArtifacts) -> WriteResult:
-        """Default deterministic write implementation used by pipelines."""
+    def write(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = False,
+    ) -> RunResult:
+        """Write the DataFrame and all metadata artifacts to the output path.
 
-        if not isinstance(payload, pd.DataFrame):
-            msg = "PipelineBase.write expects a pandas DataFrame payload"
-            raise TypeError(msg)
+        This method writes the dataset, quality reports, metadata, and other
+        artifacts to the specified output path. According to documentation,
+        this method should return RunResult, not WriteResult.
 
+        Parameters
+        ----------
+        df:
+            The DataFrame to write.
+        output_path:
+            The base output path for all artifacts.
+        extended:
+            Whether to include extended QC artifacts.
+
+        Returns
+        -------
+        RunResult:
+            All artifacts generated by the write operation.
+        """
         log = UnifiedLogger.get(__name__)
+
+        # Plan artifacts based on output_path
+        run_tag = self._normalise_run_tag(None)
+        mode = "extended" if extended else None
+        include_correlation = extended or self.config.postprocess.correlation.enabled
+        include_qc_metrics = extended
+        include_metadata = extended
+        include_manifest = extended
+
+        # Use output_path as base directory if provided, otherwise use pipeline_directory
+        if output_path.is_dir():
+            run_dir = output_path
+        else:
+            run_dir = output_path.parent
+            # Ensure the directory exists
+            run_dir.mkdir(parents=True, exist_ok=True)
+
+        # Plan artifacts in the output directory
+        stem = self.build_run_stem(run_tag=run_tag, mode=mode)
+        artifacts = RunArtifacts(
+            write=WriteArtifacts(
+                dataset=run_dir / f"{stem}.{self.dataset_extension}",
+                quality_report=run_dir / f"{stem}_quality_report.{self.qc_extension}",
+                correlation_report=(
+                    run_dir / f"{stem}_correlation_report.{self.qc_extension}"
+                    if include_correlation
+                    else None
+                ),
+                qc_metrics=(
+                    run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
+                ),
+                metadata=run_dir / f"{stem}_meta.yaml" if include_metadata else None,
+            ),
+            run_directory=run_dir,
+            manifest=(
+                run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
+            ),
+            log_file=self.logs_directory / f"{stem}.{self.log_extension}",
+            extras={},
+        )
+
+        # Build write artifacts
         prepared: DeterministicWriteArtifacts = build_write_artifacts(
-            payload,
+            df,
             config=self.config,
             run_id=self.run_id,
             pipeline_code=self.pipeline_code,
@@ -476,7 +904,8 @@ class PipelineBase(ABC):
             artifact_name="qc_metrics",
         )
 
-        return WriteResult(
+        # Create WriteResult for RunResult
+        write_result = WriteResult(
             dataset=artifacts.write.dataset,
             metadata=metadata_path,
             quality_report=quality_path,
@@ -485,17 +914,47 @@ class PipelineBase(ABC):
             extras=dict(artifacts.extras),
         )
 
+        # Return RunResult according to documentation
+        return RunResult(
+            write_result=write_result,
+            run_directory=artifacts.run_directory,
+            manifest=artifacts.manifest,
+            additional_datasets=dict(artifacts.extras),
+            qc_summary=metrics_path,
+            debug_dataset=None,  # Not implemented yet
+            run_id=self.run_id,
+            log_file=artifacts.log_file,
+            stage_durations_ms=self._stage_durations_ms,
+        )
+
     def run(
         self,
+        output_path: Path,
         *args: object,
-        mode: str | None = None,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
-        extras: dict[str, Path] | None = None,
+        extended: bool = False,
         **kwargs: object,
     ) -> RunResult:
-        """Execute the pipeline lifecycle and return collected artifacts."""
+        """Execute the pipeline lifecycle and return collected artifacts.
 
+        According to documentation, this method should accept output_path as the
+        first positional argument after self.
+
+        Parameters
+        ----------
+        output_path:
+            The base output path for all artifacts.
+        extended:
+            Whether to include extended QC artifacts.
+        *args:
+            Additional positional arguments passed to extract().
+        **kwargs:
+            Additional keyword arguments passed to extract().
+
+        Returns
+        -------
+        RunResult:
+            All artifacts generated by the pipeline run.
+        """
         log = UnifiedLogger.get(__name__)
         UnifiedLogger.bind(
             run_id=self.run_id,
@@ -509,29 +968,14 @@ class PipelineBase(ABC):
         stage_durations_ms: dict[str, float] = {}
         self._stage_durations_ms = stage_durations_ms
 
-        artifacts: RunArtifacts | None = None
-
-        configured_mode = mode
+        configured_mode = "extended" if extended else None
         if self.config.cli.extended:
             configured_mode = "extended"
 
         UnifiedLogger.bind(stage="bootstrap")
-        log.info("pipeline_started", mode=configured_mode)
+        log.info("pipeline_started", mode=configured_mode, output_path=str(output_path))
 
         try:
-            is_extended = configured_mode == "extended"
-            include_correlation = (
-                include_correlation
-                if include_correlation is not None
-                else (is_extended or self.config.postprocess.correlation.enabled)
-            )
-            include_qc_metrics = (
-                include_qc_metrics if include_qc_metrics is not None else is_extended
-            )
-            include_metadata = is_extended
-            include_manifest = is_extended
-            run_tag = self._normalise_run_tag(None)
-
             with UnifiedLogger.stage("extract", component=self._component_for_stage("extract")):
                 log.info("extract_started")
                 extract_start = time.perf_counter()
@@ -564,41 +1008,21 @@ class PipelineBase(ABC):
                 log.info("validate_completed", duration_ms=duration, rows=rows)
 
             with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
-                artifacts = self.plan_run_artifacts(
-                    run_tag=run_tag,
-                    mode=configured_mode,
-                    include_correlation=include_correlation,
-                    include_qc_metrics=include_qc_metrics,
-                    include_metadata=include_metadata,
-                    include_manifest=include_manifest,
-                    extras=extras,
-                )
-                log.info(
-                    "write_started",
-                    dataset=str(artifacts.write.dataset),
-                    metadata=(str(artifacts.write.metadata) if artifacts.write.metadata else None),
-                )
+                log.info("write_started", output_path=str(output_path))
                 write_start = time.perf_counter()
-                write_result = self.write(validated, artifacts)
+                result = self.write(validated, output_path, extended=extended)
                 duration = (time.perf_counter() - write_start) * 1000.0
                 stage_durations_ms["write"] = duration
                 log.info(
                     "write_completed",
                     duration_ms=duration,
-                    dataset=str(write_result.dataset),
+                    dataset=str(result.write_result.dataset),
                 )
 
             self.apply_retention_policy()
             log.info("pipeline_completed", stage_durations_ms=stage_durations_ms)
 
-            return RunResult(
-                run_id=self.run_id,
-                write_result=write_result,
-                run_directory=artifacts.run_directory,
-                manifest=artifacts.manifest,
-                log_file=artifacts.log_file,
-                stage_durations_ms=stage_durations_ms,
-            )
+            return result
 
         except Exception as exc:
             log.error("pipeline_failed", error=str(exc), exc_info=True)

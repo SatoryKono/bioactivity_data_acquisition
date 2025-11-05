@@ -42,12 +42,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard production extraction
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.main assay_chembl \
   --config configs/pipelines/chembl/assay.yaml \
   --output-dir data/output/assay
 
 # Throttle the client for troubleshooting
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.main assay_chembl \
   --config configs/pipelines/chembl/assay.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20

@@ -40,9 +40,9 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ## Command reference
 
-### `activity`
+### `activity_chembl`
 
-- **Signature**: `python -m bioetl.cli.main activity [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.main activity_chembl [OPTIONS]`
 - **Purpose**: Extract biological activity records from ChEMBL `/activity.json` and normalise them to the project schema.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any applicable `--set` overrides.
@@ -51,15 +51,15 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main activity \
+  python -m bioetl.cli.main activity_chembl \
     --config src/bioetl/configs/pipelines/chembl/activity.yaml \
     --output-dir data/output/activity \
     --set sources.chembl.batch_size=10
   ```
 
-### `assay`
+### `assay_chembl`
 
-- **Signature**: `python -m bioetl.cli.main assay [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.main assay_chembl [OPTIONS]`
 - **Purpose**: Retrieve and normalise assay metadata from ChEMBL `/assay.json`.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`.
@@ -68,7 +68,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main assay \
+  python -m bioetl.cli.main assay_chembl \
     --config src/bioetl/configs/pipelines/chembl/assay.yaml \
     --output-dir data/output/assay
   ```
@@ -264,8 +264,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 | Command | Data domain | Primary configuration | Default profiles applied |
 | --- | --- | --- | --- |
-| `activity` | ChEMBL activity fact table | `src/bioetl/configs/pipelines/chembl/activity.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
-| `assay` | ChEMBL assay dimension | `src/bioetl/configs/pipelines/chembl/assay.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `activity_chembl` | ChEMBL activity fact table | `src/bioetl/configs/pipelines/chembl/activity.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
+| `assay_chembl` | ChEMBL assay dimension | `src/bioetl/configs/pipelines/chembl/assay.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `target` | ChEMBL target dimension + UniProt/IUPHAR enrichment | `src/bioetl/configs/pipelines/chembl/target.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `document` | ChEMBL documents with optional external enrichers | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `testitem` | ChEMBL molecules with PubChem enrichment hooks | `src/bioetl/configs/pipelines/chembl/testitem.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |

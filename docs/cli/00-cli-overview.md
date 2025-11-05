@@ -17,7 +17,7 @@ The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. 
 
 The CLI is a Typer application whose main entry point is `python -m bioetl.cli.main`. Its architecture is based on a **static command registry** that is built when the application starts.
 
-- **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity`, `assay`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
+- **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity_chembl`, `assay_chembl`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
 - **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
 
 This approach is **not dynamic**. Adding a new pipeline requires explicitly adding its configuration to `registry.py`.

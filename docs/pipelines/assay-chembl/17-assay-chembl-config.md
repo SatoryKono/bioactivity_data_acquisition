@@ -10,7 +10,7 @@ This document describes configuration for the Assay (ChEMBL) pipeline.
 
 ## Configuration File
 
-`src/bioetl/configs/pipelines/chembl/assay.yaml`
+`configs/pipelines/chembl/assay.yaml`
 
 ## Key Settings
 

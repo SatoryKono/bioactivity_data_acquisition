@@ -40,7 +40,7 @@ class TestPipelineBase:
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
-        assert pipeline.pipeline_code == "activity"
+        assert pipeline.pipeline_code == "activity_chembl"
         assert pipeline.pipeline_directory.exists()
         assert pipeline.logs_directory.exists()
 
@@ -49,7 +49,7 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         assert pipeline.pipeline_directory.exists()
-        assert pipeline.pipeline_directory.name == "_activity"
+        assert pipeline.pipeline_directory.name == "_activity_chembl"
         assert pipeline.pipeline_directory.is_dir()
 
     def test_ensure_logs_directory(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
@@ -57,7 +57,7 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         assert pipeline.logs_directory.exists()
-        assert pipeline.logs_directory.name == "activity"
+        assert pipeline.logs_directory.name == "activity_chembl"
         assert pipeline.logs_directory.is_dir()
 
     def test_derive_trace_and_span(self, pipeline_config_fixture: PipelineConfig) -> None:
@@ -76,10 +76,10 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         stem = pipeline.build_run_stem("20240101")
-        assert stem == "activity_20240101"
+        assert stem == "activity_chembl_20240101"
 
         stem_with_mode = pipeline.build_run_stem("20240101", mode="full")
-        assert stem_with_mode == "activity_full_20240101"
+        assert stem_with_mode == "activity_chembl_full_20240101"
 
     def test_plan_run_artifacts(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test artifact planning."""
@@ -89,7 +89,7 @@ class TestPipelineBase:
 
         assert isinstance(artifacts, RunArtifacts)
         assert artifacts.write.dataset.exists() is False  # File not created yet
-        assert artifacts.write.dataset.name == "activity_20240101.csv"
+        assert artifacts.write.dataset.name == "activity_chembl_20240101.csv"
         assert artifacts.write.metadata is None
         assert artifacts.write.quality_report is not None
         assert artifacts.write.correlation_report is None  # Default is False
@@ -278,27 +278,31 @@ class TestPipelineBase:
             include_qc_metrics=True,
         )
 
-        write_result = pipeline.write(sample_activity_data, artifacts)
+        # Use output_path from artifacts for write()
+        result = pipeline.write(sample_activity_data, artifacts.write.dataset.parent, extended=True)
 
-        assert write_result.dataset.exists()
-        assert write_result.metadata is not None and write_result.metadata.exists()
-        assert write_result.quality_report is not None
-        assert write_result.quality_report.exists()
+        assert result.write_result.dataset.exists()
+        assert result.write_result.metadata is not None and result.write_result.metadata.exists()
+        assert result.write_result.quality_report is not None
+        assert result.write_result.quality_report.exists()
 
-    def test_write_invalid_payload(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_write_invalid_payload(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
+    ) -> None:
         """Test write with invalid payload type."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
-        artifacts = pipeline.plan_run_artifacts(run_id)
 
         with pytest.raises(TypeError, match="expects a pandas DataFrame"):
-            pipeline.write("invalid_payload", artifacts)
+            pipeline.write("invalid_payload", tmp_output_dir)  # type: ignore[arg-type]
 
-    def test_run_lifecycle(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_run_lifecycle(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
+    ) -> None:
         """Test full pipeline lifecycle."""
         pipeline_config_fixture.validation.schema_out = None
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        result = pipeline.run()
+        result = pipeline.run(Path(tmp_output_dir))
 
         assert result.run_id == run_id
         assert result.write_result.dataset.exists()
@@ -323,17 +327,21 @@ class TestPipelineBase:
         sampled_again = pipeline._apply_cli_sample(df)  # type: ignore[reportPrivateUsage]
         pd.testing.assert_frame_equal(sampled, sampled_again)
 
-    def test_run_with_mode(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
-        """Test pipeline run with mode."""
+    def test_run_with_mode(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
+    ) -> None:
+        """Test pipeline run with extended mode."""
         pipeline_config_fixture.validation.schema_out = None
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        result = pipeline.run(mode="full")
+        result = pipeline.run(Path(tmp_output_dir), extended=True)
 
         # The dataset name depends on the date tag, which is derived from config
-        assert "activity_chembl_full_" in result.write_result.dataset.name
+        assert "activity_chembl_extended_" in result.write_result.dataset.name
 
-    def test_run_error_handling(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_run_error_handling(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
+    ) -> None:
         """Test error handling in pipeline run."""
         pipeline_config_fixture.validation.schema_out = None
 
@@ -344,7 +352,7 @@ class TestPipelineBase:
         pipeline = FailingPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         with pytest.raises(ValueError, match="Extraction failed"):
-            pipeline.run()
+            pipeline.run(Path(tmp_output_dir))
 
         # Clients should be cleaned up even on error
         assert len(pipeline._registered_clients) == 0  # type: ignore[reportPrivateUsage]

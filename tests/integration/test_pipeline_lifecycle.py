@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
+from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
 
 
@@ -17,9 +18,9 @@ class TestPipelineLifecycle:
 
     def test_full_pipeline_lifecycle(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
-        sample_activity_data_raw: list[dict],
+        sample_activity_data_raw: list[dict[str, Any]],
         tmp_output_dir: Path,
     ):
         """Test full pipeline lifecycle with mocked HTTP."""
@@ -47,7 +48,7 @@ class TestPipelineLifecycle:
             mock_factory.return_value = mock_client
 
             pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-            result = pipeline.run()
+            result = pipeline.run(tmp_output_dir)
 
             assert result.run_id == run_id
             assert result.write_result.dataset.exists()
@@ -60,7 +61,7 @@ class TestPipelineLifecycle:
 
     def test_pipeline_lifecycle_with_validation_error(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         tmp_output_dir: Path,
     ):
@@ -98,7 +99,7 @@ class TestPipelineLifecycle:
 
             # Should raise validation error or handle gracefully
             try:
-                result = pipeline.run()
+                result = pipeline.run(tmp_output_dir)
                 # If it succeeds, validation should have cleaned invalid data
                 assert result.write_result.dataset.exists()
             except Exception:
@@ -107,7 +108,7 @@ class TestPipelineLifecycle:
 
     def test_pipeline_lifecycle_with_empty_data(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         tmp_output_dir: Path,
     ):
@@ -134,7 +135,7 @@ class TestPipelineLifecycle:
             mock_factory.return_value = mock_client
 
             pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-            result = pipeline.run()
+            result = pipeline.run(tmp_output_dir)
 
             # Should handle empty data gracefully
             assert result.write_result.dataset.exists()
