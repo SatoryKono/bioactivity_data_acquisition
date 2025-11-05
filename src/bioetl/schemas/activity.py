@@ -5,12 +5,13 @@ from __future__ import annotations
 import pandera as pa
 from pandera import Check, Column, DataFrameSchema
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 COLUMN_ORDER = (
     "activity_id",
-    "molecule_chembl_id",
     "assay_chembl_id",
+    "testitem_chembl_id",
+    "molecule_chembl_id",
     "target_chembl_id",
     "document_chembl_id",
     "standard_type",
@@ -26,6 +27,7 @@ COLUMN_ORDER = (
     "target_organism",
     "target_tax_id",
     "data_validity_comment",
+    "potential_duplicate",
     "activity_properties",
     "compound_key",
     "is_citation",
@@ -40,8 +42,9 @@ RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
 ActivitySchema = DataFrameSchema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),
-        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
+        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
+        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
+        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
         "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
         "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
         "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
@@ -57,6 +60,7 @@ ActivitySchema = DataFrameSchema(
         "target_organism": Column(pa.String, nullable=True),
         "target_tax_id": Column(pa.Int64, Check.ge(1), nullable=True),
         "data_validity_comment": Column(pa.String, nullable=True),
+        "potential_duplicate": Column(pa.Bool, nullable=True),
         "activity_properties": Column(pa.String, nullable=True),
         "compound_key": Column(pa.String, nullable=True),
         "is_citation": Column(pa.Bool, nullable=True),

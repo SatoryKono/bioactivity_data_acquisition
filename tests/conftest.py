@@ -76,8 +76,9 @@ def sample_activity_data() -> pd.DataFrame:
     df = pd.DataFrame(
         {
             "activity_id": [1, 2, 3],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
             "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102"],
+            "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
             "target_chembl_id": ["CHEMBL200", "CHEMBL201", "CHEMBL202"],
             "document_chembl_id": ["CHEMBL300", "CHEMBL301", "CHEMBL302"],
             "standard_type": ["IC50", "EC50", "Ki"],
@@ -91,8 +92,9 @@ def sample_activity_data() -> pd.DataFrame:
             "canonical_smiles": ["CCO", "CCN", "CCC"],
             "ligand_efficiency": [None, '{"LE": 0.5}', None],
             "target_organism": ["Homo sapiens", "Mus musculus", None],
-            "target_tax_id": [9606, 10090, 9606],
+            "target_tax_id": pd.Series([9606, 10090, 9606], dtype="Int64"),
             "data_validity_comment": [None, None, "Validated"],
+            "potential_duplicate": [False, True, None],
             "activity_properties": [None, '{"property": "value"}', None],
             "compound_key": ["key1", "key2", "key3"],
             "is_citation": [True, False, True],
@@ -113,6 +115,7 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
             "activity_id": 1,
             "molecule_chembl_id": "CHEMBL1",
             "assay_chembl_id": "CHEMBL100",
+            "testitem_chembl_id": "CHEMBL1",
             "target_chembl_id": "CHEMBL200",
             "document_chembl_id": "CHEMBL300",
             "standard_type": "IC50",
@@ -130,11 +133,13 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
             "high_citation_rate": False,
             "exact_data_citation": True,
             "rounded_data_citation": False,
+            "potential_duplicate": 0,
         },
         {
             "activity_id": 2,
             "molecule_chembl_id": "CHEMBL2",
             "assay_chembl_id": "CHEMBL101",
+            "testitem_chembl_id": "CHEMBL2",
             "target_chembl_id": "CHEMBL201",
             "document_chembl_id": "CHEMBL301",
             "standard_type": "EC50",
@@ -152,6 +157,7 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
             "high_citation_rate": True,
             "exact_data_citation": True,
             "rounded_data_citation": False,
+            "potential_duplicate": 1,
         },
     ]
 
@@ -162,7 +168,7 @@ def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
     return PipelineConfig(  # type: ignore[call-arg]
         version=1,
         pipeline=PipelineMetadata(  # type: ignore[call-arg]
-            name="activity",
+            name="activity_chembl",
             version="1.0.0",
             description="Test activity pipeline",
         ),
@@ -177,11 +183,11 @@ def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
         materialization=MaterializationConfig(root=str(tmp_output_dir)),
         determinism=DeterminismConfig(  # type: ignore[call-arg]
             sort=DeterminismSortingConfig(
-                by=["activity_id"],
-                ascending=[True],
+                by=[],
+                ascending=[],
             ),
             hashing=DeterminismHashingConfig(
-                business_key_fields=("activity_id",),
+                business_key_fields=(),
             ),
         ),
         validation=ValidationConfig(

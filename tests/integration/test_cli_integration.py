@@ -7,9 +7,12 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest  # type: ignore[reportMissingImports]
-from typer.testing import CliRunner  # type: ignore[reportMissingImports]
+from click.testing import CliRunner  # type: ignore[reportMissingImports]
+from typer.main import get_command  # type: ignore[reportMissingImports]
 
 from bioetl.cli.main import app  # type: ignore[reportUnknownVariableType]
+
+CLI_APP = get_command(app)
 
 
 @pytest.mark.integration  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
@@ -25,7 +28,7 @@ class TestCLIIntegration:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -87,7 +90,7 @@ determinism:
                 real_config = PipelineConfig(
                     version=1,
                     pipeline=PipelineMetadata(
-                        name="activity",
+                        name="activity_chembl",
                         version="1.0.0",
                         description="Test activity pipeline",
                     ),
@@ -141,7 +144,7 @@ determinism:
             mock_factory.return_value = mock_client
 
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                app,  # type: ignore[reportUnknownVariableType]
+                CLI_APP,
                 [
                     "--config",
                     str(config_file),
@@ -164,7 +167,7 @@ determinism:
             """
 version: 1
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
 http:
   default:
@@ -194,7 +197,7 @@ http:
             mock_pipeline_class.return_value = mock_pipeline
 
             result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                app,  # type: ignore[reportUnknownVariableType]
+                CLI_APP,
                 [
                     "--config",
                     str(config_file),

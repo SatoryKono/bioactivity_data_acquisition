@@ -10,7 +10,7 @@ extends:
 
 # Pipeline metadata
 pipeline:
-  name: activity
+  name: activity_chembl
   version: "1.0.0"
   owner: "Data Acquisition Team"
   description: "Extract biological activity records from ChEMBL API"
@@ -30,7 +30,7 @@ determinism:
   sort:
     by:
       - assay_chembl_id
-      - molecule_chembl_id
+      - testitem_chembl_id
       - activity_id
     ascending:
       - true
@@ -39,8 +39,9 @@ determinism:
     na_position: "last"
   column_order:
     - activity_id
-    - molecule_chembl_id
     - assay_chembl_id
+    - testitem_chembl_id
+    - molecule_chembl_id
     - target_chembl_id
     - document_chembl_id
     - standard_type
@@ -56,6 +57,7 @@ determinism:
     - target_organism
     - target_tax_id
     - data_validity_comment
+    - potential_duplicate
     - activity_properties
     - compound_key
 
@@ -67,6 +69,10 @@ determinism:
     exclude_fields:
       - generated_at
       - run_id
+
+postprocess:
+  correlation:
+    enabled: false
 
 # Validation schema
 validation:

@@ -612,20 +612,18 @@ class PipelineBase(ABC):
             return payload
 
         schema_entry = get_schema(schema_identifier)
-        schema_obj = schema_entry.schema
-        original_strict: bool | None = None
-        original_coerce: bool | None = None
-        if hasattr(schema_obj, "replace"):
-            schema = schema_obj.replace(
+        schema = schema_entry.schema
+        if hasattr(schema, "replace"):
+            schema = schema.replace(
                 strict=self.config.validation.strict,
                 coerce=self.config.validation.coerce,
             )
         else:
-            original_strict = getattr(schema_obj, "strict", None)
-            original_coerce = getattr(schema_obj, "coerce", None)
-            schema_obj.strict = self.config.validation.strict  # type: ignore[attr-defined]
-            schema_obj.coerce = self.config.validation.coerce  # type: ignore[attr-defined]
-            schema = schema_obj
+            schema = self._clone_schema_with_options(
+                schema,
+                strict=self.config.validation.strict,
+                coerce=self.config.validation.coerce,
+            )
         log.debug(
             "validation_schema_loaded",
             schema=schema_entry.identifier,
@@ -645,12 +643,6 @@ class PipelineBase(ABC):
             validated = self._reorder_columns(validated, schema_entry.column_order)
         except pandera.errors.SchemaErrors as exc:
             if not fail_open:
-                # Restore schema state before re-raising
-                if not hasattr(schema_obj, "replace"):
-                    if original_strict is not None:
-                        schema_obj.strict = original_strict  # type: ignore[attr-defined]
-                    if original_coerce is not None:
-                        schema_obj.coerce = original_coerce  # type: ignore[attr-defined]
                 raise
             failure_count = len(exc.failure_cases) if hasattr(exc, "failure_cases") else None
             error_summary = str(exc)
@@ -663,12 +655,6 @@ class PipelineBase(ABC):
             )
             validated = payload
             schema_valid = False
-        finally:
-            if not hasattr(schema_obj, "replace"):
-                if original_strict is not None:
-                    schema_obj.strict = original_strict  # type: ignore[attr-defined]
-                if original_coerce is not None:
-                    schema_obj.coerce = original_coerce  # type: ignore[attr-defined]
 
         self._validation_schema = schema_entry
         self._validation_summary = {
@@ -695,6 +681,39 @@ class PipelineBase(ABC):
             )
 
         return validated
+
+    @staticmethod
+    def _clone_schema_with_options(
+        schema: Any,
+        *,
+        strict: bool | None,
+        coerce: bool | None,
+    ) -> Any:
+        """Clone ``schema`` applying strict/coerce flags for DataFrameSchema compatibility."""
+
+        if schema.__class__.__name__ != "DataFrameSchema":
+            return schema
+
+        schema_cls = schema.__class__
+        return schema_cls(
+            schema.columns,
+            checks=schema.checks,
+            index=schema.index,
+            dtype=schema.dtype,
+            coerce=schema.coerce if coerce is None else coerce,
+            strict=schema.strict if strict is None else strict,
+            name=schema.name,
+            ordered=schema.ordered,
+            unique=schema.unique,
+            report_duplicates=schema.report_duplicates,
+            unique_column_names=schema.unique_column_names,
+            add_missing_columns=schema.add_missing_columns,
+            drop_invalid_rows=schema.drop_invalid_rows,
+            title=schema.title,
+            description=schema.description,
+            metadata=schema.metadata,
+            parsers=schema.parsers,
+        )
 
     def _reorder_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
         if not column_order:

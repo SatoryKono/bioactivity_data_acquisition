@@ -385,7 +385,6 @@ class TestUnifiedAPIClient:
 
     def test_compute_backoff(self):
         """Test backoff computation."""
-        # Disable jitter for deterministic test
         config = HTTPClientConfig(
             retries=RetryConfig(backoff_multiplier=2.0, backoff_max=10.0),
             rate_limit_jitter=False,
