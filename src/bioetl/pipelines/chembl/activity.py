@@ -114,8 +114,8 @@ class ChemblActivityPipeline(PipelineBase):
             next_link = self._next_link(payload, base_url=base_url)
             if not next_link or (limit is not None and len(records) >= limit):
                 break
-            # Debug: log the next_link before using it
-            log.debug(
+            # Log the next_link before using it for debugging
+            log.info(
                 "chembl_activity.next_link_resolved",
                 next_link=next_link,
                 base_url=base_url,
@@ -694,35 +694,27 @@ class ChemblActivityPipeline(PipelineBase):
                     parsed = urlparse(next_link)
                     base_parsed = urlparse(base_url)
 
-                    # Normalize paths: remove trailing slashes for comparison
-                    path = parsed.path.rstrip("/")
-                    base_path = base_parsed.path.rstrip("/")
+                    # Get paths
+                    path = parsed.path
+                    base_path = base_parsed.path
 
-                    # Debug logging
-                    log = UnifiedLogger.get(__name__)
-                    log.debug(
-                        "chembl_activity._next_link_debug",
-                        next_link=next_link,
-                        base_url=base_url,
-                        path=path,
-                        base_path=base_path,
-                    )
+                    # Normalize: remove trailing slashes for comparison
+                    path_normalized = path.rstrip("/")
+                    base_path_normalized = base_path.rstrip("/")
 
                     # Remove base_path prefix from path if it exists
                     # This ensures we only return the endpoint part relative to base_url
-                    if base_path and path.startswith(base_path):
+                    if base_path_normalized and path_normalized.startswith(base_path_normalized):
                         # Extract the part after base_path
-                        relative_path = path[len(base_path) :]
+                        relative_path = path_normalized[len(base_path_normalized) :]
+                        # If empty, it means paths are identical - this shouldn't happen for pagination
+                        if not relative_path:
+                            return None
                         # Ensure relative_path starts with /
                         if not relative_path.startswith("/"):
                             relative_path = f"/{relative_path}"
-                        log.debug(
-                            "chembl_activity._next_link_extracted",
-                            method="base_path_prefix",
-                            relative_path=relative_path,
-                        )
                     else:
-                        # If base_path doesn't match, extract using /api/data/ pattern
+                        # If base_path doesn't match, try to extract using /api/data/ pattern
                         # ChEMBL API URLs typically follow: .../chembl/api/data/<endpoint>
                         if "/api/data/" in path:
                             # Extract everything after /api/data/
@@ -730,32 +722,19 @@ class ChemblActivityPipeline(PipelineBase):
                             if len(parts) > 1:
                                 relative_path = "/" + parts[1]
                             else:
+                                # Shouldn't happen, but fallback
                                 relative_path = path
-                            log.debug(
-                                "chembl_activity._next_link_extracted",
-                                method="api_data_pattern",
-                                relative_path=relative_path,
-                            )
                         else:
-                            # Fallback: use the path as-is
+                            # Fallback: use the path as-is (shouldn't normally happen)
                             relative_path = path
                             # Ensure it starts with /
                             if not relative_path.startswith("/"):
                                 relative_path = f"/{relative_path}"
-                            log.debug(
-                                "chembl_activity._next_link_extracted",
-                                method="fallback",
-                                relative_path=relative_path,
-                            )
 
                     # Add query string if present (preserve original query params)
                     if parsed.query:
                         relative_path = f"{relative_path}?{parsed.query}"
 
-                    log.debug(
-                        "chembl_activity._next_link_final",
-                        relative_path=relative_path,
-                    )
                     return relative_path
                 # If next_link is already a relative path, ensure it starts with /
                 if not next_link.startswith("/"):
