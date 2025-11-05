@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -213,6 +214,11 @@ class TestChemblActivityPipelineTransformations:
             {
                 "ligand_efficiency": [{"LE": 0.5}, None, '{"LE": 0.3}'],
                 "activity_properties": [{"property": "value"}, None, None],
+                "activity_supplemental": [
+                    [{"rgid": "RG1", "activity_supp": [], "activity_supp_map": []}],
+                    None,
+                    None,
+                ],
             }
         )
 
@@ -222,6 +228,8 @@ class TestChemblActivityPipelineTransformations:
         assert isinstance(normalized["ligand_efficiency"].iloc[0], str)
         assert pd.isna(normalized["ligand_efficiency"].iloc[1])
         assert normalized["ligand_efficiency"].iloc[2] == '{"LE": 0.3}'
+        assert isinstance(normalized["activity_supplemental"].iloc[0], str)
+        assert pd.isna(normalized["activity_supplemental"].iloc[1])
 
     def test_normalize_data_types(self, pipeline_config_fixture, run_id: str):
         """Test data type conversions."""
@@ -407,10 +415,33 @@ class TestChemblActivityPipelineTransformations:
             "activities": [{"activity_id": 3, "standard_type": "IC50"}]
         }
         client.get.side_effect = [response_batch_one, response_batch_two]
+        supplemental_first_batch = {
+            "1": [
+                {
+                    "rgid": "RG1",
+                    "activity_supp": [{"note": "alpha"}],
+                    "activity_supp_map": [],
+                }
+            ],
+            "2": [
+                {
+                    "rgid": "RG2",
+                    "activity_supp": [],
+                    "activity_supp_map": [],
+                }
+            ],
+        }
+        supplemental_second_batch: dict[str, list[dict[str, Any]]] = {}
+        pipeline._collect_activity_supplementals = MagicMock(
+            side_effect=[supplemental_first_batch, supplemental_second_batch]
+        )
 
         result = pipeline._extract_from_chembl(dataset, client, batch_size=2)
 
         assert list(result["activity_id"]) == [1, 2, 3]
+        assert pipeline._collect_activity_supplementals.call_count == 2
+        assert result["activity_supplemental"].iloc[0] == supplemental_first_batch["1"]
+        assert result["activity_supplemental"].iloc[1] == supplemental_first_batch["2"]
         stats = pipeline._last_batch_extract_stats
         assert stats is not None
         assert stats["api_calls"] == 2
@@ -421,6 +452,8 @@ class TestChemblActivityPipelineTransformations:
 
         assert list(cached_result["activity_id"]) == [1, 2, 3]
         assert cached_client.get.call_count == 0
+        assert pipeline._collect_activity_supplementals.call_count == 2
+        assert cached_result["activity_supplemental"].iloc[0] == supplemental_first_batch["1"]
         cached_stats = pipeline._last_batch_extract_stats
         assert cached_stats is not None
         assert cached_stats["cache_hits"] == 3
@@ -448,10 +481,48 @@ class TestChemblActivityPipelineTransformations:
         assert all(result["data_validity_comment"].str.contains("Fallback"))
         metadata = result["activity_properties"].apply(json.loads)
         assert all(item["source_system"] == "ChEMBL_FALLBACK" for item in metadata)
+        assert result["activity_supplemental"].isna().all()
         stats = pipeline._last_batch_extract_stats
         assert stats is not None
         assert stats["fallback"] == 2
         assert stats["errors"] == 2
+
+    def test_aggregate_supplemental_records_groups_data(
+        self,
+        pipeline_config_fixture,
+        run_id: str,
+    ) -> None:
+        """Supplemental records should be grouped by RGID and SMID."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        supp_rows = [
+            {"activity_id": 1, "rgid": "RG1", "smid": "SM1", "note": "first"},
+            {"activity_id": 1, "rgid": "RG1", "smid": "SM2", "note": "second"},
+            {"activity_id": 1, "rgid": "RG2", "note": "other"},
+            {"activity_id": 2, "rgid": "RG3", "note": "ignored"},
+        ]
+        supp_map_rows = [
+            {"activity_id": 1, "rgid": "RG1", "smid": "SM1", "detail": "alpha"},
+            {"activity_id": 1, "rgid": "RG2", "smid": "SM3", "detail": "beta"},
+            {"activity_id": 3, "rgid": "RG9", "smid": "SM9", "detail": "ignored"},
+        ]
+
+        aggregated = pipeline._aggregate_supplemental_records(["1"], supp_rows, supp_map_rows)
+
+        assert set(aggregated.keys()) == {"1"}
+        groups = aggregated["1"]
+        assert len(groups) == 2
+
+        rgid1 = next(group for group in groups if group["rgid"] == "RG1")
+        assert len(rgid1["activity_supp"]) == 2
+        assert {entry["smid"] for entry in rgid1["activity_supp_map"]} == {"SM1"}
+        assert rgid1["activity_supp_map"][0]["records"] == [{"detail": "alpha"}]
+
+        rgid2 = next(group for group in groups if group["rgid"] == "RG2")
+        assert len(rgid2["activity_supp"]) == 1
+        assert rgid2["activity_supp_map"][0]["smid"] == "SM3"
+        assert rgid2["activity_supp_map"][0]["records"] == [{"detail": "beta"}]
 
     def test_extract_from_chembl_handles_circuit_breaker(
         self,
