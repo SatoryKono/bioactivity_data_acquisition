@@ -43,10 +43,6 @@ COLUMN_ORDER = (
     "upper_value",
     "lower_value",
     "pchembl_value",
-    "published_type",
-    "published_relation",
-    "published_value",
-    "published_units",
     "uo_units",
     "qudt_units",
     "text_value",
@@ -192,10 +188,6 @@ ActivitySchema = DataFrameSchema(
         "upper_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
         "lower_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
         "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "published_type": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "published_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[assignment]
-        "published_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[assignment]
-        "published_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "uo_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "qudt_units": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "text_value": Column(pa.String, nullable=True),  # type: ignore[assignment]
@@ -213,7 +205,7 @@ ActivitySchema = DataFrameSchema(
         ),
         "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "data_validity_description": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "potential_duplicate": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
+        "potential_duplicate": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
         "activity_properties": Column(  # type: ignore[assignment]
             pa.String,  # type: ignore[arg-type]
             Check(_is_valid_activity_properties, element_wise=True),
@@ -221,8 +213,8 @@ ActivitySchema = DataFrameSchema(
         ),
         "compound_key": Column(pa.String, nullable=True),  # type: ignore[assignment]
         "compound_name": Column(pa.String, nullable=True),  # type: ignore[assignment]
-        "curated": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
-        "removed": Column(pa.Bool, nullable=True),  # type: ignore[assignment]
+        "curated": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
+        "removed": Column(pd.BooleanDtype(), nullable=True),  # type: ignore[assignment]
     },
     ordered=True,
     coerce=False,  # Disable coercion at schema level - types are normalized in transform

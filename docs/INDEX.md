@@ -37,7 +37,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Additional Resources
 
-- **[Prompt Documentation](00-promt/)**: Original prompt specifications used for generating framework documentation. These files serve as reference materials for understanding the design decisions and requirements that shaped the `bioetl` framework.
+- **[Prompt Documentation](00-promt/00-01-etl-contract.md)**: Original prompt specifications used for generating framework documentation. These files serve as reference materials for understanding the design decisions and requirements that shaped the `bioetl` framework.
 
 ---
 
@@ -114,12 +114,14 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **Document Crossref** (`pipelines/document-crossref/`): [00-document-crossref-overview.md](pipelines/document-crossref/00-document-crossref-overview.md) - Overview and all pipeline documentation
 - **Document Semantic Scholar** (`pipelines/document-semantic-scholar/`): [00-document-semantic-scholar-overview.md](pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md) - Overview and all pipeline documentation
 
-#### Pipeline Sources (`pipelines/sources/`)
+#### Pipeline Sources
 
-- [crossref/README.md](pipelines/sources/crossref/README.md) - Crossref source documentation
-- [openalex/README.md](pipelines/sources/openalex/README.md) - OpenAlex source documentation
-- [pubmed/README.md](pipelines/sources/pubmed/README.md) - PubMed source documentation
-- [semantic_scholar/README.md](pipelines/sources/semantic_scholar/README.md) - Semantic Scholar source documentation
+> **Note**: Source documentation for Crossref, OpenAlex, PubMed, and Semantic Scholar is integrated into their respective pipeline documentation:
+>
+> - [Document Crossref Pipeline](pipelines/document-crossref/00-document-crossref-overview.md)
+> - [Document OpenAlex Pipeline](pipelines/document-openalex/00-document-openalex-overview.md)
+> - [Document PubMed Pipeline](pipelines/document-pubmed/00-document-pubmed-overview.md)
+> - [Document Semantic Scholar Pipeline](pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md)
 
 > **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents:
 >

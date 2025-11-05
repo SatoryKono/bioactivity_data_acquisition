@@ -29,14 +29,14 @@ This pipeline documentation is organized by stage and topic:
 
 - [00-document-openalex-overview.md](00-document-openalex-overview.md) — Pipeline overview (this file)
 - [09-document-openalex-extraction.md](09-document-openalex-extraction.md) — Extraction from OpenAlex Works API
-- [10-document-openalex-transformation.md](10-document-openalex-transformation.md) — JSON parsing and field normalization
-- [11-document-openalex-validation.md](11-document-openalex-validation.md) — Pandera schemas and validation
-- [12-document-openalex-io.md](12-document-openalex-io.md) — Output formats and atomic writing
-- [13-document-openalex-determinism.md](13-document-openalex-determinism.md) — Determinism, stable sort, hashing
-- [14-document-openalex-qc.md](14-document-openalex-qc.md) — QC metrics and thresholds
-- [15-document-openalex-logging.md](15-document-openalex-logging.md) — Structured logging format
-- [16-document-openalex-cli.md](16-document-openalex-cli.md) — CLI commands and flags
-- [17-document-openalex-config.md](17-document-openalex-config.md) — Configuration keys and profiles
+- [51-document-openalex-transformation.md](51-document-openalex-transformation.md) — JSON parsing and field normalization
+- [52-document-openalex-validation.md](52-document-openalex-validation.md) — Pandera schemas and validation
+- [53-document-openalex-io.md](53-document-openalex-io.md) — Output formats and atomic writing
+- [54-document-openalex-determinism.md](54-document-openalex-determinism.md) — Determinism, stable sort, hashing
+- [55-document-openalex-qc.md](55-document-openalex-qc.md) — QC metrics and thresholds
+- [56-document-openalex-logging.md](56-document-openalex-logging.md) — Structured logging format
+- [57-document-openalex-cli.md](57-document-openalex-cli.md) — CLI commands and flags
+- [58-document-openalex-config.md](58-document-openalex-config.md) — Configuration keys and profiles
 
 ## CLI Usage Example
 
@@ -63,7 +63,7 @@ Configuration is defined in `src/bioetl/configs/pipelines/openalex/document.yaml
 - Determinism sort keys: `['doi', 'year']`
 - QC thresholds for data completeness
 
-See [17-document-openalex-config.md](17-document-openalex-config.md) for detailed configuration documentation.
+See [58-document-openalex-config.md](58-document-openalex-config.md) for detailed configuration documentation.
 
 ## Related Documentation
 

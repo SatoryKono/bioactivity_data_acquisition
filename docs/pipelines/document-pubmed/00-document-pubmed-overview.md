@@ -29,14 +29,14 @@ This pipeline documentation is organized by stage and topic:
 
 - [00-document-pubmed-overview.md](00-document-pubmed-overview.md) — Pipeline overview (this file)
 - [09-document-pubmed-extraction.md](09-document-pubmed-extraction.md) — Extraction from PubMed E-utilities API
-- [10-document-pubmed-transformation.md](10-document-pubmed-transformation.md) — XML parsing and field normalization
-- [11-document-pubmed-validation.md](11-document-pubmed-validation.md) — Pandera schemas and validation
-- [12-document-pubmed-io.md](12-document-pubmed-io.md) — Output formats and atomic writing
-- [13-document-pubmed-determinism.md](13-document-pubmed-determinism.md) — Determinism, stable sort, hashing
-- [14-document-pubmed-qc.md](14-document-pubmed-qc.md) — QC metrics and thresholds
-- [15-document-pubmed-logging.md](15-document-pubmed-logging.md) — Structured logging format
-- [16-document-pubmed-cli.md](16-document-pubmed-cli.md) — CLI commands and flags
-- [17-document-pubmed-config.md](17-document-pubmed-config.md) — Configuration keys and profiles
+- [43-document-pubmed-transformation.md](43-document-pubmed-transformation.md) — XML parsing and field normalization
+- [44-document-pubmed-validation.md](44-document-pubmed-validation.md) — Pandera schemas and validation
+- [45-document-pubmed-io.md](45-document-pubmed-io.md) — Output formats and atomic writing
+- [46-document-pubmed-determinism.md](46-document-pubmed-determinism.md) — Determinism, stable sort, hashing
+- [47-document-pubmed-qc.md](47-document-pubmed-qc.md) — QC metrics and thresholds
+- [48-document-pubmed-logging.md](48-document-pubmed-logging.md) — Structured logging format
+- [49-document-pubmed-cli.md](49-document-pubmed-cli.md) — CLI commands and flags
+- [50-document-pubmed-config.md](50-document-pubmed-config.md) — Configuration keys and profiles
 
 ## CLI Usage Example
 
@@ -63,7 +63,7 @@ Configuration is defined in `src/bioetl/configs/pipelines/pubmed/document.yaml`.
 - Determinism sort keys: `['pmid']`
 - QC thresholds for data completeness
 
-See [17-document-pubmed-config.md](17-document-pubmed-config.md) for detailed configuration documentation.
+See [50-document-pubmed-config.md](50-document-pubmed-config.md) for detailed configuration documentation.
 
 ## Related Documentation
 

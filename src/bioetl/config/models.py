@@ -359,6 +359,17 @@ class CLIConfig(BaseModel):
     )
 
 
+class TransformConfig(BaseModel):
+    """Configuration for transform operations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    arrays_to_header_rows: Sequence[str] = Field(
+        default_factory=tuple,
+        description="List of column names to serialize from array-of-objects to header+rows format.",
+    )
+
+
 class PostprocessCorrelationConfig(BaseModel):
     """Post-processing options for correlation analysis."""
 
@@ -437,6 +448,7 @@ class PipelineConfig(BaseModel):
     materialization: MaterializationConfig = Field(default_factory=MaterializationConfig)
     fallbacks: FallbacksConfig = Field(default_factory=FallbacksConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
+    transform: TransformConfig = Field(default_factory=TransformConfig)
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     sources: dict[str, SourceConfig] = Field(
         default_factory=dict,

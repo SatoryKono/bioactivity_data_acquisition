@@ -66,10 +66,6 @@ sources:
         - target_pref_name
         - text_value
         - standard_upper_value
-        - published_type
-        - published_relation
-        - published_value
-        - published_units
         - uo_units
         - qudt_units
         - data_validity_description
@@ -131,10 +127,6 @@ determinism:
     - upper_value
     - lower_value
     - pchembl_value
-    - published_type
-    - published_relation
-    - published_value
-    - published_units
     - uo_units
     - qudt_units
     - text_value
@@ -181,6 +173,16 @@ chembl:
           - removed
           - molecule_chembl_id
           - document_chembl_id
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+      assay:
+        enabled: false  # По умолчанию выключено для обратной совместимости
+        fields:
+          - assay_chembl_id
+          - assay_organism
+          - assay_tax_id
         page_limit: 1000
         request_timeout: 60
         max_retries: 3

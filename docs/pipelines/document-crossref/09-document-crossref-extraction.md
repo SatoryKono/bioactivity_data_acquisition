@@ -727,7 +727,7 @@ python -m bioetl.cli.main document_crossref \
 
 ## 12. References
 
-- Configuration: [`docs/pipelines/sources/crossref/00-configuration.md`](sources/crossref/00-configuration.md)
+- Configuration: [66-document-crossref-config.md](66-document-crossref-config.md)
 - Crossref API: [Crossref REST API](https://api.crossref.org/)
 - Polite Pool Guidelines: [Crossref Polite Pool Guidelines](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-metadata-maker/)
 - ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

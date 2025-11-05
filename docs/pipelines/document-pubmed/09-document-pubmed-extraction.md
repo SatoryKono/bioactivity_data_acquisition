@@ -752,7 +752,7 @@ python -m bioetl.cli.main document_pubmed \
 
 ## 12. References
 
-- Configuration: [`docs/pipelines/sources/pubmed/00-configuration.md`](sources/pubmed/00-configuration.md)
+- Configuration: [50-document-pubmed-config.md](50-document-pubmed-config.md)
 - PubMed E-utilities: [NCBI E-utilities Documentation](https://www.ncbi.nlm.nih.gov/books/NBK25497/)
 - PubMed XML DTD: [PubMed XML DTD](https://dtd.nlm.nih.gov/ncbi/pubmed/doc/)
 - ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

@@ -76,10 +76,10 @@ See [17-document-chembl-config.md](17-document-chembl-config.md) for detailed co
 
 External bibliographic adapters are documented separately:
 
-- [09-document-pubmed-extraction.md](09-document-pubmed-extraction.md) — PubMed E-utilities API
-- [09-document-crossref-extraction.md](09-document-crossref-extraction.md) — Crossref REST API
-- [09-document-openalex-extraction.md](09-document-openalex-extraction.md) — OpenAlex Works API
-- [09-document-semantic-scholar-extraction.md](09-document-semantic-scholar-extraction.md) — Semantic Scholar Graph API
+- [09-document-pubmed-extraction.md](../document-pubmed/09-document-pubmed-extraction.md) — PubMed E-utilities API
+- [09-document-crossref-extraction.md](../document-crossref/09-document-crossref-extraction.md) — Crossref REST API
+- [09-document-openalex-extraction.md](../document-openalex/09-document-openalex-extraction.md) — OpenAlex Works API
+- [09-document-semantic-scholar-extraction.md](../document-semantic-scholar/09-document-semantic-scholar-extraction.md) — Semantic Scholar Graph API
 
 ## Related Documentation
 

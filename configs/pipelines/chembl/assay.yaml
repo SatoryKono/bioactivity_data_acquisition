@@ -24,6 +24,31 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
       max_url_length: 2000  # Used for predictive throttling of batch requests
+      select_fields:
+        - assay_chembl_id
+        - description
+        - assay_type
+        - assay_type_description
+        - assay_test_type
+        - assay_category
+        - assay_organism
+        - assay_tax_id
+        - assay_strain
+        - assay_tissue
+        - assay_cell_type
+        - assay_subcellular_fraction
+        - target_chembl_id
+        - document_chembl_id
+        - src_id
+        - src_assay_id
+        - cell_chembl_id
+        - tissue_chembl_id
+        - assay_group
+        - confidence_score
+        - confidence_description
+        - variant_sequence
+        - assay_classifications
+        - assay_parameters
 
 # Input file support (optional)
 # You can specify input_file in two ways:
@@ -56,12 +81,30 @@ determinism:
     - assay_chembl_id
     - row_subtype
     - row_index
+    - description
     - assay_type
+    - assay_type_description
+    - assay_test_type
     - assay_category
-    - assay_class_id
     - assay_organism
+    - assay_tax_id
+    - assay_strain
+    - assay_tissue
+    - assay_cell_type
+    - assay_subcellular_fraction
     - target_chembl_id
+    - document_chembl_id
+    - src_id
+    - src_assay_id
+    - cell_chembl_id
+    - tissue_chembl_id
+    - assay_group
     - confidence_score
+    - confidence_description
+    - variant_sequence
+    - assay_classifications
+    - assay_parameters
+    - assay_class_id
     - curation_level
 
   hashing:
@@ -74,6 +117,12 @@ determinism:
     exclude_fields:
       - generated_at
       - run_id
+
+# Transform configuration
+transform:
+  arrays_to_header_rows:
+    - assay_classifications
+    - assay_parameters
 
 postprocess:
   correlation:

@@ -57,26 +57,52 @@ class ChemblAssayClient:
         *,
         limit: int | None = None,
         page_size: int | None = None,
+        select_fields: Sequence[str] | None = None,
     ) -> Iterator[Mapping[str, object]]:
-        """Iterate over assay records respecting optional limits."""
+        """Iterate over assay records respecting optional limits.
 
+        Parameters
+        ----------
+        limit:
+            Maximum number of records to yield.
+        page_size:
+            Page size for pagination requests.
+        select_fields:
+            Optional list of field names to fetch via `only` parameter.
+        """
         effective_page_size = self._coerce_page_size(page_size)
         yielded = 0
         if limit is not None and limit > 0:
-            params = {"limit": min(effective_page_size, limit)}
+            params: dict[str, object] = {"limit": min(effective_page_size, limit)}
         else:
             params = {"limit": effective_page_size}
+        if select_fields:
+            params["only"] = ",".join(select_fields)
         for item in self._client.paginate("/assay.json", params=params, page_size=effective_page_size):
             yield item
             yielded += 1
             if limit is not None and yielded >= limit:
                 break
 
-    def iterate_by_ids(self, assay_ids: Sequence[str]) -> Iterator[Mapping[str, object]]:
-        """Fetch assays by explicit identifiers using chunked requests."""
+    def iterate_by_ids(
+        self,
+        assay_ids: Sequence[str],
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> Iterator[Mapping[str, object]]:
+        """Fetch assays by explicit identifiers using chunked requests.
 
-        for chunk in self._chunk_identifiers(assay_ids):
-            params = {"assay_chembl_id__in": ",".join(chunk)}
+        Parameters
+        ----------
+        assay_ids:
+            Sequence of assay_chembl_id values to fetch.
+        select_fields:
+            Optional list of field names to fetch via `only` parameter.
+        """
+        for chunk in self._chunk_identifiers(assay_ids, select_fields=select_fields):
+            params: dict[str, object] = {"assay_chembl_id__in": ",".join(chunk)}
+            if select_fields:
+                params["only"] = ",".join(select_fields)
             for item in self._client.paginate("/assay.json", params=params, page_size=len(chunk)):
                 yield item
 
@@ -91,13 +117,18 @@ class ChemblAssayClient:
             return self._batch_size
         return min(requested, self._batch_size)
 
-    def _chunk_identifiers(self, assay_ids: Sequence[str]) -> Iterable[Sequence[str]]:
+    def _chunk_identifiers(
+        self,
+        assay_ids: Sequence[str],
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> Iterable[Sequence[str]]:
         chunk: deque[str] = deque()
         for identifier in assay_ids:
             if not isinstance(identifier, str) or not identifier:
                 continue
             candidate_size = len(chunk) + 1
-            candidate_param = self._encode_in_query(tuple(list(chunk) + [identifier]))
+            candidate_param = self._encode_in_query(tuple(list(chunk) + [identifier]), select_fields=select_fields)
             if candidate_size > self._batch_size or candidate_param > self._max_url_length:
                 if chunk:
                     yield tuple(chunk)
@@ -108,7 +139,15 @@ class ChemblAssayClient:
         if chunk:
             yield tuple(chunk)
 
-    def _encode_in_query(self, identifiers: Sequence[str]) -> int:
-        params = urlencode({"assay_chembl_id__in": ",".join(identifiers)})
+    def _encode_in_query(
+        self,
+        identifiers: Sequence[str],
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> int:
+        params_dict: dict[str, str] = {"assay_chembl_id__in": ",".join(identifiers)}
+        if select_fields:
+            params_dict["only"] = ",".join(select_fields)
+        params = urlencode(params_dict)
         # Account for base endpoint length to approximate the final URL length.
         return len("/assay.json?") + len(params)

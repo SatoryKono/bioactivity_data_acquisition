@@ -49,5 +49,5 @@ Configuration can be overridden via:
 ## Related Documentation
 
 - [Typed Configurations](../configs/00-typed-configs-and-profiles.md) — Configuration system
-- [16-document-chembl-cli.md](16-document-chembl-cli.md) — CLI usage
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview
+- [16-document-chembl-cli.md](document-chembl/16-document-chembl-cli.md) — CLI usage
+- [00-document-chembl-overview.md](document-chembl/00-document-chembl-overview.md) — Pipeline overview

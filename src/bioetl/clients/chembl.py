@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 
@@ -55,8 +55,8 @@ class ChemblClient:
 
         self.handshake()
         next_url: str | None = endpoint
-        query = dict(params or {})
-        if page_size:
+        query: dict[str, Any] | None = dict(params) if params is not None else None
+        if page_size and query is not None:
             query.setdefault("limit", page_size)
         while next_url:
             response = self._client.get(next_url, params=query if next_url == endpoint else None)
@@ -77,13 +77,22 @@ class ChemblClient:
         if items_key:
             items = payload.get(items_key)
             if isinstance(items, Sequence):
-                return [item for item in items if isinstance(item, Mapping)]
+                result: list[Mapping[str, Any]] = []
+                for item_raw in items:  # pyright: ignore[reportUnknownVariableType]
+                    item = cast(Any, item_raw)
+                    if isinstance(item, Mapping):
+                        result.append(cast(Mapping[str, Any], item))
+                return result
             return []
         for key, value in payload.items():
             if key == "page_meta":
                 continue
             if isinstance(value, Sequence):
-                mappings = [item for item in value if isinstance(item, Mapping)]
+                mappings: list[Mapping[str, Any]] = []
+                for item_raw in value:  # pyright: ignore[reportUnknownVariableType]
+                    item = cast(Any, item_raw)
+                    if isinstance(item, Mapping):
+                        mappings.append(cast(Mapping[str, Any], item))
                 if mappings:
                     return mappings
         return []
@@ -92,10 +101,97 @@ class ChemblClient:
     def _next_link(payload: Mapping[str, Any]) -> str | None:
         page_meta = payload.get("page_meta")
         if isinstance(page_meta, Mapping):
-            next_link = page_meta.get("next")
+            page_meta_mapping = cast(Mapping[str, Any], page_meta)
+            next_link: str | None = cast(str | None, page_meta_mapping.get("next"))
             if isinstance(next_link, str) and next_link:
                 return next_link
         return None
+
+    # ------------------------------------------------------------------
+    # Assay fetching
+    # ------------------------------------------------------------------
+
+    def fetch_assays_by_ids(
+        self,
+        ids: Iterable[str],
+        fields: Sequence[str],
+        page_limit: int = 1000,
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch assay entries by assay_chembl_id.
+
+        Parameters
+        ----------
+        ids:
+            Iterable of assay_chembl_id values.
+        fields:
+            List of field names to fetch from assay API.
+        page_limit:
+            Page size for pagination requests.
+
+        Returns
+        -------
+        dict[str, dict[str, Any]]:
+            Dictionary keyed by assay_chembl_id -> record dict.
+        """
+        # Collect unique IDs, filtering out None/NA values
+        unique_ids: set[str] = set()
+        for assay_id in ids:
+            if assay_id and not (isinstance(assay_id, float) and pd.isna(assay_id)):
+                unique_ids.add(str(assay_id).strip())
+
+        if not unique_ids:
+            self._log.debug("assay.no_ids", message="No valid IDs to fetch")
+            return {}
+
+        # Process in chunks to avoid URL length limits
+        chunk_size = 100  # Conservative limit for assay_chembl_id__in
+        all_records: list[dict[str, Any]] = []
+        ids_list = list(unique_ids)
+
+        for i in range(0, len(ids_list), chunk_size):
+            chunk = ids_list[i : i + chunk_size]
+            params: dict[str, Any] = {
+                "assay_chembl_id__in": ",".join(chunk),
+                "limit": page_limit,
+            }
+            # Build fields parameter for .only() equivalent
+            if fields:
+                params["only"] = ",".join(fields)
+
+            try:
+                for record in self.paginate(
+                    "/assay.json",
+                    params=params,
+                    page_size=page_limit,
+                    items_key="assays",
+                ):
+                    all_records.append(dict(record))
+            except Exception as exc:
+                self._log.warning(
+                    "assay.fetch_error",
+                    assay_count=len(chunk),
+                    error=str(exc),
+                    exc_info=True,
+                )
+
+        # Build result dictionary keyed by assay_chembl_id
+        result: dict[str, dict[str, Any]] = {}
+        for record in all_records:
+            assay_id_raw = record.get("assay_chembl_id")
+            if not assay_id_raw:
+                continue
+            if not isinstance(assay_id_raw, str):
+                continue
+            assay_id = assay_id_raw
+            result[assay_id] = record
+
+        self._log.info(
+            "assay.fetch_complete",
+            ids_requested=len(unique_ids),
+            records_fetched=len(all_records),
+            records_deduped=len(result),
+        )
+        return result
 
     # ------------------------------------------------------------------
     # Compound record fetching
@@ -177,12 +273,16 @@ class ChemblClient:
         # Priority: curated=True > False; removed=False > True; min record_id
         result: dict[tuple[str, str], dict[str, Any]] = {}
         for record in all_records:
-            mol_id = record.get("molecule_chembl_id")
-            doc_id = record.get("document_chembl_id")
-            if not mol_id or not doc_id:
+            mol_id_raw = record.get("molecule_chembl_id")
+            doc_id_raw = record.get("document_chembl_id")
+            if not mol_id_raw or not doc_id_raw:
                 continue
+            if not isinstance(mol_id_raw, str) or not isinstance(doc_id_raw, str):
+                continue
+            mol_id = mol_id_raw
+            doc_id = doc_id_raw
 
-            key = (str(mol_id), str(doc_id))
+            key = (mol_id, doc_id)
             existing = result.get(key)
 
             if existing is None:

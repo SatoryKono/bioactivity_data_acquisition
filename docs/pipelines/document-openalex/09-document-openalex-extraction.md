@@ -693,7 +693,7 @@ python -m bioetl.cli.main document_openalex \
 
 ## 12. References
 
-- Configuration: [`docs/pipelines/sources/openalex/00-configuration.md`](sources/openalex/00-configuration.md)
+- Configuration: [58-document-openalex-config.md](58-document-openalex-config.md)
 - OpenAlex API: [OpenAlex API Documentation](https://docs.openalex.org/)
 - OpenAlex Use Policy: [OpenAlex API Use Policy](https://docs.openalex.org/api-use-policy)
 - ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

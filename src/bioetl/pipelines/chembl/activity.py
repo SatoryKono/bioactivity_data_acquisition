@@ -21,11 +21,11 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.schemas.activity import (ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER,
-                                     RELATIONS, STANDARD_TYPES)
+from bioetl.qc.report import build_quality_report as build_default_quality_report
+from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS, COLUMN_ORDER, RELATIONS, STANDARD_TYPES
 
 from ..base import PipelineBase, RunResult
-from .activity_enrichment import enrich_with_compound_record
+from .activity_enrichment import enrich_with_assay, enrich_with_compound_record
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -70,10 +70,6 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "target_pref_name",
     "text_value",
     "standard_upper_value",
-    "published_type",
-    "published_relation",
-    "published_value",
-    "published_units",
     "uo_units",
     "qudt_units",
     "data_validity_description",
@@ -301,6 +297,10 @@ class ChemblActivityPipeline(PipelineBase):
         if self._should_enrich_compound_record():
             df = self._enrich_compound_record(df)
 
+        # Enrichment: assay fields
+        if self._should_enrich_assay():
+            df = self._enrich_assay(df)
+
         df = self._order_schema_columns(df)
 
         df = self._finalize_identifier_columns(df, log)
@@ -507,6 +507,65 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Вызвать функцию обогащения
         return enrich_with_compound_record(df, chembl_client, enrich_cfg)
+
+    def _should_enrich_assay(self) -> bool:
+        """Проверить, включено ли обогащение assay в конфиге."""
+        if not self.config.chembl:
+            return False
+        try:
+            chembl_section = self.config.chembl
+            activity_section: Any = chembl_section.get("activity")
+            if not isinstance(activity_section, Mapping):
+                return False
+            activity_section = cast(Mapping[str, Any], activity_section)
+            enrich_section: Any = activity_section.get("enrich")
+            if not isinstance(enrich_section, Mapping):
+                return False
+            enrich_section = cast(Mapping[str, Any], enrich_section)
+            assay_section: Any = enrich_section.get("assay")
+            if not isinstance(assay_section, Mapping):
+                return False
+            assay_section = cast(Mapping[str, Any], assay_section)
+            enabled: Any = assay_section.get("enabled")
+            return bool(enabled) if enabled is not None else False
+        except (AttributeError, KeyError, TypeError):
+            return False
+
+    def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Обогатить DataFrame полями из assay."""
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+
+        # Получить конфигурацию обогащения
+        enrich_cfg: dict[str, Any] = {}
+        try:
+            if self.config.chembl:
+                chembl_section = self.config.chembl
+                activity_section: Any = chembl_section.get("activity")
+                if isinstance(activity_section, Mapping):
+                    activity_section = cast(Mapping[str, Any], activity_section)
+                    enrich_section: Any = activity_section.get("enrich")
+                    if isinstance(enrich_section, Mapping):
+                        enrich_section = cast(Mapping[str, Any], enrich_section)
+                        assay_section: Any = enrich_section.get("assay")
+                        if isinstance(assay_section, Mapping):
+                            assay_section = cast(Mapping[str, Any], assay_section)
+                            enrich_cfg = dict(assay_section)
+        except (AttributeError, KeyError, TypeError) as exc:
+            log.warning(
+                "enrichment_config_error",
+                error=str(exc),
+                message="Using default enrichment config",
+            )
+
+        # Создать клиент ChEMBL
+        source_config = self._resolve_source_config("chembl")
+        base_url = self._resolve_base_url(source_config.parameters)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        self.register_client("chembl_enrichment_client", api_client)
+        chembl_client = ChemblClient(api_client)
+
+        # Вызвать функцию обогащения
+        return enrich_with_assay(df, chembl_client, enrich_cfg)
 
     def _fetch_chembl_release(
         self,
@@ -915,10 +974,8 @@ class ChemblActivityPipeline(PipelineBase):
             return record
 
         # Type narrowing: properties is now a Sequence but not str/bytes
-        properties_list = cast(Sequence[Any], properties)
-
         # Process each property item
-        for prop in properties_list:
+        for prop in properties:  # type: ignore[assignment]
             if not isinstance(prop, Mapping):
                 continue
 
@@ -928,17 +985,6 @@ class ChemblActivityPipeline(PipelineBase):
                 continue
 
             prop_type_lower = prop_type.lower()
-
-            # Extract published_* fields
-            if "published" in prop_type_lower or prop_type_lower in ("published_type", "published_value"):
-                if "type" in prop and record.get("published_type") is None:
-                    record.setdefault("published_type", prop.get("type"))
-                if "relation" in prop and record.get("published_relation") is None:
-                    record.setdefault("published_relation", prop.get("relation"))
-                if "value" in prop and record.get("published_value") is None:
-                    record.setdefault("published_value", prop.get("value"))
-                if "units" in prop and record.get("published_units") is None:
-                    record.setdefault("published_units", prop.get("units"))
 
             # Extract upper_value, lower_value, standard_upper_value
             if "upper" in prop_type_lower or prop_type_lower in ("upper_value", "upper_limit"):
@@ -1399,49 +1445,6 @@ class ChemblActivityPipeline(PipelineBase):
                     df.loc[invalid_mask, "relation"] = None
                 normalized_count += int(mask.sum())
 
-        # Normalize published_* fields
-        if "published_value" in df.columns:
-            mask = df["published_value"].notna()
-            if mask.any():
-                series = df.loc[mask, "published_value"].astype(str).str.strip()
-                series = series.str.replace(r"[,\s]", "", regex=True)
-                series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_pub: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
-                )
-                df.loc[mask, "published_value"] = numeric_series_pub
-                negative_mask = mask & (df["published_value"] < 0)
-                if negative_mask.any():
-                    log.warning("negative_published_value", count=int(negative_mask.sum()))
-                    df.loc[negative_mask, "published_value"] = None
-                normalized_count += int(mask.sum())
-
-        if "published_relation" in df.columns:
-            unicode_to_ascii = {
-                "≤": "<=",
-                "≥": ">=",
-                "≠": "~",
-            }
-            mask = df["published_relation"].notna()
-            if mask.any():
-                series = df.loc[mask, "published_relation"].astype(str).str.strip()
-                for unicode_char, ascii_repl in unicode_to_ascii.items():
-                    series = series.str.replace(unicode_char, ascii_repl, regex=False)
-                df.loc[mask, "published_relation"] = series
-                invalid_mask = mask & ~df["published_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
-                if invalid_mask.any():
-                    log.warning("invalid_published_relation", count=int(invalid_mask.sum()))
-                    df.loc[invalid_mask, "published_relation"] = None
-                normalized_count += int(mask.sum())
-
-        if "published_type" in df.columns:
-            mask = df["published_type"].notna()
-            if mask.any():
-                df.loc[mask, "published_type"] = (
-                    df.loc[mask, "published_type"].astype(str).str.strip()
-                )
-                normalized_count += int(mask.sum())
-
         if "standard_upper_value" in df.columns:
             mask = df["standard_upper_value"].notna()
             if mask.any():
@@ -1484,9 +1487,6 @@ class ChemblActivityPipeline(PipelineBase):
             "assay_description": {"trim": True, "empty_to_null": True},
             "molecule_pref_name": {"trim": True, "empty_to_null": True},
             "target_pref_name": {"trim": True, "empty_to_null": True},
-            "published_type": {"trim": True, "empty_to_null": True},
-            "published_relation": {"trim": True, "empty_to_null": True},
-            "published_units": {"trim": True, "empty_to_null": True},
             "uo_units": {"trim": True, "empty_to_null": True},
             "qudt_units": {"trim": True, "empty_to_null": True},
         }
@@ -1661,7 +1661,6 @@ class ChemblActivityPipeline(PipelineBase):
             "pchembl_value": "float64",
             "upper_value": "float64",
             "lower_value": "float64",
-            "published_value": "float64",
         }
 
         bool_fields = [
@@ -1725,11 +1724,13 @@ class ChemblActivityPipeline(PipelineBase):
             if field not in df.columns:
                 continue
             try:
+                # Convert to numeric first, preserving NA values
                 bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
                     df[field], errors="coerce"
                 )
-                filled_series: pd.Series[Any] = bool_numeric_series.fillna(False)  # pyright: ignore[reportUnknownMemberType]
-                df[field] = filled_series.astype(bool)
+                # Use nullable boolean dtype to preserve NA values
+                # Convert numeric values to boolean: 0 -> False, non-zero -> True, NaN -> NA
+                df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
 
@@ -2004,8 +2005,6 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Build base quality report with activity_id as business key for duplicate checking
         business_key = ["activity_id"] if "activity_id" in df.columns else None
-        from bioetl.qc.report import \
-            build_quality_report as build_default_quality_report
 
         base_report = build_default_quality_report(df, business_key_fields=business_key)
         # build_default_quality_report always returns pd.DataFrame by contract

@@ -17,6 +17,7 @@ from bioetl.schemas.assay import COLUMN_ORDER
 
 from ...sources.chembl.assay import ChemblAssayClient
 from ..base import PipelineBase
+from .assay_transform import serialize_array_fields
 
 
 class ChemblAssayPipeline(PipelineBase):
@@ -108,8 +109,9 @@ class ChemblAssayPipeline(PipelineBase):
         records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
         page_size = source_config.batch_size
+        select_fields = self._resolve_select_fields(source_raw)
 
-        for item in assay_client.iterate_all(limit=limit, page_size=page_size):
+        for item in assay_client.iterate_all(limit=limit, page_size=page_size, select_fields=select_fields):
             records.append(item)
 
         dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
@@ -182,8 +184,9 @@ class ChemblAssayPipeline(PipelineBase):
 
         records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
+        select_fields = self._resolve_select_fields(source_raw)
 
-        for item in assay_client.iterate_by_ids(ids):
+        for item in assay_client.iterate_by_ids(ids, select_fields=select_fields):
             records.append(item)
             if limit is not None and len(records) >= limit:
                 break
@@ -221,6 +224,7 @@ class ChemblAssayPipeline(PipelineBase):
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_string_fields(df, log)
+        df = self._serialize_array_fields(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, log)
@@ -248,6 +252,34 @@ class ChemblAssayPipeline(PipelineBase):
             msg = "sources.chembl.parameters.base_url must be a non-empty string"
             raise ValueError(msg)
         return base_url.rstrip("/")
+
+    def _resolve_select_fields(self, source_config: SourceConfig) -> list[str] | None:
+        """Resolve select_fields from config or return None."""
+        parameters_raw = getattr(source_config, "parameters", {})
+        if isinstance(parameters_raw, Mapping):
+            parameters = cast(Mapping[str, Any], parameters_raw)
+            select_fields_raw = parameters.get("select_fields")
+            if (
+                select_fields_raw is not None
+                and isinstance(select_fields_raw, Sequence)
+                and not isinstance(select_fields_raw, (str, bytes))
+            ):
+                select_fields = cast(Sequence[Any], select_fields_raw)
+                return [str(field) for field in select_fields]
+        return None
+
+    def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        """Serialize array-of-object fields to header+rows format."""
+        df = df.copy()
+
+        # Get arrays_to_header_rows from config
+        arrays_to_serialize = list(self.config.transform.arrays_to_header_rows)
+
+        if arrays_to_serialize:
+            df = serialize_array_fields(df, arrays_to_serialize)
+            log.debug("array_fields_serialized", columns=arrays_to_serialize)
+
+        return df
 
     def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Harmonize identifier column names (e.g., assay_id -> assay_chembl_id)."""
@@ -298,6 +330,9 @@ class ChemblAssayPipeline(PipelineBase):
         chembl_fields = [
             "assay_chembl_id",
             "target_chembl_id",
+            "document_chembl_id",
+            "cell_chembl_id",
+            "tissue_chembl_id",
         ]
 
         normalized_count = 0
@@ -379,12 +414,8 @@ class ChemblAssayPipeline(PipelineBase):
                                 df.loc[idx, "assay_class_id"] = bao_format
                 log.debug("assay_class_id_extracted_from_classifications", count=int(mask.sum()))
 
-        # Drop nested structures that are not needed in the final schema
-        nested_columns = ["assay_parameters", "assay_classifications"]
-        columns_to_drop = [col for col in nested_columns if col in df.columns]
-        if columns_to_drop:
-            df = df.drop(columns=columns_to_drop)
-            log.debug("nested_columns_dropped", columns=columns_to_drop)
+        # Note: assay_parameters and assay_classifications are now serialized
+        # in _serialize_array_fields() and kept in the final schema
 
         return df
 

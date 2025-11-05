@@ -37,6 +37,6 @@ This document describes the transformation stage of the Document (ChEMBL) pipeli
 
 ## Related Documentation
 
-- [09-document-chembl-extraction.md](09-document-chembl-extraction.md) — Extraction stage
-- [11-document-chembl-validation.md](11-document-chembl-validation.md) — Validation stage
-- [00-document-chembl-overview.md](00-document-chembl-overview.md) — Pipeline overview
+- [09-document-chembl-extraction.md](document-chembl/09-document-chembl-extraction.md) — Extraction stage
+- [11-document-chembl-validation.md](document-chembl/11-document-chembl-validation.md) — Validation stage
+- [00-document-chembl-overview.md](document-chembl/00-document-chembl-overview.md) — Pipeline overview

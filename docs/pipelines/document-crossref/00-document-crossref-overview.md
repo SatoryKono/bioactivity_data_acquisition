@@ -29,14 +29,14 @@ This pipeline documentation is organized by stage and topic:
 
 - [00-document-crossref-overview.md](00-document-crossref-overview.md) — Pipeline overview (this file)
 - [09-document-crossref-extraction.md](09-document-crossref-extraction.md) — Extraction from Crossref REST API
-- [10-document-crossref-transformation.md](10-document-crossref-transformation.md) — JSON parsing and field normalization
-- [11-document-crossref-validation.md](11-document-crossref-validation.md) — Pandera schemas and validation
-- [12-document-crossref-io.md](12-document-crossref-io.md) — Output formats and atomic writing
-- [13-document-crossref-determinism.md](13-document-crossref-determinism.md) — Determinism, stable sort, hashing
-- [14-document-crossref-qc.md](14-document-crossref-qc.md) — QC metrics and thresholds
-- [15-document-crossref-logging.md](15-document-crossref-logging.md) — Structured logging format
-- [16-document-crossref-cli.md](16-document-crossref-cli.md) — CLI commands and flags
-- [17-document-crossref-config.md](17-document-crossref-config.md) — Configuration keys and profiles
+- [59-document-crossref-transformation.md](59-document-crossref-transformation.md) — JSON parsing and field normalization
+- [60-document-crossref-validation.md](60-document-crossref-validation.md) — Pandera schemas and validation
+- [61-document-crossref-io.md](61-document-crossref-io.md) — Output formats and atomic writing
+- [62-document-crossref-determinism.md](62-document-crossref-determinism.md) — Determinism, stable sort, hashing
+- [63-document-crossref-qc.md](63-document-crossref-qc.md) — QC metrics and thresholds
+- [64-document-crossref-logging.md](64-document-crossref-logging.md) — Structured logging format
+- [65-document-crossref-cli.md](65-document-crossref-cli.md) — CLI commands and flags
+- [66-document-crossref-config.md](66-document-crossref-config.md) — Configuration keys and profiles
 
 ## CLI Usage Example
 
@@ -63,7 +63,7 @@ Configuration is defined in `src/bioetl/configs/pipelines/crossref/document.yaml
 - Determinism sort keys: `['doi', 'year']`
 - QC thresholds for data completeness
 
-See [17-document-crossref-config.md](17-document-crossref-config.md) for detailed configuration documentation.
+See [66-document-crossref-config.md](66-document-crossref-config.md) for detailed configuration documentation.
 
 ## Related Documentation
 
