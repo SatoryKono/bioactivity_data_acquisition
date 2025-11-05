@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column, DataFrameSchema
 
 SCHEMA_VERSION = "1.2.0"
@@ -37,32 +37,32 @@ RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
 
 ActivitySchema = DataFrameSchema(
     {
-        "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),
-        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
-        "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
-        "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "standard_units": Column(pa.String, nullable=True),
-        "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
-        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
-        "bao_label": Column(pa.String, nullable=True),
-        "canonical_smiles": Column(pa.String, nullable=True),
-        "ligand_efficiency": Column(pa.String, nullable=True),
-        "target_organism": Column(pa.String, nullable=True),
-        "target_tax_id": Column(
-            pa.Int64,
-            Check.ge(1),
+        "activity_id": Column(pa.Int64, Check.ge(1), nullable=False, unique=True),  # type: ignore[unknown]
+        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[unknown]
+        "testitem_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[unknown]
+        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=False),  # type: ignore[unknown]
+        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[unknown]
+        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),  # type: ignore[unknown]
+        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),  # type: ignore[unknown]
+        "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),  # type: ignore[unknown]
+        "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[unknown]
+        "standard_units": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),  # type: ignore[unknown]
+        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[unknown]
+        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),  # type: ignore[unknown]
+        "bao_label": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "canonical_smiles": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "ligand_efficiency": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "target_organism": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "target_tax_id": Column(  # type: ignore[unknown]
+            pa.Int64,  # type: ignore[unknown]
+            Check.ge(1),  # type: ignore[unknown]
             nullable=True,
         ),
-        "data_validity_comment": Column(pa.String, nullable=True),
-        "potential_duplicate": Column(pa.Bool, nullable=True),
-        "activity_properties": Column(pa.String, nullable=True),
-        "compound_key": Column(pa.String, nullable=True),
+        "data_validity_comment": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "potential_duplicate": Column(pa.Bool, nullable=True),  # type: ignore[unknown]
+        "activity_properties": Column(pa.String, nullable=True),  # type: ignore[unknown]
+        "compound_key": Column(pa.String, nullable=True),  # type: ignore[unknown]
     },
     ordered=True,
     coerce=False,  # Disable coercion at schema level - types are normalized in transform

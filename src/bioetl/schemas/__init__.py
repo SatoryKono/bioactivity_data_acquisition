@@ -128,6 +128,21 @@ SCHEMA_REGISTRY.register(
     name=TestItemSchema.name,
 )
 
+# Register assay schema
+from .assay import (  # noqa: E402  (import after registry definition)
+    AssaySchema,
+    COLUMN_ORDER as ASSAY_COLUMN_ORDER,
+    SCHEMA_VERSION as ASSAY_SCHEMA_VERSION,
+)
+
+SCHEMA_REGISTRY.register(
+    "bioetl.schemas.assay.AssaySchema",
+    schema=AssaySchema,
+    version=ASSAY_SCHEMA_VERSION,
+    column_order=ASSAY_COLUMN_ORDER,
+    name=AssaySchema.name,
+)
+
 
 def get_schema(identifier: str) -> SchemaRegistryEntry:
     """Return the schema entry identified by ``identifier``."""

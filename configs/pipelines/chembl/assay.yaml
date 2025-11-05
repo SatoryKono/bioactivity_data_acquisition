@@ -65,9 +65,8 @@ postprocess:
     enabled: false
 
 # Validation schema
-# TODO: Add schema_out when AssaySchema is implemented
 validation:
-  schema_out: null
+  schema_out: "bioetl.schemas.assay.AssaySchema"
   strict: true
   coerce: true
 

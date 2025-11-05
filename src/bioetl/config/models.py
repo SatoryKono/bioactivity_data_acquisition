@@ -418,7 +418,7 @@ class PipelineConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    version: Literal[1] = Field(  # type: ignore[valid-type]
+    version: Literal[1] = Field(
         ..., description="Configuration schema version. Only version=1 is currently supported."
     )
     extends: Sequence[str] = Field(
