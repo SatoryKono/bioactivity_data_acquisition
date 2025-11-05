@@ -20,7 +20,12 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.schemas.activity import COLUMN_ORDER, RELATIONS, STANDARD_TYPES
+from bioetl.schemas.activity import (
+    ACTIVITY_PROPERTY_KEYS,
+    COLUMN_ORDER,
+    RELATIONS,
+    STANDARD_TYPES,
+)
 
 from ..base import PipelineBase, RunResult
 
@@ -687,10 +692,23 @@ class ChemblActivityPipeline(PipelineBase):
         elif error is not None:
             metadata["error_message"] = str(error)
 
+        fallback_properties = [
+            {
+                "type": "fallback_metadata",
+                "relation": None,
+                "units": None,
+                "value": None,
+                "text_value": json.dumps(metadata, sort_keys=True, default=str),
+                "result_flag": None,
+            }
+        ]
+
         return {
             "activity_id": activity_id,
             "data_validity_comment": message,
-            "activity_properties": json.dumps(metadata, sort_keys=True, default=str),
+            "activity_properties": self._serialize_activity_properties(
+                fallback_properties
+            ),
         }
 
     @staticmethod
@@ -1164,6 +1182,11 @@ class ChemblActivityPipeline(PipelineBase):
             if mask.any():
                 serialized: list[Any] = []
                 for idx, value in df.loc[mask, field].items():
+                    if field == "activity_properties":
+                        serialized_value = self._serialize_activity_properties(value, log)
+                        serialized.append(serialized_value)
+                        continue
+
                     if isinstance(value, (Mapping, list)):
                         try:
                             serialized.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
@@ -1188,6 +1211,77 @@ class ChemblActivityPipeline(PipelineBase):
                 )
 
         return df
+
+    def _serialize_activity_properties(self, value: Any, log: Any | None = None) -> str | None:
+        """Return normalized JSON for activity_properties or None if not serializable."""
+
+        normalized_items = self._normalize_activity_properties_items(value, log)
+        if normalized_items is None:
+            return None
+        try:
+            return json.dumps(normalized_items, ensure_ascii=False, sort_keys=True)
+        except (TypeError, ValueError) as exc:
+            if log is not None:
+                log.warning("activity_properties_serialization_failed", error=str(exc))
+            return None
+
+    def _normalize_activity_properties_items(
+        self, value: Any, log: Any | None = None
+    ) -> list[dict[str, Any]] | None:
+        """Coerce activity_properties payloads into a list of constrained dictionaries."""
+
+        if value is None:
+            return None
+
+        raw_value = value
+
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped:
+                return []
+            try:
+                parsed = json.loads(stripped)
+            except (TypeError, ValueError):
+                base = {key: None for key in ACTIVITY_PROPERTY_KEYS}
+                base["text_value"] = stripped
+                return [base]
+            else:
+                value = parsed
+
+        if isinstance(value, Mapping):
+            items: list[Any] = [value]
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+            items = list(value)
+        else:
+            if log is not None:
+                log.warning(
+                    "activity_properties_unhandled_type",
+                    value_type=type(raw_value).__name__,
+                )
+            return None
+
+        normalized: list[dict[str, Any]] = []
+        for item in items:
+            if item is None:
+                continue
+            if isinstance(item, Mapping):
+                normalized_item = {key: item.get(key) for key in ACTIVITY_PROPERTY_KEYS}
+                result_flag_value = normalized_item.get("result_flag")
+                if isinstance(result_flag_value, int) and result_flag_value in (0, 1):
+                    normalized_item["result_flag"] = bool(result_flag_value)
+                normalized.append(normalized_item)
+            elif isinstance(item, str):
+                base = {key: None for key in ACTIVITY_PROPERTY_KEYS}
+                base["text_value"] = item
+                normalized.append(base)
+            else:
+                if log is not None:
+                    log.warning(
+                        "activity_properties_item_unhandled",
+                        item_type=type(item).__name__,
+                    )
+
+        return normalized
 
     def _order_schema_columns(self, df: pd.DataFrame) -> pd.DataFrame:
         """Return DataFrame with schema columns ordered ahead of extras."""
