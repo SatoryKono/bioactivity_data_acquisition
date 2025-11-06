@@ -52,16 +52,21 @@ class TestPipelineBase:
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
         assert pipeline.pipeline_code == "activity_chembl"
-        assert pipeline.pipeline_directory.exists()
+        # Directory should not be created on initialization
+        assert not pipeline.pipeline_directory.exists()
         assert pipeline.logs_directory.exists()
 
     def test_ensure_pipeline_directory(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
-        """Test pipeline directory creation."""
+        """Test pipeline directory path without creation."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        assert pipeline.pipeline_directory.exists()
+        # Directory should not exist on initialization
+        assert not pipeline.pipeline_directory.exists()
         assert pipeline.pipeline_directory.name == "_activity_chembl"
-        assert pipeline.pipeline_directory.is_dir()
+        # Directory should be created when needed
+        created_dir = pipeline._ensure_pipeline_directory_exists()  # type: ignore[reportPrivateUsage]
+        assert created_dir.exists()
+        assert created_dir.is_dir()
 
     def test_ensure_logs_directory(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test logs directory creation."""
@@ -119,8 +124,8 @@ class TestPipelineBase:
         """Test listing run stems."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # Create mock dataset files
-        pipeline_dir = pipeline.pipeline_directory
+        # Create mock dataset files - need to create directory first
+        pipeline_dir = pipeline._ensure_pipeline_directory_exists()  # type: ignore[reportPrivateUsage]
         dataset_file1 = pipeline_dir / "activity_chembl_20240101.csv"
         dataset_file2 = pipeline_dir / "activity_chembl_20240102.csv"
         dataset_file1.touch()
@@ -137,8 +142,8 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline.retention_runs = 2
 
-        # Create more runs than retention limit
-        pipeline_dir = pipeline.pipeline_directory
+        # Create more runs than retention limit - need to create directory first
+        pipeline_dir = pipeline._ensure_pipeline_directory_exists()  # type: ignore[reportPrivateUsage]
         for i in range(5):
             dataset_file = pipeline_dir / f"activity_chembl_run{i}.csv"
             dataset_file.touch()
@@ -154,8 +159,8 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline.retention_runs = 0
 
-        # Create some runs
-        pipeline_dir = pipeline.pipeline_directory
+        # Create some runs - need to create directory first
+        pipeline_dir = pipeline._ensure_pipeline_directory_exists()  # type: ignore[reportPrivateUsage]
         for i in range(3):
             dataset_file = pipeline_dir / f"activity_chembl_run{i}.csv"
             dataset_file.touch()
@@ -420,4 +425,42 @@ class TestPipelineBase:
 
         # Should not raise
         pipeline.close_resources()
+
+    def test_pipeline_directory_lazy_creation(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+    ) -> None:
+        """Test that pipeline directory is created only when writing files."""
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.determinism.sort.by = ["activity_id"]
+        pipeline_config_fixture.determinism.sort.ascending = [True]
+        pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
+
+        pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Directory should not exist after initialization
+        assert not pipeline.pipeline_directory.exists()
+
+        # Directory should not exist after planning artifacts
+        pipeline.plan_run_artifacts(run_id, include_metadata=True)
+        assert not pipeline.pipeline_directory.exists()
+
+        # Directory should be created when writing to pipeline_directory
+        # Use pipeline_directory directly as output_path
+        output_file = pipeline.pipeline_directory / "test_output.csv"
+        result = pipeline.write(sample_activity_data, output_file, extended=True)
+        assert pipeline.pipeline_directory.exists()
+        assert result.write_result.dataset.exists()
+
+    def test_list_run_stems_empty_directory(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that list_run_stems returns empty list when directory doesn't exist."""
+        pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Directory should not exist
+        assert not pipeline.pipeline_directory.exists()
+
+        # Should return empty list
+        stems = pipeline.list_run_stems()
+        assert stems == []
 

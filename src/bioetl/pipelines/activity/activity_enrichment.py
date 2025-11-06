@@ -117,7 +117,7 @@ def enrich_with_assay(
     df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
 
     # assay_tax_id может приходить строкой — приводим к Int64 с NA
-    tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_merged["assay_tax_id"], errors="coerce")  # type: ignore[arg-type]
+    tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_merged["assay_tax_id"], errors="coerce")  # type: ignore[reportUnknownMemberType]
     df_merged["assay_tax_id"] = tax_id_numeric.astype("Int64")
 
     log.info(
@@ -133,12 +133,14 @@ def enrich_with_compound_record(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity полями из molecule_dictionary и compound_structures.
+    """Обогатить DataFrame activity полями из compound_record.
 
     Parameters
     ----------
     df_act:
         DataFrame с данными activity, должен содержать molecule_chembl_id.
+        Для строк с document_chembl_id используется путь через пары (molecule_chembl_id, document_chembl_id).
+        Для строк без document_chembl_id используется fallback через record_id.
     client:
         ChemblClient для запросов к ChEMBL API.
     cfg:
@@ -148,9 +150,9 @@ def enrich_with_compound_record(
     -------
     pd.DataFrame:
         Обогащенный DataFrame с добавленными колонками:
-        - compound_name (nullable string) - из MOLECULE_DICTIONARY.PREF_NAME (fallback: CHEMBL_ID)
-        - compound_key (nullable string) - из COMPOUND_STRUCTURES.STANDARD_INCHI_KEY
-        - curated (nullable bool) - из ACTIVITIES.CURATED_BY (обрабатывается в _extract_nested_fields)
+        - compound_name (nullable string) - из compound_record.compound_name
+        - compound_key (nullable string) - из compound_record.compound_key
+        - curated (nullable bool) - из compound_record.curated
         - removed (nullable bool) - всегда NULL (не извлекается из ChEMBL)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
@@ -160,12 +162,10 @@ def enrich_with_compound_record(
         return df_act
 
     # Проверка наличия необходимых колонок
-    required_cols = ["molecule_chembl_id", "document_chembl_id"]
-    missing_cols = [col for col in required_cols if col not in df_act.columns]
-    if missing_cols:
+    if "molecule_chembl_id" not in df_act.columns:
         log.warning(
             "enrichment_skipped_missing_columns",
-            missing_columns=missing_cols,
+            missing_columns=["molecule_chembl_id"],
         )
         # Добавим пустые колонки нужных типов
         for col, dtype in [
@@ -182,51 +182,220 @@ def enrich_with_compound_record(
     df_act = df_act.copy()
     df_act["_row_id"] = np.arange(len(df_act))
 
-    # 2) Нормализация ключей до сборки пар: upper, strip
-    # 3) Векторизованная сборка pairs (убрать iterrows)
+    # 2) Разделить DataFrame на две части: с document_chembl_id и без него
+    has_doc_id = "document_chembl_id" in df_act.columns
+    if has_doc_id:
+        mask_with_doc = df_act["document_chembl_id"].notna() & (
+            df_act["document_chembl_id"].astype("string").str.strip() != ""
+        )
+        df_with_doc = df_act[mask_with_doc].copy()
+        df_without_doc = df_act[~mask_with_doc].copy()
+    else:
+        df_with_doc = pd.DataFrame()
+        df_without_doc = df_act.copy()
+
+    # 3) Обогащение для строк с document_chembl_id через пары
+    enrichment_by_pairs: pd.DataFrame | None = None
+    if not df_with_doc.empty:
+        enrichment_by_pairs = _enrich_by_pairs(df_with_doc, client, cfg, log)
+
+    # 4) Определить строки, которые нуждаются в fallback через record_id:
+    #    - строки без document_chembl_id
+    #    - строки с document_chembl_id, но где обогащение через пары не дало результата
+    df_need_fallback = df_without_doc.copy()
+    if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
+        # Проверить строки из обогащения через пары, где compound_name/compound_key пустые
+        mask_empty = (
+            enrichment_by_pairs["compound_name"].isna()
+            | (enrichment_by_pairs["compound_name"].astype("string").str.strip() == "")
+        ) & (
+            enrichment_by_pairs["compound_key"].isna()
+            | (enrichment_by_pairs["compound_key"].astype("string").str.strip() == "")
+        )
+        rows_need_fallback = enrichment_by_pairs[mask_empty].copy()
+        if not rows_need_fallback.empty and "record_id" in rows_need_fallback.columns:
+            # Добавить эти строки к df_need_fallback для fallback
+            df_need_fallback = pd.concat([df_need_fallback, rows_need_fallback], ignore_index=True)
+
+    # 5) Обогащение через record_id (fallback) для строк, которые в этом нуждаются
+    enrichment_by_record_id: pd.DataFrame | None = None
+    if not df_need_fallback.empty and "record_id" in df_need_fallback.columns:
+        # Убрать дубликаты по _row_id, если они есть
+        df_need_fallback = df_need_fallback.drop_duplicates(subset=["_row_id"], keep="first")
+        enrichment_by_record_id = _enrich_by_record_id(df_need_fallback, client, cfg, log)
+
+    # 6) Объединить результаты с приоритетом: данные из пар > данные из fallback
+    # Начинаем с исходного DataFrame и применяем обогащения последовательно
+    df_result = df_act.copy()
+
+    # Применить обогащение через пары для строк с document_chembl_id
+    if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
+        # Создать словарь данных из обогащения через пары по _row_id
+        pairs_dict: dict[int, dict[str, Any]] = {}
+        for _, row in enrichment_by_pairs.iterrows():
+            row_id_raw = row.get("_row_id")
+            if not pd.isna(row_id_raw):
+                try:
+                    # Безопасное преобразование в int
+                    if isinstance(row_id_raw, (int, float)):
+                        row_id = int(row_id_raw)
+                    else:
+                        row_id = int(str(row_id_raw))
+                    pairs_dict[row_id] = {
+                        "compound_name": row.get("compound_name"),
+                        "compound_key": row.get("compound_key"),
+                        "curated": row.get("curated"),
+                    }
+                except (ValueError, TypeError):
+                    continue
+
+        # Применить данные из обогащения через пары
+        if "_row_id" in df_result.columns:
+            for idx in df_result.index:
+                row_id_raw = df_result.loc[idx, "_row_id"]
+                if not pd.isna(row_id_raw):
+                    try:
+                        # Безопасное преобразование в int
+                        if isinstance(row_id_raw, (int, float)):
+                            row_id = int(row_id_raw)
+                        else:
+                            row_id = int(str(row_id_raw))
+                        if row_id in pairs_dict:
+                            pairs_data = pairs_dict[row_id]
+                            if pairs_data.get("compound_name") is not None:
+                                df_result.loc[idx, "compound_name"] = pairs_data["compound_name"]
+                            if pairs_data.get("compound_key") is not None:
+                                df_result.loc[idx, "compound_key"] = pairs_data["compound_key"]
+                            if pairs_data.get("curated") is not None:
+                                df_result.loc[idx, "curated"] = pairs_data["curated"]
+                    except (ValueError, TypeError):
+                        continue
+
+    # Восстановить исходный порядок по _row_id
+    if "_row_id" in df_result.columns:
+        df_result = df_result.sort_values("_row_id").reset_index(drop=True)
+
+    # Применить fallback данные только для строк, где compound_name/compound_key пустые
+    if enrichment_by_record_id is not None and not enrichment_by_record_id.empty:
+        # Создать словарь fallback данных по _row_id
+        fallback_dict: dict[int, dict[str, Any]] = {}
+        for _, row in enrichment_by_record_id.iterrows():
+            row_id_raw = row.get("_row_id")
+            if not pd.isna(row_id_raw):
+                try:
+                    # Безопасное преобразование в int
+                    if isinstance(row_id_raw, (int, float)):
+                        row_id = int(row_id_raw)
+                    else:
+                        row_id = int(str(row_id_raw))
+                    fallback_dict[row_id] = {
+                        "compound_name": row.get("compound_name"),
+                        "compound_key": row.get("compound_key"),
+                    }
+                except (ValueError, TypeError):
+                    continue
+
+        # Применить fallback данные только для строк, где compound_name/compound_key пустые
+        if "_row_id" in df_result.columns:
+            for idx in df_result.index:
+                row_id_raw = df_result.loc[idx, "_row_id"]
+                if not pd.isna(row_id_raw):
+                    try:
+                        # Безопасное преобразование в int
+                        if isinstance(row_id_raw, (int, float)):
+                            row_id = int(row_id_raw)
+                        else:
+                            row_id = int(str(row_id_raw))
+                        if row_id in fallback_dict:
+                            # Проверить, нужно ли применять fallback (если compound_name/compound_key пустые)
+                            compound_name = df_result.loc[idx, "compound_name"] if "compound_name" in df_result.columns else pd.NA
+                            compound_key = df_result.loc[idx, "compound_key"] if "compound_key" in df_result.columns else pd.NA
+
+                            name_empty = pd.isna(compound_name) or (str(compound_name).strip() == "")
+                            key_empty = pd.isna(compound_key) or (str(compound_key).strip() == "")
+
+                            if name_empty or key_empty:
+                                fallback_data = fallback_dict[row_id]
+                                if name_empty and fallback_data.get("compound_name") is not None:
+                                    df_result.loc[idx, "compound_name"] = fallback_data["compound_name"]
+                                if key_empty and fallback_data.get("compound_key") is not None:
+                                    df_result.loc[idx, "compound_key"] = fallback_data["compound_key"]
+                    except (ValueError, TypeError):
+                        continue
+
+    # 6) Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
+    for col in ["compound_name", "compound_key", "curated", "removed"]:
+        if col not in df_result.columns:
+            df_result[col] = pd.NA
+
+    # 7) removed всегда <NA> на этом этапе
+    df_result["removed"] = pd.NA
+
+    # 8) Удалить временную колонку _row_id
+    if "_row_id" in df_result.columns:
+        df_result = df_result.drop(columns=["_row_id"])
+
+    # 9) Надёжное приведение булевых для curated
+    if "curated" in df_result.columns:
+        # Нормализовать возможные представления перед приведением к boolean
+        df_result["curated"] = df_result["curated"].replace({  # type: ignore[reportUnknownMemberType]
+            1: True,
+            0: False,
+            "1": True,
+            "0": False,
+        })
+        df_result["curated"] = df_result["curated"].astype("boolean")
+
+    # 10) Нормализовать типы для строковых полей
+    df_result["compound_name"] = df_result["compound_name"].astype("string")
+    df_result["compound_key"] = df_result["compound_key"].astype("string")
+    df_result["removed"] = df_result["removed"].astype("boolean")
+
+    log.info(
+        "enrichment_completed",
+        rows_enriched=df_result.shape[0],
+        rows_with_doc_id=len(df_with_doc) if not df_with_doc.empty else 0,
+        rows_without_doc_id=len(df_without_doc) if not df_without_doc.empty else 0,
+    )
+    return df_result
+
+
+def _enrich_by_pairs(
+    df_act: pd.DataFrame,
+    client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: Any,
+) -> pd.DataFrame:
+    """Обогатить DataFrame activity через пары (molecule_chembl_id, document_chembl_id)."""
+    # Нормализация ключей до сборки пар: upper, strip
     pairs_df = (
         df_act[["molecule_chembl_id", "document_chembl_id"]]
         .astype("string")
-        .apply(lambda s: s.str.strip().str.upper(), axis=0)  # type: ignore[arg-type]
-        .dropna()
-        .drop_duplicates()
+        .apply(lambda s: s.str.strip().str.upper(), axis=0)  # type: ignore[reportUnknownArgumentType,reportUnknownLambdaType,reportUnknownMemberType]
+        .dropna()  # type: ignore[reportUnknownMemberType]
+        .drop_duplicates()  # type: ignore[reportUnknownMemberType]
     )
-    pairs: set[tuple[str, str]] = set(map(tuple, pairs_df.to_numpy()))  # type: ignore[arg-type]
+    pairs: set[tuple[str, str]] = set(map(tuple, pairs_df.to_numpy()))
 
     if not pairs:
-        log.debug("enrichment_skipped_no_valid_pairs")
-        # Добавим пустые колонки нужных типов
-        for col, dtype in [
-            ("compound_name", "string"),
-            ("compound_key", "string"),
-            ("curated", "boolean"),
-            ("removed", "boolean"),
-        ]:
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
-        # Удалить временный столбец перед возвратом
-        df_act = df_act.drop(columns=["_row_id"])
+        log.debug("enrichment_by_pairs_skipped_no_valid_pairs")
         return df_act
 
-    # Получить конфигурацию
-    # Поля запроса к клиенту — нативные имена источников
+    # Поля запроса к клиенту — плоские имена полей, которые возвращает ChEMBL API
     fields = cfg.get(
         "fields",
         [
             "molecule_chembl_id",
             "document_chembl_id",
-            "PREF_NAME",
-            "MOLECULE_DICTIONARY.PREF_NAME",
-            "CHEMBL_ID",
-            "STANDARD_INCHI_KEY",
-            "COMPOUND_STRUCTURES.STANDARD_INCHI_KEY",
+            "compound_name",
+            "compound_key",
             "curated",
         ],
     )
     page_limit = cfg.get("page_limit", 1000)
 
-    # 4) Обернуть вызов клиента в try/except — не роняем пайплайн
-    log.info("enrichment_fetching_compound_records", pairs_count=len(pairs))
+    # Обернуть вызов клиента в try/except — не роняем пайплайн
+    log.info("enrichment_fetching_compound_records_by_pairs", pairs_count=len(pairs))
     compound_records_dict: dict[tuple[str, str], dict[str, Any]] = {}
     try:
         compound_records_dict = (
@@ -239,51 +408,36 @@ def enrich_with_compound_record(
         )
     except Exception as exc:
         log.warning(
-            "enrichment_fetch_error",
+            "enrichment_fetch_error_by_pairs",
             pairs_count=len(pairs),
             error=str(exc),
             exc_info=True,
         )
-        # При ошибке вернуть df_act с добавленными пустыми колонками нужных типов
-        for col, dtype in [
-            ("compound_name", "string"),
-            ("compound_key", "string"),
-            ("curated", "boolean"),
-            ("removed", "boolean"),
-        ]:
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
-        # Удалить временный столбец перед возвратом
-        df_act = df_act.drop(columns=["_row_id"])
         return df_act
 
-    # 5) Маппинг результата клиента → алиасы (нативные имена полей)
+    # Маппинг результата клиента
     enrichment_data: list[dict[str, Any]] = []
+    pairs_found = 0
+    pairs_not_found = 0
     for pair in pairs:
         compound_record: dict[str, Any] | None = compound_records_dict.get(pair)
         if compound_record:
-            # Маппинг нативных имен полей в алиасы
-            # PREF_NAME → compound_name (fallback: CHEMBL_ID)
-            name: Any = (
-                compound_record.get("PREF_NAME")
-                or compound_record.get("MOLECULE_DICTIONARY.PREF_NAME")
-                or compound_record.get("CHEMBL_ID")
-            )
-            # STANDARD_INCHI_KEY → compound_key
-            ikey: Any = (
-                compound_record.get("STANDARD_INCHI_KEY")
-                or compound_record.get("COMPOUND_STRUCTURES.STANDARD_INCHI_KEY")
-            )
+            pairs_found += 1
+            # Проверить, что поля действительно присутствуют в ответе
+            compound_name = compound_record.get("compound_name")
+            compound_key = compound_record.get("compound_key")
+            curated = compound_record.get("curated")
+
             enrichment_data.append({
                 "molecule_chembl_id": pair[0],
                 "document_chembl_id": pair[1],
-                "compound_name": name,
-                "compound_key": ikey,
-                "curated": compound_record.get("curated"),
-                "removed": None,  # removed всегда None на этом этапе
+                "compound_name": compound_name if compound_name is not None else None,
+                "compound_key": compound_key if compound_key is not None else None,
+                "curated": curated if curated is not None else None,
+                "removed": None,
             })
         else:
-            # Если compound_record не найден, используем fallback
+            pairs_not_found += 1
             enrichment_data.append({
                 "molecule_chembl_id": pair[0],
                 "document_chembl_id": pair[1],
@@ -293,19 +447,25 @@ def enrich_with_compound_record(
                 "removed": None,
             })
 
+    # Логирование результатов
+    log.info(
+        "enrichment_by_pairs_complete",
+        pairs_requested=len(pairs),
+        pairs_found=pairs_found,
+        pairs_not_found=pairs_not_found,
+        records_returned=len(compound_records_dict),
+    )
+
+    if pairs_not_found > 0:
+        log.warning(
+            "enrichment_by_pairs_some_pairs_not_found",
+            pairs_not_found=pairs_not_found,
+            pairs_total=len(pairs),
+            hint="Проверьте, что пары (molecule_chembl_id, document_chembl_id) существуют в ChEMBL API",
+        )
+
     if not enrichment_data:
-        log.debug("enrichment_no_records_found")
-        # Добавим пустые колонки нужных типов
-        for col, dtype in [
-            ("compound_name", "string"),
-            ("compound_key", "string"),
-            ("curated", "boolean"),
-            ("removed", "boolean"),
-        ]:
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
-        # Удалить временный столбец перед возвратом
-        df_act = df_act.drop(columns=["_row_id"])
+        log.debug("enrichment_by_pairs_no_records_found")
         return df_act
 
     df_enrich = pd.DataFrame(enrichment_data)
@@ -340,58 +500,154 @@ def enrich_with_compound_record(
         columns=["molecule_chembl_id_normalized", "document_chembl_id_normalized"]
     )
 
-    # 6) Коалесценс после merge: *_enrich → базовые колонки
+    # Коалесценс после merge: *_enrich → базовые колонки
     for col in ["compound_name", "compound_key", "curated"]:
         if f"{col}_enrich" in df_result.columns:
-            # Коалесценс: использовать значение из обогащения, если базовое значение NA
-            # Если базовой колонки нет, создать её из _enrich
             if col not in df_result.columns:
                 df_result[col] = df_result[f"{col}_enrich"]
             else:
-                # Заменить NA значения значениями из _enrich
-                # Используем fillna для более надежной замены NA значений
-                df_result[col] = df_result[col].fillna(df_result[f"{col}_enrich"])  # type: ignore[assignment]
-            # Удалить колонку _enrich
+                df_result[col] = df_result[col].where(
+                    df_result[col].notna(),
+                    df_result[f"{col}_enrich"],
+                )
             df_result = df_result.drop(columns=[f"{col}_enrich"])
 
-    # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
-    for col in ["compound_name", "compound_key", "curated", "removed"]:
-        if col not in df_result.columns:
-            df_result[col] = pd.NA
+    return df_result
 
-    # 7) removed всегда <NA> на этом этапе
-    df_result["removed"] = pd.NA
 
-    # 9) Отсортировать по _row_id и удалить временную колонку
-    df_result = df_result.sort_values("_row_id").reset_index(drop=True)
-    df_result = df_result.drop(columns=["_row_id"])
+def _enrich_by_record_id(
+    df_act: pd.DataFrame,
+    client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: Any,
+) -> pd.DataFrame:
+    """Обогатить DataFrame activity через record_id (fallback для строк без document_chembl_id)."""
+    # Собрать уникальные record_id
+    record_ids: set[str] = set()
+    for _, row in df_act.iterrows():
+        rec = row.get("record_id")
+        if rec is not None and not pd.isna(rec):
+            rec_s = str(rec).strip()
+            if rec_s:
+                record_ids.add(rec_s)
 
-    # 7) Надёжное приведение булевых для curated
-    if "curated" in df_result.columns:
-        # Нормализовать возможные представления перед приведением к boolean
-        df_result["curated"] = df_result["curated"].replace({  # type: ignore[assignment]
-            1: True,
-            0: False,
-            "1": True,
-            "0": False,
+    if not record_ids:
+        log.debug("enrichment_by_record_id_skipped_no_valid_ids")
+        return df_act
+
+    # Поля запроса к клиенту — плоские имена полей
+    fields = ["record_id", "compound_name", "compound_key"]
+    page_limit = cfg.get("page_limit", 1000)
+    batch_size = int(cfg.get("batch_size", 100)) or 100
+
+    # Получить compound_record по record_id
+    log.info("enrichment_fetching_compound_records_by_record_id", record_ids_count=len(record_ids))
+    compound_records_dict: dict[str, dict[str, Any]] = {}
+    try:
+        unique_ids = list(record_ids)
+        all_records: list[dict[str, Any]] = []
+
+        # Обработка батчами по фильтру record_id__in
+        for i in range(0, len(unique_ids), batch_size):
+            chunk = unique_ids[i : i + batch_size]
+            params: dict[str, Any] = {
+                "record_id__in": ",".join(chunk),
+                "limit": page_limit,
+                "only": ",".join(fields),
+                "order_by": "record_id",
+            }
+
+            try:
+                for record in client.paginate(
+                    "/compound_record.json",
+                    params=params,
+                    page_size=page_limit,
+                    items_key="compound_records",
+                ):
+                    all_records.append(dict(record))
+            except Exception as exc:
+                log.warning(
+                    "enrichment_fetch_error_by_record_id",
+                    chunk_size=len(chunk),
+                    error=str(exc),
+                    exc_info=True,
+                )
+
+        # Построить словарь по record_id
+        for record in all_records:
+            rid_raw = record.get("record_id")
+            if rid_raw is None:
+                continue
+            rid_str = str(rid_raw).strip()
+            if rid_str and rid_str not in compound_records_dict:
+                compound_records_dict[rid_str] = {
+                    "record_id": rid_str,
+                    "compound_key": record.get("compound_key"),
+                    "compound_name": record.get("compound_name"),
+                }
+    except Exception as exc:
+        log.warning(
+            "enrichment_fetch_error_by_record_id",
+            record_ids_count=len(record_ids),
+            error=str(exc),
+            exc_info=True,
+        )
+        return df_act
+
+    if not compound_records_dict:
+        log.debug("enrichment_by_record_id_no_records_found")
+        return df_act
+
+    # Создать DataFrame для join
+    compound_data: list[dict[str, Any]] = []
+    for record_id, record in compound_records_dict.items():
+        compound_data.append({
+            "record_id": record_id,
+            "compound_key": record.get("compound_key"),
+            "compound_name": record.get("compound_name"),
         })
-        df_result["curated"] = df_result["curated"].astype("boolean")
 
-    # Нормализовать типы для строковых полей
-    df_result["compound_name"] = df_result["compound_name"].astype("string")
-    df_result["compound_key"] = df_result["compound_key"].astype("string")
-    df_result["removed"] = df_result["removed"].astype("boolean")
-
-    # 8) Корректный счётчик records_matched (только реально найденные сопоставления)
-    records_matched = sum(
-        v is not None for v in compound_records_dict.values()  # type: ignore[union-attr]
+    df_compound = pd.DataFrame(compound_data) if compound_data else pd.DataFrame(
+        columns=["record_id", "compound_key", "compound_name"]
     )
 
-    log.info(
-        "enrichment_completed",
-        rows_enriched=df_result.shape[0],
-        records_matched=records_matched,
+    # Нормализовать record_id в df_act для join
+    df_act_normalized = df_act.copy()
+    if "record_id" in df_act_normalized.columns:
+        mask_na = df_act_normalized["record_id"].isna()
+        df_act_normalized["record_id"] = df_act_normalized["record_id"].astype(str)
+        df_act_normalized.loc[df_act_normalized["record_id"] == "nan", "record_id"] = pd.NA
+        df_act_normalized.loc[mask_na, "record_id"] = pd.NA
+        if "record_id" in df_compound.columns and not df_compound.empty:
+            df_compound["record_id"] = df_compound["record_id"].astype(str)
+            df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = pd.NA
+
+    # Left-join по record_id
+    df_result = df_act_normalized.merge(
+        df_compound,
+        on=["record_id"],
+        how="left",
+        suffixes=("", "_compound"),
     )
+
+    # Коалесценс после merge: *_compound → базовые колонки
+    for col in ["compound_name", "compound_key"]:
+        if f"{col}_compound" in df_result.columns:
+            if col not in df_result.columns:
+                df_result[col] = df_result[f"{col}_compound"]
+            else:
+                df_result[col] = df_result[col].where(
+                    df_result[col].notna(),
+                    df_result[f"{col}_compound"],
+                )
+            df_result = df_result.drop(columns=[f"{col}_compound"])
+
+    # Добавить curated и removed (всегда None для этого пути)
+    if "curated" not in df_result.columns:
+        df_result["curated"] = pd.NA
+    if "removed" not in df_result.columns:
+        df_result["removed"] = pd.NA
+
     return df_result
 
 

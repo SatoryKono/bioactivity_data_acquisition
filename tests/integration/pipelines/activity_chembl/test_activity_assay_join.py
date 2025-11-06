@@ -10,7 +10,10 @@ import pytest
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
+from bioetl.config.models.cache import CacheConfig
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.paths import PathsConfig
+from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
@@ -53,9 +56,9 @@ def mock_pipeline_config() -> PipelineConfig:
             ),
         ),
         sources={},
-        paths={"output_root": "data/output", "cache_root": "data/cache"},
-        cache={"enabled": False},
-        validation={"schema_out": "bioetl.schemas.activity.activity_chembl.ActivitySchema"},
+        paths=PathsConfig(output_root="data/output", cache_root="data/cache"),
+        cache=CacheConfig(enabled=False),
+        validation=ValidationConfig(schema_out="bioetl.schemas.activity.activity_chembl.ActivitySchema"),
     )
 
 

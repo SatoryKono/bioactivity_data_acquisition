@@ -1510,13 +1510,13 @@ class ChemblActivityPipeline(PipelineBase):
         return record
 
     def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
-        """Extract TRUV fields from activity_properties array as fallback.
+        """Extract TRUV fields and data_validity_comment from activity_properties array as fallback.
 
         Поля извлекаются из activity_properties только если они отсутствуют
         в основном ответе API (приоритет у прямых полей из ACTIVITIES).
-        Извлекаются только оригинальные TRUV-поля: value, text_value, relation, units.
-        Стандартизованные поля (standard_*) и комментарии (activity_comment,
-        data_validity_comment) НЕ извлекаются из properties.
+        Извлекаются оригинальные TRUV-поля: value, text_value, relation, units.
+        Также извлекается data_validity_comment из элементов с type == "data_validity".
+        Стандартизованные поля (standard_*) и activity_comment НЕ извлекаются из properties.
         """
         if "activity_properties" not in record:
             return record
@@ -1541,6 +1541,15 @@ class ChemblActivityPipeline(PipelineBase):
             """Set fallback value only if key is missing in record and value is not None."""
             if value is not None and record.get(key) is None:
                 record[key] = value
+
+        # Helper to check if value is empty (None, empty string, or whitespace)
+        def _is_empty(value: Any) -> bool:
+            """Check if value is empty (None, empty string, or whitespace)."""
+            if value is None:
+                return True
+            if isinstance(value, str):
+                return not value.strip()
+            return False
 
         # Filter valid property items: must be Mapping with type and at least one of value/text_value
         items: list[Mapping[str, Any]] = [
@@ -1579,6 +1588,46 @@ class ChemblActivityPipeline(PipelineBase):
             if will_set_value or will_set_text_value:
                 _set_fallback("relation", rel)
                 _set_fallback("units", unt)
+
+        # Fallback для data_validity_comment: извлечь из activity_properties если поле пустое
+        if _is_empty(record.get("data_validity_comment")):
+            # Найти элементы с type == "data_validity" и наличием хотя бы одного из: text_value или value
+            data_validity_items: list[Mapping[str, Any]] = [
+                prop
+                for prop in items
+                if prop.get("type") == "data_validity"
+                and (prop.get("text_value") is not None or prop.get("value") is not None)
+            ]
+
+            if data_validity_items:
+                # Приоритет: элементы с result_flag == 1 (измеренные результаты)
+                measured_items = [p for p in data_validity_items if _is_measured(p)]
+                if measured_items:
+                    # Использовать первый элемент с result_flag == 1
+                    # Приоритет: text_value если есть и не пустой, иначе value
+                    prop = measured_items[0]
+                    text_value = prop.get("text_value")
+                    value = prop.get("value")
+                    comment_value = None
+                    if text_value is not None and not _is_empty(text_value):
+                        comment_value = str(text_value).strip()
+                    elif value is not None and not _is_empty(value):
+                        comment_value = str(value).strip()
+                    if comment_value:
+                        record["data_validity_comment"] = comment_value
+                else:
+                    # Использовать первый найденный элемент
+                    # Приоритет: text_value если есть и не пустой, иначе value
+                    prop = data_validity_items[0]
+                    text_value = prop.get("text_value")
+                    value = prop.get("value")
+                    comment_value = None
+                    if text_value is not None and not _is_empty(text_value):
+                        comment_value = str(text_value).strip()
+                    elif value is not None and not _is_empty(value):
+                        comment_value = str(value).strip()
+                    if comment_value:
+                        record["data_validity_comment"] = comment_value
 
         return record
 

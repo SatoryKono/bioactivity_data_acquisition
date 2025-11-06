@@ -966,6 +966,9 @@
 
 - Прямое поле: из `/activity.json`
 - Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+  - Ищет элементы с `type == "data_validity"` и наличием хотя бы одного из: `text_value` или `value`
+  - При извлечении: использует `text_value` если он есть и не пустой, иначе `value`
+  - Приоритет элементов с `result_flag == 1`
 
 **Нормализация:**
 
@@ -1162,7 +1165,7 @@
 - `text_value`
 - `standard_text_value`
 - `activity_comment`
-- `data_validity_comment`
+- `data_validity_comment` (из элементов с `type == "data_validity"`, приоритет `text_value`, затем `value`)
 
 ### Обогащение данных
 

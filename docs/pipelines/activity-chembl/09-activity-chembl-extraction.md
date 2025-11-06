@@ -945,7 +945,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 - `upper_value`, `lower_value`, `text_value` — сырые значения из `ACTIVITIES`
 - `standard_upper_value`, `standard_text_value` — стандартизованные значения из `ACTIVITIES`
 - `activity_comment` — из `ACTIVITIES.ACTIVITY_COMMENT`
-- `data_validity_comment` — из `ACTIVITIES.DATA_VALIDITY_COMMENT`
+- `data_validity_comment` — из `ACTIVITIES.DATA_VALIDITY_COMMENT` (fallback: из `activity_properties` с `type == "data_validity"`, приоритет `text_value`, затем `value`)
 
 **Контракт:**
 

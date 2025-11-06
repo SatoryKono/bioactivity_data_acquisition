@@ -136,9 +136,16 @@ class PipelineBase(ABC):
         self._validation_summary: dict[str, Any] | None = None
 
     def _ensure_pipeline_directory(self) -> Path:
-        """Ensure the deterministic output folder exists for the pipeline."""
+        """Return the deterministic output folder path for the pipeline.
 
-        directory = self.output_root / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+        Does not create the directory. Use _ensure_pipeline_directory_exists()
+        to create it when needed.
+        """
+        return self.output_root / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+
+    def _ensure_pipeline_directory_exists(self) -> Path:
+        """Ensure the deterministic output folder exists for the pipeline."""
+        directory = self.pipeline_directory
         directory.mkdir(parents=True, exist_ok=True)
         return directory
 
@@ -264,6 +271,9 @@ class PipelineBase(ABC):
 
     def list_run_stems(self) -> Sequence[str]:
         """Return deterministic run stems discovered via dataset files."""
+
+        if not self.pipeline_directory.exists():
+            return []
 
         suffix = f".{self.dataset_extension}"
         dataset_files = sorted(
@@ -552,7 +562,7 @@ class PipelineBase(ABC):
             raise ValueError(msg)
 
         # Extract unique IDs, drop NaN, convert to string, sort for determinism
-        ids = (
+        ids: list[str] = (
             df[id_column_name]
             .dropna()
             .astype(str)
@@ -994,26 +1004,31 @@ class PipelineBase(ABC):
                 if column_def.dtype == pd.Int64Dtype() or (
                     hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
                 ):
-                    numeric_series: pd.Series[Any] = pd.to_numeric(  # type: ignore[reportUnknownVariableType, reportUnknownArgumentType]
-                        df[column_name], errors="coerce"  # type: ignore[reportUnknownArgumentType]
-                    )  # pyright: ignore[reportUnknownMemberType]
-                    df[column_name] = numeric_series.astype("Int64")  # type: ignore[reportUnknownMemberType]
+                    # Type checker has issues with pandas overloads, suppress warnings
+                    numeric_series = cast(
+                        pd.Series[Any],
+                        pd.to_numeric(df[column_name], errors="coerce"),  # type: ignore[arg-type]
+                    )
+                    df[column_name] = numeric_series.astype("Int64")  # type: ignore[arg-type]
                 # Handle nullable floats
                 elif (
                     hasattr(column_def.dtype, "name")
                     and column_def.dtype.name == "Float64"
                 ):
-                    numeric_series_float: pd.Series[Any] = pd.to_numeric(  # type: ignore[reportUnknownVariableType, reportUnknownArgumentType]
-                        df[column_name], errors="coerce"  # type: ignore[reportUnknownArgumentType]
-                    )  # pyright: ignore[reportUnknownMemberType]
-                    df[column_name] = numeric_series_float.astype("Float64")  # type: ignore[reportUnknownMemberType]
+                    # Type checker has issues with pandas overloads, suppress warnings
+                    numeric_series_float = cast(
+                        pd.Series[Any],
+                        pd.to_numeric(df[column_name], errors="coerce"),  # type: ignore[arg-type]
+                    )
+                    df[column_name] = numeric_series_float.astype("Float64")  # type: ignore[arg-type]
                 # Handle strings - convert to string, preserving None values
                 elif (
                     hasattr(column_def.dtype, "name")
                     and column_def.dtype.name == "string"
                 ):
-                    mask: pd.Series[Any] = df[column_name].notna()  # type: ignore[reportUnknownVariableType, reportUnknownMemberType]
-                    if mask.any():  # type: ignore[reportUnknownMemberType]
+                    # Type checker has issues with pandas overloads, suppress warnings
+                    mask = cast(pd.Series[Any], df[column_name].notna())  # type: ignore[arg-type]
+                    if cast(bool, mask.any()):  # type: ignore[arg-type]
                         df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
             except (ValueError, TypeError) as exc:
                 log.warning(
@@ -1076,7 +1091,12 @@ class PipelineBase(ABC):
             run_dir = output_path
         else:
             run_dir = output_path.parent
-            # Ensure the directory exists
+
+        # If using pipeline_directory, ensure it exists
+        if run_dir == self.pipeline_directory or run_dir.resolve() == self.pipeline_directory.resolve():
+            run_dir = self._ensure_pipeline_directory_exists()
+        else:
+            # Ensure the directory exists for custom output paths
             run_dir.mkdir(parents=True, exist_ok=True)
 
         # Plan artifacts in the output directory

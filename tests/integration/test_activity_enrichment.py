@@ -464,16 +464,16 @@ class TestActivityEnrichment:
         mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
             return_value={
                 ("CHEMBL1", "CHEMBL1000"): {
-                    "compound_name": "Compound 1",
-                    "compound_key": "CID1",
+                    "PREF_NAME": "Compound 1",
+                    "STANDARD_INCHI_KEY": "CID1",
                     "curated": True,
                     "removed": False,
                     "molecule_chembl_id": "CHEMBL1",
                     "document_chembl_id": "CHEMBL1000",
                 },
                 ("CHEMBL2", "CHEMBL1001"): {
-                    "compound_name": "Compound 2",
-                    "compound_key": "CID2",
+                    "PREF_NAME": "Compound 2",
+                    "STANDARD_INCHI_KEY": "CID2",
                     "curated": False,
                     "removed": False,
                     "molecule_chembl_id": "CHEMBL2",
@@ -506,17 +506,26 @@ class TestActivityEnrichment:
         # Check that enrichment data is correct
         assert result.iloc[0]["assay_organism"] == "Homo sapiens"
         assert result.iloc[0]["assay_tax_id"] == 9606
-        assert result.iloc[0]["compound_name"] == "Compound 1"
-        assert result.iloc[0]["compound_key"] == "CID1"
-        assert result.iloc[0]["curated"] == True  # noqa: E712
-        assert result.iloc[0]["removed"] == False  # noqa: E712
+        # Используем безопасное сравнение для полей, которые могут быть NA
+        compound_name_0 = result.iloc[0]["compound_name"]
+        assert not pd.isna(compound_name_0) and compound_name_0 == "Compound 1"
+        compound_key_0 = result.iloc[0]["compound_key"]
+        assert not pd.isna(compound_key_0) and compound_key_0 == "CID1"
+        curated_0 = result.iloc[0]["curated"]
+        assert not pd.isna(curated_0) and curated_0 == True  # noqa: E712
+        # removed всегда None/NA на этом этапе обогащения
+        assert pd.isna(result.iloc[0]["removed"])
 
         assert result.iloc[1]["assay_organism"] == "Mus musculus"
         assert result.iloc[1]["assay_tax_id"] == 10090
-        assert result.iloc[1]["compound_name"] == "Compound 2"
-        assert result.iloc[1]["compound_key"] == "CID2"
-        assert result.iloc[1]["curated"] == False  # noqa: E712
-        assert result.iloc[1]["removed"] == False  # noqa: E712
+        compound_name_1 = result.iloc[1]["compound_name"]
+        assert not pd.isna(compound_name_1) and compound_name_1 == "Compound 2"
+        compound_key_1 = result.iloc[1]["compound_key"]
+        assert not pd.isna(compound_key_1) and compound_key_1 == "CID2"
+        curated_1 = result.iloc[1]["curated"]
+        assert not pd.isna(curated_1) and curated_1 == False  # noqa: E712
+        # removed всегда None/NA на этом этапе обогащения
+        assert pd.isna(result.iloc[1]["removed"])
 
     def test_enrichment_field_types_match_schema(
         self,

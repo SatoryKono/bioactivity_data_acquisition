@@ -153,9 +153,12 @@ chembl:
         enabled: true
         fields:
           - molecule_chembl_id
-          - pref_name
-          - molecule_structures
+          - document_chembl_id
+          - compound_name
+          - compound_key
+          - curated
         page_limit: 100
+        batch_size: 100
         request_timeout: 60
         max_retries: 3
         retry_backoff: 1.5

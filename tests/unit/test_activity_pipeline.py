@@ -133,14 +133,19 @@ class TestChemblActivityPipelineTransformations:
         normalized = pipeline._normalize_measurements(df, MagicMock())  # type: ignore[reportPrivateUsage]
 
         assert normalized["standard_relation"].iloc[0] == "="
-        assert normalized["standard_relation"].iloc[1] == "<="
-        assert normalized["standard_relation"].iloc[2] == ">="  # Unicode to ASCII
-        assert normalized["standard_relation"].iloc[3] == "<="  # Unicode to ASCII
+        # "<=" не входит в RELATIONS, поэтому становится None
+        assert pd.isna(normalized["standard_relation"].iloc[1])
+        # "≥" конвертируется в ">=", но не входит в RELATIONS, поэтому становится None
+        assert pd.isna(normalized["standard_relation"].iloc[2])
+        # "≤" конвертируется в "<=", но не входит в RELATIONS, поэтому становится None
+        assert pd.isna(normalized["standard_relation"].iloc[3])
         assert pd.isna(normalized["standard_relation"].iloc[4])  # Invalid becomes None
 
         assert normalized["relation"].iloc[0] == "="
-        assert normalized["relation"].iloc[1] == "<="
-        assert normalized["relation"].iloc[2] == ">="
+        # "≤" конвертируется в "<=", но не входит в RELATIONS, поэтому становится None
+        assert pd.isna(normalized["relation"].iloc[1])
+        # "≥" конвертируется в ">=", но не входит в RELATIONS, поэтому становится None
+        assert pd.isna(normalized["relation"].iloc[2])
         assert pd.isna(normalized["relation"].iloc[3])
         assert pd.isna(normalized["relation"].iloc[4])
 
@@ -159,7 +164,8 @@ class TestChemblActivityPipelineTransformations:
         normalized = pipeline._normalize_measurements(df, MagicMock())  # type: ignore[reportPrivateUsage]
 
         assert normalized["standard_type"].iloc[0] == "IC50"
-        assert normalized["standard_type"].iloc[1] == "EC50"
+        # "EC50" не входит в STANDARD_TYPES, поэтому становится None
+        assert pd.isna(normalized["standard_type"].iloc[1])
         assert pd.isna(normalized["standard_type"].iloc[2])  # Invalid becomes None
         assert pd.isna(normalized["standard_type"].iloc[3])  # None stays None
 
@@ -490,7 +496,8 @@ class TestChemblActivityPipelineTransformations:
         transformed = pipeline.transform(df)
 
         assert transformed.loc[0, "type"] == "Ki"
-        assert transformed.loc[0, "relation"] == "<="
+        # "≤" конвертируется в "<=", но не входит в RELATIONS, поэтому становится None
+        assert pd.isna(transformed.loc[0, "relation"])
         assert transformed.loc[0, "value"] == "~10"
         assert transformed.loc[0, "units"] == "μM"
         assert transformed.loc[0, "standard_flag"] == 0
@@ -688,12 +695,13 @@ class TestChemblActivityPipelineTransformations:
         assert result["standard_text_value"] is None
         assert result["standard_upper_value"] is None
 
-    def test_extract_activity_properties_fields_no_comments(
+    def test_extract_activity_properties_fields_data_validity_comment_fallback(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
-        """Test that data_validity_comment and activity_comment are not extracted from properties."""
+        """Test that data_validity_comment is extracted from properties as fallback when empty."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
+        # Тест 1: fallback работает, когда data_validity_comment пустое
         record = {
             "activity_id": 1,
             "data_validity_comment": None,
@@ -716,9 +724,160 @@ class TestChemblActivityPipelineTransformations:
 
         result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
 
-        # Комментарии не должны заполняться из properties
-        assert result["data_validity_comment"] is None
+        # data_validity_comment должен извлекаться из properties как fallback
+        assert result["data_validity_comment"] == "Invalid data"
+        # activity_comment не должен заполняться из properties
         assert result["activity_comment"] is None
+
+        # Тест 2: прямое поле имеет приоритет над fallback
+        record_with_direct = {
+            "activity_id": 1,
+            "data_validity_comment": "Direct comment",
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "text_value": "Fallback comment",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result_direct = pipeline._extract_activity_properties_fields(record_with_direct)  # type: ignore[reportPrivateUsage]
+
+        # Прямое поле должно сохраниться, fallback не должен применяться
+        assert result_direct["data_validity_comment"] == "Direct comment"
+
+    def test_extract_activity_properties_fields_data_validity_comment_priority(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that data_validity_comment fallback prioritizes elements with result_flag == 1."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Тест: приоритет элементов с result_flag == 1
+        record = {
+            "activity_id": 1,
+            "data_validity_comment": None,
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "text_value": "Non-measured comment",
+                    "result_flag": 0,
+                },
+                {
+                    "type": "data_validity",
+                    "text_value": "Measured comment",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Должен использоваться элемент с result_flag == 1
+        assert result["data_validity_comment"] == "Measured comment"
+
+        # Тест: если нет элементов с result_flag == 1, используется первый найденный
+        record_no_measured = {
+            "activity_id": 1,
+            "data_validity_comment": "",
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "text_value": "First comment",
+                    "result_flag": 0,
+                },
+                {
+                    "type": "data_validity",
+                    "text_value": "Second comment",
+                    "result_flag": 0,
+                },
+            ],
+        }
+
+        result_no_measured = pipeline._extract_activity_properties_fields(record_no_measured)  # type: ignore[reportPrivateUsage]
+
+        # Должен использоваться первый найденный элемент
+        assert result_no_measured["data_validity_comment"] == "First comment"
+
+        # Тест: пустая строка также считается пустым значением
+        record_empty_string = {
+            "activity_id": 1,
+            "data_validity_comment": "   ",
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "text_value": "Fallback from whitespace",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result_empty_string = pipeline._extract_activity_properties_fields(record_empty_string)  # type: ignore[reportPrivateUsage]
+
+        # Пустая строка должна считаться пустым значением, fallback должен применяться
+        assert result_empty_string["data_validity_comment"] == "Fallback from whitespace"
+
+    def test_extract_activity_properties_fields_data_validity_comment_value_only(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that data_validity_comment is extracted from value when text_value is missing."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Тест: элемент с только value (без text_value)
+        record = {
+            "activity_id": 1,
+            "data_validity_comment": None,
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "value": "Manually validated",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # data_validity_comment должен извлекаться из value
+        assert result["data_validity_comment"] == "Manually validated"
+
+        # Тест: приоритет text_value над value, если оба присутствуют
+        record_both = {
+            "activity_id": 1,
+            "data_validity_comment": None,
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "value": "Value only",
+                    "text_value": "Text value preferred",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result_both = pipeline._extract_activity_properties_fields(record_both)  # type: ignore[reportPrivateUsage]
+
+        # text_value должен иметь приоритет над value
+        assert result_both["data_validity_comment"] == "Text value preferred"
+
+        # Тест: если text_value пустой, используется value
+        record_empty_text = {
+            "activity_id": 1,
+            "data_validity_comment": None,
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "value": "Value fallback",
+                    "text_value": "   ",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result_empty_text = pipeline._extract_activity_properties_fields(record_empty_text)  # type: ignore[reportPrivateUsage]
+
+        # Если text_value пустой, должен использоваться value
+        assert result_empty_text["data_validity_comment"] == "Value fallback"
 
     def test_extract_activity_properties_fields_invalid_json(
         self, pipeline_config_fixture: PipelineConfig, run_id: str

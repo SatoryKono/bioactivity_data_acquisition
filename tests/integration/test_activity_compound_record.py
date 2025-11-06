@@ -289,3 +289,245 @@ class TestActivityCompoundRecordEnrichment:
         # Enrichment columns are not added when DataFrame is empty (enrichment is skipped)
         # This is expected behavior - no columns are added for empty DataFrame
 
+    def test_enrichment_preserves_row_order_exact(
+        self,
+        mock_chembl_client: ChemblClient,
+        sample_activity_df: pd.DataFrame,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that enrichment preserves exact row order (indices should match)."""
+        # Create a DataFrame with specific order
+        df_with_order = pd.DataFrame({
+            "activity_id": [10, 20, 30, 40, 50],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+            "document_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL100", "CHEMBL101", None],
+        })
+
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                ("CHEMBL2", "CHEMBL101"): {
+                    "PREF_NAME": "Second",
+                    "STANDARD_INCHI_KEY": "KEY2",
+                    "curated": True,
+                },
+                ("CHEMBL3", "CHEMBL100"): {
+                    "PREF_NAME": "Third",
+                    "STANDARD_INCHI_KEY": "KEY3",
+                    "curated": False,
+                },
+            }
+        )
+
+        result = enrich_with_compound_record(
+            df_with_order,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # Check that activity_ids are in the exact same order
+        assert list(result["activity_id"]) == list(df_with_order["activity_id"])
+        # Check that indices match
+        assert list(result.index) == list(df_with_order.index)
+        # Second row (index 1) should have matched data
+        assert not pd.isna(result.iloc[1]["compound_name"])
+        assert result.iloc[1]["compound_name"] == "Second"
+        # Third row (index 2) should have matched data
+        assert not pd.isna(result.iloc[2]["compound_name"])
+        assert result.iloc[2]["compound_name"] == "Third"
+
+    def test_enrichment_coalescence_fills_na(
+        self,
+        mock_chembl_client: ChemblClient,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that coalescence fills NA values from enrichment."""
+        # Create DataFrame with existing NA values in compound_name
+        df_with_na = pd.DataFrame({
+            "activity_id": [1, 2],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2"],
+            "document_chembl_id": ["CHEMBL100", "CHEMBL100"],
+            "compound_name": [pd.NA, "Existing Name"],  # First row has NA, second has value
+            "compound_key": [pd.NA, pd.NA],
+            "curated": [pd.NA, pd.NA],
+        })
+
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                ("CHEMBL1", "CHEMBL100"): {
+                    "PREF_NAME": "Enriched Name",
+                    "STANDARD_INCHI_KEY": "Enriched Key",
+                    "curated": True,
+                },
+                ("CHEMBL2", "CHEMBL100"): {
+                    "PREF_NAME": "Should Not Override",
+                    "STANDARD_INCHI_KEY": "Should Not Override",
+                    "curated": False,
+                },
+            }
+        )
+
+        result = enrich_with_compound_record(
+            df_with_na,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # First row: NA should be filled from enrichment
+        assert not pd.isna(result.iloc[0]["compound_name"])
+        assert result.iloc[0]["compound_name"] == "Enriched Name"
+        assert not pd.isna(result.iloc[0]["compound_key"])
+        assert result.iloc[0]["compound_key"] == "Enriched Key"
+        assert not pd.isna(result.iloc[0]["curated"])
+        assert result.iloc[0]["curated"] == True  # noqa: E712
+
+        # Second row: existing value should be preserved (not overridden)
+        assert not pd.isna(result.iloc[1]["compound_name"])
+        assert result.iloc[1]["compound_name"] == "Existing Name"
+
+    def test_enrichment_key_normalization(
+        self,
+        mock_chembl_client: ChemblClient,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that key normalization works: pairs form identically for chembl25 and CHEMBL25."""
+        # Create DataFrame with mixed case and whitespace
+        df_mixed_case = pd.DataFrame({
+            "activity_id": [1, 2],
+            "molecule_chembl_id": ["chembl25", "  CHEMBL26  "],  # Lowercase and with spaces
+            "document_chembl_id": ["chembl100", "  CHEMBL101  "],  # Lowercase and with spaces
+        })
+
+        # Mock should use normalized keys (uppercase, stripped)
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                ("CHEMBL25", "CHEMBL100"): {  # Normalized keys
+                    "PREF_NAME": "Normalized Match",
+                    "STANDARD_INCHI_KEY": "KEY25",
+                    "curated": True,
+                },
+                ("CHEMBL26", "CHEMBL101"): {  # Normalized keys
+                    "PREF_NAME": "Normalized Match 2",
+                    "STANDARD_INCHI_KEY": "KEY26",
+                    "curated": False,
+                },
+            }
+        )
+
+        result = enrich_with_compound_record(
+            df_mixed_case,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # Both rows should match despite different case/spacing in input
+        assert not pd.isna(result.iloc[0]["compound_name"])
+        assert result.iloc[0]["compound_name"] == "Normalized Match"
+        assert not pd.isna(result.iloc[1]["compound_name"])
+        assert result.iloc[1]["compound_name"] == "Normalized Match 2"
+
+    def test_enrichment_removed_always_na(
+        self,
+        mock_chembl_client: ChemblClient,
+        sample_activity_df: pd.DataFrame,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that removed is always pd.NA (dtype=boolean)."""
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                ("CHEMBL1", "CHEMBL100"): {
+                    "PREF_NAME": "Test Compound",
+                    "STANDARD_INCHI_KEY": "KEY1",
+                    "curated": True,
+                    "removed": False,  # Even if client returns False, should be NA
+                },
+            }
+        )
+
+        result = enrich_with_compound_record(
+            sample_activity_df,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # removed should always be pd.NA regardless of what client returns
+        assert all(pd.isna(result["removed"]))
+        # dtype should be boolean
+        assert result["removed"].dtype == "boolean"
+
+    def test_enrichment_client_error_handling(
+        self,
+        mock_chembl_client: ChemblClient,
+        sample_activity_df: pd.DataFrame,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that client errors are handled: function returns frame with empty columns of correct types."""
+        # Mock client to raise an exception
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            side_effect=Exception("API error")
+        )
+
+        result = enrich_with_compound_record(
+            sample_activity_df,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # Should not crash and should have all enrichment columns with correct types
+        assert len(result) == len(sample_activity_df)
+        assert "compound_name" in result.columns
+        assert "compound_key" in result.columns
+        assert "curated" in result.columns
+        assert "removed" in result.columns
+
+        # All columns should be NA
+        assert all(pd.isna(result["compound_name"]))
+        assert all(pd.isna(result["compound_key"]))
+        assert all(pd.isna(result["curated"]))
+        assert all(pd.isna(result["removed"]))
+
+        # Check types
+        assert result["compound_name"].dtype == "string"
+        assert result["compound_key"].dtype == "string"
+        assert result["curated"].dtype == "boolean"
+        assert result["removed"].dtype == "boolean"
+
+    def test_enrichment_records_matched_count(
+        self,
+        mock_chembl_client: ChemblClient,
+        sample_activity_df: pd.DataFrame,
+        enrichment_config: dict[str, Any],
+    ) -> None:
+        """Test that records_matched count reflects only actually found matches."""
+        # Mock to return some records and some None values
+        mock_chembl_client.fetch_compound_records_by_pairs = MagicMock(  # type: ignore[method-assign]
+            return_value={
+                ("CHEMBL1", "CHEMBL100"): {
+                    "PREF_NAME": "Found 1",
+                    "STANDARD_INCHI_KEY": "KEY1",
+                    "curated": True,
+                },
+                ("CHEMBL2", "CHEMBL100"): None,  # Explicitly None
+                ("CHEMBL3", "CHEMBL101"): {
+                    "PREF_NAME": "Found 3",
+                    "STANDARD_INCHI_KEY": "KEY3",
+                    "curated": False,
+                },
+            }
+        )
+
+        result = enrich_with_compound_record(
+            sample_activity_df,
+            mock_chembl_client,
+            enrichment_config,
+        )
+
+        # Should have matched 2 records (CHEMBL1 and CHEMBL3), not 3
+        # First row should have data
+        assert not pd.isna(result.iloc[0]["compound_name"])
+        assert result.iloc[0]["compound_name"] == "Found 1"
+        # Second row should have NA (None in mock)
+        assert pd.isna(result.iloc[1]["compound_name"])
+        # Third row should have data
+        assert not pd.isna(result.iloc[2]["compound_name"])
+        assert result.iloc[2]["compound_name"] == "Found 3"
+
