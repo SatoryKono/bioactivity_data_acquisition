@@ -1330,15 +1330,14 @@ class ChemblActivityPipeline(PipelineBase):
         return record
 
     def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
-        """Extract fields from activity_properties array.
+        """Extract TRUV fields from activity_properties array as fallback.
 
         Поля извлекаются из activity_properties только если они отсутствуют
         в основном ответе API (приоритет у прямых полей из ACTIVITIES).
+        Извлекаются только оригинальные TRUV-поля: value, text_value, relation, units.
+        Стандартизованные поля (standard_*) и комментарии (activity_comment,
+        data_validity_comment) НЕ извлекаются из properties.
         """
-        # Сначала убедимся, что прямые поля из API ответа сохранены
-        # Поля из ACTIVITIES: upper_value, lower_value, text_value, standard_upper_value,
-        # standard_text_value, activity_comment уже должны быть в record из API ответа
-
         if "activity_properties" not in record:
             return record
 
@@ -1357,60 +1356,49 @@ class ChemblActivityPipeline(PipelineBase):
         if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
             return record
 
-        # Type narrowing: properties is now a Sequence but not str/bytes
-        # Process each property item
-        # Поля из activity_properties используются только как fallback, если поле отсутствует в основном ответе
-        for prop in properties:  # type: ignore[assignment]
-            if not isinstance(prop, Mapping):
-                continue
+        # Helper for fallback assignment
+        def _set_fallback(key: str, value: Any) -> None:
+            """Set fallback value only if key is missing in record and value is not None."""
+            if value is not None and record.get(key) is None:
+                record[key] = value
 
-            prop = cast(Mapping[str, Any], prop)
-            prop_type = prop.get("type")
-            if not isinstance(prop_type, str):
-                continue
+        # Filter valid property items: must be Mapping with type and at least one of value/text_value
+        items: list[Mapping[str, Any]] = [
+            cast(Mapping[str, Any], p)
+            for p in properties  # type: ignore[assignment]
+            if isinstance(p, Mapping)
+            and ("type" in p)
+            and ("value" in p or "text_value" in p)
+        ]
 
-            prop_type_lower = prop_type.lower()
+        # Helper to check if property represents measured result (result_flag == 1 or True)
+        def _is_measured(p: Mapping[str, Any]) -> bool:
+            rf = p.get("result_flag")
+            return (rf is True) or (isinstance(rf, int) and rf == 1)
 
-            # Extract upper_value, lower_value, standard_upper_value (только если отсутствуют)
-            if "upper" in prop_type_lower or prop_type_lower in ("upper_value", "upper_limit"):
-                value = prop.get("value")
-                if value is not None and record.get("upper_value") is None:
-                    record.setdefault("upper_value", value)
-                if "standard" in prop_type_lower and record.get("standard_upper_value") is None:
-                    record.setdefault("standard_upper_value", value)
+        # Sort: measured results (result_flag == 1) first, then others
+        items.sort(key=lambda p: (not _is_measured(p)))
 
-            if "lower" in prop_type_lower or prop_type_lower in ("lower_value", "lower_limit"):
-                value = prop.get("value")
-                if value is not None and record.get("lower_value") is None:
-                    record.setdefault("lower_value", value)
+        # Process items: extract only original TRUV fields as fallback
+        for prop in items:
+            val = prop.get("value")
+            txt = prop.get("text_value")
+            rel = prop.get("relation")
+            unt = prop.get("units")
 
-            if "standard_upper" in prop_type_lower:
-                value = prop.get("value")
-                if value is not None and record.get("standard_upper_value") is None:
-                    record.setdefault("standard_upper_value", value)
+            # Проверяем, будем ли мы заполнять value или text_value
+            will_set_value = val is not None and record.get("value") is None
+            will_set_text_value = txt is not None and record.get("text_value") is None
 
-            # Extract text_value and standard_text_value (только если отсутствуют)
-            if prop.get("text_value"):
-                if record.get("text_value") is None:
-                    record.setdefault("text_value", prop.get("text_value"))
-                # Check if this is a standard_text_value
-                if "standard" in prop_type_lower and record.get("standard_text_value") is None:
-                    record.setdefault("standard_text_value", prop.get("text_value"))
+            # Fallback ТОЛЬКО для original/TRUV полей
+            _set_fallback("value", val)
+            _set_fallback("text_value", txt)
 
-            # Extract activity_comment (только если отсутствует)
-            if "comment" in prop_type_lower or "activity_comment" in prop_type_lower:
-                value = prop.get("value") or prop.get("text_value")
-                if value is not None and record.get("activity_comment") is None:
-                    record.setdefault("activity_comment", value)
-
-            # Extract data_validity_comment (только если отсутствует)
-            # data_validity_description извлекается через enrichment из DATA_VALIDITY_LOOKUP
-            if "data_validity" in prop_type_lower or "validity" in prop_type_lower:
-                value = prop.get("value") or prop.get("text_value")
-                if value is not None and record.get("data_validity_comment") is None:
-                    # Не устанавливаем data_validity_description из activity_properties,
-                    # оно должно приходить из DATA_VALIDITY_LOOKUP через enrichment
-                    record.setdefault("data_validity_comment", value)
+            # Согласованное подтягивание сопряжённых полей из того же элемента
+            # Если заполняем value или text_value, подтягиваем relation и units (если они есть)
+            if will_set_value or will_set_text_value:
+                _set_fallback("relation", rel)
+                _set_fallback("units", unt)
 
         return record
 
@@ -2259,6 +2247,16 @@ class ChemblActivityPipeline(PipelineBase):
                         df.loc[invalid_index, field] = pd.NA
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
+
+        # Handle object fields (value, activity_properties, etc.)
+        # These fields should remain as object type to allow mixed types
+        object_fields = ["value", "activity_properties"]
+        for field in object_fields:
+            if field in df.columns:
+                # Ensure it's object type, but don't convert if already object
+                if df[field].dtype != "object":
+                    # Convert to object to preserve mixed types
+                    df[field] = df[field].astype("object")
 
         return df
 

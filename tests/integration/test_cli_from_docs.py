@@ -35,9 +35,9 @@ def test_list_command():
 @pytest.mark.integration
 def test_activity_chembl_dry_run():
     """Test activity_chembl command with --dry-run from README."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "activity.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "activity" / "activity_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "activity"
-    
+
     result = subprocess.run(
         [
             sys.executable,
@@ -61,9 +61,9 @@ def test_activity_chembl_dry_run():
 @pytest.mark.integration
 def test_assay_chembl_dry_run():
     """Test assay_chembl command with --dry-run from docs/pipelines/assay-chembl/16-assay-chembl-cli.md."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "assay.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "assay"
-    
+
     result = subprocess.run(
         [
             sys.executable,
@@ -87,15 +87,15 @@ def test_assay_chembl_dry_run():
 @pytest.mark.integration
 def test_testitem_dry_run():
     """Test testitem command with --dry-run from docs/pipelines/testitem-chembl/16-testitem-chembl-cli.md."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "testitem" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
-    
+
     result = subprocess.run(
         [
             sys.executable,
             "-m",
             "bioetl.cli.main",
-            "testitem",
+            "testitem_chembl",
             "--config",
             str(config_path),
             "--output-dir",
@@ -113,9 +113,9 @@ def test_testitem_dry_run():
 @pytest.mark.integration
 def test_testitem_chembl_alias_dry_run():
     """Test testitem_chembl alias command with --dry-run."""
-    config_path = ROOT / "configs" / "pipelines" / "chembl" / "testitem.yaml"
+    config_path = ROOT / "configs" / "pipelines" / "testitem" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
-    
+
     result = subprocess.run(
         [
             sys.executable,

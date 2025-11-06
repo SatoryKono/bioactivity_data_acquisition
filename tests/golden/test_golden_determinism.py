@@ -24,7 +24,7 @@ class TestGoldenDeterminism:
         golden_dir: Path,
     ):
         """Test that CSV artifacts are deterministic."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -63,7 +63,7 @@ class TestGoldenDeterminism:
         """Test that meta.yaml has required structure."""
         import yaml
 
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -95,7 +95,7 @@ class TestGoldenDeterminism:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that column order is stable."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -106,7 +106,10 @@ class TestGoldenDeterminism:
             include_qc_metrics=True,
         )
 
-        result = pipeline.write(sample_activity_data, artifacts.run_directory)
+        # Transform data to add row_subtype and row_index columns
+        transformed_data = pipeline.transform(sample_activity_data)
+        validated_data = pipeline.validate(transformed_data)
+        result = pipeline.write(validated_data, artifacts.run_directory)
 
         # Read CSV and verify column order
         df = pd.read_csv(result.write_result.dataset)  # type: ignore[reportUnknownMemberType]

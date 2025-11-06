@@ -155,7 +155,7 @@ chembl:
           - molecule_chembl_id
           - pref_name
           - molecule_structures
-        page_limit: 1000
+        page_limit: 100
         request_timeout: 60
         max_retries: 3
         retry_backoff: 1.5
@@ -165,7 +165,7 @@ chembl:
           - assay_chembl_id
           - assay_organism
           - assay_tax_id
-        page_limit: 1000
+        page_limit: 100
         request_timeout: 60
         max_retries: 3
         retry_backoff: 1.5
@@ -174,7 +174,7 @@ chembl:
         fields:
           - data_validity_comment
           - description
-        page_limit: 1000
+        page_limit: 100
         request_timeout: 60
         max_retries: 3
         retry_backoff: 1.5

@@ -243,6 +243,24 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # Ensure schema columns
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
+        # Deduplicate by document_chembl_id before validation
+        # Schema requires unique document_chembl_id, so we need to remove duplicates
+        # Use deterministic deduplication: sort by all columns, then keep first occurrence
+        if "document_chembl_id" in df.columns and df["document_chembl_id"].duplicated().any():
+            initial_count = len(df)
+            # Sort by all columns for deterministic deduplication
+            df = df.sort_values(by=list(df.columns)).drop_duplicates(
+                subset=["document_chembl_id"], keep="first"
+            )
+            deduped_count = len(df)
+            if deduped_count < initial_count:
+                log.warning(
+                    "document_deduplication_applied",
+                    initial_count=initial_count,
+                    deduped_count=deduped_count,
+                    removed_count=initial_count - deduped_count,
+                )
+
         # Order columns according to schema
         df = self._order_schema_columns(df, COLUMN_ORDER)
 

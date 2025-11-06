@@ -13,6 +13,7 @@ from requests.exceptions import RequestException
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.schemas.activity import ActivitySchema
 
 
 @pytest.mark.unit
@@ -344,7 +345,8 @@ class TestChemblActivityPipelineTransformations:
             }
         )
 
-        normalized = pipeline._normalize_data_types(df, MagicMock())  # type: ignore[reportPrivateUsage]
+        log = MagicMock()
+        normalized = pipeline._normalize_data_types(df, ActivitySchema, log)  # type: ignore[reportPrivateUsage]
 
         assert normalized["activity_id"].dtype.name == "Int64"  # type: ignore[reportUnknownMemberType]
         assert normalized["target_tax_id"].dtype.name == "Int64"  # type: ignore[reportUnknownMemberType]
@@ -604,4 +606,235 @@ class TestChemblActivityPipelineTransformations:
         assert stats is not None
         assert stats["fallback"] == 1
         assert stats["errors"] == 1
+
+    def test_extract_activity_properties_fields_result_flag_priority(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that elements with result_flag==1 have priority over others."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": None,
+            "text_value": None,
+            "activity_properties": [
+                {"type": "IC50", "value": 100.0, "text_value": "~100", "result_flag": 0},
+                {"type": "IC50", "value": 50.0, "text_value": "~50%", "result_flag": 1},
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Элемент с result_flag==1 должен иметь приоритет
+        assert result["value"] == 50.0
+        assert result["text_value"] == "~50%"
+
+    def test_extract_activity_properties_fields_preserves_existing_values(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that existing values in record are not overwritten by properties."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": 123.0,
+            "relation": "=",
+            "units": "nM",
+            "activity_properties": [
+                {"type": "IC50", "value": 200.0, "relation": "<", "units": "μM", "result_flag": 1},
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Существующие значения не должны перезаписываться
+        assert result["value"] == 123.0
+        assert result["relation"] == "="
+        assert result["units"] == "nM"
+
+    def test_extract_activity_properties_fields_no_standard_fields(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that standard_* fields are never extracted from properties."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "standard_value": None,
+            "standard_units": None,
+            "standard_relation": None,
+            "standard_type": None,
+            "standard_text_value": None,
+            "standard_upper_value": None,
+            "activity_properties": [
+                {
+                    "type": "standard_IC50",
+                    "value": 10.0,
+                    "units": "nM",
+                    "relation": "=",
+                    "text_value": "standard",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Стандартизованные поля не должны заполняться из properties
+        assert result["standard_value"] is None
+        assert result["standard_units"] is None
+        assert result["standard_relation"] is None
+        assert result["standard_type"] is None
+        assert result["standard_text_value"] is None
+        assert result["standard_upper_value"] is None
+
+    def test_extract_activity_properties_fields_no_comments(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that data_validity_comment and activity_comment are not extracted from properties."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "data_validity_comment": None,
+            "activity_comment": None,
+            "activity_properties": [
+                {
+                    "type": "data_validity",
+                    "value": "invalid",
+                    "text_value": "Invalid data",
+                    "result_flag": 1,
+                },
+                {
+                    "type": "activity_comment",
+                    "value": "comment",
+                    "text_value": "Some comment",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Комментарии не должны заполняться из properties
+        assert result["data_validity_comment"] is None
+        assert result["activity_comment"] is None
+
+    def test_extract_activity_properties_fields_invalid_json(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that invalid JSON in activity_properties returns record unchanged."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": 123.0,
+            "activity_properties": "{invalid json}",
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # При невалидном JSON record должен остаться без изменений
+        assert result["value"] == 123.0
+        assert result == record
+
+    def test_extract_activity_properties_fields_not_list(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that non-list activity_properties returns record unchanged."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": 123.0,
+            "activity_properties": {"not": "a list"},
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # При не-списке record должен остаться без изменений
+        assert result["value"] == 123.0
+        assert result == record
+
+    def test_extract_activity_properties_fields_coordinated_fallback(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that relation and units are pulled together with value from same element."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": None,
+            "relation": None,
+            "units": None,
+            "activity_properties": [
+                {
+                    "type": "IC50",
+                    "value": 10.0,
+                    "relation": "=",
+                    "units": "nM",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # При заполнении value должны подтягиваться relation и units из того же элемента
+        assert result["value"] == 10.0
+        assert result["relation"] == "="
+        assert result["units"] == "nM"
+
+    def test_extract_activity_properties_fields_text_value_coordinated_fallback(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that relation and units are pulled together with text_value from same element."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "text_value": None,
+            "relation": None,
+            "units": None,
+            "activity_properties": [
+                {
+                    "type": "IC50",
+                    "text_value": "~50%",
+                    "relation": "<",
+                    "units": "%",
+                    "result_flag": 1,
+                },
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # При заполнении text_value должны подтягиваться relation и units из того же элемента
+        assert result["text_value"] == "~50%"
+        assert result["relation"] == "<"
+        assert result["units"] == "%"
+
+    def test_extract_activity_properties_fields_filters_invalid_items(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that only items with type and value/text_value are processed."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "value": None,
+            "activity_properties": [
+                {"type": "IC50", "value": 10.0},  # Valid
+                {"type": "IC50"},  # No value or text_value - should be skipped
+                {"value": 20.0},  # No type - should be skipped
+                {"type": "IC50", "text_value": "~20"},  # Valid
+                None,  # Not a mapping - should be skipped
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Должны обработаться только валидные элементы
+        assert result["value"] == 10.0  # Первый валидный элемент
+        assert result["text_value"] == "~20"  # Второй валидный элемент
 

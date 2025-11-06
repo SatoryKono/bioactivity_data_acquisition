@@ -335,8 +335,39 @@ def _perform_joins(
     # Сохранить исходный порядок
     original_index = df_act.index.copy()
 
+    # Нормализовать типы данных перед merge
+    df_act_normalized = df_act.copy()
+
+    # Нормализовать record_id: преобразовать в строку для совместимости с df_compound
+    if "record_id" in df_act_normalized.columns:
+        # Сохранить NaN значения, преобразовать остальные в строку
+        mask_na = df_act_normalized["record_id"].isna()
+        # Преобразовать в строку, но заменить "nan" на pd.NA
+        df_act_normalized["record_id"] = df_act_normalized["record_id"].astype(str)
+        df_act_normalized.loc[df_act_normalized["record_id"] == "nan", "record_id"] = pd.NA
+        df_act_normalized.loc[mask_na, "record_id"] = pd.NA
+        # Убедиться, что df_compound.record_id тоже строка
+        if "record_id" in df_compound.columns and not df_compound.empty:
+            df_compound["record_id"] = df_compound["record_id"].astype(str)
+            # Заменить "nan" на pd.NA
+            df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = pd.NA
+
+    # Нормализовать molecule_chembl_id: преобразовать в строку для совместимости с df_molecule
+    if "molecule_chembl_id" in df_act_normalized.columns:
+        # Сохранить NaN значения, преобразовать остальные в строку
+        mask_na = df_act_normalized["molecule_chembl_id"].isna()
+        # Преобразовать в строку, но заменить "nan" на pd.NA
+        df_act_normalized["molecule_chembl_id"] = df_act_normalized["molecule_chembl_id"].astype(str)
+        df_act_normalized.loc[df_act_normalized["molecule_chembl_id"] == "nan", "molecule_chembl_id"] = pd.NA
+        df_act_normalized.loc[mask_na, "molecule_chembl_id"] = pd.NA
+        # Убедиться, что df_molecule.molecule_chembl_id тоже строка
+        if "molecule_chembl_id" in df_molecule.columns and not df_molecule.empty:
+            df_molecule["molecule_chembl_id"] = df_molecule["molecule_chembl_id"].astype(str)
+            # Заменить "nan" на pd.NA
+            df_molecule.loc[df_molecule["molecule_chembl_id"] == "nan", "molecule_chembl_id"] = pd.NA
+
     # Первый join: activity.record_id → compound_record.record_id
-    df_result = df_act.merge(
+    df_result = df_act_normalized.merge(
         df_compound,
         on=["record_id"],
         how="left",

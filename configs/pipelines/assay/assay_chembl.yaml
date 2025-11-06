@@ -111,5 +111,5 @@ transform:
 
 # Validation schema (common settings inherited from validation.yaml profile)
 validation:
-  schema_out: "bioetl.schemas.assay_chembl.AssaySchema"
+  schema_out: "bioetl.schemas.assay.assay_chembl.AssaySchema"
 

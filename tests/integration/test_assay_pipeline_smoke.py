@@ -110,7 +110,7 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_serializes_array_fields(self, tmp_path: Path) -> None:
         """Test that assay pipeline serializes array fields to strings."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "assay.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory
@@ -151,7 +151,7 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that assay pipeline extracts all required scalar fields."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "assay.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory
@@ -196,7 +196,7 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_array_fields_format(self, tmp_path: Path) -> None:
         """Test that array fields follow header+rows format."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "chembl" / "assay.yaml"
+        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
         config = load_config(config_path)
 
         # Mock API client factory

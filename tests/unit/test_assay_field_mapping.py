@@ -21,7 +21,7 @@ def _create_minimal_config() -> PipelineConfig:
         transform=TransformConfig(arrays_to_header_rows=["assay_classifications", "assay_parameters"]),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
-        validation=ValidationConfig(schema_out="bioetl.schemas.assay_chembl.AssaySchema"),
+        validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
     )
 
 

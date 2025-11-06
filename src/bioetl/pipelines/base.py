@@ -1068,7 +1068,7 @@ class PipelineBase(ABC):
         mode = "extended" if extended else None
         include_correlation = extended or self.config.postprocess.correlation.enabled
         include_qc_metrics = extended
-        include_metadata = extended
+        include_metadata = True  # Всегда создавать meta.yaml
         include_manifest = extended
 
         # Use output_path as base directory if provided, otherwise use pipeline_directory

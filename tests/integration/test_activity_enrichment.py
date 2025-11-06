@@ -508,15 +508,15 @@ class TestActivityEnrichment:
         assert result.iloc[0]["assay_tax_id"] == 9606
         assert result.iloc[0]["compound_name"] == "Compound 1"
         assert result.iloc[0]["compound_key"] == "CID1"
-        assert result.iloc[0]["curated"] is True
-        assert result.iloc[0]["removed"] is False
+        assert result.iloc[0]["curated"] == True  # noqa: E712
+        assert result.iloc[0]["removed"] == False  # noqa: E712
 
         assert result.iloc[1]["assay_organism"] == "Mus musculus"
         assert result.iloc[1]["assay_tax_id"] == 10090
         assert result.iloc[1]["compound_name"] == "Compound 2"
         assert result.iloc[1]["compound_key"] == "CID2"
-        assert result.iloc[1]["curated"] is False
-        assert result.iloc[1]["removed"] is False
+        assert result.iloc[1]["curated"] == False  # noqa: E712
+        assert result.iloc[1]["removed"] == False  # noqa: E712
 
     def test_enrichment_field_types_match_schema(
         self,

@@ -151,7 +151,10 @@ class TestActivityMoleculeJoin:
         # Для record_id=100 должен быть TEST_KEY
         row_with_record_100 = result[result["activity_id"] == 1]
         if not row_with_record_100.empty:
-            assert row_with_record_100.iloc[0]["compound_key"] == "TEST_KEY"
+            compound_key = row_with_record_100.iloc[0]["compound_key"]
+            # Проверяем, что compound_key не NA и равен TEST_KEY
+            assert not pd.isna(compound_key), "compound_key is NA for activity_id=1"
+            assert compound_key == "TEST_KEY"
 
     def test_join_activity_with_molecule_compound_name_pref_name(
         self,
@@ -179,9 +182,13 @@ class TestActivityMoleculeJoin:
 
         # Проверка molecule_name
         assert "molecule_name" in result.columns
-        row_with_chembl1 = result[result["molecule_chembl_id"] == "CHEMBL1"]
+        # Используем activity_id для фильтрации, так как molecule_chembl_id не сохраняется в результате
+        row_with_chembl1 = result[result["activity_id"] == 1]
         if not row_with_chembl1.empty:
-            assert row_with_chembl1.iloc[0]["molecule_name"] == "Aspirin"
+            molecule_name = row_with_chembl1.iloc[0]["molecule_name"]
+            # Проверяем, что molecule_name не NA и равен Aspirin
+            assert not pd.isna(molecule_name), "molecule_name is NA for activity_id=1"
+            assert molecule_name == "Aspirin"
 
     def test_join_activity_with_molecule_compound_name_synonym_fallback(
         self,
@@ -211,9 +218,13 @@ class TestActivityMoleculeJoin:
         )
 
         # Проверка fallback на первый синоним
-        row_with_chembl2 = result[result["molecule_chembl_id"] == "CHEMBL2"]
+        # Используем activity_id для фильтрации, так как molecule_chembl_id не сохраняется в результате
+        row_with_chembl2 = result[result["activity_id"] == 2]
         if not row_with_chembl2.empty:
-            assert row_with_chembl2.iloc[0]["molecule_name"] == "Synonym1"
+            molecule_name = row_with_chembl2.iloc[0]["molecule_name"]
+            # Проверяем, что molecule_name не NA и равен Synonym1
+            assert not pd.isna(molecule_name), "molecule_name is NA for activity_id=2"
+            assert molecule_name == "Synonym1"
 
     def test_join_activity_with_molecule_empty_dataframe(
         self,

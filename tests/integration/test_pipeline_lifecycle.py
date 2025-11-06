@@ -57,7 +57,8 @@ class TestPipelineLifecycle:
 
             # Verify artifacts were created
             assert result.write_result.dataset.stat().st_size > 0
-            assert result.write_result.metadata is None
+            assert result.write_result.metadata is not None
+            assert result.write_result.metadata.exists()
 
     def test_pipeline_lifecycle_with_validation_error(
         self,
