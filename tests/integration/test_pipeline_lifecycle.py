@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
@@ -59,6 +61,17 @@ class TestPipelineLifecycle:
             assert result.write_result.dataset.stat().st_size > 0
             assert result.write_result.metadata is not None
             assert result.write_result.metadata.exists()
+
+            meta_content = yaml.safe_load(result.write_result.metadata.read_text())
+            assert meta_content.get("chembl_release") == "33"
+            assert "requested_at_utc" in meta_content
+            datetime.fromisoformat(str(meta_content["requested_at_utc"]).replace("Z", "+00:00"))
+            filters_section = meta_content.get("filters")
+            assert isinstance(filters_section, dict)
+            assert filters_section.get("mode") == "all"
+            assert "page_size" in filters_section
+            assert meta_content.get("config_version") == pipeline_config_fixture.version
+            assert meta_content.get("pipeline_version") == pipeline_config_fixture.pipeline.version
 
     def test_pipeline_lifecycle_with_validation_error(
         self,

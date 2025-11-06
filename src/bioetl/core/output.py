@@ -265,6 +265,8 @@ def serialise_metadata(
         "dataset_path": str(dataset_path),
         "hash_policy_version": config.determinism.hash_policy_version,
         "stage_durations_ms": dict(stage_durations_ms),
+        "config_version": config.version,
+        "pipeline_version": config.pipeline.version,
         "sorting": {
             "by": list(config.determinism.sort.by),
             "ascending": list(config.determinism.sort.ascending or [True] * len(config.determinism.sort.by)),
@@ -276,6 +278,8 @@ def serialise_metadata(
             "business_key_fields": list(hashing.business_key_fields),
         },
     }
+    if config.extends:
+        base_metadata["config_extends"] = list(config.extends)
     if "hash_row" in df.columns and not df.empty:
         base_metadata["hashing"]["sample_hash_row"] = str(df.iloc[0]["hash_row"])
     if "hash_business_key" in df.columns and not df.empty:

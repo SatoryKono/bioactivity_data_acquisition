@@ -102,6 +102,21 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             "limit": page_size,
             "only": ",".join(select_fields),
         }
+        parameter_filters = source_config.parameters.model_dump()
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields),
+        }
+        if parameter_filters:
+            filters_payload["parameters"] = parameter_filters
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
         pages = 0
 
         while next_endpoint:
@@ -188,6 +203,20 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         select_fields = self._resolve_select_fields(source_raw, default_fields=list(API_DOCUMENT_FIELDS))
         # Защита: добавить обязательные поля, если их нет
         select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(value) for value in ids],
+            "limit": int(self.config.cli.limit) if self.config.cli.limit is not None else None,
+            "batch_size": source_config.batch_size,
+            "select_fields": list(select_fields),
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
 
         batch_dataframe = self.extract_ids_paginated(
             ids,

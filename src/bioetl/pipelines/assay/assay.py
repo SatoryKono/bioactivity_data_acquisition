@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
@@ -133,6 +134,23 @@ class ChemblAssayPipeline(PipelineBase):
             fields_count=len(select_fields) if select_fields else 0,
         )
 
+        parameter_filters = source_config.parameters.model_dump()
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields) if select_fields else None,
+            "max_url_length": source_config.max_url_length,
+        }
+        if parameter_filters:
+            filters_payload["parameters"] = parameter_filters
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
+
         for item in assay_client.iterate_all(limit=limit, page_size=page_size, select_fields=select_fields):
             records.append(item)
 
@@ -243,6 +261,20 @@ class ChemblAssayPipeline(PipelineBase):
             "chembl_assay.select_fields",
             fields=select_fields,
             fields_count=len(select_fields) if select_fields else 0,
+        )
+
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(value) for value in ids],
+            "limit": int(limit) if limit is not None else None,
+            "batch_size": source_config.batch_size,
+            "max_url_length": source_config.max_url_length,
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
 
         for item in assay_client.iterate_by_ids(ids, select_fields=select_fields):

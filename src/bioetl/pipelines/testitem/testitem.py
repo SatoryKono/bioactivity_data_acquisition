@@ -329,7 +329,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     ) -> Mapping[str, object]:
         """Enrich metadata with ChEMBL versions."""
 
-        enriched = dict(metadata)
+        enriched = dict(super().augment_metadata(metadata, df))
         if self._chembl_db_version:
             enriched["chembl_db_version"] = self._chembl_db_version
         if self._api_version:
