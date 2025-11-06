@@ -76,7 +76,15 @@ class ChemblClient:
         if page_size and query is not None:
             query.setdefault("limit", page_size)
         while next_url:
-            response = self._client.get(next_url, params=query if next_url == endpoint else None)
+            # Normalize next_url: if it's a relative URL starting with /chembl/api/data/,
+            # remove that prefix since base_url already contains it
+            normalized_url = next_url
+            if not normalized_url.startswith(("http://", "https://")):
+                if normalized_url.startswith("/chembl/api/data/"):
+                    normalized_url = normalized_url[len("/chembl/api/data/"):]
+                elif normalized_url.startswith("chembl/api/data/"):
+                    normalized_url = normalized_url[len("chembl/api/data/"):]
+            response = self._client.get(normalized_url, params=query if next_url == endpoint else None)
             payload: Mapping[str, Any] = response.json()
             yield from self._extract_items(payload, items_key)
             next_url = self._next_link(payload)

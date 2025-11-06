@@ -29,6 +29,7 @@ sources:
         # scalars
         - molecule_chembl_id
         - pref_name
+        - molecule_type
         - max_phase
         - first_approval
         - first_in_class
@@ -172,5 +173,5 @@ transform:
 
 # Validation schema (common settings inherited from validation.yaml profile)
 validation:
-  schema_out: "bioetl.schemas.testitem_chembl.TestItemSchema"
+  schema_out: "bioetl.schemas.testitem.testitem_chembl.TestItemSchema"
 

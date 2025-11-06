@@ -109,6 +109,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         page_size = source_config.page_size
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
+        log.debug("chembl_testitem.select_fields", fields=select_fields)
         records: list[Mapping[str, Any]] = []
 
         # Используем специализированный клиент для testitem (molecule)
@@ -194,6 +195,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         page_size = min(page_size, 25)
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
+        log.debug("chembl_testitem.select_fields", fields=select_fields)
 
         records: list[Mapping[str, Any]] = []
         ids_list = list(ids)

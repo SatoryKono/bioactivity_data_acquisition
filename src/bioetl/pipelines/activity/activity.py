@@ -1518,6 +1518,8 @@ class ChemblActivityPipeline(PipelineBase):
         Также извлекается data_validity_comment из элементов с type == "data_validity".
         Стандартизованные поля (standard_*) и activity_comment НЕ извлекаются из properties.
         """
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract_activity_properties")
+
         if "activity_properties" not in record:
             return record
 
@@ -1529,7 +1531,12 @@ class ChemblActivityPipeline(PipelineBase):
         if isinstance(properties, str):
             try:
                 properties = json.loads(properties)
-            except (TypeError, ValueError, json.JSONDecodeError):
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                log.debug(
+                    "activity_properties_parse_failed",
+                    error=str(exc),
+                    activity_id=record.get("activity_id"),
+                )
                 return record
 
         # Handle list of properties
@@ -1590,7 +1597,8 @@ class ChemblActivityPipeline(PipelineBase):
                 _set_fallback("units", unt)
 
         # Fallback для data_validity_comment: извлечь из activity_properties если поле пустое
-        if _is_empty(record.get("data_validity_comment")):
+        current_comment = record.get("data_validity_comment")
+        if _is_empty(current_comment):
             # Найти элементы с type == "data_validity" и наличием хотя бы одного из: text_value или value
             data_validity_items: list[Mapping[str, Any]] = [
                 prop
@@ -1615,6 +1623,13 @@ class ChemblActivityPipeline(PipelineBase):
                         comment_value = str(value).strip()
                     if comment_value:
                         record["data_validity_comment"] = comment_value
+                        log.debug(
+                            "data_validity_comment_fallback_applied",
+                            activity_id=record.get("activity_id"),
+                            source="activity_properties",
+                            priority="measured",
+                            comment_value=comment_value,
+                        )
                 else:
                     # Использовать первый найденный элемент
                     # Приоритет: text_value если есть и не пустой, иначе value
@@ -1628,6 +1643,28 @@ class ChemblActivityPipeline(PipelineBase):
                         comment_value = str(value).strip()
                     if comment_value:
                         record["data_validity_comment"] = comment_value
+                        log.debug(
+                            "data_validity_comment_fallback_applied",
+                            activity_id=record.get("activity_id"),
+                            source="activity_properties",
+                            priority="first",
+                            comment_value=comment_value,
+                        )
+            else:
+                # Логирование случая, когда activity_properties есть, но data_validity_comment не найден
+                log.debug(
+                    "data_validity_comment_fallback_no_items",
+                    activity_id=record.get("activity_id"),
+                    activity_properties_count=len(items),
+                    has_activity_properties=True,
+                )
+        else:
+            # Логирование случая, когда data_validity_comment уже заполнен из прямого поля API
+            log.debug(
+                "data_validity_comment_from_api",
+                activity_id=record.get("activity_id"),
+                comment_value=current_comment,
+            )
 
         return record
 

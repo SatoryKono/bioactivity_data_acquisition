@@ -74,6 +74,6 @@ transform:
 # Validation schema (common settings inherited from validation.yaml profile)
 # Note: coerce is overridden to false for this pipeline
 validation:
-  schema_out: "bioetl.schemas.target_chembl.TargetSchema"
+  schema_out: "bioetl.schemas.target.target_chembl.TargetSchema"
   coerce: false
 
