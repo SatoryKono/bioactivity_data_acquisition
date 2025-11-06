@@ -18,7 +18,10 @@ from bioetl.pipelines.assay.assay_enrichment import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
 )
-from bioetl.pipelines.assay.assay_transform import serialize_array_fields
+from bioetl.pipelines.assay.assay_transform import (
+    serialize_array_fields,
+    validate_assay_parameters_truv,
+)
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
 from ..base import PipelineBase
@@ -491,6 +494,11 @@ class ChemblAssayPipeline(PipelineBase):
         # ВАЖНО: Не извлекаем assay_class_id из bao_format или других суррогатов.
         # assay_class_id должен заполняться через enrichment из ASSAY_CLASS_MAP.
         # Если enrichment не был выполнен и поле пустое, оставляем NULL.
+
+        # Валидация TRUV-инвариантов для assay_parameters (fail-fast)
+        if "assay_parameters" in df.columns:
+            log.debug("validating_assay_parameters_truv")
+            df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
 
         # Note: assay_parameters and assay_classifications сериализуются
         # в _serialize_array_fields() и сохраняются в финальной схеме

@@ -189,6 +189,10 @@ def enrich_with_assay_parameters(
 ) -> pd.DataFrame:
     """Обогатить DataFrame assay данными из ASSAY_PARAMETERS.
 
+    Извлекает полный TRUV-набор полей (TYPE, RELATION, VALUE, UNITS, TEXT_VALUE),
+    стандартизованные поля (standard_*), служебные поля (active) и опциональные
+    поля нормализации (type_normalized, type_fixed).
+
     Parameters
     ----------
     df_assay:
@@ -197,12 +201,22 @@ def enrich_with_assay_parameters(
         ChemblClient для запросов к ChEMBL API.
     cfg:
         Конфигурация обогащения из config.chembl.assay.enrich.parameters.
+        Должна содержать fields (список полей для извлечения), page_limit и active_only.
 
     Returns
     -------
     pd.DataFrame:
         Обогащенный DataFrame с добавленной/обновленной колонкой:
-        - assay_parameters (string, nullable) - сериализованный массив параметров
+        - assay_parameters (string, nullable) - сериализованный JSON-массив параметров
+          с полями: type, relation, value, units, text_value, standard_*,
+          active, type_normalized, type_fixed (если присутствуют в дампе)
+
+    Notes
+    -----
+    - Исходные значения сохраняются как есть, не копируются в standard_* автоматически
+    - Опциональные поля (type_normalized, type_fixed) извлекаются только если
+      присутствуют в дампе ChEMBL
+    - Параметры фильтруются по active=1, если active_only=True в конфигурации
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
@@ -243,9 +257,23 @@ def enrich_with_assay_parameters(
         return df_assay
 
     # Получить конфигурацию
+    # Значения по умолчанию включают полный TRUV-набор и стандартизованные поля
     fields = cfg.get(
         "fields",
-        ["assay_chembl_id", "type", "relation", "value", "units"],
+        [
+            "assay_chembl_id",
+            "type",
+            "relation",
+            "value",
+            "units",
+            "text_value",
+            "standard_type",
+            "standard_relation",
+            "standard_value",
+            "standard_units",
+            "standard_text_value",
+            "active",
+        ],
     )
     page_limit = cfg.get("page_limit", 1000)
     active_only = cfg.get("active_only", True)

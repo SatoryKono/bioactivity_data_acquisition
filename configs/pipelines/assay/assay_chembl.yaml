@@ -134,6 +134,16 @@ chembl:
           - relation
           - value
           - units
+          - text_value
+          - standard_type
+          - standard_relation
+          - standard_value
+          - standard_units
+          - standard_text_value
+          - active
+          # Опциональные поля нормализации (если присутствуют в дампе)
+          - type_normalized
+          - type_fixed
         page_limit: 1000
         active_only: true
 

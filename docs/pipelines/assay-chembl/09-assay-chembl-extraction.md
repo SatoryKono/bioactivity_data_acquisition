@@ -292,88 +292,157 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
 
 #### 2.4.1 Assay Parameters (ПРАВИЛЬНАЯ СПЕЦИФИКАЦИЯ)
 
-**Источник:** Поле `assay_parameters` (массив объектов)
+**Источник:** Таблица `ASSAY_PARAMETERS` в ChEMBL (извлекается через enrichment)
 
-**Проблема:** Текущий код берет только `first_param = params[0]` - **ПОТЕРЯ ДАННЫХ**
+**Структура данных:** Параметры хранятся как JSON-массив в поле `assay_parameters` (сериализованы в header+rows формат)
 
-**Корректное решение:**
+##### TRUV-поля (обязательные)
 
-**Вариант A: Длинный формат (Long Format)** - **РЕКОМЕНДУЕТСЯ**
+Параметры хранятся в формате TRUV (TYPE, RELATION, VALUE, UNITS):
+
+- **`type`** (string, nullable): Тип параметра (например, "TEMPERATURE", "pH", "DOSE")
+- **`relation`** (string, nullable): Оператор сравнения (`=`, `<`, `≤`, `>`, `≥`, `~`, или NULL)
+- **`value`** (float, nullable): Числовое значение параметра
+- **`units`** (string, nullable): Единицы измерения (например, "°C", "mM", "h")
+- **`text_value`** (string, nullable): Текстовое значение для качественных параметров
+
+**TRUV-инвариант:** `value` и `text_value` взаимоисключающие (XOR):
+- Если `value IS NOT NULL` → `text_value` должен быть `NULL`
+- Если `text_value IS NOT NULL` → `value` должен быть `NULL`
+- Оба не могут быть одновременно не NULL
+
+##### Стандартизованные поля (опциональные)
+
+Если в дампе ChEMBL присутствуют стандартизованные значения:
+
+- **`standard_type`** (string, nullable): Стандартизованный тип параметра
+- **`standard_relation`** (string, nullable): Стандартизованный оператор
+- **`standard_value`** (float, nullable): Стандартизованное числовое значение
+- **`standard_units`** (string, nullable): Стандартизованные единицы измерения
+- **`standard_text_value`** (string, nullable): Стандартизованное текстовое значение
+
+**Standard-TRUV-инвариант:** `standard_value` и `standard_text_value` взаимоисключающие (XOR)
+
+**ВАЖНО:** Исходные значения сохраняются как есть, не копируются в `standard_*` автоматически. Стандартизованные поля заполняются только если присутствуют в дампе ChEMBL.
+
+##### Служебные поля
+
+- **`active`** (int, nullable): Флаг актуальности параметра
+  - `1` — актуальная версия параметра
+  - `0` — историческая версия (для аудита)
+  - `NULL` — не указано
+
+**Инвариант:** `active ∈ {0, 1, NULL}`
+
+##### Опциональные поля нормализации
+
+Если присутствуют в дампе ChEMBL:
+
+- **`type_normalized`** (string, nullable): Нормализованный тип (автоматическая нормализация)
+- **`type_fixed`** (string, nullable): Исправленный тип (ручная правка, защита от перезаписи)
+
+**ВАЖНО:** Если `type_fixed` присутствует, он не должен перезаписываться процедурами авто-нормализации.
+
+##### Валидация TRUV-инвариантов
+
+Валидация выполняется на этапе transform (fail-fast подход) через функцию `validate_assay_parameters_truv()`:
+
+1. **Проверка TRUV-инварианта:** `value XOR text_value`
+2. **Проверка Standard-TRUV-инварианта:** `standard_value XOR standard_text_value`
+3. **Проверка active:** `active ∈ {0, 1, NULL}`
+4. **Проверка relation:** `relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}` (нестандартные операторы логируются как предупреждения)
+
+**Пример валидации:**
 
 ```python
+from bioetl.pipelines.assay.assay_transform import validate_assay_parameters_truv
 
-def _expand_assay_parameters_long(self, assay_data: dict) -> pd.DataFrame:
-    """Expand assay_parameters to long format with param_index."""
-
-    params = assay_data.get("assay_parameters", [])
-    assay_chembl_id = assay_data["assay_chembl_id"]
-
-    if not params:
-        return pd.DataFrame({
-            "assay_chembl_id": [assay_chembl_id],
-            "param_index": [None],
-            "param_type": [None],
-            "param_relation": [None],
-            "param_value": [None],
-            "param_units": [None],
-            "param_text_value": [None],
-            "param_standard_type": [None],
-            "param_standard_value": [None],
-            "param_standard_units": [None]
-        })
-
-    # Explode до длинного формата
-
-    records = []
-    for idx, param in enumerate(params):
-        records.append({
-            "assay_chembl_id": assay_chembl_id,
-            "param_index": idx,  # Индекс для детерминизма
-
-            "param_type": param.get("type"),
-            "param_relation": param.get("relation"),
-            "param_value": param.get("value"),
-            "param_units": param.get("units"),
-            "param_text_value": param.get("text_value"),
-            "param_standard_type": param.get("standard_type"),
-            "param_standard_value": param.get("standard_value"),
-            "param_standard_units": param.get("standard_units")
-        })
-
-    return pd.DataFrame(records)
-
-# В основном DataFrame добавляем признак типа строки
-
-df["row_subtype"] = "assay"  # или "param" при explode
-
-df["row_index"] = df.groupby("assay_chembl_id").cumcount()
-
+# Валидация выполняется автоматически в transform stage
+df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
 ```
 
-**Вариант B: Широкий формат с индексацией** (опционально)
+**Примеры валидных параметров:**
+
+```json
+[
+  {
+    "type": "TEMPERATURE",
+    "relation": "=",
+    "value": 37.0,
+    "units": "°C",
+    "text_value": null,
+    "standard_type": "TEMPERATURE",
+    "standard_relation": "=",
+    "standard_value": 310.15,
+    "standard_units": "K",
+    "standard_text_value": null,
+    "active": 1
+  },
+  {
+    "type": "CONDITION",
+    "relation": null,
+    "value": null,
+    "units": null,
+    "text_value": "pH 7.4",
+    "standard_type": null,
+    "standard_relation": null,
+    "standard_value": null,
+    "standard_units": null,
+    "standard_text_value": null,
+    "active": 1
+  }
+]
+```
+
+**Примеры нарушений инвариантов (вызывают ошибку):**
+
+```json
+// НЕВЕРНО: оба value и text_value не NULL
+{
+  "type": "TEMPERATURE",
+  "value": 37.0,
+  "text_value": "room temperature"  // ОШИБКА: TRUV invariant violation
+}
+
+// НЕВЕРНО: недопустимое значение active
+{
+  "type": "TEMPERATURE",
+  "value": 37.0,
+  "active": 2  // ОШИБКА: Invalid 'active' value: 2. Must be 0, 1, or NULL.
+}
+```
+
+##### Извлечение через enrichment
+
+Параметры извлекаются через функцию `enrich_with_assay_parameters()` на этапе enrichment:
 
 ```python
+from bioetl.pipelines.assay.assay_enrichment import enrich_with_assay_parameters
 
-def _expand_assay_parameters_wide(self, assay_data: dict, max_params: int = 5) -> dict:
-    """Expand to wide format with deterministic column names."""
+# Конфигурация из configs/pipelines/assay/assay_chembl.yaml
+cfg = {
+    "fields": [
+        "assay_chembl_id",
+        "type",
+        "relation",
+        "value",
+        "units",
+        "text_value",
+        "standard_type",
+        "standard_relation",
+        "standard_value",
+        "standard_units",
+        "standard_text_value",
+        "active",
+        "type_normalized",  # Опционально
+        "type_fixed"        # Опционально
+    ],
+    "page_limit": 1000,
+    "active_only": true  # Фильтр только актуальных параметров (active=1)
+}
 
-    params = assay_data.get("assay_parameters", [])
-
-    result = {}
-    for idx in range(min(len(params), max_params)):
-        param = params[idx]
-        prefix = f"assay_param_{idx}_"
-        result[f"{prefix}type"] = param.get("type")
-        result[f"{prefix}relation"] = param.get("relation")
-        result[f"{prefix}value"] = param.get("value")
-
-        # ... остальные поля
-
-    return result
-
+df = enrich_with_assay_parameters(df, chembl_client, cfg)
 ```
-
-**Рекомендация:** Использовать **Вариант A (long format)** как основной, с опциональным pivot в wide при необходимости.
 
 **Инвариант G7:** Расширение вложенных массивов только в long-format (parameters, variant_sequences, classifications); при невозможности — error; включить RI-чек "assay→target".
 
