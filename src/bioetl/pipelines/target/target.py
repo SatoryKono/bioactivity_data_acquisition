@@ -285,10 +285,35 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         return df
 
     def _enrich_target_components(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Enrich targets with component data from /target_component endpoint."""
+        """Enrich targets with component data from /target_component endpoint.
+
+        Only enriches targets where uniprot_accessions or component_count are missing.
+        If data is already present from the main query (via serialize_target_arrays),
+        it will not be overwritten.
+        """
         df = df.copy()
 
         if df.empty or "target_chembl_id" not in df.columns:
+            return df
+
+        # Check which targets need enrichment
+        needs_enrichment = df["target_chembl_id"].notna()
+        if "uniprot_accessions" in df.columns:
+            # Only enrich rows where uniprot_accessions is empty/NA
+            needs_enrichment = needs_enrichment & (
+                df["uniprot_accessions"].isna() | (df["uniprot_accessions"] == "")
+            )
+        if "component_count" in df.columns:
+            # Also check component_count
+            needs_enrichment = needs_enrichment | (
+                df["target_chembl_id"].notna()
+                & (df["component_count"].isna() | (df["component_count"] == 0))
+            )
+
+        target_ids_to_enrich: list[str] = df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+
+        if not target_ids_to_enrich:
+            log.debug("enrich_target_components_skipped", reason="all_data_present")
             return df
 
         # Reuse existing client if available, otherwise create new one
@@ -298,12 +323,12 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url)
         chembl_client = ChemblClient(http_client)
 
-        target_ids = df["target_chembl_id"].dropna().unique().tolist()
         component_map: dict[str, list[str]] = {}
+        target_ids_set: set[str] = set(target_ids_to_enrich)
 
-        log.info("enrich_target_components_start", target_count=len(target_ids))
+        log.info("enrich_target_components_start", target_count=len(target_ids_to_enrich))
 
-        for target_id in target_ids:
+        for target_id in target_ids_to_enrich:
             try:
                 components: list[str] = []
                 for item in chembl_client.paginate(
@@ -325,26 +350,53 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     error=str(exc),
                 )
 
-        # Add uniprot_accessions column as JSON array
+        # Add uniprot_accessions column as JSON array (only for missing values)
         if "uniprot_accessions" in df.columns:
-            df["uniprot_accessions"] = df["target_chembl_id"].map(
-                lambda x: json.dumps(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
+            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+                df["uniprot_accessions"].isna() | (df["uniprot_accessions"] == "")
             )
+            if mask.any():
+                df.loc[mask, "uniprot_accessions"] = df.loc[mask, "target_chembl_id"].map(
+                    lambda x: json.dumps(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
+                )
 
-        # Add component_count column
+        # Add component_count column (only for missing values)
         if "component_count" in df.columns:
-            df["component_count"] = df["target_chembl_id"].map(
-                lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
+            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+                df["component_count"].isna() | (df["component_count"] == 0)
             )
+            if mask.any():
+                df.loc[mask, "component_count"] = df.loc[mask, "target_chembl_id"].map(
+                    lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
+                )
 
         log.info("enrich_target_components_complete", enriched_count=len(component_map))
         return df
 
     def _enrich_protein_classifications(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Enrich targets with protein classification data."""
+        """Enrich targets with protein classification data.
+
+        Only enriches targets where protein_class_desc is missing.
+        If data is already present from the main query, it will not be overwritten.
+        Note: species_group_flag should already be in the main query via select_fields.
+        """
         df = df.copy()
 
         if df.empty or "target_chembl_id" not in df.columns:
+            return df
+
+        # Check which targets need enrichment (only for protein_class_desc)
+        needs_enrichment = df["target_chembl_id"].notna()
+        if "protein_class_desc" in df.columns:
+            # Only enrich rows where protein_class_desc is empty/NA
+            needs_enrichment = needs_enrichment & (
+                df["protein_class_desc"].isna() | (df["protein_class_desc"] == "")
+            )
+
+        target_ids_to_enrich: list[str] = df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+
+        if not target_ids_to_enrich:
+            log.debug("enrich_protein_classifications_skipped", reason="all_data_present")
             return df
 
         source_raw = self._resolve_source_config("chembl")
@@ -353,12 +405,12 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url)
         chembl_client = ChemblClient(http_client)
 
-        target_ids = df["target_chembl_id"].dropna().unique().tolist()
         classification_map: dict[str, str] = {}
+        target_ids_set: set[str] = set(target_ids_to_enrich)
 
-        log.info("enrich_protein_classifications_start", target_count=len(target_ids))
+        log.info("enrich_protein_classifications_start", target_count=len(target_ids_to_enrich))
 
-        for target_id in target_ids:
+        for target_id in target_ids_to_enrich:
             try:
                 classifications: list[str] = []
                 for item in chembl_client.paginate(
@@ -381,11 +433,15 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     error=str(exc),
                 )
 
-        # Add protein_class_desc column
+        # Add protein_class_desc column (only for missing values)
         if "protein_class_desc" in df.columns:
-            df["protein_class_desc"] = df["target_chembl_id"].map(
-                lambda x: classification_map.get(str(x), pd.NA) if pd.notna(x) else pd.NA
+            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+                df["protein_class_desc"].isna() | (df["protein_class_desc"] == "")
             )
+            if mask.any():
+                df.loc[mask, "protein_class_desc"] = df.loc[mask, "target_chembl_id"].map(
+                    lambda x: classification_map.get(str(x), pd.NA) if pd.notna(x) else pd.NA
+                )
 
         log.info("enrich_protein_classifications_complete", enriched_count=len(classification_map))
         return df

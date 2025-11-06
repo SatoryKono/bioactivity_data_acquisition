@@ -23,6 +23,15 @@ from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
 from ..base import PipelineBase
 
+# Обязательные поля, которые всегда должны быть в запросе к API
+MUST_HAVE_FIELDS = {
+    "assay_chembl_id",
+ #   "assay_category",
+ #   "assay_group",
+ #   "src_assay_id",
+ #   "curation_level",
+}
+
 
 class ChemblAssayPipeline(PipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
@@ -114,6 +123,15 @@ class ChemblAssayPipeline(PipelineBase):
         limit = self.config.cli.limit
         page_size = source_config.batch_size
         select_fields = self._resolve_select_fields(source_raw)
+        # Защита: добавить обязательные поля, если их нет
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+
+        log.debug(
+            "chembl_assay.select_fields",
+            fields=select_fields,
+            fields_count=len(select_fields) if select_fields else 0,
+        )
 
         for item in assay_client.iterate_all(limit=limit, page_size=page_size, select_fields=select_fields):
             records.append(item)
@@ -122,8 +140,33 @@ class ChemblAssayPipeline(PipelineBase):
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
+        # Проверка обязательных полей после экстракции
+        if not dataframe.empty:
+            for must_field in ("assay_category", "assay_group", "src_assay_id"):
+                if must_field not in dataframe.columns or dataframe[must_field].isna().all():
+                    log.warning(
+                        "chembl_assay.missing_required_field",
+                        field=must_field,
+                        note="Field not returned by API; check select_fields/only",
+                    )
+
+        # Диагностическая проверка отсутствующих полей в ответе API
+        if not dataframe.empty and select_fields:
+            expected_fields = set(select_fields)
+            actual_fields = set(dataframe.columns)
+            missing_in_response = sorted(expected_fields - actual_fields)
+            if missing_in_response:
+                log.warning(
+                    "assay_missing_fields_in_api_response",
+                    missing_fields=missing_in_response,
+                    requested_fields_count=len(select_fields),
+                    received_fields_count=len(actual_fields),
+                    chembl_release=self._chembl_release,
+                    message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
+                )
+
         # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
-        dataframe = self._check_missing_columns(dataframe, log)
+        dataframe = self._check_missing_columns(dataframe, log, select_fields=select_fields)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -192,6 +235,15 @@ class ChemblAssayPipeline(PipelineBase):
         records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
         select_fields = self._resolve_select_fields(source_raw)
+        # Защита: добавить обязательные поля, если их нет
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+
+        log.debug(
+            "chembl_assay.select_fields",
+            fields=select_fields,
+            fields_count=len(select_fields) if select_fields else 0,
+        )
 
         for item in assay_client.iterate_by_ids(ids, select_fields=select_fields):
             records.append(item)
@@ -202,8 +254,33 @@ class ChemblAssayPipeline(PipelineBase):
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
+        # Проверка обязательных полей после экстракции
+        if not dataframe.empty:
+            for must_field in ("assay_category", "assay_group", "src_assay_id"):
+                if must_field not in dataframe.columns or dataframe[must_field].isna().all():
+                    log.warning(
+                        "chembl_assay.missing_required_field",
+                        field=must_field,
+                        note="Field not returned by API; check select_fields/only",
+                    )
+
+        # Диагностическая проверка отсутствующих полей в ответе API
+        if not dataframe.empty and select_fields:
+            expected_fields = set(select_fields)
+            actual_fields = set(dataframe.columns)
+            missing_in_response = sorted(expected_fields - actual_fields)
+            if missing_in_response:
+                log.warning(
+                    "assay_missing_fields_in_api_response",
+                    missing_fields=missing_in_response,
+                    requested_fields_count=len(select_fields),
+                    received_fields_count=len(actual_fields),
+                    chembl_release=self._chembl_release,
+                    message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
+                )
+
         # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
-        dataframe = self._check_missing_columns(dataframe, log)
+        dataframe = self._check_missing_columns(dataframe, log, select_fields=select_fields)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -459,10 +536,14 @@ class ChemblAssayPipeline(PipelineBase):
 
         return df
 
-    def _check_missing_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _check_missing_columns(
+        self, df: pd.DataFrame, log: Any, select_fields: list[str] | None = None
+    ) -> pd.DataFrame:
         """Проверка отсутствующих колонок для версионности ChEMBL (v34/v35).
 
         Добавляет отсутствующие опциональные колонки с NULL значениями и логирует предупреждения.
+        Если поле отсутствует в select_fields, логирует WARN о том, что поле не было запрошено из API.
+        Также проверяет все поля из схемы, которые должны быть запрошены из API.
 
         Parameters
         ----------
@@ -470,6 +551,8 @@ class ChemblAssayPipeline(PipelineBase):
             DataFrame с данными assay.
         log:
             UnifiedLogger для логирования.
+        select_fields:
+            Список полей, которые были запрошены из API через параметр only=.
 
         Returns
         -------
@@ -485,24 +568,84 @@ class ChemblAssayPipeline(PipelineBase):
             "curation_level": "unknown",  # Может отсутствовать в некоторых релизах
         }
 
+        # Поля из схемы, которые должны быть запрошены из API (исключая метаданные и поля из enrichment)
+        expected_api_fields = {
+            "assay_category",
+            "assay_cell_type",
+            "assay_group",
+            "assay_strain",
+            "assay_subcellular_fraction",
+            "assay_test_type",
+            "assay_tissue",
+            "cell_chembl_id",
+            "curation_level",
+            "src_assay_id",
+            "tissue_chembl_id",
+            "variant_sequence",
+        }
+        # Примечание: assay_category и src_assay_id уже включены в expected_api_fields
+
+        # Преобразуем select_fields в set для быстрой проверки
+        select_fields_set: set[str] = set()
+        if select_fields is not None:
+            select_fields_set = set(select_fields)
+
+        # Проверка полей из expected_api_fields
+        missing_in_response: list[str] = []
+        missing_in_select_fields: list[str] = []
+        for column in expected_api_fields:
+            if column not in df.columns:
+                missing_in_response.append(column)
+                # Проверяем, было ли поле запрошено в select_fields
+                if select_fields is not None and column not in select_fields_set:
+                    missing_in_select_fields.append(column)
+                    log.warning(
+                        "missing_field_not_requested",
+                        column=column,
+                        chembl_release=self._chembl_release,
+                        message=f"Field {column} not found in API response and was not requested in select_fields",
+                    )
+                else:
+                    log.warning(
+                        "missing_field_in_response",
+                        column=column,
+                        chembl_release=self._chembl_release,
+                        message=f"Field {column} was requested but not found in API response",
+                    )
+
+        # Проверка опциональных колонок
         missing_columns: list[str] = []
         for column, version in optional_columns.items():
             if column not in df.columns:
                 # Добавляем колонку с NULL значениями
                 df[column] = pd.NA
                 missing_columns.append(column)
-                log.warning(
-                    "missing_optional_column",
-                    column=column,
-                    version_introduced=version,
-                    chembl_release=self._chembl_release,
-                    message=f"Column {column} not found in API response, setting to NULL",
-                )
 
-        if missing_columns:
+                # Проверяем, было ли поле запрошено в select_fields
+                if select_fields is not None and column not in select_fields_set:
+                    missing_in_select_fields.append(column)
+                    log.warning(
+                        "missing_column_not_requested",
+                        column=column,
+                        version_introduced=version,
+                        chembl_release=self._chembl_release,
+                        message=f"Column {column} not found in API response and was not requested in select_fields, setting to NULL",
+                    )
+                else:
+                    log.warning(
+                        "missing_optional_column",
+                        column=column,
+                        version_introduced=version,
+                        chembl_release=self._chembl_release,
+                        message=f"Column {column} not found in API response, setting to NULL",
+                    )
+
+        if missing_in_response or missing_columns:
             log.debug(
                 "missing_columns_handled",
-                columns=missing_columns,
+                missing_in_response=missing_in_response if missing_in_response else None,
+                missing_columns=missing_columns if missing_columns else None,
+                missing_in_select_fields=sorted(missing_in_select_fields) if missing_in_select_fields else None,
                 chembl_release=self._chembl_release,
             )
 
@@ -564,6 +707,35 @@ class ChemblAssayPipeline(PipelineBase):
             df_with_classifications: pd.DataFrame = enrich_with_assay_classifications(df, chembl_client, cast(Mapping[str, Any], classifications_cfg))
             df = df_with_classifications
             log.info("enrichment_classifications_completed")
+
+            # Диагностическая проверка заполнения assay_class_id после enrichment
+            if "assay_class_id" in df.columns:
+                filled_count = int(df["assay_class_id"].notna().sum())
+                total_count = len(df)
+                if filled_count == 0:
+                    log.warning(
+                        "assay_class_id_empty_after_enrichment",
+                        total_assays=total_count,
+                        filled_count=0,
+                        message="assay_class_id is empty after enrichment. Check if ASSAY_CLASS_MAP contains data for these assays.",
+                    )
+                else:
+                    log.debug(
+                        "assay_class_id_enrichment_stats",
+                        total_assays=total_count,
+                        filled_count=filled_count,
+                        empty_count=total_count - filled_count,
+                    )
+            else:
+                log.warning(
+                    "assay_class_id_column_missing_after_enrichment",
+                    message="assay_class_id column is missing after enrichment",
+                )
+        else:
+            log.warning(
+                "enrichment_classifications_disabled",
+                message="Enrichment for classifications is not configured. assay_class_id will remain NULL.",
+            )
 
         # Обогатить параметрами
         parameters_cfg = cast(Mapping[str, Any], enrich_config).get("parameters")

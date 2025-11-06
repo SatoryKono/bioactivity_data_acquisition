@@ -2,13 +2,116 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, cast
 
+import numpy as np
 import pandas as pd
 
 from ..assay.assay_transform import header_rows_serialize
 
-__all__ = ["serialize_target_arrays", "extract_and_serialize_component_synonyms"]
+__all__ = [
+    "serialize_target_arrays",
+    "extract_and_serialize_component_synonyms",
+    "flatten_target_components",
+]
+
+
+def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
+    """Flatten nested target_components data into flat columns.
+
+    Extracts:
+    - uniprot_accessions from target_components[*].accession
+    - target_component_synonyms__flat from target_components[*].target_component_synonyms[*].component_synonym
+    - target_components__flat (serialized container)
+    - cross_references__flat (serialized from top-level)
+    - component_count (counted from accessions or from top-level)
+
+    Parameters
+    ----------
+    rec:
+        Target record dict from ChEMBL API.
+
+    Returns
+    -------
+    dict[str, Any]:
+        Dictionary with flattened fields:
+        - uniprot_accessions: sorted list of unique UniProt accessions (as JSON string)
+        - target_component_synonyms__flat: serialized synonyms
+        - target_components__flat: serialized components
+        - cross_references__flat: serialized cross-references
+        - component_count: count of unique accessions
+    """
+    result: dict[str, Any] = {
+        "uniprot_accessions": "",
+        "target_component_synonyms__flat": "",
+        "target_components__flat": "",
+        "cross_references__flat": "",
+        "component_count": None,
+    }
+
+    # Extract target_components
+    comps_raw: Any = rec.get("target_components") or []
+    comps: list[dict[str, Any]] = []
+    if isinstance(comps_raw, list):
+        comps = [cast(dict[str, Any], c) for c in comps_raw if isinstance(c, dict)]  # pyright: ignore[reportUnknownVariableType]
+    elif isinstance(comps_raw, dict):
+        comps = [cast(dict[str, Any], comps_raw)]
+
+    # Extract UniProt accessions
+    accessions: list[str] = []
+    all_synonyms: list[dict[str, Any]] = []
+
+    for component in comps:
+        # Extract accession
+        accession: Any = component.get("accession")
+        if isinstance(accession, str) and accession.strip():
+            accessions.append(accession.strip())
+
+        # Extract synonyms from this component
+        syns: Any = component.get("target_component_synonyms")
+        if syns:
+            if isinstance(syns, list):
+                all_synonyms.extend(cast(list[dict[str, Any]], syns))  # pyright: ignore[reportUnknownArgumentType]
+            elif isinstance(syns, dict):
+                all_synonyms.append(cast(dict[str, Any], syns))
+            else:
+                # Single value: wrap in dict if needed
+                all_synonyms.append(cast(dict[str, Any], syns))
+
+    # Serialize uniprot_accessions as JSON array
+    unique_accessions = sorted(set(accessions))
+    if unique_accessions:
+        result["uniprot_accessions"] = json.dumps(unique_accessions, ensure_ascii=False)
+        result["component_count"] = len(unique_accessions)
+    else:
+        # Fallback to top-level component_count if available
+        top_level_count = rec.get("component_count")
+        if top_level_count is not None:
+            try:
+                result["component_count"] = int(top_level_count)
+            except (ValueError, TypeError):
+                result["component_count"] = None
+
+    # Serialize target_component_synonyms
+    if all_synonyms:
+        result["target_component_synonyms__flat"] = header_rows_serialize(all_synonyms)
+
+    # Serialize target_components
+    if comps:
+        result["target_components__flat"] = header_rows_serialize(comps)
+
+    # Serialize cross_references from top-level
+    xrefs_raw: Any = rec.get("cross_references") or []
+    xrefs: list[dict[str, Any]] = []
+    if isinstance(xrefs_raw, list):
+        xrefs = [cast(dict[str, Any], x) for x in xrefs_raw if isinstance(x, dict)]  # pyright: ignore[reportUnknownVariableType]
+    elif isinstance(xrefs_raw, dict):
+        xrefs = [cast(dict[str, Any], xrefs_raw)]
+    if xrefs:
+        result["cross_references__flat"] = header_rows_serialize(xrefs)
+
+    return result
 
 
 def extract_and_serialize_component_synonyms(target_components: Any) -> str:
@@ -30,9 +133,9 @@ def extract_and_serialize_component_synonyms(target_components: Any) -> str:
     if not isinstance(target_components, list):
         # Single dict: extract synonyms if present
         if isinstance(target_components, dict):
-            syns = target_components.get("target_component_synonyms")
-            if syns:
-                return header_rows_serialize(syns if isinstance(syns, list) else [syns])
+            syns_raw: Any = target_components.get("target_component_synonyms")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+            if syns_raw:
+                return header_rows_serialize(syns_raw if isinstance(syns_raw, list) else [syns_raw])
         return ""
 
     if not target_components:
@@ -40,23 +143,27 @@ def extract_and_serialize_component_synonyms(target_components: Any) -> str:
 
     # Extract all synonyms from all components
     all_synonyms: list[dict[str, Any]] = []
-    for component in target_components:
-        if isinstance(component, dict):
-            syns = component.get("target_component_synonyms")
-            if syns:
-                if isinstance(syns, list):
-                    all_synonyms.extend(syns)
-                elif isinstance(syns, dict):
-                    all_synonyms.append(cast(dict[str, Any], syns))
+    for component_raw in target_components:  # pyright: ignore[reportUnknownVariableType]
+        if isinstance(component_raw, dict):
+            component = cast(dict[str, Any], component_raw)
+            syns_item: Any = component.get("target_component_synonyms")  # pyright: ignore[reportUnknownMemberType]
+            if syns_item:
+                if isinstance(syns_item, list):
+                    all_synonyms.extend(cast(list[dict[str, Any]], syns_item))  # pyright: ignore[reportUnknownArgumentType]
+                elif isinstance(syns_item, dict):
+                    all_synonyms.append(cast(dict[str, Any], syns_item))
                 else:
                     # Single value: wrap in list
-                    all_synonyms.append(cast(dict[str, Any], syns))
+                    all_synonyms.append(cast(dict[str, Any], syns_item))
 
     return header_rows_serialize(all_synonyms)
 
 
 def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     """Serialize array fields for target pipeline.
+
+    Uses flatten_target_components() to extract and serialize nested data
+    from target_components and cross_references.
 
     Parameters
     ----------
@@ -81,22 +188,55 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     except (AttributeError, TypeError):
         pass
 
-    # Serialize cross_references
-    if "cross_references" in df.columns:
-        df["cross_references__flat"] = df["cross_references"].map(header_rows_serialize)
-    else:
-        df["cross_references__flat"] = ""
+    # Apply flatten to each row to extract nested data
+    if not df.empty:
+        # Convert DataFrame rows to dicts for flatten processing
+        flattened_data: list[dict[str, Any]] = []
+        for _, row in df.iterrows():
+            # Convert row to dict, handling NaN values
+            row_dict: dict[str, Any] = row.to_dict()  # pyright: ignore[reportUnknownMemberType]
+            # Replace NaN with None for proper dict handling
+            for key, value in row_dict.items():
+                # Handle array-like values: check if it's an array first
+                if isinstance(value, np.ndarray):
+                    # For arrays, check if empty or if all values are NaN
+                    if value.size == 0:
+                        row_dict[key] = None
+                    else:
+                        # Check if all values are NaN using numpy's isnan
+                        try:
+                            if np.all(np.isnan(value)):  # pyright: ignore[reportUnknownArgumentType]
+                                row_dict[key] = None
+                        except (TypeError, ValueError):
+                            # If isnan fails (e.g., string array), keep as is
+                            pass
+                    # Otherwise keep the array as is
+                elif pd.api.types.is_scalar(value):
+                    try:
+                        if pd.isna(value):
+                            row_dict[key] = None
+                    except (TypeError, ValueError):
+                        # If isna fails for this type, keep as is
+                        pass
+                # For non-scalar, non-array values (like lists, dicts), keep as is
 
-    # Serialize target_components
-    if "target_components" in df.columns:
-        df["target_components__flat"] = df["target_components"].map(header_rows_serialize)
-        # Extract and serialize nested target_component_synonyms
-        df["target_component_synonyms__flat"] = df["target_components"].map(
-            extract_and_serialize_component_synonyms
-        )
+            # Apply flatten function
+            flattened = flatten_target_components(row_dict)
+
+            # Merge flattened fields into row dict
+            row_dict.update(flattened)
+            flattened_data.append(row_dict)
+
+        # Recreate DataFrame with flattened fields
+        df = pd.DataFrame(flattened_data)
+
     else:
+        # Empty DataFrame: initialize flat columns
+        df["cross_references__flat"] = ""
         df["target_components__flat"] = ""
         df["target_component_synonyms__flat"] = ""
+        df["uniprot_accessions"] = ""
+        df["component_count"] = None
 
     # Remove original array columns if they were serialized
     for col in arrays_to_serialize:

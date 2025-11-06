@@ -27,8 +27,6 @@ def _escape_pipe(s: str) -> str:
     str:
         String with escaped delimiters: `|` → `\\|`, `\\` → `\\\\`.
     """
-    if not isinstance(s, str):
-        s = str(s) if s is not None else ""
     return s.replace("\\", "\\\\").replace("|", "\\|")
 
 
@@ -139,8 +137,8 @@ def enrich_with_document_terms(
     if df_docs.empty:
         log.debug("enrichment_skipped_empty_dataframe")
         df_docs = df_docs.copy()
-        df_docs["term"] = ""
-        df_docs["weight"] = ""
+        df_docs["term"] = pd.NA
+        df_docs["weight"] = pd.NA
         return df_docs
 
     # Проверка наличия необходимых колонок
@@ -152,8 +150,8 @@ def enrich_with_document_terms(
             missing_columns=missing_cols,
         )
         df_docs = df_docs.copy()
-        df_docs["term"] = ""
-        df_docs["weight"] = ""
+        df_docs["term"] = pd.NA
+        df_docs["weight"] = pd.NA
         return df_docs
 
     # Собрать уникальные document_chembl_id, dropna
@@ -174,8 +172,8 @@ def enrich_with_document_terms(
     if not doc_ids:
         log.debug("enrichment_skipped_no_valid_ids")
         df_docs = df_docs.copy()
-        df_docs["term"] = ""
-        df_docs["weight"] = ""
+        df_docs["term"] = pd.NA
+        df_docs["weight"] = pd.NA
         return df_docs
 
     # Получить конфигурацию
@@ -193,7 +191,7 @@ def enrich_with_document_terms(
 
     # Преобразовать dict[doc_id, list[records]] в плоский список для aggregate_terms
     all_records: list[dict[str, Any]] = []
-    for doc_id, records_list in records_dict.items():
+    for records_list in records_dict.values():
         all_records.extend(records_list)
 
     # Агрегировать термины
@@ -211,8 +209,8 @@ def enrich_with_document_terms(
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
         df_docs = df_docs.copy()
-        df_docs["term"] = ""
-        df_docs["weight"] = ""
+        df_docs["term"] = pd.NA
+        df_docs["weight"] = pd.NA
         return df_docs
 
     df_enrich = pd.DataFrame(enrichment_data)
@@ -230,10 +228,10 @@ def enrich_with_document_terms(
     # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
     for col in ["term", "weight"]:
         if col not in df_result.columns:
-            df_result[col] = ""
+            df_result[col] = pd.NA
         else:
-            # Заполнить NaN/None пустыми строками
-            df_result[col] = df_result[col].fillna("").astype(str)
+            # Заполнить NaN/None значением pd.NA (nullable string)
+            df_result[col] = df_result[col].where(pd.notna(df_result[col]), pd.NA)
 
     # Восстановить исходный порядок
     df_result = df_result.reindex(original_index)

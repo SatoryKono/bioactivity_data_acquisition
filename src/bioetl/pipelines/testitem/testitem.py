@@ -16,6 +16,24 @@ from bioetl.schemas.testitem import COLUMN_ORDER
 from ..chembl_base import ChemblPipelineBase
 from .testitem_transform import transform as transform_testitem
 
+# Обязательные поля, которые всегда должны быть в запросе к API
+MUST_HAVE_FIELDS = {
+    # Скаляры
+    "molecule_chembl_id",
+    "pref_name",
+    "molecule_type",
+    "availability_type",
+    "chirality",
+    "first_approval",
+    "first_in_class",
+    "indication_class",
+    "helm_notation",
+    # Вложенные корни, чтобы сервер вернул объекты
+    "molecule_properties",
+    "molecule_structures",
+    "molecule_hierarchy",
+}
+
 
 class TestItemChemblPipeline(ChemblPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
@@ -109,6 +127,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         page_size = source_config.page_size
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
         log.debug("chembl_testitem.select_fields", fields=select_fields)
         records: list[Mapping[str, Any]] = []
 
@@ -195,6 +215,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         page_size = min(page_size, 25)
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
         log.debug("chembl_testitem.select_fields", fields=select_fields)
 
         records: list[Mapping[str, Any]] = []
@@ -276,6 +298,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         # Normalize numeric fields (type coercion, negative values -> None)
         df = self._normalize_numeric_fields(df, log)
+
+        # Check for empty columns and warn if too many are empty
+        self._check_empty_columns(df, log)
 
         # Remove columns not in schema
         df = self._remove_extra_columns(df, log)
@@ -578,6 +603,70 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         log.debug("normalize_numeric_fields_completed")
         return df
+
+    def _check_empty_columns(self, df: pd.DataFrame, log: Any) -> None:
+        """Проверка пустых колонок после трансформации.
+
+        Логирует предупреждение, если процент пустых значений по ключевым полям > 95%.
+        Это может указывать на проблему с select_fields или flatten_objects.
+
+        Parameters
+        ----------
+        df:
+            DataFrame после трансформации.
+        log:
+            UnifiedLogger для логирования.
+        """
+        if df.empty:
+            return
+
+        # Ключевые поля для проверки (скаляры и расплющенные из molecule_properties)
+        key_fields = [
+            "molecule_chembl_id",
+            "pref_name",
+            "molecule_type",
+            "availability_type",
+            "chirality",
+            "first_approval",
+            "first_in_class",
+            "indication_class",
+            "helm_notation",
+            "molecule_properties__cx_logp",
+            "molecule_properties__cx_logd",
+            "molecule_properties__mw_monoisotopic",
+            "molecule_properties__hba_lipinski",
+            "molecule_properties__hbd_lipinski",
+            "molecule_properties__molecular_species",
+            "molecule_properties__num_lipinski_ro5_violations",
+        ]
+
+        # Проверяем только те поля, которые есть в DataFrame
+        available_key_fields = [col for col in key_fields if col in df.columns]
+        if not available_key_fields:
+            return
+
+        # Вычисляем процент пустых значений для каждого ключевого поля
+        empty_percentages: dict[str, float] = {}
+        for col in available_key_fields:
+            if len(df) > 0:
+                empty_count = df[col].isna().sum()
+                empty_percentage = (empty_count / len(df)) * 100.0
+                empty_percentages[col] = empty_percentage
+
+        # Находим поля с > 95% пустых значений
+        highly_empty_fields = {
+            col: pct for col, pct in empty_percentages.items() if pct > 95.0
+        }
+
+        if highly_empty_fields:
+            log.warning(
+                "highly_empty_columns_detected",
+                empty_fields=highly_empty_fields,
+                message=(
+                    f"Fields with >95% empty values detected: {highly_empty_fields}. "
+                    "This may indicate missing fields in select_fields or flatten_objects configuration."
+                ),
+            )
 
     def _remove_extra_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Remove columns that are not in the schema."""

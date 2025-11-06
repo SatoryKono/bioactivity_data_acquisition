@@ -21,7 +21,7 @@ pipeline:
 # ChEMBL source configuration (common settings inherited from chembl.yaml profile)
 sources:
   chembl:
-    batch_size: 10  # Must be <= 25 for ChEMBL API URL length limit
+    batch_size: 20  # Must be <= 25 for ChEMBL API URL length limit
     parameters:
       select_fields:
         - document_chembl_id
@@ -29,12 +29,10 @@ sources:
         - journal
         - journal_full_title
         - doi
-        - doi_chembl
         - src_id
         - title
         - abstract
         - year
-        - journal_abbrev
         - volume
         - issue
         - first_page
@@ -66,14 +64,12 @@ determinism:
     - journal
     - journal_full_title
     - doi
-    - doi_chembl
     - src_id
     - title
     - abstract
     - doi_clean
     - pubmed_id
     - year
-    - journal_abbrev
     - volume
     - issue
     - first_page
@@ -95,12 +91,12 @@ chembl:
   document:
     enrich:
       document_term:
-        enabled: false
+        enabled: true
         select_fields:
           - document_chembl_id
           - term
           - weight
-        page_limit: 1000
+        page_limit: 100
         sort: weight_desc
         max_retries: 3
         retry_backoff: 1.5

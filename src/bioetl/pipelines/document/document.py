@@ -25,12 +25,10 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "journal",
     "journal_full_title",
     "doi",
-    "doi_chembl",
     "src_id",
     "title",
     "abstract",
     "year",
-    "journal_abbrev",
     "volume",
     "issue",
     "first_page",
@@ -38,6 +36,9 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "pubmed_id",
     "authors",
 )
+
+# Обязательные поля, которые всегда должны быть в запросе к API
+MUST_HAVE_FIELDS = {"document_chembl_id", "doi", "issue"}
 
 
 class ChemblDocumentPipeline(ChemblPipelineBase):
@@ -93,6 +94,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         page_size = max(page_size, 1)
 
         select_fields = self._resolve_select_fields(source_raw, default_fields=list(API_DOCUMENT_FIELDS))
+        # Защита: добавить обязательные поля, если их нет
+        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/document.json"
         params: Mapping[str, Any] | None = {
@@ -183,6 +186,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         select_fields = self._resolve_select_fields(source_raw, default_fields=list(API_DOCUMENT_FIELDS))
+        # Защита: добавить обязательные поля, если их нет
+        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
 
         batch_dataframe = self.extract_ids_paginated(
             ids,

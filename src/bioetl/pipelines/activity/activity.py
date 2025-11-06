@@ -36,6 +36,7 @@ from .activity_enrichment import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
+from .join_molecule import join_activity_with_molecule
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -327,6 +328,16 @@ class ChemblActivityPipeline(PipelineBase):
         df = self._normalize_nested_structures(df, log)
         df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, ActivitySchema, log)
+
+        # Восстановить curated из curated_by если curated пусто
+        if "curated" in df.columns or "curated_by" in df.columns:
+            if "curated" not in df.columns:
+                df["curated"] = pd.NA
+            if "curated_by" in df.columns:
+                mask = df["curated"].isna()
+                df.loc[mask, "curated"] = df.loc[mask, "curated_by"].notna()
+            df["curated"] = df["curated"].astype("boolean")
+
         df = self._validate_foreign_keys(df, log)
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
@@ -337,6 +348,10 @@ class ChemblActivityPipeline(PipelineBase):
         # Enrichment: assay fields
         if self._should_enrich_assay():
             df = self._enrich_assay(df)
+
+        # Enrichment: molecule fields
+        if self._should_enrich_molecule():
+            df = self._enrich_molecule(df)
 
         # Enrichment: data_validity fields
         if self._should_enrich_data_validity():
@@ -662,6 +677,92 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
         return enrich_with_data_validity(df, chembl_client, enrich_cfg)
+
+    def _should_enrich_molecule(self) -> bool:
+        """Проверить, включено ли обогащение molecule в конфиге."""
+        if not self.config.chembl:
+            return False
+        try:
+            chembl_section = self.config.chembl
+            activity_section: Any = chembl_section.get("activity")
+            if not isinstance(activity_section, Mapping):
+                return False
+            activity_section = cast(Mapping[str, Any], activity_section)
+            enrich_section: Any = activity_section.get("enrich")
+            if not isinstance(enrich_section, Mapping):
+                return False
+            enrich_section = cast(Mapping[str, Any], enrich_section)
+            molecule_section: Any = enrich_section.get("molecule")
+            if not isinstance(molecule_section, Mapping):
+                return False
+            molecule_section = cast(Mapping[str, Any], molecule_section)
+            enabled: Any = molecule_section.get("enabled")
+            return bool(enabled) if enabled is not None else False
+        except (AttributeError, KeyError, TypeError):
+            return False
+
+    def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Обогатить DataFrame полями из molecule через join."""
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+
+        # Получить конфигурацию обогащения
+        enrich_cfg: dict[str, Any] = {}
+        try:
+            if self.config.chembl:
+                chembl_section = self.config.chembl
+                activity_section: Any = chembl_section.get("activity")
+                if isinstance(activity_section, Mapping):
+                    activity_section = cast(Mapping[str, Any], activity_section)
+                    enrich_section: Any = activity_section.get("enrich")
+                    if isinstance(enrich_section, Mapping):
+                        enrich_section = cast(Mapping[str, Any], enrich_section)
+                        molecule_section: Any = enrich_section.get("molecule")
+                        if isinstance(molecule_section, Mapping):
+                            molecule_section = cast(Mapping[str, Any], molecule_section)
+                            enrich_cfg = dict(molecule_section)
+        except (AttributeError, KeyError, TypeError) as exc:
+            log.warning(
+                "enrichment_config_error",
+                error=str(exc),
+                message="Using default enrichment config",
+            )
+
+        # Создать или переиспользовать клиент ChEMBL
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        base_url = self._resolve_base_url(source_config)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        # Регистрируем клиент только если он еще не зарегистрирован
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
+        chembl_client = ChemblClient(api_client)
+
+        # Вызвать функцию join для получения molecule_name
+        df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
+
+        # Коалесцировать molecule_name из join в molecule_pref_name если оно пусто
+        if "molecule_name" in df_join.columns:
+            if "molecule_pref_name" not in df.columns:
+                df["molecule_pref_name"] = pd.NA
+            # Заполнить molecule_pref_name из molecule_name где оно пусто
+            mask = df["molecule_pref_name"].isna() | (df["molecule_pref_name"].astype("string").str.strip() == "")
+            if mask.any():
+                # Merge по activity_id для получения molecule_name
+                df_merged = df.merge(
+                    df_join[["activity_id", "molecule_name"]],
+                    on="activity_id",
+                    how="left",
+                    suffixes=("", "_join"),
+                )
+                # Заполнить molecule_pref_name из molecule_name где оно пусто
+                df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
+                log.info(
+                    "molecule_pref_name_enriched",
+                    rows_enriched=int(mask.sum()),
+                    total_rows=len(df),
+                )
+
+        return df
 
     def _fetch_chembl_release(
         self,
@@ -1510,13 +1611,14 @@ class ChemblActivityPipeline(PipelineBase):
         return record
 
     def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
-        """Extract TRUV fields and data_validity_comment from activity_properties array as fallback.
+        """Extract TRUV fields, standard_* fields, and comments from activity_properties array as fallback.
 
         Поля извлекаются из activity_properties только если они отсутствуют
         в основном ответе API (приоритет у прямых полей из ACTIVITIES).
         Извлекаются оригинальные TRUV-поля: value, text_value, relation, units.
-        Также извлекается data_validity_comment из элементов с type == "data_validity".
-        Стандартизованные поля (standard_*) и activity_comment НЕ извлекаются из properties.
+        Также извлекаются стандартизованные поля: standard_upper_value, standard_text_value.
+        Извлекаются диапазоны: upper_value, lower_value.
+        Извлекаются комментарии: activity_comment, data_validity_comment.
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract_activity_properties")
 
@@ -1575,18 +1677,19 @@ class ChemblActivityPipeline(PipelineBase):
         # Sort: measured results (result_flag == 1) first, then others
         items.sort(key=lambda p: (not _is_measured(p)))
 
-        # Process items: extract only original TRUV fields as fallback
+        # Process items: extract TRUV fields, standard_* fields, ranges, and comments as fallback
         for prop in items:
             val = prop.get("value")
             txt = prop.get("text_value")
             rel = prop.get("relation")
             unt = prop.get("units")
+            prop_type = str(prop.get("type", "")).lower()
 
             # Проверяем, будем ли мы заполнять value или text_value
             will_set_value = val is not None and record.get("value") is None
             will_set_text_value = txt is not None and record.get("text_value") is None
 
-            # Fallback ТОЛЬКО для original/TRUV полей
+            # Fallback для original/TRUV полей
             _set_fallback("value", val)
             _set_fallback("text_value", txt)
 
@@ -1596,14 +1699,56 @@ class ChemblActivityPipeline(PipelineBase):
                 _set_fallback("relation", rel)
                 _set_fallback("units", unt)
 
+            # Fallback для units из свойства (если еще не заполнено)
+            if unt is not None and record.get("units") is None:
+                _set_fallback("units", unt)
+
+            # Fallback для upper_value (по типам "upper", "upper_value", "upper limit")
+            if record.get("upper_value") is None and (
+                "upper" in prop_type or prop_type in ("upper_value", "upper limit")
+            ):
+                if val is not None:
+                    _set_fallback("upper_value", val)
+
+            # Fallback для lower_value (по типам "lower", "lower_value", "lower limit")
+            if record.get("lower_value") is None and (
+                "lower" in prop_type or prop_type in ("lower_value", "lower limit")
+            ):
+                if val is not None:
+                    _set_fallback("lower_value", val)
+
+            # Fallback для standard_upper_value (по типам "standard_upper", "standard upper", "standard upper value")
+            if record.get("standard_upper_value") is None and (
+                "standard_upper" in prop_type
+                or prop_type in ("standard upper", "standard upper value")
+            ):
+                if val is not None:
+                    _set_fallback("standard_upper_value", val)
+
+            # Fallback для standard_text_value (по типам с подстрокой "standard" + "text")
+            if record.get("standard_text_value") is None and "standard" in prop_type and "text" in prop_type:
+                if txt is not None:
+                    _set_fallback("standard_text_value", txt)
+                elif val is not None:
+                    _set_fallback("standard_text_value", val)
+
+            # Fallback для activity_comment (по типам с подстрокой "comment" или "activity_comment")
+            if record.get("activity_comment") is None and (
+                "comment" in prop_type or "activity_comment" in prop_type
+            ):
+                if txt is not None and not _is_empty(txt):
+                    _set_fallback("activity_comment", str(txt).strip())
+                elif val is not None and not _is_empty(val):
+                    _set_fallback("activity_comment", str(val).strip())
+
         # Fallback для data_validity_comment: извлечь из activity_properties если поле пустое
         current_comment = record.get("data_validity_comment")
         if _is_empty(current_comment):
-            # Найти элементы с type == "data_validity" и наличием хотя бы одного из: text_value или value
+            # Найти элементы с type содержащим "data_validity" или "validity" и наличием хотя бы одного из: text_value или value
             data_validity_items: list[Mapping[str, Any]] = [
                 prop
                 for prop in items
-                if prop.get("type") == "data_validity"
+                if ("data_validity" in str(prop.get("type", "")).lower() or "validity" in str(prop.get("type", "")).lower())
                 and (prop.get("text_value") is not None or prop.get("value") is not None)
             ]
 
@@ -2164,14 +2309,46 @@ class ChemblActivityPipeline(PipelineBase):
                 series = df.loc[mask, "standard_upper_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                numeric_series_std_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
                     series, errors="coerce"
                 )
-                df.loc[mask, "standard_upper_value"] = numeric_series
+                df.loc[mask, "standard_upper_value"] = numeric_series_std_upper
                 negative_mask = mask & (df["standard_upper_value"] < 0)
                 if negative_mask.any():
                     log.warning("negative_standard_upper_value", count=int(negative_mask.sum()))
                     df.loc[negative_mask, "standard_upper_value"] = None
+                normalized_count += int(mask.sum())
+
+        if "upper_value" in df.columns:
+            mask = df["upper_value"].notna()
+            if mask.any():
+                series = df.loc[mask, "upper_value"].astype(str).str.strip()
+                series = series.str.replace(r"[,\s]", "", regex=True)
+                series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
+                numeric_series_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                    series, errors="coerce"
+                )
+                df.loc[mask, "upper_value"] = numeric_series_upper
+                negative_mask = mask & (df["upper_value"] < 0)
+                if negative_mask.any():
+                    log.warning("negative_upper_value", count=int(negative_mask.sum()))
+                    df.loc[negative_mask, "upper_value"] = None
+                normalized_count += int(mask.sum())
+
+        if "lower_value" in df.columns:
+            mask = df["lower_value"].notna()
+            if mask.any():
+                series = df.loc[mask, "lower_value"].astype(str).str.strip()
+                series = series.str.replace(r"[,\s]", "", regex=True)
+                series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
+                numeric_series_lower: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                    series, errors="coerce"
+                )
+                df.loc[mask, "lower_value"] = numeric_series_lower
+                negative_mask = mask & (df["lower_value"] < 0)
+                if negative_mask.any():
+                    log.warning("negative_lower_value", count=int(negative_mask.sum()))
+                    df.loc[negative_mask, "lower_value"] = None
                 normalized_count += int(mask.sum())
 
         if normalized_count > 0:
@@ -2275,6 +2452,16 @@ class ChemblActivityPipeline(PipelineBase):
                         serialized.append(None)
                 df.loc[mask, field] = pd.Series(
                     serialized, dtype="object", index=df.loc[mask, field].index
+                )
+
+        # Диагностическое логирование для ligand_efficiency
+        if "standard_value" in df.columns and "ligand_efficiency" in df.columns:
+            mask = df["standard_value"].notna() & df["ligand_efficiency"].isna()
+            if mask.any():
+                log.warning(
+                    "ligand_efficiency_missing_with_standard_value",
+                    count=int(mask.sum()),
+                    message="ligand_efficiency is empty while standard_value exists",
                 )
 
         return df

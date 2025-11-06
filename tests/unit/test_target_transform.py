@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -9,6 +11,7 @@ import pytest
 
 from bioetl.pipelines.target.target_transform import (
     extract_and_serialize_component_synonyms,
+    flatten_target_components,
     serialize_target_arrays,
 )
 
@@ -312,4 +315,152 @@ class TestSerializeTargetArrays:
         assert result["cross_references__flat"].iloc[1] != ""
         assert "X1" in result["cross_references__flat"].iloc[0]
         assert "X2" in result["cross_references__flat"].iloc[1]
+
+
+@pytest.mark.unit
+class TestFlattenTargetComponents:
+    """Test suite for flatten_target_components function."""
+
+    def test_flatten_with_accessions(self) -> None:
+        """Test flattening with UniProt accessions."""
+        rec = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [
+                {"component_id": 1, "accession": "P00533"},
+                {"component_id": 2, "accession": "P12345"},
+            ],
+            "cross_references": [{"xref_id": "X1", "xref_src": "SRC"}],
+        }
+        result = flatten_target_components(rec)
+
+        assert "uniprot_accessions" in result
+        assert result["uniprot_accessions"] != ""
+        assert "P00533" in result["uniprot_accessions"]
+        assert "P12345" in result["uniprot_accessions"]
+        assert "component_count" in result
+        assert result["component_count"] == 2
+        assert "target_components__flat" in result
+        assert result["target_components__flat"] != ""
+        assert "cross_references__flat" in result
+        assert result["cross_references__flat"] != ""
+
+    def test_flatten_with_synonyms(self) -> None:
+        """Test flattening with target_component_synonyms."""
+        rec = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [
+                {
+                    "component_id": 1,
+                    "accession": "P00533",
+                    "target_component_synonyms": [
+                        {"syn_type": "GENE_SYMBOL", "component_synonym": "EGFR"},
+                        {"syn_type": "UNIPROT", "component_synonym": "P00533"},
+                    ],
+                }
+            ],
+        }
+        result = flatten_target_components(rec)
+
+        assert "target_component_synonyms__flat" in result
+        assert result["target_component_synonyms__flat"] != ""
+        assert "syn_type" in result["target_component_synonyms__flat"]
+        assert "component_synonym" in result["target_component_synonyms__flat"]
+        assert "EGFR" in result["target_component_synonyms__flat"] or "P00533" in result["target_component_synonyms__flat"]
+
+    def test_flatten_empty_components(self) -> None:
+        """Test flattening with empty target_components."""
+        rec: dict[str, Any] = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [],
+            "cross_references": [],
+        }
+        result = flatten_target_components(rec)
+
+        assert result["uniprot_accessions"] == ""
+        assert result["target_components__flat"] == ""
+        assert result["target_component_synonyms__flat"] == ""
+        assert result["cross_references__flat"] == ""
+        assert result["component_count"] is None
+
+    def test_flatten_none_components(self) -> None:
+        """Test flattening with None target_components."""
+        rec = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": None,
+            "cross_references": None,
+        }
+        result = flatten_target_components(rec)
+
+        assert result["uniprot_accessions"] == ""
+        assert result["target_components__flat"] == ""
+        assert result["target_component_synonyms__flat"] == ""
+        assert result["cross_references__flat"] == ""
+
+    def test_flatten_with_component_count_fallback(self) -> None:
+        """Test flattening with component_count from top-level."""
+        rec: dict[str, Any] = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [],
+            "component_count": 5,
+        }
+        result = flatten_target_components(rec)
+
+        assert result["component_count"] == 5
+
+    def test_flatten_duplicate_accessions(self) -> None:
+        """Test flattening with duplicate accessions (should be deduplicated)."""
+        rec = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [
+                {"component_id": 1, "accession": "P00533"},
+                {"component_id": 2, "accession": "P00533"},  # duplicate
+            ],
+        }
+        result = flatten_target_components(rec)
+
+        assert result["component_count"] == 1
+        # Check that accession appears only once in JSON
+        accessions = json.loads(result["uniprot_accessions"])
+        assert len(accessions) == 1
+        assert accessions == ["P00533"]
+
+    def test_flatten_sorted_accessions(self) -> None:
+        """Test that accessions are sorted."""
+        rec = {
+            "target_chembl_id": "CHEMBL203",
+            "target_components": [
+                {"component_id": 1, "accession": "P99999"},
+                {"component_id": 2, "accession": "P00001"},
+            ],
+        }
+        result = flatten_target_components(rec)
+
+        accessions = json.loads(result["uniprot_accessions"])
+        assert accessions == ["P00001", "P99999"]  # sorted
+
+    def test_serialize_target_arrays_with_uniprot_accessions(self) -> None:
+        """Test that serialize_target_arrays extracts uniprot_accessions."""
+        df = pd.DataFrame(
+            {
+                "target_chembl_id": ["CHEMBL203"],
+                "target_components": [
+                    [
+                        {"component_id": 1, "accession": "P00533"},
+                        {"component_id": 2, "accession": "P12345"},
+                    ]
+                ],
+            }
+        )
+        mock_config = MagicMock()
+        mock_config.transform.arrays_to_header_rows = ["target_components"]
+
+        result = serialize_target_arrays(df, mock_config)
+
+        assert "uniprot_accessions" in result.columns
+        assert result["uniprot_accessions"].iloc[0] != ""
+        accessions = json.loads(result["uniprot_accessions"].iloc[0])
+        assert "P00533" in accessions
+        assert "P12345" in accessions
+        assert "component_count" in result.columns
+        assert result["component_count"].iloc[0] == 2
 

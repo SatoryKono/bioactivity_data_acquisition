@@ -46,6 +46,7 @@ sources:
         - confidence_score
         - confidence_description
         - variant_sequence
+        - curation_level
         - assay_classifications
         - assay_parameters
 
@@ -108,6 +109,33 @@ transform:
   arrays_to_header_rows:
     - assay_classifications
     - assay_parameters
+
+# Enrichment configuration
+# assay_class_id is populated only through enrichment from ASSAY_CLASS_MAP.
+# If enrichment is not configured, assay_class_id will remain NULL.
+chembl:
+  assay:
+    enrich:
+      classifications:
+        class_map_fields:
+          - assay_chembl_id
+          - assay_class_id
+        classification_fields:
+          - assay_class_id
+          - l1
+          - l2
+          - l3
+          - pref_name
+        page_limit: 1000
+      parameters:
+        fields:
+          - assay_chembl_id
+          - type
+          - relation
+          - value
+          - units
+        page_limit: 1000
+        active_only: true
 
 # Validation schema (common settings inherited from validation.yaml profile)
 validation:

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any, cast
+from collections.abc import Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -89,9 +89,9 @@ def enrich_with_assay_classifications(
     # Шаг 1: Получить ASSAY_CLASS_MAP по assay_chembl_id
     log.info("enrichment_fetching_assay_class_map", ids_count=len(set(assay_ids)))
     class_map_dict = client.fetch_assay_class_map_by_assay_ids(
-        ids=assay_ids,
-        fields=list(class_map_fields),
-        page_limit=page_limit,
+        assay_ids,
+        list(class_map_fields),
+        page_limit,
     )
 
     # Собрать все уникальные assay_class_id
@@ -107,9 +107,9 @@ def enrich_with_assay_classifications(
     if all_class_ids:
         log.info("enrichment_fetching_assay_classifications", class_ids_count=len(all_class_ids))
         classification_dict = client.fetch_assay_classifications_by_class_ids(
-            ids=list(all_class_ids),
-            fields=list(classification_fields),
-            page_limit=page_limit,
+            list(all_class_ids),
+            list(classification_fields),
+            page_limit,
         )
 
     # Шаг 3: Объединить данные и создать структуры для каждого assay
@@ -172,8 +172,8 @@ def enrich_with_assay_classifications(
             # Сериализовать массив в JSON-строку
             import json
 
-            df_assay.loc[idx, "assay_classifications"] = json.dumps(classifications, ensure_ascii=False)
-            df_assay.loc[idx, "assay_class_id"] = ";".join(class_ids)
+            df_assay.loc[idx, "assay_classifications"] = json.dumps(classifications, ensure_ascii=False)  # type: ignore[assignment]
+            df_assay.loc[idx, "assay_class_id"] = ";".join(class_ids)  # type: ignore[assignment]
 
     log.info(
         "enrichment_classifications_complete",
@@ -253,10 +253,10 @@ def enrich_with_assay_parameters(
     # Получить ASSAY_PARAMETERS по assay_chembl_id
     log.info("enrichment_fetching_assay_parameters", ids_count=len(set(assay_ids)))
     parameters_dict = client.fetch_assay_parameters_by_assay_ids(
-        ids=assay_ids,
-        fields=list(fields),
-        page_limit=page_limit,
-        active_only=active_only,
+        assay_ids,
+        list(fields),
+        page_limit,
+        active_only,
     )
 
     # Обработать каждую запись assay
@@ -293,7 +293,7 @@ def enrich_with_assay_parameters(
         if params_list:
             import json
 
-            df_assay.loc[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)
+            df_assay.loc[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)  # type: ignore[assignment]
 
     log.info(
         "enrichment_parameters_complete",

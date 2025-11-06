@@ -30,6 +30,8 @@ sources:
         - organism
         - tax_id
         - species_group_flag
+        - protein_class_desc
+        - component_count
         - cross_references
         - target_components
 

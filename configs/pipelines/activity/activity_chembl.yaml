@@ -112,16 +112,11 @@ determinism:
     - standard_type
     - standard_relation
     - standard_value
-    - standard_upper_value
     - standard_units
-    - standard_text_value
     - standard_flag
-    - upper_value
-    - lower_value
     - pchembl_value
     - uo_units
     - qudt_units
-    - text_value
     - activity_comment
     - bao_endpoint
     - bao_format
@@ -169,6 +164,16 @@ chembl:
           - assay_organism
           - assay_tax_id
         page_limit: 100
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+      molecule:
+        enabled: true
+        fields:
+          - molecule_chembl_id
+          - pref_name
+          - molecule_synonyms
+        page_limit: 1000
         request_timeout: 60
         max_retries: 3
         retry_backoff: 1.5

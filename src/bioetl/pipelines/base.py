@@ -1086,18 +1086,14 @@ class PipelineBase(ABC):
         include_metadata = True  # Всегда создавать meta.yaml
         include_manifest = extended
 
-        # Use output_path as base directory if provided, otherwise use pipeline_directory
+        # Use output_path as base directory
         if output_path.is_dir():
             run_dir = output_path
         else:
             run_dir = output_path.parent
 
-        # If using pipeline_directory, ensure it exists
-        if run_dir == self.pipeline_directory or run_dir.resolve() == self.pipeline_directory.resolve():
-            run_dir = self._ensure_pipeline_directory_exists()
-        else:
-            # Ensure the directory exists for custom output paths
-            run_dir.mkdir(parents=True, exist_ok=True)
+        # Ensure the directory exists for the output path
+        run_dir.mkdir(parents=True, exist_ok=True)
 
         # Plan artifacts in the output directory
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
