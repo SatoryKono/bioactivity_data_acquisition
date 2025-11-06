@@ -35,6 +35,31 @@ python -m bioetl.cli.main activity_chembl \
 [`PipelineConfig`][ref: repo:src/bioetl/configs/models.py@refactoring_001]
 и включённые значения из `base.yaml` и `determinism.yaml`.
 
+## Локальный запуск CI {#ci-local}
+
+CI повторяет те же проверки, что и скрипт `scripts/qa/run_ci.py`. После установки
+dev-зависимостей можно запустить его целиком или по стадиям:
+
+```bash
+# Полный прогон lint + тестов
+python scripts/qa/run_ci.py
+
+# Только статический анализ
+python scripts/qa/run_ci.py --stage lint
+
+# Только pytest (используются настройки из pyproject.toml)
+python scripts/qa/run_ci.py --stage tests
+
+# Дополнительно: проверка ссылок в документации (требуется установленный lychee)
+python scripts/qa/run_ci.py --stage docs
+```
+
+Скрипт соответствует пайплайну GitHub Actions: `lint` запускает проверки
+документации, имен модулей и компиляцию исходников, а `tests` — лёгкий
+smoke-набор `pytest --no-cov tests/healthcheck` для валидации установки пакета.
+Отдельная стадия `docs` переиспользует `scripts/link_check.py` и создаёт stub-отчёт,
+если `lychee` не установлен локально.
+
 ## Где искать документацию {#where-to-find-docs}
 
 - **Navigation**: [`docs/INDEX.md`][ref: repo:docs/INDEX.md@refactoring_001] — The main entry point and map of all documentation sections.
