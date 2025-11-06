@@ -6,6 +6,7 @@ import json
 import re
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
@@ -88,6 +89,20 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         select_fields = source_config.parameters.select_fields
         records: list[Mapping[str, Any]] = []
 
+        filters_payload = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "batch_size": batch_size,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
+
         # Используем специализированный клиент для target
         target_client = ChemblTargetClient(chembl_client, batch_size=min(page_size, 25))
         for item in target_client.iterate_all(
@@ -148,6 +163,20 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
+
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(value) for value in ids],
+            "limit": int(limit) if limit is not None else None,
+            "batch_size": batch_size,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
 
         # Process IDs in chunks to avoid URL length limits
         chunk_size = min(batch_size, 100)  # Conservative limit for target_chembl_id__in

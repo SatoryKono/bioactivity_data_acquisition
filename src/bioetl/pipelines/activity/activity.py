@@ -183,6 +183,21 @@ class ChemblActivityPipeline(PipelineBase):
             "limit": page_size,
             "only": ",".join(select_fields),
         }
+        parameters_dict = dict(sorted(parameters.items())) if isinstance(parameters, Mapping) else {}
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields),
+        }
+        if parameters_dict:
+            filters_payload["parameters"] = parameters_dict
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
         pages = 0
 
         while next_endpoint:
@@ -282,6 +297,19 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Convert list of IDs to DataFrame for compatibility with _extract_from_chembl
         input_frame = pd.DataFrame({"activity_id": list(ids)})
+
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(id_value) for id_value in ids],
+            "limit": int(limit) if limit is not None else None,
+            "batch_size": batch_size,
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self._chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
 
         batch_dataframe = self._extract_from_chembl(
             input_frame,

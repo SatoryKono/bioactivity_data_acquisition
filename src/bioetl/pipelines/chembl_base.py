@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -233,29 +234,43 @@ class ChemblPipelineBase(PipelineBase):
 
         # Check if client is ChemblClient by checking for handshake method
         if hasattr(client, "handshake") and callable(getattr(client, "handshake", None)):  # pyright: ignore[reportArgumentType]
-            # Use handshake method for ChemblClient
+            request_timestamp = datetime.now(timezone.utc)
+            release_value: str | None = None
             try:
                 status = client.handshake("/status")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
                 if isinstance(status, Mapping):
-                    release_value = status.get("chembl_db_version") or status.get("chembl_release")  # pyright: ignore[reportAssignmentType]
-                    if isinstance(release_value, str):
+                    candidate = status.get("chembl_db_version") or status.get("chembl_release")  # pyright: ignore[reportAssignmentType]
+                    if isinstance(candidate, str):
+                        release_value = candidate
                         log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
-                        return release_value
             except Exception as exc:
                 log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
-            return None
+            finally:
+                self.record_extract_metadata(
+                    chembl_release=release_value,
+                    requested_at_utc=request_timestamp,
+                )
+            return release_value
 
         # Use direct HTTP for UnifiedAPIClient
         if hasattr(client, "get") and callable(getattr(client, "get", None)):  # pyright: ignore[reportArgumentType]
+            request_timestamp = datetime.now(timezone.utc)
+            release_value: str | None = None
             try:
                 response = client.get("/status.json")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
                 if hasattr(response, "json"):  # pyright: ignore[reportArgumentType]
                     status_payload = self._coerce_mapping(response.json())  # pyright: ignore[reportAttributeAccessIssue, reportAny]
                     release_value = self._extract_chembl_release(status_payload)
                     log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
-                    return release_value
             except Exception as exc:
                 log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
+            finally:
+                self.record_extract_metadata(
+                    chembl_release=release_value,
+                    requested_at_utc=request_timestamp,
+                )
+            return release_value
+        self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
         return None
 
     @staticmethod

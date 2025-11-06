@@ -63,6 +63,14 @@ CSV or Parquet datasets, optional correlation reports, and required
 | `<stem>_correlation_report.csv` | Optional correlation matrix for numeric fields. | Only present when correlation post-processing is enabled. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1039-L1046】 |
 | `<stem>_qc.csv` | Aggregated QC summary derived from validation hooks. | Declared as part of the shared artifact plan so downstream QA can diff deterministic runs. 【F:src/bioetl/pipelines/base.py†L85-L127】 |
 | `<stem>_meta.yaml` | Canonical metadata record containing configuration fingerprints, schema versions, row counts, hash details, and lineage. | Captures the full structure defined in the determinism policy. 【F:docs/determinism/00-determinism-policy.md†L73-L119】 |
+
+`meta.yaml` now records additional lineage fields emitted directly by the shared
+writer: the configuration schema version (`config_version`), the pipeline
+implementation version (`pipeline_version`), and the extraction context supplied
+by the ChEMBL clients (`chembl_release`, request `filters`, and
+`requested_at_utc`). These keys make it possible to audit which API release was
+queried with which filters while keeping the configuration provenance alongside
+the existing determinism metadata.【F:src/bioetl/core/output.py†L187-L207】【F:src/bioetl/pipelines/base.py†L375-L420】
 | `<stem>_run_manifest.json` | Run manifest enumerating generated files and checksums (extended mode). | Added by the extended artifact mode described in the activity pipeline specification. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1047-L1051】 |
 | Logs (`/data/logs/<pipeline>/<stem>.log`) | Structured log output tied to the same stem for traceability. | Created alongside filesystem artifacts by the orchestrator. 【F:src/bioetl/pipelines/base.py†L68-L113】 |
 

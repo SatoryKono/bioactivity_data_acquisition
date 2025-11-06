@@ -12,7 +12,7 @@ import time
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -134,6 +134,7 @@ class PipelineBase(ABC):
         self._trace_id, self._root_span_id = self._derive_trace_and_span()
         self._validation_schema: SchemaRegistryEntry | None = None
         self._validation_summary: dict[str, Any] | None = None
+        self._extract_metadata: dict[str, Any] = {}
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.
@@ -381,8 +382,67 @@ class PipelineBase(ABC):
         df: pd.DataFrame,
     ) -> Mapping[str, object]:
         """Hook allowing subclasses to enrich ``meta.yaml`` content."""
+        enriched = dict(metadata)
+        if self._extract_metadata:
+            for key, value in self._extract_metadata.items():
+                if (
+                    key == "filters"
+                    and key in enriched
+                    and isinstance(enriched[key], Mapping)
+                    and isinstance(value, Mapping)
+                ):
+                    merged_filters = dict(cast(Mapping[str, Any], enriched[key]))
+                    merged_filters.update(cast(Mapping[str, Any], value))
+                    enriched[key] = merged_filters
+                else:
+                    enriched[key] = value
+        return enriched
 
-        return metadata
+    def record_extract_metadata(
+        self,
+        *,
+        chembl_release: str | None = None,
+        filters: Mapping[str, Any] | Sequence[tuple[str, Any]] | None = None,
+        requested_at_utc: datetime | str | None = None,
+        **extra: Any,
+    ) -> None:
+        """Record metadata produced during ``extract`` for inclusion in ``meta.yaml``."""
+
+        def _normalise_timestamp(value: datetime | str) -> str:
+            if isinstance(value, datetime):
+                if value.tzinfo is None:
+                    value = value.replace(tzinfo=timezone.utc)
+                else:
+                    value = value.astimezone(timezone.utc)
+                return value.isoformat().replace("+00:00", "Z")
+            return value
+
+        def _normalise_value(candidate: Any) -> Any:
+            if isinstance(candidate, Mapping):
+                normalised_items = sorted(
+                    ((str(key), _normalise_value(item)) for key, item in candidate.items()),
+                    key=lambda item: item[0],
+                )
+                return {key: item for key, item in normalised_items}
+            if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
+                return [_normalise_value(item) for item in candidate]
+            if isinstance(candidate, datetime):
+                return _normalise_timestamp(candidate)
+            return candidate
+
+        metadata = dict(self._extract_metadata)
+        if chembl_release is not None:
+            metadata["chembl_release"] = chembl_release
+        if filters is not None:
+            filters_mapping = dict(filters) if not isinstance(filters, Mapping) else filters
+            metadata["filters"] = _normalise_value(filters_mapping)
+        if requested_at_utc is not None:
+            metadata["requested_at_utc"] = _normalise_timestamp(requested_at_utc)
+        for key, value in extra.items():
+            if value is None:
+                continue
+            metadata[key] = _normalise_value(value)
+        self._extract_metadata = metadata
 
     def close_resources(self) -> None:
         """Release additional resources during cleanup."""
@@ -1258,6 +1318,7 @@ class PipelineBase(ABC):
 
         stage_durations_ms: dict[str, float] = {}
         self._stage_durations_ms = stage_durations_ms
+        self._extract_metadata = {}
 
         configured_mode = "extended" if extended else None
         if self.config.cli.extended:
