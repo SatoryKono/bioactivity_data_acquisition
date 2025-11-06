@@ -173,3 +173,65 @@ class TestChemblTargetPipeline:
 
         assert result.empty
 
+    def test_enrich_protein_classifications_empty_dataframe(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+        """Test enrich_protein_classifications with empty DataFrame."""
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        df = pd.DataFrame()
+
+        from bioetl.core.logger import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+
+        assert result.empty
+
+    def test_enrich_protein_classifications_missing_target_id(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+        """Test enrich_protein_classifications with missing target_chembl_id column."""
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        df = pd.DataFrame({"pref_name": ["Target 1"]})
+
+        from bioetl.core.logger import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+
+        assert len(result) == 1
+        assert "pref_name" in result.columns
+
+    def test_enrich_protein_classifications_initializes_columns(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+        """Test that enrich_protein_classifications initializes new columns."""
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        df = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL1"],
+        })
+
+        from bioetl.core.logger import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+
+        assert "protein_class_list" in result.columns
+        assert "protein_class_top" in result.columns
+
+    def test_enrich_protein_classifications_skips_when_data_present(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+        """Test that enrich_protein_classifications skips when data is already present."""
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        df = pd.DataFrame({
+            "target_chembl_id": ["CHEMBL1"],
+            "protein_class_list": ['[{"protein_class_id": "1"}]'],
+            "protein_class_top": ['{"protein_class_id": "1"}'],
+        })
+
+        from bioetl.core.logger import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+
+        # Data should not be overwritten
+        assert result["protein_class_list"].iloc[0] == '[{"protein_class_id": "1"}]'
+        assert result["protein_class_top"].iloc[0] == '{"protein_class_id": "1"}'
+

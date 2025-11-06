@@ -76,7 +76,7 @@ COLUMN_ORDER = (
 )
 
 STANDARD_TYPES = {"IC50",  "Ki"} #"EC50", "XC50", "AC50", "Kd", "Potency", "ED50"
-RELATIONS = {"="} #">", "<", ">=", "<=", "~"
+RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
 ACTIVITY_PROPERTY_KEYS = (
     "type",
     "relation",

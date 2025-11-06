@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -993,7 +994,124 @@ class TestChemblActivityPipelineTransformations:
 
         result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
 
-        # Должны обработаться только валидные элементы
+        # Должны обработаться только валидные элементы для fallback
         assert result["value"] == 10.0  # Первый валидный элемент
         assert result["text_value"] == "~20"  # Второй валидный элемент
+        # activity_properties должны быть нормализованы и сохранены
+        assert "activity_properties" in result
+        if result["activity_properties"] is not None:
+            props: list[dict[str, Any]] = result["activity_properties"]
+            # Должны быть сохранены все валидные свойства
+            assert len(props) >= 2  # Минимум 2 валидных свойства
+
+    def test_deduplicate_activity_properties_exact_duplicates(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that exact duplicates are removed from activity_properties."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        properties = [
+            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},
+            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Exact duplicate
+            {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None, "result_flag": None},
+            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Another exact duplicate
+        ]
+
+        deduplicated, stats = pipeline._deduplicate_activity_properties(  # type: ignore[reportPrivateUsage]
+            properties, MagicMock(), activity_id=1
+        )
+
+        assert len(deduplicated) == 2  # Only 2 unique properties
+        assert stats["duplicates_removed"] == 2
+        assert stats["deduplicated_count"] == 2
+        # Check that order is preserved (first occurrence kept)
+        assert deduplicated[0]["type"] == "pH"
+        assert deduplicated[1]["type"] == "Temperature"
+
+    def test_validate_activity_properties_truv_invariant(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test TRUV validation: value and text_value cannot both be not None."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        properties = [
+            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Valid
+            {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None, "result_flag": None},  # Valid
+            {"type": "Comment", "relation": None, "units": None, "value": None, "text_value": "test", "result_flag": None},  # Valid
+            {"type": "Invalid", "relation": "=", "units": None, "value": 10.0, "text_value": "also set", "result_flag": None},  # Invalid: both set
+            {"type": "Invalid2", "relation": "invalid", "units": None, "value": 5.0, "text_value": None, "result_flag": None},  # Invalid: relation not in RELATIONS
+        ]
+
+        validated, stats = pipeline._validate_activity_properties_truv(  # type: ignore[reportPrivateUsage]
+            properties, MagicMock(), activity_id=1
+        )
+
+        # All properties should be kept (no filtering, only logging)
+        assert len(validated) == len(properties)
+        assert stats["invalid_count"] == 2  # 2 invalid properties
+        assert stats["valid_count"] == len(validated)
+
+    def test_extract_activity_properties_missing_chEMBL_v24(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test handling of missing activity_properties (ChEMBL < v24 compatibility)."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Record without activity_properties (ChEMBL < v24)
+        record = {
+            "activity_id": 1,
+            "value": 10.0,
+            "standard_value": 10.0,
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Should log warning and set activity_properties to None
+        assert "activity_properties" in result
+        assert result["activity_properties"] is None
+
+    def test_extract_activity_properties_null_chEMBL_v24(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test handling of null activity_properties (ChEMBL < v24 compatibility)."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        # Record with activity_properties = None (ChEMBL < v24)
+        record = {
+            "activity_id": 1,
+            "value": 10.0,
+            "standard_value": 10.0,
+            "activity_properties": None,
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # Should log debug and return record unchanged
+        assert "activity_properties" in result
+        assert result["activity_properties"] is None
+
+    def test_extract_activity_properties_preserves_all_properties(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test that all properties are preserved without filtering."""
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        record = {
+            "activity_id": 1,
+            "activity_properties": [
+                {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None},
+                {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None},
+                {"type": "Invalid", "relation": "=", "units": None, "value": 10.0, "text_value": "also set"},  # Invalid but kept
+            ],
+        }
+
+        result = pipeline._extract_activity_properties_fields(record)  # type: ignore[reportPrivateUsage]
+
+        # All properties should be preserved (normalized and deduplicated, but not filtered)
+        assert "activity_properties" in result
+        assert result["activity_properties"] is not None
+        props: list[dict[str, Any]] = result["activity_properties"]
+        assert isinstance(props, list)
+        # All 3 properties should be present (invalid one is kept but logged)
+        assert len(props) == 3
 

@@ -1619,14 +1619,30 @@ class ChemblActivityPipeline(PipelineBase):
         Также извлекаются стандартизованные поля: standard_upper_value, standard_text_value.
         Извлекаются диапазоны: upper_value, lower_value.
         Извлекаются комментарии: activity_comment, data_validity_comment.
+
+        Также нормализует и сохраняет activity_properties в записи для последующей сериализации.
+        Выполняет валидацию TRUV-формата и дедупликацию точных дубликатов.
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract_activity_properties")
+        activity_id = record.get("activity_id")
 
+        # Проверка наличия activity_properties (совместимость с ChEMBL < v24)
         if "activity_properties" not in record:
+            log.warning(
+                "activity_properties_missing",
+                activity_id=activity_id,
+                message="activity_properties not found in API response (possible ChEMBL < v24)",
+            )
+            record["activity_properties"] = None
             return record
 
         properties = record["activity_properties"]
         if properties is None:
+            log.debug(
+                "activity_properties_null",
+                activity_id=activity_id,
+                message="activity_properties is None (possible ChEMBL < v24)",
+            )
             return record
 
         # Parse JSON string if needed
@@ -1809,6 +1825,40 @@ class ChemblActivityPipeline(PipelineBase):
                 "data_validity_comment_from_api",
                 activity_id=record.get("activity_id"),
                 comment_value=current_comment,
+            )
+
+        # Нормализация и сохранение activity_properties для последующей сериализации
+        # Сохраняем все свойства без фильтрации (только валидация TRUV-формата)
+        normalized_properties = self._normalize_activity_properties_items(properties, log)
+        if normalized_properties is not None:
+            # Валидация TRUV-формата и логирование некорректных свойств
+            validated_properties, validation_stats = self._validate_activity_properties_truv(
+                normalized_properties, log, activity_id
+            )
+            # Дедупликация точных дубликатов
+            deduplicated_properties, dedup_stats = self._deduplicate_activity_properties(
+                validated_properties, log, activity_id
+            )
+            # Сохраняем нормализованные и дедуплицированные свойства
+            record["activity_properties"] = deduplicated_properties
+            # Логирование статистики
+            log.debug(
+                "activity_properties_processed",
+                activity_id=activity_id,
+                original_count=len(properties) if isinstance(properties, Sequence) else 0,
+                normalized_count=len(normalized_properties),
+                validated_count=len(validated_properties),
+                deduplicated_count=len(deduplicated_properties),
+                invalid_count=validation_stats.get("invalid_count", 0),
+                duplicates_removed=dedup_stats.get("duplicates_removed", 0),
+            )
+        else:
+            # Если нормализация не удалась, сохраняем исходные свойства
+            record["activity_properties"] = properties
+            log.debug(
+                "activity_properties_normalization_failed",
+                activity_id=activity_id,
+                message="activity_properties normalization failed, keeping original",
             )
 
         return record
@@ -2539,6 +2589,138 @@ class ChemblActivityPipeline(PipelineBase):
 
         return normalized
 
+    def _validate_activity_properties_truv(
+        self,
+        properties: list[dict[str, Any]],
+        log: Any,
+        activity_id: Any | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        """Валидация TRUV-формата для activity_properties.
+
+        Валидирует инварианты:
+        - value IS NOT NULL ⇒ text_value IS NULL (и наоборот)
+        - relation IN ('=', '<', '≤', '>', '≥', '~') OR NULL
+
+        Parameters
+        ----------
+        properties:
+            Список нормализованных свойств для валидации.
+        log:
+            Logger instance.
+        activity_id:
+            ID активности для логирования (опционально).
+
+        Returns
+        -------
+        tuple[list[dict[str, Any]], dict[str, int]]:
+            Кортеж из валидированных свойств и статистики валидации.
+        """
+        validated: list[dict[str, Any]] = []
+        invalid_count = 0
+        invalid_items: list[dict[str, Any]] = []
+
+        for prop in properties:
+            is_valid = True
+            validation_errors: list[str] = []
+
+            value = prop.get("value")
+            text_value = prop.get("text_value")
+            relation = prop.get("relation")
+
+            # Валидация инварианта: value IS NOT NULL ⇒ text_value IS NULL (и наоборот)
+            if value is not None and text_value is not None:
+                is_valid = False
+                validation_errors.append("both value and text_value are not None")
+            elif value is None and text_value is None:
+                # Оба могут быть None, это допустимо
+                pass
+
+            # Валидация relation: должен быть в допустимых значениях или NULL
+            if relation is not None:
+                if not isinstance(relation, str):
+                    is_valid = False
+                    validation_errors.append(f"relation is not a string: {type(relation).__name__}")
+                elif relation not in RELATIONS:
+                    is_valid = False
+                    validation_errors.append(f"relation '{relation}' not in allowed values: {RELATIONS}")
+
+            # Сохраняем все свойства без фильтрации (только логируем некорректные)
+            validated.append(prop)
+            if not is_valid:
+                invalid_count += 1
+                invalid_items.append(prop)
+                log.warning(
+                    "activity_property_truv_validation_failed",
+                    activity_id=activity_id,
+                    property=prop,
+                    errors=validation_errors,
+                    message="TRUV validation failed, but property is kept",
+                )
+
+        stats = {
+            "invalid_count": invalid_count,
+            "valid_count": len(validated),
+        }
+
+        return validated, stats
+
+    def _deduplicate_activity_properties(
+        self,
+        properties: list[dict[str, Any]],
+        log: Any,
+        activity_id: Any | None = None,
+    ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+        """Дедупликация точных дубликатов в activity_properties.
+
+        Удаляет точные дубликаты по всем полям: type, relation, units, value, text_value.
+        Сохраняет порядок свойств (первое вхождение при дедупликации).
+
+        Parameters
+        ----------
+        properties:
+            Список валидированных свойств для дедупликации.
+        log:
+            Logger instance.
+        activity_id:
+            ID активности для логирования (опционально).
+
+        Returns
+        -------
+        tuple[list[dict[str, Any]], dict[str, int]]:
+            Кортеж из дедуплицированных свойств и статистики дедупликации.
+        """
+        seen: set[tuple[Any, ...]] = set()
+        deduplicated: list[dict[str, Any]] = []
+        duplicates_removed = 0
+
+        for prop in properties:
+            # Создаем ключ для дедупликации из всех полей свойства
+            dedup_key = (
+                prop.get("type"),
+                prop.get("relation"),
+                prop.get("units"),
+                prop.get("value"),
+                prop.get("text_value"),
+            )
+
+            if dedup_key not in seen:
+                seen.add(dedup_key)
+                deduplicated.append(prop)
+            else:
+                duplicates_removed += 1
+                log.debug(
+                    "activity_property_duplicate_removed",
+                    activity_id=activity_id,
+                    property=prop,
+                    message="Exact duplicate removed",
+                )
+
+        stats = {
+            "duplicates_removed": duplicates_removed,
+            "deduplicated_count": len(deduplicated),
+        }
+
+        return deduplicated, stats
 
     def _add_row_metadata(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Add required row metadata fields (row_subtype, row_index)."""

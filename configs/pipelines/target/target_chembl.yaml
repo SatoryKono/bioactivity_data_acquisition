@@ -61,6 +61,8 @@ determinism:
     - target_component_synonyms__flat
     - uniprot_accessions
     - protein_class_desc
+    - protein_class_list
+    - protein_class_top
     - component_count
 
   hashing:

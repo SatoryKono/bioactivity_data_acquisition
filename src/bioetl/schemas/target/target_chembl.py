@@ -23,6 +23,8 @@ COLUMN_ORDER = (
     "target_component_synonyms__flat",
     "uniprot_accessions",
     "protein_class_desc",
+    "protein_class_list",
+    "protein_class_top",
     "component_count",
 )
 
@@ -39,6 +41,8 @@ TargetSchema = create_schema(
         "target_component_synonyms__flat": nullable_string_column(),
         "uniprot_accessions": nullable_string_column(),
         "protein_class_desc": nullable_string_column(),
+        "protein_class_list": nullable_string_column(),
+        "protein_class_top": nullable_string_column(),
         "component_count": nullable_pd_int64_column(ge=0),
     },
     version=SCHEMA_VERSION,
