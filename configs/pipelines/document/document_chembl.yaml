@@ -107,5 +107,5 @@ chembl:
 
 # Validation schema (common settings inherited from validation.yaml profile)
 validation:
-  schema_out: "bioetl.schemas.document:DocumentSchema"
+  schema_out: "bioetl.schemas.document.document_chembl.DocumentSchema"
 

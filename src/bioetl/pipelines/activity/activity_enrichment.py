@@ -344,9 +344,13 @@ def enrich_with_compound_record(
     for col in ["compound_name", "compound_key", "curated"]:
         if f"{col}_enrich" in df_result.columns:
             # Коалесценс: использовать значение из обогащения, если базовое значение NA
-            df_result[col] = df_result[col].where(
-                df_result[col].notna(), df_result[f"{col}_enrich"]
-            )
+            # Если базовой колонки нет, создать её из _enrich
+            if col not in df_result.columns:
+                df_result[col] = df_result[f"{col}_enrich"]
+            else:
+                # Заменить NA значения значениями из _enrich
+                # Используем fillna для более надежной замены NA значений
+                df_result[col] = df_result[col].fillna(df_result[f"{col}_enrich"])  # type: ignore[assignment]
             # Удалить колонку _enrich
             df_result = df_result.drop(columns=[f"{col}_enrich"])
 

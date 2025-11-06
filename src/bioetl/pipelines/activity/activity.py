@@ -911,6 +911,9 @@ class ChemblActivityPipeline(PipelineBase):
         chembl_client = ChemblClient(extract_client)
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
+        # Извлечение assay_organism и assay_tax_id из ASSAYS
+        dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
+
         # Логирование метрик заполненности
         self._log_validity_comments_metrics(dataframe, log)
 
@@ -1214,6 +1217,183 @@ class ChemblActivityPipeline(PipelineBase):
         log.info(
             "extract_data_validity_descriptions_complete",
             comments_requested=len(unique_comments),
+            records_fetched=len(enrichment_data),
+            rows_enriched=len(df_result),
+        )
+
+        return df_result
+
+    def _extract_assay_fields(
+        self, df: pd.DataFrame, client: ChemblClient, log: Any
+    ) -> pd.DataFrame:
+        """Извлечь assay_organism и assay_tax_id из ASSAYS через отдельный запрос.
+
+        Собирает уникальные непустые значения assay_chembl_id из DataFrame,
+        вызывает fetch_assays_by_ids() и выполняет LEFT JOIN обратно к DataFrame.
+
+        Parameters
+        ----------
+        df:
+            DataFrame с данными activity, должен содержать assay_chembl_id.
+        client:
+            ChemblClient для запросов к ChEMBL API.
+        log:
+            Logger instance.
+
+        Returns
+        -------
+        pd.DataFrame:
+            DataFrame с заполненными колонками assay_organism и assay_tax_id.
+        """
+        if df.empty:
+            return df
+
+        if "assay_chembl_id" not in df.columns:
+            log.debug("extract_assay_fields_skipped", reason="assay_chembl_id_column_missing")
+            # Гарантируем наличие колонок с pd.NA
+            for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+                if col not in df.columns:
+                    df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
+            return df
+
+        # Собрать уникальные непустые значения assay_chembl_id
+        assay_ids: list[str] = []
+        for _, row in df.iterrows():
+            assay_id = row.get("assay_chembl_id")
+
+            # Пропускаем NaN/None значения
+            if pd.isna(assay_id) or assay_id is None:
+                continue
+
+            # Преобразуем в строку и нормализуем
+            assay_id_str = str(assay_id).strip().upper()
+
+            if assay_id_str:
+                assay_ids.append(assay_id_str)
+
+        if not assay_ids:
+            log.debug("extract_assay_fields_skipped", reason="no_valid_assay_ids")
+            # Гарантируем наличие колонок с pd.NA
+            for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+                if col not in df.columns:
+                    df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
+            return df
+
+        # Вызвать fetch_assays_by_ids для получения assay данных
+        unique_assay_ids = list(set(assay_ids))
+        log.info("extract_assay_fields_fetching", assay_ids_count=len(unique_assay_ids))
+
+        try:
+            records_dict = client.fetch_assays_by_ids(
+                ids=unique_assay_ids,
+                fields=["assay_chembl_id", "assay_organism", "assay_tax_id"],
+                page_limit=1000,
+            )
+        except Exception as exc:
+            log.warning(
+                "extract_assay_fields_fetch_error",
+                error=str(exc),
+                exc_info=True,
+            )
+            # Гарантируем наличие колонок с pd.NA
+            for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+                if col not in df.columns:
+                    df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
+            return df
+
+        # Создать DataFrame для join
+        enrichment_data: list[dict[str, Any]] = []
+        for assay_id in unique_assay_ids:
+            record = records_dict.get(assay_id) if records_dict else None
+            if record:
+                enrichment_data.append({
+                    "assay_chembl_id": assay_id,
+                    "assay_organism": record.get("assay_organism"),
+                    "assay_tax_id": record.get("assay_tax_id"),
+                })
+            else:
+                # Если запись не найдена, оставляем значения как NULL
+                enrichment_data.append({
+                    "assay_chembl_id": assay_id,
+                    "assay_organism": None,
+                    "assay_tax_id": None,
+                })
+
+        if not enrichment_data:
+            log.debug("extract_assay_fields_no_records")
+            # Гарантируем наличие колонок с pd.NA
+            for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+                if col not in df.columns:
+                    df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
+            return df
+
+        df_enrich = pd.DataFrame(enrichment_data)
+
+        # Нормализовать assay_chembl_id в df_enrich для join (upper, strip)
+        df_enrich["assay_chembl_id"] = (
+            df_enrich["assay_chembl_id"].astype("string").str.strip().str.upper()
+        )
+
+        # Нормализовать assay_chembl_id в df для join (upper, strip)
+        original_index = df.index.copy()
+        df_normalized = df.copy()
+        df_normalized["assay_chembl_id_normalized"] = (
+            df_normalized["assay_chembl_id"].astype("string").str.strip().str.upper()
+        )
+
+        # LEFT JOIN обратно к df на assay_chembl_id
+        df_result = df_normalized.merge(
+            df_enrich,
+            left_on="assay_chembl_id_normalized",
+            right_on="assay_chembl_id",
+            how="left",
+            suffixes=("", "_enrich"),
+        )
+
+        # Удалить временную нормализованную колонку
+        df_result = df_result.drop(columns=["assay_chembl_id_normalized"])
+
+        # Коалесценс после merge: *_enrich → базовые колонки
+        for col in ["assay_organism", "assay_tax_id"]:
+            if f"{col}_enrich" in df_result.columns:
+                # Коалесценс: использовать значение из обогащения, если базовое значение NA
+                if col not in df_result.columns:
+                    df_result[col] = df_result[f"{col}_enrich"]
+                else:
+                    # Заменить NA значения значениями из _enrich
+                    df_result[col] = df_result[col].fillna(df_result[f"{col}_enrich"])  # type: ignore[assignment]
+                # Удалить колонку _enrich
+                df_result = df_result.drop(columns=[f"{col}_enrich"])
+
+        # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
+        for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
+            if col not in df_result.columns:
+                df_result[col] = pd.Series([pd.NA] * len(df_result), dtype=dtype)
+
+        # Приведение типов
+        df_result["assay_organism"] = df_result["assay_organism"].astype("string")
+
+        # assay_tax_id может приходить строкой — приводим к Int64 с NA
+        tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_result["assay_tax_id"], errors="coerce")  # type: ignore[arg-type]
+        df_result["assay_tax_id"] = tax_id_numeric.astype("Int64")
+
+        # Проверка диапазона для assay_tax_id (>= 1 или NA)
+        mask_valid = df_result["assay_tax_id"].notna()
+        if mask_valid.any():
+            invalid_mask = mask_valid & (df_result["assay_tax_id"] < 1)
+            if invalid_mask.any():
+                log.warning(
+                    "invalid_assay_tax_id_range",
+                    count=int(invalid_mask.sum()),
+                )
+                df_result.loc[invalid_mask, "assay_tax_id"] = pd.NA
+
+        # Восстановить исходный порядок
+        df_result = df_result.reindex(original_index)
+
+        log.info(
+            "extract_assay_fields_complete",
+            assay_ids_requested=len(unique_assay_ids),
             records_fetched=len(enrichment_data),
             rows_enriched=len(df_result),
         )

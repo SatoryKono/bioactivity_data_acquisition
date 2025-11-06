@@ -80,8 +80,8 @@ COLUMN_ORDER = (
     "removed",
 )
 
-STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
-RELATIONS = {"=", ">", "<", ">=", "<=", "~"}
+STANDARD_TYPES = {"IC50",  "Ki"} #"EC50", "XC50", "AC50", "Kd", "Potency", "ED50"
+RELATIONS = {"="} #">", "<", ">=", "<=", "~"
 ACTIVITY_PROPERTY_KEYS = (
     "type",
     "relation",
