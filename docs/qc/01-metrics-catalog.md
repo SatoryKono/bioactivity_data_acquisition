@@ -34,6 +34,9 @@ These metrics validate that data values fall within expected ranges and distribu
 | `QUANTILE_SHIFT_P95` | `quantile_shift_p95(abs)` | Content | `ABS(p95(current_run) - p95(golden_run))` | `LATEST` | Golden Snapshot Comparison | `> 10%` | WARN |
 | `NEGATIVE_VAL_CNT` | `negative_value_count(<col>)` | Content | `COUNT(rows WHERE column < 0)` | `SUM` | DataFrame Aggregation | `> 0` | WARN |
 | `NON_MONOTONIC_CNT` | `non_monotonic_count(<col>)` | Content | `COUNT(rows WHERE column < LAG(column))` | `SUM` | DataFrame Aggregation | `> 0` | WARN |
+| `UNITS_DISTRIBUTION` | `units_distribution(<col>)` | Distribution | `value_counts(column)` | `JSON` | Quality Report | `Dominant share > 80%` | WARN |
+| `RELATION_DISTRIBUTION` | `relation_distribution(<col>)` | Distribution | `value_counts(column)` | `JSON` | Quality Report | `Dominant share > 95%` | WARN |
+| `IQR_OUTLIER_CNT` | `iqr_outlier_count(<col>)` | Distribution | `COUNT(rows WHERE value < Q1 - 1.5*IQR OR value > Q3 + 1.5*IQR)` | `SUM` | Quality Report | `> 0` | WARN |
 
 ## 4. Volume and Delta Metrics
 

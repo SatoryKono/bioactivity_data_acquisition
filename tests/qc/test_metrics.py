@@ -22,6 +22,11 @@ class TestQCMetrics:
         assert not report.empty
         # Should have metrics columns
         assert "section" in report.columns or "metric" in report.columns
+        # Distribution sections should be present for relation and units fields
+        assert (
+            report["metric"].eq("relation_distribution").any()
+            or report["metric"].eq("units_distribution").any()
+        )
 
     def test_build_qc_metrics(self, sample_activity_data: pd.DataFrame):
         """Test QC metrics payload building."""
@@ -33,6 +38,28 @@ class TestQCMetrics:
         # Should have key metrics
         assert "row_count" in metrics or "total_rows" in metrics
         assert "duplicate_count" in metrics or "unique_count" in metrics
+        # New distribution metrics should be part of the payload
+        assert "units_distribution" in metrics
+        assert "relation_distribution" in metrics
+        assert "iqr_outliers" in metrics
+
+    def test_quality_report_detects_outliers(self):
+        """Ensure that simple outliers are surfaced in the report."""
+
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3, 4],
+                "value": [10.0, 11.0, 12.0, 500.0],  # 500 should be flagged as outlier
+                "units": ["nM", "nM", "nM", "nM"],
+                "relation": ["=", "=", "=", "="],
+            }
+        )
+
+        report = build_quality_report(df, business_key_fields=["activity_id"])
+
+        outlier_rows = report[report["metric"] == "iqr_outlier_count"]
+        assert not outlier_rows.empty
+        assert set(outlier_rows["column"]) == {"value"}
 
     def test_quality_report_duplicate_detection(self):
         """Test that quality report detects duplicates."""
