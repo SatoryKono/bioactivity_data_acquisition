@@ -25,7 +25,7 @@ def _escape_pipe(s: str) -> str:
     Returns
     -------
     str:
-        String with escaped delimiters: `|` → `\|`, `\` → `\\`.
+        String with escaped delimiters: `|` → `\\|`, `\\` → `\\\\`.
     """
     if not isinstance(s, str):
         s = str(s) if s is not None else ""

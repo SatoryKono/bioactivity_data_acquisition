@@ -10,7 +10,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.activity_chembl.join_molecule import join_activity_with_molecule
+from bioetl.pipelines.activity.join_molecule import join_activity_with_molecule
 
 
 @pytest.fixture
