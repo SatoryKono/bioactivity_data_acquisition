@@ -1,12 +1,40 @@
 # Specification: Typed Configurations and Profiles
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **implemented**. The configuration system is fully implemented with a modular structure.
 
-This document provides a comprehensive specification for the `bioetl` configuration system, based on the implementation in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
+This document provides a comprehensive specification for the `bioetl` configuration system, based on the implementation in `[ref: repo:src/bioetl/config/loader.py]`.
 
 ## 1. Обзор и цели
 
-Типобезопасный объект `PipelineConfig` формирует единый контракт между CLI и пайплайнами: Typer-команда при запуске автоматически подмешивает профили `base.yaml` и `determinism.yaml`, затем валидирует объединённые данные строго по модели `PipelineConfig`.[ref: repo:README.md†L18-L29][ref: repo:src/bioetl/configs/models.py†L355-L389] Благодаря Pydantic-вёрстке (`extra="forbid"`) любой неизвестный ключ приводит к немедленной ошибке, а кросс-полевые инварианты (например, согласованность сортировки) проверяются валидаторами.[ref: repo:src/bioetl/configs/models.py†L15-L389]
+Типобезопасный объект `PipelineConfig` формирует единый контракт между CLI и пайплайнами: Typer-команда при запуске автоматически подмешивает профили `base.yaml` и `determinism.yaml`, затем валидирует объединённые данные строго по модели `PipelineConfig`.[ref: repo:README.md†L18-L29][ref: base-config] Благодаря Pydantic-вёрстке (`extra="forbid"`) любой неизвестный ключ приводит к немедленной ошибке, а кросс-полевые инварианты (например, согласованность сортировки) проверяются валидаторами.
+
+### 1.1 Структура модулей
+
+Модели конфигурации организованы в модульную структуру:
+
+- `src/bioetl/config/models/base.py` - `PipelineConfig`, `PipelineMetadata`
+- `src/bioetl/config/models/http.py` - HTTP-конфигурация (`HTTPConfig`, `HTTPClientConfig`, `RetryConfig`, `RateLimitConfig`, `CircuitBreakerConfig`)
+- `src/bioetl/config/models/cache.py` - `CacheConfig`
+- `src/bioetl/config/models/paths.py` - `PathsConfig`, `MaterializationConfig`
+- `src/bioetl/config/models/determinism.py` - `DeterminismConfig` и все вложенные классы
+- `src/bioetl/config/models/validation.py` - `ValidationConfig`
+- `src/bioetl/config/models/transform.py` - `TransformConfig`
+- `src/bioetl/config/models/postprocess.py` - `PostprocessConfig`, `PostprocessCorrelationConfig`
+- `src/bioetl/config/models/source.py` - `SourceConfig`
+- `src/bioetl/config/models/cli.py` - `CLIConfig`
+- `src/bioetl/config/models/fallbacks.py` - `FallbacksConfig`
+
+Все модели реэкспортируются через `src/bioetl/config/models/__init__.py` для обратной совместимости.
+
+### 1.2 Pipeline-специфичные конфигурации
+
+Pipeline-специфичные конфигурации находятся в подпапках:
+
+- `src/bioetl/config/assay/` - `AssaySourceConfig`, `AssaySourceParameters`
+- `src/bioetl/config/activity/` - `ActivitySourceConfig`, `ActivitySourceParameters`
+- `src/bioetl/config/target/` - `TargetSourceConfig`, `TargetSourceParameters`
+- `src/bioetl/config/document/` - `DocumentSourceConfig`, `DocumentSourceParameters`
+- `src/bioetl/config/testitem/` - `TestItemSourceConfig`, `TestItemSourceParameters`
 
 ## 2. Структура и типы `PipelineConfig`
 
@@ -14,67 +42,67 @@ This document provides a comprehensive specification for the `bioetl` configurat
 
 | Section | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- | --- |
-| `PipelineConfig` | `version` | `Literal[1]` | Yes | — | Версия схемы конфигурации.[ref: repo:src/bioetl/configs/models.py†L360-L362] |
-| `PipelineConfig` | `extends[]` | `Sequence[str]` | No | `[]` | Профили, которые мерджатся перед основным YAML.[ref: repo:src/bioetl/configs/models.py†L363-L366] |
-| `PipelineConfig` | `pipeline` | `PipelineMetadata` | Yes | — | Метаданные пайплайна.[ref: repo:src/bioetl/configs/models.py†L349-L352][ref: repo:src/bioetl/configs/models.py†L355-L379] |
-| `PipelineConfig` | `http` | `HTTPConfig` | Yes | — | HTTP-профили и базовые настройки клиентов.[ref: repo:src/bioetl/configs/models.py†L80-L91] |
-| `PipelineConfig` | `cache` | `CacheConfig` | No | см. таблицу ниже | Параметры HTTP-кэша.[ref: repo:src/bioetl/configs/models.py†L94-L101] |
-| `PipelineConfig` | `paths` | `PathsConfig` | No | см. таблицу ниже | Каталоги ввода/вывода.[ref: repo:src/bioetl/configs/models.py†L104-L111] |
-| `PipelineConfig` | `determinism` | `DeterminismConfig` | No | см. таблицу ниже | Политика детерминизма выгрузок.[ref: repo:src/bioetl/configs/models.py†L241-L279] |
-| `PipelineConfig` | `materialization` | `MaterializationConfig` | No | см. таблицу ниже | Настройки записи артефактов.[ref: repo:src/bioetl/configs/models.py†L114-L131] |
-| `PipelineConfig` | `fallbacks` | `FallbacksConfig` | No | см. таблицу ниже | Поведение fallback-механизмов.[ref: repo:src/bioetl/configs/models.py†L134-L146] |
-| `PipelineConfig` | `validation` | `ValidationConfig` | No | см. таблицу ниже | Ссылки на Pandera-схемы и строгий режим.[ref: repo:src/bioetl/configs/models.py†L282-L296] |
-| `PipelineConfig` | `sources{}` | `Dict[str, SourceConfig]` | No | `{}` | Переопределения для отдельных источников.[ref: repo:src/bioetl/configs/models.py†L319-L341] |
-| `PipelineConfig` | `cli` | `CLIConfig` | No | см. таблицу ниже | Захваченные значения CLI-флагов.[ref: repo:src/bioetl/configs/models.py†L299-L316] |
+| `PipelineConfig` | `version` | `Literal[1]` | Yes | — | Версия схемы конфигурации.[ref: repo:src/bioetl/config/models/base.py] |
+| `PipelineConfig` | `extends[]` | `Sequence[str]` | No | `[]` | Профили, которые мерджатся перед основным YAML.[ref: repo:src/bioetl/config/models/base.py] |
+| `PipelineConfig` | `pipeline` | `PipelineMetadata` | Yes | — | Метаданные пайплайна.[ref: repo:src/bioetl/config/models/base.py] |
+| `PipelineConfig` | `http` | `HTTPConfig` | Yes | — | HTTP-профили и базовые настройки клиентов.[ref: repo:src/bioetl/config/models/http.py] |
+| `PipelineConfig` | `cache` | `CacheConfig` | No | см. таблицу ниже | Параметры HTTP-кэша.[ref: repo:src/bioetl/config/models/cache.py] |
+| `PipelineConfig` | `paths` | `PathsConfig` | No | см. таблицу ниже | Каталоги ввода/вывода.[ref: repo:src/bioetl/config/models/paths.py] |
+| `PipelineConfig` | `determinism` | `DeterminismConfig` | No | см. таблицу ниже | Политика детерминизма выгрузок.[ref: repo:src/bioetl/config/models/determinism.py] |
+| `PipelineConfig` | `materialization` | `MaterializationConfig` | No | см. таблицу ниже | Настройки записи артефактов.[ref: repo:src/bioetl/config/models/paths.py] |
+| `PipelineConfig` | `fallbacks` | `FallbacksConfig` | No | см. таблицу ниже | Поведение fallback-механизмов.[ref: repo:src/bioetl/config/models/fallbacks.py] |
+| `PipelineConfig` | `validation` | `ValidationConfig` | No | см. таблицу ниже | Ссылки на Pandera-схемы и строгий режим.[ref: repo:src/bioetl/config/models/validation.py] |
+| `PipelineConfig` | `sources{}` | `Dict[str, SourceConfig]` | No | `{}` | Переопределения для отдельных источников.[ref: repo:src/bioetl/config/models/source.py] |
+| `PipelineConfig` | `cli` | `CLIConfig` | No | см. таблицу ниже | Захваченные значения CLI-флагов.[ref: repo:src/bioetl/config/models/cli.py] |
 
 ### 2.2 `pipeline`
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `name` | `str` | Yes | — | Уникальное имя пайплайна.[ref: repo:src/bioetl/configs/models.py†L349-L352] |
-| `version` | `str` | Yes | — | Семантическая версия реализации.[ref: repo:src/bioetl/configs/models.py†L349-L352] |
-| `owner` | `str` | No | `null` | Ответственный инженер/команда.[ref: repo:src/bioetl/configs/models.py†L351-L352] |
-| `description` | `str` | No | `null` | Краткое описание.[ref: repo:src/bioetl/configs/models.py†L351-L352] |
+| `name` | `str` | Yes | — | Уникальное имя пайплайна.[ref: repo:src/bioetl/config/models/base.py] |
+| `version` | `str` | Yes | — | Семантическая версия реализации.[ref: repo:src/bioetl/config/models/base.py] |
+| `owner` | `str` | No | `null` | Ответственный инженер/команда.[ref: repo:src/bioetl/config/models/base.py] |
+| `description` | `str` | No | `null` | Краткое описание.[ref: repo:src/bioetl/config/models/base.py] |
 
 ### 2.3 `http`
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `default.timeout_sec` | `PositiveFloat` | No | `60.0` | Общий таймаут запроса.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
-| `default.connect_timeout_sec` | `PositiveFloat` | No | `15.0` | Таймаут соединения.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
-| `default.read_timeout_sec` | `PositiveFloat` | No | `60.0` | Таймаут чтения сокета.[ref: repo:src/bioetl/configs/models.py†L55-L63] |
-| `default.retries.*` | `RetryConfig` | No | см. подтаблицу | Политика повторов.[ref: repo:src/bioetl/configs/models.py†L64-L78] |
-| `default.rate_limit.*` | `RateLimitConfig` | No | см. подтаблицу | Ограничение запросов.[ref: repo:src/bioetl/configs/models.py†L65-L69][ref: repo:src/bioetl/configs/models.py†L35-L47] |
-| `default.rate_limit_jitter` | `bool` | No | `true` | Добавляет джиттер к лимитам.[ref: repo:src/bioetl/configs/models.py†L66-L69] |
-| `default.headers{}` | `Mapping[str, str]` | No | см. значение | Базовые заголовки HTTP.[ref: repo:src/bioetl/configs/models.py†L70-L77] |
-| `profiles.<name>` | `HTTPClientConfig` | No | `{}` | Именованные профили для источников.[ref: repo:src/bioetl/configs/models.py†L85-L91] |
+| `default.timeout_sec` | `PositiveFloat` | No | `60.0` | Общий таймаут запроса.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.connect_timeout_sec` | `PositiveFloat` | No | `15.0` | Таймаут соединения.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.read_timeout_sec` | `PositiveFloat` | No | `60.0` | Таймаут чтения сокета.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.retries.*` | `RetryConfig` | No | см. подтаблицу | Политика повторов.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.rate_limit.*` | `RateLimitConfig` | No | см. подтаблицу | Ограничение запросов.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.rate_limit_jitter` | `bool` | No | `true` | Добавляет джиттер к лимитам.[ref: repo:src/bioetl/config/models/http.py] |
+| `default.headers{}` | `Mapping[str, str]` | No | см. значение | Базовые заголовки HTTP.[ref: repo:src/bioetl/config/models/http.py] |
+| `profiles.<name>` | `HTTPClientConfig` | No | `{}` | Именованные профили для источников.[ref: repo:src/bioetl/config/models/http.py] |
 
 **`RetryConfig`**
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `total` | `PositiveInt` | `5` | Количество повторов.[ref: repo:src/bioetl/configs/models.py†L17-L32] |
-| `backoff_multiplier` | `PositiveFloat` | `2.0` | Множитель экспоненциального backoff.[ref: repo:src/bioetl/configs/models.py†L21-L24] |
-| `backoff_max` | `PositiveFloat` | `60.0` | Максимальная задержка между попытками.[ref: repo:src/bioetl/configs/models.py†L25-L28] |
-| `statuses[]` | `Tuple[int]` | `(408,429,500,502,503,504)` | Коды, запускающие повтор.[ref: repo:src/bioetl/configs/models.py†L29-L32] |
+| `total` | `PositiveInt` | `5` | Количество повторов.[ref: repo:src/bioetl/config/models/http.py] |
+| `backoff_multiplier` | `PositiveFloat` | `2.0` | Множитель экспоненциального backoff.[ref: repo:src/bioetl/config/models/http.py] |
+| `backoff_max` | `PositiveFloat` | `60.0` | Максимальная задержка между попытками.[ref: repo:src/bioetl/config/models/http.py] |
+| `statuses[]` | `Tuple[int]` | `(408,429,500,502,503,504)` | Коды, запускающие повтор.[ref: repo:src/bioetl/config/models/http.py] |
 
 **`RateLimitConfig`**
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `max_calls` | `PositiveInt` | `10` | Запросов в окне.[ref: repo:src/bioetl/configs/models.py†L40-L43] |
-| `period` | `PositiveFloat` | `1.0` | Длина окна в секундах.[ref: repo:src/bioetl/configs/models.py†L44-L47] |
+| `max_calls` | `PositiveInt` | `10` | Запросов в окне.[ref: repo:src/bioetl/config/models/http.py] |
+| `period` | `PositiveFloat` | `1.0` | Длина окна в секундах.[ref: repo:src/bioetl/config/models/http.py] |
 
 ### 2.4 Инфраструктурные блоки
 
 | Section | Key | Default | Description |
 | --- | --- | --- | --- |
-| `cache` | `enabled` | `true` | Вкл./выкл. дискового кэша.[ref: repo:src/bioetl/configs/models.py†L99-L101] |
-|  | `directory` | `"http_cache"` | Каталог кэша.[ref: repo:src/bioetl/configs/models.py†L99-L101] |
-|  | `ttl` | `86400` | TTL записи (сек).[ref: repo:src/bioetl/configs/models.py†L99-L101] |
-| `paths` | `input_root` | `"data/input"` | Базовый каталог входных данных.[ref: repo:src/bioetl/configs/models.py†L109-L111] |
-|  | `output_root` | `"data/output"` | Базовый каталог выгрузок.[ref: repo:src/bioetl/configs/models.py†L109-L111] |
-|  | `cache_root` | `".cache"` | Каталог временных файлов.[ref: repo:src/bioetl/configs/models.py†L109-L111] |
+| `cache` | `enabled` | `true` | Вкл./выкл. дискового кэша.[ref: repo:src/bioetl/config/models/cache.py] |
+|  | `directory` | `"http_cache"` | Каталог кэша.[ref: repo:src/bioetl/config/models/cache.py] |
+|  | `ttl` | `86400` | TTL записи (сек).[ref: repo:src/bioetl/config/models/cache.py] |
+| `paths` | `input_root` | `"data/input"` | Базовый каталог входных данных.[ref: repo:src/bioetl/config/models/paths.py] |
+|  | `output_root` | `"data/output"` | Базовый каталог выгрузок.[ref: repo:src/bioetl/config/models/paths.py] |
+|  | `cache_root` | `".cache"` | Каталог временных файлов.[ref: repo:src/bioetl/config/models/paths.py] |
 | `materialization` | `root` | `"data/output"` | Корень артефактов.[ref: repo:src/bioetl/configs/models.py†L119-L123] |
 |  | `default_format` | `"parquet"` | Формат по умолчанию.[ref: repo:src/bioetl/configs/models.py†L119-L123] |
 |  | `pipeline_subdir` | `null` | Доп. подкаталог.[ref: repo:src/bioetl/configs/models.py†L124-L127] |
@@ -92,7 +120,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `sources.<id>` | `enabled` | `true` | Отключение источника.[ref: repo:src/bioetl/configs/models.py†L324-L341] |
 |  | `description` | `null` | Описание источника.[ref: repo:src/bioetl/configs/models.py†L325-L341] |
 |  | `http_profile` | `null` | Ссылка на HTTP-профиль.[ref: repo:src/bioetl/configs/models.py†L326-L333] |
-|  | `http` | `HTTPClientConfig` | `null` | Inline-переопределения HTTP.[ref: repo:src/bioetl/configs/models.py†L330-L333] |
+|  | `http` | `null` | Inline-переопределения HTTP (`HTTPClientConfig`).[ref: repo:src/bioetl/configs/models.py†L330-L333] |
 |  | `batch_size` | `null` | Размер батча для пагинации.[ref: repo:src/bioetl/configs/models.py†L334-L337] |
 |  | `parameters{}` | `{}` | Произвольные параметры источника.[ref: repo:src/bioetl/configs/models.py†L338-L341] |
 
@@ -108,7 +136,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 | `sort.by[]` | `List[str]` | `[]` | Столбцы сортировки.[ref: repo:src/bioetl/configs/models.py†L172-L183] |
 | `sort.ascending[]` | `List[bool]` | `[]` | Направление сортировки; должно совпадать по длине с `sort.by`.[ref: repo:src/bioetl/configs/models.py†L172-L279] |
 | `sort.na_position` | `str` | `"last"` | Положение `NA` при сортировке.[ref: repo:src/bioetl/configs/models.py†L172-L183] |
-| `column_order[]` | `Sequence[str]` | `[]` | Жёстко фиксированный порядок колонок (требует `validation.schema_out`).[ref: repo:src/bioetl/configs/models.py†L263-L267][ref: repo:src/bioetl/configs/models.py†L381-L388] |
+| `column_order[]` | `Sequence[str]` | `[]` | Жёстко фиксированный порядок колонок (требует `validation.schema_out`).[ref: repo:src/bioetl/configs/models.py†L263-L267][ref: column-order-validation] |
 | `serialization.csv.separator` | `str` | `","` | Разделитель CSV.[ref: repo:src/bioetl/configs/models.py†L154-L169] |
 | `serialization.csv.quoting` | `str` | `"ALL"` | Стратегия кавычек.[ref: repo:src/bioetl/configs/models.py†L154-L156] |
 | `serialization.csv.na_rep` | `str` | `""` | Представление `NA` в CSV.[ref: repo:src/bioetl/configs/models.py†L154-L156] |
@@ -138,7 +166,7 @@ This document provides a comprehensive specification for the `bioetl` configurat
 
 1. Неверная версия схемы:
 
-```
+```text
 1 validation error for PipelineConfig
 version
   Input should be 1 [type=literal_error, input_value=2, input_type=int]
@@ -149,7 +177,7 @@ version
 
 1. Несогласованные ключи сортировки:
 
-```
+```text
 1 validation error for PipelineConfig
 determinism
   Value error, determinism.sort.ascending must be empty or match determinism.sort.by length [type=value_error, input_value={'sort': {'by': ['assay_i...ending': [True, False]}}, input_type=dict]
@@ -172,7 +200,7 @@ CLI --set overrides (глубокий merge по ключам)
 переменные окружения BIOETL__/BIOACTIVITY__ (имеют высший приоритет)
 ```
 
-Псевдокод соответствует `load_config`: профили из `extends` обрабатываются рекурсивно, затем применяется основной YAML, после чего последовательно накладываются CLI-override и env-overrides, и только потом выполняется `PipelineConfig.model_validate()`.[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001][ref: repo:src/bioetl/config/loader.py@refactoring_001]
+Псевдокод соответствует `load_config`: профили из `extends` обрабатываются рекурсивно, затем применяется основной YAML, после чего последовательно накладываются CLI-override и env-overrides, и только потом выполняется `PipelineConfig.model_validate()`.[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001][ref: config-loader]
 
 ## 5. Профили `base.yaml` и `determinism.yaml`
 
@@ -266,7 +294,7 @@ determinism:
 ## 6. Пример итогового конфига
 
 ```yaml
-# configs/pipelines/chembl/activity.yaml
+# configs/pipelines/activity/activity_chembl.yaml
 extends:
   - ../profiles/base.yaml
   - ../profiles/determinism.yaml
@@ -312,16 +340,16 @@ validation:
 
 ### 7.1 CLI `--set`
 
-```
+```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --set http.default.timeout_sec=90 \
   --set determinism.sort.by='["activity_id"]'
 ```
 
 ### 7.2 Переменные окружения
 
-```
+```bash
 export BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120
 export BIOETL__SOURCES__CHEMBL__PARAMETERS__endpoint="https://chembl/api"
 export BIOETL__DETERMINISM__FLOAT_PRECISION=4
@@ -340,3 +368,7 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 - Добавить строгие модели для конкретных источников (`ChemblSourceConfig`, `PubChemSourceConfig`) вместо общего словаря `parameters`.
 - Ввести генератор документации, который автоматически строит таблицы по Pydantic-моделям и обновляет этот документ.
+
+[ref: base-config]: repo:src/bioetl/config/models/base.py
+[ref: column-order-validation]: repo:src/bioetl/configs/models.py†L381-L388
+[ref: config-loader]: repo:src/bioetl/config/loader.py@refactoring_001

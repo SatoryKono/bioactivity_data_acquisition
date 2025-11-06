@@ -18,7 +18,7 @@ python -m bioetl.cli.main target
 
 ```bash
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```
 

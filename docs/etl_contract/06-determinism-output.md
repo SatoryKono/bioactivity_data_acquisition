@@ -56,7 +56,7 @@ column_order:
 column_order_source: schema
 config_fingerprint: "sha256:abcde12345..."
 config_snapshot:
-  path: configs/pipelines/chembl/activity.yaml
+  path: configs/pipelines/activity/activity_chembl.yaml
   sha256: "sha256:fghij67890..."
 deduplicated_count: 0
 generated_at_utc: "2025-11-03T01:15:00.123456Z"

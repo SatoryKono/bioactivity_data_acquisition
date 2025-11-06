@@ -10,7 +10,7 @@ This document describes the configuration keys and profiles for the Document (Ch
 
 ## Configuration File
 
-The pipeline configuration is defined in `src/bioetl/configs/pipelines/chembl/document.yaml`.
+The pipeline configuration is defined in `configs/pipelines/document/document_chembl.yaml`.
 
 ## Profile Inheritance
 

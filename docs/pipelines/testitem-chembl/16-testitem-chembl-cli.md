@@ -18,7 +18,7 @@ python -m bioetl.cli.main testitem
 
 ```bash
 python -m bioetl.cli.main testitem \
-  --config configs/pipelines/chembl/testitem.yaml \
+  --config configs/pipelines/testitem/testitem_chembl.yaml \
   --output-dir data/output/testitem
 ```
 

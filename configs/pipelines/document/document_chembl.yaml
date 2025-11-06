@@ -1,0 +1,111 @@
+# Document ChEMBL Pipeline Configuration
+#
+# This configuration defines the pipeline for extracting document records
+# from the ChEMBL API and normalizing them to the project schema.
+
+# Inherit from base, determinism, and shared profiles
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
+  - ../../profiles/chembl.yaml
+  - ../../profiles/validation.yaml
+  - ../../profiles/postprocess.yaml
+
+# Pipeline metadata
+pipeline:
+  name: document_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract document records from ChEMBL API"
+
+# ChEMBL source configuration (common settings inherited from chembl.yaml profile)
+sources:
+  chembl:
+    batch_size: 10  # Must be <= 25 for ChEMBL API URL length limit
+    parameters:
+      select_fields:
+        - document_chembl_id
+        - doc_type
+        - journal
+        - journal_full_title
+        - doi
+        - doi_chembl
+        - src_id
+        - title
+        - abstract
+        - year
+        - journal_abbrev
+        - volume
+        - issue
+        - first_page
+        - last_page
+        - pubmed_id
+        - authors
+
+# CLI configuration (optional overrides)
+cli:
+  # Optional path to input file (CSV/Parquet) containing document_chembl_id column
+  # for batch extraction. Can be overridden via --input-file CLI option.
+  input_file: "data/input/document.csv"
+
+# Determinism configuration for document pipeline
+determinism:
+  sort:
+    by:
+      - document_chembl_id
+      - pubmed_id
+      - doi_clean
+    ascending:
+      - true
+      - true
+      - true
+    na_position: "last"
+  column_order:
+    - document_chembl_id
+    - doc_type
+    - journal
+    - journal_full_title
+    - doi
+    - doi_chembl
+    - src_id
+    - title
+    - abstract
+    - doi_clean
+    - pubmed_id
+    - year
+    - journal_abbrev
+    - volume
+    - issue
+    - first_page
+    - last_page
+    - authors
+    - authors_count
+    - source
+    - hash_business_key
+    - hash_row
+    - term
+    - weight
+
+  hashing:
+    business_key_fields:
+      - document_chembl_id
+
+# ChEMBL enrichment configuration
+chembl:
+  document:
+    enrich:
+      document_term:
+        enabled: false
+        select_fields:
+          - document_chembl_id
+          - term
+          - weight
+        page_limit: 1000
+        sort: weight_desc
+        max_retries: 3
+        retry_backoff: 1.5
+
+# Validation schema (common settings inherited from validation.yaml profile)
+validation:
+  schema_out: "bioetl.schemas.document_chembl.DocumentSchema"
+

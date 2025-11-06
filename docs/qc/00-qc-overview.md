@@ -92,7 +92,7 @@ Continuous Integration pipelines orchestrate QC in four deterministic stages tha
 
     ```bash
     python -m bioetl.cli.main activity \
-      --config configs/pipelines/chembl/activity.yaml \
+      --config configs/pipelines/activity/activity_chembl.yaml \
       --output-dir data/output/activity_chembl \
       --set determinism.enabled=true
     ```

@@ -47,7 +47,7 @@ The resilient HTTP layer retries transient errors before surfacing them as `requ
 ### Exit code `0`: successful run
 
 ```text
-$ python -m bioetl.cli.main activity --config configs/pipelines/chembl/activity.yaml
+$ python -m bioetl.cli.main activity --config configs/pipelines/activity/activity_chembl.yaml
 === Pipeline Execution Summary ===
 Dataset: data/output/activity_20250115.csv
 Quality report: data/output/activity_20250115_qc.csv
@@ -61,7 +61,7 @@ $ echo $?
 Example: upstream API returned HTTP 503 after exhausting retries.
 
 ```text
-$ python -m bioetl.cli.main activity --config configs/pipelines/chembl/activity.yaml
+$ python -m bioetl.cli.main activity --config configs/pipelines/activity/activity_chembl.yaml
 [2025-01-15T09:12:44Z] WARNING bioetl.core.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
 [2025-01-15T09:12:47Z] ERROR   cli.activity pipeline_failed error="503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json"
 [ERROR] Pipeline failed: 503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json
@@ -72,7 +72,7 @@ $ echo $?
 Example: column validation detected missing columns.
 
 ```text
-$ python -m bioetl.cli.main document --config configs/pipelines/chembl/document.yaml --validate-columns
+$ python -m bioetl.cli.main document --config configs/pipelines/document/document_chembl.yaml --validate-columns
 ...
 Критические несоответствия в колонках обнаружены!
 [ERROR] Pipeline failed: Column validation requested exit

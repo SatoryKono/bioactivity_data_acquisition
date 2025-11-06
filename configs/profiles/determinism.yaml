@@ -33,7 +33,7 @@ determinism:
   hashing:
     algorithm: "sha256"
     row_fields: []
-    business_key_fields: []
+    business_key_fields: []  # Pipeline-specific: override in pipeline config (e.g., ["activity_id", "row_subtype", "row_index"])
     exclude_fields: ["generated_at", "run_id"]
 
   environment:

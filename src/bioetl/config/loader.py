@@ -9,7 +9,7 @@ from typing import Any, Iterable
 
 import yaml
 
-from .models import PipelineConfig
+from .models.base import PipelineConfig
 
 DEFAULT_PROFILE_PATHS: tuple[Path, ...] = (
     Path("configs/profiles/base.yaml"),

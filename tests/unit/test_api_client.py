@@ -11,7 +11,12 @@ import requests
 from requests import Response
 from requests.exceptions import ConnectionError, Timeout
 
-from bioetl.config.models import CircuitBreakerConfig, HTTPClientConfig, RateLimitConfig, RetryConfig
+from bioetl.config.models.http import (
+    CircuitBreakerConfig,
+    HTTPClientConfig,
+    RateLimitConfig,
+    RetryConfig,
+)
 from bioetl.core.api_client import (
     CircuitBreaker,
     CircuitBreakerOpenError,

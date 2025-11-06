@@ -943,7 +943,7 @@ postprocess:
 
 Assay pipeline использует декларативный YAML-конфигурационный файл, который отделяет логику пайплайна от его поведения. Конфигурация валидируется на этапе выполнения через типизированные Pydantic-модели (`PipelineConfig`). Подробности о системе конфигурации см. в [Typed Configurations](../configs/00-typed-configs-and-profiles.md).
 
-**Расположение конфига:** `configs/pipelines/chembl/assay.yaml`
+**Расположение конфига:** `configs/pipelines/assay/assay_chembl.yaml`
 
 **Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
 
@@ -952,7 +952,7 @@ Assay pipeline использует декларативный YAML-конфиг
 Ниже приведена полная структура конфигурационного файла для assay pipeline с описанием всех секций:
 
 ```yaml
-# configs/pipelines/chembl/assay.yaml
+# configs/pipelines/assay/assay_chembl.yaml
 
 # Наследование базовых профилей
 extends:
@@ -1183,7 +1183,7 @@ sources.chembl.batch_size
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
   --set determinism.sort.by='["assay_chembl_id"]' \
@@ -1202,7 +1202,7 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 ### 7.7 Пример полного конфига
 
-Полный пример конфигурационного файла для assay pipeline доступен в `configs/pipelines/chembl/assay.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и обогащением данными.
+Полный пример конфигурационного файла для assay pipeline доступен в `configs/pipelines/assay/assay_chembl.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и обогащением данными.
 
 ## 8. Pandera схема валидации
 
@@ -1532,7 +1532,7 @@ CLI загружает конфигурацию в следующем поряд
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 ```
 
@@ -1540,7 +1540,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --dry-run
 ```
@@ -1549,7 +1549,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --limit 100
 ```
@@ -1558,7 +1558,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --sample 500 \
   --set determinism.sample_seed=42
@@ -1568,7 +1568,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --golden tests/golden/assay/assay_20250115.csv
 ```
@@ -1577,7 +1577,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
   --set sources.chembl.max_url_length=2000
@@ -1587,7 +1587,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --fail-on-schema-drift \
   --validate-columns
@@ -1597,7 +1597,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --input-file data/input/assay_ids.csv
 ```
@@ -1606,7 +1606,7 @@ python -m bioetl.cli.main assay \
 
 ```bash
 python -m bioetl.cli.main assay \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --verbose
 ```

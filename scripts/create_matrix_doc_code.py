@@ -76,8 +76,8 @@ def create_matrix() -> List[Dict[str, Any]]:
             "action": "verify",
         },
         {
-            "doc_point": "Config: configs/pipelines/chembl/activity.yaml",
-            "code_file": "configs/pipelines/chembl/activity.yaml",
+            "doc_point": "Config: configs/pipelines/activity/activity_chembl.yaml",
+            "code_file": "configs/pipelines/activity/activity_chembl.yaml",
             "code_symbol": "activity.yaml",
             "pipeline": "activity",
             "contract": "обязательный",
@@ -107,8 +107,8 @@ def create_matrix() -> List[Dict[str, Any]]:
             "action": "verify",
         },
         {
-            "doc_point": "Config: configs/pipelines/chembl/assay.yaml",
-            "code_file": "configs/pipelines/chembl/assay.yaml",
+            "doc_point": "Config: configs/pipelines/assay/assay_chembl.yaml",
+            "code_file": "configs/pipelines/assay/assay_chembl.yaml",
             "code_symbol": "assay.yaml",
             "pipeline": "assay",
             "contract": "обязательный",
@@ -138,8 +138,8 @@ def create_matrix() -> List[Dict[str, Any]]:
             "action": "verify",
         },
         {
-            "doc_point": "Config: configs/pipelines/chembl/testitem.yaml",
-            "code_file": "configs/pipelines/chembl/testitem.yaml",
+            "doc_point": "Config: configs/pipelines/testitem/testitem_chembl.yaml",
+            "code_file": "configs/pipelines/testitem/testitem_chembl.yaml",
             "code_symbol": "testitem.yaml",
             "pipeline": "testitem",
             "contract": "обязательный",

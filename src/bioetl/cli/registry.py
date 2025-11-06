@@ -26,61 +26,61 @@ class CommandConfig:
 
 def build_command_config_activity() -> CommandConfig:
     """Build command configuration for activity pipeline."""
-    from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+    from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
     return CommandConfig(
         name="activity_chembl",
         description="Extract biological activity records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblActivityPipeline,
-        default_config_path=Path("configs/pipelines/chembl/activity.yaml"),
+        default_config_path=Path("configs/pipelines/activity/activity_chembl.yaml"),
     )
 
 
 def build_command_config_assay() -> CommandConfig:
     """Build command configuration for assay pipeline."""
-    from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
+    from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
     return CommandConfig(
         name="assay_chembl",
         description="Extract assay records from ChEMBL API.",
         pipeline_class=ChemblAssayPipeline,
-        default_config_path=Path("configs/pipelines/chembl/assay.yaml"),
+        default_config_path=Path("configs/pipelines/assay/assay_chembl.yaml"),
     )
 
 
 def build_command_config_target() -> CommandConfig:
     """Build command configuration for target pipeline."""
-    from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+    from bioetl.pipelines.target.target import ChemblTargetPipeline
 
     return CommandConfig(
         name="target",
         description="Extract target records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblTargetPipeline,
-        default_config_path=Path("configs/pipelines/chembl/target.yaml"),
+        default_config_path=Path("configs/pipelines/target/target_chembl.yaml"),
     )
 
 
 def build_command_config_document() -> CommandConfig:
     """Build command configuration for document pipeline."""
-    from bioetl.pipelines.chembl.document import ChemblDocumentPipeline
+    from bioetl.pipelines.document.document import ChemblDocumentPipeline
 
     return CommandConfig(
         name="document",
         description="Extract document records from ChEMBL API and normalize them to the project schema.",
         pipeline_class=ChemblDocumentPipeline,
-        default_config_path=Path("configs/pipelines/chembl/document.yaml"),
+        default_config_path=Path("configs/pipelines/document/document_chembl.yaml"),
     )
 
 
 def build_command_config_testitem() -> CommandConfig:
     """Build command configuration for testitem pipeline."""
-    from bioetl.pipelines.chembl.testitem import TestItemChemblPipeline
+    from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline
 
     return CommandConfig(
         name="testitem_chembl",
         description="Extract molecule records from ChEMBL API and normalize them to test items.",
         pipeline_class=TestItemChemblPipeline,
-        default_config_path=Path("configs/pipelines/chembl/testitem.yaml"),
+        default_config_path=Path("configs/pipelines/testitem/testitem_chembl.yaml"),
     )
 
 

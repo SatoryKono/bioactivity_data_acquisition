@@ -43,19 +43,19 @@ This pipeline documentation is organized by stage and topic:
 ```bash
 # Standard production extraction
 python -m bioetl.cli.main assay_chembl \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 
 # Throttle the client for troubleshooting
 python -m bioetl.cli.main assay_chembl \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20
 ```
 
 ## Configuration
 
-Configuration is defined in `src/bioetl/configs/pipelines/chembl/assay.yaml`. Key settings include:
+Configuration is defined in `src/bioetl/configs/pipelines/assay/assay_chembl.yaml`. Key settings include:
 
 - ChEMBL source configuration (batch_size ≤ 25, max_url_length ≤ 2000)
 - Cache namespace for release-scoped invalidation

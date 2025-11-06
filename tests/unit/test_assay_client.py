@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 
 from bioetl.clients.chembl import ChemblClient
-from bioetl.clients.chembl_assay import ChemblAssayClient
+from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.core.api_client import UnifiedAPIClient
 
 

@@ -234,3 +234,8 @@ reportUnknownParameterType = false
 reportUntypedClassDecorator = false
 reportUntypedFunctionDecorator = false
 
+[[tool.pyright.overrides]]
+include = ["src/bioetl/pipelines/assay/**"]
+reportMissingImports = false
+reportUnknownVariableType = false
+

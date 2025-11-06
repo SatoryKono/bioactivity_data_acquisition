@@ -10,7 +10,7 @@ This document describes configuration for the TestItem (ChEMBL) pipeline.
 
 ## Configuration File
 
-`src/bioetl/configs/pipelines/chembl/testitem.yaml`
+`configs/pipelines/testitem/testitem_chembl.yaml`
 
 ## Key Settings
 

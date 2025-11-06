@@ -19,18 +19,18 @@ python -m bioetl.cli.main document
 ```bash
 # Standard production run
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document
 
 # Dry run to validate configuration
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --dry-run
 
 # Override batch size for testing
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --set sources.chembl.batch_size=10 \
   --limit 100

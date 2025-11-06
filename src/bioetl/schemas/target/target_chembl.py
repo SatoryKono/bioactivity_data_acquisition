@@ -1,0 +1,50 @@
+"""Pandera schema describing the normalized ChEMBL target dataset."""
+
+from __future__ import annotations
+
+from bioetl.schemas.base import create_schema
+from bioetl.schemas.common import (
+    chembl_id_column,
+    nullable_pd_int64_column,
+    nullable_string_column,
+)
+
+SCHEMA_VERSION = "1.0.0"
+
+COLUMN_ORDER = (
+    "target_chembl_id",
+    "pref_name",
+    "target_type",
+    "organism",
+    "tax_id",
+    "species_group_flag",
+    "cross_references__flat",
+    "target_components__flat",
+    "target_component_synonyms__flat",
+    "uniprot_accessions",
+    "protein_class_desc",
+    "component_count",
+)
+
+TargetSchema = create_schema(
+    columns={
+        "target_chembl_id": chembl_id_column(nullable=False, unique=True),
+        "pref_name": nullable_string_column(),
+        "target_type": nullable_string_column(),
+        "organism": nullable_string_column(),
+        "tax_id": nullable_string_column(),
+        "species_group_flag": nullable_pd_int64_column(isin={0, 1}),
+        "cross_references__flat": nullable_string_column(),
+        "target_components__flat": nullable_string_column(),
+        "target_component_synonyms__flat": nullable_string_column(),
+        "uniprot_accessions": nullable_string_column(),
+        "protein_class_desc": nullable_string_column(),
+        "component_count": nullable_pd_int64_column(ge=0),
+    },
+    version=SCHEMA_VERSION,
+    name="TargetSchema",
+    strict=True,
+)
+
+__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TargetSchema"]
+

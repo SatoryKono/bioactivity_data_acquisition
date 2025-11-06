@@ -10,7 +10,7 @@ This document describes configuration for the Target (ChEMBL) pipeline.
 
 ## Configuration File
 
-`src/bioetl/configs/pipelines/chembl/target.yaml`
+`configs/pipelines/target/target_chembl.yaml`
 
 ## Key Settings
 

@@ -19,12 +19,12 @@ python -m bioetl.cli.main assay_chembl
 ```bash
 # Standard production run
 python -m bioetl.cli.main assay_chembl \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 
 # Dry run to validate configuration
 python -m bioetl.cli.main assay_chembl \
-  --config configs/pipelines/chembl/assay.yaml \
+  --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --dry-run
 ```

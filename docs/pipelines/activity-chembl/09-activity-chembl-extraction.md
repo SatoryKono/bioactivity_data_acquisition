@@ -121,7 +121,7 @@ python -m bioetl.cli.main activity [OPTIONS]
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
 
@@ -129,7 +129,7 @@ python -m bioetl.cli.main activity \
 
 | Параметр | Описание | Пример |
 |----------|----------|--------|
-| `--config PATH` | Путь к YAML-конфигурации пайплайна | `configs/pipelines/chembl/activity.yaml` |
+| `--config PATH` | Путь к YAML-конфигурации пайплайна | `configs/pipelines/activity/activity_chembl.yaml` |
 | `--output-dir PATH` | Директория для записи артефактов запуска | `data/output/activity` |
 
 **Важно:** Оба параметра обязательны. Без них пайплайн не запустится.
@@ -154,7 +154,7 @@ python -m bioetl.cli.main activity \
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
 
@@ -162,7 +162,7 @@ python -m bioetl.cli.main activity \
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
 ```
@@ -171,7 +171,7 @@ python -m bioetl.cli.main activity \
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \
   --limit 100
@@ -181,7 +181,7 @@ python -m bioetl.cli.main activity \
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
 ```
@@ -190,7 +190,7 @@ python -m bioetl.cli.main activity \
 
 ```bash
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=20 \
   --set postprocess.correlation.enabled=true \
@@ -202,7 +202,7 @@ python -m bioetl.cli.main activity \
 ```bash
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10  # будет переопределено env
 ```
@@ -219,7 +219,7 @@ python -m bioetl.cli.main activity \
 **Пример приоритетов:**
 
 ```bash
-# В configs/pipelines/chembl/activity.yaml:
+# В configs/pipelines/activity/activity_chembl.yaml:
 sources:
   chembl:
     batch_size: 25
@@ -277,18 +277,18 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 ```bash
 # Standard режим
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Extended режим
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
 
 # Dry-run режим
 python -m bioetl.cli.main activity \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
 ```
@@ -308,7 +308,7 @@ Activity pipeline управляется через декларативный Y
 
 **Путь к конфигурационному файлу:**
 
-- `configs/pipelines/chembl/activity.yaml`
+- `configs/pipelines/activity/activity_chembl.yaml`
 
 **Стандартная структура:**
 
@@ -397,7 +397,7 @@ postprocess:  # Постобработка
 ### 3.4. Пример конфигурационного файла
 
 ```yaml
-# configs/pipelines/chembl/activity.yaml
+# configs/pipelines/activity/activity_chembl.yaml
 
 version: 1
 

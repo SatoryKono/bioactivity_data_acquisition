@@ -24,7 +24,7 @@ python -m bioetl.cli.main target [OPTIONS]
 
 ```bash
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```
 
@@ -34,7 +34,7 @@ python -m bioetl.cli.main target \
 
 Target pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
 
-**Расположение конфига:** `configs/pipelines/chembl/target.yaml`
+**Расположение конфига:** `configs/pipelines/target/target_chembl.yaml`
 
 **Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
 
@@ -45,7 +45,7 @@ Target pipeline управляется через декларативный YAM
 Конфигурационный файл Target pipeline следует стандартной структуре `PipelineConfig`:
 
 ```yaml
-# configs/pipelines/chembl/target.yaml
+# configs/pipelines/target/target_chembl.yaml
 
 version: 1  # Версия схемы конфигурации
 
@@ -238,7 +238,7 @@ sources.chembl.batch_size
 
 ```bash
 python -m bioetl.cli.main target \
-  --config configs/pipelines/chembl/target.yaml \
+  --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.chembl.batch_size=20 \
   --set determinism.sort.by='["target_chembl_id"]' \
@@ -257,7 +257,7 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 ### 3.7 Пример полного конфига
 
-Полный пример конфигурационного файла для target pipeline доступен в `configs/pipelines/chembl/target.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из ChEMBL.
+Полный пример конфигурационного файла для target pipeline доступен в `configs/pipelines/target/target_chembl.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из ChEMBL.
 
 For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
@@ -1011,7 +1011,7 @@ Target pipeline использует `UnifiedLogger` для структурир
   "run_id": "a1b2c3d4e5f6g7h8",
   "stage": "bootstrap",
   "pipeline": "target",
-  "config_path": "configs/pipelines/chembl/target.yaml",
+  "config_path": "configs/pipelines/target/target_chembl.yaml",
   "output_dir": "data/output/target",
   "timestamp": "2025-01-15T10:30:00.123456Z"
 }

@@ -1,6 +1,23 @@
-"""ChEMBL-specific pipeline implementations."""
+"""ChEMBL pipeline modules (proxy for backward compatibility).
 
-from .activity import ChemblActivityPipeline
-from .assay import ChemblAssayPipeline
+This module provides backward compatibility imports for code that references
+`bioetl.pipelines.chembl.*` instead of the new `bioetl.pipelines.*` structure.
 
-__all__ = ["ChemblActivityPipeline", "ChemblAssayPipeline"]
+The actual implementations are in:
+- `bioetl.pipelines.assay` for assay pipelines
+- `bioetl.pipelines.activity` for activity pipelines
+- `bioetl.pipelines.target` for target pipelines
+- `bioetl.pipelines.document` for document pipelines
+- `bioetl.pipelines.testitem` for testitem pipelines
+"""
+
+from __future__ import annotations
+
+from bioetl.pipelines.assay import ChemblAssayPipeline
+from bioetl.pipelines.chembl.shared import ChemblPipelineBase
+
+__all__ = [
+    "ChemblAssayPipeline",
+    "ChemblPipelineBase",
+]
+

@@ -1,0 +1,43 @@
+"""Base utilities for creating Pandera schemas."""
+
+from __future__ import annotations
+
+from pandera import Column, DataFrameSchema
+
+
+def create_schema(
+    *,
+    columns: dict[str, Column],
+    version: str,
+    name: str,
+    strict: bool = False,
+) -> DataFrameSchema:
+    """Create a standardized DataFrameSchema with common settings.
+
+    Parameters
+    ----------
+    columns
+        Dictionary of column name to Column definition.
+    version
+        Schema version string (e.g., "1.0.0").
+    name
+        Schema name (e.g., "AssaySchema").
+    strict
+        Whether to enforce strict schema validation (only allow defined columns).
+
+    Returns
+    -------
+    DataFrameSchema
+        A configured DataFrameSchema with ordered=True and coerce=False.
+    """
+    return DataFrameSchema(
+        columns,
+        ordered=True,
+        coerce=False,  # Disable coercion at schema level - types are normalized in transform
+        strict=strict,
+        name=f"{name}_v{version}",
+    )
+
+
+__all__ = ["create_schema"]
+

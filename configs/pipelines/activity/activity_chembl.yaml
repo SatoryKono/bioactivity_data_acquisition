@@ -1,0 +1,192 @@
+# Activity ChEMBL Pipeline Configuration
+#
+# This configuration defines the pipeline for extracting biological activity
+# records from the ChEMBL API and normalizing them to the project schema.
+
+# Inherit from base, determinism, and shared profiles
+extends:
+  - ../../profiles/base.yaml
+  - ../../profiles/determinism.yaml
+  - ../../profiles/chembl.yaml
+  - ../../profiles/validation.yaml
+  - ../../profiles/postprocess.yaml
+
+# Pipeline metadata
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract biological activity records from ChEMBL API"
+
+# ChEMBL source configuration (common settings inherited from chembl.yaml profile)
+sources:
+  chembl:
+    batch_size: 20  # Must be <= 25 for ChEMBL API URL length limit
+    parameters:
+      select_fields:
+        - activity_id
+        - assay_chembl_id
+        - testitem_chembl_id
+        - molecule_chembl_id
+        - target_chembl_id
+        - document_chembl_id
+        - type
+        - relation
+        - value
+        - units
+        - standard_type
+        - standard_relation
+        - standard_value
+        - standard_units
+        - standard_text_value
+        - standard_flag
+        - upper_value
+        - lower_value
+        - pchembl_value
+        - activity_comment
+        - bao_endpoint
+        - bao_format
+        - bao_label
+        - canonical_smiles
+        - ligand_efficiency
+        - target_organism
+        - target_tax_id
+        - data_validity_comment
+        - potential_duplicate
+        - activity_properties
+        - assay_type
+        - assay_description
+        - assay_organism
+        - assay_tax_id
+        - parent_molecule_chembl_id
+        - molecule_pref_name
+        - record_id
+        - src_id
+        - target_pref_name
+        - text_value
+        - standard_upper_value
+        - uo_units
+        - qudt_units
+        - curated_by
+
+# CLI configuration (optional overrides)
+cli:
+  # Optional path to input file (CSV/Parquet) containing activity_id column
+  # for batch extraction. Can be overridden via --input-file CLI option.
+  input_file: "data/input/activity.csv"
+
+# Determinism configuration for activity pipeline
+determinism:
+  sort:
+    by:
+      - assay_chembl_id
+      - molecule_chembl_id
+      - activity_id
+    ascending:
+      - true
+      - true
+      - true
+    na_position: "last"
+  column_order:
+    - activity_id
+    - row_subtype
+    - row_index    
+    - assay_chembl_id
+    - assay_type
+    - assay_description
+    - assay_organism
+    - assay_tax_id
+    - testitem_chembl_id
+    - molecule_chembl_id
+    - parent_molecule_chembl_id
+    - molecule_pref_name
+    - target_chembl_id
+    - target_pref_name
+    - document_chembl_id
+    - record_id
+    - src_id
+    - type
+    - relation
+    - value
+    - units
+    - standard_type
+    - standard_relation
+    - standard_value
+    - standard_upper_value
+    - standard_units
+    - standard_text_value
+    - standard_flag
+    - upper_value
+    - lower_value
+    - pchembl_value
+    - uo_units
+    - qudt_units
+    - text_value
+    - activity_comment
+    - bao_endpoint
+    - bao_format
+    - bao_label
+    - canonical_smiles
+    - ligand_efficiency
+    - target_organism
+    - target_tax_id
+    - data_validity_comment
+    - data_validity_description
+    - potential_duplicate
+    - activity_properties
+    - compound_key
+    - compound_name
+    - curated
+    - removed
+
+  hashing:
+    business_key_fields:
+      - activity_id
+      - row_subtype
+      - row_index
+
+# ChEMBL enrichment configuration
+chembl:
+  activity:
+    enrich:
+      compound_record:
+        enabled: true
+        fields:
+          - molecule_chembl_id
+          - pref_name
+          - molecule_structures
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+      assay:
+        enabled: true
+        fields:
+          - assay_chembl_id
+          - assay_organism
+          - assay_tax_id
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+      data_validity:
+        enabled: true
+        fields:
+          - data_validity_comment
+          - description
+        page_limit: 1000
+        request_timeout: 60
+        max_retries: 3
+        retry_backoff: 1.5
+
+# Validation schema (common settings inherited from validation.yaml profile)
+validation:
+  schema_out: "bioetl.schemas.activity.activity_chembl.ActivitySchema"
+  data_validity_comment_whitelist:
+    - "Manually validated"
+    - "Potential transcription error"
+    - "Potential missing data"
+    - "Outside typical range"
+    - "Non standard unit for type"
+    - "Author confirmed error"
+

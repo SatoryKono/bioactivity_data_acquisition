@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from bioetl.config.models import HTTPClientConfig, PipelineConfig, SourceConfig
+from bioetl.config.models.base import PipelineConfig
+from bioetl.config.models.http import HTTPClientConfig
+from bioetl.config.models.source import SourceConfig
 
 from .api_client import UnifiedAPIClient, merge_http_configs
 from .logger import UnifiedLogger

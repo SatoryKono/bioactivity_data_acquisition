@@ -10,7 +10,7 @@ This document describes configuration for the Assay (ChEMBL) pipeline.
 
 ## Configuration File
 
-`configs/pipelines/chembl/assay.yaml`
+`configs/pipelines/assay/assay_chembl.yaml`
 
 ## Key Settings
 

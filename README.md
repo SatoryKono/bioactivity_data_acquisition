@@ -22,7 +22,7 @@ source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install -e ".[dev]"
 python -m bioetl.cli.main list
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --input-file data/input/activity.csv \
   --output-dir data/output/activity \
   --dry-run
@@ -55,11 +55,11 @@ python -m bioetl.cli.main activity_chembl \
 
 | Пайплайн | Основной источник | Целевые сущности | CLI команда | Конфигурация | Статус |
 | --- | --- | --- | --- | --- | --- |
-| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity_chembl` | [`pipelines/chembl/activity.yaml`][ref: repo:configs/pipelines/chembl/activity.yaml@refactoring_001] | Production |
-| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay_chembl` | [`pipelines/chembl/assay.yaml`][ref: repo:configs/pipelines/chembl/assay.yaml@refactoring_001] | Production |
-| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/chembl/target.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001] | Production |
-| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/chembl/document.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001] | Production |
-| TestItem | ChEMBL молекулы (обогащение PubChem вынесено в отдельный пайплайн) | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/chembl/testitem.yaml`][ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001] | Production |
+| Activity | ChEMBL `/activity.json` | Активности | `bioetl.cli.main activity_chembl` | [`pipelines/activity/activity_chembl.yaml`][ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001] | Production |
+| Assay | ChEMBL `/assay.json` | Ассайы | `bioetl.cli.main assay_chembl` | [`pipelines/assay/assay_chembl.yaml`][ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001] | Production |
+| Target | ChEMBL `/target.json` + UniProt/IUPHAR обогащения | Таргеты + обогащение | `bioetl.cli.main target` | [`pipelines/target/target_chembl.yaml`][ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001] | Production |
+| Document | ChEMBL документы + PubMed/Crossref/OpenAlex/Semantic Scholar | Документы | `bioetl.cli.main document` | [`pipelines/document/document_chembl.yaml`][ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001] | Production |
+| TestItem | ChEMBL молекулы (обогащение PubChem вынесено в отдельный пайплайн) | Тест-айтемы | `bioetl.cli.main testitem` | [`pipelines/testitem/testitem_chembl.yaml`][ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001] | Production |
 
 ### Внешние энричеры и standalone источники
 

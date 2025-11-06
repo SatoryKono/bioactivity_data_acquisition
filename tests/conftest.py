@@ -27,20 +27,23 @@ import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
 from bioetl.config import PipelineConfig  # noqa: E402
-from bioetl.config.models import (  # noqa: E402, type: ignore[attr-defined]  # noqa: ISC001
-    CLIConfig,
+from bioetl.config.models.base import PipelineMetadata  # noqa: E402
+from bioetl.config.models.cache import CacheConfig  # noqa: E402
+from bioetl.config.models.cli import CLIConfig  # noqa: E402
+from bioetl.config.models.determinism import (  # noqa: E402
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSortingConfig,
+)
+from bioetl.config.models.http import (  # noqa: E402
     HTTPClientConfig,
     HTTPConfig,
-    MaterializationConfig,
-    PipelineMetadata,
-    PostprocessConfig,
     RetryConfig,
-    SourceConfig,
-    ValidationConfig,
 )
+from bioetl.config.models.paths import MaterializationConfig  # noqa: E402
+from bioetl.config.models.postprocess import PostprocessConfig  # noqa: E402
+from bioetl.config.models.source import SourceConfig  # noqa: E402
+from bioetl.config.models.validation import ValidationConfig  # noqa: E402
 from bioetl.core.api_client import UnifiedAPIClient  # noqa: E402
 
 # Models will be imported inside fixtures to avoid import errors

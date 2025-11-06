@@ -111,7 +111,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 
    ```bash
    python -m bioetl.cli.main activity \
-     --config src/bioetl/configs/pipelines/chembl/activity.yaml \
+     --config configs/pipelines/activity/activity_chembl.yaml \
      --output-dir data/output/activity/dry_run \
      --dry-run
    ```
@@ -122,7 +122,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 
    ```bash
    python -m bioetl.cli.main document \
-     --config src/bioetl/configs/pipelines/chembl/document.yaml \
+     --config configs/pipelines/document/document_chembl.yaml \
      --output-dir data/output/document/full_load \
      --set profiles.include="['base.yaml','determinism.yaml']"
    ```

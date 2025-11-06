@@ -48,12 +48,12 @@ This pipeline documentation is organized by stage and topic:
 ```bash
 # All-source enrichment run
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document
 
 # ChEMBL only mode
 python -m bioetl.cli.main document \
-  --config configs/pipelines/chembl/document.yaml \
+  --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --set sources.pubmed.enabled=false \
   --set sources.crossref.enabled=false \
@@ -63,7 +63,7 @@ python -m bioetl.cli.main document \
 
 ## Configuration
 
-Configuration is defined in `src/bioetl/configs/pipelines/chembl/document.yaml`. Key settings include:
+Configuration is defined in `src/bioetl/configs/pipelines/document/document_chembl.yaml`. Key settings include:
 
 - ChEMBL source configuration (batch size, URL limits)
 - External source adapters (PubMed, Crossref, OpenAlex, Semantic Scholar)

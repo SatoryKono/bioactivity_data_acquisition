@@ -27,11 +27,11 @@ To guarantee a stable row order, every pipeline **must** define a `determinism.s
 
 | Pipeline          | Sort Key(s)                               | Justification & Tie-Breaker Policy                                                                                                                                      | Source References                                                                                                |
 | ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **`activity`**    | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:src/bioetl/configs/pipelines/chembl/activity.yaml@refactoring_001]                                |
-| **`assay`**       | `["assay_id"]`                            | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/assay.yaml@refactoring_001]                                   |
-| **`target`**      | `["target_id"]`                           | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:src/bioetl/configs/pipelines/chembl/target.yaml@refactoring_001]                                  |
-| **`document`**    | `["year", "document_id"]`                 | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected. | [ref: repo:src/bioetl/configs/pipelines/chembl/document.yaml@refactoring_001]                              |
-| **`testitem`**    | `["testitem_id"]`                         | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                     | [ref: repo:src/bioetl/configs/pipelines/chembl/testitem.yaml@refactoring_001]                              |
+| **`activity`**    | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001]                                |
+| **`assay`**       | `["assay_id"]`                            | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001]                                   |
+| **`target`**      | `["target_id"]`                           | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001]                                  |
+| **`document`**    | `["year", "document_id"]`                 | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected. | [ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001]                              |
+| **`testitem`**    | `["testitem_id"]`                         | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                     | [ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001]                              |
 
 ### Operational notes
 
@@ -97,7 +97,7 @@ column_order:
 column_order_source: schema
 config_fingerprint: "sha256:abcde12345..."
 config_snapshot:
-  path: configs/pipelines/chembl/activity.yaml
+  path: configs/pipelines/activity/activity_chembl.yaml
   sha256: "sha256:fghij67890..."
 deduplicated_count: 0
 generated_at_utc: "2025-11-03T01:15:00.123456Z"

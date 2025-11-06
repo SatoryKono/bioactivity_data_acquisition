@@ -39,7 +39,7 @@ python -m bioetl.cli.main <pipeline-name> [OPTIONS]
 **Example:**
 
 ```bash
-python -m bioetl.cli.main activity_chembl --config configs/pipelines/chembl/activity.yaml --output-dir /data/output/activity
+python -m bioetl.cli.main activity_chembl --config configs/pipelines/activity/activity_chembl.yaml --output-dir /data/output/activity
 ```
 
 ## Standard Command-Line Arguments

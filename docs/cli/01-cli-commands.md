@@ -52,7 +52,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main activity_chembl \
-    --config src/bioetl/configs/pipelines/chembl/activity.yaml \
+    --config configs/pipelines/activity/activity_chembl.yaml \
     --output-dir data/output/activity \
     --set sources.chembl.batch_size=10
   ```
@@ -69,7 +69,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main assay_chembl \
-    --config src/bioetl/configs/pipelines/chembl/assay.yaml \
+    --config configs/pipelines/assay/assay_chembl.yaml \
     --output-dir data/output/assay
   ```
 
@@ -85,7 +85,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main target \
-    --config src/bioetl/configs/pipelines/chembl/target.yaml \
+    --config configs/pipelines/target/target_chembl.yaml \
     --output-dir data/output/target
   ```
 
@@ -101,7 +101,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main document \
-    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/document \
     --mode all
   ```
@@ -118,7 +118,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main testitem \
-    --config src/bioetl/configs/pipelines/chembl/testitem.yaml \
+    --config configs/pipelines/testitem/testitem_chembl.yaml \
     --output-dir data/output/testitem
   ```
 
@@ -182,7 +182,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main openalex \
-    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/openalex \
     --mode all \
     --set sources.pubmed.enabled=false \
@@ -203,7 +203,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main crossref \
-    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/crossref \
     --mode all \
     --set sources.crossref.enabled=true \
@@ -224,7 +224,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main pubmed \
-    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/pubmed \
     --mode all \
     --set sources.pubmed.enabled=true \
@@ -245,7 +245,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
   ```bash
   python -m bioetl.cli.main semantic_scholar \
-    --config src/bioetl/configs/pipelines/chembl/document.yaml \
+    --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/semantic_scholar \
     --mode all \
     --set sources.semantic_scholar.enabled=true \
@@ -264,18 +264,18 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 | Command | Data domain | Primary configuration | Default profiles applied |
 | --- | --- | --- | --- |
-| `activity_chembl` | ChEMBL activity fact table | `src/bioetl/configs/pipelines/chembl/activity.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
-| `assay_chembl` | ChEMBL assay dimension | `src/bioetl/configs/pipelines/chembl/assay.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `target` | ChEMBL target dimension + UniProt/IUPHAR enrichment | `src/bioetl/configs/pipelines/chembl/target.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `document` | ChEMBL documents with optional external enrichers | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `testitem` | ChEMBL molecules with PubChem enrichment hooks | `src/bioetl/configs/pipelines/chembl/testitem.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `activity_chembl` | ChEMBL activity fact table | `configs/pipelines/activity/activity_chembl.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
+| `assay_chembl` | ChEMBL assay dimension | `configs/pipelines/assay/assay_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `target` | ChEMBL target dimension + UniProt/IUPHAR enrichment | `configs/pipelines/target/target_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `document` | ChEMBL documents with optional external enrichers | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `testitem` | ChEMBL molecules with PubChem enrichment hooks | `configs/pipelines/testitem/testitem_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `pubchem` | PubChem standalone enrichment | `src/bioetl/configs/pipelines/pubchem.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `gtp_iuphar` | Guide to Pharmacology export | `src/bioetl/configs/pipelines/iuphar.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `uniprot` | UniProt protein export | `src/bioetl/configs/pipelines/uniprot.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `openalex` | Document pipeline (OpenAlex adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `crossref` | Document pipeline (Crossref adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `pubmed` | Document pipeline (PubMed adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
-| `semantic_scholar` | Document pipeline (Semantic Scholar adapter focus) | `src/bioetl/configs/pipelines/chembl/document.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `openalex` | Document pipeline (OpenAlex adapter focus) | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `crossref` | Document pipeline (Crossref adapter focus) | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `pubmed` | Document pipeline (PubMed adapter focus) | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
+| `semantic_scholar` | Document pipeline (Semantic Scholar adapter focus) | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `list` | Registry discovery | *(no config)* | *(not applicable)* |
 
 Each matrix entry links the CLI command to its authoritative configuration bundle, making it easy to trace which YAML files—and therefore which typed models—govern a run.

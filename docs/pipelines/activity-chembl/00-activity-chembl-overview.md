@@ -12,7 +12,7 @@ The Activity (ChEMBL) pipeline extracts biological activity records from ChEMBL 
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 
@@ -43,19 +43,19 @@ This pipeline documentation is organized by stage and topic:
 ```bash
 # Deterministic run with the canonical config
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Override batch size for a smoke test
 python -m bioetl.cli.main activity_chembl \
-  --config configs/pipelines/chembl/activity.yaml \
+  --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10
 ```
 
 ## Configuration
 
-Configuration is defined in `src/bioetl/configs/pipelines/chembl/activity.yaml`. Key settings include:
+Configuration is defined in `src/bioetl/configs/pipelines/activity/activity_chembl.yaml`. Key settings include:
 
 - ChEMBL source configuration (batch_size ≤ 25, required)
 - Correlation report generation (optional, disabled by default)

@@ -8,13 +8,10 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models import (
-    HTTPClientConfig,
-    HTTPConfig,
-    PipelineMetadata,
-    TransformConfig,
-    ValidationConfig,
-)
+from bioetl.config.models.base import PipelineMetadata
+from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
+from bioetl.config.models.transform import TransformConfig
+from bioetl.config.models.validation import ValidationConfig
 from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
 from bioetl.pipelines.chembl.assay_transform import header_rows_serialize
 

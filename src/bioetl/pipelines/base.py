@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pandera.errors
+from pandera import DataFrameSchema
 
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
@@ -900,6 +901,126 @@ class PipelineBase(ABC):
             except TypeError:
                 return None
         return None
+
+    def _ensure_schema_columns(
+        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
+    ) -> pd.DataFrame:
+        """Add missing schema columns so downstream normalization can operate safely.
+
+        Parameters
+        ----------
+        df
+            DataFrame to ensure columns for.
+        column_order
+            Sequence of column names that should exist in the DataFrame.
+        log
+            Logger instance for logging.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with all schema columns present (missing ones filled with NA).
+        """
+        df = df.copy()
+        if df.empty:
+            return df
+
+        expected = list(column_order)
+        missing = [column for column in expected if column not in df.columns]
+        if missing:
+            for column in missing:
+                df[column] = pd.Series([pd.NA] * len(df), dtype="object")
+            log.debug("schema_columns_added", columns=missing)
+
+        return df
+
+    def _order_schema_columns(
+        self, df: pd.DataFrame, column_order: Sequence[str]
+    ) -> pd.DataFrame:
+        """Return DataFrame with schema columns ordered ahead of extras.
+
+        Parameters
+        ----------
+        df
+            DataFrame to reorder.
+        column_order
+            Sequence of column names defining the desired order.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with columns ordered according to column_order, with extras appended.
+        """
+        extras = [column for column in df.columns if column not in column_order]
+        # Filter column_order to only include columns that exist in DataFrame
+        existing_schema_columns = [column for column in column_order if column in df.columns]
+        if self.config.validation.strict:
+            # Only return schema columns that exist
+            return df[existing_schema_columns]
+        # Return schema columns first, then extras
+        return df[[*existing_schema_columns, *extras]]
+
+    def _normalize_data_types(
+        self, df: pd.DataFrame, schema: DataFrameSchema, log: Any
+    ) -> pd.DataFrame:
+        """Convert data types according to the schema.
+
+        This is a basic implementation that handles common cases. Pipelines may
+        override this method for schema-specific normalization logic.
+
+        Parameters
+        ----------
+        df
+            DataFrame to normalize.
+        schema
+            Pandera DataFrameSchema defining expected types.
+        log
+            Logger instance for logging.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with normalized data types.
+        """
+        df = df.copy()
+
+        # Get column definitions from schema
+        for column_name, column_def in schema.columns.items():
+            if column_name not in df.columns:
+                continue
+
+            try:
+                # Handle nullable integers
+                if column_def.dtype == pd.Int64Dtype() or (
+                    hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
+                ):
+                    numeric_series: pd.Series[Any] = pd.to_numeric(  # type: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+                        df[column_name], errors="coerce"  # type: ignore[reportUnknownArgumentType]
+                    )  # pyright: ignore[reportUnknownMemberType]
+                    df[column_name] = numeric_series.astype("Int64")  # type: ignore[reportUnknownMemberType]
+                # Handle nullable floats
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "Float64"
+                ):
+                    numeric_series_float: pd.Series[Any] = pd.to_numeric(  # type: ignore[reportUnknownVariableType, reportUnknownArgumentType]
+                        df[column_name], errors="coerce"  # type: ignore[reportUnknownArgumentType]
+                    )  # pyright: ignore[reportUnknownMemberType]
+                    df[column_name] = numeric_series_float.astype("Float64")  # type: ignore[reportUnknownMemberType]
+                # Handle strings - convert to string, preserving None values
+                elif (
+                    hasattr(column_def.dtype, "name")
+                    and column_def.dtype.name == "string"
+                ):
+                    mask: pd.Series[Any] = df[column_name].notna()  # type: ignore[reportUnknownVariableType, reportUnknownMemberType]
+                    if mask.any():  # type: ignore[reportUnknownMemberType]
+                        df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
+            except (ValueError, TypeError) as exc:
+                log.warning(
+                    "type_conversion_failed", field=column_name, error=str(exc)
+                )
+
+        return df
 
     def _cleanup_registered_clients(self) -> None:
         if not self._registered_clients:
