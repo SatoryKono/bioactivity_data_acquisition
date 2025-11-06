@@ -16,7 +16,7 @@ from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.schemas.document import COLUMN_ORDER
 
-from ..chembl.shared import ChemblPipelineBase
+from ..chembl_base import ChemblPipelineBase
 from .document_enrich import enrich_with_document_terms
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (

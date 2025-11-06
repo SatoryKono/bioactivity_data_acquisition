@@ -10,8 +10,8 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.document_enrich import (
-    _escape_pipe,
+from bioetl.pipelines.document.document_enrich import (
+    _escape_pipe,  # type: ignore[reportPrivateUsage]
     aggregate_terms,
     enrich_with_document_terms,
 )
@@ -70,7 +70,7 @@ class TestEscapePipe:
 
     def test_escape_pipe_none(self) -> None:
         """Test None value."""
-        assert _escape_pipe(None) == ""
+        assert _escape_pipe(None) == ""  # type: ignore[arg-type]
 
 
 class TestAggregateTerms:

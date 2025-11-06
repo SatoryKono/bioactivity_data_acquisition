@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
-from bioetl.schemas.activity_chembl import ActivitySchema
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.schemas.activity import ActivitySchema
 
 
 @pytest.mark.unit
@@ -333,7 +333,7 @@ class TestValidityCommentsInvariant:
 class TestValidityCommentsOnlyFields:
     """Test suite for only fields extraction."""
 
-    @patch("bioetl.pipelines.chembl.activity.UnifiedAPIClient")
+    @patch("bioetl.pipelines.activity.activity.UnifiedAPIClient")
     def test_only_fields_extraction(
         self, mock_client_class: MagicMock, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:

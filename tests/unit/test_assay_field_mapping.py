@@ -10,7 +10,7 @@ from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
 from bioetl.config.models.transform import TransformConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
+from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
 
 def _create_minimal_config() -> PipelineConfig:

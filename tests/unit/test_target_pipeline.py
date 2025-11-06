@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+from bioetl.pipelines.target.target import ChemblTargetPipeline
 
 
 @pytest.mark.unit
@@ -116,10 +115,10 @@ class TestChemblTargetPipeline:
         log = UnifiedLogger.get(__name__)
         result = pipeline._normalize_data_types(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
-        assert result["component_count"].dtype == "Int64"
-        assert result["component_count"].iloc[0] == 1
-        assert result["component_count"].iloc[1] == 2
-        assert pd.isna(result["component_count"].iloc[2])
+        assert result["component_count"].dtype == "Int64"  # type: ignore[unknown-member-type]
+        assert result["component_count"].iloc[0] == 1  # type: ignore[unknown-member-type]
+        assert result["component_count"].iloc[1] == 2  # type: ignore[unknown-member-type]
+        assert pd.isna(result["component_count"].iloc[2])  # type: ignore[unknown-member-type, unknown-argument-type]
 
     def test_ensure_schema_columns(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test adding missing schema columns."""
@@ -136,10 +135,10 @@ class TestChemblTargetPipeline:
         result = pipeline._ensure_schema_columns(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         # All schema columns should be present
-        from bioetl.schemas.target_chembl import COLUMN_ORDER
+        from bioetl.schemas.target import COLUMN_ORDER
 
         for col in COLUMN_ORDER:
-            assert col in result.columns
+            assert col in result.columns  # type: ignore[unknown-member-type]
 
     def test_order_schema_columns(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test reordering columns to match schema order."""
@@ -154,7 +153,7 @@ class TestChemblTargetPipeline:
         result = pipeline._order_schema_columns(df)  # noqa: SLF001  # type: ignore[attr-defined]
 
         # target_chembl_id should come first (first in COLUMN_ORDER)
-        assert result.columns[0] == "target_chembl_id"
+        assert result.columns[0] == "target_chembl_id"  # type: ignore[unknown-member-type]
 
     def test_extract_all_dry_run(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test extract_all in dry-run mode."""

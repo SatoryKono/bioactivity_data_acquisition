@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.chembl.assay import ChemblAssayPipeline
+from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
 
 def create_mock_assay_data(count: int = 5) -> list[dict[str, object]]:

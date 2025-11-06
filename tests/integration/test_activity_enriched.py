@@ -94,7 +94,7 @@ cli:
             },
         }
 
-        with patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline.extract") as mock_extract:
+        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract") as mock_extract:
             mock_extract.return_value = sample_data
             with patch(
                 "bioetl.clients.chembl.ChemblClient.fetch_compound_records_by_pairs"
@@ -105,7 +105,7 @@ cli:
                 config = load_config(config_path)
 
                 # Run pipeline (this will call transform which includes enrichment)
-                from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+                from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
                 pipeline = ChemblActivityPipeline(config, run_id="test_run")
                 df_extracted = pipeline.extract()
@@ -183,11 +183,11 @@ cli:
             "target_chembl_id": ["CHEMBL200", "CHEMBL201"],
         })
 
-        with patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline.extract") as mock_extract:
+        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract") as mock_extract:
             mock_extract.return_value = sample_data
 
             config = load_config(config_path)
-            from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+            from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
             pipeline = ChemblActivityPipeline(config, run_id="test_run")
             df_extracted = pipeline.extract()

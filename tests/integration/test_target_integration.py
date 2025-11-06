@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+from bioetl.pipelines.target.target import ChemblTargetPipeline
 
 
 @pytest.mark.integration

@@ -176,7 +176,7 @@ sources:
 
         with (
             patch("bioetl.cli.command.load_config") as mock_load_config,
-            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -241,7 +241,7 @@ sources:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class:
+        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -392,7 +392,7 @@ validation:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
             patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
@@ -452,7 +452,7 @@ http:
 
         with (
             patch("bioetl.cli.command.load_config") as mock_load_config,
-            patch("bioetl.pipelines.chembl.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 

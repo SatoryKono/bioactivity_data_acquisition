@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
 
 @pytest.mark.integration

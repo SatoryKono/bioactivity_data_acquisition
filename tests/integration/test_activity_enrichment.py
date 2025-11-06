@@ -10,12 +10,12 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.activity_enrichment import (
+from bioetl.pipelines.activity.activity_enrichment import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.schemas.activity_chembl import COLUMN_ORDER, ActivitySchema
+from bioetl.schemas.activity import COLUMN_ORDER, ActivitySchema
 
 
 @pytest.fixture

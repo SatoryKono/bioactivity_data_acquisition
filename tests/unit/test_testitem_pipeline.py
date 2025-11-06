@@ -9,7 +9,7 @@ import pytest
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.testitem import TestItemChemblPipeline
+from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline
 
 
 @pytest.mark.unit

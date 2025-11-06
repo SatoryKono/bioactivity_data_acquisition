@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.chembl.document import ChemblDocumentPipeline
+from bioetl.pipelines.document.document import ChemblDocumentPipeline
 
 
 def create_mock_document_data(count: int = 3) -> list[dict[str, object]]:

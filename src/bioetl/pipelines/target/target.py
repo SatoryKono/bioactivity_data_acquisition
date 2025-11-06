@@ -15,7 +15,7 @@ from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
-from ..chembl.shared import ChemblPipelineBase
+from ..chembl_base import ChemblPipelineBase
 from .target_transform import serialize_target_arrays
 
 

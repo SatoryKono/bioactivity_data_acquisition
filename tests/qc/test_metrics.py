@@ -5,7 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from bioetl.config import PipelineConfig
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
 
 
@@ -18,10 +19,9 @@ class TestQCMetrics:
         report = build_quality_report(sample_activity_data, business_key_fields=["activity_id"])
 
         assert report is not None
-        if isinstance(report, pd.DataFrame):
-            assert not report.empty
-            # Should have metrics columns
-            assert "section" in report.columns or "metric" in report.columns
+        assert not report.empty
+        # Should have metrics columns
+        assert "section" in report.columns or "metric" in report.columns
 
     def test_build_qc_metrics(self, sample_activity_data: pd.DataFrame):
         """Test QC metrics payload building."""
@@ -46,10 +46,9 @@ class TestQCMetrics:
         report = build_quality_report(df, business_key_fields=["activity_id"])
 
         assert report is not None
-        if isinstance(report, pd.DataFrame):
-            # Should detect duplicates
-            duplicate_metrics = report[report["metric"].str.contains("duplicate", case=False, na=False)]
-            assert not duplicate_metrics.empty
+        # Should detect duplicates
+        duplicate_metrics = report[report["metric"].str.contains("duplicate", case=False, na=False)]
+        assert not duplicate_metrics.empty
 
     def test_qc_metrics_with_empty_dataframe(self):
         """Test QC metrics with empty DataFrame."""
@@ -62,16 +61,16 @@ class TestQCMetrics:
 
     def test_pipeline_qc_artifacts(
         self,
-        pipeline_config_fixture,
+        pipeline_config_fixture: PipelineConfig,
         run_id: str,
         sample_activity_data: pd.DataFrame,
     ):
         """Test that pipeline creates QC artifacts."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
-        pipeline_config_fixture.determinism.sort.by = ["activity_id"]
-        pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"  # type: ignore[attr-defined]
+        pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
+        pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
 
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[arg-type]
         artifacts = pipeline.plan_run_artifacts(run_id)
 
         result = pipeline.write(sample_activity_data, artifacts.run_directory)
@@ -81,6 +80,6 @@ class TestQCMetrics:
         assert result.write_result.quality_report.exists()
 
         # Verify QC report is readable
-        report_df = pd.read_csv(result.write_result.quality_report)
+        report_df = pd.read_csv(result.write_result.quality_report)  # type: ignore[arg-type]
         assert not report_df.empty
 

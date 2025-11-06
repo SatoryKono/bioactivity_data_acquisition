@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -11,7 +10,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.activity_enrichment import enrich_with_compound_record
+from bioetl.pipelines.activity.activity_enrichment import enrich_with_compound_record
 
 
 @pytest.fixture

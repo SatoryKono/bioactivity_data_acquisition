@@ -12,7 +12,7 @@ from requests.exceptions import RequestException
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
 
 @pytest.mark.unit
@@ -352,7 +352,7 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["pchembl_value"].dtype.name == "float64"  # type: ignore[reportUnknownMemberType]
         assert normalized["potential_duplicate"].dtype.name == "boolean"  # type: ignore[reportUnknownMemberType]
         assert normalized["standard_flag"].dtype.name == "Int64"  # type: ignore[reportUnknownMemberType]
-        assert normalized["standard_flag"].tolist() == [1, 0, pd.NA]
+        assert normalized["standard_flag"].tolist() == [1, 0, pd.NA]  # type: ignore[reportUnknownMemberType]
         assert normalized["upper_value"].dtype.name == "float64"  # type: ignore[reportUnknownMemberType]
         assert normalized["lower_value"].dtype.name == "float64"  # type: ignore[reportUnknownMemberType]
 

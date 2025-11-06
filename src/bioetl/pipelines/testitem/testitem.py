@@ -13,7 +13,7 @@ from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.schemas.testitem import COLUMN_ORDER
 
-from ..chembl.shared import ChemblPipelineBase
+from ..chembl_base import ChemblPipelineBase
 from .testitem_transform import transform as transform_testitem
 
 

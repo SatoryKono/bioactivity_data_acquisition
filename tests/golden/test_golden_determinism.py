@@ -8,7 +8,7 @@ import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.activity import ChemblActivityPipeline
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
 
 @pytest.mark.golden  # type: ignore[attr-defined]
@@ -117,18 +117,18 @@ class TestGoldenDeterminism:
         # Verify column order matches schema
         # Note: hash_row and hash_business_key are added after schema columns
         # Note: enrichment columns (compound_name, curated, removed) are only added if enrichment is enabled
-        from bioetl.schemas.activity_chembl import COLUMN_ORDER
+        from bioetl.schemas.activity import COLUMN_ORDER
 
         # Filter out enrichment columns that may not be present if enrichment is disabled
         enrichment_cols = {"compound_name", "curated", "removed"}
         schema_cols = [col for col in COLUMN_ORDER if col not in enrichment_cols]
-        
+
         # Get schema columns that are actually present in the output
         df_schema_cols = [col for col in df.columns if col in schema_cols]
-        
+
         # Check that schema columns (excluding enrichment) are in the correct order
         assert df_schema_cols == schema_cols, "Schema columns (excluding enrichment) must be in the correct order before hash columns"
-        
+
         # Hash columns should be at the end (if present)
         if "hash_row" in df.columns:
             assert df.columns[-2] == "hash_row" or df.columns[-1] == "hash_row", "hash_row should be at the end"

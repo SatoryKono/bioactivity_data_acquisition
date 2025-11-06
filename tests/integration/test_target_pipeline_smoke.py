@@ -6,11 +6,10 @@ import re
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.chembl.target import ChemblTargetPipeline
+from bioetl.pipelines.target.target import ChemblTargetPipeline
 
 
 def create_mock_target_data(count: int = 5) -> list[dict[str, object]]:
@@ -240,7 +239,7 @@ class TestTargetPipelineSmoke:
         config = load_config(config_path)
 
         # Create targets with empty arrays
-        mock_targets = [
+        mock_targets: list[dict[str, object]] = [
             {
                 "target_chembl_id": "CHEMBL1",
                 "pref_name": "Test Target",

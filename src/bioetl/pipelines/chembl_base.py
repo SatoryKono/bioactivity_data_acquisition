@@ -20,7 +20,7 @@ from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
-from ..base import PipelineBase
+from .base import PipelineBase
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
