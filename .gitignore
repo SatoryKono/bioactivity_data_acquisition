@@ -59,6 +59,7 @@ data/logs/*.log
 # Environment
 .env
 .env.local
+.env.key
 
 # Jupyter
 .ipynb_checkpoints/
