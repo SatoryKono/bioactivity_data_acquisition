@@ -104,9 +104,10 @@ def serialize_array_fields(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataF
     df_result = df.copy()
     for column in columns:
         if column in df_result.columns:
+            null_mask = df_result[column].isna()
             serialized = df_result[column].map(header_rows_serialize).astype("string")
-            empty_mask = serialized == ""
-            df_result[column] = serialized.where(~empty_mask, pd.NA)
+            df_result[column] = serialized
+            df_result.loc[null_mask, column] = pd.NA
     return df_result
 
 

@@ -119,9 +119,12 @@
 
 ## Pre-commit хуки
 
-1. `pipx install pre-commit`
-2. `pre-commit install`
-3. `pre-commit run --all-files`
+- `pipx install pre-commit`
+- `pre-commit install`
+- `pre-commit install --hook-type commit-msg`
+- `pre-commit run --all-files`
+
+Запуск `pre-commit run --all-files --show-diff-on-failure` обязателен перед PR: ровно так же действует шаг CI. Для обновления версий хуков выполните `pre-commit autoupdate`, затем повторно прогоните все проверки и зафиксируйте изменения в `.pre-commit-config.yaml`.
 
 При желании подключите [pre-commit.ci](https://pre-commit.ci/) для зеркалирования локальных проверок в PR.
 
@@ -137,13 +140,19 @@ CI запускает `detect-secrets` по всем файлам репозит
 ### Проверка перед коммитом
 
 `pre-commit` конфигурация репозитория уже включает хуки `detect-secrets` и
-`detect-private-key`. После выполнения `pre-commit install -t pre-commit` и
-`pre-commit install -t commit-msg` проверки запускаются автоматически.
+`detect-private-key`. После выполнения `pre-commit install` и
+`pre-commit install --hook-type commit-msg` проверки запускаются автоматически.
+
+Для разового локального прогона по всему дереву используйте:
+
+```bash
+pre-commit run detect-secrets --all-files
+```
 
 Если нужно зафиксировать новое, но безопасное исключение, обновите baseline:
 
 ```bash
-detect-secrets scan src tests configs scripts docs README.md > .secrets.baseline
+detect-secrets scan src tests configs scripts docs README.md --baseline .secrets.baseline --update
 ```
 
 ## Реакция на инциденты

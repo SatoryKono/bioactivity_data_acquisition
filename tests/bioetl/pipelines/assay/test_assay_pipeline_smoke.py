@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -83,9 +84,103 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
     mock_assay_response.status_code = 200
     mock_assay_response.headers = {}
 
+    # Mock classification map response
+    class_map_records: list[dict[str, object]] = []
+    for assay in mock_assays:
+        assay_id = cast(str, assay["assay_chembl_id"])
+        raw_classifications = cast(list[dict[str, object]] | None, assay.get("assay_classifications"))
+        classification_items: list[dict[str, object]] = []
+        if raw_classifications is not None:
+            for item in raw_classifications:
+                classification_items.append(item)
+        for classification in classification_items:
+            class_map_records.append(
+                {
+                    "assay_chembl_id": assay_id,
+                    "assay_class_id": classification.get("assay_class_id"),
+                }
+            )
+        assay["assay_classifications"] = None
+
+    mock_class_map_response = MagicMock()
+    mock_class_map_response.json.return_value = {
+        "page_meta": {
+            "offset": 0,
+            "limit": 25,
+            "count": len(class_map_records),
+            "next": None,
+        },
+        "assay_class_maps": class_map_records,
+    }
+    mock_class_map_response.status_code = 200
+    mock_class_map_response.headers = {}
+
+    # Mock classification detail response
+    classification_records: list[dict[str, object]] = []
+    for record in class_map_records:
+        class_id = record.get("assay_class_id")
+        if class_id is None:
+            continue
+        classification_records.append(
+            {
+                "assay_class_id": class_id,
+                "pref_name": "Mock Classification",
+                "l1": "Category",
+                "l2": "Subcategory",
+                "l3": None,
+            }
+        )
+
+    mock_classification_response = MagicMock()
+    mock_classification_response.json.return_value = {
+        "page_meta": {
+            "offset": 0,
+            "limit": 25,
+            "count": len(classification_records),
+            "next": None,
+        },
+        "assay_classifications": classification_records,
+    }
+    mock_classification_response.status_code = 200
+    mock_classification_response.headers = {}
+
+    # Mock assay parameters response
+    parameter_records: list[dict[str, object]] = []
+    for assay in mock_assays:
+        assay_id = cast(str, assay["assay_chembl_id"])
+        raw_parameters = cast(list[dict[str, object]] | None, assay.get("assay_parameters"))
+        parameter_items: list[dict[str, object]] = []
+        if raw_parameters is not None:
+            for item in raw_parameters:
+                parameter_items.append(item)
+        for parameter in parameter_items:
+            record: dict[str, object] = parameter.copy()
+            record["assay_chembl_id"] = assay_id
+            record.setdefault("type", parameter.get("parameter_name"))
+            record.setdefault("relation", "=")
+            record.setdefault("value", parameter.get("parameter_value"))
+            record.setdefault("units", None)
+            parameter_records.append(record)
+        assay["assay_parameters"] = None
+
+    mock_parameters_response = MagicMock()
+    mock_parameters_response.json.return_value = {
+        "page_meta": {
+            "offset": 0,
+            "limit": 25,
+            "count": len(parameter_records),
+            "next": None,
+        },
+        "assay_parameters": parameter_records,
+    }
+    mock_parameters_response.status_code = 200
+    mock_parameters_response.headers = {}
+
     # Use a function to handle multiple calls - return appropriate response based on URL
     call_count = {"count": 0}
     responses = [mock_status_json_response, mock_status_response]
+
+    mock_client.base_url = "https://mock.chembl.api/data"
 
     def get_side_effect(url: str, *args: object, **kwargs: object) -> MagicMock:
         call_count["count"] += 1
@@ -97,6 +192,12 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
         elif "/assay.json" in url:
             # Return assay data for paginate calls
             return mock_assay_response
+        elif "/assay_class_map.json" in url:
+            return mock_class_map_response
+        elif "/assay_classification.json" in url:
+            return mock_classification_response
+        elif "/assay_parameters.json" in url:
+            return mock_parameters_response
         # Default fallback
         return mock_assay_response
 

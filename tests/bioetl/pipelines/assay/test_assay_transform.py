@@ -196,7 +196,7 @@ class TestAssayParametersTruvValidation:
         """Test validation with empty or missing parameters."""
         df = pd.DataFrame(
             {
-                "assay_chembl_id": ["CHEMBL1"],
+                "assay_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
                 "assay_parameters": [None, "", json.dumps([])],
             },
         )

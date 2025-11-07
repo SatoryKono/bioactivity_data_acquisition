@@ -523,6 +523,7 @@ class PipelineBase(ABC):
             The loaded DataFrame, optionally limited or sampled.
         """
         log = UnifiedLogger.get(__name__)
+
         resolved_path = path.resolve()
 
         if not resolved_path.exists():
@@ -1468,6 +1469,15 @@ class PipelineBase(ABC):
         error_summary: str | None = None
 
         df_for_validation = ensure_hash_columns(df, config=self.config)
+        df_for_validation = self._ensure_schema_columns(
+            df_for_validation,
+            schema_entry.column_order,
+            log,
+        )
+        df_for_validation = self._reorder_columns(
+            df_for_validation,
+            schema_entry.column_order,
+        )
         df_for_validation = self._ensure_load_meta_ids(df_for_validation)
 
         try:
