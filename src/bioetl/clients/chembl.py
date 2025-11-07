@@ -16,6 +16,7 @@ from bioetl.clients.chembl_entities import (
 )
 from bioetl.clients.document.chembl_document_entity import ChemblDocumentTermEntityClient
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["ChemblClient"]
@@ -24,10 +25,22 @@ __all__ = ["ChemblClient"]
 class ChemblClient:
     """High level client for interacting with the ChEMBL REST API."""
 
-    def __init__(self, client: UnifiedAPIClient) -> None:
+    def __init__(
+        self,
+        client: UnifiedAPIClient,
+        *,
+        load_meta_store: LoadMetaStore | None = None,
+        job_id: str | None = None,
+        operator: str | None = None,
+    ) -> None:
         self._client = client
         self._log = UnifiedLogger.get(__name__).bind(component="chembl_client")
         self._status_cache: dict[str, Mapping[str, Any]] = {}
+        self._load_meta_store = load_meta_store
+        self._job_id = job_id
+        self._operator = operator
+        self._chembl_release: str | None = None
+        self._api_version: str | None = None
         # Инициализация специализированных клиентов для сущностей
         self._assay_entity = ChemblAssayEntityClient(self)
         self._molecule_entity = ChemblMoleculeEntityClient(self)
@@ -48,11 +61,17 @@ class ChemblClient:
         if endpoint not in self._status_cache:
             payload = self._client.get(endpoint).json()
             self._status_cache[endpoint] = payload
+            release = payload.get("chembl_db_version")
+            api_version = payload.get("api_version")
+            if isinstance(release, str):
+                self._chembl_release = release
+            if isinstance(api_version, str):
+                self._api_version = api_version
             self._log.info(
                 "chembl.handshake",
                 endpoint=endpoint,
-                chembl_release=payload.get("chembl_db_version"),
-                api_version=payload.get("api_version"),
+                chembl_release=self._chembl_release,
+                api_version=self._api_version,
             )
         return self._status_cache[endpoint]
 
@@ -75,20 +94,64 @@ class ChemblClient:
         query: dict[str, Any] | None = dict(params) if params is not None else None
         if page_size and query is not None:
             query.setdefault("limit", page_size)
-        while next_url:
-            # Normalize next_url: if it's a relative URL starting with /chembl/api/data/,
-            # remove that prefix since base_url already contains it
-            normalized_url = next_url
-            if not normalized_url.startswith(("http://", "https://")):
-                if normalized_url.startswith("/chembl/api/data/"):
-                    normalized_url = normalized_url[len("/chembl/api/data/"):]
-                elif normalized_url.startswith("chembl/api/data/"):
-                    normalized_url = normalized_url[len("chembl/api/data/"):]
-            response = self._client.get(normalized_url, params=query if next_url == endpoint else None)
-            payload: Mapping[str, Any] = response.json()
-            yield from self._extract_items(payload, items_key)
-            next_url = self._next_link(payload)
-            query = None
+        load_meta_id: str | None = None
+        store = self._load_meta_store
+        records_fetched = 0
+        page_index = 0
+        try:
+            if store is not None:
+                load_meta_id = store.begin_record(
+                    "chembl_rest",
+                    self._resolve_request_base_url(endpoint),
+                    query or {},
+                    source_release=self._chembl_release,
+                    source_api_version=self._api_version,
+                    job_id=self._job_id,
+                    operator=self._operator,
+                )
+            while next_url:
+                normalized_url = self._normalize_endpoint(next_url)
+                response = self._client.get(normalized_url, params=query if next_url == endpoint else None)
+                payload: Mapping[str, Any] = response.json()
+                items = list(self._extract_items(payload, items_key))
+                if load_meta_id is not None and store is not None:
+                    pagination_snapshot: dict[str, Any] = {
+                        "page_index": page_index,
+                        "endpoint": normalized_url,
+                        "status_code": response.status_code,
+                        "result_count": len(items),
+                    }
+                    if query is not None and page_index == 0:
+                        pagination_snapshot["params"] = dict(query)
+                    store.update_pagination(
+                        load_meta_id,
+                        pagination_snapshot,
+                        records_fetched_delta=len(items),
+                    )
+                for item_raw in items:
+                    item_dict = dict(item_raw)
+                    if load_meta_id is not None:
+                        item_dict["load_meta_id"] = load_meta_id
+                    records_fetched += 1
+                    yield item_dict
+                next_url = self._next_link(payload)
+                query = None
+                page_index += 1
+            if load_meta_id is not None and store is not None:
+                store.finish_record(
+                    load_meta_id,
+                    status="success",
+                    records_fetched=records_fetched,
+                )
+        except Exception as exc:
+            if load_meta_id is not None and store is not None:
+                store.finish_record(
+                    load_meta_id,
+                    status="error",
+                    records_fetched=records_fetched,
+                    error_message=str(exc),
+                )
+            raise
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -131,6 +194,22 @@ class ChemblClient:
             if isinstance(next_link, str) and next_link:
                 return next_link
         return None
+
+    def _normalize_endpoint(self, endpoint: str) -> str:
+        normalized_url = endpoint
+        if not normalized_url.startswith(("http://", "https://")):
+            if normalized_url.startswith("/chembl/api/data/"):
+                normalized_url = normalized_url[len("/chembl/api/data/"):]
+            elif normalized_url.startswith("chembl/api/data/"):
+                normalized_url = normalized_url[len("chembl/api/data/"):]
+        return normalized_url
+
+    def _resolve_request_base_url(self, endpoint: str) -> str:
+        if endpoint.startswith(("http://", "https://")):
+            return endpoint.split("?", 1)[0]
+        base = self._client.base_url or ""
+        combined = f"{base.rstrip('/')}/{endpoint.lstrip('/')}" if base else endpoint
+        return combined.split("?", 1)[0]
 
     # ------------------------------------------------------------------
     # Assay fetching

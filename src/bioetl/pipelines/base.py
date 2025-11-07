@@ -24,6 +24,7 @@ from pandera import DataFrameSchema
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output import (
     DeterministicWriteArtifacts,
@@ -33,13 +34,14 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
-from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
+from bioetl.pipelines.common.validation import (
+    format_failure_cases,
+    summarize_schema_errors,
+)
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
 )
-from bioetl.qc.report import (
-    build_qc_metrics_payload,
-)
+from bioetl.qc.report import build_qc_metrics_payload
 from bioetl.qc.report import (
     build_quality_report as build_default_quality_report,
 )
@@ -137,6 +139,8 @@ class PipelineBase(ABC):
         self._validation_schema: SchemaRegistryEntry | None = None
         self._validation_summary: dict[str, Any] | None = None
         self._extract_metadata: dict[str, Any] = {}
+        load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
+        self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.

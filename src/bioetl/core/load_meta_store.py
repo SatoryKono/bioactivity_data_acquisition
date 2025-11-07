@@ -252,8 +252,7 @@ if TYPE_CHECKING:  # pragma: no cover - typing aid
     from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
 else:  # pragma: no cover - optional dependency
     try:
-        from pyspark.sql import \
-            DataFrame as SparkDataFrame  # type: ignore[import]
+        from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
     except Exception:
         SparkDataFrame = None  # type: ignore[assignment]
 
