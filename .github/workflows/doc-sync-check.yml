@@ -26,7 +26,7 @@ jobs:
         run: lychee --config .lychee.toml --output audit_results/LINKCHECK.md || true
 
       - name: Upload link check report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: link-check-report
@@ -52,7 +52,7 @@ jobs:
         run: python audit_docs.py
 
       - name: Upload audit artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: doc-audit-artifacts
@@ -81,7 +81,7 @@ jobs:
         run: python scripts/doctest_cli.py || true
 
       - name: Upload doctest report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: doctest-report
@@ -107,7 +107,7 @@ jobs:
         run: python scripts/schema_guard.py || true
 
       - name: Upload schema guard report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: schema-guard-report
@@ -133,7 +133,7 @@ jobs:
         run: python scripts/determinism_check.py || true
 
       - name: Upload determinism report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         if: always()
         with:
           name: determinism-report
