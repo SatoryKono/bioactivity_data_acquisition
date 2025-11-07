@@ -6,11 +6,11 @@ import json
 import os
 import shutil
 import tempfile
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, TYPE_CHECKING, cast
-from collections.abc import Iterable, Mapping
+from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import pandas as pd
@@ -252,7 +252,8 @@ if TYPE_CHECKING:  # pragma: no cover - typing aid
     from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
 else:  # pragma: no cover - optional dependency
     try:
-        from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
+        from pyspark.sql import \
+            DataFrame as SparkDataFrame  # type: ignore[import]
     except Exception:
         SparkDataFrame = None  # type: ignore[assignment]
 
