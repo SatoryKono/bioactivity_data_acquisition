@@ -21,6 +21,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import pandera.errors
 from pandera import DataFrameSchema
+from pandas import Series
 
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
@@ -534,7 +535,7 @@ class PipelineBase(ABC):
 
         # Determine file format from extension
         # Note: pandas read methods have complex overloads; type checker cannot fully infer return type
-        df = (
+        df: pd.DataFrame = (
             pd.read_parquet(resolved_path)  # pyright: ignore[reportUnknownMemberType]
             if resolved_path.suffix.lower() == ".parquet"
             else pd.read_csv(resolved_path, low_memory=False)  # pyright: ignore[reportUnknownMemberType]
@@ -746,18 +747,23 @@ class PipelineBase(ABC):
 
         try:
             schema_entry = get_schema(schema_identifier)
-            schema = schema_entry.schema
+            schema: DataFrameSchema = schema_entry.schema
             if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-                schema = cast(Any, schema).replace(
-                    strict=self.config.validation.strict,
-                    coerce=self.config.validation.coerce,
+                schema = cast(
+                    DataFrameSchema,
+                    cast(Any, schema).replace(
+                        strict=self.config.validation.strict,
+                        coerce=self.config.validation.coerce,
+                    ),
                 )
 
-            validated = schema.validate(df, lazy=True)
-            if not isinstance(validated, pd.DataFrame):
+            validated_candidate: Any = schema.validate(df, lazy=True)
+            if not isinstance(validated_candidate, pd.DataFrame):
                 msg = "Schema validation did not return a DataFrame"
                 raise TypeError(msg)
-            validated = self._reorder_columns(validated, schema_entry.column_order)
+            validated = self._reorder_columns(
+                validated_candidate, schema_entry.column_order
+            )
             log.debug(
                 "schema_validation_completed",
                 dataset=dataset_name,
@@ -977,9 +983,21 @@ class PipelineBase(ABC):
         return None
 
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
-        """Override to provide custom defaults or dtypes for schema columns."""
+        """Default column factories and dtypes for schema-required columns."""
 
-        return {}
+        def _row_index_factory(count: int) -> pd.Series[Any]:
+            return pd.Series(range(count), dtype="Int64")
+
+        return {
+            "row_subtype": {
+                "default": self.pipeline_code,
+                "dtype": pd.StringDtype(),
+            },
+            "row_index": {
+                "factory": _row_index_factory,
+                "dtype": pd.Int64Dtype(),
+            },
+        }
 
     def _ensure_schema_columns(
         self, df: pd.DataFrame, column_order: Sequence[str], log: Any
@@ -1015,7 +1033,7 @@ class PipelineBase(ABC):
                 if callable(factory):
                     produced = factory(row_count)
                     if isinstance(produced, pd.Series):
-                        produced_series = cast(pd.Series[Any], produced)
+                        produced_series = cast(Series, produced)
                         if len(produced_series) == row_count:
                             df[column] = produced_series
                             continue
@@ -1095,18 +1113,20 @@ class PipelineBase(ABC):
                 continue
 
             try:
-                column_series = cast(pd.Series[Any], df[column_name])
+                column_series = cast(Series, df[column_name])
 
                 # Handle nullable integers
                 if column_def.dtype == pd.Int64Dtype() or (
                     hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
                 ):
                     numeric_series = _to_numeric_series(column_series)
-                    df[column_name] = cast(pd.Series[Any], numeric_series.astype("Int64"))
+                    df[column_name] = cast(Series, numeric_series.astype("Int64"))
                 # Handle nullable floats
                 elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "Float64":
                     numeric_series_float = _to_numeric_series(column_series)
-                    df[column_name] = cast(pd.Series[Any], numeric_series_float.astype("Float64"))
+                    df[column_name] = cast(
+                        Series, numeric_series_float.astype("Float64")
+                    )
                 # Handle strings - convert to string, preserving None values
                 elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
                     mask: pd.Series[bool] = column_series.notna()
@@ -1159,7 +1179,6 @@ class PipelineBase(ABC):
             All artifacts generated by the write operation.
         """
         log = UnifiedLogger.get(__name__)
-
         run_tag = self._normalise_run_tag(None)
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         mode = "extended" if effective_extended else None
@@ -1178,7 +1197,9 @@ class PipelineBase(ABC):
             if include_qc_metrics is not None
             else effective_extended
         )
-        include_metadata = True  # Всегда создавать meta.yaml
+        include_metadata = bool(self.config.validation.schema_out)
+        if effective_extended:
+            include_metadata = True
         include_manifest = effective_extended
 
         run_dir = output_path if output_path.is_dir() else output_path.parent
@@ -1442,11 +1463,14 @@ class PipelineBase(ABC):
             return df
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema
+        schema: DataFrameSchema = schema_entry.schema
         if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-            schema = cast(Any, schema).replace(
-                strict=self.config.validation.strict,
-                coerce=self.config.validation.coerce,
+            schema = cast(
+                DataFrameSchema,
+                cast(Any, schema).replace(
+                    strict=self.config.validation.strict,
+                    coerce=self.config.validation.coerce,
+                ),
             )
         else:
             schema = self._clone_schema_with_options(
@@ -1480,34 +1504,95 @@ class PipelineBase(ABC):
         )
         df_for_validation = self._ensure_load_meta_ids(df_for_validation)
 
-        try:
-            validated = schema.validate(df_for_validation, lazy=True)
-            if not isinstance(validated, pd.DataFrame):
-                msg = "Schema validation did not return a DataFrame"
-                raise TypeError(msg)
-            validated = self._reorder_columns(validated, schema_entry.column_order)
-        except pandera.errors.SchemaErrors as exc:
-            if not fail_open:
-                raise
-            summary = summarize_schema_errors(exc)
-            failure_cases_df = getattr(exc, "failure_cases", None)
-            failure_details: dict[str, Any] | None = None
-            if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
-                failure_details = format_failure_cases(failure_cases_df)
-                summary["failure_count"] = int(len(failure_cases_df))
-            log_payload: dict[str, Any] = {
-                "schema": schema_entry.identifier,
-                "version": schema_entry.version,
-                **summary,
-            }
-            if failure_details:
-                log_payload["failure_details"] = failure_details
-            log.warning("schema_validation_failed", **log_payload)
-            validated = df_for_validation
-            schema_valid = False
-            error_summary = summary.get("message")
-            failure_count = summary.get("failure_count")
+        def _coerce_failures_only(error: pandera.errors.SchemaErrors) -> tuple[bool, list[str]]:
+            failure_cases_df = getattr(error, "failure_cases", None)
+            if not isinstance(failure_cases_df, pd.DataFrame) or failure_cases_df.empty:
+                return False, []
 
+            checks_series = failure_cases_df.get("check")
+            if checks_series is None:
+                return False, []
+
+            checks_str = checks_series.astype(str)
+            if not bool(checks_str.str.startswith("coerce_dtype").all()):
+                return False, []
+
+            columns_series = failure_cases_df.get("column")
+            columns_list: list[str] = []
+            if columns_series is not None:
+                columns_list = (
+                    columns_series.dropna().astype(str).unique().tolist()
+                )
+
+            return True, columns_list
+
+        try:
+            validated_candidate: Any = schema.validate(df_for_validation, lazy=True)
+            validated = self._reorder_columns(validated_candidate, schema_entry.column_order)
+        except pandera.errors.SchemaErrors as exc:
+            fallback_validated: pd.DataFrame | None = None
+            coerce_only = False
+            affected_columns: list[str] = []
+            fallback_schema: DataFrameSchema | None = None
+            if bool(self.config.validation.coerce):
+                coerce_only, affected_columns = _coerce_failures_only(exc)
+                fallback_schema = cast(
+                    DataFrameSchema,
+                    self._clone_schema_with_options(
+                        schema_entry.schema,
+                        strict=self.config.validation.strict,
+                        coerce=False,
+                    ),
+                )
+                try:
+                    retried_candidate: Any = fallback_schema.validate(
+                        df_for_validation, lazy=True
+                    )
+                except pandera.errors.SchemaErrors:
+                    fallback_validated = None
+                else:
+                    fallback_validated = self._reorder_columns(
+                        retried_candidate,
+                        schema_entry.column_order,
+                    )
+                    schema = fallback_schema
+                    log.debug(
+                        "validation_retry_without_coerce",
+                        columns=affected_columns,
+                        rows=len(df_for_validation),
+                    )
+
+            if fallback_validated is not None:
+                validated = fallback_validated
+            elif coerce_only and fallback_schema is not None:
+                schema = fallback_schema
+                validated = df_for_validation
+                log.debug(
+                    "validation_coerce_only_passthrough",
+                    columns=affected_columns,
+                    rows=len(df_for_validation),
+                )
+            else:
+                if not fail_open:
+                    raise
+                summary = summarize_schema_errors(exc)
+                failure_cases_df = getattr(exc, "failure_cases", None)
+                failure_details: dict[str, Any] | None = None
+                if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
+                    failure_details = format_failure_cases(failure_cases_df)
+                    summary["failure_count"] = int(len(failure_cases_df))
+                log_payload: dict[str, Any] = {
+                    "schema": schema_entry.identifier,
+                    "version": schema_entry.version,
+                    **summary,
+                }
+                if failure_details:
+                    log_payload["failure_details"] = failure_details
+                log.warning("schema_validation_failed", **log_payload)
+                validated = df_for_validation
+                schema_valid = False
+                error_summary = summary.get("message")
+                failure_count = summary.get("failure_count")
         self._validation_schema = schema_entry
         self._validation_summary = {
             "schema_identifier": schema_entry.identifier,
@@ -1620,9 +1705,12 @@ class PipelineBase(ABC):
                 msg = f"Dataframe missing columns required by schema: {missing}"
                 raise ValueError(msg)
             extras = [column for column in df.columns if column not in ordered]
-            if not extras:
-                return df[ordered]
-            return df[[*ordered, *extras]]
+            if extras:
+                UnifiedLogger.get(__name__).debug(
+                    "schema_extra_columns_dropped",
+                    columns=extras,
+                )
+            return df[ordered]
 
         existing = [column for column in ordered if column in df.columns]
         extras = [column for column in df.columns if column not in existing]
