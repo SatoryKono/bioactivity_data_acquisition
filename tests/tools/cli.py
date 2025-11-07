@@ -1,0 +1,47 @@
+"""Helpers for invoking the BioETL CLI in tests."""
+
+from __future__ import annotations
+
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Mapping, Sequence
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+SRC_PATH = PROJECT_ROOT / "src"
+
+
+def _build_env(extra_env: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Create an environment with the project ``src`` on ``PYTHONPATH``."""
+    env = os.environ.copy()
+    python_path_entries: list[str] = [str(SRC_PATH)]
+    existing = env.get("PYTHONPATH")
+    if existing:
+        python_path_entries.append(existing)
+    env["PYTHONPATH"] = os.pathsep.join(python_path_entries)
+    if extra_env:
+        env.update(extra_env)
+    return env
+
+
+def run_cli_command(
+    args: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float = 60.0,
+    extra_env: Mapping[str, str] | None = None,
+    capture_output: bool = True,
+    text: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """Execute the BioETL CLI with the provided arguments."""
+    command: list[str] = [sys.executable, "-m", "bioetl.cli.main", *args]
+    return subprocess.run(
+        command,
+        cwd=cwd or PROJECT_ROOT,
+        env=_build_env(extra_env),
+        capture_output=capture_output,
+        text=text,
+        timeout=timeout,
+        check=False,
+    )
