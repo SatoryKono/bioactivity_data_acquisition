@@ -31,7 +31,7 @@ dependencies = [
     # CLI and logging - stable APIs
     "typer[all]>=0.9,<1.0",
     "structlog>=24.1,<25.0",
-    "rich>=13.0,<14.0",
+    "rich>=13.0,<15.0",
     
     # Security - critical for safety
     "defusedxml>=0.7,<1.0",
