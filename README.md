@@ -6,6 +6,15 @@
 секретам осуществляется через менеджер секретов (Vault) или через переменные
 окружения, прокинутые в рантайм пайплайнов и CI.
 
+## Каталоги данных и образцы
+
+- Полноразмерные выгрузки пайплайнов и отчёты перены в бакет `s3://bioactivity-data-lake/output`
+  и публикуются как артефакты CI. Репозиторий хранит только конфигурацию и лёгкие примеры.
+- Для демонстрации схем добавлены облегчённые выборки в `data/samples/`. Структура повторяет
+  каталоги из `data/output` (например, `data/samples/_documents/documents_sample_20251021.csv`).
+- Каталог `data/output/` очищен; в гите остаётся только `.gitkeep`, а попытки добавить крупные
+  файлы блокируются новым pre-commit хуком и шагом CI `scripts/check_output_artifacts.py`.
+
 ## Стратегия хранения
 
 ### Prod / Staging
@@ -106,3 +115,11 @@ pre-commit run detect-secrets --all-files
 
 Полный перечень служебных утилит с артефактами и примерами доступен в
 [`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
+## Architecture Decision Records (ADR)
+
+Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:
+
+1. Скопируйте шаблон [`docs/adr/template.md`](docs/adr/template.md) в файл `docs/adr/<следующий-номер>-<краткое-имя>.md`.
+2. Заполните разделы «Context», «Decision», «Consequences» и добавьте ссылки на код/документацию.
+3. Обновите [`docs/INDEX.md`](docs/INDEX.md) — добавьте ссылку на новый ADR в раздел «Architecture Decision Records».
+4. Укажите номер ADR в описании PR и отметьте чекбокс ADR в шаблоне PR.

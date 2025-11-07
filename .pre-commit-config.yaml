@@ -76,6 +76,12 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: check-output-artifacts
+        name: Ensure large artifacts are not committed under data/output
+        entry: python scripts/check_output_artifacts.py
+        language: system
+        pass_filenames: false
+
 default_language_version:
   python: python3.11
 

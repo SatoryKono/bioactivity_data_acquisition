@@ -53,6 +53,7 @@ dmypy.json
 # Data
 data/cache/
 data/output/
+!data/output/.gitkeep
 data/logs/*.log
 !data/logs/.gitkeep
 

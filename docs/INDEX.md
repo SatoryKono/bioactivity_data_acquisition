@@ -15,6 +15,20 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **[HTTP Clients](http/00-http-clients-and-retries.md)**: The specification for the unified HTTP client, including retries, backoff, and rate limiting.
 - **[Structured Logging](logging/00-overview.md)**: An overview of the `structlog`-based logging system and its features.
 - **[Quality Assurance](qc/00-qc-overview.md)**: The framework for data quality control, including metrics and Golden Tests.
+- **[Architecture Decision Records](adr/)**: Accepted and proposed architectural decisions. Start new records from `docs/adr/template.md` and commit them as `NNN-title.md` alongside updates to this index.
+
+### Adding a New ADR
+
+1. Copy `docs/adr/template.md` into `docs/adr/<next-number>-<short-title>.md` (numbers are zero-padded and incremental).
+2. Fill in the context, decision, consequences, and references. Include links to code and documentation touched by the change.
+3. Update this index with a link to the new ADR so reviewers can navigate easily.
+4. Reference the ADR number in your pull request description and check the ADR box in the PR template.
+
+### Current ADRs
+
+- [ADR 001: Layered ETL Architecture Boundaries](adr/001-layered-etl-architecture.md)
+- [ADR 002: Typed Configuration Profiles via Pydantic](adr/002-typed-config-profiles.md)
+- [ADR 003: Canonical Data Contract and Storage Layout](adr/003-data-contract-and-storage.md)
 
 ## Pipeline Documentation
 
