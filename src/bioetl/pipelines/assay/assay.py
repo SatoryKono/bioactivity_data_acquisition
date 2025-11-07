@@ -96,7 +96,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             client_name="chembl_assay_http",
         )
 
-        chembl_client = ChemblClient(http_client)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         assay_client = ChemblAssayClient(
             chembl_client,
             batch_size=source_config.batch_size,
@@ -228,7 +233,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             client_name="chembl_assay_http",
         )
 
-        chembl_client = ChemblClient(http_client)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         assay_client = ChemblAssayClient(
             chembl_client,
             batch_size=source_config.batch_size,
@@ -686,7 +696,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         http_client = self._client_factory.for_source("chembl", base_url=base_url)
 
         # Создать ChemblClient
-        chembl_client = ChemblClient(http_client)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Получить конфигурацию enrichment из config.chembl.assay.enrich
         chembl_config = getattr(self.config, "chembl", None)

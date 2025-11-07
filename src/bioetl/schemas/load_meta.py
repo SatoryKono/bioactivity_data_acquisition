@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import datetime
 from typing import Any
 
@@ -12,6 +11,7 @@ import pandera as pa
 from pandera import Check, Column
 
 from bioetl.schemas.base import create_schema
+from bioetl.schemas.common import uuid_column
 from bioetl.schemas.vocab import required_vocab_ids
 
 SCHEMA_VERSION = "1.0.0"
@@ -36,19 +36,8 @@ COLUMN_ORDER = (
     "notes",
 )
 
-UUID_PATTERN = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-    re.IGNORECASE,
-)
-
 ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = tuple(sorted(required_vocab_ids("source_system")))
 ALLOWED_STATUS_VALUES: tuple[str, ...] = tuple(sorted(required_vocab_ids("status")))
-
-
-def _is_uuid_string(value: Any) -> bool:
-    if not isinstance(value, str):
-        return False
-    return bool(UUID_PATTERN.match(value))
 
 
 def _is_valid_json_string(value: Any) -> bool:
@@ -87,17 +76,8 @@ def _time_window_consistent(row: pd.Series) -> bool:
     return start <= finish <= ingested
 
 
-def _uuid_series(series: pd.Series) -> bool:
-    return bool(series.map(_is_uuid_string).all())
-
-
 columns: dict[str, Column] = {
-    "load_meta_id": Column(
-        pa.String,  # type: ignore[arg-type]
-        checks=[Check(_uuid_series, element_wise=False)],
-        nullable=False,
-        unique=True,
-    ),  # type: ignore[assignment]
+    "load_meta_id": uuid_column(nullable=False, unique=True),
     "source_system": Column(
         pa.String,  # type: ignore[arg-type]
         checks=[Check.isin(ALLOWED_SOURCE_SYSTEMS)],

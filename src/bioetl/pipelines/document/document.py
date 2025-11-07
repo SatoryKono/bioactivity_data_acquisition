@@ -532,7 +532,12 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         api_client, _ = self.prepare_chembl_client("chembl", base_url=self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters))), client_name="chembl_enrichment_client")
-        chembl_client = ChemblClient(api_client)
+        chembl_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Вызвать функцию обогащения
         return enrich_with_document_terms(df, chembl_client, enrich_cfg)

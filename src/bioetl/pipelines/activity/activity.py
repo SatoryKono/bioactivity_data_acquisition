@@ -245,7 +245,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         dataframe = self._ensure_comment_fields(dataframe, log)
 
         # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
-        chembl_client = ChemblClient(client)
+        chembl_client = ChemblClient(
+            client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
         # Логирование метрик заполненности
@@ -544,7 +549,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(api_client)
+        chembl_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Вызвать функцию обогащения
         return enrich_with_compound_record(df, chembl_client, enrich_cfg)
@@ -607,7 +617,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(api_client)
+        chembl_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Вызвать функцию обогащения
         return enrich_with_assay(df, chembl_client, enrich_cfg)
@@ -681,7 +696,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(api_client)
+        chembl_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
         return enrich_with_data_validity(df, chembl_client, enrich_cfg)
@@ -744,7 +764,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(api_client)
+        chembl_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
 
         # Вызвать функцию join для получения molecule_name
         df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
@@ -993,7 +1018,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         parameters = self._normalize_parameters(activity_source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         extract_client = self._client_factory.for_source("chembl", base_url=base_url)
-        chembl_client = ChemblClient(extract_client)
+        chembl_client = ChemblClient(
+            extract_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
         # Извлечение assay_organism и assay_tax_id из ASSAYS

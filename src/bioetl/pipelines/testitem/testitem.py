@@ -98,7 +98,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_testitem_http")
 
-        chembl_client = ChemblClient(http_client)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         # Fetch release and API version using handshake
         try:
             status = chembl_client.handshake("/status")
@@ -184,7 +189,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_testitem_http")
 
-        chembl_client = ChemblClient(http_client)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
         # Fetch release and API version using handshake
         try:
             status = chembl_client.handshake("/status")

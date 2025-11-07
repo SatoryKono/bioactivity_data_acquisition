@@ -15,6 +15,9 @@ BAO_ID_PATTERN = r"^BAO_\d{7}$"
 # DOI pattern
 DOI_PATTERN = r"^10\.\d{4,9}/\S+$"
 
+# UUID pattern (lower/upper case supported)
+UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
 
 def chembl_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
     """Create a ChEMBL ID column with validation.
@@ -311,10 +314,22 @@ def nullable_object_column() -> Column:
     return Column(pa.Object, nullable=True)  # type: ignore[assignment]
 
 
+def uuid_column(*, nullable: bool = False, unique: bool = False) -> Column:
+    """Create a UUID column enforcing canonical hyphenated format."""
+
+    return Column(  # type: ignore[assignment]
+        pa.String,
+        Check.str_matches(UUID_PATTERN),  # type: ignore[arg-type]
+        nullable=nullable,
+        unique=unique,
+    )
+
+
 __all__ = [
     "CHEMBL_ID_PATTERN",
     "BAO_ID_PATTERN",
     "DOI_PATTERN",
+    "UUID_PATTERN",
     "chembl_id_column",
     "nullable_string_column",
     "non_nullable_string_column",
@@ -328,5 +343,6 @@ __all__ = [
     "bao_id_column",
     "doi_column",
     "nullable_object_column",
+    "uuid_column",
 ]
 
