@@ -16,7 +16,13 @@ from uuid import uuid4
 import pandas as pd
 import pandera as pa
 
-from bioetl.schemas.load_meta import COLUMN_ORDER, LoadMetaSchema
+from bioetl.core.hashing import hash_from_mapping
+from bioetl.schemas.load_meta import (
+    BUSINESS_KEY_FIELDS,
+    COLUMN_ORDER,
+    LoadMetaSchema,
+    ROW_HASH_FIELDS,
+)
 
 from .logger import UnifiedLogger
 
@@ -201,7 +207,11 @@ class LoadMetaStore:
         if notes:
             record.notes = notes if record.notes is None else f"{record.notes}; {notes}"
 
-        df = pd.DataFrame([record.to_payload()], columns=COLUMN_ORDER)
+        payload = record.to_payload()
+        payload["hash_business_key"] = hash_from_mapping(payload, BUSINESS_KEY_FIELDS)
+        payload["hash_row"] = hash_from_mapping(payload, ROW_HASH_FIELDS)
+
+        df = pd.DataFrame([payload], columns=COLUMN_ORDER)
         LoadMetaSchema.validate(df, lazy=True)
         self._write_dataframe(df, self._meta_dir / f"{load_meta_id}.parquet")
         self._logger.info(

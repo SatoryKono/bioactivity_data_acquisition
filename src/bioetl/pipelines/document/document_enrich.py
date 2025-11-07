@@ -160,11 +160,30 @@ def enrich_with_document_terms(
     """
     log = UnifiedLogger.get(__name__).bind(component="document_enrichment")
 
+    def _ensure_term_columns(df_input: pd.DataFrame) -> pd.DataFrame:
+        result_frame = df_input.copy()
+        for column_name in ("term", "weight"):
+            if column_name not in result_frame.columns:
+                result_frame[column_name] = pd.Series(
+                    ["" for _ in range(len(result_frame))],
+                    index=result_frame.index,
+                    dtype="string",
+                )
+            else:
+                result_frame[column_name] = result_frame[column_name].astype("string")
+
+            na_mask = result_frame[column_name].isna()
+            if bool(na_mask.any()):
+                result_frame.loc[na_mask, column_name] = ""
+            result_frame[column_name] = result_frame[column_name].astype("string")
+        return result_frame
+
     df_docs = _ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
 
     if df_docs.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
+        prepared_empty = _ensure_term_columns(df_docs)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_empty, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["document_chembl_id"]
@@ -174,7 +193,8 @@ def enrich_with_document_terms(
             "enrichment_skipped_missing_columns",
             missing_columns=missing_cols,
         )
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
+        prepared_missing = _ensure_term_columns(df_docs)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_missing, lazy=True)
 
     # Собрать уникальные document_chembl_id, dropna
     doc_ids: list[str] = []
@@ -229,7 +249,8 @@ def enrich_with_document_terms(
 
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
+        prepared = _ensure_term_columns(df_docs)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared, lazy=True)
 
     df_enrich = pd.DataFrame(enrichment_data)
 
@@ -243,20 +264,34 @@ def enrich_with_document_terms(
         suffixes=("", "_enrich"),
     )
 
+    # Перенести значения из *_enrich в основные колонки
+    for col in ["term", "weight"]:
+        enrich_col = f"{col}_enrich"
+        if enrich_col in df_result.columns:
+            base_series = df_result[col] if col in df_result.columns else pd.Series([pd.NA] * len(df_result), index=df_result.index, dtype="object")
+            enrich_series = df_result[enrich_col]
+            df_result[col] = base_series.where(pd.notna(base_series), enrich_series)
+            df_result = df_result.drop(columns=[enrich_col])
+
     # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
     for col in ["term", "weight"]:
         if col not in df_result.columns:
-            df_result[col] = pd.NA
+            df_result[col] = pd.Series(
+                ["" for _ in range(len(df_result))],
+                index=df_result.index,
+                dtype="string",
+            )
         else:
-            # Заполнить NaN/None значением pd.NA (nullable string)
-            df_result[col] = df_result[col].where(pd.notna(df_result[col]), pd.NA)
+            df_result[col] = df_result[col].astype("string")
+
+        na_mask = df_result[col].isna()
+        if bool(na_mask.any()):
+            df_result.loc[na_mask, col] = ""
+        df_result[col] = df_result[col].astype("string")
 
     # Восстановить исходный порядок
     df_result = df_result.reindex(original_index)
-
-    # Нормализовать типы
-    df_result["term"] = df_result["term"].astype("string")
-    df_result["weight"] = df_result["weight"].astype("string")
+    df_result = _ensure_term_columns(df_result)
 
     log.info(
         "enrichment_completed",

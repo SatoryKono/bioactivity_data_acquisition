@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
+from pandas import Series
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
@@ -467,8 +468,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             df_result: pd.DataFrame = serialize_array_fields(df, arrays_to_serialize)
             for column in arrays_to_serialize:
                 if column in df_result.columns:
-                    empty_mask = df_result[column].astype("string").fillna("").eq("")
-                    if empty_mask.any():
+                    column_as_string: Series = df_result[column].astype("string")
+                    filled_column: Series = column_as_string.copy()
+                    filled_column[column_as_string.isna()] = ""
+                    empty_mask: Series = filled_column.eq("")
+                    if bool(empty_mask.any()):
                         df_result.loc[empty_mask, column] = pd.NA
             df = df_result
             log.debug("array_fields_serialized", columns=arrays_to_serialize)

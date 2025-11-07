@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage=false
+
 """Unit tests for ChemblTargetPipeline."""
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ import pytest
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.target.target import ChemblTargetPipeline
+from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 
 @pytest.mark.unit
@@ -139,7 +142,11 @@ class TestChemblTargetPipeline:
         from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._normalize_data_types(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._normalize_data_types(
+            df,
+            TargetSchema,
+            log,
+        )  # noqa: SLF001  # type: ignore[arg-type]
 
         assert result["component_count"].dtype == "Int64"  # type: ignore[unknown-member-type]
         assert result["component_count"].iloc[0] == 1  # type: ignore[unknown-member-type]
@@ -162,11 +169,13 @@ class TestChemblTargetPipeline:
         from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._ensure_schema_columns(df, log)  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._ensure_schema_columns(
+            df,
+            COLUMN_ORDER,
+            log,
+        )  # noqa: SLF001  # type: ignore[arg-type]
 
         # All schema columns should be present
-        from bioetl.schemas.target import COLUMN_ORDER
-
         for col in COLUMN_ORDER:
             assert col in result.columns  # type: ignore[unknown-member-type]
 
@@ -184,7 +193,7 @@ class TestChemblTargetPipeline:
             }
         )
 
-        result = pipeline._order_schema_columns(df)  # noqa: SLF001  # type: ignore[attr-defined]
+        result = pipeline._order_schema_columns(df, COLUMN_ORDER)  # noqa: SLF001  # type: ignore[attr-defined]
 
         # target_chembl_id should come first (first in COLUMN_ORDER)
         assert result.columns[0] == "target_chembl_id"  # type: ignore[unknown-member-type]

@@ -22,6 +22,7 @@ import pandas as pd
 import pandera.errors
 from pandas import Series
 from pandera import DataFrameSchema
+from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
@@ -37,9 +38,15 @@ from bioetl.core.output import (
     write_yaml_atomic,
 )
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
-from bioetl.qc.report import build_correlation_report as build_default_correlation_report
-from bioetl.qc.report import build_qc_metrics_payload
-from bioetl.qc.report import build_quality_report as build_default_quality_report
+from bioetl.qc.report import (
+    build_correlation_report as build_default_correlation_report,
+)
+from bioetl.qc.report import (
+    build_qc_metrics_payload,
+)
+from bioetl.qc.report import (
+    build_quality_report as build_default_quality_report,
+)
 from bioetl.schemas import SchemaRegistryEntry, get_schema
 
 
@@ -999,8 +1006,22 @@ class PipelineBase(ABC):
             },
         }
 
+    def _default_validation_schema_entry(self) -> SchemaRegistryEntry | None:
+        """Return the configured validation schema entry, if available."""
+
+        identifier = getattr(self.config.validation, "schema_out", None)
+        if not identifier:
+            return None
+        try:
+            return get_schema(identifier)
+        except KeyError:
+            return None
+
     def _ensure_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
+        self,
+        df: pd.DataFrame,
+        column_order_or_log: Sequence[str] | BoundLogger,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Add missing schema columns so downstream normalization can operate safely.
 
@@ -1008,10 +1029,13 @@ class PipelineBase(ABC):
         ----------
         df
             DataFrame to ensure columns for.
-        column_order
-            Sequence of column names that should exist in the DataFrame.
+        column_order_or_log
+            Either an explicit column order sequence or a logger when relying on
+            the configured validation schema.
         log
-            Logger instance for logging.
+            Logger instance for logging. When omitted, ``column_order_or_log`` is
+            treated as the logger and the schema column order is inferred from the
+            configured validation schema.
 
         Returns
         -------
@@ -1021,6 +1045,28 @@ class PipelineBase(ABC):
         df = df.copy()
         if df.empty:
             return df
+
+        effective_log: BoundLogger | None = None
+        if log is None:
+            if isinstance(column_order_or_log, BoundLogger):
+                effective_log = column_order_or_log
+                schema_entry = self._default_validation_schema_entry()
+                column_order: Sequence[str] = (
+                    schema_entry.column_order if schema_entry else ()
+                )
+            else:
+                column_order = column_order_or_log
+        else:
+            if isinstance(column_order_or_log, BoundLogger):
+                raise TypeError(
+                    "column_order_or_log must be schema column order when log is provided"
+                )
+            column_order = column_order_or_log
+            effective_log = log
+
+        if effective_log is None:
+            effective_log = UnifiedLogger.get(__name__)
+        logger: BoundLogger = effective_log
 
         expected = list(column_order)
         missing = [column for column in expected if column not in df.columns]
@@ -1051,7 +1097,7 @@ class PipelineBase(ABC):
                     df[column] = pd.Series([default_value] * row_count, dtype=dtype)
                 else:
                     df[column] = pd.Series([default_value] * row_count)
-            log.debug("schema_columns_added", columns=missing)
+            logger.debug("schema_columns_added", columns=missing)
 
         return df
 
@@ -1080,7 +1126,7 @@ class PipelineBase(ABC):
         return df[[*existing_schema_columns, *extras]]
 
     def _normalize_data_types(
-        self, df: pd.DataFrame, schema: DataFrameSchema, log: Any
+        self, df: pd.DataFrame, schema: DataFrameSchema | None, log: Any
     ) -> pd.DataFrame:
         """Convert data types according to the schema.
 
@@ -1102,6 +1148,12 @@ class PipelineBase(ABC):
             DataFrame with normalized data types.
         """
         df = df.copy()
+
+        if schema is None:
+            schema_entry = self._default_validation_schema_entry()
+            if schema_entry is None:
+                return df
+            schema = schema_entry.schema
 
         def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
             to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)

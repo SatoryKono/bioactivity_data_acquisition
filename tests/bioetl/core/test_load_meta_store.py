@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any, Mapping, cast
 
 import pandas as pd
 import pytest
 
+from bioetl.core.hashing import hash_from_mapping
 from bioetl.core.load_meta_store import LoadMetaStore
-from bioetl.schemas.load_meta import LoadMetaSchema
+from bioetl.schemas.load_meta import (
+    BUSINESS_KEY_FIELDS,
+    ROW_HASH_FIELDS,
+    LoadMetaSchema,
+)
 
 
 def _read_parquet(path: Path) -> pd.DataFrame:
-    return pd.read_parquet(path)
+    return cast(pd.DataFrame, pd.read_parquet(path))
 
 
 def test_finish_record_persists_parquet(tmp_path: Path) -> None:
@@ -41,6 +47,12 @@ def test_finish_record_persists_parquet(tmp_path: Path) -> None:
     assert frame.at[0, "status"] == "success"
     assert frame.at[0, "records_fetched"] == 25
     assert frame.at[0, "load_meta_id"] == load_meta_id
+    row = frame.iloc[0]
+    row_mapping: Mapping[str, Any] = row.to_dict()
+    assert len(row["hash_business_key"]) == 64
+    assert len(row["hash_row"]) == 64
+    assert row["hash_business_key"] == hash_from_mapping(row_mapping, BUSINESS_KEY_FIELDS)
+    assert row["hash_row"] == hash_from_mapping(row_mapping, ROW_HASH_FIELDS)
 
 
 def test_finish_record_records_error(tmp_path: Path) -> None:
@@ -63,6 +75,10 @@ def test_finish_record_records_error(tmp_path: Path) -> None:
     assert frame.at[0, "status"] == "error"
     assert frame.at[0, "error_message_opt"] == "timeout"
     assert frame.at[0, "retry_count"] == 1
+    row = frame.iloc[0]
+    row_mapping = row.to_dict()
+    assert row["hash_business_key"] == hash_from_mapping(row_mapping, BUSINESS_KEY_FIELDS)
+    assert row["hash_row"] == hash_from_mapping(row_mapping, ROW_HASH_FIELDS)
 
 
 def test_update_pagination_requires_active_id(tmp_path: Path) -> None:

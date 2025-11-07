@@ -12,12 +12,12 @@ from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
 from bioetl.schemas.base import create_schema
-from bioetl.schemas.common import uuid_column
+from bioetl.schemas.common import string_column_with_check, uuid_column
 from bioetl.schemas.vocab import required_vocab_ids
 
 SCHEMA_VERSION = "1.0.0"
 
-COLUMN_ORDER = (
+BASE_COLUMNS = (
     "load_meta_id",
     "source_system",
     "source_release",
@@ -36,6 +36,20 @@ COLUMN_ORDER = (
     "operator",
     "notes",
 )
+
+BUSINESS_KEY_FIELDS = (
+    "source_system",
+    "request_base_url",
+    "request_params_json",
+    "source_release",
+    "source_api_version",
+    "job_id",
+    "operator",
+)
+
+ROW_HASH_FIELDS = BASE_COLUMNS
+
+COLUMN_ORDER = (*BASE_COLUMNS, "hash_business_key", "hash_row")
 
 ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = tuple(sorted(required_vocab_ids("source_system")))
 ALLOWED_STATUS_VALUES: tuple[str, ...] = tuple(sorted(required_vocab_ids("status")))
@@ -133,6 +147,8 @@ columns: dict[str, Column] = {
     "job_id": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "operator": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "notes": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
+    "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=False),
+    "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
 }
 
 _BASE_SCHEMA = create_schema(
@@ -148,6 +164,9 @@ __all__ = [
     "ALLOWED_SOURCE_SYSTEMS",
     "ALLOWED_STATUS_VALUES",
     "COLUMN_ORDER",
+    "BUSINESS_KEY_FIELDS",
+    "ROW_HASH_FIELDS",
+    "BASE_COLUMNS",
     "LoadMetaSchema",
     "SCHEMA_VERSION",
 ]
