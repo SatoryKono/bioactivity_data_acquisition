@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import List, Tuple
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
-AUDIT_RESULTS.mkdir(exist_ok=True)
+ARTIFACTS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def check_lychee_available() -> bool:
@@ -28,7 +28,7 @@ def check_lychee_available() -> bool:
 def run_lychee() -> Tuple[int, str]:
     """Запускает lychee с конфигом .lychee.toml."""
     config_file = ROOT / ".lychee.toml"
-    output_file = AUDIT_RESULTS / "link-check-report.md"
+    output_file = ARTIFACTS_DIR / "link-check-report.md"
     
     try:
         result = subprocess.run(
@@ -67,7 +67,7 @@ def main():
     
     if exit_code == 0:
         print("Link check completed successfully")
-        print(f"Report saved to {AUDIT_RESULTS / 'link-check-report.md'}")
+        print(f"Report saved to {ARTIFACTS_DIR / 'link-check-report.md'}")
     else:
         print(f"Link check failed with exit code {exit_code}")
         print(output)

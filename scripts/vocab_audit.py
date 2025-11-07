@@ -35,9 +35,10 @@ class _ResourceProtocol(Protocol):
 
 APP = typer.Typer(add_completion=False, help=__doc__)
 
-DEFAULT_OUTPUT = Path("reports/vocab_audit.csv")
-DEFAULT_META = Path("reports/vocab_audit.meta.yaml")
-DEFAULT_AGGREGATED = Path("configs/chembl_dictionaries.yaml")
+DEFAULT_OUTPUT = Path("artifacts/vocab_audit.csv")
+DEFAULT_META = Path("artifacts/vocab_audit.meta.yaml")
+DEFAULT_AGGREGATED = Path("artifacts/chembl_dictionaries.yaml")
+LEGACY_AGGREGATED = Path("configs/chembl_dictionaries.yaml")
 DEFAULT_DICTIONARY_DIR = Path("configs/dictionaries")
 PIPELINE_VERSION = "0.1.0"
 
@@ -69,6 +70,9 @@ def _resolve_store_path(store: Path | None) -> Path:
     aggregate = DEFAULT_AGGREGATED.resolve()
     if aggregate.exists():
         return aggregate
+    legacy = LEGACY_AGGREGATED.resolve()
+    if legacy.exists():
+        return legacy
     return DEFAULT_DICTIONARY_DIR.resolve()
 
 

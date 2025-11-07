@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
-AUDIT_RESULTS.mkdir(exist_ok=True)
+ARTIFACTS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def create_matrix() -> List[Dict[str, Any]]:
@@ -171,7 +171,7 @@ def main():
     matrix = create_matrix()
     
     # Сохраняем в CSV
-    csv_file = AUDIT_RESULTS / "matrix-doc-code.csv"
+    csv_file = ARTIFACTS_DIR / "matrix-doc-code.csv"
     with csv_file.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
@@ -183,7 +183,7 @@ def main():
     print(f"Matrix saved to {csv_file}")
     
     # Сохраняем в JSON
-    json_file = AUDIT_RESULTS / "matrix-doc-code.json"
+    json_file = ARTIFACTS_DIR / "matrix-doc-code.json"
     with json_file.open("w", encoding="utf-8") as f:
         json.dump(matrix, f, indent=2, ensure_ascii=False)
     

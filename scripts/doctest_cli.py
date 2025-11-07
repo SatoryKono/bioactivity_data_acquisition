@@ -15,7 +15,7 @@ from typing import NamedTuple
 
 ROOT = Path(__file__).parent.parent
 DOCS = ROOT / "docs"
-AUDIT_RESULTS = ROOT / "audit_results"
+ARTIFACTS_DIR = ROOT / "artifacts"
 
 
 class CLIExample(NamedTuple):
@@ -158,8 +158,8 @@ def main() -> int:
                 print(f"    Error: {stderr[:200]}")
 
     # Generate report
-    AUDIT_RESULTS.mkdir(exist_ok=True)
-    report_path = AUDIT_RESULTS / "CLI_DOCTEST_REPORT.md"
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = ARTIFACTS_DIR / "CLI_DOCTEST_REPORT.md"
 
     with report_path.open("w", encoding="utf-8") as f:
         f.write("# CLI Doctest Report\n\n")

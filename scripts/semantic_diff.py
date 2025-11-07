@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
-AUDIT_RESULTS.mkdir(exist_ok=True)
+ARTIFACTS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 DOCS = ROOT / "docs"
 
 
@@ -296,7 +296,7 @@ def main() -> None:
         },
     }
     
-    output_file = AUDIT_RESULTS / "semantic-diff-report.json"
+    output_file = ARTIFACTS_DIR / "semantic-diff-report.json"
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(diff_report, f, indent=2, ensure_ascii=False)
     

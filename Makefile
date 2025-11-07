@@ -1,5 +1,5 @@
 .PHONY: dicts.aggregate
 
 dicts.aggregate:
-	python scripts/build_vocab_store.py
+python scripts/build_vocab_store.py --output artifacts/chembl_dictionaries.yaml
 

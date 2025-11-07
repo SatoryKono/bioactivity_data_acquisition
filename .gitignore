@@ -57,6 +57,9 @@ data/output/
 data/logs/*.log
 !data/logs/.gitkeep
 
+# Build artifacts
+artifacts/
+
 # Environment
 .env
 .env.local

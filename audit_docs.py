@@ -196,8 +196,8 @@ def main():
         pipeline_info.append(info)
     
     # Сохраняем результаты
-    results_dir = ROOT / "audit_results"
-    results_dir.mkdir(exist_ok=True)
+    results_dir = ROOT / "artifacts"
+    results_dir.mkdir(parents=True, exist_ok=True)
     
     # GAPS_TABLE.csv
     with open(results_dir / "GAPS_TABLE.csv", "w", newline="", encoding="utf-8") as f:

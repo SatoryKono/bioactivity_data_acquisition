@@ -8,8 +8,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
-AUDIT_RESULTS.mkdir(exist_ok=True)
+ARTIFACTS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def extract_method_signature(method: Any) -> Dict[str, Any]:
@@ -125,7 +125,7 @@ def main():
         "cli_commands": cli_commands,
     }
     
-    output_file = AUDIT_RESULTS / "code_signatures.json"
+    output_file = ARTIFACTS_DIR / "code_signatures.json"
     with output_file.open("w", encoding="utf-8") as f:
         json.dump(code_signatures, f, indent=2, ensure_ascii=False)
     
@@ -134,7 +134,7 @@ def main():
     print(f"Found {len(cli_commands)} CLI commands: {', '.join(cli_commands)}")
     
     # Сохраняем CLI команды в текстовый файл
-    cli_file = AUDIT_RESULTS / "cli_commands.txt"
+    cli_file = ARTIFACTS_DIR / "cli_commands.txt"
     with cli_file.open("w", encoding="utf-8") as f:
         for cmd in cli_commands:
             f.write(f"{cmd}\n")

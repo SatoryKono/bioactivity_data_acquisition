@@ -1,4 +1,0 @@
-activity_chembl
-assay_chembl
-testitem
-testitem_chembl

@@ -12,15 +12,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
-CONFIG_ROOT = ROOT / "configs" / "pipelines"
-PIPELINE_CONFIGS = {
-    "activity_chembl": CONFIG_ROOT / "activity" / "activity_chembl.yaml",
-    "assay_chembl": CONFIG_ROOT / "assay" / "assay_chembl.yaml",
-    "testitem_chembl": CONFIG_ROOT / "testitem" / "testitem_chembl.yaml",
-    "target_chembl": CONFIG_ROOT / "target" / "target_chembl.yaml",
-    "document_chembl": CONFIG_ROOT / "document" / "document_chembl.yaml",
-}
+ARTIFACTS_DIR = ROOT / "artifacts"
+CONFIGS = ROOT / "configs" / "pipelines" / "chembl"
 
 
 def validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
@@ -78,7 +71,10 @@ def main() -> int:
     """Main entry point."""
     print("Validating pipeline configurations...\n")
 
-    configs_to_check = list(PIPELINE_CONFIGS.items())
+    configs_to_check = [
+        ("activity", CONFIGS / "activity.yaml"),
+        ("assay", CONFIGS / "assay.yaml"),
+    ]
 
     results: dict[str, dict[str, Any]] = {}
 
@@ -118,8 +114,8 @@ def main() -> int:
                 print(f"    - {error}")
 
     # Generate report
-    AUDIT_RESULTS.mkdir(exist_ok=True)
-    report_path = AUDIT_RESULTS / "SCHEMA_GUARD_REPORT.md"
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = ARTIFACTS_DIR / "SCHEMA_GUARD_REPORT.md"
 
     total_valid = sum(1 for r in results.values() if r["valid"])
     total_invalid = len(results) - total_valid
