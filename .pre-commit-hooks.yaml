@@ -1,7 +1,0 @@
-# Pre-commit hooks configuration
-- id: version-check
-  name: Version consistency check
-  entry: python scripts/check_version_consistency.py
-  language: system
-  pass_filenames: false
-  always_run: true
