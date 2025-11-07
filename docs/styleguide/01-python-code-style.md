@@ -72,7 +72,7 @@ All public functions, classes, and methods **MUST** have complete type annotatio
 
 ### Mypy Configuration
 
-- **Mode**: `strict = true` for `src/bioetl` and `src/scripts`
+- **Mode**: `strict = true` for `src/bioetl` and `scripts`
 - **Python version**: 3.10
 - **Overrides**: Some third-party modules may ignore missing imports (see `pyproject.toml`)
 

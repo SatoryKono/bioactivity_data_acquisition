@@ -1,0 +1,9 @@
+column,non_null_count,null_count,distinct_values
+abstract,3,0,3
+authors,3,0,3
+authors_count,3,0,3
+document_chembl_id,3,0,3
+doi,3,0,3
+doi_clean,3,0,3
+pubmed_id,2,1,2
+year,3,0,3

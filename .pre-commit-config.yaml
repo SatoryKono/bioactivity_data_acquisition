@@ -36,12 +36,12 @@ repos:
             --exit-non-zero-on-fix,
             src/bioetl,
             src/library,
-            src/scripts,
+            scripts,
             tests,
           ]
         pass_filenames: false
       - id: ruff-format
-        args: [src/bioetl, src/library, src/scripts, tests]
+        args: [src/bioetl, src/library, scripts, tests]
         pass_filenames: false
 
   - repo: https://github.com/pre-commit/mirrors-mypy
@@ -72,7 +72,13 @@ repos:
 
       - id: pipeline-inventory
         name: Generate pipeline inventory snapshot
-        entry: python src/scripts/run_inventory.py
+        entry: python scripts/catalog_code_symbols.py
+        language: system
+        pass_filenames: false
+
+      - id: check-output-artifacts
+        name: Ensure large artifacts are not committed under data/output
+        entry: python scripts/check_output_artifacts.py
         language: system
         pass_filenames: false
 

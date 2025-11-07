@@ -11,6 +11,14 @@
 Слои кода, тестов, конфигураций и артефактов описаны в разделе
 [Repository Topology](docs/repository_topology.md). Используйте его как точку
 старта для навигации по проекту и проверки правил размещения артефактов.
+## Каталоги данных и образцы
+
+- Полноразмерные выгрузки пайплайнов и отчёты перены в бакет `s3://bioactivity-data-lake/output`
+  и публикуются как артефакты CI. Репозиторий хранит только конфигурацию и лёгкие примеры.
+- Для демонстрации схем добавлены облегчённые выборки в `data/samples/`. Структура повторяет
+  каталоги из `data/output` (например, `data/samples/_documents/documents_sample_20251021.csv`).
+- Каталог `data/output/` очищен; в гите остаётся только `.gitkeep`, а попытки добавить крупные
+  файлы блокируются новым pre-commit хуком и шагом CI `scripts/check_output_artifacts.py`.
 
 ## Стратегия хранения
 
@@ -95,3 +103,28 @@ pre-commit run detect-secrets --all-files
 3. Создайте инцидент в системе тикетов и задокументируйте временную шкалу.
 4. Добавьте регрессионный тест или правило в `detect-secrets`, чтобы предотвратить
    повторение проблемы.
+
+## CLI утилиты
+
+Вспомогательные CLI были сконцентрированы в каталоге `scripts/` и теперь
+запускаются единообразно через `python scripts/<имя>.py`. Перед использованием
+установите зависимости в editable-режиме (`pip install -e .[dev]`) и выполняйте
+команды из корня репозитория, чтобы относительные пути разрешались корректно.
+
+| Команда | Назначение | Пример запуска |
+| --- | --- | --- |
+| `determinism_check` | Дважды запускает `activity_chembl` и `assay_chembl` в `--dry-run` и сравнивает структурированные логи. | `python scripts/determinism_check.py` |
+| `schema_guard` | Валидирует ключевые конфигурации пайплайнов через `bioetl.config.loader` и проверяет поля детерминизма. | `python scripts/schema_guard.py` |
+| `doctest_cli` | Извлекает примеры команд из документации, принудительно добавляет `--dry-run` и формирует отчёт о статусах. | `python scripts/doctest_cli.py` |
+| `run_test_report` | Запускает `pytest`+coverage, собирает артефакты и пишет `meta.yaml` с контрольными суммами. | `python scripts/run_test_report.py --output-root audit_results/test-reports` |
+
+Полный перечень служебных утилит с артефактами и примерами доступен в
+[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
+## Architecture Decision Records (ADR)
+
+Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:
+
+1. Скопируйте шаблон [`docs/adr/template.md`](docs/adr/template.md) в файл `docs/adr/<следующий-номер>-<краткое-имя>.md`.
+2. Заполните разделы «Context», «Decision», «Consequences» и добавьте ссылки на код/документацию.
+3. Обновите [`docs/INDEX.md`](docs/INDEX.md) — добавьте ссылку на новый ADR в раздел «Architecture Decision Records».
+4. Укажите номер ADR в описании PR и отметьте чекбокс ADR в шаблоне PR.

@@ -1,0 +1,16 @@
+stem: documents_sample_20251021
+schema_version: 1.0.0
+pipeline: chembl_documents
+generated_at_utc: "2025-10-21T08:00:00Z"
+row_count: 3
+config_hash: 1c8c4f7a214f9b52868ddce2f8bcb7f01757da1a551312a056da86402f42a1ad
+artifacts:
+  dataset: documents_sample_20251021.csv
+  quality_report: documents_sample_20251021_quality_report.csv
+  correlation_report: documents_sample_20251021_correlation_report.csv
+  qc_summary: documents_sample_20251021_qc.csv
+lineage:
+  chembl_release: 33
+  requested_at_utc: "2025-10-21T07:45:12Z"
+  source_filters:
+    doc_type: ["journal_article", "preprint", "conference"]
