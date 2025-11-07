@@ -48,7 +48,7 @@ dev = [
     # Code formatting and linting - stable APIs
     "black>=24.4,<25.0",
     "ruff>=0.4,<1.0",
-    "pre-commit>=3.7,<4.0",
+    "pre-commit>=3.7,<5.0",
     
     # Type checking - stable APIs
     "mypy>=1.8,<2.0",
