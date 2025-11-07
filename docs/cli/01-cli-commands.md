@@ -12,7 +12,7 @@ All pipeline entry points share the same Typer invocation form:
 python -m bioetl.cli.main <command> [OPTIONS]
 ```
 
-The CLI loads configuration layers in a fixed precedence: profiles declared via `extends` (typically `configs/profiles/base.yaml`, `configs/profiles/network.yaml`, and `configs/profiles/determinism.yaml`), then the pipeline YAML passed with `--config`, then any `--set` overrides, and finally environment variables. This merge order keeps defaults predictable while still allowing per-run overrides.
+The CLI loads configuration layers in a fixed precedence: profiles declared via `extends` (typically `configs/defaults/base.yaml`, `configs/defaults/network.yaml`, and `configs/defaults/determinism.yaml`), then the pipeline YAML passed with `--config`, then any `--set` overrides, and finally environment variables. This merge order keeps defaults predictable while still allowing per-run overrides.
 
 ## Global options
 
@@ -36,7 +36,7 @@ These switches are available to every pipeline command. Flags marked as **requir
 
 ## Determinism building blocks
 
-Every command inherits the determinism policy enforced by `PipelineBase`: stable sorting, canonicalised values, SHA256 row and business-key hashes, and atomic writes. The shared `configs/profiles/determinism.yaml` profile captures these guarantees, while pipeline-specific configs define the concrete sort keys.
+Every command inherits the determinism policy enforced by `PipelineBase`: stable sorting, canonicalised values, SHA256 row and business-key hashes, and atomic writes. The shared `configs/defaults/determinism.yaml` profile captures these guarantees, while pipeline-specific configs define the concrete sort keys.
 
 ## Command reference
 
@@ -46,7 +46,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Purpose**: Extract biological activity records from ChEMBL `/activity.json` and normalise them to the project schema.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any applicable `--set` overrides.
-- **Default profiles**: Always merges `configs/profiles/base.yaml` and `configs/profiles/determinism.yaml`; network defaults can be layered when referenced in the pipeline YAML.
+- **Default profiles**: Always merges `configs/defaults/base.yaml` and `configs/defaults/determinism.yaml`; network defaults can be layered when referenced in the pipeline YAML.
 - **Deterministic output**: Rows are sorted by `assay_id`, `testitem_id`, then `activity_id`; `hash_row` and `hash_business_key` are produced with SHA256 using the canonicalisation rules from the determinism profile. The run emits a `meta.yaml` snapshot with the fingerprint of both configuration and outputs.
 - **Example**:
 
@@ -264,7 +264,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 | Command | Data domain | Primary configuration | Default profiles applied |
 | --- | --- | --- | --- |
-| `activity_chembl` | ChEMBL activity fact table | `configs/pipelines/activity/activity_chembl.yaml` | `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`, optional `configs/profiles/network.yaml` |
+| `activity_chembl` | ChEMBL activity fact table | `configs/pipelines/activity/activity_chembl.yaml` | `configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`, optional `configs/defaults/network.yaml` |
 | `assay_chembl` | ChEMBL assay dimension | `configs/pipelines/assay/assay_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `target` | ChEMBL target dimension + UniProt/IUPHAR enrichment | `configs/pipelines/target/target_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |
 | `document` | ChEMBL documents with optional external enrichers | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml` |

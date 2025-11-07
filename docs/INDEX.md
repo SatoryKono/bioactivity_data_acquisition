@@ -53,7 +53,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Additional Resources
 
-- **[Prompt Documentation](00-promt/00-01-etl-contract.md)**: Original prompt specifications used for generating framework documentation. These files serve as reference materials for understanding the design decisions and requirements that shaped the `bioetl` framework.
+- **[Prompt Documentation](00-prompt/00-01-etl-contract.md)**: Original prompt specifications used for generating framework documentation. These files serve as reference materials for understanding the design decisions and requirements that shaped the `bioetl` framework.
 
 ---
 
@@ -169,18 +169,18 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-naming-conventions.md](styleguide/00-naming-conventions.md) - Naming conventions
 
-### Prompt Documentation (`00-promt/`)
+### Prompt Documentation (`00-prompt/`)
 
-- [00-01-etl-contract.md](00-promt/00-01-etl-contract.md) - ETL contract prompt
-- [00-02-logging-system.md](00-promt/00-02-logging-system.md) - Logging system prompt
-- [00-03-pipeline-base-core-orchestrator.md](00-promt/00-03-pipeline-base-core-orchestrator.md) - Pipeline base core orchestrator prompt
-- [00-04-deterministic-policy-of-downloads.md](00-promt/00-04-deterministic-policy-of-downloads.md) - Deterministic policy of downloads prompt
-- [00-05-typer-cli.md](00-promt/00-05-typer-cli.md) - Typer CLI prompt
-- [00-06-type-safe-configs-and-inclusion-layers.md](00-promt/00-06-type-safe-configs-and-inclusion-layers.md) - Type-safe configs and inclusion layers prompt
-- [00-07-pandera-schemas-and-rigorous-data-validation.md](00-promt/00-07-pandera-schemas-and-rigorous-data-validation.md) - Pandera schemas and rigorous data validation prompt
-- [00-08-http-clients-with-backoff-and-unified-request-rules.md](00-promt/00-08-http-clients-with-backoff-and-unified-request-rules.md) - HTTP clients with backoff and unified request rules prompt
-- [00-09-source-architecture.md](00-promt/00-09-source-architecture.md) - Source architecture prompt
-- [00-10-a-complete-set-of-chembl-pipelines.md](00-promt/00-10-a-complete-set-of-chembl-pipelines.md) - Complete set of ChEMBL pipelines prompt
+- [00-01-etl-contract.md](00-prompt/00-01-etl-contract.md) - ETL contract prompt
+- [00-02-logging-system.md](00-prompt/00-02-logging-system.md) - Logging system prompt
+- [00-03-pipeline-base-core-orchestrator.md](00-prompt/00-03-pipeline-base-core-orchestrator.md) - Pipeline base core orchestrator prompt
+- [00-04-deterministic-policy-of-downloads.md](00-prompt/00-04-deterministic-policy-of-downloads.md) - Deterministic policy of downloads prompt
+- [00-05-typer-cli.md](00-prompt/00-05-typer-cli.md) - Typer CLI prompt
+- [00-06-type-safe-configs-and-inclusion-layers.md](00-prompt/00-06-type-safe-configs-and-inclusion-layers.md) - Type-safe configs and inclusion layers prompt
+- [00-07-pandera-schemas-and-rigorous-data-validation.md](00-prompt/00-07-pandera-schemas-and-rigorous-data-validation.md) - Pandera schemas and rigorous data validation prompt
+- [00-08-http-clients-with-backoff-and-unified-request-rules.md](00-prompt/00-08-http-clients-with-backoff-and-unified-request-rules.md) - HTTP clients with backoff and unified request rules prompt
+- [00-09-source-architecture.md](00-prompt/00-09-source-architecture.md) - Source architecture prompt
+- [00-10-a-complete-set-of-chembl-pipelines.md](00-prompt/00-10-a-complete-set-of-chembl-pipelines.md) - Complete set of ChEMBL pipelines prompt
 
 ## How to Maintain Consistency
 

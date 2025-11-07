@@ -1,4 +1,4 @@
-# configs/profiles/base.yaml
+# configs/defaults/base.yaml
 #
 # Единый профиль по умолчанию для всех пайплайнов BioETL. Использует YAML merge-key
 # и якорь `*profile_common`, чтобы минимизировать дублирование в конфигурациях

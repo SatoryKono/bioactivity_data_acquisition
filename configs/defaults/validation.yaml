@@ -1,4 +1,4 @@
-# configs/profiles/validation.yaml
+# configs/defaults/validation.yaml
 #
 # Validation configuration profile shared by all pipelines.
 # Pipeline-specific configs must override schema_out and can override coerce.

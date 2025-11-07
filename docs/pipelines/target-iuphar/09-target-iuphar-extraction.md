@@ -36,7 +36,7 @@ Target-IUPHAR pipeline управляется через декларативн�
 
 **Расположение конфига:** `configs/pipelines/iuphar/target.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
 
 **Основной источник:** Guide to Pharmacology API `https://www.guidetopharmacology.org/DATA`.
 

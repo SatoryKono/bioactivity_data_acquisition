@@ -58,7 +58,7 @@ datatracker.ietf.org
 
 docs/http/00-http-clients-and-retries.md — спецификация.
 
-configs/profiles/network.yaml — минимальный профиль сети (таймауты/лимиты/ретраи) с комментариями и ссылками на поля PipelineConfig.
+configs/defaults/network.yaml — минимальный профиль сети (таймауты/лимиты/ретраи) с комментариями и ссылками на поля PipelineConfig.
 
 Обязательное содержание спецификации (структура)
 01. Обзор и цели
@@ -162,7 +162,7 @@ OpenTelemetry
 datatracker.ietf.org
 )
 
-Есть профиль configs/profiles/network.yaml с документированными ключами и приоритетом мерджа.
+Есть профиль configs/defaults/network.yaml с документированными ключами и приоритетом мерджа.
 
 Тест-план покрывает 429/408/5xx, Retry-After, пагинацию, трассинг и метрики.
 

@@ -1,9 +1,9 @@
 extends:
-  - ../../profiles/base.yaml
-  - ../../profiles/determinism.yaml
-  - ../../profiles/chembl.yaml
-  - ../../profiles/validation.yaml
-  - ../../profiles/postprocess.yaml
+  - ../../defaults/base.yaml
+  - ../../defaults/determinism.yaml
+  - ../../defaults/chembl.yaml
+  - ../../defaults/validation.yaml
+  - ../../defaults/postprocess.yaml
 
 pipeline:
   name: activity_chembl

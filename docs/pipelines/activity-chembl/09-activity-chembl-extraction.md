@@ -211,7 +211,7 @@ python -m bioetl.cli.main activity \
 
 Конфигурация загружается в следующем порядке (поздние источники переопределяют ранние):
 
-1. **Базовые профили** (`configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`) — задаются через `extends` в pipeline YAML
+1. **Базовые профили** (`configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`) — задаются через `extends` в pipeline YAML
 2. **Pipeline YAML** (`--config`) — основной конфигурационный файл пайплайна
 3. **CLI переопределения** (`--set KEY=VALUE`) — переопределения через командную строку
 4. **Переменные окружения** — имеют наивысший приоритет

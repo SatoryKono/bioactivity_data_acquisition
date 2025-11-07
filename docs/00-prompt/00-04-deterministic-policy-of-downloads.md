@@ -95,7 +95,7 @@ timezone: UTC, locale: C,
 write (атомарная запись, временные файлы, ротация),
 
 meta (включение/исключение полей, путь сохранения рядом с артефактом).
-Укажи место файла в репозитории, например configs/profiles/determinism.yaml, и механизм подмешивания из CLI.
+Укажи место файла в репозитории, например configs/defaults/determinism.yaml, и механизм подмешивания из CLI.
 GitHub
 
 Golden-проверки
@@ -128,4 +128,4 @@ Golden-тесты зелёные на CI.
 
 docs/determinism/00-determinism-policy.md — полная спецификация по пунктам выше с таблицами, псевдокодом и примером meta.yaml.
 
-configs/profiles/determinism.yaml — минимально работоспособный профиль с комментариями.
+configs/defaults/determinism.yaml — минимально работоспособный профиль с комментариями.

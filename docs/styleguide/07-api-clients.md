@@ -299,7 +299,7 @@ API client configuration **SHOULD** use profiles:
 ### network.yaml Profile
 
 ```yaml
-# configs/profiles/network.yaml
+# configs/defaults/network.yaml
 api_clients:
   default:
     timeout: 30.0

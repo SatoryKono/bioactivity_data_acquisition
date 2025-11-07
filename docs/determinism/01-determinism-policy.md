@@ -135,12 +135,12 @@ source_lineage:
 
 ## 6. `determinism.yaml` Template
 
-This profile provides the baseline settings for ensuring deterministic runs. It is located at `configs/profiles/determinism.yaml`.
+This profile provides the baseline settings for ensuring deterministic runs. It is located at `configs/defaults/determinism.yaml`.
 
-[ref: repo:configs/profiles/determinism.yaml@refactoring_001]
+[ref: repo:configs/defaults/determinism.yaml@refactoring_001]
 
 ```yaml
-# /configs/profiles/determinism.yaml
+# /configs/defaults/determinism.yaml
 determinism:
   serialization:
     csv: { separator: ",", quoting: "ALL", na_rep: "" }

@@ -1,4 +1,4 @@
-# configs/profiles/determinism.yaml
+# configs/defaults/determinism.yaml
 #
 # Determinism policy applied automatically by the CLI. Pipelines can override
 # any of these keys in their main configuration file, but the defaults below

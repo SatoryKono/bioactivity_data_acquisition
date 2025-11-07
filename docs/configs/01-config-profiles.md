@@ -1,10 +1,10 @@
 # 01. Профили конфигурации
 
-> **Статус**: актуально для ветки `@test_refactoring_32`. Все примеры синхронизированы с `configs/profiles/`.
+> **Статус**: актуально для ветки `@test_refactoring_32`. Все примеры синхронизированы с `configs/defaults/`.
 
 ## 1. Базовый профиль (`base.yaml`)
 
-Общий профиль подключается в каждом pipeline через `<<: !include ../../profiles/base.yaml`. Он определяет:
+Общий профиль подключается в каждом pipeline через `<<: !include ../../defaults/base.yaml`. Он определяет:
 
 - секции `runtime`, `io`, `http`, `logging`, `telemetry` с детерминированными значениями по умолчанию;
 - гарантию детерминизма (`determinism`) с едиными колонками `hash_business_key` и `hash_row`;
@@ -29,7 +29,7 @@
 
 ## 2. Профиль источников (`sources.yaml`)
 
-`configs/profiles/sources.yaml` хранит повторно используемые определения внешних API. Пример:
+`configs/defaults/sources.yaml` хранит повторно используемые определения внешних API. Пример:
 
 ```yaml
 sources:
@@ -54,10 +54,10 @@ sources:
 Каждый pipeline начинается с набора include-ов:
 
 ```yaml
-<<: !include ../../profiles/base.yaml
-<<: !include ../../profiles/determinism.yaml
-<<: !include ../../profiles/chembl.yaml
-<<: !include ../../profiles/validation.yaml
+<<: !include ../../defaults/base.yaml
+<<: !include ../../defaults/determinism.yaml
+<<: !include ../../defaults/chembl.yaml
+<<: !include ../../defaults/validation.yaml
 ```
 
 Далее описываются только различия:
@@ -67,9 +67,12 @@ sources:
 - `io.output.partition_by` (например, `year` для документов);
 - специфичные блоки (`chembl.activity.enrich`, `transform.arrays_to_header_rows`).
 
-## 4. Локальные оверлеи (`base.local.yaml`)
+## 4. Локальные оверлеи (`configs/env/dev/base.yaml`)
 
-Для разработки доступен профиль `base.local.yaml`. Он не подключается автоматически, но может быть передан через `--profile` или `extends`. Содержимое переключает пайплайны в щадящий режим:
+Для разработки используется окружение `BIOETL_ENV=dev`. Соответствующие
+переопределения лежат в `configs/env/dev/base.yaml` и автоматически
+подмешиваются поверх дефолтов после загрузки основного pipeline YAML.
+Содержимое переключает пайплайны в щадящий режим:
 
 ```yaml
 runtime:
@@ -78,7 +81,7 @@ runtime:
   dry_run: true
 io:
   output:
-    path: data/output/local
+    path: data/samples
 logging:
   level: DEBUG
 telemetry:

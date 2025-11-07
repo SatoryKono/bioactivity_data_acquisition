@@ -40,7 +40,7 @@ GitHub
 
 docs/configs/00-typed-configs-and-profiles.md — спецификация.
 
-configs/profiles/base.yaml и configs/profiles/determinism.yaml — минимальные, рабочие скелеты с комментариями. Положи рядом с уже существующими конфигами проекта и свяжи из docs/configs/00-typed-configs-and-profiles.md.
+configs/defaults/base.yaml и configs/defaults/determinism.yaml — минимальные, рабочие скелеты с комментариями. Положи рядом с уже существующими конфигами проекта и свяжи из docs/configs/00-typed-configs-and-profiles.md.
 GitHub
 
 Обязательное содержание спецификации (структура разделов)

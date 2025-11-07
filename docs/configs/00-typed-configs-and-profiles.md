@@ -257,7 +257,7 @@ CLI `--set` overrides (глубокий merge по ключам)
 ### 5.1 Базовый профиль
 
 ```yaml
-# configs/profiles/base.yaml
+# configs/defaults/base.yaml
 <<: &profile_common
   version: 1
   runtime:
@@ -364,12 +364,12 @@ CLI `--set` overrides (глубокий merge по ключам)
     sampling_ratio: 1.0
 ```
 
-【F:configs/profiles/base.yaml†L1-L93】
+【F:configs/defaults/base.yaml†L1-L93】
 
 ### 5.2 Профиль детерминизма
 
 ```yaml
-# configs/profiles/determinism.yaml
+# configs/defaults/determinism.yaml
 determinism:
   enabled: true
   hash_policy_version: "1.0.0"
@@ -408,17 +408,17 @@ determinism:
     exclude_fields: []
 ```
 
-【F:configs/profiles/determinism.yaml†L1-L49】
+【F:configs/defaults/determinism.yaml†L1-L49】
 
 ## 6. Пример итогового конфига
 
 ```yaml
 # configs/pipelines/activity/activity_chembl.yaml
-<<: !include ../../profiles/base.yaml
-<<: !include ../../profiles/determinism.yaml
-<<: !include ../../profiles/chembl.yaml
-<<: !include ../../profiles/validation.yaml
-<<: !include ../../profiles/postprocess.yaml
+<<: !include ../../defaults/base.yaml
+<<: !include ../../defaults/determinism.yaml
+<<: !include ../../defaults/chembl.yaml
+<<: !include ../../defaults/validation.yaml
+<<: !include ../../defaults/postprocess.yaml
 
 pipeline:
   name: activity_chembl

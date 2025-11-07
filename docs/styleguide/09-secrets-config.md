@@ -123,7 +123,7 @@ Shared settings **SHOULD** use configuration profiles:
 ### Profile Structure
 
 ```yaml
-# configs/profiles/base.yaml
+# configs/defaults/base.yaml
 pipeline:
   version: "1.0.0"
   batch_size: 1000
@@ -134,7 +134,7 @@ output:
 ```
 
 ```yaml
-# configs/profiles/network.yaml
+# configs/defaults/network.yaml
 api:
   timeout: 30.0
   retry_max_attempts: 3
@@ -166,7 +166,7 @@ def load_config_with_profiles(config_path: Path, profile_names: list[str]) -> di
     
     # Load profiles first
     for profile_name in profile_names:
-        profile_path = Path(f"configs/profiles/{profile_name}.yaml")
+        profile_path = Path(f"configs/defaults/{profile_name}.yaml")
         with profile_path.open() as f:
             profile_data = yaml.safe_load(f)
             config = merge_config(config, profile_data)

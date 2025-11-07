@@ -36,7 +36,7 @@ Target pipeline управляется через декларативный YAM
 
 **Расположение конфига:** `configs/pipelines/target/target_chembl.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
 
 **Основной источник:** ChEMBL API `/target.json` endpoint.
 

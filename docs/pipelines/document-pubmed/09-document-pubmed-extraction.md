@@ -471,8 +471,8 @@ The pipeline supports the following standard CLI flags:
 
 The configuration is loaded in the following order, with later sources overriding earlier ones:
 
-1. **Base Profile:** `src/bioetl/configs/profiles/base.yaml`
-2. **Profile:** e.g., `src/bioetl/configs/profiles/determinism.yaml` (activated by `--profile determinism`)
+1. **Base Profile:** `src/bioetl/configs/defaults/base.yaml`
+2. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated by `--profile determinism`)
 3. **Explicit Config:** The file specified by the `--config` flag.
 4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
 

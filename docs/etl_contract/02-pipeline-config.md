@@ -17,8 +17,8 @@ Below is a complete skeleton of a pipeline configuration file. It includes all t
 
 # (Optional) Inherit from base configuration profiles to reduce duplication.
 extends:
-  - ../../profiles/base.yaml   # Common settings for all pipelines
-  - ../../profiles/determinism.yaml   # Standard settings for ensuring deterministic output
+  - ../../defaults/base.yaml   # Common settings for all pipelines
+  - ../../defaults/determinism.yaml   # Standard settings for ensuring deterministic output
 
 # -----------------------------------------------------------------------------
 # Section: source

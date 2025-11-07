@@ -3,19 +3,22 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping, MutableMapping, Sequence
+from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, cast
 
 import yaml
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.sources import EnvSettingsSource, PydanticBaseSettingsSource
+from yaml.nodes import ScalarNode
 
 from .models.base import PipelineConfig
 
-DEFAULT_PROFILE_PATHS: tuple[Path, ...] = (
-    Path("configs/profiles/base.yaml"),
-    Path("configs/profiles/determinism.yaml"),
-)
+DEFAULTS_DIR = Path("configs/defaults")
+ENV_ROOT_DIR = Path("configs/env")
+ENVIRONMENT_VARIABLE = "BIOETL_ENV"
+VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
+_LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 
 
 def load_config(
@@ -73,13 +76,18 @@ def load_config(
         msg = f"Configuration file not found: {path}"
         raise FileNotFoundError(msg)
 
+    env_mapping: Mapping[str, str] = env or os.environ
+    selected_environment = _select_environment(env_mapping)
+
     requested_profiles: list[Path] = []
     if include_default_profiles:
-        requested_profiles.extend(DEFAULT_PROFILE_PATHS)
+        requested_profiles.extend(
+            _discover_layer_files(DEFAULTS_DIR, base=path.parent)
+        )
     if profiles:
         requested_profiles.extend(Path(p).expanduser() for p in profiles)
 
-    merged: MutableMapping[str, Any] = {}
+    merged: dict[str, Any] = {}
     seen_profiles: set[Path] = set()
     applied_profiles: list[Path] = []
     for profile_path in requested_profiles:
@@ -94,16 +102,37 @@ def load_config(
     config_data = _load_with_extends(path, stack=())
     merged = _deep_merge(merged, config_data)
 
-    cli_metadata: MutableMapping[str, Any] = {}
+    applied_environment_profiles: list[Path] = []
+    if selected_environment is not None:
+        env_payload, applied_environment_profiles = _load_environment_overrides(
+            selected_environment, base=path.parent
+        )
+        if env_payload:
+            merged = _deep_merge(merged, env_payload)
+
+    cli_metadata: dict[str, Any] = {}
+    cli_section: dict[str, Any] | None = None
     if applied_profiles:
-        cli_metadata = {
-            "cli": {
-                "profiles": [_stringify_profile(p, base=path.parent) for p in applied_profiles]
-            }
-        }
+        if cli_section is None:
+            cli_section = {}
+        cli_section["profiles"] = [
+            _stringify_profile(p, base=path.parent) for p in applied_profiles
+        ]
+    if applied_environment_profiles:
+        if cli_section is None:
+            cli_section = {}
+        cli_section["environment_profiles"] = [
+            _stringify_profile(p, base=path.parent) for p in applied_environment_profiles
+        ]
+    if selected_environment is not None:
+        if cli_section is None:
+            cli_section = {}
+        cli_section["environment"] = selected_environment
+    if cli_section:
+        cli_metadata = {"cli": cli_section}
 
     if cli_overrides:
-        cli_tree: MutableMapping[str, Any] = {}
+        cli_tree: dict[str, Any] = {}
         parsed_overrides: dict[str, Any] = {}
         for dotted_key, raw_value in cli_overrides.items():
             parsed_value = _coerce_value(raw_value)
@@ -117,14 +146,14 @@ def load_config(
     if cli_metadata:
         merged = _deep_merge(merged, cli_metadata)
 
-    env_overrides = _collect_env_overrides(env or os.environ, prefixes=env_prefixes)
+    env_overrides = _collect_env_overrides(env_mapping, prefixes=env_prefixes)
     if env_overrides:
         merged = _deep_merge(merged, env_overrides)
 
     return PipelineConfig.model_validate(merged)
 
 
-def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> MutableMapping[str, Any]:
+def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
     """Load a YAML file and merge any declared ``extends`` recursively."""
 
     resolved = path.resolve()
@@ -139,7 +168,7 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> MutableMapping[s
     if isinstance(extends, (str, Path)):
         extends = (extends,)
 
-    merged: MutableMapping[str, Any] = {}
+    merged: dict[str, Any] = {}
     for reference in extends or ():
         reference_path = _resolve_reference(reference, base=resolved.parent)
         merged = _deep_merge(merged, _load_with_extends(reference_path, stack=(*lineage, resolved)))
@@ -153,7 +182,7 @@ def _load_yaml(path: Path) -> Any:
     class Loader(yaml.SafeLoader):
         pass
 
-    def construct_include(loader: Loader, node: yaml.Node) -> Any:  # type: ignore[override]
+    def construct_include(loader: Loader, node: ScalarNode) -> Any:  # type: ignore[override]
         filename = loader.construct_scalar(node)
         include_path = _resolve_reference(filename, base=path.parent)
         return _load_yaml(include_path)
@@ -165,11 +194,17 @@ def _load_yaml(path: Path) -> Any:
     return {} if data is None else data
 
 
-def _ensure_mapping(value: Any, path: Path) -> MutableMapping[str, Any]:
+def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
     if not isinstance(value, MutableMapping):
         msg = f"Configuration file must produce a mapping: {path}"
         raise TypeError(msg)
-    return dict(value)
+    typed_value = cast(MutableMapping[Any, Any], value)
+    non_string_keys = [key for key in typed_value.keys() if not isinstance(key, str)]
+    if non_string_keys:
+        keys = ", ".join(map(str, non_string_keys))
+        msg = f"Configuration mapping must use string keys: {path} (invalid keys: {keys})"
+        raise TypeError(msg)
+    return {cast(str, key): typed_value[key] for key in typed_value}
 
 
 def _resolve_reference(value: str | Path, *, base: Path) -> Path:
@@ -197,17 +232,20 @@ def _resolve_reference(value: str | Path, *, base: Path) -> Path:
 
 
 def _deep_merge(
-    base: MutableMapping[str, Any],
+    base: Mapping[str, Any],
     override: Mapping[str, Any],
-) -> MutableMapping[str, Any]:
-    merged: MutableMapping[str, Any] = dict(base)
+) -> dict[str, Any]:
+    merged: dict[str, Any] = dict(base)
     for key, value in override.items():
         if (
             key in merged
             and isinstance(merged[key], MutableMapping)
             and isinstance(value, Mapping)
         ):
-            merged[key] = _deep_merge(merged[key], value)
+            merged[key] = _deep_merge(
+                cast(Mapping[str, Any], merged[key]),
+                cast(Mapping[str, Any], value),
+            )
         else:
             merged[key] = value
     return merged
@@ -231,8 +269,8 @@ def _coerce_value(value: Any) -> Any:
     return value
 
 
-def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> MutableMapping[str, Any]:
-    overrides: MutableMapping[str, Any] = {}
+def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> dict[str, Any]:
+    overrides: dict[str, Any] = {}
     for prefix in prefixes:
         scoped: dict[str, str] = {
             key[len(prefix) :]: value
@@ -244,6 +282,75 @@ def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -
         parsed = _parse_env_mapping(scoped)
         overrides = _deep_merge(overrides, parsed)
     return overrides
+
+
+def _select_environment(env_mapping: Mapping[str, str]) -> str | None:
+    raw_value = env_mapping.get(ENVIRONMENT_VARIABLE)
+    if raw_value is None:
+        return None
+    normalized = raw_value.strip().lower()
+    if not normalized:
+        return None
+    if normalized not in VALID_ENVIRONMENTS:
+        msg = (
+            f"Unsupported environment '{raw_value}' for {ENVIRONMENT_VARIABLE}. "
+            f"Expected one of: {sorted(VALID_ENVIRONMENTS)}"
+        )
+        raise ValueError(msg)
+    return normalized
+
+
+def _load_environment_overrides(
+    environment: str,
+    *,
+    base: Path,
+) -> tuple[dict[str, Any], list[Path]]:
+    env_directory = ENV_ROOT_DIR / environment
+    files = _discover_layer_files(env_directory, base=base, strict=True)
+    payload: dict[str, Any] = {}
+    applied: list[Path] = []
+    seen: set[Path] = set()
+    for file_path in files:
+        if file_path in seen:
+            continue
+        data = _load_with_extends(file_path, stack=())
+        payload = _deep_merge(payload, data)
+        applied.append(file_path)
+        seen.add(file_path)
+    return payload, applied
+
+
+def _discover_layer_files(
+    directory: Path,
+    *,
+    base: Path,
+    strict: bool = False,
+) -> list[Path]:
+    resolved_dir = _resolve_layer_directory(directory, base=base)
+    if not resolved_dir.exists():
+        if strict:
+            msg = f"Configuration directory not found: {resolved_dir}"
+            raise FileNotFoundError(msg)
+        return []
+    files: set[Path] = set()
+    for pattern in _LAYER_GLOB_PATTERNS:
+        for item in resolved_dir.glob(pattern):
+            if item.is_file():
+                files.add(item.resolve())
+    return sorted(files)
+
+
+def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
+    if directory.is_absolute():
+        return directory.resolve()
+
+    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
+    for root in search_roots:
+        candidate = (root / directory).resolve()
+        if candidate.exists():
+            return candidate
+
+    return (Path.cwd() / directory).resolve()
 
 
 class _PipelineEnvSettings(BaseSettings):
@@ -277,7 +384,7 @@ class _PipelineEnvSettings(BaseSettings):
     chembl: dict[str, Any] | None = None
 
 
-def _parse_env_mapping(data: Mapping[str, str]) -> MutableMapping[str, Any]:
+def _parse_env_mapping(data: Mapping[str, str]) -> dict[str, Any]:
     if not data:
         return {}
 
@@ -285,14 +392,35 @@ def _parse_env_mapping(data: Mapping[str, str]) -> MutableMapping[str, Any]:
         @classmethod
         def settings_customise_sources(
             cls,
-            init_settings,
-            env_settings,
-            file_secret_settings,
-        ):
-            def _custom_env(_: BaseSettings) -> Mapping[str, str]:
-                return data
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            class _MappingEnvSource(EnvSettingsSource):
+                def __init__(self, settings_cls: type[BaseSettings], payload: Mapping[str, str]) -> None:
+                    self._payload: dict[str, str | None] = dict(payload)
+                    super().__init__(
+                        settings_cls,
+                        case_sensitive=cls.model_config.get("case_sensitive"),
+                        env_prefix=cls.model_config.get("env_prefix"),
+                        env_nested_delimiter=cls.model_config.get("env_nested_delimiter"),
+                        env_nested_max_split=cls.model_config.get("env_nested_max_split"),
+                        env_ignore_empty=cls.model_config.get("env_ignore_empty"),
+                        env_parse_none_str=cls.model_config.get("env_parse_none_str"),
+                        env_parse_enums=cls.model_config.get("env_parse_enums"),
+                    )
 
-            return (_custom_env,)
+                def _load_env_vars(self) -> Mapping[str, str | None]:
+                    return self._payload
+
+            return (
+                init_settings,
+                _MappingEnvSource(settings_cls, data),
+                dotenv_settings,
+                file_secret_settings,
+            )
 
     settings = _ScopedSettings()
     payload: MutableMapping[str, Any] = dict(

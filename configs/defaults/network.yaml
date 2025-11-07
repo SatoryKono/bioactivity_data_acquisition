@@ -1,4 +1,4 @@
-# /configs/profiles/network.yaml
+# configs/defaults/network.yaml
 
 # This profile defines a standard, resilient network configuration for HTTP clients.
 # It can be included via the `extends` key in a pipeline's main config file.

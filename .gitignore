@@ -19,6 +19,7 @@ var/*
 !var/**/.gitkeep
 wheels/
 *.egg-info/
+src/bioetl.egg-info/
 .installed.cfg
 *.egg
 MANIFEST

@@ -1,4 +1,4 @@
-# configs/profiles/chembl.yaml
+# configs/defaults/chembl.yaml
 #
 # ChEMBL source configuration profile shared by all ChEMBL pipelines.
 # This profile defines common settings for ChEMBL REST API access.

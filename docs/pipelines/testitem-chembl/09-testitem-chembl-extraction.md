@@ -59,7 +59,7 @@ python -m bioetl.cli.main testitem \
 
 **Configuration loading precedence:**
 
-1. Base profiles (`configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`)
+1. Base profiles (`configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`)
 2. Pipeline YAML (`--config`)
 3. CLI overrides (`--set`)
 4. Environment variables

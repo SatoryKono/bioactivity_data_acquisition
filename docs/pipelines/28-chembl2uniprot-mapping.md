@@ -36,7 +36,7 @@ ChEMBL2UniProt Mapping pipeline управляется через деклара
 
 **Расположение конфига:** `configs/pipelines/uniprot/chembl2uniprot.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
 
 **Основной источник:** UniProt ID Mapping API `https://rest.uniprot.org/idmapping`.
 

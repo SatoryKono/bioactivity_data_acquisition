@@ -1014,7 +1014,7 @@ Assay pipeline использует декларативный YAML-конфиг
 
 **Расположение конфига:** `configs/pipelines/assay/assay_chembl.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/profiles/base.yaml` и `configs/profiles/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
 
 ### 7.2 Структура конфигурации
 
@@ -1576,7 +1576,7 @@ python -m bioetl.cli.main assay [OPTIONS]
 
 CLI загружает конфигурацию в следующем порядке приоритета (от низкого к высокому):
 
-1. **Базовые профили** из `extends` (обычно `configs/profiles/base.yaml`, `configs/profiles/determinism.yaml`)
+1. **Базовые профили** из `extends` (обычно `configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`)
 2. **Pipeline конфиг** из `--config`
 3. **CLI переопределения** через `--set`
 4. **Переменные окружения** (например, `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25`)
