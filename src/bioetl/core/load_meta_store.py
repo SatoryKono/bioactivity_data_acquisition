@@ -9,7 +9,8 @@ import tempfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Mapping
+from typing import Any, TYPE_CHECKING, cast
+from collections.abc import Iterable, Mapping
 from uuid import uuid4
 
 import pandas as pd
@@ -149,9 +150,10 @@ class LoadMetaStore:
         record = self._require_active(load_meta_id)
         events: list[dict[str, Any]]
         if isinstance(pagination_payload, Mapping):
-            events = [dict(pagination_payload)]
+            mapped = cast(Mapping[str, Any], pagination_payload)
+            events = [dict(mapped.items())]
         else:
-            events = [dict(payload) for payload in pagination_payload]
+            events = [dict(payload.items()) for payload in pagination_payload]
         record.pagination_events.extend(events)
         if records_fetched_delta is not None:
             record.records_fetched += records_fetched_delta
@@ -246,12 +248,13 @@ class LoadMetaStore:
 
 # Optional Spark support helpers -------------------------------------------------
 
-try:  # pragma: no cover - optional dependency
-    import pyspark.sql as ps
-except Exception:  # pragma: no cover - spark not available
-    SparkDataFrame = None
-else:
-    SparkDataFrame = ps.DataFrame
+if TYPE_CHECKING:  # pragma: no cover - typing aid
+    from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
+else:  # pragma: no cover - optional dependency
+    try:
+        from pyspark.sql import DataFrame as SparkDataFrame  # type: ignore[import]
+    except Exception:
+        SparkDataFrame = None  # type: ignore[assignment]
 
 
 def _write_spark_dataframe(frame: Any, path: Path, *, fmt: str) -> None:
