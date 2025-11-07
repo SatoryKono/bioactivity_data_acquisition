@@ -1,0 +1,274 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bioetl"
+version = "1.0.0"
+description = "Unified ETL framework for bioactivity data extraction"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "BioETL Team"}
+]
+keywords = ["bioactivity", "etl", "chembl", "data-extraction"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    # HTTP retry logic for resilient API clients
+    "backoff>=2.2.1",
+    "cachetools>=5.3.0",
+    "click>=8.1.0",
+    "numpy>=1.24",
+    "packaging>=23",
+    "pandas>=2.0.0",
+    "pandera>=0.15.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "pyyaml>=6.0",
+    "requests>=2.31.0",
+    "structlog>=23.0.0",
+    "typer>=0.9.0",
+    "chembl-webresource-client>=0.10.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-httpserver>=1.0.6",
+    "pytest-xdist>=3.3.0",
+    "pytest-mock>=3.11.0",
+    "pytest-benchmark>=4.0.0",
+    "hypothesis>=6.82.0",
+    "mypy>=1.5.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.3.0",
+    "types-requests>=2.31.0",
+    "types-PyYAML>=6.0.11",
+    "pandas-stubs>=2.0.0",
+    "faker>=20.0.0",
+    "black>=23.0.0",
+    "bandit>=1.7.5",
+    "safety>=2.3.5",
+    "detect-secrets>=1.4.0",
+]
+
+[project.scripts]
+bioetl = "bioetl.cli.main:app"
+bioetl-audit-docs = "bioetl.cli.tools.audit_docs:app"
+bioetl-build-vocab-store = "bioetl.cli.tools.build_vocab_store:app"
+bioetl-catalog-code-symbols = "bioetl.cli.tools.catalog_code_symbols:app"
+bioetl-check-comments = "bioetl.cli.tools.check_comments:app"
+bioetl-check-output-artifacts = "bioetl.cli.tools.check_output_artifacts:app"
+bioetl-create-matrix-doc-code = "bioetl.cli.tools.create_matrix_doc_code:app"
+bioetl-determinism-check = "bioetl.cli.tools.determinism_check:app"
+bioetl-doctest-cli = "bioetl.cli.tools.doctest_cli:app"
+bioetl-inventory-docs = "bioetl.cli.tools.inventory_docs:app"
+bioetl-link-check = "bioetl.cli.tools.link_check:app"
+bioetl-remove-type-ignore = "bioetl.cli.tools.remove_type_ignore:app"
+bioetl-run-test-report = "bioetl.cli.tools.run_test_report:app"
+bioetl-schema-guard = "bioetl.cli.tools.schema_guard:app"
+bioetl-semantic-diff = "bioetl.cli.tools.semantic_diff:app"
+bioetl-vocab-audit = "bioetl.cli.tools.vocab_audit:app"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"bioetl" = ["configs/**/*.yaml"]
+"*" = ["py.typed"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+# На время рефакторинга проверяем только основные каталоги.
+src = [
+    "src/bioetl",
+    "tests",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by formatter
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.ruff.lint.isort]
+known-first-party = [
+    "bioetl",
+    "bioetl.sources",
+]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+mypy_path = ["tools/typecheck/stubs"]
+files = [
+    "src/bioetl",
+    "tests",
+]
+
+[[tool.mypy.overrides]]
+module = [
+    "typer",
+    "backoff",
+]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "bioetl.sources.*",
+    "bioetl.schemas.*",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "bioetl.normalizers.*",
+    "bioetl.pandera_pandas",
+    "bioetl.utils.column_validator",
+    "bioetl.utils",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = [
+    "tools.*",
+]
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--cov=src/bioetl",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=85",
+    "--tb=short",
+    "--durations=10",
+    "--maxfail=5",
+    "--disable-warnings",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "golden: Golden tests for deterministic output verification",
+    "determinism: Bit-identical determinism verification tests",
+    "slow: Slow tests (>5s)",
+    "property: Property-based tests",
+    "qc: Quality control tests",
+    "schema: Schema validation tests",
+    "api: External API tests",
+    "benchmark: Performance benchmark tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+    "ignore::pandas.errors.PerformanceWarning",
+    "ignore::UserWarning:.*pandera.*",
+]
+
+[tool.coverage.run]
+source = ["src/bioetl"]
+omit = [
+    "*/tests/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["bioetl"]
+src_paths = ["src/bioetl", "tests"]
+combine_as_imports = true
+
+[tool.flake8]
+max-line-length = 100
+extend-ignore = ["E203", "W503", "B008", "C901"]
+extend-select = ["B", "C4"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+
+[[tool.pyright.overrides]]
+include = ["tests/**"]
+reportMissingImports = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUntypedClassDecorator = false
+reportUntypedFunctionDecorator = false
+
+[[tool.pyright.overrides]]
+module = ["typer", "backoff", "pytest", "pytest_httpserver"]
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUntypedClassDecorator = false
+reportUntypedFunctionDecorator = false
+
+[[tool.pyright.overrides]]
+include = ["src/bioetl/cli/**"]
+reportMissingImports = false
+reportMissingTypeStubs = false
+reportUnknownVariableType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUntypedClassDecorator = false
+reportUntypedFunctionDecorator = false
+
+[[tool.pyright.overrides]]
+include = ["src/bioetl/pipelines/assay/**"]
+reportMissingImports = false
+reportUnknownVariableType = false

@@ -1,0 +1,4 @@
+check,status,details
+schema_validation,passed,Validated against DocumentSchema v1.0.0
+missing_doi,warning,1 records missing doi_clean normalization
+duplicate_hashes,passed,No duplicate hash_business_key values detected

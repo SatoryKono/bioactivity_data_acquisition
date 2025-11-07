@@ -1,0 +1,18 @@
+meta:
+  description: "Допустимые статусы записей load_meta"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "success"
+    description: "Загрузка завершилась без ошибок"
+    status: "active"
+  -
+    id: "warning"
+    description: "Загрузка завершилась, но присутствуют предупреждения"
+    status: "active"
+  -
+    id: "error"
+    description: "Загрузка завершилась с ошибкой"
+    status: "active"
+rules:
+  normalization: "строчные значения, отсутствие пробелов"

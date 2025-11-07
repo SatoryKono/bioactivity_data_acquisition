@@ -1,0 +1,57 @@
+meta:
+  source_urls:
+    - "https://blog.opentargets.org/using-chembl-data-for-target-identification-and-prioritisation/"
+    - "https://chembl.blogspot.com/2023/06/release-of-chembl-33.html"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "INHIBITOR"
+    aliases:
+      - "BLOCKER"
+    description: "Compound decreases target activity"
+    status: "active"
+  -
+    id: "ANTAGONIST"
+    aliases:
+
+    description: "Binds to receptor to reduce response"
+    status: "active"
+  -
+    id: "AGONIST"
+    aliases:
+
+    description: "Binds to receptor to elicit response"
+    status: "active"
+  -
+    id: "PARTIAL AGONIST"
+    aliases:
+
+    description: "Elicits submaximal response"
+    status: "active"
+  -
+    id: "INVERSE AGONIST"
+    aliases:
+
+    description: "Decreases basal receptor activity"
+    status: "active"
+  -
+    id: "ACTIVATOR"
+    aliases:
+
+    description: "Increases target activity"
+    status: "active"
+  -
+    id: "MODULATOR"
+    aliases:
+      - "ALLOSTERIC MODULATOR"
+    description: "Modulates activity allosterically or context‑dependently"
+    status: "active"
+  -
+    id: "BINDER"
+    aliases:
+      - "LIGAND"
+    description: "Binds target without specified effect"
+    status: "active"
+rules:
+  normalization: "uppercase; singular forms; map common synonyms (e.g., BLOCKER→INHIBITOR)"

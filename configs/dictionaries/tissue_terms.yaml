@@ -1,0 +1,37 @@
+# Controlled vocabulary: Tissue terms (normalized to UBERON)
+# Notes:
+# - Use UBERON identifiers as canonical IDs; store label and aliases seen in raw data.
+# - Validate IDs via a strict regex and keep labels in lowercase for matching.
+meta:
+  source_urls:
+    - https://obophenotype.github.io/uberon/current_release/  # UBERON official downloads
+    - https://www.ebi.ac.uk/ols4/ontologies/uberon?tab=classes # OLS browser for UBERON
+    - https://obofoundry.org/ontology/uberon.html              # OBO Foundry portal
+  chembl_release: "latest"
+  updated_at: "2025-11-07"
+values:
+  - id: "UBERON:0001255"
+    label: "urinary bladder"
+    aliases: ["bladder"]
+    status: "active"
+  - id: "UBERON:0002113"
+    label: "liver"
+    aliases: []
+    status: "active"
+  - id: "UBERON:0002048"
+    label: "kidney"
+    aliases: []
+    status: "active"
+  - id: "UBERON:0000948"
+    label: "heart"
+    aliases: ["cardiac tissue"]
+    status: "active"
+  - id: "UBERON:0002107"
+    label: "brain"
+    aliases: ["central nervous system (brain)"]
+    status: "active"
+rules:
+  normalization: "preserve id; lowercase labels; map aliases→label"
+  validation:
+    id_pattern: "^UBERON:\\d7$"
+  notes: "Extend with tissues encountered in assays/targets; prefer exact UBERON terms."

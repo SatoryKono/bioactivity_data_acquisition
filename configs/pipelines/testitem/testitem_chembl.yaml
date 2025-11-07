@@ -1,0 +1,154 @@
+extends:
+  - ../../defaults/base.yaml
+  - ../../defaults/determinism.yaml
+  - ../../defaults/chembl.yaml
+  - ../../defaults/validation.yaml
+  - ../../defaults/postprocess.yaml
+
+pipeline:
+  name: testitem_chembl
+  version: "0.1.0"
+  owner: bioetl-team
+  description: "ChEMBL Molecules (/molecule) → normalized test items"
+
+sources:
+  chembl:
+    batch_size: 25
+    parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
+      max_pages: null
+      filters: {}
+      select_fields:
+        - molecule_chembl_id
+        - pref_name
+        - molecule_type
+        - max_phase
+        - first_approval
+        - first_in_class
+        - availability_type
+        - black_box_warning
+        - chirality
+        - dosed_ingredient
+        - helm_notation
+        - indication_class
+        - inorganic_flag
+        - natural_product
+        - prodrug
+        - structure_type
+        - therapeutic_flag
+        - molecule_hierarchy
+        - molecule_properties
+        - molecule_structures
+        - atc_classifications
+        - cross_references
+        - molecule_synonyms
+
+cli:
+  input_file: data/input/testitem.csv
+
+determinism:
+  sort:
+    by:
+      - molecule_chembl_id
+    ascending:
+      - true
+    na_position: last
+  column_order:
+    - molecule_chembl_id
+    - pref_name
+    - molecule_type
+    - max_phase
+    - first_approval
+    - first_in_class
+    - availability_type
+    - black_box_warning
+    - chirality
+    - dosed_ingredient
+    - helm_notation
+    - indication_class
+    - inorganic_flag
+    - natural_product
+    - prodrug
+    - structure_type
+    - therapeutic_flag
+    - molecule_hierarchy__molecule_chembl_id
+    - molecule_hierarchy__parent_chembl_id
+    - molecule_structures__canonical_smiles
+    - molecule_structures__molfile
+    - molecule_structures__standard_inchi
+    - molecule_structures__standard_inchi_key
+    - molecule_properties__alogp
+    - molecule_properties__aromatic_rings
+    - molecule_properties__cx_logd
+    - molecule_properties__cx_logp
+    - molecule_properties__cx_most_apka
+    - molecule_properties__cx_most_bpka
+    - molecule_properties__full_molformula
+    - molecule_properties__full_mwt
+    - molecule_properties__hba
+    - molecule_properties__hba_lipinski
+    - molecule_properties__hbd
+    - molecule_properties__hbd_lipinski
+    - molecule_properties__heavy_atoms
+    - molecule_properties__molecular_species
+    - molecule_properties__mw_freebase
+    - molecule_properties__mw_monoisotopic
+    - molecule_properties__num_lipinski_ro5_violations
+    - molecule_properties__num_ro5_violations
+    - molecule_properties__psa
+    - molecule_properties__qed_weighted
+    - molecule_properties__ro3_pass
+    - molecule_properties__rtb
+    - atc_classifications
+    - cross_references__flat
+    - molecule_synonyms__flat
+    - _chembl_db_version
+    - _api_version
+  hashing:
+    business_key_fields:
+      - molecule_chembl_id
+
+transform:
+  enable_flatten: true
+  enable_serialization: true
+  arrays_simple_to_pipe:
+    - atc_classifications
+  arrays_objects_to_header_rows:
+    - cross_references
+    - molecule_synonyms
+  flatten_objects:
+    molecule_hierarchy:
+      - molecule_chembl_id
+      - parent_chembl_id
+    molecule_properties:
+      - alogp
+      - aromatic_rings
+      - cx_logd
+      - cx_logp
+      - cx_most_apka
+      - cx_most_bpka
+      - full_molformula
+      - full_mwt
+      - hba
+      - hba_lipinski
+      - hbd
+      - hbd_lipinski
+      - heavy_atoms
+      - molecular_species
+      - mw_freebase
+      - mw_monoisotopic
+      - num_lipinski_ro5_violations
+      - num_ro5_violations
+      - psa
+      - qed_weighted
+      - ro3_pass
+      - rtb
+    molecule_structures:
+      - canonical_smiles
+      - molfile
+      - standard_inchi
+      - standard_inchi_key
+
+validation:
+  schema_out: bioetl.schemas.testitem.testitem_chembl.TestItemSchema

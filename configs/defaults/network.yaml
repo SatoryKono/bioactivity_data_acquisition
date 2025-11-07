@@ -1,0 +1,60 @@
+# configs/defaults/network.yaml
+
+# This profile defines a standard, resilient network configuration for HTTP clients.
+# It can be included via the `extends` key in a pipeline's main config file.
+# The settings below correspond to the `HttpConfig` Pydantic model.
+# See: [ref: repo:src/bioetl/configs/models.py@test_refactoring_32]
+
+http:
+  # The 'default' profile provides a baseline for all sources.
+  # A source can reference this by setting `http_profile: default`.
+  default:
+    # --- Timeouts ---
+    # Total request timeout in seconds.
+    timeout_sec: 60.0
+    # Connection timeout in seconds.
+    connect_timeout_sec: 15.0
+    # Read timeout in seconds.
+    read_timeout_sec: 60.0
+
+    # --- Retry Policy ---
+    # Corresponds to the `RetryConfig` model.
+    retries:
+      # Total number of retry attempts.
+      total: 5
+      # Multiplier for exponential backoff delay.
+      backoff_multiplier: 2.0
+      # Maximum backoff delay in seconds.
+      backoff_max: 60.0
+      # List of HTTP status codes that will trigger a retry.
+      statuses: [429, 500, 502, 503, 504]
+
+    # --- Rate Limiting ---
+    # Corresponds to the `RateLimitConfig` model.
+    rate_limit:
+      # Maximum number of calls allowed within the period.
+      max_calls: 10
+      # The time period in seconds.
+      period: 1.0
+
+    # --- Jitter ---
+    # If true, adds a small random delay to rate-limited requests to prevent
+    # synchronized clients from causing "thundering herd" problems.
+    rate_limit_jitter: true
+
+    # --- Circuit Breaker ---
+    # Corresponds to the `CircuitBreakerConfig` model.
+    circuit_breaker:
+      # Number of consecutive failures before the circuit breaker opens.
+      failure_threshold: 5
+      # Time in seconds the circuit breaker will stay open before transitioning to half-open.
+      timeout: 60.0
+      # Maximum number of calls allowed in half-open state before transitioning back to closed or open.
+      half_open_max_calls: 1
+
+    # --- Default Headers ---
+    # Headers to include in every request. Can be overridden at the source level.
+    headers:
+      User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
+      Accept: "application/json"
+      Accept-Encoding: "gzip, deflate"

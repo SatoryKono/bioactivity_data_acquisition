@@ -1,0 +1,114 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # Порог 10 МБ предотвращает попадание тяжёлых артефактов в историю
+        args: ["--maxkb=10240"]
+      - id: detect-private-key
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--settings-path", "pyproject.toml"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+        args: ["--config", "pyproject.toml"]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        additional_dependencies:
+          - flake8-bugbear==24.2.8
+          - flake8-comprehensions==3.16.0
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.4
+    hooks:
+      - id: ruff
+        args:
+          [
+            --fix,
+            --exit-non-zero-on-fix,
+            src/bioetl,
+            tests,
+          ]
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        args:
+          [
+            --config-file=pyproject.toml,
+            --strict,
+            src/bioetl,
+          ]
+        pass_filenames: false
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.7.1
+    hooks:
+      - id: nbstripout
+        files: '\\.ipynb$'
+
+  - repo: https://github.com/jackdewinter/pymarkdown
+    rev: v0.9.24
+    hooks:
+      - id: pymarkdown
+        args: ["--disable-rules", "md013", "scan"]
+        files: >-
+          ^(README\.md|docs/(INDEX|pipelines/10-chembl-pipelines-catalog|configs/00-typed-configs-and-profiles|cli/00-cli-overview|qc/00-qc-overview)\.md)$
+
+  - repo: https://github.com/lycheeverse/lychee
+    rev: v0.15.1
+    hooks:
+      - id: lychee
+        args: ["--config", ".lychee.toml"]
+
+  - repo: local
+    hooks:
+      - id: check-module-names
+        name: Validate module naming pattern
+        entry: python -m tools.qa.check_module_names
+        language: system
+        pass_filenames: false
+
+      - id: check-dependency-matrix
+        name: Enforce dependency matrix
+        entry: python -m tools.qa.check_dependency_matrix
+        language: system
+        pass_filenames: false
+
+      - id: pipeline-inventory
+        name: Generate pipeline inventory snapshot
+        entry: python -m bioetl.cli.tools.catalog_code_symbols
+        language: system
+        pass_filenames: false
+
+      - id: check-output-artifacts
+        name: Ensure large artifacts are not committed under data/output
+        entry: python -m bioetl.cli.tools.check_output_artifacts
+        language: system
+        pass_filenames: false
+
+default_language_version:
+  python: python3

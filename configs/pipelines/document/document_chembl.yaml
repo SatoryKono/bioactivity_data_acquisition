@@ -1,0 +1,98 @@
+extends:
+  - ../../defaults/base.yaml
+  - ../../defaults/determinism.yaml
+  - ../../defaults/chembl.yaml
+  - ../../defaults/validation.yaml
+  - ../../defaults/postprocess.yaml
+
+pipeline:
+  name: document_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract document records from ChEMBL API"
+
+io:
+  output:
+    partition_by:
+      - year
+
+sources:
+  chembl:
+    batch_size: 20
+    parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
+      select_fields:
+        - document_chembl_id
+        - doc_type
+        - journal
+        - journal_full_title
+        - doi
+        - src_id
+        - title
+        - abstract
+        - year
+        - volume
+        - issue
+        - first_page
+        - last_page
+        - pubmed_id
+        - authors
+
+cli:
+  input_file: data/input/document.csv
+
+determinism:
+  sort:
+    by:
+      - document_chembl_id
+      - pubmed_id
+      - doi_clean
+    ascending:
+      - true
+      - true
+      - true
+    na_position: last
+  column_order:
+    - document_chembl_id
+    - doc_type
+    - journal
+    - journal_full_title
+    - doi
+    - src_id
+    - title
+    - abstract
+    - doi_clean
+    - pubmed_id
+    - year
+    - volume
+    - issue
+    - first_page
+    - last_page
+    - authors
+    - authors_count
+    - source
+    - hash_business_key
+    - hash_row
+    - term
+    - weight
+  hashing:
+    business_key_fields:
+      - document_chembl_id
+
+chembl:
+  document:
+    enrich:
+      document_term:
+        enabled: true
+        select_fields:
+          - document_chembl_id
+          - term
+          - weight
+        page_limit: 100
+        sort: weight_desc
+        max_retries: 3
+        retry_backoff: 1.5
+
+validation:
+  schema_out: bioetl.schemas.document.document_chembl.DocumentSchema

@@ -1,0 +1,44 @@
+meta:
+  source_urls:
+    - "https://mandos-chem.readthedocs.io/en/latest/binding.html"
+  chembl_release: "36 (2025-09)"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "Potential missing data"
+    aliases:
+
+    description: "Datapoint likely incomplete"
+    status: "active"
+  -
+    id: "Potential transcription error"
+    aliases:
+
+    description: "Extraction/typing error suspected"
+    status: "active"
+  -
+    id: "Outside typical range"
+    aliases:
+
+    description: "Value outside typical operational range"
+    status: "active"
+  -
+    id: "Manually validated"
+    aliases:
+
+    description: "Value manually reviewed and validated"
+    status: "active"
+  -
+    id: "Non standard unit for type"
+    aliases:
+
+    description: "Reported in a non-standard unit for the assay type"
+    status: "active"
+  -
+    id: "Author confirmed error"
+    aliases:
+
+    description: "Author confirmed a transcription or measurement error"
+    status: "active"
+rules:
+  normalization: "title-case exact match; unknown comments should be flagged"

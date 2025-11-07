@@ -1,0 +1,42 @@
+# Controlled vocabulary: Cell lines (normalized to Cellosaurus IDs)
+# Notes:
+# - Use Cellosaurus CVCL_* identifiers as canonical IDs.
+# - Keep organism info for downstream QC and filtering.
+meta:
+  source_urls:
+    - https://www.cellosaurus.org/                 # Cellosaurus portal
+    - https://api.cellosaurus.org/rdf-downloads    # RDF download (ttl bundle)
+    - https://www.expasy.org/resources/cellosaurus  # Expasy resource page
+  chembl_release: "latest"
+  updated_at: "2025-11-07"
+values:
+  - id: "CVCL_0030"
+    label: "HeLa"
+    organism: "Homo sapiens"
+    aliases: ["HeLa S3"]
+    status: "active"
+  - id: "CVCL_0063"
+    label: "HEK293"
+    organism: "Homo sapiens"
+    aliases: ["293", "HEK-293"]
+    status: "active"
+  - id: "CVCL_0002"
+    label: "A549"
+    organism: "Homo sapiens"
+    aliases: []
+    status: "active"
+  - id: "CVCL_0019"
+    label: "CHO-K1"
+    organism: "Cricetulus griseus"
+    aliases: ["CHO"]
+    status: "active"
+  - id: "CVCL_0598"
+    label: "T24"
+    organism: "Homo sapiens"
+    aliases: ["T-24"]
+    status: "active"
+rules:
+  normalization: "preserve id; uppercase aliases; map aliases→label"
+  validation:
+    id_pattern: "^CVCL_\\d4$"
+  notes: "When a new cell line appears in raw data, resolve its CVCL ID via Cellosaurus search and add mapping."

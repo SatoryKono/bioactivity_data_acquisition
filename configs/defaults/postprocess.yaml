@@ -1,0 +1,8 @@
+# configs/defaults/postprocess.yaml
+#
+# Postprocessing configuration profile shared by all pipelines.
+# Defines common postprocessing settings.
+
+postprocess:
+  correlation:
+    enabled: false

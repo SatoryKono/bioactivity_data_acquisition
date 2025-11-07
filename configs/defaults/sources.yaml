@@ -1,0 +1,63 @@
+# configs/defaults/sources.yaml
+#
+# Общие определения источников и энричеров с якорями для переиспользования
+# в конфигурациях пайплайнов.
+
+sources:
+  chembl_common: &chembl_common
+    description: "ChEMBL REST API"
+    parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      pagination:
+        page_size: 1000
+        until_exhausted: true
+      params:
+        format: json
+
+  pubmed: &pubmed
+    description: "NCBI E-utilities API"
+    http:
+      timeout_sec: 60.0
+      rate_limit:
+        max_calls: 3
+        period: 1.0
+    parameters:
+      base_url: https://eutils.ncbi.nlm.nih.gov/entrez/eutils
+      cache:
+        enabled: true
+
+  crossref: &crossref
+    description: "Crossref REST API"
+    http:
+      timeout_sec: 60.0
+      rate_limit:
+        max_calls: 5
+        period: 1.0
+    parameters:
+      base_url: https://api.crossref.org
+      cache:
+        enabled: true
+
+  uniprot: &uniprot
+    description: "UniProt REST API"
+    http:
+      timeout_sec: 60.0
+      rate_limit:
+        max_calls: 2
+        period: 1.0
+    parameters:
+      base_url: https://rest.uniprot.org
+      cache:
+        enabled: true
+
+  iuphar: &iuphar
+    description: "IUPHAR services API"
+    http:
+      timeout_sec: 60.0
+      rate_limit:
+        max_calls: 1
+        period: 1.0
+    parameters:
+      base_url: https://www.guidetopharmacology.org/services
+      cache:
+        enabled: true

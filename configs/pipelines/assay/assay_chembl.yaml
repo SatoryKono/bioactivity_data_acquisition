@@ -1,0 +1,135 @@
+extends:
+  - ../../defaults/base.yaml
+  - ../../defaults/determinism.yaml
+  - ../../defaults/chembl.yaml
+  - ../../defaults/validation.yaml
+  - ../../defaults/postprocess.yaml
+
+pipeline:
+  name: assay_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
+  description: "Extract assay records from ChEMBL API"
+
+sources:
+  chembl:
+    batch_size: 25
+    parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
+      select_fields:
+        - assay_chembl_id
+        - description
+        - assay_type
+        - assay_type_description
+        - assay_test_type
+        - assay_category
+        - assay_organism
+        - assay_tax_id
+        - assay_strain
+        - assay_tissue
+        - assay_cell_type
+        - assay_subcellular_fraction
+        - target_chembl_id
+        - document_chembl_id
+        - src_id
+        - src_assay_id
+        - cell_chembl_id
+        - tissue_chembl_id
+        - assay_group
+        - confidence_score
+        - confidence_description
+        - variant_sequence
+        - curation_level
+        - assay_classifications
+        - assay_parameters
+
+cli:
+  input_file: data/input/assay.csv
+
+determinism:
+  sort:
+    by:
+      - assay_chembl_id
+      - row_subtype
+      - row_index
+    ascending:
+      - true
+      - true
+      - true
+    na_position: last
+  column_order:
+    - assay_chembl_id
+    - row_subtype
+    - row_index
+    - description
+    - assay_type
+    - assay_type_description
+    - assay_test_type
+    - assay_category
+    - assay_organism
+    - assay_tax_id
+    - assay_strain
+    - assay_tissue
+    - assay_cell_type
+    - assay_subcellular_fraction
+    - target_chembl_id
+    - document_chembl_id
+    - src_id
+    - src_assay_id
+    - cell_chembl_id
+    - tissue_chembl_id
+    - assay_group
+    - confidence_score
+    - confidence_description
+    - variant_sequence
+    - assay_classifications
+    - assay_parameters
+    - assay_class_id
+    - curation_level
+  hashing:
+    business_key_fields:
+      - assay_chembl_id
+      - row_subtype
+      - row_index
+
+transform:
+  arrays_to_header_rows:
+    - assay_classifications
+    - assay_parameters
+
+chembl:
+  assay:
+    enrich:
+      classifications:
+        class_map_fields:
+          - assay_chembl_id
+          - assay_class_id
+        classification_fields:
+          - assay_class_id
+          - l1
+          - l2
+          - l3
+          - pref_name
+        page_limit: 1000
+      parameters:
+        fields:
+          - assay_chembl_id
+          - type
+          - relation
+          - value
+          - units
+          - text_value
+          - standard_type
+          - standard_relation
+          - standard_value
+          - standard_units
+          - standard_text_value
+          - active
+          - type_normalized
+          - type_fixed
+        page_limit: 1000
+        active_only: true
+
+validation:
+  schema_out: bioetl.schemas.assay.assay_chembl.AssaySchema

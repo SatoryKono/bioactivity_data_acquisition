@@ -1,0 +1,127 @@
+# configs/defaults/base.yaml
+#
+# Единый профиль по умолчанию для всех пайплайнов BioETL. Использует YAML merge-key
+# и якорь `*profile_common`, чтобы минимизировать дублирование в конфигурациях
+# конкретных пайплайнов.
+
+<<: &profile_common
+  version: 1
+
+  runtime:
+    parallelism: 4
+    chunk_rows: 100000
+    dry_run: false
+    seed: 42
+
+  io:
+    input:
+      format: csv
+      encoding: utf-8
+      header: true
+      path: null
+    output:
+      format: parquet
+      partition_by: []
+      overwrite: true
+      path: null
+
+  http:
+    default:
+      timeout_sec: 60.0
+      connect_timeout_sec: 15.0
+      read_timeout_sec: 60.0
+      retries:
+        total: 5
+        backoff_multiplier: 2.0
+        backoff_max: 60.0
+        statuses: [408, 429, 500, 502, 503, 504]
+      rate_limit:
+        max_calls: 10
+        period: 1.0
+      rate_limit_jitter: true
+      headers:
+        User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
+        Accept: "application/json"
+        Accept-Encoding: "gzip, deflate"
+
+  cache:
+    enabled: true
+    directory: http_cache
+    ttl: 86400
+
+  paths:
+    input_root: data/input
+    output_root: data/output
+    samples_root: data/samples
+    remote_output_root: s3://bioactivity-data-lake/output
+    cache_root: .cache
+
+  materialization:
+    root: data/output
+    default_format: parquet
+
+  fallbacks:
+    enabled: true
+
+  determinism:
+    enabled: true
+    hash_policy_version: "1.0.0"
+    float_precision: 6
+    datetime_format: iso8601
+    column_validation_ignore_suffixes:
+      - _scd
+      - _temp
+      - _meta
+      - _tmp
+    sort:
+      by: []
+      ascending: []
+      na_position: last
+    column_order: []
+    serialization:
+      csv:
+        separator: ","
+        quoting: ALL
+        na_rep: ""
+      booleans: ["True", "False"]
+      nan_rep: "NaN"
+    hashing:
+      algorithm: sha256
+      row_fields: []
+      business_key_fields: []
+      exclude_fields: [generated_at, run_id]
+      business_key_column: hash_business_key
+      row_hash_column: hash_row
+      business_key_schema:
+        dtype: string
+        length: 64
+        nullable: false
+      row_hash_schema:
+        dtype: string
+        length: 64
+        nullable: false
+    environment:
+      timezone: UTC
+      locale: C
+    write:
+      strategy: atomic
+    meta:
+      location: sibling
+      include_fields: []
+      exclude_fields: []
+
+  validation:
+    strict: true
+    coerce: true
+
+  logging:
+    level: INFO
+    format: json
+    with_timestamps: true
+    context_fields: [pipeline, run_id]
+
+  telemetry:
+    enabled: true
+    exporter: jaeger
+    endpoint: null
+    sampling_ratio: 1.0
