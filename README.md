@@ -98,3 +98,12 @@ pre-commit run detect-secrets --all-files
 3. Создайте инцидент в системе тикетов и задокументируйте временную шкалу.
 4. Добавьте регрессионный тест или правило в `detect-secrets`, чтобы предотвратить
    повторение проблемы.
+
+## Architecture Decision Records (ADR)
+
+Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:
+
+1. Скопируйте шаблон [`docs/adr/template.md`](docs/adr/template.md) в файл `docs/adr/<следующий-номер>-<краткое-имя>.md`.
+2. Заполните разделы «Context», «Decision», «Consequences» и добавьте ссылки на код/документацию.
+3. Обновите [`docs/INDEX.md`](docs/INDEX.md) — добавьте ссылку на новый ADR в раздел «Architecture Decision Records».
+4. Укажите номер ADR в описании PR и отметьте чекбокс ADR в шаблоне PR.
