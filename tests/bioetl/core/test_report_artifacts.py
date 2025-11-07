@@ -1,9 +1,7 @@
-"""Вспомогательные сущности для вывода отчётов тестирования.
+"""Утилиты для формирования артефактов отчётов тестирования.
 
-Модуль фиксирует структуру каталогов и метаданных, которые должны
-использоваться при генерации артефактов pytest/coverage. Реальное
-исполнение (запуск pytest) реализуется в скрипте, который подключит эти
-константы.
+Модуль используется исключительно в тестовых сценариях и вспомогательных
+скриптах, обеспечивая единообразную структуру артефактов pytest/coverage.
 """
 
 from __future__ import annotations
@@ -37,7 +35,7 @@ class TestReportArtifacts:
 
 
 def resolve_artifact_paths(root: Path) -> TestReportArtifacts:
-    """Собрать структуру путей в каталоге *root* without side effects."""
+    """Собрать структуру путей в каталоге *root* без побочных эффектов."""
 
     return TestReportArtifacts(
         root=root,
@@ -73,3 +71,4 @@ class TestReportMeta:
             "business_key_hash": self.business_key_hash,
             "status": self.status,
         }
+

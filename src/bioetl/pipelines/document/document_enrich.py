@@ -15,20 +15,28 @@ from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
 
 
-def _escape_pipe(s: str) -> str:
+def _escape_pipe(value: str | Any) -> str:
     """Escape pipe and backslash delimiters in string values.
 
     Parameters
     ----------
-    s:
-        Input string to escape.
+    value:
+        Input value to escape. ``None`` и NA приводятся к пустой строке.
 
     Returns
     -------
     str:
-        String with escaped delimiters: `|` → `\\|`, `\\` → `\\\\`.
+        Строка с экранированными разделителями: ``|`` → ``\\|``, ``\\`` → ``\\\\``.
     """
-    return s.replace("\\", "\\\\").replace("|", "\\|")
+
+    if value is None or pd.isna(value):
+        return ""
+
+    text = str(value)
+    if not text:
+        return ""
+
+    return text.replace("\\", "\\\\").replace("|", "\\|")
 
 
 def _ensure_columns(

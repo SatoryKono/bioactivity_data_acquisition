@@ -245,7 +245,7 @@ class TestPipelineBase:
         """Test validation with Pandera schema."""
         # Update config to use activity schema
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
@@ -289,7 +289,7 @@ class TestPipelineBase:
         """Schema errors are logged and execution continues when fail-open is enabled."""
 
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
@@ -315,7 +315,7 @@ class TestPipelineBase:
     ) -> None:
         """Test write stage."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
@@ -483,7 +483,7 @@ class TestPipelineBase:
     ) -> None:
         """Test that pipeline directory is created only when writing files."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]

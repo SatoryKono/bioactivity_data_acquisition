@@ -465,6 +465,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         if arrays_to_serialize:
             df_result: pd.DataFrame = serialize_array_fields(df, arrays_to_serialize)
+            for column in arrays_to_serialize:
+                if column in df_result.columns:
+                    empty_mask = df_result[column].astype("string").fillna("").eq("")
+                    if empty_mask.any():
+                        df_result.loc[empty_mask, column] = pd.NA
             df = df_result
             log.debug("array_fields_serialized", columns=arrays_to_serialize)
 

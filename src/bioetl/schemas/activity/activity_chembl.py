@@ -87,9 +87,9 @@ COLUMN_ORDER = (
 
 STANDARD_TYPES = required_vocab_ids(
     "activity_standard_type",
-    allowed_statuses=("active", "alias", "deprecated"),
+    allowed_statuses=("active",),
 )
-RELATIONS = {"=", "<", "<=", "≤", ">", ">=", "≥", "~"}
+RELATIONS = {"=", "<", ">", "~"}
 ACTIVITY_PROPERTY_KEYS = (
     "type",
     "relation",

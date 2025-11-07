@@ -121,7 +121,10 @@ def serialize_array_fields(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataF
                 except TypeError:
                     return False
 
-                return bool(is_na) if isinstance(is_na, bool) else False
+                try:
+                    return bool(is_na)
+                except (TypeError, ValueError):
+                    return False
 
             na_mask = original_series.map(_should_preserve_na)
             if na_mask.any():

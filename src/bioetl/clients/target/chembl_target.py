@@ -2,22 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+from typing import Any
 
 from bioetl.clients.chembl_base import EntityConfig
 from bioetl.clients.chembl_iterator import ChemblEntityIterator
-
-
-class _TargetEntityConfigDict(TypedDict, total=False):
-    endpoint: str
-    filter_param: str
-    id_key: str
-    items_key: str
-    log_prefix: str
-    chunk_size: int
-    supports_list_result: bool
-    base_endpoint_length: int
-    enable_url_length_check: bool
 
 __all__ = ["ChemblTargetClient"]
 
@@ -43,18 +31,17 @@ class ChemblTargetClient(ChemblEntityIterator):
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
-        config_dict: _TargetEntityConfigDict = {
-            "endpoint": "/target.json",
-            "filter_param": "target_chembl_id__in",
-            "id_key": "target_chembl_id",
-            "items_key": "targets",
-            "log_prefix": "target",
-            "chunk_size": 100,
-            "supports_list_result": False,
-            "base_endpoint_length": len("/target.json?"),
-            "enable_url_length_check": False,
-        }
-        config = EntityConfig(**config_dict)
+        config = EntityConfig(
+            endpoint="/target.json",
+            filter_param="target_chembl_id__in",
+            id_key="target_chembl_id",
+            items_key="targets",
+            log_prefix="target",
+            chunk_size=100,
+            supports_list_result=False,
+            base_endpoint_length=len("/target.json?"),
+            enable_url_length_check=False,
+        )
 
         super().__init__(
             chembl_client=chembl_client,

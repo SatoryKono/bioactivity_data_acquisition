@@ -33,6 +33,16 @@ def _canonical_json(payload: Any) -> str:
     )
 
 
+def _normalise_base_url(value: Any) -> str:
+    text = str(value)
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    stripped = text.strip().strip("<>")
+    if not stripped:
+        stripped = "unknown"
+    return f"https://mock.invalid/{stripped}"
+
+
 @dataclass(slots=True)
 class _ActiveRecord:
     load_meta_id: str
@@ -112,6 +122,7 @@ class LoadMetaStore:
         """Create a new active load_meta record and return its identifier."""
 
         load_meta_id = str(uuid4())
+        base_url = _normalise_base_url(request_base_url)
         if isinstance(request_params, str):
             params_json = request_params
         else:
@@ -120,7 +131,7 @@ class LoadMetaStore:
         record = _ActiveRecord(
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
             request_params_json=params_json,
             request_started_at=now,
             request_finished_at=now,
@@ -136,7 +147,7 @@ class LoadMetaStore:
             "load_meta.begin",
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
         )
         return load_meta_id
 
