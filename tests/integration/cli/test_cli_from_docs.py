@@ -10,25 +10,19 @@ Therefore, mocking is not needed for these tests, but they serve as smoke
 tests to verify that CLI commands work correctly.
 """
 
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-ROOT = Path(__file__).parent.parent.parent
+from tests.tools.cli import run_cli_command
+
+ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.integration
 def test_list_command():
     """Test CLI list command from README."""
-    result = subprocess.run(
-        [sys.executable, "-m", "bioetl.cli.main", "list"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    result = run_cli_command(["list"], cwd=ROOT, timeout=30)
     assert result.returncode == 0, f"list command failed: {result.stderr}"
 
 
@@ -38,11 +32,8 @@ def test_activity_chembl_dry_run():
     config_path = ROOT / "configs" / "pipelines" / "activity" / "activity_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "activity"
 
-    result = subprocess.run(
+    result = run_cli_command(
         [
-            sys.executable,
-            "-m",
-            "bioetl.cli.main",
             "activity_chembl",
             "--config",
             str(config_path),
@@ -51,8 +42,6 @@ def test_activity_chembl_dry_run():
             "--dry-run",
         ],
         cwd=ROOT,
-        capture_output=True,
-        text=True,
         timeout=60,
     )
     assert result.returncode == 0, f"activity_chembl --dry-run failed: {result.stderr}"
@@ -64,11 +53,8 @@ def test_assay_chembl_dry_run():
     config_path = ROOT / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "assay"
 
-    result = subprocess.run(
+    result = run_cli_command(
         [
-            sys.executable,
-            "-m",
-            "bioetl.cli.main",
             "assay_chembl",
             "--config",
             str(config_path),
@@ -77,8 +63,6 @@ def test_assay_chembl_dry_run():
             "--dry-run",
         ],
         cwd=ROOT,
-        capture_output=True,
-        text=True,
         timeout=60,
     )
     assert result.returncode == 0, f"assay_chembl --dry-run failed: {result.stderr}"
@@ -90,11 +74,8 @@ def test_testitem_dry_run():
     config_path = ROOT / "configs" / "pipelines" / "testitem" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
 
-    result = subprocess.run(
+    result = run_cli_command(
         [
-            sys.executable,
-            "-m",
-            "bioetl.cli.main",
             "testitem_chembl",
             "--config",
             str(config_path),
@@ -103,8 +84,6 @@ def test_testitem_dry_run():
             "--dry-run",
         ],
         cwd=ROOT,
-        capture_output=True,
-        text=True,
         timeout=60,
     )
     assert result.returncode == 0, f"testitem --dry-run failed: {result.stderr}"
@@ -116,11 +95,8 @@ def test_testitem_chembl_alias_dry_run():
     config_path = ROOT / "configs" / "pipelines" / "testitem" / "testitem_chembl.yaml"
     output_dir = ROOT / "data" / "output" / "testitem"
 
-    result = subprocess.run(
+    result = run_cli_command(
         [
-            sys.executable,
-            "-m",
-            "bioetl.cli.main",
             "testitem_chembl",
             "--config",
             str(config_path),
@@ -129,8 +105,6 @@ def test_testitem_chembl_alias_dry_run():
             "--dry-run",
         ],
         cwd=ROOT,
-        capture_output=True,
-        text=True,
         timeout=60,
     )
     assert result.returncode == 0, f"testitem_chembl --dry-run failed: {result.stderr}"

@@ -1,10 +1,17 @@
 # Управление секретами для BioETL
 
-Этот репозиторий больше не хранит реальные токены и ключи API. Файл
-`.env.key.template` оставлен только как шаблон и не должен содержать рабочих
-значений. Доступ к
+Этот репозиторий больше не хранит реальные токены и ключи API. Шаблоны окружения
+(`configs/templates/.env.key.template` и будущие `.env.*.template`) оставлены
+только как каркасы и не должны содержать рабочих значений. Доступ к
 секретам осуществляется через менеджер секретов (Vault) или через переменные
 окружения, прокинутые в рантайм пайплайнов и CI.
+
+## Шаблоны и политика Vault
+
+- Шаблоны переменных окружения расположены в каталоге
+  [`configs/templates/`](configs/templates/).
+- Политика управления секретами и доступом описана в
+  [`docs/security/00-vault-policy.md`](docs/security/00-vault-policy.md).
 
 ## Топология репозитория
 
@@ -43,7 +50,7 @@
 
 ### Локальная разработка
 
-1. Скопируйте `.env.key.template` в `.env` (или `.env.key`, если инструмент
+1. Скопируйте `configs/templates/.env.key.template` в `.env` (или `.env.key`, если инструмент
    его ожидает).
 2. Выполните `vault kv get bioetl/dev/secrets > env.json` или получите значения
    иным способом от ответственного за секреты.
@@ -106,13 +113,13 @@ CI запускает `detect-secrets` по всем файлам репозит
 
 ### Проверка перед коммитом
 
-Рекомендуется добавить локальный pre-commit хук:
+`pre-commit` конфигурация репозитория уже включает хуки `detect-secrets` и
+`detect-private-key`. После выполнения `pre-commit install -t pre-commit` и
+`pre-commit install -t commit-msg` проверки запускаются автоматически.
+Если нужно зафиксировать новое, но безопасное исключение, обновите baseline:
 
 ```bash
-pip install detect-secrets
-pre-commit install -t pre-commit
-pre-commit install -t commit-msg
-pre-commit run detect-secrets --all-files
+detect-secrets scan src tests configs scripts docs README.md > .secrets.baseline
 ```
 
 ## Реакция на инциденты

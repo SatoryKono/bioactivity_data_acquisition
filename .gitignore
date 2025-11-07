@@ -65,6 +65,9 @@ artifacts/
 .env
 .env.local
 .env.key
+.env.*
+!.env.*.template
+!configs/templates/.env.*.template
 
 # Jupyter
 .ipynb_checkpoints/
