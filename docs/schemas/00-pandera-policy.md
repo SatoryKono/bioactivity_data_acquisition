@@ -1,7 +1,6 @@
 # Pandera Schema Governance Policy
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` or `tests/` in this document describe the intended
-architecture and are not yet implemented in the codebase.
+> **Status 2025-11-07**: Политика применяется в кодовой базе: `PipelineBase.validate()` добавляет hash-колонки перед проверкой, `SchemaRegistry` блокирует дубликаты и устаревшие версии, а `scripts/schema_guard.py` проверяет реестр схем и конфиги в CI.
 
 ## 1. Scope
 
@@ -15,6 +14,7 @@ understood contract.
 - **Continuous testing**: Schema-specific tests in the `test_refactoring_32` branch (for example,
   `[ref: repo:tests/schemas/test_activity_schema.py@test_refactoring_32]`) run the same validation logic with golden datasets to
   guarantee parity between developer machines and CI.
+- **Hash invariants**: Every exported dataset **must** expose `hash_row` и `hash_business_key`. Эти колонки вычисляются через `ensure_hash_columns()` и фиксируются в схемах как обязательные (за исключением случаев, где бизнес-ключ недоступен — допускается `nullable=True`).
 
 ## 2. Schema Versioning & Freeze Order
 
@@ -104,3 +104,9 @@ Operational guidance:
 
 By following this policy, BioETL ensures that schema evolution is intentional, auditable, and compatible with deterministic
 pipelines and reproducible analytics.
+
+## 8. Registry & Tooling Checks
+
+- `SchemaRegistry.register()` отклоняет дублирующиеся `column_order`, отсутствующие колонки и несогласованные версии.
+- `scripts/schema_guard.py` (см. [ref: repo:scripts/schema_guard.py]) валидирует конфиги и реестр схем, формирует отчёт `artifacts/SCHEMA_GUARD_REPORT.md` и прерывает CI при нарушениях.
+- Юнит-тест `tests/unit/schemas/test_schema_registry.py` гарантирует, что `hash_row`/`hash_business_key` присутствуют во всех зарегистрированных схемах и синхронизированы с константами `SCHEMA_VERSION`.

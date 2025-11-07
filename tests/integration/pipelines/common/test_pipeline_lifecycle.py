@@ -46,14 +46,25 @@ class TestPipelineLifecycle:
             mock_activity_response.status_code = 200
             mock_activity_response.headers = {}
 
+            mock_client.handshake = None  # Ensure fetch_chembl_release uses HTTP path
             mock_client.get.side_effect = [mock_status_response, mock_activity_response]
             mock_factory.return_value = mock_client
 
             pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-            result = pipeline.run(tmp_output_dir)
+            with patch.object(
+                pipeline,
+                "plan_run_artifacts",
+                wraps=pipeline.plan_run_artifacts,
+            ) as mock_plan:
+                result = pipeline.run(tmp_output_dir)
+
+            mock_plan.assert_called_once()
+            _, plan_kwargs = mock_plan.call_args
+            assert plan_kwargs.get("run_directory") == tmp_output_dir
 
             assert result.run_id == run_id
             assert result.write_result.dataset.exists()
+            assert result.write_result.dataset.parent == tmp_output_dir
             assert result.write_result.quality_report is not None
             assert result.write_result.quality_report.exists()
 
@@ -107,6 +118,7 @@ class TestPipelineLifecycle:
             mock_activity_response.status_code = 200
             mock_activity_response.headers = {}
 
+            mock_client.handshake = None
             mock_client.get.side_effect = [mock_status_response, mock_activity_response]
             mock_factory.return_value = mock_client
 
@@ -146,6 +158,7 @@ class TestPipelineLifecycle:
             mock_activity_response.status_code = 200
             mock_activity_response.headers = {}
 
+            mock_client.handshake = None
             mock_client.get.side_effect = [mock_status_response, mock_activity_response]
             mock_factory.return_value = mock_client
 

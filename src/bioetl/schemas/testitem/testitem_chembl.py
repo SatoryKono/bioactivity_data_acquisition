@@ -12,7 +12,7 @@ from bioetl.schemas.common import (
     string_column_with_check,
 )
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 COLUMN_ORDER = (
     # Scalars
@@ -71,6 +71,8 @@ COLUMN_ORDER = (
     # Version fields
     "_chembl_db_version",
     "_api_version",
+    "hash_row",
+    "hash_business_key",
 )
 
 TestItemSchema = create_schema(
@@ -133,6 +135,8 @@ TestItemSchema = create_schema(
         # Version fields
         "_chembl_db_version": non_nullable_string_column(),
         "_api_version": non_nullable_string_column(),
+        "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
+        "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
     },
     version=SCHEMA_VERSION,
     name="TestItemSchema",

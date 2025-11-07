@@ -83,7 +83,49 @@ class ChemblPipelineBase(PipelineBase):
             raise KeyError(msg) from exc
 
     @staticmethod
-    def _resolve_base_url(parameters: Mapping[str, Any]) -> str:
+    def _normalize_parameters(parameters: Any) -> dict[str, Any]:
+        """Return parameters as a plain mapping.
+
+        Parameters
+        ----------
+        parameters:
+            Source configuration parameters represented as Mapping, Pydantic
+            model, or arbitrary object with attributes.
+
+        Returns
+        -------
+        dict[str, Any]
+            Normalised mapping with stringified keys preserving deterministic
+            ordering semantics for later processing.
+        """
+
+        if isinstance(parameters, Mapping):
+            return {str(key): value for key, value in parameters.items()}
+
+        model_dump = getattr(parameters, "model_dump", None)
+        if callable(model_dump):
+            dumped = model_dump()
+            if isinstance(dumped, Mapping):
+                return {str(key): value for key, value in dumped.items()}
+
+        as_dict = getattr(parameters, "dict", None)
+        if callable(as_dict):
+            dumped = as_dict()
+            if isinstance(dumped, Mapping):
+                return {str(key): value for key, value in dumped.items()}
+
+        attrs = getattr(parameters, "__dict__", None)
+        if isinstance(attrs, dict):
+            return {
+                str(key): value
+                for key, value in attrs.items()
+                if not key.startswith("_")
+            }
+
+        return {}
+
+    @staticmethod
+    def _resolve_base_url(parameters: Any) -> str:
         """Resolve base URL from source configuration parameters.
 
         Parameters
@@ -101,11 +143,21 @@ class ChemblPipelineBase(PipelineBase):
         ValueError
             If base_url is not a non-empty string.
         """
-        base_url = parameters.get("base_url") or "https://www.ebi.ac.uk/chembl/api/data"
+        params = ChemblPipelineBase._normalize_parameters(parameters)
+        base_url = params.get("base_url") or "https://www.ebi.ac.uk/chembl/api/data"
         if not isinstance(base_url, str) or not base_url.strip():
             msg = "sources.chembl.parameters.base_url must be a non-empty string"
             raise ValueError(msg)
         return base_url.rstrip("/")
+
+    @staticmethod
+    def _resolve_page_size(batch_size: int, limit: int | None, *, hard_cap: int = 25) -> int:
+        """Return deterministic page size respecting limit and API hard cap."""
+
+        effective = min(max(int(batch_size), 1), hard_cap)
+        if limit is not None:
+            effective = min(effective, max(int(limit), 0))
+        return max(effective, 1)
 
     @staticmethod
     def _resolve_batch_size(source_config: SourceConfig) -> int:
@@ -195,9 +247,7 @@ class ChemblPipelineBase(PipelineBase):
         """
         source_config = self._resolve_source_config(source_name)
         parameters = getattr(source_config, "parameters", {})
-        if not isinstance(parameters, Mapping):
-            parameters = {}
-        resolved_base_url = base_url or self._resolve_base_url(cast(Mapping[str, Any], parameters))
+        resolved_base_url = base_url or self._resolve_base_url(parameters)
         client = self._client_factory.for_source(source_name, base_url=resolved_base_url)
         if client_name:
             self.register_client(client_name, client)

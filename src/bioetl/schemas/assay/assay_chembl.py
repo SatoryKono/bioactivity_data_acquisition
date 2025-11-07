@@ -14,7 +14,7 @@ from bioetl.schemas.vocab import required_vocab_ids
 ASSAY_TYPES = required_vocab_ids("assay_type")
 
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 COLUMN_ORDER = (
     "assay_chembl_id",
@@ -45,6 +45,8 @@ COLUMN_ORDER = (
     "assay_parameters",
     "assay_class_id",
     "curation_level",
+    "hash_row",
+    "hash_business_key",
 )
 
 # Row metadata columns
@@ -79,6 +81,8 @@ AssaySchema = create_schema(
         "assay_parameters": nullable_string_column(),
         "assay_class_id": nullable_string_column(),
         "curation_level": nullable_string_column(),
+        "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
+        "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
     },
     version=SCHEMA_VERSION,
     name="AssaySchema",

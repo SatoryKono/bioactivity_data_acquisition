@@ -13,7 +13,7 @@ from bioetl.schemas.vocab import required_vocab_ids
 TARGET_TYPES = required_vocab_ids("target_type")
 
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 COLUMN_ORDER = (
     "target_chembl_id",
@@ -30,6 +30,8 @@ COLUMN_ORDER = (
     "protein_class_list",
     "protein_class_top",
     "component_count",
+    "hash_row",
+    "hash_business_key",
 )
 
 TargetSchema = create_schema(
@@ -48,6 +50,8 @@ TargetSchema = create_schema(
         "protein_class_list": nullable_string_column(),
         "protein_class_top": nullable_string_column(),
         "component_count": nullable_pd_int64_column(ge=0),
+        "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
+        "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
     },
     version=SCHEMA_VERSION,
     name="TargetSchema",

@@ -12,8 +12,7 @@ import pandas as pd
 from bioetl.clients import ChemblClient
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.core import APIClientFactory, UnifiedLogger
+from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
@@ -30,7 +29,7 @@ from bioetl.pipelines.assay.assay_transform import (
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
-from ..base import PipelineBase
+from ..chembl_base import ChemblPipelineBase
 
 # Обязательные поля, которые всегда должны быть в запросе к API
 MUST_HAVE_FIELDS = {
@@ -42,14 +41,13 @@ MUST_HAVE_FIELDS = {
 }
 
 
-class ChemblAssayPipeline(PipelineBase):
+class ChemblAssayPipeline(ChemblPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
     actor = "assay_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._client_factory = APIClientFactory(config)
         self._chembl_release: str | None = None
 
     @property
@@ -93,10 +91,10 @@ class ChemblAssayPipeline(PipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = AssaySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
-
-        http_client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_assay_http", http_client)
+        http_client, _ = self.prepare_chembl_client(
+            "chembl",
+            client_name="chembl_assay_http",
+        )
 
         chembl_client = ChemblClient(http_client)
         assay_client = ChemblAssayClient(
@@ -133,8 +131,10 @@ class ChemblAssayPipeline(PipelineBase):
         page_size = source_config.batch_size
         select_fields = self._resolve_select_fields(source_raw)
         # Защита: добавить обязательные поля, если их нет
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+        if select_fields:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        else:
+            select_fields = list(MUST_HAVE_FIELDS)
 
         log.debug(
             "chembl_assay.select_fields",
@@ -223,10 +223,10 @@ class ChemblAssayPipeline(PipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = AssaySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
-
-        http_client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_assay_http", http_client)
+        http_client, _ = self.prepare_chembl_client(
+            "chembl",
+            client_name="chembl_assay_http",
+        )
 
         chembl_client = ChemblClient(http_client)
         assay_client = ChemblAssayClient(
@@ -262,8 +262,10 @@ class ChemblAssayPipeline(PipelineBase):
         limit = self.config.cli.limit
         select_fields = self._resolve_select_fields(source_raw)
         # Защита: добавить обязательные поля, если их нет
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+        if select_fields:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        else:
+            select_fields = list(MUST_HAVE_FIELDS)
 
         log.debug(
             "chembl_assay.select_fields",
@@ -365,36 +367,6 @@ class ChemblAssayPipeline(PipelineBase):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _resolve_source_config(self, name: str) -> SourceConfig:
-        try:
-            return self.config.sources[name]
-        except KeyError as exc:  # pragma: no cover - configuration error path
-            msg = f"Source '{name}' is not configured for pipeline '{self.pipeline_code}'"
-            raise KeyError(msg) from exc
-
-    @staticmethod
-    def _resolve_base_url(source_config: AssaySourceConfig) -> str:
-        base_url = source_config.parameters.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-        if not base_url.strip():
-            msg = "sources.chembl.parameters.base_url must be a non-empty string"
-            raise ValueError(msg)
-        return base_url.rstrip("/")
-
-    def _resolve_select_fields(self, source_config: SourceConfig) -> list[str] | None:
-        """Resolve select_fields from config or return None."""
-        parameters_raw = getattr(source_config, "parameters", {})
-        if isinstance(parameters_raw, Mapping):
-            parameters = cast(Mapping[str, Any], parameters_raw)
-            select_fields_raw = parameters.get("select_fields")
-            if (
-                select_fields_raw is not None
-                and isinstance(select_fields_raw, Sequence)
-                and not isinstance(select_fields_raw, (str, bytes))
-            ):
-                select_fields = cast(Sequence[Any], select_fields_raw)
-                return [str(field) for field in select_fields]
-        return None
 
     def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Serialize array-of-object fields to header+rows format."""
@@ -708,7 +680,8 @@ class ChemblAssayPipeline(PipelineBase):
         # Используем тот же источник что и в extract
         source_raw = self._resolve_source_config("chembl")
         source_config = AssaySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
 
         http_client = self._client_factory.for_source("chembl", base_url=base_url)
 

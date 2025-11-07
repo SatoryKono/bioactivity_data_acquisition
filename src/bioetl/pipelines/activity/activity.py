@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -18,8 +18,7 @@ from requests.exceptions import RequestException
 
 from bioetl.clients import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.core import APIClientFactory, UnifiedLogger
+from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.normalizers import (
     IdentifierRule,
@@ -38,7 +37,8 @@ from bioetl.schemas.activity import (
 )
 from bioetl.schemas.vocab import required_vocab_ids
 
-from ..base import PipelineBase, RunResult
+from ..base import RunResult
+from ..chembl_base import ChemblPipelineBase
 from .activity_enrichment import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -96,14 +96,13 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
 )
 
 
-class ChemblActivityPipeline(PipelineBase):
+class ChemblActivityPipeline(ChemblPipelineBase):
     """ETL pipeline extracting activity records from the ChEMBL API."""
 
     actor = "activity_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._client_factory = APIClientFactory(config)
         self._chembl_release: str | None = None
         self._last_batch_extract_stats: dict[str, Any] | None = None
 
@@ -158,33 +157,19 @@ class ChemblActivityPipeline(PipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
-        client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_activity_client", client)
+        client, base_url = self.prepare_chembl_client(
+            "chembl",
+            client_name="chembl_activity_client",
+        )
 
-        self._chembl_release = self._fetch_chembl_release(client, log)
+        self._chembl_release = self.fetch_chembl_release(client, log)
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
-        page_size = min(batch_size, 25)
-        if limit is not None:
-            page_size = min(page_size, limit)
-        page_size = max(page_size, 1)
+        page_size = self._resolve_page_size(batch_size, limit)
 
-        parameters: Mapping[str, Any] = (  # type: ignore[assignment, misc]
-            cast(Mapping[str, Any], source_config.parameters)  # type: ignore[arg-type]
-            if isinstance(source_config.parameters, Mapping)  # type: ignore[arg-type]
-            else {}
-        )
-        select_fields_raw: Any = parameters.get("select_fields")  # type: ignore[assignment, misc]
-        if (
-            select_fields_raw is not None
-            and isinstance(select_fields_raw, Sequence)  # type: ignore[arg-type]
-            and not isinstance(select_fields_raw, (str, bytes))  # type: ignore[arg-type]
-        ):
-            select_fields: list[str] = [str(field) for field in select_fields_raw]  # type: ignore[arg-type, misc]
-        else:
-            select_fields = list(API_ACTIVITY_FIELDS)
+        parameters = self._normalize_parameters(source_config.parameters)
+        select_fields = self._resolve_select_fields(source_raw, default_fields=API_ACTIVITY_FIELDS)
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
@@ -294,11 +279,12 @@ class ChemblActivityPipeline(PipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
-        client = self._client_factory.for_source("chembl", base_url=base_url)
-        self.register_client("chembl_activity_client", client)
+        client, _ = self.prepare_chembl_client(
+            "chembl",
+            client_name="chembl_activity_client",
+        )
 
-        self._chembl_release = self._fetch_chembl_release(client, log)
+        self._chembl_release = self.fetch_chembl_release(client, log)
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -500,21 +486,6 @@ class ChemblActivityPipeline(PipelineBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _resolve_source_config(self, name: str) -> SourceConfig:
-        try:
-            return self.config.sources[name]
-        except KeyError as exc:  # pragma: no cover - configuration error path
-            msg = f"Source '{name}' is not configured for pipeline '{self.pipeline_code}'"
-            raise KeyError(msg) from exc
-
-    @staticmethod
-    def _resolve_base_url(source_config: ActivitySourceConfig) -> str:
-        base_url = source_config.parameters.base_url or "https://www.ebi.ac.uk/chembl/api/data"
-        if not base_url.strip():
-            msg = "sources.chembl.parameters.base_url must be a non-empty string"
-            raise ValueError(msg)
-        return base_url.rstrip("/")
-
     def _should_enrich_compound_record(self) -> bool:
         """Проверить, включено ли обогащение compound_record в конфиге."""
         if not self.config.chembl:
@@ -567,7 +538,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
@@ -629,7 +601,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
@@ -702,7 +675,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
@@ -764,7 +738,8 @@ class ChemblActivityPipeline(PipelineBase):
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
         # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
@@ -798,17 +773,6 @@ class ChemblActivityPipeline(PipelineBase):
 
         return df
 
-    def _fetch_chembl_release(
-        self,
-        client: UnifiedAPIClient,
-        log: Any,
-    ) -> str | None:
-        response = client.get("/status.json")
-        status_payload = self._coerce_mapping(response.json())
-        release_value = self._extract_chembl_release(status_payload)
-        log.info("chembl_activity.status", chembl_release=release_value)
-        return release_value
-
     def _extract_from_chembl(
         self,
         dataset: object,
@@ -822,7 +786,8 @@ class ChemblActivityPipeline(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
-        source_config = self._resolve_source_config("chembl")
+        source_config_raw = self._resolve_source_config("chembl")
+        activity_source_config = ActivitySourceConfig.from_source_config(source_config_raw)
 
         if isinstance(dataset, pd.Series):
             input_frame = dataset.to_frame(name="activity_id")
@@ -893,9 +858,7 @@ class ChemblActivityPipeline(PipelineBase):
             log.info("chembl_activity.batch_summary", **summary)
             return pd.DataFrame()
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config_temp = ActivitySourceConfig.from_source_config(source_raw)
-        effective_batch_size = batch_size or source_config_temp.batch_size
+        effective_batch_size = batch_size or activity_source_config.batch_size
         effective_batch_size = max(min(int(effective_batch_size), 25), 1)
 
         records: list[dict[str, Any]] = []
@@ -918,20 +881,8 @@ class ChemblActivityPipeline(PipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
-                    parameters: Mapping[str, Any] = (  # type: ignore[assignment, misc]
-                        cast(Mapping[str, Any], source_config.parameters)  # type: ignore[arg-type]
-                        if isinstance(source_config.parameters, Mapping)  # type: ignore[arg-type]
-                        else {}
-                    )
-                    select_fields_raw: Any = parameters.get("select_fields")  # type: ignore[assignment, misc]
-                    if (
-                        select_fields_raw is not None
-                        and isinstance(select_fields_raw, Sequence)  # type: ignore[arg-type]
-                        and not isinstance(select_fields_raw, (str, bytes))  # type: ignore[arg-type]
-                    ):
-                        select_fields: list[str] = [str(field) for field in select_fields_raw]  # type: ignore[arg-type, misc]
-                    else:
-                        select_fields = list(API_ACTIVITY_FIELDS)
+                    configured_fields = activity_source_config.parameters.select_fields
+                    select_fields = list(configured_fields) if configured_fields else list(API_ACTIVITY_FIELDS)
                     params = {
                         "activity_id__in": ",".join(batch_keys),
                         "only": ",".join(select_fields),
@@ -1039,9 +990,8 @@ class ChemblActivityPipeline(PipelineBase):
         dataframe = self._ensure_comment_fields(dataframe, log)
 
         # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(source_config)
+        parameters = self._normalize_parameters(activity_source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
         extract_client = self._client_factory.for_source("chembl", base_url=base_url)
         chembl_client = ChemblClient(extract_client)
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
@@ -1496,7 +1446,11 @@ class ChemblActivityPipeline(PipelineBase):
                     df_result[col] = df_result[f"{col}_enrich"]
                 else:
                     # Заменить NA значения значениями из _enrich
-                    df_result[col] = df_result[col].fillna(df_result[f"{col}_enrich"])  # type: ignore[assignment]
+                    base_series: pd.Series[Any] = df_result[col]
+                    enrich_series: pd.Series[Any] = df_result[f"{col}_enrich"]
+                    missing_mask = base_series.isna()
+                    if bool(missing_mask.any()):
+                        df_result.loc[missing_mask, col] = enrich_series.loc[missing_mask]
                 # Удалить колонку _enrich
                 df_result = df_result.drop(columns=[f"{col}_enrich"])
 
@@ -1509,7 +1463,9 @@ class ChemblActivityPipeline(PipelineBase):
         df_result["assay_organism"] = df_result["assay_organism"].astype("string")
 
         # assay_tax_id может приходить строкой — приводим к Int64 с NA
-        tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_result["assay_tax_id"], errors="coerce")  # type: ignore[arg-type]
+        assay_tax_series: pd.Series[Any] = df_result["assay_tax_id"]
+        to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
+        tax_id_numeric = to_numeric_series(assay_tax_series, errors="coerce")
         df_result["assay_tax_id"] = tax_id_numeric.astype("Int64")
 
         # Проверка диапазона для assay_tax_id (>= 1 или NA)
@@ -1567,31 +1523,41 @@ class ChemblActivityPipeline(PipelineBase):
                 metrics[f"{field}_total_count"] = total_count
 
         # Топ-10 наиболее частых значений data_validity_comment
+        non_null_comments_series: pd.Series[str] | None = None
         if "data_validity_comment" in df.columns:
-            non_null_comments = df["data_validity_comment"].dropna()
-            if len(non_null_comments) > 0:
-                value_counts = non_null_comments.value_counts().head(10)
-                top_10 = value_counts.to_dict()  # type: ignore[reportUnknownArgumentType]
+            series_candidate = df["data_validity_comment"].dropna()
+            if len(series_candidate) > 0:
+                typed_series: pd.Series[str] = series_candidate.astype("string")
+                non_null_comments_series = typed_series
+                value_counts = typed_series.value_counts().head(10)
+                top_10 = {
+                    str(key): int(value)
+                    for key, value in value_counts.items()
+                }
                 metrics["top_10_data_validity_comments"] = top_10
 
         # Количество неизвестных значений data_validity_comment
         whitelist = self._get_data_validity_comment_whitelist()
-        if whitelist and "data_validity_comment" in df.columns:
-            non_null_comments = df["data_validity_comment"].dropna()
-            if len(non_null_comments) > 0:
-                whitelist_set = set(whitelist)
-                unknown_mask = ~non_null_comments.isin(whitelist_set)  # type: ignore[reportUnknownArgumentType]
-                unknown_count = int(unknown_mask.sum())
-                if unknown_count > 0:
-                    unknown_values = non_null_comments[unknown_mask].value_counts().head(10).to_dict()  # type: ignore[reportUnknownArgumentType]
-                    metrics["unknown_data_validity_comments_count"] = unknown_count
-                    metrics["unknown_data_validity_comments_samples"] = unknown_values
-                    log.warning(
-                        "unknown_data_validity_comments_detected",
-                        unknown_count=unknown_count,
-                        samples=unknown_values,
-                        whitelist=whitelist,
-                    )
+        if whitelist and non_null_comments_series is not None:
+            whitelist_set: set[str] = set(whitelist)
+            def _is_unknown(value: str) -> bool:
+                return value not in whitelist_set
+
+            unknown_mask = non_null_comments_series.map(_is_unknown).astype(bool)
+            unknown_count = int(unknown_mask.sum())
+            if unknown_count > 0:
+                unknown_values = {
+                    str(key): int(value)
+                    for key, value in non_null_comments_series[unknown_mask].value_counts().head(10).items()
+                }
+                metrics["unknown_data_validity_comments_count"] = unknown_count
+                metrics["unknown_data_validity_comments_samples"] = unknown_values
+                log.warning(
+                    "unknown_data_validity_comments_detected",
+                    unknown_count=unknown_count,
+                    samples=unknown_values,
+                    whitelist=whitelist,
+                )
 
         if metrics:
             log.info("validity_comments_metrics", **metrics)
@@ -1693,7 +1659,8 @@ class ChemblActivityPipeline(PipelineBase):
         if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
             return record
 
-        properties_seq: Sequence[Any] = cast(Sequence[Any], properties)
+        properties_sequence = cast(Sequence[Any], properties)
+        property_items: list[Any] = list(properties_sequence)
 
         # Helper for fallback assignment
         def _set_fallback(key: str, value: Any) -> None:
@@ -1711,13 +1678,14 @@ class ChemblActivityPipeline(PipelineBase):
             return False
 
         # Filter valid property items: must be Mapping with type and at least one of value/text_value
-        items: list[Mapping[str, Any]] = [
-            cast(Mapping[str, Any], p)
-            for p in properties_seq  # type: ignore[assignment]
-            if isinstance(p, Mapping)
-            and ("type" in p)
-            and ("value" in p or "text_value" in p)
-        ]
+        items: list[Mapping[str, Any]] = []
+        for property_item in property_items:
+            if (
+                isinstance(property_item, Mapping)
+                and ("type" in property_item)
+                and ("value" in property_item or "text_value" in property_item)
+            ):
+                items.append(cast(Mapping[str, Any], property_item))
 
         # Helper to check if property represents measured result (result_flag == 1 or True)
         def _is_measured(p: Mapping[str, Any]) -> bool:
@@ -1854,7 +1822,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Нормализация и сохранение activity_properties для последующей сериализации
         # Сохраняем все свойства без фильтрации (только валидация TRUV-формата)
-        normalized_properties = self._normalize_activity_properties_items(properties_seq, log)
+        normalized_properties = self._normalize_activity_properties_items(property_items, log)
         if normalized_properties is not None:
             # Валидация TRUV-формата и логирование некорректных свойств
             validated_properties, validation_stats = self._validate_activity_properties_truv(
@@ -1870,7 +1838,7 @@ class ChemblActivityPipeline(PipelineBase):
             log.debug(
                 "activity_properties_processed",
                 activity_id=activity_id,
-                original_count=len(properties_seq),
+                original_count=len(property_items),
                 normalized_count=len(normalized_properties),
                 validated_count=len(validated_properties),
                 deduplicated_count=len(deduplicated_properties),
@@ -1905,30 +1873,16 @@ class ChemblActivityPipeline(PipelineBase):
         return None
 
     @staticmethod
-    def _extract_page_items(payload: Mapping[str, Any]) -> list[dict[str, Any]]:
-        candidates: list[dict[str, Any]] = []
-        for key in ("activities", "data", "items", "results"):
-            value: Any = payload.get(key)
-            if isinstance(value, Sequence):
-                candidates = [
-                    cast(dict[str, Any], item)  # pyright: ignore[reportUnknownVariableType]
-                    for item in value  # pyright: ignore[reportUnknownVariableType]
-                    if isinstance(item, Mapping)
-                ]
-                if candidates:
-                    return candidates
-        for key, value in payload.items():
-            if key == "page_meta":
-                continue
-            if isinstance(value, Sequence):
-                candidates = [
-                    cast(dict[str, Any], item)  # pyright: ignore[reportUnknownVariableType]
-                    for item in value  # pyright: ignore[reportUnknownVariableType]
-                    if isinstance(item, Mapping)
-                ]
-                if candidates:
-                    return candidates
-        return []
+    def _extract_page_items(
+        payload: Mapping[str, Any],
+        items_keys: Sequence[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        preferred_keys: tuple[str, ...] = ("activities",)
+        if items_keys is None:
+            combined_keys = preferred_keys + ("data", "items", "results")
+        else:
+            combined_keys = tuple(dict.fromkeys((*preferred_keys, *items_keys)))
+        return ChemblPipelineBase._extract_page_items(payload, combined_keys)
 
     @staticmethod
     def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
@@ -1939,7 +1893,7 @@ class ChemblActivityPipeline(PipelineBase):
             if isinstance(next_link, str) and next_link:
                 # urlparse returns ParseResult with str path when input is str
                 base_path_parse_result = urlparse(base_url)
-                base_path: str = str(base_path_parse_result.path).rstrip("/")  # type: ignore[assignment]
+                base_path: str = base_path_parse_result.path.rstrip("/")
 
                 # If next_link is a full URL, extract only the relative path
                 if next_link.startswith("http://") or next_link.startswith("https://"):
@@ -1947,8 +1901,8 @@ class ChemblActivityPipeline(PipelineBase):
                     base_parsed = urlparse(base_url)
 
                     # Get paths - urlparse returns str path when input is str
-                    path: str = str(parsed.path)  # type: ignore[assignment]
-                    base_path_from_url: str = str(base_parsed.path)  # type: ignore[assignment]
+                    path: str = parsed.path
+                    base_path_from_url: str = base_parsed.path
 
                     # Normalize: remove trailing slashes for comparison
                     path_normalized: str = path.rstrip("/")
@@ -2946,20 +2900,28 @@ class ChemblActivityPipeline(PipelineBase):
         if not whitelist:
             return
 
-        non_null_comments = df["data_validity_comment"].dropna()
-        if len(non_null_comments) == 0:
+        series_candidate = df["data_validity_comment"].dropna()
+        if len(series_candidate) == 0:
             return
 
-        whitelist_set = set(whitelist)
-        unknown_mask = ~non_null_comments.isin(whitelist_set)  # type: ignore[reportUnknownArgumentType]
+        non_null_comments_series = series_candidate.astype("string")
+        whitelist_set: set[str] = set(whitelist)
+
+        def _is_unknown(value: str) -> bool:
+            return value not in whitelist_set
+
+        unknown_mask = non_null_comments_series.map(_is_unknown).astype(bool)
         unknown_count = int(unknown_mask.sum())
 
         if unknown_count > 0:
-            unknown_values = non_null_comments[unknown_mask].value_counts().head(10).to_dict()  # type: ignore[reportUnknownArgumentType]
+            unknown_values = {
+                str(key): int(value)
+                for key, value in non_null_comments_series[unknown_mask].value_counts().head(10).items()
+            }
             log.warning(
                 "soft_enum_unknown_data_validity_comment",
                 unknown_count=unknown_count,
-                total_count=len(non_null_comments),
+                total_count=len(non_null_comments_series),
                 samples=unknown_values,
                 whitelist=whitelist,
                 message="Unknown data_validity_comment values detected (soft enum: not blocking)",

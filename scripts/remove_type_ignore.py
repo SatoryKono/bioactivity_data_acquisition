@@ -7,7 +7,6 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
-
 TYPE_IGNORE_PATTERN = re.compile(r"\s+#\s*type:\s*ignore(?::[^\n]*)?")
 
 

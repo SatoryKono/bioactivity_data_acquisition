@@ -13,7 +13,6 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from operator import itemgetter
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -232,6 +231,7 @@ class PipelineBase(ABC):
         include_metadata: bool = False,
         include_manifest: bool = False,
         extras: dict[str, Path] | None = None,
+        run_directory: Path | None = None,
     ) -> RunArtifacts:
         """Return the artifact map for a deterministic run.
 
@@ -241,7 +241,7 @@ class PipelineBase(ABC):
         """
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
-        run_dir = self.pipeline_directory
+        run_dir = run_directory if run_directory is not None else self.pipeline_directory
         dataset = run_dir / f"{stem}.{self.dataset_extension}"
         quality = run_dir / f"{stem}_quality_report.{self.qc_extension}"
         correlation = (
@@ -422,21 +422,19 @@ class PipelineBase(ABC):
 
         def _normalise_value(candidate: Any) -> Any:
             if isinstance(candidate, Mapping):
-                mapping_candidate = cast(Mapping[Any, Any], candidate)
                 normalised_items: list[tuple[str, Any]] = []
-                for mapping_key, mapping_value in mapping_candidate.items():
-                    key_as_str = str(mapping_key)
-                    normalised_value = _normalise_value(mapping_value)
+                mapping_candidate = cast(Mapping[Any, Any], candidate)
+                for mapping_key_any, mapping_value_any in mapping_candidate.items():
+                    key_as_str = str(mapping_key_any)
+                    normalised_value = _normalise_value(mapping_value_any)
                     normalised_items.append((key_as_str, normalised_value))
-                normalised_items.sort(key=itemgetter(0))
+                normalised_items.sort(key=lambda item: item[0])
                 return dict(normalised_items)
             if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-                sequence_candidate = cast(Sequence[Any], candidate)
                 normalised_sequence: list[Any] = []
-                for sequence_item in sequence_candidate:
-                    sequence_item_any: Any = sequence_item
-                    normalised_value = _normalise_value(sequence_item_any)
-                    normalised_sequence.append(normalised_value)
+                sequence_candidate: Sequence[Any] = cast(Sequence[Any], candidate)
+                for sequence_item_any in sequence_candidate:
+                    normalised_sequence.append(_normalise_value(sequence_item_any))
                 return normalised_sequence
             if isinstance(candidate, datetime):
                 return _normalise_timestamp(candidate)
@@ -1092,41 +1090,38 @@ class PipelineBase(ABC):
         """
         df = df.copy()
 
+        def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
+            to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
+            return to_numeric_series(series, errors="coerce")
+
         # Get column definitions from schema
         for column_name, column_def in schema.columns.items():
             if column_name not in df.columns:
                 continue
 
             try:
+                column_series = cast(pd.Series[Any], df[column_name])
+
                 # Handle nullable integers
                 if column_def.dtype == pd.Int64Dtype() or (
                     hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
                 ):
-                    # Type checker has issues with pandas overloads, suppress warnings
-                    numeric_series = cast(
-                        pd.Series[Any],
-                        pd.to_numeric(df[column_name], errors="coerce"),  # type: ignore[arg-type]
-                    )
-                    df[column_name] = numeric_series.astype("Int64")  # type: ignore[arg-type]
+                    numeric_series = _to_numeric_series(column_series)
+                    df[column_name] = cast(pd.Series[Any], numeric_series.astype("Int64"))
                 # Handle nullable floats
                 elif (
                     hasattr(column_def.dtype, "name")
                     and column_def.dtype.name == "Float64"
                 ):
-                    # Type checker has issues with pandas overloads, suppress warnings
-                    numeric_series_float = cast(
-                        pd.Series[Any],
-                        pd.to_numeric(df[column_name], errors="coerce"),  # type: ignore[arg-type]
-                    )
-                    df[column_name] = numeric_series_float.astype("Float64")  # type: ignore[arg-type]
+                    numeric_series_float = _to_numeric_series(column_series)
+                    df[column_name] = cast(pd.Series[Any], numeric_series_float.astype("Float64"))
                 # Handle strings - convert to string, preserving None values
                 elif (
                     hasattr(column_def.dtype, "name")
                     and column_def.dtype.name == "string"
                 ):
-                    # Type checker has issues with pandas overloads, suppress warnings
-                    mask = cast(pd.Series[Any], df[column_name].notna())  # type: ignore[arg-type]
-                    if cast(bool, mask.any()):  # type: ignore[arg-type]
+                    mask: pd.Series[bool] = column_series.notna()
+                    if bool(mask.any()):
                         df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
             except (ValueError, TypeError) as exc:
                 log.warning(
@@ -1176,7 +1171,6 @@ class PipelineBase(ABC):
         """
         log = UnifiedLogger.get(__name__)
 
-        # Plan artifacts based on output_path
         run_tag = self._normalise_run_tag(None)
         mode = "extended" if extended else None
         include_correlation = extended or self.config.postprocess.correlation.enabled
@@ -1184,37 +1178,18 @@ class PipelineBase(ABC):
         include_metadata = True  # Всегда создавать meta.yaml
         include_manifest = extended
 
-        # Use output_path as base directory
-        if output_path.is_dir():
-            run_dir = output_path
-        else:
-            run_dir = output_path.parent
-
-        # Ensure the directory exists for the output path
+        run_dir = output_path if output_path.is_dir() else output_path.parent
         run_dir.mkdir(parents=True, exist_ok=True)
 
-        # Plan artifacts in the output directory
-        stem = self.build_run_stem(run_tag=run_tag, mode=mode)
-        artifacts = RunArtifacts(
-            write=WriteArtifacts(
-                dataset=run_dir / f"{stem}.{self.dataset_extension}",
-                quality_report=run_dir / f"{stem}_quality_report.{self.qc_extension}",
-                correlation_report=(
-                    run_dir / f"{stem}_correlation_report.{self.qc_extension}"
-                    if include_correlation
-                    else None
-                ),
-                qc_metrics=(
-                    run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
-                ),
-                metadata=run_dir / f"{stem}_meta.yaml" if include_metadata else None,
-            ),
+        artifacts = self.plan_run_artifacts(
+            run_tag=run_tag,
+            mode=mode,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+            include_metadata=include_metadata,
+            include_manifest=include_manifest,
+            extras=None,
             run_directory=run_dir,
-            manifest=(
-                run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
-            ),
-            log_file=self.logs_directory / f"{stem}.{self.log_extension}",
-            extras={},
         )
 
         # Build write artifacts

@@ -42,11 +42,21 @@ class SchemaRegistry:
         if identifier in self._entries:
             msg = f"Schema '{identifier}' is already registered"
             raise ValueError(msg)
+        normalized_order = tuple(column_order or tuple(schema.columns.keys()))
+        if len(set(normalized_order)) != len(normalized_order):
+            msg = f"Schema '{identifier}' column order contains duplicates"
+            raise ValueError(msg)
+        missing_columns = [name for name in normalized_order if name not in schema.columns]
+        if missing_columns:
+            msg = (
+                f"Schema '{identifier}' column order references missing columns: {missing_columns}"
+            )
+            raise ValueError(msg)
         entry = SchemaRegistryEntry(
             identifier=identifier,
             name=name or schema.name or identifier.split(".")[-1],
             version=version,
-            column_order=tuple(column_order or tuple(schema.columns.keys())),
+            column_order=normalized_order,
             schema=schema,
         )
         self._entries[identifier] = entry

@@ -8,8 +8,11 @@ through load_config (which uses Pydantic models), and reports any validation err
 from __future__ import annotations
 
 import sys
+from importlib import import_module
 from pathlib import Path
 from typing import Any
+
+from bioetl.schemas import SCHEMA_REGISTRY
 
 ROOT = Path(__file__).parent.parent
 ARTIFACTS_DIR = ROOT / "artifacts"
@@ -67,6 +70,44 @@ def check_required_fields(config: Any, pipeline_name: str) -> list[str]:
     return errors
 
 
+def validate_schema_registry() -> list[str]:
+    """Validate that registered schemas expose consistent metadata."""
+
+    errors: list[str] = []
+    for identifier, entry in SCHEMA_REGISTRY.as_mapping().items():
+        schema_columns = list(entry.schema.columns.keys())
+        column_order = list(entry.column_order)
+
+        if len(set(column_order)) != len(column_order):
+            errors.append(
+                f"{identifier}: column_order contains duplicates"
+            )
+
+        missing = [name for name in column_order if name not in schema_columns]
+        if missing:
+            errors.append(
+                f"{identifier}: column_order references missing columns {missing}"
+            )
+
+        for hashed_column in ("hash_row", "hash_business_key"):
+            if hashed_column not in schema_columns:
+                errors.append(f"{identifier}: missing required column '{hashed_column}'")
+            elif hashed_column not in column_order:
+                errors.append(
+                    f"{identifier}: '{hashed_column}' not present in column_order"
+                )
+
+        module_path, _ = identifier.rsplit(".", 1)
+        module = import_module(module_path)
+        declared_version = getattr(module, "SCHEMA_VERSION", None)
+        if declared_version is not None and str(declared_version) != entry.version:
+            errors.append(
+                f"{identifier}: version mismatch (registry={entry.version}, module={declared_version})"
+            )
+
+    return errors
+
+
 def main() -> int:
     """Main entry point."""
     print("Validating pipeline configurations...\n")
@@ -113,6 +154,16 @@ def main() -> int:
             for error in result["validation_errors"]:
                 print(f"    - {error}")
 
+    registry_errors = validate_schema_registry()
+
+    if registry_errors:
+        print("Schema registry consistency checks failed:\n")
+        for error in registry_errors:
+            print(f"  - {error}")
+        print()
+    else:
+        print("Schema registry consistency checks passed.\n")
+
     # Generate report
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "SCHEMA_GUARD_REPORT.md"
@@ -144,10 +195,20 @@ def main() -> int:
             if result.get("exception_type"):
                 f.write(f"**Exception Type**: `{result['exception_type']}`\n\n")
 
+        f.write("## Schema Registry\n\n")
+        if registry_errors:
+            f.write("**Status**: ❌ Invalid\n\n")
+            f.write("**Errors**:\n\n")
+            for error in registry_errors:
+                f.write(f"- {error}\n")
+            f.write("\n")
+        else:
+            f.write("**Status**: ✅ Valid\n\n")
+
     print(f"Report saved to {report_path}")
 
     # Return non-zero if any configs are invalid
-    return 1 if total_invalid > 0 else 0
+    return 1 if (total_invalid > 0 or registry_errors) else 0
 
 
 if __name__ == "__main__":

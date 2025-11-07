@@ -1,6 +1,6 @@
 # PipelineBase Orchestrator Specification
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Audit 2025-11-07**: Базовые ChEMBL-пайплайны переведены на `ChemblPipelineBase`, а `PipelineBase.write` теперь переиспользует `plan_run_artifacts` с возможностью задавать `run_directory`. QC-артефакты и hash-колонки (`hash_row`, `hash_business_key`) формируются единообразно во всех схемах. Документ ниже отражает актуальный контракт после рефакторинга.
 
 This document provides a comprehensive technical specification for the `PipelineBase` abstract class, which serves as the core orchestrator for all ETL pipelines within the `bioetl` framework.
 
