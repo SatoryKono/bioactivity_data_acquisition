@@ -1,24 +1,26 @@
+# pyright: reportPrivateUsage=false
+
 """Unit tests for configuration loader."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from typing import Any
 
 import pytest
 
-from bioetl.config.loader import (
-    _assign_nested,
-    _coerce_value,
-    _collect_env_overrides,
-    _deep_merge,
-    _ensure_mapping,
-    _load_yaml,
-    _load_with_extends,
-    _resolve_reference,
-    _stringify_profile,
-    load_config,
-)
+from bioetl.config import loader as config_loader
+
+_deep_merge = config_loader._deep_merge  # pyright: ignore[reportPrivateUsage]
+_assign_nested = config_loader._assign_nested  # pyright: ignore[reportPrivateUsage]
+_coerce_value = config_loader._coerce_value  # pyright: ignore[reportPrivateUsage]
+_collect_env_overrides = config_loader._collect_env_overrides  # pyright: ignore[reportPrivateUsage]
+_ensure_mapping = config_loader._ensure_mapping  # pyright: ignore[reportPrivateUsage]
+_load_yaml = config_loader._load_yaml  # pyright: ignore[reportPrivateUsage]
+_load_with_extends = config_loader._load_with_extends  # pyright: ignore[reportPrivateUsage]
+_resolve_reference = config_loader._resolve_reference  # pyright: ignore[reportPrivateUsage]
+_stringify_profile = config_loader._stringify_profile  # pyright: ignore[reportPrivateUsage]
+load_config = config_loader.load_config
 
 
 @pytest.mark.unit
@@ -93,7 +95,7 @@ class TestConfigLoader:
 
     def test_collect_env_overrides_basic(self) -> None:
         """Test collecting environment overrides."""
-        env = {
+        env: dict[str, str] = {
             "BIOETL__HTTP__DEFAULT__TIMEOUT_SEC": "30.0",
             "BIOETL__PIPELINE__NAME": "test",
             "OTHER_VAR": "ignored",
@@ -107,7 +109,7 @@ class TestConfigLoader:
 
     def test_collect_env_overrides_multiple_prefixes(self) -> None:
         """Test collecting environment overrides with multiple prefixes."""
-        env = {
+        env: dict[str, str] = {
             "BIOETL__KEY1": "value1",
             "BIOACTIVITY__KEY2": "value2",
         }
@@ -118,14 +120,14 @@ class TestConfigLoader:
 
     def test_collect_env_overrides_empty_prefix(self) -> None:
         """Test collecting environment overrides with empty prefix."""
-        env = {"BIOETL__": "value"}
+        env: dict[str, str] = {"BIOETL__": "value"}
         result = _collect_env_overrides(env, prefixes=("BIOETL__",))
 
         assert result == {}
 
     def test_collect_env_overrides_nested(self) -> None:
         """Test collecting nested environment overrides."""
-        env = {
+        env: dict[str, str] = {
             "BIOETL__A__B__C": "value",
         }
         result = _collect_env_overrides(env, prefixes=("BIOETL__",))
@@ -293,4 +295,61 @@ http:
         """Test loading non-existent configuration raises error."""
         with pytest.raises(FileNotFoundError, match="not found"):
             load_config(Path("nonexistent.yaml"), include_default_profiles=False)
+
+    def test_load_config_with_merge_key(self, tmp_path: Path) -> None:
+        """Ensure YAML merge key ``<<`` is honoured during validation."""
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+<<: &base
+  version: 1
+  pipeline:
+    name: base_pipeline
+    version: "1.0.0"
+  http:
+    default:
+      timeout_sec: 10.0
+pipeline:
+  name: merged_pipeline
+http:
+  default:
+    timeout_sec: 25.0
+"""
+        )
+
+        config = load_config(config_file, include_default_profiles=False)
+
+        assert config.pipeline.name == "merged_pipeline"
+        assert config.http.default.timeout_sec == 25.0
+
+    def test_load_config_with_include_and_merge(self, tmp_path: Path) -> None:
+        """YAML ``!include`` combined with merge key should produce full mapping."""
+
+        base_profile = tmp_path / "base.yaml"
+        base_profile.write_text(
+            """
+version: 1
+pipeline:
+  name: base_pipeline
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+"""
+        )
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            f"""
+<<: !include {base_profile.name}
+pipeline:
+  name: override_pipeline
+"""
+        )
+
+        config = load_config(config_file, include_default_profiles=False)
+
+        assert config.pipeline.name == "override_pipeline"
+        assert config.http.default.timeout_sec == 30.0
 

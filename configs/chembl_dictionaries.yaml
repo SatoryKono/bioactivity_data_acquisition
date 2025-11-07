@@ -1,0 +1,409 @@
+meta:
+  built_at: '2025-11-07T06:34:11Z'
+  chembl_release: 36 (2025-09)
+action_type:
+  meta:
+    source_urls:
+    - https://blog.opentargets.org/using-chembl-data-for-target-identification-and-prioritisation/
+    - https://chembl.blogspot.com/2023/06/release-of-chembl-33.html
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: INHIBITOR
+    aliases:
+    - BLOCKER
+    description: Compound decreases target activity
+    status: active
+  - id: ANTAGONIST
+    aliases: null
+    description: Binds to receptor to reduce response
+    status: active
+  - id: AGONIST
+    aliases: null
+    description: Binds to receptor to elicit response
+    status: active
+  - id: PARTIAL AGONIST
+    aliases: null
+    description: Elicits submaximal response
+    status: active
+  - id: INVERSE AGONIST
+    aliases: null
+    description: Decreases basal receptor activity
+    status: active
+  - id: ACTIVATOR
+    aliases: null
+    description: Increases target activity
+    status: active
+  - id: MODULATOR
+    aliases:
+    - ALLOSTERIC MODULATOR
+    description: Modulates activity allosterically or context‑dependently
+    status: active
+  - id: BINDER
+    aliases:
+    - LIGAND
+    description: Binds target without specified effect
+    status: active
+  rules:
+    normalization: uppercase; singular forms; map common synonyms (e.g., BLOCKER→INHIBITOR)
+activity_relation:
+  meta:
+    source_urls:
+    - https://chembl.gitbook.io/chembl-interface-documentation/frequently-asked-questions/data-questions
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: '='
+    aliases:
+    - EQ
+    description: Exact measurement
+    status: active
+  - id: '>'
+    aliases:
+    - GT
+    description: Measurement is greater than the reported value
+    status: active
+  - id: '>='
+    aliases:
+    - '>='
+    - GE
+    description: Measurement is greater than or equal to the reported value
+    status: active
+  - id: <
+    aliases:
+    - LT
+    description: Measurement is less than the reported value
+    status: active
+  - id: <=
+    aliases:
+    - <=
+    - LE
+    description: Measurement is less than or equal to the reported value
+    status: active
+  - id: '~'
+    aliases:
+    - ~=
+    - approx
+    description: Approximate measurement
+    status: active
+  rules:
+    normalization: strip; uppercase textual forms; map unicode inequality symbols
+      to ASCII
+activity_standard_type:
+  meta:
+    source_urls:
+    - https://github.com/chembl/chembl_multitask_model
+    - https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/chembl-data-questions.md
+    - https://chembl.blogspot.com/2024/04/chembl-34-is-out.html
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+    examples:
+      filters:
+      - activities.standard_type IN ('IC50','Ki')
+      - activities.standard_units = 'nM'
+      - activities.standard_relation IN ('=')
+  values:
+  - id: IC50
+    aliases:
+    - LOGIC50
+    - pIC50 (raw)
+    description: Half maximal inhibitory concentration
+    status: active
+  - id: EC50
+    aliases:
+    - pEC50 (raw)
+    description: Half maximal effective concentration
+    status: active
+  - id: Ki
+    aliases:
+    - pKi (raw)
+    description: Equilibrium inhibition constant
+    status: active
+  - id: Kd
+    aliases:
+    - pKd (raw)
+    description: Equilibrium dissociation constant
+    status: active
+  - id: XC50
+    aliases: null
+    description: Generic half‑maximal concentration from curve‑fit (unspecified modality)
+    status: active
+  - id: AC50
+    aliases: null
+    description: Half maximal activity concentration (often HTS)
+    status: active
+  - id: Potency
+    aliases: null
+    description: Reported potency value (assay‑specific definition)
+    status: active
+  - id: pIC50
+    canonical_id: IC50
+    aliases:
+    - logIC50
+    description: Logged/derived measures are un-logged during standardisation
+    status: alias
+  - id: pKi
+    canonical_id: Ki
+    aliases:
+    - logKi
+    description: Logged/derived measures are un-logged during standardisation
+    status: alias
+  - id: pKd
+    canonical_id: Kd
+    aliases:
+    - logKd
+    description: Logged/derived measures are un-logged during standardisation
+    status: alias
+  rules:
+    normalization: strip; uppercase ids; map aliases→id; collapse whitespace
+    default_unit: nM
+activity_units:
+  meta:
+    source_urls:
+    - https://chembl.blogspot.com/2018/04/schema-changes-coming-in-chembl24.html
+    - https://chembl.blogspot.com/2023/06/release-of-chembl-33.html
+    - https://link.springer.com/content/pdf/10.1007/s10822-015-9860-5.pdf
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: nM
+    aliases:
+    - NM
+    - nanomolar
+    - nanomol/L
+    description: Nanomolar (standard for affinities/concentrations)
+    status: active
+  - id: uM
+    aliases:
+    - µM
+    - um
+    description: Micromolar (normalized to nM)
+    status: active
+  - id: mM
+    aliases:
+    - millimolar
+    description: Millimolar (normalized to nM)
+    status: active
+  - id: pM
+    aliases: null
+    description: Picomolar (normalized to nM)
+    status: active
+  - id: '%'
+    aliases:
+    - percent
+    description: Percentage (no nM conversion)
+    status: active
+  - id: ng.hr.mL-1
+    aliases:
+    - ng*h/mL
+    - ng·h/mL
+    - ng·hr·mL−1
+    description: Exposure (AUC) unit
+    status: active
+  - id: nM.hr
+    aliases:
+    - nM*h
+    description: Exposure unit for certain parameters
+    status: active
+  rules:
+    normalization: strip; uppercase except 'ng.hr.mL-1'; map µM→uM; convert all affinity/conc
+      units to nM when possible
+    default_unit: nM
+assay_type:
+  meta:
+    source_urls:
+    - https://chemrxiv.org/engage/api-gateway/chemrxiv/assets/orp/resource/item/68bb1ba6a94eede154e9e76f/original/enhancing-bioassay-annotations-in-ch-embl-with-artificial-intelligence.pdf
+    - https://chembl.blogspot.com/2023/12/in-search-of-perfect-assay-description.html
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: B
+    aliases:
+    - Binding
+    description: Binding assay
+    status: active
+    notes: ''
+  - id: F
+    aliases:
+    - Functional
+    description: Functional assay
+    status: active
+    notes: ''
+  - id: A
+    aliases:
+    - ADME
+    description: ADME assay
+    status: active
+    notes: Toxicity (T) separated out from A starting from ChEMBL 18.
+  - id: T
+    aliases:
+    - Toxicity
+    description: Toxicity assay
+    status: active
+    notes: Introduced as separate type from A in ChEMBL 18.
+  - id: P
+    aliases:
+    - Physicochemical
+    description: Physicochemical property assay
+    status: active
+    notes: ''
+  - id: U
+    aliases:
+    - Unclassified
+    description: Unclassified/unspecified assay
+    status: active
+    notes: ''
+  rules:
+    normalization: strip; uppercase single-letter codes; map long labels to codes
+bao_format:
+  meta:
+    source_urls:
+    - https://bioassayontology.org/browse
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: BAO_0000003
+    aliases:
+    - BAO0000003
+    description: Single concentration inhibition format
+    status: active
+  - id: BAO_0000004
+    aliases: []
+    description: Concentration-response format
+    status: active
+  - id: BAO_0000015
+    aliases: []
+    description: Binding assay format
+    status: active
+  - id: BAO_0000018
+    aliases: []
+    description: Functional assay format
+    status: active
+  - id: BAO_0000357
+    aliases: []
+    description: High-throughput screening format
+    status: active
+  rules:
+    normalization: strip; uppercase; ensure BAO prefix
+confidence_score:
+  meta:
+    source_urls:
+    - https://chembl.blogspot.com/2020/10/data-checks.html
+    - https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/chembl-data-questions.md
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: '9'
+    aliases: null
+    description: Direct single protein target assigned
+    status: active
+  - id: '8'
+    aliases: null
+    description: Single protein (homologue/uncertain species)
+    status: active
+  - id: '7'
+    aliases: null
+    description: Protein complex/subunit mapping
+    status: active
+  - id: '6'
+    aliases: null
+    description: Protein family/cluster mapping
+    status: active
+  - id: '5'
+    aliases: null
+    description: Multiple proteins or multi-component ambiguous
+    status: active
+  - id: '4'
+    aliases: null
+    description: Protein target assigned (lower confidence)
+    status: active
+  - id: '3'
+    aliases: null
+    description: Non-protein molecular target (e.g., nucleic acid)
+    status: active
+  - id: '2'
+    aliases: null
+    description: Non-molecular target (e.g., tissue, cell) low confidence
+    status: active
+  - id: '1'
+    aliases: null
+    description: Non-molecular target (cell-line/organism)
+    status: active
+  - id: '0'
+    aliases: null
+    description: No target assigned
+    status: active
+  interpretations:
+  - score: '>=8'
+    meaning: High-confidence single-protein mapping; recommended for strict filtering
+  - score: '>=4'
+    meaning: Protein target present; acceptable for broader analyses
+  - score: 0-1
+    meaning: No/indirect target; exclude for target-specific potency
+  rules:
+    normalization: coerce to int; range 0..9
+data_validity_comment:
+  meta:
+    source_urls:
+    - https://mandos-chem.readthedocs.io/en/latest/binding.html
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: Potential missing data
+    aliases: null
+    description: Datapoint likely incomplete
+    status: active
+  - id: Potential transcription error
+    aliases: null
+    description: Extraction/typing error suspected
+    status: active
+  - id: Outside typical range
+    aliases: null
+    description: Value outside typical operational range
+    status: active
+  rules:
+    normalization: title-case exact match; unknown comments should be flagged
+target_type:
+  meta:
+    source_urls:
+    - https://github.com/chembl/GLaDOS-docs/blob/master/frequently-asked-questions/target-questions.md
+    - https://www.ebi.ac.uk/chembl/visualise/
+    chembl_release: 36 (2025-09)
+    updated_at: '2025-11-07'
+  values:
+  - id: SINGLE PROTEIN
+    aliases:
+    - PROTEIN
+    description: Single molecular protein target
+    status: active
+  - id: PROTEIN FAMILY
+    aliases: null
+    description: Family of related proteins
+    status: active
+  - id: PROTEIN COMPLEX
+    aliases: null
+    description: Complex of multiple proteins
+    status: active
+  - id: CELL-LINE
+    aliases:
+    - CELL LINE
+    description: Cell line target
+    status: active
+  - id: TISSUE
+    aliases: null
+    description: Tissue-level target
+    status: active
+  - id: ORGANISM
+    aliases: null
+    description: Whole organism target
+    status: active
+  - id: PROTEIN COMPLEX GROUP
+    aliases: null
+    description: Grouping of protein complexes
+    status: active
+  - id: PROTEIN FAMILY GROUP
+    aliases: null
+    description: Grouping of protein families
+    status: active
+  rules:
+    normalization: strip; collapse whitespace; uppercase; map hyphen variants

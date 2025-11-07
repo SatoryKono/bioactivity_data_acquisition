@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 import numpy as np
@@ -10,8 +10,68 @@ import pandas as pd
 
 from bioetl.clients import ChemblClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.schemas.activity import (
+    ASSAY_ENRICHMENT_SCHEMA,
+    COMPOUND_RECORD_ENRICHMENT_SCHEMA,
+    DATA_VALIDITY_ENRICHMENT_SCHEMA,
+)
 
 __all__ = ["enrich_with_assay", "enrich_with_compound_record", "enrich_with_data_validity"]
+
+
+def _ensure_columns(
+    df: pd.DataFrame,
+    columns: tuple[tuple[str, str], ...],
+) -> pd.DataFrame:
+    """Ensure that ``df`` contains columns with provided dtypes."""
+
+    result = df.copy()
+    for name, dtype in columns:
+        if name not in result.columns:
+            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
+    return result
+
+
+_COMPOUND_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
+    "compound_name": ("compound_name", "pref_name", "PREF_NAME"),
+    "compound_key": (
+        "compound_key",
+        "standard_inchi_key",
+        "STANDARD_INCHI_KEY",
+    ),
+    "curated": ("curated", "CURATED"),
+}
+
+_ASSAY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("assay_organism", "string"),
+    ("assay_tax_id", "Int64"),
+)
+
+_COMPOUND_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("compound_name", "string"),
+    ("compound_key", "string"),
+    ("curated", "boolean"),
+    ("removed", "boolean"),
+)
+
+_DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("data_validity_description", "string"),
+)
+
+
+def _extract_first_present(record: Mapping[str, Any], keys: Iterable[str]) -> Any:
+    """Возвратить значение по первому доступному алиасу."""
+
+    for key in keys:
+        if key in record:
+            return record[key]
+
+    lowered_map = {str(k).lower(): v for k, v in record.items()}
+    for key in keys:
+        candidate = str(key).lower()
+        if candidate in lowered_map:
+            return lowered_map[candidate]
+    return None
 
 
 def enrich_with_assay(
@@ -28,14 +88,16 @@ def enrich_with_assay(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
+    df_act = _ensure_columns(df_act, _ASSAY_COLUMNS)
+
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return df_act
+        return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 1) Валидация наличия ключа
     if "assay_chembl_id" not in df_act.columns:
         log.warning("enrichment_skipped_missing_columns", missing_columns=["assay_chembl_id"])
-        return df_act
+        return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 2) Собрать уникальные валидные идентификаторы (без iterrows: быстрее и чище)
     assay_ids = (
@@ -48,11 +110,8 @@ def enrich_with_assay(
 
     # Гарантируем наличие выходных колонок даже при пустом наборе ID
     if not assay_ids:
-        for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
         log.debug("enrichment_skipped_no_valid_ids")
-        return df_act
+        return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 3) Конфигурация (явно фиксируем корректные имена полей ChEMBL /assay)
     #    NB: В ChEMBL JSON поле называется 'assay_organism', не 'organism'
@@ -80,11 +139,8 @@ def enrich_with_assay(
 
     # 5) Построить таблицу обогащения (только нужные выходные поля)
     if not records_by_id:
-        for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
         log.debug("enrichment_no_records_found")
-        return df_act
+        return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     enrichment_rows: list[dict[str, Any]] = []
     for assay_id, rec in records_by_id.items():
@@ -125,7 +181,7 @@ def enrich_with_assay(
         rows_enriched=int(df_merged.shape[0]),
         records_matched=int(len(records_by_id)),
     )
-    return df_merged
+    return ASSAY_ENRICHMENT_SCHEMA.validate(df_merged, lazy=True)
 
 
 def enrich_with_compound_record(
@@ -157,9 +213,11 @@ def enrich_with_compound_record(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
+    df_act = _ensure_columns(df_act, _COMPOUND_COLUMNS)
+
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return df_act
+        return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Проверка наличия необходимых колонок
     if "molecule_chembl_id" not in df_act.columns:
@@ -167,19 +225,11 @@ def enrich_with_compound_record(
             "enrichment_skipped_missing_columns",
             missing_columns=["molecule_chembl_id"],
         )
-        # Добавим пустые колонки нужных типов
-        for col, dtype in [
-            ("compound_name", "string"),
-            ("compound_key", "string"),
-            ("curated", "boolean"),
-            ("removed", "boolean"),
-        ]:
-            if col not in df_act.columns:
-                df_act[col] = pd.Series(pd.NA, index=df_act.index, dtype=dtype)
-        return df_act
+        return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
+
+    df_act = df_act.copy()
 
     # 1) Сохранение порядка строк: добавить временный столбец _row_id
-    df_act = df_act.copy()
     df_act["_row_id"] = np.arange(len(df_act))
 
     # 2) Разделить DataFrame на две части: с document_chembl_id и без него
@@ -205,13 +255,16 @@ def enrich_with_compound_record(
     df_need_fallback = df_without_doc.copy()
     if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
         # Проверить строки из обогащения через пары, где compound_name/compound_key пустые
-        mask_empty = (
-            enrichment_by_pairs["compound_name"].isna()
-            | (enrichment_by_pairs["compound_name"].astype("string").str.strip() == "")
-        ) & (
-            enrichment_by_pairs["compound_key"].isna()
-            | (enrichment_by_pairs["compound_key"].astype("string").str.strip() == "")
-        )
+        if {"compound_name", "compound_key"}.issubset(enrichment_by_pairs.columns):
+            mask_empty = (
+                enrichment_by_pairs["compound_name"].isna()
+                | (enrichment_by_pairs["compound_name"].astype("string").str.strip() == "")
+            ) & (
+                enrichment_by_pairs["compound_key"].isna()
+                | (enrichment_by_pairs["compound_key"].astype("string").str.strip() == "")
+            )
+        else:
+            mask_empty = pd.Series(False, index=enrichment_by_pairs.index)
         rows_need_fallback = enrichment_by_pairs[mask_empty].copy()
         if not rows_need_fallback.empty and "record_id" in rows_need_fallback.columns:
             # Добавить эти строки к df_need_fallback для fallback
@@ -343,6 +396,10 @@ def enrich_with_compound_record(
             0: False,
             "1": True,
             "0": False,
+            "true": True,
+            "false": False,
+            "True": True,
+            "False": False,
         })
         df_result["curated"] = df_result["curated"].astype("boolean")
 
@@ -357,7 +414,7 @@ def enrich_with_compound_record(
         rows_with_doc_id=len(df_with_doc) if not df_with_doc.empty else 0,
         rows_without_doc_id=len(df_without_doc) if not df_without_doc.empty else 0,
     )
-    return df_result
+    return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
 
 
 def _enrich_by_pairs(
@@ -422,18 +479,40 @@ def _enrich_by_pairs(
     for pair in pairs:
         compound_record: dict[str, Any] | None = compound_records_dict.get(pair)
         if compound_record:
-            pairs_found += 1
-            # Проверить, что поля действительно присутствуют в ответе
-            compound_name = compound_record.get("compound_name")
-            compound_key = compound_record.get("compound_key")
-            curated = compound_record.get("curated")
+            record_mapping: Mapping[str, Any] = compound_record
 
+            compound_name_raw = _extract_first_present(
+                record_mapping,
+                _COMPOUND_FIELD_ALIASES.get("compound_name", ("compound_name",)),
+            )
+            compound_key_raw = _extract_first_present(
+                record_mapping,
+                _COMPOUND_FIELD_ALIASES.get("compound_key", ("compound_key",)),
+            )
+            curated_raw = _extract_first_present(
+                record_mapping,
+                _COMPOUND_FIELD_ALIASES.get("curated", ("curated",)),
+            )
+
+            compound_name = None
+            if compound_name_raw is not None:
+                name_str = str(compound_name_raw).strip()
+                compound_name = name_str if name_str else None
+
+            compound_key = None
+            if compound_key_raw is not None:
+                key_str = str(compound_key_raw).strip()
+                compound_key = key_str if key_str else None
+
+            curated = curated_raw if curated_raw is not None else None
+
+            pairs_found += 1
             enrichment_data.append({
                 "molecule_chembl_id": pair[0],
                 "document_chembl_id": pair[1],
-                "compound_name": compound_name if compound_name is not None else None,
-                "compound_key": compound_key if compound_key is not None else None,
-                "curated": curated if curated is not None else None,
+                "compound_name": compound_name,
+                "compound_key": compound_key,
+                "curated": curated,
                 "removed": None,
             })
         else:
@@ -675,9 +754,11 @@ def enrich_with_data_validity(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
+    df_act = _ensure_columns(df_act, _DATA_VALIDITY_COLUMNS)
+
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return df_act
+        return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["data_validity_comment"]
@@ -687,10 +768,7 @@ def enrich_with_data_validity(
             "enrichment_skipped_missing_columns",
             missing_columns=missing_cols,
         )
-        # Добавим пустую колонку data_validity_description
-        if "data_validity_description" not in df_act.columns:
-            df_act["data_validity_description"] = pd.NA
-        return df_act
+        return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Собрать уникальные data_validity_comment, dropna
     validity_comments: list[str] = []
@@ -709,10 +787,7 @@ def enrich_with_data_validity(
 
     if not validity_comments:
         log.debug("enrichment_skipped_no_valid_comments")
-        # Добавим пустую колонку
-        if "data_validity_description" not in df_act.columns:
-            df_act["data_validity_description"] = pd.NA
-        return df_act
+        return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Получить конфигурацию
     fields = cfg.get("fields", ["data_validity_comment", "description"])
@@ -744,10 +819,7 @@ def enrich_with_data_validity(
 
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
-        # Добавим пустую колонку
-        if "data_validity_description" not in df_act.columns:
-            df_act["data_validity_description"] = pd.NA
-        return df_act
+        return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     df_enrich = pd.DataFrame(enrichment_data)
 
@@ -776,5 +848,5 @@ def enrich_with_data_validity(
         rows_enriched=df_result.shape[0],
         records_matched=len(records_dict),
     )
-    return df_result
+    return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
 

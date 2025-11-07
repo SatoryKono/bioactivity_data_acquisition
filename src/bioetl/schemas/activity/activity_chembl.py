@@ -24,6 +24,7 @@ from bioetl.schemas.common import (
     row_metadata_columns,
     string_column_with_check,
 )
+from bioetl.schemas.vocab import required_vocab_ids
 
 SCHEMA_VERSION = "1.5.0"
 
@@ -80,7 +81,7 @@ COLUMN_ORDER = (
     "removed",
 )
 
-STANDARD_TYPES = {"IC50",  "Ki"} #"EC50", "XC50", "AC50", "Kd", "Potency", "ED50"
+STANDARD_TYPES = required_vocab_ids("activity_standard_type")
 RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
 ACTIVITY_PROPERTY_KEYS = (
     "type",

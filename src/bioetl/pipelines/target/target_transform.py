@@ -8,7 +8,7 @@ from typing import Any, cast
 import numpy as np
 import pandas as pd
 
-from ..assay.assay_transform import header_rows_serialize
+from bioetl.core.serialization import header_rows_serialize
 
 __all__ = [
     "serialize_target_arrays",

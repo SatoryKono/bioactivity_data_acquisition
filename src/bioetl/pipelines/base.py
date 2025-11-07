@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from operator import itemgetter
 from pathlib import Path
 from typing import Any, cast
 from zoneinfo import ZoneInfo
@@ -29,9 +30,11 @@ from bioetl.core.output import (
     DeterministicWriteArtifacts,
     build_write_artifacts,
     emit_qc_artifact,
+    ensure_hash_columns,
     write_dataset_atomic,
     write_yaml_atomic,
 )
+from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
 )
@@ -419,13 +422,22 @@ class PipelineBase(ABC):
 
         def _normalise_value(candidate: Any) -> Any:
             if isinstance(candidate, Mapping):
-                normalised_items = sorted(
-                    ((str(key), _normalise_value(item)) for key, item in candidate.items()),
-                    key=lambda item: item[0],
-                )
-                return {key: item for key, item in normalised_items}
+                mapping_candidate = cast(Mapping[Any, Any], candidate)
+                normalised_items: list[tuple[str, Any]] = []
+                for mapping_key, mapping_value in mapping_candidate.items():
+                    key_as_str = str(mapping_key)
+                    normalised_value = _normalise_value(mapping_value)
+                    normalised_items.append((key_as_str, normalised_value))
+                normalised_items.sort(key=itemgetter(0))
+                return dict(normalised_items)
             if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-                return [_normalise_value(item) for item in candidate]
+                sequence_candidate = cast(Sequence[Any], candidate)
+                normalised_sequence: list[Any] = []
+                for sequence_item in sequence_candidate:
+                    sequence_item_any: Any = sequence_item
+                    normalised_value = _normalise_value(sequence_item_any)
+                    normalised_sequence.append(normalised_value)
+                return normalised_sequence
             if isinstance(candidate, datetime):
                 return _normalise_timestamp(candidate)
             return candidate
@@ -773,17 +785,22 @@ class PipelineBase(ABC):
             )
             if not fail_open:
                 raise
-            failure_cases_df: pd.DataFrame | None = None
-            if hasattr(exc, "failure_cases"):
-                failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
-            failure_count = len(failure_cases_df) if failure_cases_df is not None else None
-            log.warning(
-                "schema_validation_failed",
-                dataset=dataset_name,
-                schema=schema_identifier,
-                error=str(exc),
-                failure_count=failure_count,
-            )
+            summary = summarize_schema_errors(exc)
+            failure_cases_df = getattr(exc, "failure_cases", None)
+            failure_details: dict[str, Any] | None = None
+            if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
+                failure_details = format_failure_cases(failure_cases_df)
+                summary["failure_count"] = int(len(failure_cases_df))
+
+            log_payload: dict[str, Any] = {
+                "dataset": dataset_name,
+                "schema": schema_identifier,
+                **summary,
+            }
+            if failure_details:
+                log_payload["failure_details"] = failure_details
+
+            log.warning("schema_validation_failed", **log_payload)
             return df
 
     def finalize_with_standard_metadata(
@@ -972,6 +989,11 @@ class PipelineBase(ABC):
                 return None
         return None
 
+    def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
+        """Override to provide custom defaults or dtypes for schema columns."""
+
+        return {}
+
     def _ensure_schema_columns(
         self, df: pd.DataFrame, column_order: Sequence[str], log: Any
     ) -> pd.DataFrame:
@@ -998,8 +1020,24 @@ class PipelineBase(ABC):
         expected = list(column_order)
         missing = [column for column in expected if column not in df.columns]
         if missing:
+            specs = self._schema_column_specs()
+            row_count = len(df)
             for column in missing:
-                df[column] = pd.Series([pd.NA] * len(df), dtype="object")
+                spec = specs.get(column, {})
+                factory = spec.get("factory")
+                if callable(factory):
+                    produced = factory(row_count)
+                    if isinstance(produced, pd.Series):
+                        produced_series = cast(pd.Series[Any], produced)
+                        if len(produced_series) == row_count:
+                            df[column] = produced_series
+                            continue
+                default_value = spec.get("default", pd.NA)
+                dtype = spec.get("dtype")
+                if dtype is not None:
+                    df[column] = pd.Series([default_value] * row_count, dtype=dtype)
+                else:
+                    df[column] = pd.Series([default_value] * row_count)
             log.debug("schema_columns_added", columns=missing)
 
         return df
@@ -1429,8 +1467,10 @@ class PipelineBase(ABC):
         failure_count: int | None = None
         error_summary: str | None = None
 
+        df_for_validation = ensure_hash_columns(df, config=self.config)
+
         try:
-            validated = schema.validate(df, lazy=True)
+            validated = schema.validate(df_for_validation, lazy=True)
             if not isinstance(validated, pd.DataFrame):
                 msg = "Schema validation did not return a DataFrame"
                 raise TypeError(msg)
@@ -1438,20 +1478,24 @@ class PipelineBase(ABC):
         except pandera.errors.SchemaErrors as exc:
             if not fail_open:
                 raise
-            failure_cases_df: pd.DataFrame | None = None
-            if hasattr(exc, "failure_cases"):
-                failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
-            failure_count = len(failure_cases_df) if failure_cases_df is not None else None
-            error_summary = str(exc)
-            log.warning(
-                "schema_validation_failed",
-                schema=schema_entry.identifier,
-                version=schema_entry.version,
-                error=error_summary,
-                failure_count=failure_count,
-            )
-            validated = df
+            summary = summarize_schema_errors(exc)
+            failure_cases_df = getattr(exc, "failure_cases", None)
+            failure_details: dict[str, Any] | None = None
+            if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
+                failure_details = format_failure_cases(failure_cases_df)
+                summary["failure_count"] = int(len(failure_cases_df))
+            log_payload: dict[str, Any] = {
+                "schema": schema_entry.identifier,
+                "version": schema_entry.version,
+                **summary,
+            }
+            if failure_details:
+                log_payload["failure_details"] = failure_details
+            log.warning("schema_validation_failed", **log_payload)
+            validated = df_for_validation
             schema_valid = False
+            error_summary = summary.get("message")
+            failure_count = summary.get("failure_count")
 
         self._validation_schema = schema_entry
         self._validation_summary = {

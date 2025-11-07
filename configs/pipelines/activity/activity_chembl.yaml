@@ -1,9 +1,3 @@
-# Activity ChEMBL Pipeline Configuration
-#
-# This configuration defines the pipeline for extracting biological activity
-# records from the ChEMBL API and normalizing them to the project schema.
-
-# Inherit from base, determinism, and shared profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
@@ -11,18 +5,23 @@ extends:
   - ../../profiles/validation.yaml
   - ../../profiles/postprocess.yaml
 
-# Pipeline metadata
 pipeline:
   name: activity_chembl
   version: "1.0.0"
   owner: "Data Acquisition Team"
   description: "Extract biological activity records from ChEMBL API"
 
-# ChEMBL source configuration (common settings inherited from chembl.yaml profile)
+io:
+  output:
+    partition_by:
+      - assay_chembl_id
+
 sources:
   chembl:
-    batch_size: 20  # Must be <= 25 for ChEMBL API URL length limit
+    batch_size: 20
     parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
       select_fields:
         - activity_id
         - assay_chembl_id
@@ -69,13 +68,9 @@ sources:
         - qudt_units
         - curated_by
 
-# CLI configuration (optional overrides)
 cli:
-  # Optional path to input file (CSV/Parquet) containing activity_id column
-  # for batch extraction. Can be overridden via --input-file CLI option.
-  input_file: "data/input/activity.csv"
+  input_file: data/input/activity.csv
 
-# Determinism configuration for activity pipeline
 determinism:
   sort:
     by:
@@ -86,11 +81,11 @@ determinism:
       - true
       - true
       - true
-    na_position: "last"
+    na_position: last
   column_order:
     - activity_id
     - row_subtype
-    - row_index    
+    - row_index
     - assay_chembl_id
     - assay_type
     - assay_description
@@ -133,14 +128,12 @@ determinism:
     - compound_name
     - curated
     - removed
-
   hashing:
     business_key_fields:
       - activity_id
       - row_subtype
       - row_index
 
-# ChEMBL enrichment configuration
 chembl:
   activity:
     enrich:
@@ -187,14 +180,6 @@ chembl:
         max_retries: 3
         retry_backoff: 1.5
 
-# Validation schema (common settings inherited from validation.yaml profile)
 validation:
-  schema_out: "bioetl.schemas.activity.activity_chembl.ActivitySchema"
-  data_validity_comment_whitelist:
-    - "Manually validated"
-    - "Potential transcription error"
-    - "Potential missing data"
-    - "Outside typical range"
-    - "Non standard unit for type"
-    - "Author confirmed error"
+  schema_out: bioetl.schemas.activity.activity_chembl.ActivitySchema
 

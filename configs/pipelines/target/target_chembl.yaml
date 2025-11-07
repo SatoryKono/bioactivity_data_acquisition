@@ -1,9 +1,3 @@
-# Target ChEMBL Pipeline Configuration
-#
-# This configuration defines the pipeline for extracting target records
-# from the ChEMBL API and normalizing them to the project schema.
-
-# Inherit from base, determinism, and shared profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
@@ -11,18 +5,18 @@ extends:
   - ../../profiles/validation.yaml
   - ../../profiles/postprocess.yaml
 
-# Pipeline metadata
 pipeline:
   name: target_chembl
   version: "1.0.0"
   owner: "Data Acquisition Team"
   description: "Extract target records from ChEMBL API"
 
-# ChEMBL source configuration (common settings inherited from chembl.yaml profile)
 sources:
   chembl:
-    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit
+    batch_size: 25
     parameters:
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
       select_fields:
         - target_chembl_id
         - pref_name
@@ -35,20 +29,16 @@ sources:
         - cross_references
         - target_components
 
-# CLI configuration (optional overrides)
 cli:
-  # Optional path to input file (CSV/Parquet) containing target_chembl_id column
-  # for batch extraction. Can be overridden via --input-file CLI option.
-  input_file: "data/input/target.csv"
+  input_file: data/input/target.csv
 
-# Determinism configuration for target pipeline
 determinism:
   sort:
     by:
       - target_chembl_id
     ascending:
       - true
-    na_position: "last"
+    na_position: last
   column_order:
     - target_chembl_id
     - pref_name
@@ -64,20 +54,16 @@ determinism:
     - protein_class_list
     - protein_class_top
     - component_count
-
   hashing:
     business_key_fields:
       - target_chembl_id
 
-# Transform configuration
 transform:
   arrays_to_header_rows:
     - cross_references
     - target_components
 
-# Validation schema (common settings inherited from validation.yaml profile)
-# Note: coerce is overridden to false for this pipeline
 validation:
-  schema_out: "bioetl.schemas.target.target_chembl.TargetSchema"
+  schema_out: bioetl.schemas.target.target_chembl.TargetSchema
   coerce: false
 

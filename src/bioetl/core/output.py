@@ -3,18 +3,18 @@
 from __future__ import annotations
 
 import csv
-import json
 import os
-from collections.abc import Callable, Hashable, Mapping, Sequence
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 import pandas as pd
 import yaml
 
 from bioetl.config import PipelineConfig
+from bioetl.core.hashing import hash_from_mapping
 
 from .logger import UnifiedLogger
 
@@ -39,97 +39,39 @@ class DeterministicWriteArtifacts:
     dataframe: pd.DataFrame
     metadata: Mapping[str, Any]
 
-
-def _boolean_representation(value: bool, *, config: PipelineConfig) -> str:
-    truthy, falsy = config.determinism.serialization.booleans
-    return truthy if value else falsy
-
-
-def _normalise_scalar(value: Any, *, config: PipelineConfig) -> str:
-    serialization = config.determinism.serialization
-    if pd.isna(value):
-        return serialization.nan_rep
-    if isinstance(value, bool):
-        return _boolean_representation(value, config=config)
-    if isinstance(value, (int, str)):
-        return str(value)
-    if isinstance(value, float):
-        precision = config.determinism.float_precision
-        return f"{value:.{precision}f}"
-    if isinstance(value, datetime):
-        normalized_value = (
-            value.replace(tzinfo=timezone.utc)
-            if value.tzinfo is None
-            else value.astimezone(timezone.utc)
-        )
-        iso_value = normalized_value.isoformat()
-        return iso_value.replace("+00:00", "Z")
-    if isinstance(value, pd.Timestamp):
-        timestamp_utc = (
-            value.tz_convert("UTC")
-            if value.tzinfo is not None
-            else value.tz_localize("UTC")
-        )
-        iso_value_ts = timestamp_utc.isoformat()
-        return iso_value_ts.replace("+00:00", "Z")
-    if isinstance(value, (list, tuple)):
-        sequence_value = cast(Sequence[Any], value)
-        normalized_items = [
-            _normalise_scalar(item, config=config)
-            for item in sequence_value
-        ]
-        return json.dumps(normalized_items, ensure_ascii=False, sort_keys=True)
-    if isinstance(value, Mapping):
-        mapping_value = cast(Mapping[Hashable, object], value)
-        normalised_dict: dict[str, str] = {
-            str(key): _normalise_scalar(item, config=config)
-            for key, item in mapping_value.items()
-        }
-        return json.dumps(normalised_dict, ensure_ascii=False, sort_keys=True)
-    return str(value)
-
-
-def _hash_fields(row: pd.Series, fields: Sequence[str], *, config: PipelineConfig) -> str:
-    if not fields:
-        return ""
-    import hashlib
-
-    algorithm = config.determinism.hashing.algorithm
-    try:
-        digest = hashlib.new(algorithm)
-    except ValueError as exc:  # pragma: no cover - defensive, relies on hashlib API
-        msg = f"Unsupported hash algorithm: {algorithm}"
-        raise ValueError(msg) from exc
-
-    serialised_values: list[str] = []
-    for field in fields:
-        if field not in row:
-            msg = f"Field '{field}' required for hashing is missing from dataframe"
-            raise KeyError(msg)
-        serialised_values.append(_normalise_scalar(row[field], config=config))
-
-    joined = "\u001f".join(serialised_values)
-    digest.update(joined.encode("utf-8"))
-    return digest.hexdigest()
-
-
 def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     """Return ``df`` with integrity hash columns populated."""
 
     hashing_config = config.determinism.hashing
     exclude = set(hashing_config.exclude_fields)
+    algorithm = hashing_config.algorithm
+    row_column = hashing_config.row_hash_column
+    business_column = hashing_config.business_key_column
+
     if hashing_config.row_fields:
         row_fields = list(hashing_config.row_fields)
     else:
         row_fields = [col for col in df.columns if col not in exclude]
+
     business_fields = list(hashing_config.business_key_fields)
 
-    if "hash_row" not in df.columns:
-        df = df.assign(hash_row=df.apply(_hash_fields, axis=1, fields=row_fields, config=config))
-    if business_fields and "hash_business_key" not in df.columns:
-        df = df.assign(
-            hash_business_key=df.apply(_hash_fields, axis=1, fields=business_fields, config=config)
-        )
+    row_records: list[dict[str, Any]] = []
+    for tuple_values in df[row_fields].itertuples(index=False, name=None):
+        record = dict(zip(row_fields, tuple_values, strict=True))
+        row_records.append(record)
+    row_hashes = [hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records]
+    df = df.assign(**{row_column: row_hashes})
+
+    if business_fields:
+        business_records: list[dict[str, Any]] = []
+        for tuple_values in df[business_fields].itertuples(index=False, name=None):
+            record = dict(zip(business_fields, tuple_values, strict=True))
+            business_records.append(record)
+        business_hashes = [
+            hash_from_mapping(record, business_fields, algorithm=algorithm)
+            for record in business_records
+        ]
+        df = df.assign(**{business_column: business_hashes})
     return df
 
 
@@ -276,14 +218,18 @@ def serialise_metadata(
             "algorithm": hashing.algorithm,
             "row_fields": list(hashing.row_fields) if hashing.row_fields else [],
             "business_key_fields": list(hashing.business_key_fields),
+            "row_column": hashing.row_hash_column,
+            "business_key_column": hashing.business_key_column,
         },
     }
     if config.extends:
         base_metadata["config_extends"] = list(config.extends)
-    if "hash_row" in df.columns and not df.empty:
-        base_metadata["hashing"]["sample_hash_row"] = str(df.iloc[0]["hash_row"])
-    if "hash_business_key" in df.columns and not df.empty:
-        base_metadata["hashing"]["sample_hash_business_key"] = str(df.iloc[0]["hash_business_key"])
+    row_column = hashing.row_hash_column
+    business_column = hashing.business_key_column
+    if row_column in df.columns and not df.empty:
+        base_metadata["hashing"]["sample_hash_row"] = str(df.iloc[0][row_column])
+    if business_column in df.columns and not df.empty:
+        base_metadata["hashing"]["sample_hash_business_key"] = str(df.iloc[0][business_column])
     return base_metadata
 
 

@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import re
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
@@ -14,6 +13,7 @@ import pandas as pd
 from bioetl.clients import ChemblClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
 
 from ..chembl_base import ChemblPipelineBase
@@ -375,27 +375,33 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields (title, abstract, journal, authors)."""
-        df = df.copy()
+        working_df = df.copy()
 
-        # Normalize title
-        if "title" in df.columns:
-            df["title"] = df["title"].apply(lambda x: str(x).strip()[:1000] if pd.notna(x) else None)  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType,reportUnknownArgumentType]
+        rules = {
+            "title": StringRule(max_length=1000),
+            "abstract": StringRule(max_length=5000),
+        }
 
-        # Normalize abstract
-        if "abstract" in df.columns:
-            df["abstract"] = df["abstract"].apply(lambda x: str(x).strip()[:5000] if pd.notna(x) else None)  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType,reportUnknownArgumentType]
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+
+        if stats.has_changes:
+            log.debug(
+                "string_fields_normalized",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
 
         # Normalize journal
-        if "journal" in df.columns:
-            df["journal"] = df["journal"].apply(self._normalize_journal)  # pyright: ignore[reportUnknownMemberType]
+        if "journal" in normalized_df.columns:
+            normalized_df["journal"] = normalized_df["journal"].apply(self._normalize_journal)  # pyright: ignore[reportUnknownMemberType]
 
         # Normalize authors
-        if "authors" in df.columns:
-            authors_result = df["authors"].apply(self._normalize_authors)  # pyright: ignore[reportUnknownMemberType]
-            df["authors"] = authors_result.apply(lambda x: x[0] if isinstance(x, tuple) else "")  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
-            df["authors_count"] = authors_result.apply(lambda x: x[1] if isinstance(x, tuple) else 0)  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
+        if "authors" in normalized_df.columns:
+            authors_result = normalized_df["authors"].apply(self._normalize_authors)  # pyright: ignore[reportUnknownMemberType]
+            normalized_df["authors"] = authors_result.apply(lambda x: x[0] if isinstance(x, tuple) else "")  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
+            normalized_df["authors_count"] = authors_result.apply(lambda x: x[1] if isinstance(x, tuple) else 0)  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
 
-        return df
+        return normalized_df
 
     @staticmethod
     def _normalize_journal(value: Any, max_len: int = 255) -> str:
@@ -434,71 +440,29 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         return df
 
     def _add_system_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Add system fields (source, hash_business_key, hash_row)."""
+        """Add document-specific system fields (source)."""
         df = df.copy()
 
         # Add source field
         df["source"] = "ChEMBL"
 
-        # Add hash_business_key
-        if "document_chembl_id" in df.columns:
-            df["hash_business_key"] = df["document_chembl_id"].apply(self._compute_hash_business_key)  # pyright: ignore[reportUnknownMemberType]
-
-        # Add hash_row
-        df["hash_row"] = df.apply(self._compute_hash_row, axis=1)
-
         return df
 
-    @staticmethod
-    def _compute_hash_business_key(document_chembl_id: str) -> str:
-        """Compute SHA256 hash of business key."""
-        return hashlib.sha256(str(document_chembl_id).encode()).hexdigest()
+    def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
+        specs = dict(super()._schema_column_specs())
+        specs["source"] = {"default": "ChEMBL"}
+        specs["authors_count"] = {"default": 0, "dtype": "Int64"}
 
-    def _compute_hash_row(self, row: pd.Series) -> str:
-        """Compute SHA256 hash of canonical row representation."""
-        # Create canonical representation
-        canonical_dict: dict[str, Any] = {}
-        for col in COLUMN_ORDER:
-            if col in row.index:
-                value = row[col]
-                if pd.isna(value):
-                    canonical_dict[col] = None
-                elif isinstance(value, (int, float)):
-                    canonical_dict[col] = value
-                elif isinstance(value, str):
-                    canonical_dict[col] = value
-                else:
-                    canonical_dict[col] = str(value)
-            else:
-                canonical_dict[col] = None
-        # Convert to JSON string
-        canonical_json = json.dumps(canonical_dict, sort_keys=True, separators=(",", ":"))
-        return hashlib.sha256(canonical_json.encode("utf-8")).hexdigest()
+        hashing_config = self.config.determinism.hashing
+        business_key_column = hashing_config.business_key_column
+        row_hash_column = hashing_config.row_hash_column
 
-    def _ensure_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
-    ) -> pd.DataFrame:
-        """Ensure all schema columns exist with correct types.
+        if business_key_column:
+            specs[business_key_column] = {"default": ""}
+        if row_hash_column:
+            specs[row_hash_column] = {"default": ""}
 
-        Overrides base implementation to handle document-specific default values.
-        """
-        df = df.copy()
-
-        # Add missing columns with document-specific defaults
-        missing = [col for col in column_order if col not in df.columns]
-        if missing:
-            for col in missing:
-                if col == "source":
-                    df[col] = "ChEMBL"
-                elif col in ("hash_business_key", "hash_row"):
-                    df[col] = ""
-                elif col == "authors_count":
-                    df[col] = 0
-                else:
-                    df[col] = pd.NA
-            log.debug("schema_columns_added", columns=missing)
-
-        return df
+        return specs
 
     def _check_document_id_uniqueness(self, df: pd.DataFrame, log: Any) -> None:
         """Check that document_chembl_id is unique."""

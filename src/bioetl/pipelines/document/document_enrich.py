@@ -10,6 +10,7 @@ import pandas as pd
 
 from bioetl.clients import ChemblClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
 
@@ -28,6 +29,23 @@ def _escape_pipe(s: str) -> str:
         String with escaped delimiters: `|` → `\\|`, `\\` → `\\\\`.
     """
     return s.replace("\\", "\\\\").replace("|", "\\|")
+
+
+def _ensure_columns(
+    df: pd.DataFrame,
+    columns: tuple[tuple[str, str], ...],
+) -> pd.DataFrame:
+    result = df.copy()
+    for name, dtype in columns:
+        if name not in result.columns:
+            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
+    return result
+
+
+_DOCUMENT_TERM_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("term", "string"),
+    ("weight", "string"),
+)
 
 
 def aggregate_terms(
@@ -134,12 +152,11 @@ def enrich_with_document_terms(
     """
     log = UnifiedLogger.get(__name__).bind(component="document_enrichment")
 
+    df_docs = _ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
+
     if df_docs.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        df_docs = df_docs.copy()
-        df_docs["term"] = pd.NA
-        df_docs["weight"] = pd.NA
-        return df_docs
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["document_chembl_id"]
@@ -149,10 +166,7 @@ def enrich_with_document_terms(
             "enrichment_skipped_missing_columns",
             missing_columns=missing_cols,
         )
-        df_docs = df_docs.copy()
-        df_docs["term"] = pd.NA
-        df_docs["weight"] = pd.NA
-        return df_docs
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
     # Собрать уникальные document_chembl_id, dropna
     doc_ids: list[str] = []
@@ -171,10 +185,7 @@ def enrich_with_document_terms(
 
     if not doc_ids:
         log.debug("enrichment_skipped_no_valid_ids")
-        df_docs = df_docs.copy()
-        df_docs["term"] = pd.NA
-        df_docs["weight"] = pd.NA
-        return df_docs
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
     # Получить конфигурацию
     fields = cfg.get("select_fields", ["document_chembl_id", "term", "weight"])
@@ -208,10 +219,7 @@ def enrich_with_document_terms(
 
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
-        df_docs = df_docs.copy()
-        df_docs["term"] = pd.NA
-        df_docs["weight"] = pd.NA
-        return df_docs
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
     df_enrich = pd.DataFrame(enrichment_data)
 
@@ -245,5 +253,5 @@ def enrich_with_document_terms(
         rows_enriched=df_result.shape[0],
         documents_with_terms=len(agg_result),
     )
-    return df_result
+    return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
 

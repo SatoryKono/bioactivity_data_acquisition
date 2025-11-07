@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import re
 import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -14,6 +13,12 @@ import pandas as pd
 from bioetl.clients import ChemblClient, ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.normalizers import (
+    IdentifierRule,
+    StringRule,
+    normalize_identifier_columns,
+    normalize_string_columns,
+)
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 from ..chembl_base import ChemblPipelineBase
@@ -295,23 +300,24 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL identifiers with regex validation."""
-        df = df.copy()
+        rules = [
+            IdentifierRule(
+                name="target_chembl",
+                columns=["target_chembl_id"],
+                pattern=r"^CHEMBL\d+$",
+            ),
+        ]
 
-        chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
+        normalized_df, stats = normalize_identifier_columns(df, rules)
 
-        if "target_chembl_id" in df.columns:
-            mask = df["target_chembl_id"].notna()
-            if mask.any():
-                series = df.loc[mask, "target_chembl_id"].astype(str).str.strip()
-                invalid_mask = mask & ~series.str.match(chembl_id_pattern, na=False)
-                if invalid_mask.any():
-                    log.warning(
-                        "invalid_target_chembl_id",
-                        count=int(invalid_mask.sum()),
-                    )
-                    df.loc[invalid_mask, "target_chembl_id"] = pd.NA
+        invalid_info = stats.per_column.get("target_chembl_id")
+        if invalid_info and invalid_info["invalid"] > 0:
+            log.warning(
+                "invalid_target_chembl_id",
+                count=invalid_info["invalid"],
+            )
 
-        return df
+        return normalized_df
 
     def _enrich_target_components(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Enrich targets with component data from /target_component endpoint.
@@ -670,24 +676,25 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields by trimming whitespace."""
-        df = df.copy()
+        working_df = df.copy()
 
-        string_columns = [
-            "pref_name",
-            "target_type",
-            "organism",
-            "tax_id",
-        ]
+        rules = {
+            "pref_name": StringRule(),
+            "target_type": StringRule(),
+            "organism": StringRule(),
+            "tax_id": StringRule(),
+        }
 
-        for col in string_columns:
-            if col in df.columns:
-                mask = df[col].notna()
-                if mask.any():
-                    # Convert to string first to handle any numeric types
-                    df[col] = df[col].astype(str)
-                    df.loc[mask, col] = df.loc[mask, col].str.strip()
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
-        return df
+        if stats.has_changes:
+            log.debug(
+                "string_fields_normalized",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+
+        return normalized_df
 
     def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
         """Normalize data types to match schema expectations.

@@ -7,7 +7,11 @@ from bioetl.schemas.common import (
     chembl_id_column,
     nullable_pd_int64_column,
     nullable_string_column,
+    string_column_with_check,
 )
+from bioetl.schemas.vocab import required_vocab_ids
+TARGET_TYPES = required_vocab_ids("target_type")
+
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -32,7 +36,7 @@ TargetSchema = create_schema(
     columns={
         "target_chembl_id": chembl_id_column(nullable=False, unique=True),
         "pref_name": nullable_string_column(),
-        "target_type": nullable_string_column(),
+        "target_type": string_column_with_check(isin=TARGET_TYPES),
         "organism": nullable_string_column(),
         "tax_id": nullable_string_column(),
         "species_group_flag": nullable_pd_int64_column(isin={0, 1}),
@@ -50,5 +54,5 @@ TargetSchema = create_schema(
     strict=True,
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TargetSchema"]
+__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TARGET_TYPES", "TargetSchema"]
 

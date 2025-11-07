@@ -1,9 +1,3 @@
-# TestItem ChEMBL Pipeline Configuration
-#
-# This configuration defines the pipeline for extracting molecule records
-# from the ChEMBL API and normalizing them to the project schema.
-
-# Inherit from base, determinism, and shared profiles
 extends:
   - ../../profiles/base.yaml
   - ../../profiles/determinism.yaml
@@ -11,22 +5,21 @@ extends:
   - ../../profiles/validation.yaml
   - ../../profiles/postprocess.yaml
 
-# Pipeline metadata
 pipeline:
   name: testitem_chembl
   version: "0.1.0"
-  owner: "bioetl-team"
+  owner: bioetl-team
   description: "ChEMBL Molecules (/molecule) → normalized test items"
 
-# ChEMBL source configuration (common settings inherited from chembl.yaml profile)
 sources:
   chembl:
-    batch_size: 25  # Must be <= 25 for ChEMBL API URL length limit (for batch extraction)
+    batch_size: 25
     parameters:
-      max_pages: null  # null = all pages, or set to limit for dev/ci (for full pagination)
-      filters: {}  # e.g., molecule_properties__full_mwt__lte: "1000"
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
+      max_pages: null
+      filters: {}
       select_fields:
-        # scalars
         - molecule_chembl_id
         - pref_name
         - molecule_type
@@ -44,31 +37,24 @@ sources:
         - prodrug
         - structure_type
         - therapeutic_flag
-        # nested objects (pull whole blocks; we'll flatten in transform)
         - molecule_hierarchy
         - molecule_properties
         - molecule_structures
-        # arrays
         - atc_classifications
         - cross_references
         - molecule_synonyms
 
-# CLI configuration (optional overrides)
 cli:
-  # Optional path to input file (CSV/Parquet) containing molecule_chembl_id column
-  # for batch extraction. Can be overridden via --input-file CLI option.
-  input_file: "data/input/testitem.csv"
+  input_file: data/input/testitem.csv
 
-# Determinism configuration for testitem pipeline
 determinism:
   sort:
     by:
       - molecule_chembl_id
     ascending:
       - true
-    na_position: "last"
+    na_position: last
   column_order:
-    # Scalars
     - molecule_chembl_id
     - pref_name
     - molecule_type
@@ -86,15 +72,12 @@ determinism:
     - prodrug
     - structure_type
     - therapeutic_flag
-    # Flattened from molecule_hierarchy
     - molecule_hierarchy__molecule_chembl_id
     - molecule_hierarchy__parent_chembl_id
-    # Flattened from molecule_structures
     - molecule_structures__canonical_smiles
     - molecule_structures__molfile
     - molecule_structures__standard_inchi
     - molecule_structures__standard_inchi_key
-    # Flattened from molecule_properties
     - molecule_properties__alogp
     - molecule_properties__aromatic_rings
     - molecule_properties__cx_logd
@@ -117,19 +100,15 @@ determinism:
     - molecule_properties__qed_weighted
     - molecule_properties__ro3_pass
     - molecule_properties__rtb
-    # Serialized arrays
     - atc_classifications
     - cross_references__flat
     - molecule_synonyms__flat
-    # Version fields
     - _chembl_db_version
     - _api_version
-
   hashing:
     business_key_fields:
       - molecule_chembl_id
 
-# Transform configuration
 transform:
   enable_flatten: true
   enable_serialization: true
@@ -171,7 +150,6 @@ transform:
       - standard_inchi
       - standard_inchi_key
 
-# Validation schema (common settings inherited from validation.yaml profile)
 validation:
-  schema_out: "bioetl.schemas.testitem.testitem_chembl.TestItemSchema"
+  schema_out: bioetl.schemas.testitem.testitem_chembl.TestItemSchema
 

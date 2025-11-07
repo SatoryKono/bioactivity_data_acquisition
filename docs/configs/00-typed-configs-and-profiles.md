@@ -15,14 +15,18 @@ This document provides a comprehensive specification for the `bioetl` configurat
 - `src/bioetl/config/models/base.py` - `PipelineConfig`, `PipelineMetadata`
 - `src/bioetl/config/models/http.py` - HTTP-конфигурация (`HTTPConfig`, `HTTPClientConfig`, `RetryConfig`, `RateLimitConfig`, `CircuitBreakerConfig`)
 - `src/bioetl/config/models/cache.py` - `CacheConfig`
+- `src/bioetl/config/models/runtime.py` - `RuntimeConfig`
+- `src/bioetl/config/models/io.py` - `IOConfig`, `IOInputConfig`, `IOOutputConfig`
 - `src/bioetl/config/models/paths.py` - `PathsConfig`, `MaterializationConfig`
 - `src/bioetl/config/models/determinism.py` - `DeterminismConfig` и все вложенные классы
+- `src/bioetl/config/models/logging.py` - `LoggingConfig`
 - `src/bioetl/config/models/validation.py` - `ValidationConfig`
 - `src/bioetl/config/models/transform.py` - `TransformConfig`
 - `src/bioetl/config/models/postprocess.py` - `PostprocessConfig`, `PostprocessCorrelationConfig`
 - `src/bioetl/config/models/source.py` - `SourceConfig`
 - `src/bioetl/config/models/cli.py` - `CLIConfig`
 - `src/bioetl/config/models/fallbacks.py` - `FallbacksConfig`
+- `src/bioetl/config/models/telemetry.py` - `TelemetryConfig`
 
 Все модели реэкспортируются через `src/bioetl/config/models/__init__.py` для обратной совместимости.
 
@@ -45,6 +49,8 @@ Pipeline-специфичные конфигурации находятся в �
 | `PipelineConfig` | `version` | `Literal[1]` | Yes | — | Версия схемы конфигурации.[ref: repo:src/bioetl/config/models/base.py] |
 | `PipelineConfig` | `extends[]` | `Sequence[str]` | No | `[]` | Профили, которые мерджатся перед основным YAML.[ref: repo:src/bioetl/config/models/base.py] |
 | `PipelineConfig` | `pipeline` | `PipelineMetadata` | Yes | — | Метаданные пайплайна.[ref: repo:src/bioetl/config/models/base.py] |
+| `PipelineConfig` | `runtime` | `RuntimeConfig` | No | см. таблицу ниже | Параметры исполнения (параллелизм, чанки).[ref: repo:src/bioetl/config/models/runtime.py] |
+| `PipelineConfig` | `io` | `IOConfig` | No | см. таблицу ниже | Политика ввода/вывода (форматы, partitioning).[ref: repo:src/bioetl/config/models/io.py] |
 | `PipelineConfig` | `http` | `HTTPConfig` | Yes | — | HTTP-профили и базовые настройки клиентов.[ref: repo:src/bioetl/config/models/http.py] |
 | `PipelineConfig` | `cache` | `CacheConfig` | No | см. таблицу ниже | Параметры HTTP-кэша.[ref: repo:src/bioetl/config/models/cache.py] |
 | `PipelineConfig` | `paths` | `PathsConfig` | No | см. таблицу ниже | Каталоги ввода/вывода.[ref: repo:src/bioetl/config/models/paths.py] |
@@ -54,6 +60,8 @@ Pipeline-специфичные конфигурации находятся в �
 | `PipelineConfig` | `validation` | `ValidationConfig` | No | см. таблицу ниже | Ссылки на Pandera-схемы и строгий режим.[ref: repo:src/bioetl/config/models/validation.py] |
 | `PipelineConfig` | `sources{}` | `Dict[str, SourceConfig]` | No | `{}` | Переопределения для отдельных источников.[ref: repo:src/bioetl/config/models/source.py] |
 | `PipelineConfig` | `cli` | `CLIConfig` | No | см. таблицу ниже | Захваченные значения CLI-флагов.[ref: repo:src/bioetl/config/models/cli.py] |
+| `PipelineConfig` | `logging` | `LoggingConfig` | No | см. таблицу ниже | Настройки UnifiedLogger (уровень, формат).[ref: repo:src/bioetl/config/models/logging.py] |
+| `PipelineConfig` | `telemetry` | `TelemetryConfig` | No | см. таблицу ниже | Настройки экспорта OpenTelemetry.[ref: repo:src/bioetl/config/models/telemetry.py] |
 
 ### 2.2 `pipeline`
 
@@ -64,7 +72,29 @@ Pipeline-специфичные конфигурации находятся в �
 | `owner` | `str` | No | `null` | Ответственный инженер/команда.[ref: repo:src/bioetl/config/models/base.py] |
 | `description` | `str` | No | `null` | Краткое описание.[ref: repo:src/bioetl/config/models/base.py] |
 
-### 2.3 `http`
+### 2.3 `runtime`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `parallelism` | `PositiveInt` | `4` | Количество параллельных воркеров для пайплайна.[ref: repo:src/bioetl/config/models/runtime.py] |
+| `chunk_rows` | `PositiveInt` | `100000` | Размер чанка записей при батчевой обработке.[ref: repo:src/bioetl/config/models/runtime.py] |
+| `dry_run` | `bool` | `false` | Включает режим без записи артефактов.[ref: repo:src/bioetl/config/models/runtime.py] |
+| `seed` | `int` | `42` | Детерминированный seed для случайностей.[ref: repo:src/bioetl/config/models/runtime.py] |
+
+### 2.4 `io`
+
+| Section | Key | Type | Default | Description |
+| --- | --- | --- | --- | --- |
+| `input` | `format` | `str` | `csv` | Формат локального ввода (csv/parquet/json).[ref: repo:src/bioetl/config/models/io.py] |
+|  | `encoding` | `str` | `utf-8` | Кодировка входных файлов.[ref: repo:src/bioetl/config/models/io.py] |
+|  | `header` | `bool` | `true` | Ожидается ли строка заголовков.[ref: repo:src/bioetl/config/models/io.py] |
+|  | `path` | `str \| None` | `null` | Путь до конкретного входного файла (опционально).[ref: repo:src/bioetl/config/models/io.py] |
+| `output` | `format` | `str` | `parquet` | Формат выгрузок.[ref: repo:src/bioetl/config/models/io.py] |
+|  | `partition_by[]` | `Sequence[str]` | `[]` | Колонки для partitioning (стабильный порядок).[ref: repo:src/bioetl/config/models/io.py] |
+|  | `overwrite` | `bool` | `true` | Разрешено ли перезаписывать существующие артефакты.[ref: repo:src/bioetl/config/models/io.py] |
+|  | `path` | `str \| None` | `null` | Принудительный путь вывода (для отладки).[ref: repo:src/bioetl/config/models/io.py] |
+
+### 2.5 `http`
 
 | Key | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
@@ -93,7 +123,7 @@ Pipeline-специфичные конфигурации находятся в �
 | `max_calls` | `PositiveInt` | `10` | Запросов в окне.[ref: repo:src/bioetl/config/models/http.py] |
 | `period` | `PositiveFloat` | `1.0` | Длина окна в секундах.[ref: repo:src/bioetl/config/models/http.py] |
 
-### 2.4 Инфраструктурные блоки
+### 2.6 Инфраструктурные блоки
 
 | Section | Key | Default | Description |
 | --- | --- | --- | --- |
@@ -124,7 +154,7 @@ Pipeline-специфичные конфигурации находятся в �
 |  | `batch_size` | `null` | Размер батча для пагинации.[ref: repo:src/bioetl/configs/models.py†L334-L337] |
 |  | `parameters{}` | `{}` | Произвольные параметры источника.[ref: repo:src/bioetl/configs/models.py†L338-L341] |
 
-### 2.5 `determinism`
+### 2.7 `determinism`
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -157,6 +187,24 @@ Pipeline-специфичные конфигурации находятся в �
 
 - `determinism.sort.ascending` должно быть пустым или совпадать по длине с `determinism.sort.by`; нарушение приводит к ValueError.[ref: repo:src/bioetl/configs/models.py†L274-L279]
 - Если задан `determinism.column_order`, необходимо указать `validation.schema_out`, иначе валидация отклонит конфиг.[ref: repo:src/bioetl/configs/models.py†L381-L388]
+
+### 2.8 `logging`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `level` | `str` | `"INFO"` | Уровень UnifiedLogger.[ref: repo:src/bioetl/config/models/logging.py] |
+| `format` | `str` | `"json"` | Формат вывода (`json`/`console`).[ref: repo:src/bioetl/config/models/logging.py] |
+| `with_timestamps` | `bool` | `true` | Включает UTC метки времени.[ref: repo:src/bioetl/config/models/logging.py] |
+| `context_fields[]` | `Sequence[str]` | `(pipeline, run_id)` | Обязательные поля контекста в логе.[ref: repo:src/bioetl/config/models/logging.py] |
+
+### 2.9 `telemetry`
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `bool` | `false` | Управляет экспортом OpenTelemetry.[ref: repo:src/bioetl/config/models/telemetry.py] |
+| `exporter` | `str \| None` | `null` | Тип экспортера (`jaeger`, `otlp`, `console`).[ref: repo:src/bioetl/config/models/telemetry.py] |
+| `endpoint` | `str \| None` | `null` | URL конечной точки телеметрии.[ref: repo:src/bioetl/config/models/telemetry.py] |
+| `sampling_ratio` | `PositiveFloat` | `1.0` | Доля выборки трасс.[ref: repo:src/bioetl/config/models/telemetry.py] |
 
 ## 3. Валидация и отчёт об ошибках
 
@@ -191,13 +239,15 @@ determinism
 Мердж слоёв выполняется в три шага:
 
 ```text
-extends (base.yaml, determinism.yaml, дополнительные профили)
+base.yaml (общий профиль через `<<: !include ../profiles/base.yaml`)
         ↓
-основной pipeline.yaml (после развёртывания !include)
+дополнительные include/merge (sources.yaml, chembl.yaml, локальные overrides)
         ↓
-CLI --set overrides (глубокий merge по ключам)
+основной pipeline.yaml (локальные поля) + `extends` (если указаны)
         ↓
-переменные окружения BIOETL__/BIOACTIVITY__ (имеют высший приоритет)
+CLI `--set` overrides (глубокий merge по ключам)
+        ↓
+переменные окружения BIOETL__/BIOACTIVITY__ (наивысший приоритет)
 ```
 
 Псевдокод соответствует `load_config`: профили из `extends` обрабатываются рекурсивно, затем применяется основной YAML, после чего последовательно накладываются CLI-override и env-overrides, и только потом выполняется `PipelineConfig.model_validate()`.[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001][ref: config-loader]
@@ -208,44 +258,113 @@ CLI --set overrides (глубокий merge по ключам)
 
 ```yaml
 # configs/profiles/base.yaml
-version: 1
-http:
-  default:
-    timeout_sec: 60.0
-    connect_timeout_sec: 15.0
-    read_timeout_sec: 60.0
-    retries:
-      total: 5
-      backoff_multiplier: 2.0
-      backoff_max: 60.0
-      statuses: [408, 429, 500, 502, 503, 504]
-    rate_limit:
-      max_calls: 10
-      period: 1.0
-    rate_limit_jitter: true
-    headers:
-      User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
-      Accept: "application/json"
-      Accept-Encoding: "gzip, deflate"
-cache:
-  enabled: true
-  directory: "http_cache"
-  ttl: 86400
-paths:
-  input_root: "data/input"
-  output_root: "data/output"
-  cache_root: ".cache"
-materialization:
-  root: "data/output"
-  default_format: "parquet"
-fallbacks:
-  enabled: true
-validation:
-  strict: true
-  coerce: true
+<<: &profile_common
+  version: 1
+  runtime:
+    parallelism: 4
+    chunk_rows: 100000
+    dry_run: false
+    seed: 42
+  io:
+    input:
+      format: csv
+      encoding: utf-8
+      header: true
+      path: null
+    output:
+      format: parquet
+      partition_by: []
+      overwrite: true
+      path: null
+  http:
+    default:
+      timeout_sec: 60.0
+      connect_timeout_sec: 15.0
+      read_timeout_sec: 60.0
+      retries:
+        total: 5
+        backoff_multiplier: 2.0
+        backoff_max: 60.0
+        statuses: [408, 429, 500, 502, 503, 504]
+      rate_limit:
+        max_calls: 10
+        period: 1.0
+      rate_limit_jitter: true
+      headers:
+        User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
+        Accept: "application/json"
+        Accept-Encoding: "gzip, deflate"
+  cache:
+    enabled: true
+    directory: http_cache
+    ttl: 86400
+  paths:
+    input_root: data/input
+    output_root: data/output
+    cache_root: .cache
+  materialization:
+    root: data/output
+    default_format: parquet
+  fallbacks:
+    enabled: true
+  determinism:
+    enabled: true
+    hash_policy_version: "1.0.0"
+    float_precision: 6
+    datetime_format: iso8601
+    column_validation_ignore_suffixes: [_scd, _temp, _meta, _tmp]
+    sort:
+      by: []
+      ascending: []
+      na_position: last
+    column_order: []
+    serialization:
+      csv:
+        separator: ","
+        quoting: ALL
+        na_rep: ""
+      booleans: ["True", "False"]
+      nan_rep: "NaN"
+    hashing:
+      algorithm: sha256
+      row_fields: []
+      business_key_fields: []
+      exclude_fields: [generated_at, run_id]
+      business_key_column: hash_business_key
+      row_hash_column: hash_row
+      business_key_schema:
+        dtype: string
+        length: 64
+        nullable: false
+      row_hash_schema:
+        dtype: string
+        length: 64
+        nullable: false
+    environment:
+      timezone: UTC
+      locale: C
+    write:
+      strategy: atomic
+    meta:
+      location: sibling
+      include_fields: []
+      exclude_fields: []
+  validation:
+    strict: true
+    coerce: true
+  logging:
+    level: INFO
+    format: json
+    with_timestamps: true
+    context_fields: [pipeline, run_id]
+  telemetry:
+    enabled: true
+    exporter: jaeger
+    endpoint: null
+    sampling_ratio: 1.0
 ```
 
-【F:configs/profiles/base.yaml†L1-L48】
+【F:configs/profiles/base.yaml†L1-L93】
 
 ### 5.2 Профиль детерминизма
 
@@ -295,46 +414,47 @@ determinism:
 
 ```yaml
 # configs/pipelines/activity/activity_chembl.yaml
-extends:
-  - ../profiles/base.yaml
-  - ../profiles/determinism.yaml
-  - ../profiles/network.yaml
+<<: !include ../../profiles/base.yaml
+<<: !include ../../profiles/determinism.yaml
+<<: !include ../../profiles/chembl.yaml
+<<: !include ../../profiles/validation.yaml
+<<: !include ../../profiles/postprocess.yaml
 
 pipeline:
-  name: activity
-  version: "2.1.0"
-  owner: "chembl-team"
+  name: activity_chembl
+  version: "1.0.0"
+  owner: "Data Acquisition Team"
 
-http:
-  default:
-    timeout_sec: 45.0  # override базового профиля
-  profiles:
-    chembl:
-      timeout_sec: 30.0
-      retries:
-        total: 7
+io:
+  output:
+    partition_by:
+      - assay_chembl_id
 
 sources:
   chembl:
-    http_profile: chembl
-    batch_size: 25
+    batch_size: 20
     parameters:
-      endpoint: "/activity.json"
-      filters: !include ../fragments/activity_filters.yaml
+      base_url: https://www.ebi.ac.uk/chembl/api/data
+      max_url_length: 2000
+      select_fields:
+        - activity_id
+        - assay_chembl_id
+        - molecule_chembl_id
+        - standard_value
 
 determinism:
   sort:
-    by: ["assay_id", "activity_id"]
-    ascending: [true, true]
+    by: [assay_chembl_id, molecule_chembl_id, activity_id]
+    ascending: [true, true, true]
+    na_position: last
   hashing:
-    row_fields: ["activity_id", "standard_value"]
-    business_key_fields: ["activity_id"]
+    business_key_fields: [activity_id, row_subtype, row_index]
 
 validation:
-  schema_out: "bioetl.schemas.chembl.activity.ActivityOutputSchema"
+  schema_out: bioetl.schemas.activity.activity_chembl.ActivitySchema
 ```
 
-В этом примере `!include` подтягивает фрагмент с параметрами запроса, `chembl` использует именованный HTTP-профиль, а сортировка и хеширование переопределяют стандартный профиль.
+Вместо `extends` общий профиль подключается через `<<: !include`. Добавление локальных секций (`sources.chembl`, `determinism`, `validation`) происходит поверх общей карты `profile_common`, а списки объединяются стандартным YAML merge-key.
 
 ## 7. Переопределения через CLI и переменные окружения
 

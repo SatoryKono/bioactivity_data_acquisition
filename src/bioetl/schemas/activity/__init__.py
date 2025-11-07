@@ -1,5 +1,4 @@
 """Activity schema module."""
-
 from __future__ import annotations
 
 from bioetl.schemas.activity.activity_chembl import (
@@ -10,6 +9,11 @@ from bioetl.schemas.activity.activity_chembl import (
     SCHEMA_VERSION,
     STANDARD_TYPES,
 )
+from bioetl.schemas.activity.enrichment import (
+    ASSAY_ENRICHMENT_SCHEMA,
+    COMPOUND_RECORD_ENRICHMENT_SCHEMA,
+    DATA_VALIDITY_ENRICHMENT_SCHEMA,
+)
 
 __all__ = [
     "SCHEMA_VERSION",
@@ -18,5 +22,8 @@ __all__ = [
     "RELATIONS",
     "ACTIVITY_PROPERTY_KEYS",
     "ActivitySchema",
+    "ASSAY_ENRICHMENT_SCHEMA",
+    "COMPOUND_RECORD_ENRICHMENT_SCHEMA",
+    "DATA_VALIDITY_ENRICHMENT_SCHEMA",
 ]
 

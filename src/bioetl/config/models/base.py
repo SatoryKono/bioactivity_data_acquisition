@@ -12,9 +12,13 @@ from .cli import CLIConfig
 from .determinism import DeterminismConfig
 from .fallbacks import FallbacksConfig
 from .http import HTTPConfig
+from .io import IOConfig
+from .logging import LoggingConfig
 from .paths import MaterializationConfig, PathsConfig
 from .postprocess import PostprocessConfig
+from .runtime import RuntimeConfig
 from .source import SourceConfig
+from .telemetry import TelemetryConfig
 from .transform import TransformConfig
 from .validation import ValidationConfig
 
@@ -43,6 +47,8 @@ class PipelineConfig(BaseModel):
         description="Optional list of profile paths merged before this configuration.",
     )
     pipeline: PipelineMetadata = Field(..., description="Metadata describing the pipeline.")
+    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig, description="Runtime execution parameters.")
+    io: IOConfig = Field(default_factory=IOConfig, description="Input/output configuration for the pipeline.")
     http: HTTPConfig = Field(..., description="HTTP client defaults and profiles.")
     cache: CacheConfig = Field(default_factory=CacheConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
@@ -52,6 +58,8 @@ class PipelineConfig(BaseModel):
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     transform: TransformConfig = Field(default_factory=TransformConfig)
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
+    logging: LoggingConfig = Field(default_factory=LoggingConfig)
+    telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     sources: dict[str, SourceConfig] = Field(
         default_factory=dict,
         description="Per-source settings keyed by a short identifier.",

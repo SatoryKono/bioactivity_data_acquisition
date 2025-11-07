@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
 from typing import Any, cast
 
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.serialization import header_rows_serialize, serialize_array_fields
 
 __all__ = [
     "header_rows_serialize",
@@ -16,152 +16,27 @@ __all__ = [
     "validate_assay_parameters_truv",
 ]
 
-
-def escape_delims(s: str) -> str:
-    r"""Escape pipe and slash delimiters in string values.
-
-    Parameters
-    ----------
-    s:
-        Input string to escape.
-
-    Returns
-    -------
-    str:
-        String with escaped delimiters: `|` → `\|`, `/` → `\/`, `\` → `\\`.
-    """
-    return s.replace("\\", "\\\\").replace("|", "\\|").replace("/", "\\/")
+AssayParam = dict[str, Any]
 
 
-def header_rows_serialize(items: Any) -> str:
-    """Serialize array-of-objects to header+rows format.
+def _is_null_like(value: Any) -> bool:
+    """Определить, можно ли трактовать значение как отсутствующее."""
 
-    Format: `header/row1/row2/...` where:
-    - Header: `k1|k2|...` (ordered list of keys)
-    - Row: `v1|v2|...` (values for each key, empty string if missing)
+    if value is None:
+        return True
 
-    Parameters
-    ----------
-    items:
-        List of dicts, None, or empty list.
+    if isinstance(value, str):
+        return value.strip() == ""
 
-    Returns
-    -------
-    str:
-        Serialized string in header+rows format, or empty string for None/empty.
+    if isinstance(value, float):
+        return bool(pd.isna(value))
 
-    Examples
-    --------
-    >>> header_rows_serialize([{"a": "A", "b": "B"}])
-    'a|b/A|B'
-    >>> header_rows_serialize([{"a": "A1"}, {"a": "A2", "b": "B2"}])
-    'a|b/A1|/A2|B2'
-    >>> header_rows_serialize([])
-    ''
-    >>> header_rows_serialize(None)
-    ''
-    >>> header_rows_serialize([{"x": "A|B", "y": "C/D"}])
-    'x|y/A\\|B|C\\/D'
-    """
-    if items is None:
-        return ""
+    try:
+        is_na_raw = cast(Any, pd.isna(value))
+    except TypeError:
+        return False
 
-    if not isinstance(items, list):
-        # Non-list value: JSON serialize and escape delimiters
-        json_str = json.dumps(items, ensure_ascii=False, sort_keys=True)
-        return escape_delims(json_str)
-
-    # Type narrowing: items is now list[Any]
-    typed_items: list[Any] = cast(list[Any], items)
-
-    if not typed_items:
-        return ""
-
-    # Gather keys deterministically:
-    # 1. Preserve order from first item
-    # 2. Append unseen keys from other items in alphabetical order
-    ordered_keys: list[str] = []
-    seen_set: set[str] = set()
-
-    # First pass: collect keys from first item in order
-    if len(typed_items) > 0 and isinstance(typed_items[0], dict):
-        first_item: dict[str, Any] = cast(dict[str, Any], typed_items[0])
-        for key in first_item.keys():
-            if key not in seen_set:
-                ordered_keys.append(key)
-                seen_set.add(key)
-
-    # Second pass: collect remaining keys from other items, then sort alphabetically
-    remaining_keys: set[str] = set()
-    for item in typed_items[1:]:
-        if isinstance(item, dict):
-            remaining_item: dict[str, Any] = cast(dict[str, Any], item)
-            for key in remaining_item.keys():
-                if key not in seen_set:
-                    remaining_keys.add(key)
-                    seen_set.add(key)
-
-    # Append remaining keys in alphabetical order
-    ordered_keys.extend(sorted(remaining_keys))
-
-    # Build header
-    header = "|".join(ordered_keys)
-
-    # Build rows
-    rows: list[str] = []
-    for item in typed_items:
-        if not isinstance(item, dict):
-            # Fallback: JSON serialize non-dict item
-            json_str = json.dumps(item, ensure_ascii=False, sort_keys=True)
-            rows.append(escape_delims(json_str))
-            continue
-
-        # Extract values for each key
-        item_dict: dict[str, Any] = cast(dict[str, Any], item)
-        values: list[str] = []
-        for key in ordered_keys:
-            value: Any | None = item_dict.get(key)
-            if value is None:
-                values.append("")
-            elif isinstance(value, (list, dict)):
-                # Nested structure: JSON serialize and escape
-                json_str = json.dumps(value, ensure_ascii=False, sort_keys=True)
-                values.append(escape_delims(json_str))
-            else:
-                # Scalar value: convert to string and escape
-                values.append(escape_delims(str(value)))
-
-        rows.append("|".join(values))
-
-    # Join header and rows
-    if not rows:
-        return ""
-
-    return header + "/" + "/".join(rows)
-
-
-def serialize_array_fields(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
-    """Serialize array-of-object fields to header+rows format.
-
-    Parameters
-    ----------
-    df:
-        DataFrame to transform.
-    columns:
-        List of column names to serialize.
-
-    Returns
-    -------
-    pd.DataFrame:
-        DataFrame with specified columns serialized to strings.
-    """
-    df = df.copy()
-
-    for col in columns:
-        if col in df.columns:
-            df[col] = df[col].map(header_rows_serialize)
-
-    return df
+    return bool(is_na_raw) if isinstance(is_na_raw, bool) else False
 
 
 def validate_assay_parameters_truv(
@@ -217,39 +92,41 @@ def validate_assay_parameters_truv(
 
     for idx, row in df.iterrows():
         params_str = row.get(column)
-        if pd.isna(params_str) or params_str is None or params_str == "":
+        if _is_null_like(params_str):
             continue
 
         try:
-            # Парсим JSON-строку
             if isinstance(params_str, str):
-                params_list = json.loads(params_str)
+                params_raw = json.loads(params_str)
             else:
-                # Если уже список (не сериализован)
-                params_list = params_str
+                params_raw = params_str
         except (json.JSONDecodeError, TypeError) as exc:
             errors.append(
                 f"Row {idx}: Invalid JSON in {column}: {exc}",
             )
             continue
 
-        if not isinstance(params_list, list):
+        if not isinstance(params_raw, list):
             errors.append(
-                f"Row {idx}: {column} must be a JSON array, got {type(params_list).__name__}",
+                f"Row {idx}: {column} must be a JSON array, got {type(params_raw).__name__}",
             )
             continue
 
         # Валидируем каждый параметр
-        for param_idx, param in enumerate(params_list):
-            if not isinstance(param, dict):
+        params_candidates = cast(list[object], params_raw)
+
+        for param_idx, param_raw in enumerate(params_candidates):
+            if not isinstance(param_raw, dict):
                 errors.append(
-                    f"Row {idx}, param {param_idx}: Parameter must be a dict, got {type(param).__name__}",
+                    f"Row {idx}, param {param_idx}: Parameter must be a dict, got {type(param_raw).__name__}",
                 )
                 continue
 
+            param_dict: AssayParam = cast(AssayParam, param_raw)
+
             # Проверка TRUV-инварианта: value XOR text_value
-            value = param.get("value")
-            text_value = param.get("text_value")
+            value: Any = param_dict.get("value")
+            text_value: Any = param_dict.get("text_value")
             # value считается NULL если None, NaN или пустая строка
             value_is_null = (
                 value is None
@@ -271,8 +148,8 @@ def validate_assay_parameters_truv(
                 )
 
             # Проверка standard_TRUV-инварианта: standard_value XOR standard_text_value
-            standard_value = param.get("standard_value")
-            standard_text_value = param.get("standard_text_value")
+            standard_value: Any = param_dict.get("standard_value")
+            standard_text_value: Any = param_dict.get("standard_text_value")
             # standard_value считается NULL если None, NaN или пустая строка
             standard_value_is_null = (
                 standard_value is None
@@ -298,7 +175,7 @@ def validate_assay_parameters_truv(
                 )
 
             # Проверка active ∈ {0, 1, NULL}
-            active = param.get("active")
+            active: Any = param_dict.get("active")
             if active is not None:
                 if isinstance(active, bool):
                     # Преобразуем bool в int для проверки
@@ -328,7 +205,7 @@ def validate_assay_parameters_truv(
                     )
 
             # Проверка relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}
-            relation = param.get("relation")
+            relation: Any = param_dict.get("relation")
             if relation is not None and not (
                 isinstance(relation, float) and pd.isna(relation)
             ):

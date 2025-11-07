@@ -43,6 +43,16 @@ class DeterminismSortingConfig(BaseModel):
     na_position: str = Field(default="last", description="Where to place null values during sorting.")
 
 
+class DeterminismHashColumnSchema(BaseModel):
+    """Schema definition for hash columns emitted by the pipeline."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    dtype: str = Field(default="string", description="Тип данных колонки (pandas dtype).")
+    length: PositiveInt = Field(default=64, description="Фиксированная длина хэша в символах.")
+    nullable: bool = Field(default=False, description="Допускается ли NULL/NA значение.")
+
+
 class DeterminismHashingConfig(BaseModel):
     """Hashing policy for determinism checks."""
 
@@ -60,6 +70,22 @@ class DeterminismHashingConfig(BaseModel):
     exclude_fields: Sequence[str] = Field(
         default_factory=lambda: ("generated_at", "run_id"),
         description="Fields excluded from deterministic hashing.",
+    )
+    business_key_column: str = Field(
+        default="hash_business_key",
+        description="Имя колонки с хэшом бизнес-ключа в итоговом датасете.",
+    )
+    row_hash_column: str = Field(
+        default="hash_row",
+        description="Имя колонки с хэшом строки в итоговом датасете.",
+    )
+    business_key_schema: DeterminismHashColumnSchema = Field(
+        default_factory=DeterminismHashColumnSchema,
+        description="Схема Pandera/проектного контракта для hash_business_key.",
+    )
+    row_hash_schema: DeterminismHashColumnSchema = Field(
+        default_factory=DeterminismHashColumnSchema,
+        description="Схема Pandera/проектного контракта для hash_row.",
     )
 
 

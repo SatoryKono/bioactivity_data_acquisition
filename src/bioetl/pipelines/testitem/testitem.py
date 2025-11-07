@@ -11,6 +11,11 @@ import pandas as pd
 from bioetl.clients import ChemblClient, ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.normalizers import (
+    StringRule,
+    StringStats,
+    normalize_string_columns,
+)
 from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ..chembl_base import ChemblPipelineBase
@@ -385,25 +390,36 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        # Normalize molecule_chembl_id
-        if "molecule_chembl_id" in df.columns:
-            df["molecule_chembl_id"] = df["molecule_chembl_id"].astype(str).str.strip()
+        working_df = df.copy()
 
-        # Normalize standard_inchi_key (uppercase, trim)
-        # Check both old and new column names for backward compatibility
-        inchi_key_col = "molecule_structures__standard_inchi_key" if "molecule_structures__standard_inchi_key" in df.columns else "standard_inchi_key"
-        if inchi_key_col in df.columns:
-            df[inchi_key_col] = (
-                df[inchi_key_col].astype(str).str.upper().str.strip()
-            )
-            # Replace empty strings with NaN
-            df[inchi_key_col] = df[inchi_key_col].replace(  # pyright: ignore[reportUnknownMemberType]
-                "",
-                pd.NA,
-            )
+        inchi_key_col = (
+            "molecule_structures__standard_inchi_key"
+            if "molecule_structures__standard_inchi_key" in working_df.columns
+            else "standard_inchi_key"
+        )
 
-        log.debug("normalize_identifiers_completed")
-        return df
+        rules: dict[str, StringRule] = {}
+        if "molecule_chembl_id" in working_df.columns:
+            rules["molecule_chembl_id"] = StringRule()
+        if inchi_key_col in working_df.columns:
+            rules[inchi_key_col] = StringRule(uppercase=True)
+
+        if rules:
+            normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        else:
+            normalized_df = working_df
+            stats = StringStats()
+
+        if stats.has_changes:
+            log.debug(
+                "normalize_identifiers_completed",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+        else:
+            log.debug("normalize_identifiers_completed")
+
+        return normalized_df
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields: trim, replace empty strings with NaN."""
@@ -411,36 +427,31 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        string_columns = [
-            "pref_name",
-            "molecule_type",
-            "molecule_structures__canonical_smiles",  # New flattened column name
-            "canonical_smiles",  # Keep for backward compatibility
-        ]
-        for col in string_columns:
-            if col in df.columns:
-                df[col] = df[col].astype(str).str.strip()
-                df[col] = df[col].replace(  # pyright: ignore[reportUnknownMemberType]
-                    "",
-                    pd.NA,
-                )
+        working_df = df.copy()
 
-        log.debug("normalize_string_fields_completed")
-        return df
+        rules = {
+            "pref_name": StringRule(),
+            "molecule_type": StringRule(),
+            "molecule_structures__canonical_smiles": StringRule(),
+            "canonical_smiles": StringRule(),
+        }
 
-    def _ensure_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
-    ) -> pd.DataFrame:
-        """Ensure all schema columns exist with proper types.
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
-        Overrides base implementation to handle specific types for testitem schema.
-        """
-        if df.empty:
-            return df
+        if stats.has_changes:
+            log.debug(
+                "normalize_string_fields_completed",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+        else:
+            log.debug("normalize_string_fields_completed")
 
-        schema_columns = list(column_order)
+        return normalized_df
 
-        # Define types for columns based on schema
+    def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
+        specs = dict(super()._schema_column_specs())
+
         int_columns = [
             "max_phase",
             "first_approval",
@@ -453,10 +464,6 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "natural_product",
             "prodrug",
             "therapeutic_flag",
-        ]
-        float_columns: list[str] = []
-        # Integer columns with molecule_properties__ prefix
-        int_columns.extend([  # pyright: ignore[reportUnknownMemberType]
             "molecule_properties__aromatic_rings",
             "molecule_properties__hba",
             "molecule_properties__hba_lipinski",
@@ -467,9 +474,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "molecule_properties__num_ro5_violations",
             "molecule_properties__ro3_pass",
             "molecule_properties__rtb",
-        ])
-        # Float columns with molecule_properties__ prefix
-        float_columns.extend([  # pyright: ignore[reportUnknownMemberType]
+        ]
+
+        float_columns = [
             "molecule_properties__alogp",
             "molecule_properties__cx_logd",
             "molecule_properties__cx_logp",
@@ -480,21 +487,18 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "molecule_properties__mw_monoisotopic",
             "molecule_properties__psa",
             "molecule_properties__qed_weighted",
-        ])
+        ]
 
-        missing = [col for col in schema_columns if col not in df.columns]
-        if missing:
-            for col in missing:
-                if col in int_columns:
-                    df[col] = pd.Series(dtype="Int64")
-                elif col in float_columns:
-                    df[col] = pd.Series(dtype="Float64")
-                else:
-                    df[col] = pd.Series(dtype="string")
-            log.debug("schema_columns_added", columns=missing)
+        for column in int_columns:
+            specs[column] = {"dtype": "Int64", "default": pd.NA}
+        for column in float_columns:
+            specs[column] = {"dtype": "Float64", "default": pd.NA}
 
-        log.debug("ensure_schema_columns_completed", columns=list(df.columns))
-        return df
+        for column in COLUMN_ORDER:
+            if column not in specs:
+                specs[column] = {"dtype": "string", "default": pd.NA}
+
+        return specs
 
     def _normalize_numeric_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize numeric fields: convert types, replace negative values with None."""

@@ -9,11 +9,34 @@ import pandas as pd
 
 from bioetl.clients import ChemblClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.schemas.assay import (
+    ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA,
+    ASSAY_PARAMETERS_ENRICHMENT_SCHEMA,
+)
 
 __all__ = [
     "enrich_with_assay_classifications",
     "enrich_with_assay_parameters",
 ]
+
+
+def _ensure_columns(
+    df: pd.DataFrame,
+    columns: tuple[tuple[str, str], ...],
+) -> pd.DataFrame:
+    result = df.copy()
+    for name, dtype in columns:
+        if name not in result.columns:
+            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
+    return result
+
+
+_CLASSIFICATION_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("assay_classifications", "string"),
+    ("assay_class_id", "string"),
+)
+
+_PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (("assay_parameters", "string"),)
 
 
 def enrich_with_assay_classifications(
@@ -41,9 +64,11 @@ def enrich_with_assay_classifications(
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
+    df_assay = _ensure_columns(df_assay, _CLASSIFICATION_COLUMNS)
+
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return df_assay
+        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["assay_chembl_id"]
@@ -53,7 +78,7 @@ def enrich_with_assay_classifications(
             "enrichment_skipped_missing_columns",
             missing_columns=missing_cols,
         )
-        return df_assay
+        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Собрать уникальные assay_chembl_id, dropna
     assay_ids: list[str] = []
@@ -72,11 +97,7 @@ def enrich_with_assay_classifications(
 
     if not assay_ids:
         log.debug("enrichment_skipped_no_valid_ids")
-        # Добавим пустые колонки если их нет
-        for col in ["assay_classifications", "assay_class_id"]:
-            if col not in df_assay.columns:
-                df_assay[col] = pd.NA
-        return df_assay
+        return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Получить конфигурацию
     class_map_fields = cfg.get("class_map_fields", ["assay_chembl_id", "assay_class_id"])
@@ -179,7 +200,7 @@ def enrich_with_assay_classifications(
         "enrichment_classifications_complete",
         assays_with_classifications=len(df_assay[df_assay["assay_classifications"].notna()]),
     )
-    return df_assay
+    return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
 
 def enrich_with_assay_parameters(
@@ -220,9 +241,11 @@ def enrich_with_assay_parameters(
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
+    df_assay = _ensure_columns(df_assay, _PARAMETERS_COLUMNS)
+
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")
-        return df_assay
+        return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["assay_chembl_id"]
@@ -232,7 +255,7 @@ def enrich_with_assay_parameters(
             "enrichment_skipped_missing_columns",
             missing_columns=missing_cols,
         )
-        return df_assay
+        return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Собрать уникальные assay_chembl_id, dropna
     assay_ids: list[str] = []
@@ -251,10 +274,7 @@ def enrich_with_assay_parameters(
 
     if not assay_ids:
         log.debug("enrichment_skipped_no_valid_ids")
-        # Добавим пустую колонку если её нет
-        if "assay_parameters" not in df_assay.columns:
-            df_assay["assay_parameters"] = pd.NA
-        return df_assay
+        return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
     # Получить конфигурацию
     # Значения по умолчанию включают полный TRUV-набор и стандартизованные поля
@@ -327,5 +347,5 @@ def enrich_with_assay_parameters(
         "enrichment_parameters_complete",
         assays_with_parameters=len(df_assay[df_assay["assay_parameters"].notna()]),
     )
-    return df_assay
+    return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 

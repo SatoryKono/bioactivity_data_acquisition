@@ -8,7 +8,11 @@ from bioetl.schemas.common import (
     nullable_int64_column,
     nullable_string_column,
     row_metadata_columns,
+    string_column_with_check,
 )
+from bioetl.schemas.vocab import required_vocab_ids
+ASSAY_TYPES = required_vocab_ids("assay_type")
+
 
 SCHEMA_VERSION = "1.1.0"
 
@@ -51,7 +55,7 @@ AssaySchema = create_schema(
         "assay_chembl_id": chembl_id_column(nullable=False, unique=True),
         **row_meta,
         "description": nullable_string_column(),
-        "assay_type": nullable_string_column(),
+        "assay_type": string_column_with_check(isin=ASSAY_TYPES),
         "assay_type_description": nullable_string_column(),
         "assay_test_type": nullable_string_column(),
         "assay_category": nullable_string_column(),
@@ -80,5 +84,5 @@ AssaySchema = create_schema(
     name="AssaySchema",
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "AssaySchema"]
+__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "ASSAY_TYPES", "AssaySchema"]
 

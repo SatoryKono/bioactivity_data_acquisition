@@ -8,6 +8,7 @@ from .cli import CLIConfig
 from .determinism import (
     DeterminismConfig,
     DeterminismEnvironmentConfig,
+    DeterminismHashColumnSchema,
     DeterminismHashingConfig,
     DeterminismMetaConfig,
     DeterminismSerializationConfig,
@@ -24,9 +25,13 @@ from .http import (
     RetryConfig,
     StatusCode,
 )
+from .io import IOConfig, IOInputConfig, IOOutputConfig
+from .logging import LoggingConfig
 from .paths import MaterializationConfig, PathsConfig
 from .postprocess import PostprocessConfig, PostprocessCorrelationConfig
+from .runtime import RuntimeConfig
 from .source import SourceConfig
+from .telemetry import TelemetryConfig
 from .transform import TransformConfig
 from .validation import ValidationConfig
 
@@ -43,6 +48,12 @@ __all__ = [
     "StatusCode",
     # Cache
     "CacheConfig",
+    # Runtime
+    "RuntimeConfig",
+    # IO
+    "IOConfig",
+    "IOInputConfig",
+    "IOOutputConfig",
     # Paths
     "PathsConfig",
     "MaterializationConfig",
@@ -52,6 +63,7 @@ __all__ = [
     "DeterminismSerializationConfig",
     "DeterminismSerializationCSVConfig",
     "DeterminismHashingConfig",
+    "DeterminismHashColumnSchema",
     "DeterminismEnvironmentConfig",
     "DeterminismWriteConfig",
     "DeterminismMetaConfig",
@@ -66,7 +78,11 @@ __all__ = [
     "SourceConfig",
     # CLI
     "CLIConfig",
+    # Logging
+    "LoggingConfig",
     # Fallbacks
     "FallbacksConfig",
+    # Telemetry
+    "TelemetryConfig",
 ]
 

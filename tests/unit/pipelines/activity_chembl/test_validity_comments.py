@@ -163,14 +163,13 @@ class TestValidityCommentsMetrics:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that metrics detect unknown data_validity_comment values."""
-        # Создать конфиг с whitelist
         config = pipeline_config_fixture
-        config.validation.data_validity_comment_whitelist = [
-            "Manually validated",
-            "Outside typical range",
-        ]
 
-        pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
+        with patch(
+            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            return_value={"Manually validated", "Outside typical range"},
+        ):
+            pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -202,14 +201,13 @@ class TestValidityCommentsSoftEnum:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that soft enum validation logs warnings but doesn't fail."""
-        # Создать конфиг с whitelist
         config = pipeline_config_fixture
-        config.validation.data_validity_comment_whitelist = [
-            "Manually validated",
-            "Outside typical range",
-        ]
 
-        pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
+        with patch(
+            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            return_value={"Manually validated", "Outside typical range"},
+        ):
+            pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -238,9 +236,12 @@ class TestValidityCommentsSoftEnum:
     ) -> None:
         """Test that soft enum validation skips when whitelist is not configured."""
         config = pipeline_config_fixture
-        config.validation.data_validity_comment_whitelist = None
 
-        pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
+        with patch(
+            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            side_effect=RuntimeError("dictionary missing"),
+        ):
+            pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -260,12 +261,12 @@ class TestValidityCommentsSoftEnum:
     ) -> None:
         """Test that soft enum validation doesn't log when all values are valid."""
         config = pipeline_config_fixture
-        config.validation.data_validity_comment_whitelist = [
-            "Manually validated",
-            "Outside typical range",
-        ]
 
-        pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
+        with patch(
+            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            return_value={"Manually validated", "Outside typical range"},
+        ):
+            pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
 
         df = pd.DataFrame(
             {

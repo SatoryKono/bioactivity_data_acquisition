@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+import numbers
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
@@ -26,6 +28,38 @@ def _normalize_chembl_id(value: Any) -> str:
         return ""
     value_str = str(value).strip()
     return value_str if value_str else ""
+
+
+def _canonical_record_id(value: Any) -> str:
+    """Преобразовать record_id к каноническому строковому представлению."""
+
+    if value is None:
+        return ""
+    if isinstance(value, numbers.Integral):
+        return str(int(value))
+    if isinstance(value, float):
+        if pd.isna(value) or not math.isfinite(value):
+            return ""
+        value_float: float = float(value)
+        value_int = math.trunc(value_float)
+        if value_float == value_int:
+            return str(value_int)
+        return format(value_float, "g")
+    if pd.isna(value):
+        return ""
+    value_str = str(value).strip()
+    if not value_str:
+        return ""
+    try:
+        numeric: float = float(value_str)
+    except ValueError:
+        return value_str
+    if pd.isna(numeric) or not math.isfinite(numeric):
+        return ""
+    numeric_int = math.trunc(numeric)
+    if numeric == numeric_int:
+        return str(numeric_int)
+    return format(numeric, "g")
 
 
 
@@ -70,10 +104,9 @@ def join_activity_with_molecule(
 
     for _, row in df_act.iterrows():
         rec = row.get("record_id")
-        if rec is not None and not pd.isna(rec):
-            rec_s = str(rec).strip()
-            if rec_s:
-                record_ids.add(rec_s)
+        rec_s = _canonical_record_id(rec)
+        if rec_s:
+            record_ids.add(rec_s)
 
         mol = _normalize_chembl_id(row.get("molecule_chembl_id"))
         if mol:
@@ -183,9 +216,7 @@ def _fetch_compound_records_by_ids(
     unique_ids: list[str] = []
     seen: set[str] = set()
     for rid in record_ids:
-        if rid is None or (isinstance(rid, float) and pd.isna(rid)):  # type: ignore[arg-type]
-            continue
-        rid_str = str(rid).strip()
+        rid_str = _canonical_record_id(rid)
         if not rid_str:
             continue
         if rid_str not in seen:
@@ -244,9 +275,7 @@ def _fetch_compound_records_by_ids(
     result: dict[str, dict[str, Any]] = {}
     for record in all_records:
         rid_raw = record.get("record_id")
-        if rid_raw is None:
-            continue
-        rid_str = str(rid_raw).strip()
+        rid_str = _canonical_record_id(rid_raw)
         if rid_str and rid_str not in result:
             # оставляем только требуемые поля (жёсткий only по выходу)
             result[rid_str] = {
@@ -340,17 +369,11 @@ def _perform_joins(
 
     # Нормализовать record_id: преобразовать в строку для совместимости с df_compound
     if "record_id" in df_act_normalized.columns:
-        # Сохранить NaN значения, преобразовать остальные в строку
-        mask_na = df_act_normalized["record_id"].isna()
-        # Преобразовать в строку, но заменить "nan" на pd.NA
-        df_act_normalized["record_id"] = df_act_normalized["record_id"].astype(str)
-        df_act_normalized.loc[df_act_normalized["record_id"] == "nan", "record_id"] = pd.NA
-        df_act_normalized.loc[mask_na, "record_id"] = pd.NA
-        # Убедиться, что df_compound.record_id тоже строка
+        df_act_normalized["record_id"] = df_act_normalized["record_id"].map(_canonical_record_id)
+        df_act_normalized.loc[df_act_normalized["record_id"] == "", "record_id"] = pd.NA
         if "record_id" in df_compound.columns and not df_compound.empty:
-            df_compound["record_id"] = df_compound["record_id"].astype(str)
-            # Заменить "nan" на pd.NA
-            df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = pd.NA
+            df_compound["record_id"] = df_compound["record_id"].map(_canonical_record_id)
+            df_compound.loc[df_compound["record_id"] == "", "record_id"] = pd.NA
 
     # Нормализовать molecule_chembl_id: преобразовать в строку для совместимости с df_molecule
     if "molecule_chembl_id" in df_act_normalized.columns:

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 import yaml
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .models.base import PipelineConfig
 
@@ -232,18 +233,74 @@ def _coerce_value(value: Any) -> Any:
 
 def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> MutableMapping[str, Any]:
     overrides: MutableMapping[str, Any] = {}
-    for key, raw_value in env.items():
-        prefix = next((p for p in prefixes if key.startswith(p)), None)
-        if prefix is None:
+    for prefix in prefixes:
+        scoped: dict[str, str] = {
+            key[len(prefix) :]: value
+            for key, value in env.items()
+            if key.startswith(prefix) and key[len(prefix) :]
+        }
+        if not scoped:
             continue
-        trimmed = key[len(prefix) :]
-        if not trimmed:
-            continue
-        parts = [segment.lower() for segment in trimmed.split("__") if segment]
-        if not parts:
-            continue
-        _assign_nested(overrides, parts, _coerce_value(raw_value))
+        parsed = _parse_env_mapping(scoped)
+        overrides = _deep_merge(overrides, parsed)
     return overrides
+
+
+class _PipelineEnvSettings(BaseSettings):
+    """Support typed environment overrides using pydantic-settings."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="",
+        env_nested_delimiter="__",
+        case_sensitive=False,
+        extra="allow",
+    )
+
+    version: int | None = None
+    extends: tuple[str, ...] | None = None
+    pipeline: dict[str, Any] | None = None
+    runtime: dict[str, Any] | None = None
+    io: dict[str, Any] | None = None
+    http: dict[str, Any] | None = None
+    cache: dict[str, Any] | None = None
+    paths: dict[str, Any] | None = None
+    determinism: dict[str, Any] | None = None
+    materialization: dict[str, Any] | None = None
+    fallbacks: dict[str, Any] | None = None
+    validation: dict[str, Any] | None = None
+    transform: dict[str, Any] | None = None
+    postprocess: dict[str, Any] | None = None
+    sources: dict[str, Any] | None = None
+    cli: dict[str, Any] | None = None
+    logging: dict[str, Any] | None = None
+    telemetry: dict[str, Any] | None = None
+    chembl: dict[str, Any] | None = None
+
+
+def _parse_env_mapping(data: Mapping[str, str]) -> MutableMapping[str, Any]:
+    if not data:
+        return {}
+
+    class _ScopedSettings(_PipelineEnvSettings):
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            init_settings,
+            env_settings,
+            file_secret_settings,
+        ):
+            def _custom_env(_: BaseSettings) -> Mapping[str, str]:
+                return data
+
+            return (_custom_env,)
+
+    settings = _ScopedSettings()
+    payload: MutableMapping[str, Any] = dict(
+        settings.model_dump(exclude_none=True, exclude_unset=True)
+    )
+    if settings.model_extra:
+        payload = _deep_merge(payload, settings.model_extra)
+    return payload
 
 
 def _stringify_profile(profile: Path, *, base: Path) -> str:

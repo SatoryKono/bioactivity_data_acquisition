@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
@@ -15,6 +14,12 @@ from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
+from bioetl.core.normalizers import (
+    IdentifierRule,
+    StringRule,
+    normalize_identifier_columns,
+    normalize_string_columns,
+)
 from bioetl.pipelines.assay.assay_enrichment import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
@@ -433,41 +438,31 @@ class ChemblAssayPipeline(PipelineBase):
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL identifiers with regex validation."""
 
-        df = df.copy()
-        chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
-
-        chembl_fields = [
-            "assay_chembl_id",
-            "target_chembl_id",
-            "document_chembl_id",
-            "cell_chembl_id",
-            "tissue_chembl_id",
+        rules = [
+            IdentifierRule(
+                name="chembl",
+                columns=[
+                    "assay_chembl_id",
+                    "target_chembl_id",
+                    "document_chembl_id",
+                    "cell_chembl_id",
+                    "tissue_chembl_id",
+                ],
+                pattern=r"^CHEMBL\d+$",
+            ),
         ]
 
-        normalized_count = 0
-        invalid_count = 0
+        normalized_df, stats = normalize_identifier_columns(df, rules)
 
-        for field in chembl_fields:
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                df.loc[mask, field] = df.loc[mask, field].astype(str).str.upper().str.strip()
-                valid_mask = df[field].str.match(chembl_id_pattern.pattern, na=False)
-                invalid_mask = mask & ~valid_mask
-                if invalid_mask.any():
-                    invalid_count += int(invalid_mask.sum())
-                    df.loc[invalid_mask, field] = None
-                normalized_count += int((mask & valid_mask).astype(int).sum())
-
-        if normalized_count > 0 or invalid_count > 0:
+        if stats.has_changes:
             log.debug(
                 "identifiers_normalized",
-                normalized_count=normalized_count,
-                invalid_count=invalid_count,
+                normalized_count=stats.normalized,
+                invalid_count=stats.invalid,
+                columns=list(stats.per_column.keys()),
             )
 
-        return df
+        return normalized_df
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields (assay_type, assay_category, assay_organism, curation_level).
@@ -480,7 +475,7 @@ class ChemblAssayPipeline(PipelineBase):
         - curation_level: из явной колонки (если есть), иначе NULL
         """
 
-        df = df.copy()
+        working_df = df.copy()
 
         string_fields = [
             "assay_type",
@@ -492,26 +487,26 @@ class ChemblAssayPipeline(PipelineBase):
             "curation_level",
         ]
 
-        for field in string_fields:
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                df.loc[mask, field] = df.loc[mask, field].astype(str).str.strip()
-                # Replace empty strings with None
-                empty_mask = mask & (df[field] == "")
-                if empty_mask.any():
-                    df.loc[empty_mask, field] = None
+        rules = {column: StringRule() for column in string_fields}
+
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         # Проверка curation_level: если поле отсутствует в исходных данных, выставляем NULL
-        if "curation_level" not in df.columns:
-            df["curation_level"] = pd.NA
+        if "curation_level" not in normalized_df.columns:
+            normalized_df["curation_level"] = pd.NA
             log.warning(
                 "curation_level_missing",
                 message="curation_level not found in API response, setting to NULL",
             )
 
-        return df
+        if stats.has_changes:
+            log.debug(
+                "string_fields_normalized",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+
+        return normalized_df
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Process nested structures (assay_parameters, assay_classifications).

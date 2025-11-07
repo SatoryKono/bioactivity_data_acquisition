@@ -325,10 +325,6 @@ class ValidationConfig(BaseModel):
     )
     strict: bool = Field(default=True, description="If true, Pandera enforces column order and presence.")
     coerce: bool = Field(default=True, description="If true, Pandera coerces data types during validation.")
-    data_validity_comment_whitelist: Sequence[str] | None = Field(
-        default=None,
-        description="Whitelist of allowed values for data_validity_comment (soft enum validation).",
-    )
 
 
 class CLIConfig(BaseModel):

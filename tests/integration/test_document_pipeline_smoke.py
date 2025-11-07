@@ -22,7 +22,6 @@ def create_mock_document_data(count: int = 3) -> list[dict[str, object]]:
             "journal": "Journal of Test",
             "journal_full_title": "Journal of Test - Full Title",
             "doi": f"10.1000/test{i + 1}",
-            "doi_chembl": f"10.1000/chembl{i + 1}",
             "src_id": str(i + 1),
             "title": f"Test Document {i + 1}",
             "abstract": f"Abstract for document {i + 1}",
@@ -158,7 +157,6 @@ class TestDocumentPipelineSmoke:
             assert "document_chembl_id" in df.columns
             assert "doc_type" in df.columns
             assert "journal_full_title" in df.columns
-            assert "doi_chembl" in df.columns
             assert "src_id" in df.columns
 
             # Check that term and weight columns exist (but empty when enrichment disabled)

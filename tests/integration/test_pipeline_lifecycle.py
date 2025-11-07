@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -68,6 +68,7 @@ class TestPipelineLifecycle:
             datetime.fromisoformat(str(meta_content["requested_at_utc"]).replace("Z", "+00:00"))
             filters_section = meta_content.get("filters")
             assert isinstance(filters_section, dict)
+            filters_section = cast(dict[str, Any], filters_section)
             assert filters_section.get("mode") == "all"
             assert "page_size" in filters_section
             assert meta_content.get("config_version") == pipeline_config_fixture.version

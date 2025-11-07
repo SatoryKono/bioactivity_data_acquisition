@@ -21,6 +21,13 @@ from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.normalizers import (
+    IdentifierRule,
+    StringRule,
+    normalize_identifier_columns,
+    normalize_string_columns,
+)
+from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas.activity import (
     ACTIVITY_PROPERTY_KEYS,
@@ -29,6 +36,7 @@ from bioetl.schemas.activity import (
     STANDARD_TYPES,
     ActivitySchema,
 )
+from bioetl.schemas.vocab import required_vocab_ids
 
 from ..base import PipelineBase, RunResult
 from .activity_enrichment import (
@@ -183,7 +191,7 @@ class ChemblActivityPipeline(PipelineBase):
             "limit": page_size,
             "only": ",".join(select_fields),
         }
-        parameters_dict = dict(sorted(parameters.items())) if isinstance(parameters, Mapping) else {}
+        parameters_dict = dict(sorted(parameters.items()))
         filters_payload: dict[str, Any] = {
             "mode": "all",
             "limit": int(limit) if limit is not None else None,
@@ -453,7 +461,7 @@ class ChemblActivityPipeline(PipelineBase):
             if hasattr(exc, "failure_cases"):
                 failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
             error_count = len(failure_cases_df) if failure_cases_df is not None else 0
-            error_summary = self._extract_validation_errors(exc)
+            error_summary = summarize_schema_errors(exc)
 
             log.error(
                 "validation_failed",
@@ -467,9 +475,7 @@ class ChemblActivityPipeline(PipelineBase):
 
             # Log detailed failure cases if available
             if failure_cases_df is not None and not failure_cases_df.empty:
-                failure_cases_summary = ChemblActivityPipeline._format_failure_cases(
-                    failure_cases_df
-                )
+                failure_cases_summary = format_failure_cases(failure_cases_df)
                 log.error("validation_failure_cases", failure_cases=failure_cases_summary)
                 # Log individual errors with row index and activity_id as per documentation
                 self._log_detailed_validation_errors(failure_cases_df, df, log)
@@ -1598,17 +1604,15 @@ class ChemblActivityPipeline(PipelineBase):
         list[str] | None:
             Список допустимых значений или None, если не настроен.
         """
-        if not self.config.validation:
+        try:
+            values = sorted(required_vocab_ids("data_validity_comment"))
+        except RuntimeError as exc:
+            UnifiedLogger.get(__name__).warning(
+                "data_validity_comment_dictionary_unavailable",
+                error=str(exc),
+            )
             return None
-
-        whitelist = getattr(self.config.validation, "data_validity_comment_whitelist", None)
-        if whitelist is None:
-            return None
-
-        if isinstance(whitelist, Sequence) and not isinstance(whitelist, (str, bytes)):
-            return [str(item) for item in whitelist]  # type: ignore[reportUnknownArgumentType]
-
-        return None
+        return values
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:
         """Extract fields from nested assay and molecule objects."""
@@ -1689,6 +1693,8 @@ class ChemblActivityPipeline(PipelineBase):
         if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
             return record
 
+        properties_seq: Sequence[Any] = cast(Sequence[Any], properties)
+
         # Helper for fallback assignment
         def _set_fallback(key: str, value: Any) -> None:
             """Set fallback value only if key is missing in record and value is not None."""
@@ -1707,7 +1713,7 @@ class ChemblActivityPipeline(PipelineBase):
         # Filter valid property items: must be Mapping with type and at least one of value/text_value
         items: list[Mapping[str, Any]] = [
             cast(Mapping[str, Any], p)
-            for p in properties  # type: ignore[assignment]
+            for p in properties_seq  # type: ignore[assignment]
             if isinstance(p, Mapping)
             and ("type" in p)
             and ("value" in p or "text_value" in p)
@@ -1775,15 +1781,6 @@ class ChemblActivityPipeline(PipelineBase):
                     _set_fallback("standard_text_value", txt)
                 elif val is not None:
                     _set_fallback("standard_text_value", val)
-
-            # Fallback для activity_comment (по типам с подстрокой "comment" или "activity_comment")
-            if record.get("activity_comment") is None and (
-                "comment" in prop_type or "activity_comment" in prop_type
-            ):
-                if txt is not None and not _is_empty(txt):
-                    _set_fallback("activity_comment", str(txt).strip())
-                elif val is not None and not _is_empty(val):
-                    _set_fallback("activity_comment", str(val).strip())
 
         # Fallback для data_validity_comment: извлечь из activity_properties если поле пустое
         current_comment = record.get("data_validity_comment")
@@ -1857,7 +1854,7 @@ class ChemblActivityPipeline(PipelineBase):
 
         # Нормализация и сохранение activity_properties для последующей сериализации
         # Сохраняем все свойства без фильтрации (только валидация TRUV-формата)
-        normalized_properties = self._normalize_activity_properties_items(properties, log)
+        normalized_properties = self._normalize_activity_properties_items(properties_seq, log)
         if normalized_properties is not None:
             # Валидация TRUV-формата и логирование некорректных свойств
             validated_properties, validation_stats = self._validate_activity_properties_truv(
@@ -1873,7 +1870,7 @@ class ChemblActivityPipeline(PipelineBase):
             log.debug(
                 "activity_properties_processed",
                 activity_id=activity_id,
-                original_count=len(properties) if isinstance(properties, Sequence) else 0,
+                original_count=len(properties_seq),
                 normalized_count=len(normalized_properties),
                 validated_count=len(validated_properties),
                 deduplicated_count=len(deduplicated_properties),
@@ -2056,88 +2053,46 @@ class ChemblActivityPipeline(PipelineBase):
 
         return df
 
-    def _ensure_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
-    ) -> pd.DataFrame:
-        """Add missing schema columns so downstream normalization can operate safely.
-
-        Overrides base implementation to handle boolean columns specially.
-        """
-        df = df.copy()
-        if df.empty:
-            return df
-
-        expected = list(column_order)
-        boolean_columns = {
-            "potential_duplicate",
-            "curated",
-            "removed",
-        }
-
-        missing = [column for column in expected if column not in df.columns]
-        if missing:
-            for column in missing:
-                if column in boolean_columns:
-                    df[column] = pd.Series([pd.NA] * len(df), dtype="boolean")
-                else:
-                    df[column] = pd.Series([pd.NA] * len(df), dtype="object")
-            log.debug("schema_columns_added", columns=missing)
-
-        return df
+    def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
+        specs = dict(super()._schema_column_specs())
+        boolean_columns = ("potential_duplicate", "curated", "removed")
+        for column in boolean_columns:
+            specs[column] = {"dtype": "boolean", "default": pd.NA}
+        return specs
 
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL and BAO identifiers with regex validation."""
 
-        df = df.copy()
-        chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
-        bao_id_pattern = re.compile(r"^BAO_\d{7}$")
-
-        chembl_fields = [
-            "assay_chembl_id",
-            "testitem_chembl_id",
-            "molecule_chembl_id",
-            "target_chembl_id",
-            "document_chembl_id",
+        rules = [
+            IdentifierRule(
+                name="chembl",
+                columns=[
+                    "assay_chembl_id",
+                    "testitem_chembl_id",
+                    "molecule_chembl_id",
+                    "target_chembl_id",
+                    "document_chembl_id",
+                ],
+                pattern=r"^CHEMBL\d+$",
+            ),
+            IdentifierRule(
+                name="bao",
+                columns=["bao_endpoint", "bao_format"],
+                pattern=r"^BAO_\d{7}$",
+            ),
         ]
-        bao_fields = ["bao_endpoint", "bao_format"]
 
-        normalized_count = 0
-        invalid_count = 0
+        normalized_df, stats = normalize_identifier_columns(df, rules)
 
-        for field in chembl_fields:
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                df.loc[mask, field] = df.loc[mask, field].astype(str).str.upper().str.strip()
-                valid_mask = df[field].str.match(chembl_id_pattern.pattern, na=False)
-                invalid_mask = mask & ~valid_mask
-                if invalid_mask.any():
-                    invalid_count += int(invalid_mask.sum())
-                    df.loc[invalid_mask, field] = None
-                    normalized_count += int((mask & valid_mask).astype(int).sum())
-
-        for field in bao_fields:
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                df.loc[mask, field] = df.loc[mask, field].astype(str).str.upper().str.strip()
-                valid_mask = df[field].str.match(bao_id_pattern.pattern, na=False)
-                invalid_mask = mask & ~valid_mask
-                if invalid_mask.any():
-                    invalid_count += int(invalid_mask.sum())
-                    df.loc[invalid_mask, field] = None
-                    normalized_count += int((mask & valid_mask).sum())
-
-        if normalized_count > 0 or invalid_count > 0:
+        if stats.has_changes:
             log.debug(
                 "identifiers_normalized",
-                normalized_count=normalized_count,
-                invalid_count=invalid_count,
+                normalized_count=stats.normalized,
+                invalid_count=stats.invalid,
+                columns=list(stats.per_column.keys()),
             )
 
-        return df
+        return normalized_df
 
     def _finalize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Align identifier columns after normalization and drop aliases."""
@@ -2437,31 +2392,11 @@ class ChemblActivityPipeline(PipelineBase):
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields: trim, empty string to null, title-case for organism."""
 
-        df = df.copy()
-
-        string_fields: dict[str, dict[str, Any]] = {
-            "canonical_smiles": {"trim": True, "empty_to_null": True},
-            "bao_label": {"trim": True, "empty_to_null": True, "max_length": 128},
-            "target_organism": {"trim": True, "empty_to_null": True, "title_case": True},
-            "assay_organism": {"trim": True, "empty_to_null": True, "title_case": True},
-            "data_validity_comment": {"trim": True, "empty_to_null": True},
-            "data_validity_description": {"trim": True, "empty_to_null": True},
-            "activity_comment": {"trim": True, "empty_to_null": True},
-            "standard_text_value": {"trim": True, "empty_to_null": True},
-            "text_value": {"trim": True, "empty_to_null": True},
-            "type": {"trim": True, "empty_to_null": True},
-            "units": {"trim": True, "empty_to_null": True},
-            "assay_type": {"trim": True, "empty_to_null": True},
-            "assay_description": {"trim": True, "empty_to_null": True},
-            "molecule_pref_name": {"trim": True, "empty_to_null": True},
-            "target_pref_name": {"trim": True, "empty_to_null": True},
-            "uo_units": {"trim": True, "empty_to_null": True},
-            "qudt_units": {"trim": True, "empty_to_null": True},
-        }
+        working_df = df.copy()
 
         # Проверка инварианта: data_validity_description заполнено при data_validity_comment = NA
-        if "data_validity_description" in df.columns and "data_validity_comment" in df.columns:
-            invalid_mask = df["data_validity_description"].notna() & df["data_validity_comment"].isna()
+        if "data_validity_description" in working_df.columns and "data_validity_comment" in working_df.columns:
+            invalid_mask = working_df["data_validity_description"].notna() & working_df["data_validity_comment"].isna()
             if invalid_mask.any():
                 invalid_count = int(invalid_mask.sum())
                 log.warning(
@@ -2470,25 +2405,36 @@ class ChemblActivityPipeline(PipelineBase):
                     message="data_validity_description is filled while data_validity_comment is NA",
                 )
 
-        for field, options in string_fields.items():
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                series = df.loc[mask, field].astype(str)
-                if options.get("trim"):
-                    series = series.str.strip()
-                if options.get("title_case"):
-                    series = series.str.title()
-                if options.get("max_length"):
-                    max_len = options.get("max_length")
-                    if isinstance(max_len, int):
-                        series = series.str[:max_len]
-                if options.get("empty_to_null"):
-                    series = series.replace("", None)
-                df.loc[mask, field] = series
+        rules: dict[str, StringRule] = {
+            "canonical_smiles": StringRule(),
+            "bao_label": StringRule(max_length=128),
+            "target_organism": StringRule(title_case=True),
+            "assay_organism": StringRule(title_case=True),
+            "data_validity_comment": StringRule(),
+            "data_validity_description": StringRule(),
+            "activity_comment": StringRule(),
+            "standard_text_value": StringRule(),
+            "text_value": StringRule(),
+            "type": StringRule(),
+            "units": StringRule(),
+            "assay_type": StringRule(),
+            "assay_description": StringRule(),
+            "molecule_pref_name": StringRule(),
+            "target_pref_name": StringRule(),
+            "uo_units": StringRule(),
+            "qudt_units": StringRule(),
+        }
 
-        return df
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+
+        if stats.has_changes:
+            log.debug(
+                "string_fields_normalized",
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+
+        return normalized_df
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Serialize nested structures (ligand_efficiency, activity_properties) to JSON strings."""
@@ -3067,73 +3013,6 @@ class ChemblActivityPipeline(PipelineBase):
             raise ValueError(msg)
 
         log.debug("foreign_key_integrity_verified")
-
-    @staticmethod
-    def _extract_validation_errors(exc: pandera.errors.SchemaErrors) -> dict[str, Any]:
-        """Extract structured error information from SchemaErrors."""
-
-        summary: dict[str, Any] = {
-            "error_types": [],
-            "affected_columns": [],
-            "affected_rows": 0,
-        }
-
-        if hasattr(exc, "failure_cases") and not cast(pd.DataFrame, exc.failure_cases).empty:
-            failure_cases = cast(pd.DataFrame, exc.failure_cases)
-            summary["affected_rows"] = int(failure_cases["index"].nunique())
-
-            if "schema_context" in failure_cases.columns:
-                error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts()
-                error_types_raw = error_counts_series.to_dict()  # pyright: ignore[reportUnknownMemberType]
-                error_types_result: dict[Any, int] = cast(dict[Any, int], error_types_raw)
-                summary["error_types"] = dict(error_types_result)
-
-            if "column" in failure_cases.columns:
-                affected_columns = failure_cases["column"].dropna().unique().tolist()
-                summary["affected_columns"] = affected_columns
-
-        if hasattr(exc, "error_counts"):
-            error_counts = getattr(exc, "error_counts", None)
-            if isinstance(error_counts, Mapping):
-                summary["error_counts"] = dict(cast(dict[str, Any], error_counts))
-
-        return summary
-
-    @staticmethod
-    def _format_failure_cases(failure_cases: pd.DataFrame) -> dict[str, Any]:
-        """Format failure_cases DataFrame for logging."""
-
-        if failure_cases.empty:
-            return {}
-
-        formatted: dict[str, Any] = {
-            "total_failures": len(failure_cases),
-            "unique_rows": int(failure_cases["index"].nunique())
-            if "index" in failure_cases.columns
-            else 0,
-        }
-
-        # Group by error type if schema_context is available
-        if "schema_context" in failure_cases.columns:
-            error_counts_series: pd.Series[Any] = failure_cases["schema_context"].value_counts().head(10)
-            error_types_raw = error_counts_series.to_dict()  # pyright: ignore[reportUnknownMemberType]
-            error_types: dict[Any, int] = cast(dict[Any, int], error_types_raw)
-            formatted["error_types"] = dict(error_types)
-
-        # Group by column if available
-        if "column" in failure_cases.columns:
-            column_counts_series: pd.Series[Any] = failure_cases["column"].value_counts().head(10)
-            column_errors_raw = column_counts_series.to_dict()  # pyright: ignore[reportUnknownMemberType]
-            column_errors: dict[Any, int] = cast(dict[Any, int], column_errors_raw)
-            formatted["column_errors"] = dict(column_errors)
-
-        # Sample of failure cases (first 5)
-        if len(failure_cases) > 0:
-            sample = failure_cases.head(5)
-            sample_raw = sample.to_dict("records")  # pyright: ignore[reportUnknownMemberType]
-            formatted["sample"] = cast(list[dict[str, Any]], sample_raw)
-
-        return formatted
 
     def _log_detailed_validation_errors(
         self,

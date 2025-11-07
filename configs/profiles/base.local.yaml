@@ -1,0 +1,25 @@
+# configs/profiles/base.local.yaml
+#
+# Локальный оверлей поверх базового профиля для запуска пайплайнов на рабочей
+# станции разработчика. Подразумевается, что основной профиль уже подключён
+# через `extends`, а этот файл добавляется дополнительно при необходимости.
+
+runtime:
+  parallelism: 1
+  chunk_rows: 20000
+  dry_run: true
+
+io:
+  input:
+    path: data/input/local
+  output:
+    path: data/output/local
+    overwrite: true
+
+logging:
+  level: DEBUG
+
+telemetry:
+  enabled: false
+
+
