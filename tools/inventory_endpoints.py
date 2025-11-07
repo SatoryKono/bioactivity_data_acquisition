@@ -13,10 +13,9 @@ import os
 import re
 import sys
 import tempfile
-from dataclasses import asdict, dataclass
+from collections.abc import Iterable, Iterator, Sequence
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Sequence
-
 
 ROOT = Path("src/bioetl")
 
@@ -26,11 +25,26 @@ HTTP_SOURCES = (
     "aiohttp",
     "UnifiedAPIClient",
     "self._client",
+    "self._chembl_client",
+    "chembl_client",
     "client",
 )
+HTTP_METHODS = (
+    "get",
+    "post",
+    "request",
+    "request_json",
+    "paginate",
+    "handshake",
+)
 HTTP_CALL_PATTERN = re.compile(
-    r"(?:(?:" + "|".join(re.escape(src) for src in HTTP_SOURCES) + \
-    r")\.(?:get|post|request))\((?P<args>.+)",
+    (
+        r"(?:(?:"
+        + "|".join(re.escape(src) for src in HTTP_SOURCES)
+        + r")\.(?:"
+        + "|".join(HTTP_METHODS)
+        + r"))\((?P<args>.+)"
+    ),
     re.DOTALL,
 )
 ONLY_PATTERN = re.compile(r"(?:only|fields|select)\s*=\s*(?P<val>[^,&\\)]+)")
@@ -53,6 +67,16 @@ class EndpointInventoryRecord:
     pagination: bool
     retries: bool
     df_entrypoint: bool
+
+
+@dataclass(slots=True)
+class _ClientAccumulator:
+    endpoints: set[str] = field(default_factory=set)
+    base_urls: set[str] = field(default_factory=set)
+    has_only: bool = False
+    pagination: bool = False
+    retries: bool = False
+    df_entrypoint: bool = False
 
 
 def _load_text(path: Path) -> str:
@@ -102,30 +126,18 @@ def _write_atomic(path: Path, content: str) -> None:
 
 
 def _render_markdown(records: Sequence[EndpointInventoryRecord]) -> str:
-    clients: dict[str, dict[str, Any]] = {}
+    clients: dict[str, _ClientAccumulator] = {}
     for record in records:
         if not record.file.startswith("src/bioetl/clients"):
             continue
-        bucket = clients.setdefault(
-            record.file,
-            {
-                "endpoints": set(),
-                "has_only": False,
-                "pagination": False,
-                "retries": False,
-                "df_entrypoint": False,
-                "base_urls": set(),
-            },
-        )
-        endpoints = bucket["endpoints"]
-        assert isinstance(endpoints, set)
-        endpoints.add(record.http_call.strip())
-        for key in ("has_only", "pagination", "retries", "df_entrypoint"):
-            bucket[key] = bool(bucket[key]) or getattr(record, key)
+        bucket = clients.setdefault(record.file, _ClientAccumulator())
+        bucket.endpoints.add(record.http_call.strip())
+        bucket.has_only = bucket.has_only or record.has_only
+        bucket.pagination = bucket.pagination or record.pagination
+        bucket.retries = bucket.retries or record.retries
+        bucket.df_entrypoint = bucket.df_entrypoint or record.df_entrypoint
         if record.request_base_url:
-            base_urls = bucket["base_urls"]
-            assert isinstance(base_urls, set)
-            base_urls.add(record.request_base_url)
+            bucket.base_urls.add(record.request_base_url)
 
     lines = [
         "# Инвентаризация HTTP-вызовов (клиенты)",
@@ -134,25 +146,14 @@ def _render_markdown(records: Sequence[EndpointInventoryRecord]) -> str:
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for file, info in sorted(clients.items()):
-        base_set = info["base_urls"]
-        assert isinstance(base_set, set)
-        base_urls = ", ".join(sorted(base_set)) if base_set else "—"
+        base_urls = ", ".join(sorted(info.base_urls)) if info.base_urls else "—"
         lines.append(
-            "| `{file}` | {base_urls} | {has_only} | {pagination} | {retries} | {df_entrypoint} |".format(
-                file=file,
-                base_urls=base_urls,
-                has_only=bool(info["has_only"]),
-                pagination=bool(info["pagination"]),
-                retries=bool(info["retries"]),
-                df_entrypoint=bool(info["df_entrypoint"]),
-            )
+            f"| `{file}` | {base_urls} | {info.has_only} | {info.pagination} | {info.retries} | {info.df_entrypoint} |"
         )
     lines.extend(["", "## Endpoint snippets", ""])
     for file, info in sorted(clients.items()):
         lines.append(f"### `{file}`")
-        endpoints = info["endpoints"]
-        assert isinstance(endpoints, set)
-        for endpoint in sorted(endpoints):
+        for endpoint in sorted(info.endpoints):
             lines.append(f"- `{endpoint}`")
         lines.append("")
     return "\n".join(lines)

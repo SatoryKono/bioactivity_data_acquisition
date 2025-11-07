@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pandera import Column, DataFrameSchema
+from collections.abc import Sequence
+
+from pandera import Check, Column, DataFrameSchema
 
 
 def create_schema(
@@ -11,6 +13,7 @@ def create_schema(
     version: str,
     name: str,
     strict: bool = False,
+    checks: Sequence[Check] | None = None,
 ) -> DataFrameSchema:
     """Create a standardized DataFrameSchema with common settings.
 
@@ -24,6 +27,8 @@ def create_schema(
         Schema name (e.g., "AssaySchema").
     strict
         Whether to enforce strict schema validation (only allow defined columns).
+    checks
+        Optional sequence of dataframe-level checks to apply.
 
     Returns
     -------
@@ -35,6 +40,7 @@ def create_schema(
         ordered=True,
         coerce=False,  # Disable coercion at schema level - types are normalized in transform
         strict=strict,
+        checks=list(checks) if checks else None,
         name=f"{name}_v{version}",
     )
 

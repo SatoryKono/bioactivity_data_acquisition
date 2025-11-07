@@ -183,6 +183,21 @@ SCHEMA_REGISTRY.register(
     name=TargetSchema.name,
 )
 
+# Register load_meta schema
+from .load_meta import (  # noqa: E402  (import after registry definition)
+    LoadMetaSchema,
+    COLUMN_ORDER as LOAD_META_COLUMN_ORDER,
+    SCHEMA_VERSION as LOAD_META_SCHEMA_VERSION,
+)
+
+SCHEMA_REGISTRY.register(
+    "bioetl.schemas.load_meta.LoadMetaSchema",
+    schema=LoadMetaSchema,
+    version=LOAD_META_SCHEMA_VERSION,
+    column_order=LOAD_META_COLUMN_ORDER,
+    name=LoadMetaSchema.name,
+)
+
 
 def get_schema(identifier: str) -> SchemaRegistryEntry:
     """Return the schema entry identified by ``identifier``."""

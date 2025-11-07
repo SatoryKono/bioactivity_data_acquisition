@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 __all__ = ["EntityConfig", "ChemblEntityFetcher"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class EntityConfig:
     """Конфигурация для работы с сущностью ChEMBL.
 

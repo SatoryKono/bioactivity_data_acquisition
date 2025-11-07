@@ -1,0 +1,23 @@
+meta:
+  description: "Стандартизированные идентификаторы внешних источников для load_meta"
+  source_urls:
+    - "https://www.ebi.ac.uk/chembl/"
+    - "https://www.uniprot.org/help/id_mapping"
+    - "https://www.guidetopharmacology.org/"
+  updated_at: "2025-11-07"
+values:
+  -
+    id: "chembl_rest"
+    description: "ChEMBL REST API через UnifiedAPIClient"
+    status: "active"
+  -
+    id: "uniprot_idmapping"
+    description: "UniProt ID Mapping сервис"
+    status: "active"
+  -
+    id: "iuphar_rest"
+    description: "IUPHAR / Guide to PHARMACOLOGY REST API"
+    status: "active"
+rules:
+  normalization: "строчные идентификаторы, подчёркивания, без дополнительного декора"
+
