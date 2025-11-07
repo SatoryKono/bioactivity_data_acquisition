@@ -8,7 +8,7 @@ and data extraction utilities.
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
 from urllib.parse import urlparse
@@ -83,6 +83,12 @@ class ChemblPipelineBase(PipelineBase):
             raise KeyError(msg) from exc
 
     @staticmethod
+    def _stringify_mapping(mapping: Mapping[object, Any]) -> dict[str, Any]:
+        """Return mapping with stringified keys preserving values."""
+
+        return {str(key): value for key, value in mapping.items()}
+
+    @staticmethod
     def _normalize_parameters(parameters: Any) -> dict[str, Any]:
         """Return parameters as a plain mapping.
 
@@ -100,23 +106,27 @@ class ChemblPipelineBase(PipelineBase):
         """
 
         if isinstance(parameters, Mapping):
-            return {str(key): value for key, value in parameters.items()}
+            mapping = cast(Mapping[object, Any], parameters)
+            return ChemblPipelineBase._stringify_mapping(mapping)
 
         model_dump = getattr(parameters, "model_dump", None)
         if callable(model_dump):
             dumped = model_dump()
             if isinstance(dumped, Mapping):
-                return {str(key): value for key, value in dumped.items()}
+                mapping = cast(Mapping[object, Any], dumped)
+                return ChemblPipelineBase._stringify_mapping(mapping)
 
         as_dict = getattr(parameters, "dict", None)
         if callable(as_dict):
             dumped = as_dict()
             if isinstance(dumped, Mapping):
-                return {str(key): value for key, value in dumped.items()}
+                mapping = cast(Mapping[object, Any], dumped)
+                return ChemblPipelineBase._stringify_mapping(mapping)
 
         attrs = getattr(parameters, "__dict__", None)
         if isinstance(attrs, dict):
-            return {str(key): value for key, value in attrs.items() if not key.startswith("_")}
+            attr_mapping = cast(dict[str, Any], attrs)
+            return {key: value for key, value in attr_mapping.items() if not key.startswith("_")}
 
         return {}
 
@@ -173,7 +183,8 @@ class ChemblPipelineBase(PipelineBase):
         if batch_size is None:
             parameters = getattr(source_config, "parameters", {})
             if isinstance(parameters, Mapping):
-                candidate: Any = parameters.get("batch_size")  # pyright: ignore[reportAssignmentType]
+                parameters_mapping = cast(Mapping[str, Any], parameters)
+                candidate: Any = parameters_mapping.get("batch_size")
                 if isinstance(candidate, int) and candidate > 0:
                     batch_size = candidate
         if batch_size is None or batch_size <= 0:
@@ -281,12 +292,15 @@ class ChemblPipelineBase(PipelineBase):
         release_value: str | None = None
 
         # Check if client is ChemblClient by checking for handshake method
-        if hasattr(client, "handshake") and callable(getattr(client, "handshake", None)):  # pyright: ignore[reportArgumentType]
+        handshake_candidate = getattr(client, "handshake", None)
+        if callable(handshake_candidate):
+            handshake = cast(Callable[[str], Any], handshake_candidate)
             request_timestamp = datetime.now(timezone.utc)
             try:
-                status = client.handshake("/status")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
+                status = handshake("/status")
                 if isinstance(status, Mapping):
-                    candidate = status.get("chembl_db_version") or status.get("chembl_release")  # pyright: ignore[reportAssignmentType]
+                    status_mapping = cast(Mapping[str, Any], status)
+                    candidate = status_mapping.get("chembl_db_version") or status_mapping.get("chembl_release")
                     if isinstance(candidate, str):
                         release_value = candidate
                         log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
@@ -300,12 +314,16 @@ class ChemblPipelineBase(PipelineBase):
             return release_value
 
         # Use direct HTTP for UnifiedAPIClient
-        if hasattr(client, "get") and callable(getattr(client, "get", None)):  # pyright: ignore[reportArgumentType]
+        get_candidate = getattr(client, "get", None)
+        if callable(get_candidate):
+            client_get = cast(Callable[..., Any], get_candidate)
             request_timestamp = datetime.now(timezone.utc)
             try:
-                response = client.get("/status.json")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
-                if hasattr(response, "json"):  # pyright: ignore[reportArgumentType]
-                    status_payload = self._coerce_mapping(response.json())  # pyright: ignore[reportAttributeAccessIssue, reportAny]
+                response = client_get("/status.json")
+                json_candidate = getattr(response, "json", None)
+                if callable(json_candidate):
+                    status_payload_raw = json_candidate()
+                    status_payload = self._coerce_mapping(status_payload_raw)
                     release_value = self._extract_chembl_release(status_payload)
                     log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
             except Exception as exc:
@@ -318,6 +336,15 @@ class ChemblPipelineBase(PipelineBase):
             return release_value
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
         return None
+
+    def _fetch_chembl_release(
+        self,
+        client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
+        log: BoundLogger | None = None,
+    ) -> str | None:
+        """Backward compatible wrapper for tests expecting private method."""
+
+        return self.fetch_chembl_release(client, log)
 
     @staticmethod
     def _extract_chembl_release(payload: Mapping[str, Any]) -> str | None:
@@ -358,7 +385,8 @@ class ChemblPipelineBase(PipelineBase):
             Dictionary representation of the payload.
         """
         if isinstance(payload, Mapping):
-            return cast(dict[str, Any], payload)
+            mapping = cast(Mapping[object, Any], payload)
+            return ChemblPipelineBase._stringify_mapping(mapping)
         return {}
 
     @staticmethod
@@ -384,15 +412,15 @@ class ChemblPipelineBase(PipelineBase):
         if items_keys is None:
             items_keys = ("data", "items", "results")
 
-        candidates: list[dict[str, Any]] = []
         for key in items_keys:
-            value: Any = payload.get(key)  # pyright: ignore[reportAssignmentType]
-            if isinstance(value, Sequence):
-                candidates = [
-                    cast(dict[str, Any], item)  # pyright: ignore[reportAny, reportArgumentType, reportUnknownArgumentType]
-                    for item in value  # pyright: ignore[reportUnknownVariableType]
-                    if isinstance(item, Mapping)
-                ]
+            value = payload.get(key)
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+                candidates: list[dict[str, Any]] = []
+                sequence_items = cast(Sequence[object], value)
+                for item in sequence_items:
+                    if isinstance(item, Mapping):
+                        mapping = cast(Mapping[object, Any], item)
+                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
                 if candidates:
                     return candidates
 
@@ -400,12 +428,13 @@ class ChemblPipelineBase(PipelineBase):
         for key, value in payload.items():
             if key == "page_meta":
                 continue
-            if isinstance(value, Sequence):
-                candidates = [
-                    cast(dict[str, Any], item)  # pyright: ignore[reportAny, reportArgumentType, reportUnknownArgumentType]
-                    for item in value  # pyright: ignore[reportUnknownVariableType]
-                    if isinstance(item, Mapping)
-                ]
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+                candidates = []
+                sequence_items = cast(Sequence[object], value)
+                for item in sequence_items:
+                    if isinstance(item, Mapping):
+                        mapping = cast(Mapping[object, Any], item)
+                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
                 if candidates:
                     return candidates
         return []
@@ -426,37 +455,39 @@ class ChemblPipelineBase(PipelineBase):
         str | None
             Relative path for the next page, or None if no next page.
         """
-        page_meta: Any = payload.get("page_meta")  # pyright: ignore[reportAssignmentType]
+        page_meta = payload.get("page_meta")
         if not isinstance(page_meta, Mapping):
             return None
 
-        next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportAssignmentType]
-        next_link: str | None = (
-            cast(str | None, next_link_raw) if next_link_raw is not None else None
-        )
-        if not isinstance(next_link, str) or not next_link:
+        page_meta_mapping = cast(Mapping[str, Any], page_meta)
+        next_link_raw = page_meta_mapping.get("next")
+        if not isinstance(next_link_raw, str):
+            return None
+
+        next_link = next_link_raw.strip()
+        if not next_link:
             return None
 
         # If next_link is a full URL, extract only the relative path
         if next_link.startswith("http://") or next_link.startswith("https://"):
-            parsed = urlparse(next_link)  # pyright: ignore[reportArgumentType]
-            base_parsed = urlparse(base_url)  # pyright: ignore[reportArgumentType]
+            parsed = urlparse(next_link)
+            base_parsed = urlparse(base_url)
 
             # Normalize paths: remove trailing slashes for comparison
-            path = parsed.path.rstrip("/")  # pyright: ignore[reportArgumentType]
-            base_path = base_parsed.path.rstrip("/")  # pyright: ignore[reportArgumentType]
+            path = parsed.path.rstrip("/")
+            base_path = base_parsed.path.rstrip("/")
 
             # If paths match, return just the path with query
-            if path == base_path or path.startswith(base_path + "/"):  # pyright: ignore[reportArgumentType]
-                relative_path = path[len(base_path) :] if path.startswith(base_path) else path  # pyright: ignore[reportArgumentType]
+            if path == base_path or path.startswith(f"{base_path}/"):
+                relative_path = path[len(base_path) :] if path.startswith(base_path) else path
                 if parsed.query:
                     return f"{relative_path}?{parsed.query}"
-                return relative_path  # pyright: ignore[reportReturnType]
+                return relative_path
 
             # If base paths don't match, return full URL path + query
             if parsed.query:
-                return f"{parsed.path}?{parsed.query}"  # pyright: ignore[reportReturnType]
-            return parsed.path  # pyright: ignore[reportReturnType]
+                return f"{parsed.path}?{parsed.query}"
+            return parsed.path
 
         # Already a relative path
         return next_link

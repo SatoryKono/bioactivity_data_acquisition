@@ -474,39 +474,42 @@ def _extract_molecule_name(record: dict[str, Any], fallback_id: str) -> str:
 
     # Приоритет 2: первый элемент из molecule_synonyms
     synonyms = record.get("molecule_synonyms")
-    if isinstance(synonyms, list):
-        for entry in synonyms:
-            if isinstance(entry, Mapping):
-                synonym_value = entry.get("molecule_synonym")
-                if isinstance(synonym_value, str):
-                    candidate = synonym_value.strip()
-                    if candidate:
-                        return candidate
-            elif isinstance(entry, str):
-                candidate = entry.strip()
-                if candidate:
-                    return candidate
-    elif isinstance(synonyms, Mapping):
-        synonym_entry = synonyms.get("molecule_synonym")
-        if isinstance(synonym_entry, list):
-            for raw_value in synonym_entry:
-                if isinstance(raw_value, Mapping):
-                    nested_value = raw_value.get("molecule_synonym")
-                    if isinstance(nested_value, str):
-                        candidate = nested_value.strip()
-                        if candidate:
-                            return candidate
-                elif isinstance(raw_value, str):
-                    candidate = raw_value.strip()
-                    if candidate:
-                        return candidate
-        elif isinstance(synonym_entry, str):
-            candidate = synonym_entry.strip()
-            if candidate:
-                return candidate
+    candidate_synonym = _find_first_nonempty_synonym(synonyms)
+    if candidate_synonym is not None:
+        return candidate_synonym
 
     # Приоритет 3: fallback на molecule_key
     return fallback_id
+
+
+def _find_first_nonempty_synonym(value: Any) -> str | None:
+    """Извлечь первый непустой synonym как строку."""
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        return stripped or None
+
+    if isinstance(value, Mapping):
+        mapping_value = cast(Mapping[str, Any], value)
+        nested = mapping_value.get("molecule_synonym")
+        return _find_first_nonempty_synonym(nested)
+
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        sequence_value = cast(Sequence[object], value)
+        return _find_first_nonempty_synonym_in_sequence(sequence_value)
+
+    return None
+
+
+def _find_first_nonempty_synonym_in_sequence(sequence: Sequence[object]) -> str | None:
+    """Обработать последовательность synonymов, возвращая первый непустой."""
+
+    for entry in sequence:
+        nested_candidate = _find_first_nonempty_synonym(entry)
+        if nested_candidate is not None:
+            return nested_candidate
+
+    return None
 
 
 def _create_empty_result() -> pd.DataFrame:

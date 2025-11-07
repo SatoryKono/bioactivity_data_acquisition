@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from bioetl.schemas.base import create_schema
-from bioetl.schemas.common import (chembl_id_column, nullable_pd_int64_column,
-                                   nullable_string_column,
-                                   string_column_with_check, uuid_column)
+from bioetl.schemas.common import (
+    chembl_id_column,
+    nullable_pd_int64_column,
+    nullable_string_column,
+    string_column_with_check,
+    uuid_column,
+)
 from bioetl.schemas.vocab import required_vocab_ids
 
 TARGET_TYPES = required_vocab_ids("target_type")

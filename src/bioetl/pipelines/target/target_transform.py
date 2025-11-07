@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any, TypeGuard, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -19,18 +19,30 @@ __all__ = [
 ]
 
 
-def _collect_dicts(source: Any) -> list[dict[str, Any]]:
+JsonDict = dict[str, Any]
+
+
+def _is_json_dict(value: Any) -> TypeGuard[JsonDict]:
+    return isinstance(value, dict)
+
+
+def _is_iterable_of_objects(value: Any) -> TypeGuard[Iterable[Any]]:
+    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
+
+
+def _collect_dicts(source: Any) -> list[JsonDict]:
     """Collect dictionary entries from arbitrary source keeping order."""
 
-    result: list[dict[str, Any]] = []
-    if isinstance(source, dict):
+    result: list[JsonDict] = []
+    if _is_json_dict(source):
         result.append(source)
         return result
 
-    if isinstance(source, Iterable) and not isinstance(source, (str, bytes)):
+    if _is_iterable_of_objects(source):
         for element in source:
-            if isinstance(element, dict):
-                result.append(element)
+            element_any: Any = element
+            if _is_json_dict(element_any):
+                result.append(element_any)
 
     return result
 

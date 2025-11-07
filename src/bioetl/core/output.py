@@ -67,27 +67,33 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
 
     result = df.copy()
 
-    row_records: list[dict[str, Any]] = []
-    for tuple_values in result[row_fields].itertuples(index=False, name=None):
-        record = dict(zip(row_fields, tuple_values, strict=True))
-        row_records.append(record)
-    row_hashes = [
-        hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
-    ]
-    result[row_column] = pd.Series(row_hashes, index=result.index, dtype="string")
+    recompute_row_hash = row_column not in result.columns or result[row_column].isna().any()
+    if recompute_row_hash:
+        row_records: list[dict[str, Any]] = []
+        for tuple_values in result[row_fields].itertuples(index=False, name=None):
+            record = dict(zip(row_fields, tuple_values, strict=True))
+            row_records.append(record)
+        row_hashes = [
+            hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
+        ]
+        result[row_column] = pd.Series(row_hashes, index=result.index, dtype="string")
 
     if business_fields:
-        business_records: list[dict[str, Any]] = []
-        for tuple_values in result[business_fields].itertuples(index=False, name=None):
-            record = dict(zip(business_fields, tuple_values, strict=True))
-            business_records.append(record)
-        business_hashes = [
-            hash_from_mapping(record, business_fields, algorithm=algorithm)
-            for record in business_records
-        ]
-        result[business_column] = pd.Series(
-            business_hashes, index=result.index, dtype="string"
+        recompute_business_hash = (
+            business_column not in result.columns or result[business_column].isna().any()
         )
+        if recompute_business_hash:
+            business_records: list[dict[str, Any]] = []
+            for tuple_values in result[business_fields].itertuples(index=False, name=None):
+                record = dict(zip(business_fields, tuple_values, strict=True))
+                business_records.append(record)
+            business_hashes = [
+                hash_from_mapping(record, business_fields, algorithm=algorithm)
+                for record in business_records
+            ]
+            result[business_column] = pd.Series(
+                business_hashes, index=result.index, dtype="string"
+            )
 
     return result
 

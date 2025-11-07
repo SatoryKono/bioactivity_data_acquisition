@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -1521,9 +1521,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df_result["assay_organism"] = df_result["assay_organism"].astype("string")
 
         # assay_tax_id может приходить строкой — приводим к Int64 с NA
-        df_result["assay_tax_id"] = pd.to_numeric(
+        df_result["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
             df_result["assay_tax_id"], errors="coerce"
-        ).astype("Int64")  # pyright: ignore[reportUnknownMemberType]
+        ).astype("Int64")
 
         # Проверка диапазона для assay_tax_id (>= 1 или NA)
         mask_valid = df_result["assay_tax_id"].notna()
@@ -1719,8 +1719,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
             return record
 
-        properties_sequence = cast(Sequence[Any], properties)
-        property_items: list[Any] = list(properties_sequence)
+        property_iterable: Iterable[Any] = cast(Iterable[Any], properties)
+        property_items: list[Any] = list(property_iterable)
 
         # Helper for fallback assignment
         def _set_fallback(key: str, value: Any) -> None:

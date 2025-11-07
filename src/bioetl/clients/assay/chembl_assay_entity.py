@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from bioetl.clients.chembl_base import ChemblClientProtocol, ChemblEntityFetcher, EntityConfig
 
 if TYPE_CHECKING:
-    from bioetl.clients import ChemblClient
+    from bioetl.clients.chembl import ChemblClient
 
 __all__ = ["ChemblAssayEntityClient"]
 

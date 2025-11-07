@@ -81,10 +81,10 @@ def extract_pipeline_base_signatures() -> dict[str, Any]:
             continue
         signatures[name] = extract_method_signature(method)
 
-    for name, method in inspect.getmembers(PipelineBase, predicate=inspect.ismethod):
+    for name, bound_method in inspect.getmembers(PipelineBase, predicate=inspect.ismethod):
         if name.startswith("_"):
             continue
-        signatures.setdefault(name, extract_method_signature(method))
+        signatures.setdefault(name, extract_method_signature(bound_method))
 
     for name, attr in PipelineBase.__dict__.items():
         if name.startswith("_"):

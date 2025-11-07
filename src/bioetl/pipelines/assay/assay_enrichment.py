@@ -316,7 +316,7 @@ def enrich_with_assay_parameters(
         df_assay["assay_parameters"] = pd.NA
 
     # Обработать каждую запись assay
-    for idx, row in df_assay.iterrows():
+    for row_position, (_, row) in enumerate(df_assay.iterrows()):
         assay_id = row.get("assay_chembl_id")
         if pd.isna(assay_id) or assay_id is None:
             continue
@@ -340,7 +340,11 @@ def enrich_with_assay_parameters(
 
         # Сериализовать массив в JSON-строку
         if params_list:
-            df_assay.at[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)
+            index_label = df_assay.index[row_position]
+            df_assay.loc[index_label, "assay_parameters"] = json.dumps(
+                params_list,
+                ensure_ascii=False,
+            )
 
     log.info(
         "enrichment_parameters_complete",

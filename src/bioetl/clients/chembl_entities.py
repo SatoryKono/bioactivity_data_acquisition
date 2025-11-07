@@ -10,6 +10,7 @@ from bioetl.clients.chembl_base import (
     ChemblEntityFetcher,
     EntityConfig,
 )
+from bioetl.core.logger import UnifiedLogger
 
 __all__ = [
     "ChemblMoleculeEntityClient",
@@ -167,7 +168,7 @@ class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
                 params["only"] = ",".join(fields)
 
             try:
-                for record in self._chembl_client.paginate(  # type: ignore[attr-defined]
+                for record in self._chembl_client.paginate(
                     self._config.endpoint,
                     params=params,
                     page_size=page_limit,
@@ -188,7 +189,7 @@ class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
 class ChemblAssayClassificationEntityClient(ChemblEntityFetcher):
     """Клиент для получения assay_classification записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для assay_classification.
 
         Parameters
@@ -293,7 +294,7 @@ class ChemblCompoundRecordEntityClient:
     вместо простых ID, поэтому не наследуется от ChemblEntityFetcher.
     """
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для compound_record.
 
         Parameters
@@ -302,7 +303,7 @@ class ChemblCompoundRecordEntityClient:
             Экземпляр ChemblClient для выполнения запросов.
         """
         self._chembl_client = chembl_client
-        self._log = chembl_client._log.bind(component="compound_record")  # type: ignore[attr-defined]
+        self._log = UnifiedLogger.get(__name__).bind(component="compound_record")
 
     def fetch_by_pairs(
         self,
@@ -366,7 +367,7 @@ class ChemblCompoundRecordEntityClient:
                     params["only"] = ",".join(fields)
 
                 try:
-                    for record in self._chembl_client.paginate(  # type: ignore[attr-defined]
+                    for record in self._chembl_client.paginate(
                         "/compound_record.json",
                         params=params,
                         page_size=page_limit,

@@ -13,7 +13,8 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.clients import ChemblClient, ChemblTargetClient
+from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.target.chembl_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
@@ -77,7 +78,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)  # type: ignore[arg-type]
+        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -162,7 +163,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)  # type: ignore[arg-type]
+        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -615,7 +616,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                     if level_value is not None:
                                         # Convert to string, handling NaN values
                                         if isinstance(level_value, (float, int)):
-                                            if pd.isna(level_value):  # type: ignore[arg-type]
+                                            if pd.isna(level_value):
                                                 path_levels[i - 1] = None
                                             else:
                                                 path_levels[i - 1] = str(level_value)

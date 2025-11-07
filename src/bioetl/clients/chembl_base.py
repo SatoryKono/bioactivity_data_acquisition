@@ -83,7 +83,7 @@ class ChemblEntityFetcher:
         config:
             Конфигурация сущности.
         """
-        self._chembl_client = chembl_client
+        self._chembl_client: ChemblClientProtocol = chembl_client
         self._config = config
         self._log = UnifiedLogger.get(__name__).bind(
             component="chembl_entity",
@@ -143,7 +143,7 @@ class ChemblEntityFetcher:
                 params["only"] = ",".join(fields)
 
             try:
-                for record in self._chembl_client.paginate(  # type: ignore[attr-defined]
+                for record in self._chembl_client.paginate(
                     self._config.endpoint,
                     params=params,
                     page_size=page_limit,

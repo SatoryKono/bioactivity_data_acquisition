@@ -80,9 +80,9 @@ COLUMN_ORDER = (
     "compound_name",
     "curated",
     "removed",
+    "load_meta_id",
     "hash_row",
     "hash_business_key",
-    "load_meta_id",
 )
 
 STANDARD_TYPES = required_vocab_ids("activity_standard_type")
@@ -227,9 +227,9 @@ ActivitySchema = create_schema(
         "compound_name": nullable_string_column(),
         "curated": boolean_flag_column(),
         "removed": boolean_flag_column(),
+        "load_meta_id": uuid_column(nullable=False),
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
-        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="ActivitySchema",

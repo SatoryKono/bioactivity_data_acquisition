@@ -14,10 +14,20 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 import yaml
-from chembl_webresource_client.new_client import new_client
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.etl.vocab_store import VocabStoreError, load_vocab_store
+from bioetl.tools.chembl_stub import get_offline_new_client
+
+_chembl_new_client: Any | None = None
+_chembl_import_error: Exception | None = None
+try:  # pragma: no cover - runtime optional dependency
+    from chembl_webresource_client.new_client import new_client as _chembl_new_client
+except Exception as exc:  # pragma: no cover - offline fallback
+    _chembl_new_client = None
+    _chembl_import_error = exc
+else:  # pragma: no cover - executed when dependency available
+    _chembl_import_error = None
 
 __all__ = ["audit_vocabularies", "FieldSpec"]
 
@@ -43,6 +53,14 @@ class _ResourceProtocol(Protocol):
         ...
 
 
+class _ChemblClientProtocol(Protocol):
+    activity: _ResourceProtocol
+    assay: _ResourceProtocol
+    target: _ResourceProtocol
+    data_validity_lookup: _ResourceProtocol
+    mechanism: _ResourceProtocol
+
+
 @dataclass(frozen=True)
 class FieldSpec:
     dictionary: str
@@ -50,6 +68,35 @@ class FieldSpec:
     field: str
     only: str | None = None
     filters: Mapping[str, Any] | None = None
+
+
+OFFLINE_CLIENT_ENV = "BIOETL_OFFLINE_CHEMBL_CLIENT"
+
+
+def _is_truthy(value: str | None) -> bool:
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    return normalized in {"1", "true", "yes", "on"}
+
+
+def _resolve_chembl_client() -> _ChemblClientProtocol:
+    use_offline = _is_truthy(os.getenv(OFFLINE_CLIENT_ENV))
+    if not use_offline and _chembl_new_client is not None:
+        return cast(_ChemblClientProtocol, _chembl_new_client)
+
+    log = UnifiedLogger.get(__name__)
+    if _chembl_import_error is not None:
+        log.warning(
+            "chembl_client.offline_stub_activated",
+            reason=str(_chembl_import_error),
+        )
+    else:
+        log.info("chembl_client.offline_stub_forced")
+    return cast(_ChemblClientProtocol, get_offline_new_client())
+
+
+new_client: _ChemblClientProtocol = _resolve_chembl_client()
 
 
 FIELD_SPECS: tuple[FieldSpec, ...] = (
@@ -231,18 +278,24 @@ def _git_commit() -> str:
 
 
 def _extract_release(store: Mapping[str, object]) -> str | None:
-    meta = store.get("meta")
-    if isinstance(meta, Mapping):
-        release = meta.get("chembl_release")
-        if isinstance(release, str):
-            return release
+    meta_obj = store.get("meta")
+    if isinstance(meta_obj, Mapping):
+        meta_mapping = cast(Mapping[str, object], meta_obj)
+        release_obj = meta_mapping.get("chembl_release")
+        if isinstance(release_obj, str):
+            return release_obj
+
     for block in store.values():
-        if isinstance(block, Mapping):
-            block_meta = block.get("meta")
-            if isinstance(block_meta, Mapping):
-                release = block_meta.get("chembl_release")
-                if isinstance(release, str):
-                    return release
+        if not isinstance(block, Mapping):
+            continue
+        block_mapping = cast(Mapping[str, object], block)
+        block_meta = block_mapping.get("meta")
+        if not isinstance(block_meta, Mapping):
+            continue
+        block_meta_mapping = cast(Mapping[str, object], block_meta)
+        release_obj = block_meta_mapping.get("chembl_release")
+        if isinstance(release_obj, str):
+            return release_obj
     return None
 
 

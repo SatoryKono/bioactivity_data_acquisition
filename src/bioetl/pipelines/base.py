@@ -418,17 +418,19 @@ class PipelineBase(ABC):
 
         def _normalise_value(candidate: Any) -> Any:
             if isinstance(candidate, Mapping):
+                mapping_items = cast(Mapping[object, Any], candidate)
                 normalised_items: list[tuple[str, Any]] = []
-                for mapping_key_any, mapping_value_any in candidate.items():
-                    key_as_str = str(mapping_key_any)
-                    normalised_value = _normalise_value(mapping_value_any)
+                for key, value in mapping_items.items():
+                    key_as_str = str(key)
+                    normalised_value = _normalise_value(value)
                     normalised_items.append((key_as_str, normalised_value))
                 normalised_items.sort(key=lambda item: item[0])
                 return dict(normalised_items)
             if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
                 normalised_sequence: list[Any] = []
-                for sequence_item_any in candidate:
-                    normalised_sequence.append(_normalise_value(sequence_item_any))
+                sequence_items = cast(Sequence[object], candidate)
+                for item in sequence_items:
+                    normalised_sequence.append(_normalise_value(item))
                 return normalised_sequence
             if isinstance(candidate, datetime):
                 return _normalise_timestamp(candidate)
@@ -1011,9 +1013,19 @@ class PipelineBase(ABC):
                 factory = spec.get("factory")
                 if callable(factory):
                     produced = factory(row_count)
-                    if isinstance(produced, pd.Series) and len(produced) == row_count:
-                        df[column] = produced
-                        continue
+                    if isinstance(produced, pd.Series):
+                        produced_series = cast(pd.Series[Any], produced)
+                        if len(produced_series) == row_count:
+                            df[column] = produced_series
+                            continue
+                    if isinstance(produced, Sequence) and not isinstance(
+                        produced, (str, bytes, bytearray)
+                    ):
+                        produced_sequence = cast(Sequence[object], produced)
+                        produced_list = [cast(Any, item) for item in produced_sequence]
+                        if len(produced_list) == row_count:
+                            df[column] = produced_list
+                            continue
                 default_value = spec.get("default", pd.NA)
                 dtype = spec.get("dtype")
                 if dtype is not None:

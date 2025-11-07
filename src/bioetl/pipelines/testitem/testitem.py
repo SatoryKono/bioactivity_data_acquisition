@@ -150,7 +150,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         ):
             records.append(item)
 
-        dataframe = pd.DataFrame.from_records(records)
+        dataframe = pd.DataFrame(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
         elif "molecule_chembl_id" in dataframe.columns:
@@ -267,7 +267,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             if limit is not None and len(records) >= limit:
                 break
 
-        dataframe = pd.DataFrame.from_records(records)
+        dataframe = pd.DataFrame(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
         elif "molecule_chembl_id" in dataframe.columns:

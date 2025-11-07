@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeGuard, cast
 
 import yaml
 from yaml.nodes import ScalarNode
@@ -17,6 +17,14 @@ ENV_ROOT_DIR = Path("configs/env")
 ENVIRONMENT_VARIABLE = "BIOETL_ENV"
 VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
+
+
+def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
+    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
+
+
+def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
+    return isinstance(value, list)
 
 
 def load_config(
@@ -195,6 +203,28 @@ def _load_yaml(path: Path) -> Any:
     return _apply_yaml_merge(data)
 
 
+def _convert_mapping_to_string_keys(
+    value: Any,
+    *,
+    context: str,
+) -> dict[str, Any]:
+    candidate_mapping = cast(Mapping[Any, Any], value)
+    normalized: dict[str, Any] = {}
+    invalid_keys: list[Any] = []
+    for raw_key, raw_value in candidate_mapping.items():
+        key_any: Any = raw_key
+        value_any: Any = raw_value
+        if isinstance(key_any, str):
+            normalized[key_any] = value_any
+        else:
+            invalid_keys.append(key_any)
+    if invalid_keys:
+        keys = ", ".join(map(str, invalid_keys))
+        msg = f"{context} (invalid keys: {keys})"
+        raise TypeError(msg)
+    return normalized
+
+
 def _apply_yaml_merge(payload: Any) -> Any:
     if isinstance(payload, MutableMapping):
         typed_payload = cast(MutableMapping[str, Any], payload)
@@ -206,20 +236,24 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         if merge_value is not None:
             def _normalize_merge_source(candidate: Any) -> Mapping[str, Any]:
-                merged_candidate = _apply_yaml_merge(candidate)
-                if not isinstance(merged_candidate, Mapping):
+                merged_candidate_any: Any = _apply_yaml_merge(candidate)
+                if not isinstance(merged_candidate_any, Mapping):
                     msg = "YAML merge source must be a mapping"
                     raise TypeError(msg)
-                return cast(Mapping[str, Any], merged_candidate)
+                normalized = _convert_mapping_to_string_keys(
+                    merged_candidate_any,
+                    context="YAML merge source must use string keys",
+                )
+                return normalized
 
             if isinstance(merge_value, Mapping):
                 typed_sources: tuple[Mapping[str, Any], ...] = (
                     _normalize_merge_source(merge_value),
                 )
-            elif isinstance(merge_value, Iterable) and not isinstance(merge_value, (str, bytes)):
+            elif _is_non_string_iterable(merge_value):
+                merge_iterable: Iterable[Any] = merge_value
                 typed_sources = tuple(
-                    _normalize_merge_source(source)
-                    for source in cast(Iterable[Any], merge_value)
+                    _normalize_merge_source(source_any) for source_any in merge_iterable
                 )
             else:
                 typed_sources = (
@@ -238,21 +272,20 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
             existing_value = result.get(key_str)
             if isinstance(existing_value, Mapping) and isinstance(processed_value, Mapping):
-                result[key_str] = _deep_merge(
-                    cast(Mapping[str, Any], existing_value),
-                    cast(Mapping[str, Any], processed_value),
-                )
+                existing_mapping = cast(Mapping[str, Any], existing_value)
+                processed_mapping = cast(Mapping[str, Any], processed_value)
+                result[key_str] = _deep_merge(existing_mapping, processed_mapping)
             else:
                 result[key_str] = processed_value
 
         return result
 
-    if isinstance(payload, list):
-        typed_list = cast(list[Any], payload)
-        merged_elements: list[Any] = []
-        for element in typed_list:
-            merged_elements.append(_apply_yaml_merge(element))
-        return merged_elements
+    if _is_any_list(payload):
+        payload_list: list[Any] = payload
+        return [
+            _apply_yaml_merge(element_any)
+            for element_any in payload_list
+        ]
 
     return payload
 
@@ -261,15 +294,10 @@ def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
     if not isinstance(value, MutableMapping):
         msg = f"Configuration file must produce a mapping: {path}"
         raise TypeError(msg)
-    typed_value = cast(MutableMapping[Any, Any], value)
-    non_string_keys: list[Any] = [key for key in typed_value.keys() if not isinstance(key, str)]
-    if non_string_keys:
-        keys = ", ".join(map(str, non_string_keys))
-        msg = f"Configuration mapping must use string keys: {path} (invalid keys: {keys})"
-        raise TypeError(msg)
-    typed_mapping = cast(MutableMapping[str, Any], typed_value)
-    result: dict[str, Any] = dict(typed_mapping)
-    return result
+    return _convert_mapping_to_string_keys(
+        value,
+        context=f"Configuration mapping must use string keys: {path}",
+    )
 
 
 def _resolve_reference(value: str | Path, *, base: Path) -> Path:

@@ -14,7 +14,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from structlog.stdlib import BoundLogger
@@ -207,9 +207,11 @@ def get_logger(name: str = "bioetl") -> BoundLogger:
     """Return a configured bound logger."""
 
     logger = structlog.get_logger(name)
-    if not isinstance(logger, BoundLogger):
-        raise TypeError("structlog.get_logger returned unexpected logger type")
-    return logger
+    if isinstance(logger, BoundLogger):
+        return logger
+    if hasattr(logger, "bind") and callable(getattr(logger, "bind", None)):
+        return cast(BoundLogger, logger)
+    raise TypeError("structlog.get_logger returned unexpected logger type")
 
 
 # ---------------------------------------------------------------------------

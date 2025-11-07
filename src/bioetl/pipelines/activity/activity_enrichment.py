@@ -180,9 +180,9 @@ def enrich_with_assay(
     df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
 
     # assay_tax_id может приходить строкой — приводим к Int64 с NA
-    df_merged["assay_tax_id"] = pd.to_numeric(
+    df_merged["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
         df_merged["assay_tax_id"], errors="coerce"
-    ).astype("Int64")  # pyright: ignore[reportUnknownMemberType]
+    ).astype("Int64")
 
     log.info(
         "enrichment_completed",

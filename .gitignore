@@ -1,4 +1,4 @@
-### Python template (https://github.com/github/gitignore/blob/main/Python.gitignore)
+# Python template baseline — https://github.com/github/gitignore/blob/main/Python.gitignore
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -26,10 +26,11 @@ var/
 wheels/
 share/python-wheels/
 *.egg-info/
-src/bioetl.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
+pip-wheel-metadata/
+src/bioetl.egg-info/
 
 # PyInstaller
 *.manifest
@@ -45,7 +46,6 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache/
 .pytest_cache/
 nosetests.xml
 coverage.xml
@@ -81,7 +81,6 @@ target/
 
 # Jupyter
 .ipynb_checkpoints/
-*.ipynb
 
 # IPython
 profile_default/
@@ -135,6 +134,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Pyright
+.pyrightcache/
+
 # Pyre type checker
 .pyre/
 
@@ -144,9 +146,9 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-### Project-specific rules
+### Project-specific hygiene rules
 
-# IDE configuration
+# IDE configuration and OS cruft
 .vscode/
 .idea/
 *.swp
@@ -155,30 +157,44 @@ cython_debug/
 .DS_Store
 Thumbs.db
 Desktop.ini
-
-# Caches and artifacts
 .cursor*
-http_cache/
-artifacts/
-!artifacts/.gitkeep
-data/cache/
-.cache/
 
-# Runtime data and logs
+# Cache directories and HTTP fetch artefacts
+.cache/
+http_cache/
+data/cache/
+
+# Data artefacts (always rebuilt from pipelines)
 data/output/
 !data/output/.gitkeep
-data/logs/
-!data/logs/.gitkeep
+artifacts/
+!artifacts/.gitkeep
+*.parquet
+*.feather
+*.arrow
+*.orc
+*.h5
+*.zip
+*.tar
+*.tar.gz
+*.tar.xz
+
+# Logs and runtime traces
 logs/
 !logs/.gitkeep
+data/logs/
+!data/logs/.gitkeep
+*.log
 
 # Temporary and backup files
 tmp/
 *.tmp
 *.bak
+*.orig
+*.rej
 
-# Notebooks and checkpoints
-*.ipynb_checkpoints
+# Notebook checkpoints (notebooks themselves live under version control)
+**/.ipynb_checkpoints/
 
-# Auxiliary
+# Misc project tooling
 src/bioetl/schemas/.Rhistory
