@@ -105,7 +105,7 @@ strict = true
 mypy_path = ["tools/typecheck/stubs"]
 files = [
     "src/bioetl",
-    "src/scripts",
+    "scripts",
 ]
 
 [[tool.mypy.overrides]]

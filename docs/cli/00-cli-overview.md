@@ -1,6 +1,6 @@
 # CLI Overview and Principles
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: The Typer CLI shipped in `bioetl.cli.main` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
 
 ## 1. Purpose and Scope
 

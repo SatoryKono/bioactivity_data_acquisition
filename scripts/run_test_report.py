@@ -28,8 +28,7 @@ from bioetl.core.test_report_artifacts import (
 APP = typer.Typer(help="Генерация отчётов pytest/coverage с meta.yaml")
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
-REPO_ROOT = PROJECT_ROOT.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
 
 
 def _blake2_digest(parts: Iterable[bytes], *, digest_size: int = 32) -> str:

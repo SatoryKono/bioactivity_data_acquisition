@@ -99,6 +99,22 @@ pre-commit run detect-secrets --all-files
 4. Добавьте регрессионный тест или правило в `detect-secrets`, чтобы предотвратить
    повторение проблемы.
 
+## CLI утилиты
+
+Вспомогательные CLI были сконцентрированы в каталоге `scripts/` и теперь
+запускаются единообразно через `python scripts/<имя>.py`. Перед использованием
+установите зависимости в editable-режиме (`pip install -e .[dev]`) и выполняйте
+команды из корня репозитория, чтобы относительные пути разрешались корректно.
+
+| Команда | Назначение | Пример запуска |
+| --- | --- | --- |
+| `determinism_check` | Дважды запускает `activity_chembl` и `assay_chembl` в `--dry-run` и сравнивает структурированные логи. | `python scripts/determinism_check.py` |
+| `schema_guard` | Валидирует ключевые конфигурации пайплайнов через `bioetl.config.loader` и проверяет поля детерминизма. | `python scripts/schema_guard.py` |
+| `doctest_cli` | Извлекает примеры команд из документации, принудительно добавляет `--dry-run` и формирует отчёт о статусах. | `python scripts/doctest_cli.py` |
+| `run_test_report` | Запускает `pytest`+coverage, собирает артефакты и пишет `meta.yaml` с контрольными суммами. | `python scripts/run_test_report.py --output-root audit_results/test-reports` |
+
+Полный перечень служебных утилит с артефактами и примерами доступен в
+[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
 ## Architecture Decision Records (ADR)
 
 Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:
