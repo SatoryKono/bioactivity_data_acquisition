@@ -104,10 +104,28 @@ def serialize_array_fields(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataF
     df_result = df.copy()
     for column in columns:
         if column in df_result.columns:
-            null_mask = df_result[column].isna()
-            serialized = df_result[column].map(header_rows_serialize).astype("string")
+            original_series = df_result[column]
+            serialized = original_series.map(header_rows_serialize).astype("string")
             df_result[column] = serialized
-            df_result.loc[null_mask, column] = pd.NA
+
+            def _should_preserve_na(value: Any) -> bool:
+                if value is None:
+                    return False
+                if value is pd.NA:
+                    return True
+                if isinstance(value, float) and pd.isna(value):
+                    return True
+
+                try:
+                    is_na = pd.isna(value)
+                except TypeError:
+                    return False
+
+                return bool(is_na) if isinstance(is_na, bool) else False
+
+            na_mask = original_series.map(_should_preserve_na)
+            if na_mask.any():
+                df_result.loc[na_mask, column] = pd.NA
     return df_result
 
 
