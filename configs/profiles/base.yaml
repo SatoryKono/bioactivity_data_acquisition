@@ -52,6 +52,8 @@
   paths:
     input_root: data/input
     output_root: data/output
+    samples_root: data/samples
+    remote_output_root: s3://bioactivity-data-lake/output
     cache_root: .cache
 
   materialization:

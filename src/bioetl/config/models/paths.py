@@ -12,6 +12,14 @@ class PathsConfig(BaseModel):
 
     input_root: str = Field(default="data/input", description="Default directory for input assets.")
     output_root: str = Field(default="data/output", description="Default directory for pipeline outputs.")
+    samples_root: str = Field(
+        default="data/samples",
+        description="Directory containing lightweight sample artifacts for local development.",
+    )
+    remote_output_root: str | None = Field(
+        default=None,
+        description="External object storage location for production-scale outputs (e.g., S3 URI).",
+    )
     cache_root: str = Field(default=".cache", description="Root directory for transient cache files.")
 
 
