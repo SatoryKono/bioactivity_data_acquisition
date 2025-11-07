@@ -46,7 +46,7 @@ class ChemblMoleculeEntityClient(ChemblEntityFetcher):
 class ChemblDataValidityEntityClient(ChemblEntityFetcher):
     """Клиент для получения data_validity_lookup записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для data_validity_lookup.
 
         Parameters
@@ -68,7 +68,7 @@ class ChemblDataValidityEntityClient(ChemblEntityFetcher):
 class ChemblAssayClassMapEntityClient(ChemblEntityFetcher):
     """Клиент для получения assay_class_map записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для assay_class_map.
 
         Parameters
@@ -91,7 +91,7 @@ class ChemblAssayClassMapEntityClient(ChemblEntityFetcher):
 class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
     """Клиент для получения assay_parameters записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для assay_parameters.
 
         Parameters

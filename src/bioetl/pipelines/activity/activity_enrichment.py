@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any, cast
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -182,7 +182,7 @@ def enrich_with_assay(
     # assay_tax_id может приходить строкой — приводим к Int64 с NA
     df_merged["assay_tax_id"] = pd.to_numeric(
         df_merged["assay_tax_id"], errors="coerce"
-    ).astype("Int64")
+    ).astype("Int64")  # pyright: ignore[reportUnknownMemberType]
 
     log.info(
         "enrichment_completed",
@@ -455,7 +455,7 @@ def _enrich_by_pairs(
     pairs_df = df_act[["molecule_chembl_id", "document_chembl_id"]].astype("string").copy()
     for column in pairs_df.columns:
         pairs_df[column] = pairs_df[column].str.strip().str.upper()
-    pairs_df = pairs_df.dropna()
+    pairs_df = pairs_df.dropna()  # pyright: ignore[reportUnknownMemberType]
     pairs_df = pairs_df.drop_duplicates()
     pairs: set[tuple[str, str]] = set(map(tuple, pairs_df.to_numpy()))
 

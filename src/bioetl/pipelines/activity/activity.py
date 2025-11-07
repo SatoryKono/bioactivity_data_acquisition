@@ -1523,7 +1523,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # assay_tax_id может приходить строкой — приводим к Int64 с NA
         df_result["assay_tax_id"] = pd.to_numeric(
             df_result["assay_tax_id"], errors="coerce"
-        ).astype("Int64")
+        ).astype("Int64")  # pyright: ignore[reportUnknownMemberType]
 
         # Проверка диапазона для assay_tax_id (>= 1 или NA)
         mask_valid = df_result["assay_tax_id"].notna()
