@@ -23,5 +23,3 @@ class TelemetryConfig(BaseModel):
         default=1.0,
         description="Доля выборки трасс (1.0 = 100%).",
     )
-
-

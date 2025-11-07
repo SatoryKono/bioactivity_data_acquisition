@@ -517,7 +517,7 @@ class DocumentPubMedInputSchema(pa.DataFrameModel):
         nullable=False,
         unique=True
     )
-    
+
     doi: Series[str] = pa.Field(
         nullable=True,
         regex=r"^10\.\d+/[^\s]+$"

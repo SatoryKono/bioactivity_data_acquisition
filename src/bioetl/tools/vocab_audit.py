@@ -53,13 +53,35 @@ class FieldSpec:
 
 
 FIELD_SPECS: tuple[FieldSpec, ...] = (
-    FieldSpec(dictionary="activity_standard_type", resource="activity", field="standard_type", only="standard_type"),
-    FieldSpec(dictionary="activity_units", resource="activity", field="standard_units", only="standard_units"),
-    FieldSpec(dictionary="activity_relation", resource="activity", field="standard_relation", only="standard_relation"),
+    FieldSpec(
+        dictionary="activity_standard_type",
+        resource="activity",
+        field="standard_type",
+        only="standard_type",
+    ),
+    FieldSpec(
+        dictionary="activity_units",
+        resource="activity",
+        field="standard_units",
+        only="standard_units",
+    ),
+    FieldSpec(
+        dictionary="activity_relation",
+        resource="activity",
+        field="standard_relation",
+        only="standard_relation",
+    ),
     FieldSpec(dictionary="assay_type", resource="assay", field="assay_type", only="assay_type"),
     FieldSpec(dictionary="target_type", resource="target", field="target_type", only="target_type"),
-    FieldSpec(dictionary="data_validity_comment", resource="data_validity_lookup", field="data_validity_comment", only="data_validity_comment"),
-    FieldSpec(dictionary="action_type", resource="mechanism", field="action_type", only="action_type"),
+    FieldSpec(
+        dictionary="data_validity_comment",
+        resource="data_validity_lookup",
+        field="data_validity_comment",
+        only="data_validity_comment",
+    ),
+    FieldSpec(
+        dictionary="action_type", resource="mechanism", field="action_type", only="action_type"
+    ),
     FieldSpec(dictionary="bao_format", resource="activity", field="bao_format", only="bao_format"),
 )
 
@@ -329,4 +351,3 @@ def audit_vocabularies(
     )
 
     return VocabAuditResult(rows=tuple(audit_rows), output=output_path, meta=meta_path)
-

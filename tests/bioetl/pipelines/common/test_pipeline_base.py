@@ -56,7 +56,9 @@ class TestPipelineBase:
         assert not pipeline.pipeline_directory.exists()
         assert pipeline.logs_directory.exists()
 
-    def test_ensure_pipeline_directory(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_ensure_pipeline_directory(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test pipeline directory path without creation."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -68,7 +70,9 @@ class TestPipelineBase:
         assert created_dir.exists()
         assert created_dir.is_dir()
 
-    def test_ensure_logs_directory(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_ensure_logs_directory(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test logs directory creation."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -111,16 +115,23 @@ class TestPipelineBase:
         assert artifacts.write.correlation_report is None  # Default is False
         assert artifacts.write.qc_metrics is None
 
-    def test_plan_run_artifacts_with_correlation(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_plan_run_artifacts_with_correlation(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test artifact planning with correlation report."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         artifacts = pipeline.plan_run_artifacts("20240101", include_correlation=True)
 
         assert artifacts.write.correlation_report is not None
-        assert artifacts.write.correlation_report.name == "activity_chembl_20240101_correlation_report.csv"
+        assert (
+            artifacts.write.correlation_report.name
+            == "activity_chembl_20240101_correlation_report.csv"
+        )
 
-    def test_list_run_stems(self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path) -> None:
+    def test_list_run_stems(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
+    ) -> None:
         """Test listing run stems."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -137,7 +148,9 @@ class TestPipelineBase:
         assert "activity_chembl_20240101" in stems
         assert "activity_chembl_20240102" in stems
 
-    def test_apply_retention_policy(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_apply_retention_policy(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test retention policy application."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline.retention_runs = 2
@@ -154,7 +167,9 @@ class TestPipelineBase:
         remaining_datasets = list(pipeline_dir.glob("activity_chembl_*.csv"))
         assert len(remaining_datasets) <= 2
 
-    def test_apply_retention_policy_disabled(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_apply_retention_policy_disabled(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test retention policy when disabled."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline.retention_runs = 0
@@ -183,7 +198,9 @@ class TestPipelineBase:
         # Should be able to register
         assert "test_client" in pipeline._registered_clients  # type: ignore[reportPrivateUsage]
 
-    def test_register_client_callable(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_register_client_callable(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test registering a callable client."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -194,7 +211,9 @@ class TestPipelineBase:
 
         assert "callable_client" in pipeline._registered_clients  # type: ignore[reportPrivateUsage]
 
-    def test_register_client_duplicate(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_register_client_duplicate(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test that registering duplicate client raises error."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -206,7 +225,9 @@ class TestPipelineBase:
         with pytest.raises(ValueError, match="already registered"):
             pipeline.register_client("test_client", mock_client)
 
-    def test_register_client_invalid(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_register_client_invalid(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test that registering invalid client raises error."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
@@ -216,11 +237,16 @@ class TestPipelineBase:
             pipeline.register_client("invalid_client", invalid_client)
 
     def test_validate_with_schema(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test validation with Pandera schema."""
         # Update config to use activity schema
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.activity_chembl:ActivitySchema"
+        )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -240,7 +266,9 @@ class TestPipelineBase:
         assert pipeline._validation_summary is not None  # type: ignore[reportPrivateUsage]
         assert pipeline._validation_summary.get("schema_valid") is True  # type: ignore[reportPrivateUsage]
 
-    def test_validate_without_schema(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_validate_without_schema(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test validation without schema."""
         pipeline_config_fixture.validation.schema_out = None
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
@@ -260,7 +288,9 @@ class TestPipelineBase:
     ) -> None:
         """Schema errors are logged and execution continues when fail-open is enabled."""
 
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.activity_chembl:ActivitySchema"
+        )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -278,10 +308,15 @@ class TestPipelineBase:
         assert "error" in pipeline._validation_summary  # type: ignore[reportPrivateUsage]
 
     def test_write(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test write stage."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.activity_chembl:ActivitySchema"
+        )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -329,7 +364,9 @@ class TestPipelineBase:
         assert "validate" in result.stage_durations_ms
         assert "write" in result.stage_durations_ms
 
-    def test_cli_sample_application(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_cli_sample_application(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Deterministic sampling is applied when configured via CLI."""
         pipeline_config_fixture.validation.schema_out = None
         pipeline_config_fixture.cli.sample = 2
@@ -374,7 +411,10 @@ class TestPipelineBase:
         assert len(pipeline._registered_clients) == 0  # type: ignore[reportPrivateUsage]
 
     def test_build_quality_report(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test quality report building."""
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -386,7 +426,10 @@ class TestPipelineBase:
         assert isinstance(report, (pd.DataFrame, dict))
 
     def test_build_correlation_report(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test correlation report building."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
@@ -397,7 +440,10 @@ class TestPipelineBase:
         assert isinstance(report, (pd.DataFrame, dict))
 
     def test_build_qc_metrics(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test QC metrics building."""
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -409,7 +455,10 @@ class TestPipelineBase:
         assert isinstance(metrics, (pd.DataFrame, dict))
 
     def test_augment_metadata(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test metadata augmentation."""
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
@@ -427,10 +476,15 @@ class TestPipelineBase:
         pipeline.close_resources()
 
     def test_pipeline_directory_lazy_creation(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str, sample_activity_data: pd.DataFrame
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        sample_activity_data: pd.DataFrame,
     ) -> None:
         """Test that pipeline directory is created only when writing files."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.activity_chembl:ActivitySchema"
+        )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -463,4 +517,3 @@ class TestPipelineBase:
         # Should return empty list
         stems = pipeline.list_run_stems()
         assert stems == []
-

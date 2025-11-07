@@ -34,10 +34,10 @@ from ..chembl_base import ChemblPipelineBase
 # Обязательные поля, которые всегда должны быть в запросе к API
 MUST_HAVE_FIELDS = {
     "assay_chembl_id",
- #   "assay_category",
- #   "assay_group",
- #   "src_assay_id",
- #   "curation_level",
+    #   "assay_category",
+    #   "assay_group",
+    #   "src_assay_id",
+    #   "curation_level",
 }
 
 
@@ -157,14 +157,18 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         }
         if parameter_filters:
             filters_payload["parameters"] = parameter_filters
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self._chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        for item in assay_client.iterate_all(limit=limit, page_size=page_size, select_fields=select_fields):
+        for item in assay_client.iterate_all(
+            limit=limit, page_size=page_size, select_fields=select_fields
+        ):
             records.append(item)
 
         dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
@@ -416,7 +420,6 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         return df
 
-
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL identifiers with regex validation."""
 
@@ -662,7 +665,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "missing_columns_handled",
                 missing_in_response=missing_in_response if missing_in_response else None,
                 missing_columns=missing_columns if missing_columns else None,
-                missing_in_select_fields=sorted(missing_in_select_fields) if missing_in_select_fields else None,
+                missing_in_select_fields=sorted(missing_in_select_fields)
+                if missing_in_select_fields
+                else None,
                 chembl_release=self._chembl_release,
             )
 
@@ -710,7 +715,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return df
 
         if not isinstance(chembl_config, Mapping):
-            log.debug("enrichment_skipped_no_chembl_config", message="ChEMBL config is not a Mapping")
+            log.debug(
+                "enrichment_skipped_no_chembl_config", message="ChEMBL config is not a Mapping"
+            )
             return df
 
         assay_config = cast(Mapping[str, Any], chembl_config).get("assay")
@@ -727,7 +734,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         classifications_cfg = cast(Mapping[str, Any], enrich_config).get("classifications")
         if classifications_cfg is not None:
             log.info("enrichment_classifications_started")
-            df_with_classifications: pd.DataFrame = enrich_with_assay_classifications(df, chembl_client, cast(Mapping[str, Any], classifications_cfg))
+            df_with_classifications: pd.DataFrame = enrich_with_assay_classifications(
+                df, chembl_client, cast(Mapping[str, Any], classifications_cfg)
+            )
             df = df_with_classifications
             log.info("enrichment_classifications_completed")
 
@@ -764,7 +773,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         parameters_cfg = cast(Mapping[str, Any], enrich_config).get("parameters")
         if parameters_cfg is not None:
             log.info("enrichment_parameters_started")
-            df_with_parameters: pd.DataFrame = enrich_with_assay_parameters(df, chembl_client, cast(Mapping[str, Any], parameters_cfg))
+            df_with_parameters: pd.DataFrame = enrich_with_assay_parameters(
+                df, chembl_client, cast(Mapping[str, Any], parameters_cfg)
+            )
             df = df_with_parameters
             log.info("enrichment_parameters_completed")
 

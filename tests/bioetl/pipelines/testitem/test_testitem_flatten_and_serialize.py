@@ -195,11 +195,20 @@ class TestFlattenObjectCol:
 
     def test_flatten_molecule_hierarchy(self) -> None:
         """Test flattening of molecule_hierarchy."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_hierarchy": [{"molecule_chembl_id": "CHEMBL1", "parent_chembl_id": "CHEMBL2"}],
-        })
-        result = flatten_object_col(df, "molecule_hierarchy", ["molecule_chembl_id", "parent_chembl_id"], "molecule_hierarchy__")
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_hierarchy": [
+                    {"molecule_chembl_id": "CHEMBL1", "parent_chembl_id": "CHEMBL2"}
+                ],
+            }
+        )
+        result = flatten_object_col(
+            df,
+            "molecule_hierarchy",
+            ["molecule_chembl_id", "parent_chembl_id"],
+            "molecule_hierarchy__",
+        )
         assert "molecule_hierarchy__molecule_chembl_id" in result.columns
         assert "molecule_hierarchy__parent_chembl_id" in result.columns
         assert "molecule_hierarchy" not in result.columns
@@ -208,17 +217,19 @@ class TestFlattenObjectCol:
 
     def test_flatten_molecule_properties(self) -> None:
         """Test flattening of molecule_properties."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_properties": [
-                {
-                    "full_mwt": 100.0,
-                    "alogp": 2.5,
-                    "hbd": 2,
-                    "hba": 3,
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_properties": [
+                    {
+                        "full_mwt": 100.0,
+                        "alogp": 2.5,
+                        "hbd": 2,
+                        "hba": 3,
+                    },
+                ],
+            }
+        )
         result = flatten_object_col(
             df,
             "molecule_properties",
@@ -234,35 +245,37 @@ class TestFlattenObjectCol:
 
     def test_flatten_molecule_properties_all_fields(self) -> None:
         """Test flattening of all molecule_properties fields from requirements."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_properties": [
-                {
-                    "alogp": 2.5,
-                    "aromatic_rings": 1,
-                    "cx_logd": 1.5,
-                    "cx_logp": 2.3,
-                    "cx_most_apka": 10.2,
-                    "cx_most_bpka": 3.5,
-                    "full_molformula": "C2H6O",
-                    "full_mwt": 46.07,
-                    "hba": 1,
-                    "hba_lipinski": 1,
-                    "hbd": 1,
-                    "hbd_lipinski": 1,
-                    "heavy_atoms": 3,
-                    "molecular_species": "NEUTRAL",
-                    "mw_freebase": 46.07,
-                    "mw_monoisotopic": 46.0419,
-                    "num_lipinski_ro5_violations": 0,
-                    "num_ro5_violations": 0,
-                    "psa": 20.23,
-                    "qed_weighted": 0.85,
-                    "ro3_pass": 1,
-                    "rtb": 1,
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_properties": [
+                    {
+                        "alogp": 2.5,
+                        "aromatic_rings": 1,
+                        "cx_logd": 1.5,
+                        "cx_logp": 2.3,
+                        "cx_most_apka": 10.2,
+                        "cx_most_bpka": 3.5,
+                        "full_molformula": "C2H6O",
+                        "full_mwt": 46.07,
+                        "hba": 1,
+                        "hba_lipinski": 1,
+                        "hbd": 1,
+                        "hbd_lipinski": 1,
+                        "heavy_atoms": 3,
+                        "molecular_species": "NEUTRAL",
+                        "mw_freebase": 46.07,
+                        "mw_monoisotopic": 46.0419,
+                        "num_lipinski_ro5_violations": 0,
+                        "num_ro5_violations": 0,
+                        "psa": 20.23,
+                        "qed_weighted": 0.85,
+                        "ro3_pass": 1,
+                        "rtb": 1,
+                    },
+                ],
+            }
+        )
         all_fields = [
             "alogp",
             "aromatic_rings",
@@ -300,15 +313,17 @@ class TestFlattenObjectCol:
 
     def test_flatten_molecule_structures(self) -> None:
         """Test flattening of molecule_structures."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_structures": [
-                {
-                    "canonical_smiles": "CCO",
-                    "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_structures": [
+                    {
+                        "canonical_smiles": "CCO",
+                        "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+                    },
+                ],
+            }
+        )
         result = flatten_object_col(
             df,
             "molecule_structures",
@@ -321,17 +336,19 @@ class TestFlattenObjectCol:
 
     def test_flatten_molecule_structures_all_fields(self) -> None:
         """Test flattening of all molecule_structures fields including molfile and standard_inchi."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_structures": [
-                {
-                    "canonical_smiles": "CCO",
-                    "molfile": "\n  Mrv2014 01012024\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n",
-                    "standard_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
-                    "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_structures": [
+                    {
+                        "canonical_smiles": "CCO",
+                        "molfile": "\n  Mrv2014 01012024\n\n  3  2  0  0  0  0  0  0  0  0999 V2000\n",
+                        "standard_inchi": "InChI=1S/C2H6O/c1-2-3/h3H,2H2,1H3",
+                        "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+                    },
+                ],
+            }
+        )
         all_fields = ["canonical_smiles", "molfile", "standard_inchi", "standard_inchi_key"]
         result = flatten_object_col(df, "molecule_structures", all_fields, "molecule_structures__")
         # Verify all fields are flattened
@@ -341,32 +358,49 @@ class TestFlattenObjectCol:
         assert result["molecule_structures__canonical_smiles"].iloc[0] == "CCO"
         assert "Mrv2014" in result["molecule_structures__molfile"].iloc[0]
         assert "InChI=1S" in result["molecule_structures__standard_inchi"].iloc[0]
-        assert result["molecule_structures__standard_inchi_key"].iloc[0] == "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+        assert (
+            result["molecule_structures__standard_inchi_key"].iloc[0]
+            == "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+        )
 
     def test_missing_column(self) -> None:
         """Test flattening when column doesn't exist."""
         df = pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]})
-        result = flatten_object_col(df, "molecule_hierarchy", ["molecule_chembl_id", "parent_chembl_id"], "molecule_hierarchy__")
+        result = flatten_object_col(
+            df,
+            "molecule_hierarchy",
+            ["molecule_chembl_id", "parent_chembl_id"],
+            "molecule_hierarchy__",
+        )
         assert "molecule_hierarchy__molecule_chembl_id" in result.columns
         assert "molecule_hierarchy__parent_chembl_id" in result.columns
         assert pd.isna(result["molecule_hierarchy__molecule_chembl_id"].iloc[0])
 
     def test_non_dict_value(self) -> None:
         """Test flattening when value is not a dict."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_hierarchy": [None],
-        })
-        result = flatten_object_col(df, "molecule_hierarchy", ["molecule_chembl_id", "parent_chembl_id"], "molecule_hierarchy__")
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_hierarchy": [None],
+            }
+        )
+        result = flatten_object_col(
+            df,
+            "molecule_hierarchy",
+            ["molecule_chembl_id", "parent_chembl_id"],
+            "molecule_hierarchy__",
+        )
         assert "molecule_hierarchy__molecule_chembl_id" in result.columns
         assert pd.isna(result["molecule_hierarchy__molecule_chembl_id"].iloc[0])
 
     def test_flatten_with_empty_dict(self) -> None:
         """Test flattening when nested object is empty dict."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_properties": [{}],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_properties": [{}],
+            }
+        )
         result = flatten_object_col(
             df,
             "molecule_properties",
@@ -385,14 +419,18 @@ class TestTransform:
 
     def test_transform_with_flatten_and_serialize(self) -> None:
         """Test transform with flattening and serialization enabled."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_hierarchy": [{"molecule_chembl_id": "CHEMBL1", "parent_chembl_id": "CHEMBL2"}],
-            "molecule_properties": [{"full_mwt": 100.0, "alogp": 2.5}],
-            "molecule_structures": [{"canonical_smiles": "CCO"}],
-            "atc_classifications": [["A01AA", "A01AB"]],
-            "cross_references": [{"xref_id": "X1", "xref_name": "N1"}],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_hierarchy": [
+                    {"molecule_chembl_id": "CHEMBL1", "parent_chembl_id": "CHEMBL2"}
+                ],
+                "molecule_properties": [{"full_mwt": 100.0, "alogp": 2.5}],
+                "molecule_structures": [{"canonical_smiles": "CCO"}],
+                "atc_classifications": [["A01AA", "A01AB"]],
+                "cross_references": [{"xref_id": "X1", "xref_name": "N1"}],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -420,10 +458,12 @@ class TestTransform:
 
     def test_transform_with_flatten_disabled(self) -> None:
         """Test transform with flattening disabled."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_hierarchy": [{"molecule_chembl_id": "CHEMBL1"}],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_hierarchy": [{"molecule_chembl_id": "CHEMBL1"}],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -441,10 +481,12 @@ class TestTransform:
 
     def test_transform_with_serialization_disabled(self) -> None:
         """Test transform with serialization disabled."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "atc_classifications": [["A01AA", "A01AB"]],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "atc_classifications": [["A01AA", "A01AB"]],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -461,16 +503,18 @@ class TestTransform:
 
     def test_transform_with_molecule_synonyms(self) -> None:
         """Test transform with molecule_synonyms serialization."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_synonyms": [
-                {
-                    "molecule_synonym": "TAMIFLU",
-                    "syn_type": "TRADE_NAME",
-                    "synonyms": ["RO-64-0796"],
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_synonyms": [
+                    {
+                        "molecule_synonym": "TAMIFLU",
+                        "syn_type": "TRADE_NAME",
+                        "synonyms": ["RO-64-0796"],
+                    },
+                ],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -493,12 +537,14 @@ class TestTransform:
 
     def test_transform_empty_arrays(self) -> None:
         """Test transform with empty arrays."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "atc_classifications": [[]],
-            "cross_references": [[]],
-            "molecule_synonyms": [[]],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "atc_classifications": [[]],
+                "cross_references": [[]],
+                "molecule_synonyms": [[]],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -517,12 +563,14 @@ class TestTransform:
 
     def test_transform_none_values(self) -> None:
         """Test transform with None values in arrays."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "atc_classifications": [None],
-            "cross_references": [None],
-            "molecule_synonyms": [None],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "atc_classifications": [None],
+                "cross_references": [None],
+                "molecule_synonyms": [None],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -541,9 +589,11 @@ class TestTransform:
 
     def test_transform_missing_columns(self) -> None:
         """Test transform when columns are missing from DataFrame."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+            }
+        )
 
         config = MagicMock()
         config.transform = MagicMock()
@@ -562,7 +612,10 @@ class TestTransform:
         assert "molecule_hierarchy__molecule_chembl_id" in result.columns
         assert "molecule_hierarchy__parent_chembl_id" in result.columns
         # Serialization should skip missing columns (no error)
-        assert "atc_classifications" not in result.columns or result["atc_classifications"].isna().all()
+        assert (
+            "atc_classifications" not in result.columns
+            or result["atc_classifications"].isna().all()
+        )
 
     def test_serialize_invalid_types(self) -> None:
         """Test serialization with invalid types (non-list, non-dict)."""
@@ -583,10 +636,12 @@ class TestTransform:
 
     def test_flatten_invalid_types(self) -> None:
         """Test flattening with invalid nested object types."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_properties": ["not_a_dict"],  # String instead of dict
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_properties": ["not_a_dict"],  # String instead of dict
+            }
+        )
         result = flatten_object_col(
             df,
             "molecule_properties",
@@ -622,15 +677,17 @@ class TestTransform:
 
     def test_flatten_with_partial_fields(self) -> None:
         """Test flattening when nested object has only some fields."""
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "molecule_properties": [
-                {
-                    "full_mwt": 100.0,
-                    # alogp is missing
-                },
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "molecule_properties": [
+                    {
+                        "full_mwt": 100.0,
+                        # alogp is missing
+                    },
+                ],
+            }
+        )
         result = flatten_object_col(
             df,
             "molecule_properties",
@@ -656,4 +713,3 @@ class TestTransform:
         assert "SRC" in result
         # Empty string should be preserved
         assert "/X1|" in result or "|X1|" in result
-

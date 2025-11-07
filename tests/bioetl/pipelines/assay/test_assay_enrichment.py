@@ -272,4 +272,3 @@ class TestAssayParametersEnrichment:
 
         assert params1[0]["type"] == "TEMPERATURE"
         assert params2[0]["type"] == "pH"
-

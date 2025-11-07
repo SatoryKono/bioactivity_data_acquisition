@@ -62,7 +62,6 @@ def _canonical_record_id(value: Any) -> str:
     return format(numeric, "g")
 
 
-
 def join_activity_with_molecule(
     activity_ids: Sequence[str] | pd.DataFrame,
     client: ChemblClient,
@@ -120,19 +119,17 @@ def join_activity_with_molecule(
         out["molecule_name"] = pd.NA
         out["compound_key"] = pd.NA
         out["compound_name"] = pd.NA
-        return out[["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]]
+        return out[
+            ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+        ]
 
     # 4) compound_record по record_id (обязательное only= и корректный items_key "compound_records")
-    compound_records_dict = _fetch_compound_records_by_ids(
-        list(record_ids), client, cfg, log
-    )
+    compound_records_dict = _fetch_compound_records_by_ids(list(record_ids), client, cfg, log)
 
     # 5) molecule по molecule_chembl_id (обязательное only= на
     #    molecule_chembl_id, pref_name, molecule_synonyms — это ровно те поля,
     #    которые нам нужны для имени; пагинация через page_meta)
-    molecules_dict = _fetch_molecules_for_join(
-        list(molecule_ids), client, cfg, log
-    )
+    molecules_dict = _fetch_molecules_for_join(list(molecule_ids), client, cfg, log)
 
     # 6) Джоины
     df_result = _perform_joins(df_act, compound_records_dict, molecules_dict, log)
@@ -337,28 +334,36 @@ def _perform_joins(
     # Создать DataFrame для compound_record
     compound_data: list[dict[str, Any]] = []
     for record_id, record in compound_records_dict.items():
-        compound_data.append({
-            "record_id": record_id,
-            "compound_key": record.get("compound_key"),
-            "compound_name": record.get("compound_name"),
-        })
+        compound_data.append(
+            {
+                "record_id": record_id,
+                "compound_key": record.get("compound_key"),
+                "compound_name": record.get("compound_name"),
+            }
+        )
 
-    df_compound = pd.DataFrame(compound_data) if compound_data else pd.DataFrame(
-        columns=["record_id", "compound_key", "compound_name"]
+    df_compound = (
+        pd.DataFrame(compound_data)
+        if compound_data
+        else pd.DataFrame(columns=["record_id", "compound_key", "compound_name"])
     )
 
     # Создать DataFrame для molecule с вычислением molecule_name
     molecule_data: list[dict[str, Any]] = []
     for mol_id, record in molecules_dict.items():
         molecule_name = _extract_molecule_name(record, mol_id)
-        molecule_data.append({
-            "molecule_chembl_id": mol_id,
-            "molecule_key": mol_id,
-            "molecule_name": molecule_name,
-        })
+        molecule_data.append(
+            {
+                "molecule_chembl_id": mol_id,
+                "molecule_key": mol_id,
+                "molecule_name": molecule_name,
+            }
+        )
 
-    df_molecule = pd.DataFrame(molecule_data) if molecule_data else pd.DataFrame(
-        columns=["molecule_chembl_id", "molecule_key", "molecule_name"]
+    df_molecule = (
+        pd.DataFrame(molecule_data)
+        if molecule_data
+        else pd.DataFrame(columns=["molecule_chembl_id", "molecule_key", "molecule_name"])
     )
 
     # Сохранить исходный порядок
@@ -380,14 +385,20 @@ def _perform_joins(
         # Сохранить NaN значения, преобразовать остальные в строку
         mask_na = df_act_normalized["molecule_chembl_id"].isna()
         # Преобразовать в строку, но заменить "nan" на pd.NA
-        df_act_normalized["molecule_chembl_id"] = df_act_normalized["molecule_chembl_id"].astype(str)
-        df_act_normalized.loc[df_act_normalized["molecule_chembl_id"] == "nan", "molecule_chembl_id"] = pd.NA
+        df_act_normalized["molecule_chembl_id"] = df_act_normalized["molecule_chembl_id"].astype(
+            str
+        )
+        df_act_normalized.loc[
+            df_act_normalized["molecule_chembl_id"] == "nan", "molecule_chembl_id"
+        ] = pd.NA
         df_act_normalized.loc[mask_na, "molecule_chembl_id"] = pd.NA
         # Убедиться, что df_molecule.molecule_chembl_id тоже строка
         if "molecule_chembl_id" in df_molecule.columns and not df_molecule.empty:
             df_molecule["molecule_chembl_id"] = df_molecule["molecule_chembl_id"].astype(str)
             # Заменить "nan" на pd.NA
-            df_molecule.loc[df_molecule["molecule_chembl_id"] == "nan", "molecule_chembl_id"] = pd.NA
+            df_molecule.loc[
+                df_molecule["molecule_chembl_id"] == "nan", "molecule_chembl_id"
+            ] = pd.NA
 
     # Первый join: activity.record_id → compound_record.record_id
     df_result = df_act_normalized.merge(
@@ -409,7 +420,13 @@ def _perform_joins(
     df_result = df_result.reindex(original_index)
 
     # Убедиться, что все выходные колонки присутствуют
-    output_columns = ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+    output_columns = [
+        "activity_id",
+        "molecule_key",
+        "molecule_name",
+        "compound_key",
+        "compound_name",
+    ]
     for col in output_columns:
         if col not in df_result.columns:
             df_result[col] = pd.NA
@@ -496,4 +513,3 @@ def _create_empty_result() -> pd.DataFrame:
             "compound_name",
         ]
     )
-

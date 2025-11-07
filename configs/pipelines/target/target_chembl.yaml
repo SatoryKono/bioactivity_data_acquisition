@@ -66,4 +66,3 @@ transform:
 validation:
   schema_out: bioetl.schemas.target.target_chembl.TargetSchema
   coerce: false
-

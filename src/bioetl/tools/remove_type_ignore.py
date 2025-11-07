@@ -43,4 +43,3 @@ def remove_type_ignore(root: Path | None = None) -> int:
 
     log.info("type_ignore_removed", count=total_removed, root=str(target_root))
     return total_removed
-

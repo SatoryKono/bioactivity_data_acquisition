@@ -16,7 +16,9 @@ class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True, description="Toggle processing of this data source.")
-    description: str | None = Field(default=None, description="Human readable description of the source.")
+    description: str | None = Field(
+        default=None, description="Human readable description of the source."
+    )
     http_profile: str | None = Field(
         default=None,
         description="Reference to a named HTTP profile defined under http.profiles.",
@@ -33,4 +35,3 @@ class SourceConfig(BaseModel):
         default_factory=dict,
         description="Free-form parameters consumed by source-specific components.",
     )
-

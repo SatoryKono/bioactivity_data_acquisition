@@ -11,4 +11,3 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
       max_url_length: 2000  # Used for predictive throttling of batch requests
-

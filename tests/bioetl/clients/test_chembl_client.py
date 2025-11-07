@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -53,7 +53,9 @@ class TestChemblClient:
         assert result1["chembl_db_version"] == "33"
         assert "/status" in client._status_cache
 
-    def test_handshake_different_endpoints(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_handshake_different_endpoints(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test handshake with different endpoints."""
         mock_response.json.return_value = {"chembl_db_version": "33"}
         mock_api_client.get.return_value = mock_response
@@ -67,7 +69,9 @@ class TestChemblClient:
         assert "/status" in client._status_cache
         assert "/version" in client._status_cache
 
-    def test_paginate_single_page(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_single_page(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination with single page."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -94,7 +98,7 @@ class TestChemblClient:
             "page_meta": {"next": None},
             "activities": [{"id": 3}],
         }
-        
+
         # First call for handshake, then two calls for pagination
         mock_api_client.get.side_effect = [response1, response1, response2]
 
@@ -104,7 +108,9 @@ class TestChemblClient:
         assert len(items) == 3
         assert mock_api_client.get.call_count >= 2
 
-    def test_paginate_with_params(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_with_params(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination with custom parameters."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -118,13 +124,17 @@ class TestChemblClient:
         assert len(items) == 1
         # Should pass params to first request (after handshake)
         # Find the call to /activities.json (skip handshake call to /status)
-        activity_calls = [call for call in mock_api_client.get.call_args_list if call[0][0] == "/activities.json"]
+        activity_calls = [
+            call for call in mock_api_client.get.call_args_list if call[0][0] == "/activities.json"
+        ]
         assert len(activity_calls) > 0
         call_args = activity_calls[0]
         assert call_args[1]["params"]["filter"] == "value"
         assert call_args[1]["params"]["limit"] == 100
 
-    def test_paginate_with_custom_items_key(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_with_custom_items_key(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination with custom items key."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -137,7 +147,9 @@ class TestChemblClient:
 
         assert len(items) == 2
 
-    def test_paginate_with_empty_items(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_with_empty_items(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination with empty items."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -150,7 +162,9 @@ class TestChemblClient:
 
         assert len(items) == 0
 
-    def test_paginate_with_non_sequence_items(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_with_non_sequence_items(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination when items_key points to non-sequence."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -163,7 +177,9 @@ class TestChemblClient:
 
         assert len(items) == 0
 
-    def test_paginate_auto_detect_items(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_auto_detect_items(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test pagination auto-detecting items when items_key is None."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -176,7 +192,9 @@ class TestChemblClient:
 
         assert len(items) == 2
 
-    def test_paginate_handshake_called(self, mock_api_client: MagicMock, mock_response: MagicMock) -> None:
+    def test_paginate_handshake_called(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
         """Test that handshake is called before pagination."""
         mock_response.json.return_value = {
             "page_meta": {"next": None},
@@ -189,4 +207,3 @@ class TestChemblClient:
 
         # Should call handshake (which calls get) and then paginate
         assert mock_api_client.get.call_count >= 1
-

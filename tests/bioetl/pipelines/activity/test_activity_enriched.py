@@ -69,18 +69,20 @@ cli:
         config_path.write_text(config_content)
 
         # Mock the extract phase to return sample data
-        sample_data = pd.DataFrame({
-            "activity_id": [1, 2, 3],
-            "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102"],
-            "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
-            "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002"],
-            "target_chembl_id": ["CHEMBL200", "CHEMBL201", "CHEMBL202"],
-            "type": ["IC50", "EC50", "Ki"],
-            "relation": ["=", "=", "="],
-            "value": [10.5, 20.3, 5.7],
-            "units": ["nM", "nM", "nM"],
-        })
+        sample_data = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3],
+                "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102"],
+                "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+                "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+                "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002"],
+                "target_chembl_id": ["CHEMBL200", "CHEMBL201", "CHEMBL202"],
+                "type": ["IC50", "EC50", "Ki"],
+                "relation": ["=", "=", "="],
+                "value": [10.5, 20.3, 5.7],
+                "units": ["nM", "nM", "nM"],
+            }
+        )
 
         # Mock ChemblClient.fetch_compound_records_by_pairs
         mock_records = {
@@ -94,7 +96,9 @@ cli:
             },
         }
 
-        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract") as mock_extract:
+        with patch(
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
+        ) as mock_extract:
             mock_extract.return_value = sample_data
             with patch(
                 "bioetl.clients.chembl.ChemblClient.fetch_compound_records_by_pairs"
@@ -174,16 +178,20 @@ cli:
 """
         config_path.write_text(config_content)
 
-        sample_data = pd.DataFrame({
-            "activity_id": [1, 2],
-            "assay_chembl_id": ["CHEMBL100", "CHEMBL101"],
-            "testitem_chembl_id": ["CHEMBL1", "CHEMBL2"],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2"],
-            "document_chembl_id": ["CHEMBL1000", "CHEMBL1001"],
-            "target_chembl_id": ["CHEMBL200", "CHEMBL201"],
-        })
+        sample_data = pd.DataFrame(
+            {
+                "activity_id": [1, 2],
+                "assay_chembl_id": ["CHEMBL100", "CHEMBL101"],
+                "testitem_chembl_id": ["CHEMBL1", "CHEMBL2"],
+                "molecule_chembl_id": ["CHEMBL1", "CHEMBL2"],
+                "document_chembl_id": ["CHEMBL1000", "CHEMBL1001"],
+                "target_chembl_id": ["CHEMBL200", "CHEMBL201"],
+            }
+        )
 
-        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract") as mock_extract:
+        with patch(
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
+        ) as mock_extract:
             mock_extract.return_value = sample_data
 
             config = load_config(config_path)
@@ -197,4 +205,3 @@ cli:
             # but filled with NA when enrichment is disabled
             assert "compound_name" in df_transformed.columns
             assert "curated" in df_transformed.columns
-

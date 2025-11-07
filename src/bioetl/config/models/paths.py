@@ -11,7 +11,9 @@ class PathsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     input_root: str = Field(default="data/input", description="Default directory for input assets.")
-    output_root: str = Field(default="data/output", description="Default directory for pipeline outputs.")
+    output_root: str = Field(
+        default="data/output", description="Default directory for pipeline outputs."
+    )
     samples_root: str = Field(
         default="data/samples",
         description="Directory containing lightweight sample artifacts for local development.",
@@ -20,7 +22,9 @@ class PathsConfig(BaseModel):
         default=None,
         description="External object storage location for production-scale outputs (e.g., S3 URI).",
     )
-    cache_root: str = Field(default=".cache", description="Root directory for transient cache files.")
+    cache_root: str = Field(
+        default=".cache", description="Root directory for transient cache files."
+    )
 
 
 class MaterializationConfig(BaseModel):
@@ -28,7 +32,9 @@ class MaterializationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    root: str = Field(default="data/output", description="Base directory for materialized datasets.")
+    root: str = Field(
+        default="data/output", description="Base directory for materialized datasets."
+    )
     default_format: str = Field(
         default="parquet",
         description="Default output format for tabular data (e.g., parquet, csv).",
@@ -41,4 +47,3 @@ class MaterializationConfig(BaseModel):
         default=None,
         description="Optional template for dataset filenames (supports Jinja-style placeholders).",
     )
-

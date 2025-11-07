@@ -111,7 +111,9 @@ class ChemblClient:
                 )
             while next_url:
                 normalized_url = self._normalize_endpoint(next_url)
-                response = self._client.get(normalized_url, params=query if next_url == endpoint else None)
+                response = self._client.get(
+                    normalized_url, params=query if next_url == endpoint else None
+                )
                 payload: Mapping[str, Any] = response.json()
                 items = list(self._extract_items(payload, items_key))
                 if load_meta_id is not None and store is not None:
@@ -199,9 +201,9 @@ class ChemblClient:
         normalized_url = endpoint
         if not normalized_url.startswith(("http://", "https://")):
             if normalized_url.startswith("/chembl/api/data/"):
-                normalized_url = normalized_url[len("/chembl/api/data/"):]
+                normalized_url = normalized_url[len("/chembl/api/data/") :]
             elif normalized_url.startswith("chembl/api/data/"):
-                normalized_url = normalized_url[len("chembl/api/data/"):]
+                normalized_url = normalized_url[len("chembl/api/data/") :]
         return normalized_url
 
     def _resolve_request_base_url(self, endpoint: str) -> str:
@@ -418,7 +420,9 @@ class ChemblClient:
             Dictionary keyed by assay_chembl_id -> list of record dicts.
             Each assay can have multiple parameters, so values are lists.
         """
-        result = self._assay_parameters_entity.fetch_by_ids(assay_ids, fields, page_limit, active_only=active_only)
+        result = self._assay_parameters_entity.fetch_by_ids(
+            assay_ids, fields, page_limit, active_only=active_only
+        )
         return result
 
     # ------------------------------------------------------------------

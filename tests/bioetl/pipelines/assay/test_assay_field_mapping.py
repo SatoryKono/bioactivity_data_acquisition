@@ -18,7 +18,9 @@ def _create_minimal_config() -> PipelineConfig:
     return PipelineConfig(
         version=1,
         pipeline=PipelineMetadata(name="assay_chembl", version="1.0.0"),
-        transform=TransformConfig(arrays_to_header_rows=["assay_classifications", "assay_parameters"]),
+        transform=TransformConfig(
+            arrays_to_header_rows=["assay_classifications", "assay_parameters"]
+        ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
         validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
@@ -35,16 +37,18 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with direct fields from API
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "assay_category": ["ADMET"],  # Direct from ASSAYS.ASSAY_CATEGORY
-            "assay_strain": ["E. coli"],  # Direct from ASSAYS.ASSAY_STRAIN
-            "src_assay_id": ["AID123"],  # Direct from ASSAYS.SRC_ASSAY_ID
-            "src_id": ["1"],  # Direct from ASSAYS.SRC_ID
-            "assay_group": ["Group1"],  # Direct from ASSAYS.ASSAY_GROUP
-            "assay_type": ["B"],  # Separate field, not used as surrogate
-            "assay_organism": ["Homo sapiens"],  # Separate field, not used as surrogate
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "assay_category": ["ADMET"],  # Direct from ASSAYS.ASSAY_CATEGORY
+                "assay_strain": ["E. coli"],  # Direct from ASSAYS.ASSAY_STRAIN
+                "src_assay_id": ["AID123"],  # Direct from ASSAYS.SRC_ASSAY_ID
+                "src_id": ["1"],  # Direct from ASSAYS.SRC_ID
+                "assay_group": ["Group1"],  # Direct from ASSAYS.ASSAY_GROUP
+                "assay_type": ["B"],  # Separate field, not used as surrogate
+                "assay_organism": ["Homo sapiens"],  # Separate field, not used as surrogate
+            }
+        )
 
         # Use transform method which internally calls _normalize_string_fields
         df = pipeline.transform(df)  # type: ignore[arg-type]
@@ -64,13 +68,15 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with surrogates but missing direct fields
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "assay_type": ["B"],  # Surrogate - should NOT be used
-            "assay_organism": ["Homo sapiens"],  # Surrogate - should NOT be used
-            "confidence_score": [8],  # Surrogate - should NOT be used
-            # Direct fields missing
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "assay_type": ["B"],  # Surrogate - should NOT be used
+                "assay_organism": ["Homo sapiens"],  # Surrogate - should NOT be used
+                "confidence_score": [8],  # Surrogate - should NOT be used
+                # Direct fields missing
+            }
+        )
 
         # Use transform method which internally calls _normalize_string_fields
         df = pipeline.transform(df)  # type: ignore[arg-type]
@@ -87,17 +93,21 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Test 1: curation_level present in API
-        df1 = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "curation_level": ["Expert curated"],
-        })
+        df1 = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "curation_level": ["Expert curated"],
+            }
+        )
         df1 = pipeline.transform(df1)  # type: ignore[arg-type]
         assert df1["curation_level"].iloc[0] == "Expert curated"
 
         # Test 2: curation_level missing - should be NULL
-        df2 = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-        })
+        df2 = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+            }
+        )
         df2 = pipeline.transform(df2)  # type: ignore[arg-type]
         assert pd.isna(df2["curation_level"].iloc[0])
 
@@ -107,10 +117,12 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # DataFrame without optional columns
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "assay_category": ["ADMET"],
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "assay_category": ["ADMET"],
+            }
+        )
 
         # Use transform which will call _check_missing_columns internally
         # Note: This is tested indirectly through transform, as _check_missing_columns
@@ -129,11 +141,13 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with bao_format but no assay_class_id
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "bao_format": ["BAO_0000015"],  # Surrogate - should NOT be used
-            "assay_class_id": [None],
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "bao_format": ["BAO_0000015"],  # Surrogate - should NOT be used
+                "assay_class_id": [None],
+            }
+        )
 
         # Use transform method which internally calls _normalize_nested_structures
         df = pipeline.transform(df)  # type: ignore[arg-type]
@@ -146,11 +160,13 @@ class TestAssayFieldMapping:
         config = _create_minimal_config()
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "src_id": ["1"],
-            "src_assay_id": ["AID123"],
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "src_id": ["1"],
+                "src_assay_id": ["AID123"],
+            }
+        )
 
         # Use transform method which internally calls _normalize_string_fields
         df = pipeline.transform(df)  # type: ignore[arg-type]
@@ -165,16 +181,17 @@ class TestAssayFieldMapping:
         pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with surrogates but no classifications
-        df = pd.DataFrame({
-            "assay_chembl_id": ["CHEMBL100"],
-            "bao_format": ["BAO_0000015"],  # Surrogate
-            "assay_type": ["B"],  # Surrogate
-            "assay_classifications": [None],
-        })
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL100"],
+                "bao_format": ["BAO_0000015"],  # Surrogate
+                "assay_type": ["B"],  # Surrogate
+                "assay_classifications": [None],
+            }
+        )
 
         # Use transform method which internally calls _normalize_nested_structures
         df = pipeline.transform(df)  # type: ignore[arg-type]
 
         # Verify classifications remain NULL (not computed from surrogates)
         assert pd.isna(df["assay_classifications"].iloc[0])
-

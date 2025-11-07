@@ -10,10 +10,8 @@ import pandas as pd
 import pytest
 
 from bioetl.pipelines.target.target_transform import (
-    extract_and_serialize_component_synonyms,
-    flatten_target_components,
-    serialize_target_arrays,
-)
+    extract_and_serialize_component_synonyms, flatten_target_components,
+    serialize_target_arrays)
 
 
 @pytest.mark.unit
@@ -122,9 +120,7 @@ class TestSerializeTargetArrays:
         df = pd.DataFrame(
             {
                 "target_chembl_id": ["CHEMBL1"],
-                "cross_references": [
-                    [{"xref_id": "X1", "xref_name": "N1", "xref_src": "SRC"}]
-                ],
+                "cross_references": [[{"xref_id": "X1", "xref_name": "N1", "xref_src": "SRC"}]],
             }
         )
         mock_config = MagicMock()
@@ -365,7 +361,10 @@ class TestFlattenTargetComponents:
         assert result["target_component_synonyms__flat"] != ""
         assert "syn_type" in result["target_component_synonyms__flat"]
         assert "component_synonym" in result["target_component_synonyms__flat"]
-        assert "EGFR" in result["target_component_synonyms__flat"] or "P00533" in result["target_component_synonyms__flat"]
+        assert (
+            "EGFR" in result["target_component_synonyms__flat"]
+            or "P00533" in result["target_component_synonyms__flat"]
+        )
 
     def test_flatten_empty_components(self) -> None:
         """Test flattening with empty target_components."""
@@ -463,4 +462,3 @@ class TestFlattenTargetComponents:
         assert "P12345" in accessions
         assert "component_count" in result.columns
         assert result["component_count"].iloc[0] == 2
-

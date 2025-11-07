@@ -25,4 +25,3 @@ class PostprocessConfig(BaseModel):
         default_factory=PostprocessCorrelationConfig,
         description="Correlation report controls.",
     )
-

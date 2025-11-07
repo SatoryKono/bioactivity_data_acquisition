@@ -33,4 +33,3 @@ class ChemblDocumentTermEntityClient(ChemblEntityFetcher):
             supports_list_result=True,  # Один документ может иметь несколько терминов
         )
         super().__init__(chembl_client, config)
-

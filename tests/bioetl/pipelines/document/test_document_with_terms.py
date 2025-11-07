@@ -27,11 +27,13 @@ def mock_chembl_client() -> ChemblClient:
 @pytest.fixture
 def sample_document_df() -> pd.DataFrame:
     """Sample document DataFrame for enrichment testing."""
-    return pd.DataFrame({
-        "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002"],
-        "title": ["Title 1", "Title 2", "Title 3"],
-        "doi": ["10.1000/test1", "10.1000/test2", None],
-    })
+    return pd.DataFrame(
+        {
+            "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002"],
+            "title": ["Title 1", "Title 2", "Title 3"],
+            "doi": ["10.1000/test1", "10.1000/test2", None],
+        }
+    )
 
 
 @pytest.fixture
@@ -275,4 +277,3 @@ class TestEnrichWithDocumentTerms:
         assert "weight" in result.columns
         assert all(result["term"] == "")
         assert all(result["weight"] == "")
-

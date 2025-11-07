@@ -118,7 +118,13 @@ class TestDocumentPipelineSmoke:
 
     def test_document_pipeline_without_enrichment(self, tmp_path: Path) -> None:
         """Test document pipeline without enrichment (enabled: false)."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "document" / "document_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "document"
+            / "document_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Ensure enrichment is disabled
@@ -165,7 +171,13 @@ class TestDocumentPipelineSmoke:
 
     def test_document_pipeline_with_enrichment(self, tmp_path: Path) -> None:
         """Test document pipeline with enrichment enabled."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "document" / "document_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "document"
+            / "document_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Enable enrichment - convert to dict to allow modification
@@ -190,7 +202,9 @@ class TestDocumentPipelineSmoke:
         mock_document_terms = create_mock_document_term_data()
 
         with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
-            mock_client = setup_mock_api_client(mock_documents, mock_document_terms=mock_document_terms)
+            mock_client = setup_mock_api_client(
+                mock_documents, mock_document_terms=mock_document_terms
+            )
             mock_factory.return_value = mock_client
 
             pipeline = ChemblDocumentPipeline(config, run_id="test-run-002")
@@ -228,12 +242,22 @@ class TestDocumentPipelineSmoke:
                 # term and weight should be empty string or nan for documents without terms
                 term_value = row_1002["term"]
                 weight_value = row_1002["weight"]
-                assert term_value == "" or pd.isna(term_value), f"Expected empty string or nan, got {term_value}"
-                assert weight_value == "" or pd.isna(weight_value), f"Expected empty string or nan, got {weight_value}"
+                assert term_value == "" or pd.isna(
+                    term_value
+                ), f"Expected empty string or nan, got {term_value}"
+                assert weight_value == "" or pd.isna(
+                    weight_value
+                ), f"Expected empty string or nan, got {weight_value}"
 
     def test_document_pipeline_columns_order(self, tmp_path: Path) -> None:
         """Test that document pipeline maintains correct column order."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "document" / "document_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "document"
+            / "document_chembl.yaml"
+        )
         config = load_config(config_path)
 
         mock_documents = create_mock_document_data(count=2)
@@ -263,4 +287,3 @@ class TestDocumentPipelineSmoke:
             weight_index = columns.index("weight")
             assert term_index > columns.index("hash_row")
             assert weight_index > term_index
-

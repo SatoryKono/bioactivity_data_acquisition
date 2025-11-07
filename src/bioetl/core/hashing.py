@@ -27,11 +27,19 @@ def _is_missing(value: Any) -> bool:
             return True
         if hasattr(_pd, "isna"):
             try:
-                if bool(_pd.isna(value)):
-                    return True
+                result = _pd.isna(value)
             except TypeError:
-                # Scalar types that pandas cannot evaluate fall back to default handling
                 pass
+            else:
+                if isinstance(result, bool):
+                    if result:
+                        return True
+                elif hasattr(result, "all"):
+                    if bool(result.all()):
+                        return True
+                else:
+                    if bool(result):
+                        return True
     return False
 
 
@@ -111,5 +119,3 @@ __all__ = [
     "compute_hash",
     "hash_from_mapping",
 ]
-
-

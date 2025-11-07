@@ -409,4 +409,3 @@ class ChemblCompoundRecordEntityClient:
             records_deduped=len(result),
         )
         return result
-

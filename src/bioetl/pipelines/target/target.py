@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
+from numbers import Integral, Real
 from typing import Any, cast
 
 import pandas as pd
@@ -69,7 +72,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = TargetSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_target_http")
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_target_http"
+        )
 
         chembl_client = ChemblClient(http_client)
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)  # type: ignore[arg-type]
@@ -101,7 +106,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             "batch_size": batch_size,
             "select_fields": list(select_fields) if select_fields else None,
         }
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self._chembl_release,
             filters=compact_filters,
@@ -150,7 +157,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = TargetSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_target_http")
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_target_http"
+        )
 
         chembl_client = ChemblClient(http_client)
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)  # type: ignore[arg-type]
@@ -215,7 +224,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             if limit is not None and len(all_records) >= limit:
                 break
 
-        dataframe = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
+        records_for_frame: list[dict[str, Any]] = [dict(record) for record in all_records]
+        dataframe = pd.DataFrame(records_for_frame)
         if not dataframe.empty and "target_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
 
@@ -297,7 +307,6 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         return df
 
-
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize ChEMBL identifiers with regex validation."""
         rules = [
@@ -345,7 +354,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 & (df["component_count"].isna() | (df["component_count"] == 0))
             )
 
-        target_ids_to_enrich: list[str] = df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+        target_ids_to_enrich: list[str] = (
+            df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+        )
 
         if not target_ids_to_enrich:
             log.debug("enrich_target_components_skipped", reason="all_data_present")
@@ -358,8 +369,23 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url)
         chembl_client = ChemblClient(http_client)
 
+        if "target_chembl_id" not in df.columns:
+            return df
+
         component_map: dict[str, list[str]] = {}
         target_ids_set: set[str] = set(target_ids_to_enrich)
+
+        def _is_target(value: object) -> bool:
+            if value is None or value is pd.NA:
+                return False
+            if isinstance(value, Real) and math.isnan(float(value)):
+                return False
+            normalized = str(value).strip()
+            if not normalized:
+                return False
+            return normalized in target_ids_set
+
+        target_membership = df["target_chembl_id"].map(_is_target)
 
         log.info("enrich_target_components_start", target_count=len(target_ids_to_enrich))
 
@@ -387,7 +413,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         # Add uniprot_accessions column as JSON array (only for missing values)
         if "uniprot_accessions" in df.columns:
-            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+            mask = target_membership & (
                 df["uniprot_accessions"].isna() | (df["uniprot_accessions"] == "")
             )
             if mask.any():
@@ -397,7 +423,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         # Add component_count column (only for missing values)
         if "component_count" in df.columns:
-            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+            mask = target_membership & (
                 df["component_count"].isna() | (df["component_count"] == 0)
             )
             if mask.any():
@@ -440,7 +466,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 & (df["protein_class_top"].isna() | (df["protein_class_top"] == ""))
             )
 
-        target_ids_to_enrich: list[str] = df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+        target_ids_to_enrich: list[str] = (
+            df.loc[needs_enrichment, "target_chembl_id"].dropna().unique().tolist()
+        )
 
         if not target_ids_to_enrich:
             log.debug("enrich_protein_classifications_skipped", reason="all_data_present")
@@ -459,9 +487,24 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             df["protein_class_top"] = pd.NA
 
         # Maps: target_id -> list of protein_class objects
+        if "target_chembl_id" not in df.columns:
+            return df
+
         classification_list_map: dict[str, list[dict[str, Any]]] = {}
         classification_top_map: dict[str, dict[str, Any]] = {}
         target_ids_set: set[str] = set(target_ids_to_enrich)
+
+        def _is_target(value: object) -> bool:
+            if value is None or value is pd.NA:
+                return False
+            if isinstance(value, Real) and math.isnan(float(value)):
+                return False
+            normalized = str(value).strip()
+            if not normalized:
+                return False
+            return normalized in target_ids_set
+
+        target_membership = df["target_chembl_id"].map(_is_target)
 
         log.info("enrich_protein_classifications_start", target_count=len(target_ids_to_enrich))
 
@@ -494,7 +537,10 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             items_key="component_sequences",
                         ):
                             component_type = seq_item.get("component_type")
-                            if isinstance(component_type, str) and component_type.upper() == "PROTEIN":
+                            if (
+                                isinstance(component_type, str)
+                                and component_type.upper() == "PROTEIN"
+                            ):
                                 protein_component_ids.append(component_id)
                                 break
                     except Exception as exc:
@@ -615,7 +661,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             unique_classes.append(class_obj)
 
                     # Sort by class_level for deterministic order
-                    unique_classes.sort(key=lambda x: (x.get("class_level") is None, x.get("class_level") or 0))
+                    unique_classes.sort(
+                        key=lambda x: (x.get("class_level") is None, x.get("class_level") or 0)
+                    )
 
                     classification_list_map[target_id] = unique_classes
 
@@ -645,24 +693,28 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         # Add protein_class_list column (only for missing values)
         if "protein_class_list" in df.columns:
-            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+            mask = target_membership & (
                 df["protein_class_list"].isna() | (df["protein_class_list"] == "")
             )
             if mask.any():
                 df.loc[mask, "protein_class_list"] = df.loc[mask, "target_chembl_id"].map(
-                    lambda x: json.dumps(classification_list_map.get(str(x), []), ensure_ascii=False, sort_keys=True)
+                    lambda x: json.dumps(
+                        classification_list_map.get(str(x), []), ensure_ascii=False, sort_keys=True
+                    )
                     if pd.notna(x) and str(x) in classification_list_map
                     else pd.NA
                 )
 
         # Add protein_class_top column (only for missing values)
         if "protein_class_top" in df.columns:
-            mask = df["target_chembl_id"].isin(target_ids_set) & (  # pyright: ignore[reportUnknownMemberType]
+            mask = target_membership & (
                 df["protein_class_top"].isna() | (df["protein_class_top"] == "")
             )
             if mask.any():
                 df.loc[mask, "protein_class_top"] = df.loc[mask, "target_chembl_id"].map(
-                    lambda x: json.dumps(classification_top_map.get(str(x), {}), ensure_ascii=False, sort_keys=True)
+                    lambda x: json.dumps(
+                        classification_top_map.get(str(x), {}), ensure_ascii=False, sort_keys=True
+                    )
                     if pd.notna(x) and str(x) in classification_top_map
                     else pd.NA
                 )
@@ -703,21 +755,46 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """
         df = super()._normalize_data_types(df, schema, log)
 
+        def _coerce_nullable_int(value: object) -> object:
+            if value is None or value is pd.NA:
+                return pd.NA
+            if isinstance(value, bool):
+                return int(value)
+            if isinstance(value, Integral):
+                return int(value)
+            if isinstance(value, Decimal):
+                if value.is_nan() or value % 1 != 0:
+                    return pd.NA
+                return int(value)
+            if isinstance(value, Real):
+                float_value = float(value)
+                if not math.isfinite(float_value) or not float_value.is_integer():
+                    return pd.NA
+                return int(float_value)
+            if isinstance(value, str):
+                stripped = value.strip()
+                if not stripped:
+                    return pd.NA
+                try:
+                    decimal_value = Decimal(stripped)
+                except (InvalidOperation, ValueError):
+                    return pd.NA
+                if decimal_value.is_nan() or decimal_value % 1 != 0:
+                    return pd.NA
+                return int(decimal_value)
+            return pd.NA
+
         # Ensure component_count is Int64 (nullable integer)
         if "component_count" in df.columns:
-            df["component_count"] = pd.to_numeric(df["component_count"], errors="coerce").astype("Int64")  # pyright: ignore[reportUnknownMemberType]
+            coerced_component_count = df["component_count"].map(_coerce_nullable_int)
+            df["component_count"] = coerced_component_count.astype("Int64")
 
         # Normalize species_group_flag: convert bool/str/int to Int64 (0 or 1)
         if "species_group_flag" in df.columns:
             try:
-                # Handle bool values explicitly first
-                if df["species_group_flag"].dtype == "bool":
-                    df["species_group_flag"] = df["species_group_flag"].astype(int).astype("Int64")
-                else:
-                    numeric_series_flag: pd.Series[Any] = pd.to_numeric(df["species_group_flag"], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
-                    df["species_group_flag"] = numeric_series_flag.astype("Int64")
+                coerced_species_group_flag = df["species_group_flag"].map(_coerce_nullable_int)
+                df["species_group_flag"] = coerced_species_group_flag.astype("Int64")
             except (ValueError, TypeError) as exc:
                 log.warning("species_group_flag_conversion_failed", error=str(exc))
 
         return df
-

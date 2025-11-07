@@ -1,7 +1,7 @@
 # 35 Target IUPHAR Transformation
 
-**Version:** 1.0.0  
-**Date:** 2025-01-29  
+**Version:** 1.0.0
+**Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
 ## Purpose

@@ -2,11 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.schemas.document.document_chembl import (
-    COLUMN_ORDER,
-    DocumentSchema,
-    SCHEMA_VERSION,
-)
+from bioetl.schemas.document.document_chembl import COLUMN_ORDER, SCHEMA_VERSION, DocumentSchema
 from bioetl.schemas.document.enrichment import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = [
@@ -15,4 +11,3 @@ __all__ = [
     "DocumentSchema",
     "DOCUMENT_TERMS_ENRICHMENT_SCHEMA",
 ]
-

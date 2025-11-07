@@ -11,11 +11,7 @@ import pandas as pd
 from bioetl.clients import ChemblClient, ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.normalizers import (
-    StringRule,
-    StringStats,
-    normalize_string_columns,
-)
+from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ..chembl_base import ChemblPipelineBase
@@ -96,7 +92,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = TestItemSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_testitem_http")
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_testitem_http"
+        )
 
         chembl_client = ChemblClient(
             http_client,
@@ -187,7 +185,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = TestItemSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_testitem_http")
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_testitem_http"
+        )
 
         chembl_client = ChemblClient(
             http_client,
@@ -560,7 +560,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 elif col in boolean_columns:
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     # Also ensure values are only 0 or 1
-                    numeric_series = numeric_series.where((numeric_series == 0) | (numeric_series == 1) | numeric_series.isna())
+                    numeric_series = numeric_series.where(
+                        (numeric_series == 0) | (numeric_series == 1) | numeric_series.isna()
+                    )
                 # Convert to nullable Int64 type
                 # This will automatically convert NaN to pd.NA for nullable integers
                 df[col] = numeric_series.astype("Int64")
@@ -597,7 +599,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                         df[col] = converted
                     # Convert to Int64, ensuring only 0 or 1
                     numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
-                    numeric_series = numeric_series.where((numeric_series == 0) | (numeric_series == 1) | numeric_series.isna())
+                    numeric_series = numeric_series.where(
+                        (numeric_series == 0) | (numeric_series == 1) | numeric_series.isna()
+                    )
                     df[col] = numeric_series.astype("Int64")
                 # Handle other numeric properties
                 elif prop_name in [
@@ -668,9 +672,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 empty_percentages[col] = empty_percentage
 
         # Находим поля с > 95% пустых значений
-        highly_empty_fields = {
-            col: pct for col, pct in empty_percentages.items() if pct > 95.0
-        }
+        highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:
             log.warning(
@@ -713,10 +715,24 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         rows_before = len(df)
 
         # Check for standard_inchi_key in both old and new column names
-        inchi_key_col = "molecule_structures__standard_inchi_key" if "molecule_structures__standard_inchi_key" in df.columns else "standard_inchi_key"
-        canonical_smiles_col = "molecule_structures__canonical_smiles" if "molecule_structures__canonical_smiles" in df.columns else "canonical_smiles"
-        full_mwt_col = "molecule_properties__full_mwt" if "molecule_properties__full_mwt" in df.columns else "full_mwt"
-        alogp_col = "molecule_properties__alogp" if "molecule_properties__alogp" in df.columns else "alogp"
+        inchi_key_col = (
+            "molecule_structures__standard_inchi_key"
+            if "molecule_structures__standard_inchi_key" in df.columns
+            else "standard_inchi_key"
+        )
+        canonical_smiles_col = (
+            "molecule_structures__canonical_smiles"
+            if "molecule_structures__canonical_smiles" in df.columns
+            else "canonical_smiles"
+        )
+        full_mwt_col = (
+            "molecule_properties__full_mwt"
+            if "molecule_properties__full_mwt" in df.columns
+            else "full_mwt"
+        )
+        alogp_col = (
+            "molecule_properties__alogp" if "molecule_properties__alogp" in df.columns else "alogp"
+        )
 
         # Prioritize records with non-empty canonical_smiles and more complete properties
         if inchi_key_col in df.columns:
@@ -750,4 +766,3 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
 
         return df
-

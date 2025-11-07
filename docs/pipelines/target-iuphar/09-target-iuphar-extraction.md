@@ -83,7 +83,7 @@ http:
       User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
       Accept: "application/json"
       x-api-key: "${IUPHAR_API_KEY}"  # Опционально, если предоставлен
-  
+
   # Именованный профиль для IUPHAR
   profiles:
     iuphar:
@@ -147,13 +147,13 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   column_validation_ignore_suffixes: ["_scd", "_temp", "_meta", "_tmp"]
-  
+
   # Ключи сортировки (обязательно: первый ключ - iuphar_target_id)
   sort:
     by: ["iuphar_target_id"]
     ascending: [true]
     na_position: "last"
-  
+
   # Фиксированный порядок колонок (из IUPHARTargetSchema.Config.column_order)
   column_order:
     - "iuphar_target_id"
@@ -165,14 +165,14 @@ determinism:
     - "iuphar_class"
     - "iuphar_subclass"
     # ... остальные колонки в порядке из IUPHARTargetSchema.Config.column_order
-  
+
   # Хеширование
   hashing:
     algorithm: "sha256"
     row_fields: []  # Все колонки из column_order (кроме exclude_fields)
     business_key_fields: ["iuphar_target_id"]
     exclude_fields: ["generated_at", "run_id"]
-  
+
   # Сериализация
   serialization:
     csv:
@@ -181,16 +181,16 @@ determinism:
       na_rep: ""
     booleans: ["True", "False"]
     nan_rep: "NaN"
-  
+
   # Окружение
   environment:
     timezone: "UTC"
     locale: "C"
-  
+
   # Запись
   write:
     strategy: "atomic"
-  
+
   # Метаданные
   meta:
     location: "sibling"
@@ -326,13 +326,13 @@ SCHEMA_VERSION = "1.0.0"
 
 class IUPHARTargetOutputSchema(pa.DataFrameModel):
     """Pandera schema for IUPHAR target output data."""
-    
+
     # Бизнес-ключ (обязательное поле, NOT NULL)
     iuphar_target_id: Series[Int64] = pa.Field(
         description="IUPHAR target identifier",
         nullable=False
     )
-    
+
     # Основные поля IUPHAR target
     iuphar_family_id: Series[Int64] = pa.Field(
         description="IUPHAR family identifier",
@@ -350,7 +350,7 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
         description="UniProt accession (if mapped)",
         nullable=True
     )
-    
+
     # Классификация
     iuphar_type: Series[str] = pa.Field(
         description="IUPHAR target type",
@@ -364,7 +364,7 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
         description="IUPHAR target subclass",
         nullable=True
     )
-    
+
     # Дополнительные поля
     target_description: Series[str] = pa.Field(
         description="Target description",
@@ -378,7 +378,7 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
         description="NCBI taxonomy ID",
         nullable=True
     )
-    
+
     # Системные метаданные
     run_id: Series[str] = pa.Field(
         description="Pipeline run ID",
@@ -405,7 +405,7 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
         description="Extraction timestamp (UTC)",
         nullable=False
     )
-    
+
     # Хеши
     hash_row: Series[str] = pa.Field(
         description="SHA256 hash of entire row",
@@ -417,13 +417,13 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[a-f0-9]{64}$"
     )
-    
+
     # Индекс
     index: Series[Int64] = pa.Field(
         description="Row index",
         nullable=False
     )
-    
+
     # Порядок колонок
     class Config:
         strict = True
@@ -452,7 +452,7 @@ class IUPHARTargetOutputSchema(pa.DataFrameModel):
             "hash_business_key",
             "index"
         ]
-    
+
     # Валидация уникальности бизнес-ключа
     @pa.check("iuphar_target_id")
     def check_unique_target_id(cls, series: Series[Int64]) -> Series[bool]:
@@ -539,7 +539,7 @@ Golden-артефакты обеспечивают регрессионное п
 
 class IUPHARTargetInputSchema(pa.DataFrameModel):
     """Flexible input schema for IUPHAR target pipeline."""
-    
+
     # Хотя бы одно поле должно быть заполнено
     iuphar_target_id: Series[Int64] = pa.Field(
         description="IUPHAR target identifier",
@@ -565,7 +565,7 @@ class IUPHARTargetInputSchema(pa.DataFrameModel):
     class Config:
         strict = True
         coerce = True
-    
+
     @pa.check("iuphar_target_id", "uniprot_accession", "target_name", "gene_name", "id")
     def check_at_least_one_identifier(cls, df: pd.DataFrame) -> Series[bool]:
         """Validate that at least one identifier is provided."""

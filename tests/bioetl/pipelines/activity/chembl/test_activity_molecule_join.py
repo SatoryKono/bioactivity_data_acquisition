@@ -23,11 +23,13 @@ def mock_chembl_client() -> ChemblClient:
 @pytest.fixture
 def sample_activity_df() -> pd.DataFrame:
     """Sample activity DataFrame for join testing."""
-    return pd.DataFrame({
-        "activity_id": [1, 2, 3, 4, 5],
-        "record_id": [100, 101, 102, 103, None],
-        "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
-    })
+    return pd.DataFrame(
+        {
+            "activity_id": [1, 2, 3, 4, 5],
+            "record_id": [100, 101, 102, 103, None],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+        }
+    )
 
 
 @pytest.fixture
@@ -53,18 +55,20 @@ class TestActivityMoleculeJoin:
         """Test that molecule join adds expected columns."""
         # Mock API responses
         mock_chembl_client.paginate = MagicMock(  # type: ignore[method-assign]
-            return_value=iter([
-                {
-                    "activity_id": 1,
-                    "record_id": 100,
-                    "molecule_chembl_id": "CHEMBL1",
-                },
-                {
-                    "activity_id": 2,
-                    "record_id": 101,
-                    "molecule_chembl_id": "CHEMBL2",
-                },
-            ])
+            return_value=iter(
+                [
+                    {
+                        "activity_id": 1,
+                        "record_id": 100,
+                        "molecule_chembl_id": "CHEMBL1",
+                    },
+                    {
+                        "activity_id": 2,
+                        "record_id": 101,
+                        "molecule_chembl_id": "CHEMBL2",
+                    },
+                ]
+            )
         )
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
             return_value={
@@ -84,18 +88,20 @@ class TestActivityMoleculeJoin:
         # Mock compound_record response
         def mock_compound_record_paginate(endpoint: str, **kwargs: Any) -> Any:
             if endpoint == "/compound_record.json":
-                return iter([
-                    {
-                        "record_id": 100,
-                        "compound_key": "KEY1",
-                        "compound_name": "Compound1",
-                    },
-                    {
-                        "record_id": 101,
-                        "compound_key": "KEY2",
-                        "compound_name": "Compound2",
-                    },
-                ])
+                return iter(
+                    [
+                        {
+                            "record_id": 100,
+                            "compound_key": "KEY1",
+                            "compound_name": "Compound1",
+                        },
+                        {
+                            "record_id": 101,
+                            "compound_key": "KEY2",
+                            "compound_name": "Compound2",
+                        },
+                    ]
+                )
             return iter([])
 
         mock_chembl_client.paginate = MagicMock(side_effect=mock_compound_record_paginate)  # type: ignore[method-assign]
@@ -107,7 +113,13 @@ class TestActivityMoleculeJoin:
         )
 
         # Проверка наличия всех выходных колонок
-        expected_columns = ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+        expected_columns = [
+            "activity_id",
+            "molecule_key",
+            "molecule_name",
+            "compound_key",
+            "compound_name",
+        ]
         assert all(col in result.columns for col in expected_columns)
 
     def test_join_activity_with_molecule_compound_key(
@@ -117,16 +129,19 @@ class TestActivityMoleculeJoin:
         molecule_join_config: dict[str, Any],
     ) -> None:
         """Test that compound_key is correctly extracted from compound_record."""
+
         # Mock compound_record response
         def mock_paginate(endpoint: str, **kwargs: Any) -> Any:
             if endpoint == "/compound_record.json":
-                return iter([
-                    {
-                        "record_id": 100,
-                        "compound_key": "TEST_KEY",
-                        "compound_name": "Test Compound",
-                    },
-                ])
+                return iter(
+                    [
+                        {
+                            "record_id": 100,
+                            "compound_key": "TEST_KEY",
+                            "compound_name": "Test Compound",
+                        },
+                    ]
+                )
             return iter([])
 
         mock_chembl_client.paginate = MagicMock(side_effect=mock_paginate)  # type: ignore[method-assign]
@@ -241,7 +256,13 @@ class TestActivityMoleculeJoin:
         )
 
         # Должен вернуть пустой DataFrame с правильными колонками
-        expected_columns = ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+        expected_columns = [
+            "activity_id",
+            "molecule_key",
+            "molecule_name",
+            "compound_key",
+            "compound_name",
+        ]
         assert all(col in result.columns for col in expected_columns)
         assert result.empty
 
@@ -251,11 +272,13 @@ class TestActivityMoleculeJoin:
         molecule_join_config: dict[str, Any],
     ) -> None:
         """Test handling of missing molecule_chembl_id column."""
-        df_missing_col = pd.DataFrame({
-            "activity_id": [1, 2],
-            "record_id": [100, 101],
-            # molecule_chembl_id отсутствует
-        })
+        df_missing_col = pd.DataFrame(
+            {
+                "activity_id": [1, 2],
+                "record_id": [100, 101],
+                # molecule_chembl_id отсутствует
+            }
+        )
 
         result = join_activity_with_molecule(
             df_missing_col,
@@ -264,7 +287,13 @@ class TestActivityMoleculeJoin:
         )
 
         # Должен вернуть пустой DataFrame с правильными колонками
-        expected_columns = ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+        expected_columns = [
+            "activity_id",
+            "molecule_key",
+            "molecule_name",
+            "compound_key",
+            "compound_name",
+        ]
         assert all(col in result.columns for col in expected_columns)
 
     def test_join_activity_with_molecule_missing_molecules(
@@ -318,6 +347,11 @@ class TestActivityMoleculeJoin:
         )
 
         # Проверка, что колонки строго соответствуют требованиям
-        expected_columns = ["activity_id", "molecule_key", "molecule_name", "compound_key", "compound_name"]
+        expected_columns = [
+            "activity_id",
+            "molecule_key",
+            "molecule_name",
+            "compound_key",
+            "compound_name",
+        ]
         assert list(result.columns) == expected_columns
-

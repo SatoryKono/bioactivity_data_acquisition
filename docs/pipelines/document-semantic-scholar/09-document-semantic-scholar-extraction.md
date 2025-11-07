@@ -271,7 +271,7 @@ def normalize_publication_types(types_list):
     """Normalize publication types"""
     if not types_list:
         return []
-    
+
     normalized = [t.lower() for t in types_list]
     return normalized
 ```
@@ -559,17 +559,17 @@ class DocumentSemanticScholarInputSchema(pa.DataFrameModel):
         nullable=True,
         regex=r"^10\.\d+/[^\s]+$"
     )
-    
+
     pmid: Series[int] = pa.Field(
         ge=1,
         nullable=True
     )
-    
+
     paper_id: Series[str] = pa.Field(
         nullable=True,
         regex=r"^(CorpusId|DOI|PMID):.+$"
     )
-    
+
     title: Series[str] = pa.Field(
         nullable=True
     )

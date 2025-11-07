@@ -53,12 +53,20 @@ class FakeAssayClient:
         page_limit,
         active_only,
     ):  # type: ignore[override]
-        return {assay_id: [{field: f"value-{field}" for field in fields if field != "assay_chembl_id"}]}  # type: ignore[return-value]
+        return {
+            assay_id: [
+                {field: f"value-{field}" for field in fields if field != "assay_chembl_id"}
+            ]
+            for assay_id in ids
+        }  # type: ignore[return-value]
 
 
 class FakeDocumentClient:
     def fetch_document_terms_by_ids(self, ids, fields, page_limit):  # type: ignore[override]
-        return {doc_id: [{"document_chembl_id": doc_id, "term": "alpha", "weight": 0.9}]}  # type: ignore[return-value]
+        return {
+            doc_id: [{"document_chembl_id": doc_id, "term": "alpha", "weight": 0.9}]
+            for doc_id in ids
+        }  # type: ignore[return-value]
 
 
 def test_activity_assay_enrichment_schema() -> None:
@@ -115,4 +123,3 @@ def test_document_terms_enrichment_schema() -> None:
 
     assert pd.api.types.is_string_dtype(result["term"].dtype)
     assert pd.api.types.is_string_dtype(result["weight"].dtype)
-

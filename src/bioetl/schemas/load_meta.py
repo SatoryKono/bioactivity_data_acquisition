@@ -8,6 +8,7 @@ from typing import Any
 
 import pandas as pd
 import pandera as pa
+from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
 from bioetl.schemas.base import create_schema
@@ -63,16 +64,25 @@ def _validate_optional_json_series(series: pd.Series) -> bool:
     return bool(non_null.map(_is_valid_json_string).all())
 
 
-def _is_timezone_aware(series: pd.Series) -> bool:
-    return series.dt.tz is not None
-
-
-def _time_window_consistent(row: pd.Series) -> bool:
+def _time_window_consistent(row: pd.Series, **_: Any) -> bool:
     start = row["request_started_at"]
     finish = row["request_finished_at"]
     ingested = row["ingested_at"]
-    if not (isinstance(start, datetime) and isinstance(finish, datetime) and isinstance(ingested, datetime)):
+
+    if isinstance(start, pd.Series):
+        start = start.iloc[0]
+    if isinstance(finish, pd.Series):
+        finish = finish.iloc[0]
+    if isinstance(ingested, pd.Series):
+        ingested = ingested.iloc[0]
+
+    if not (
+        isinstance(start, datetime)
+        and isinstance(finish, datetime)
+        and isinstance(ingested, datetime)
+    ):
         return False
+
     return start <= finish <= ingested
 
 
@@ -101,18 +111,15 @@ columns: dict[str, Column] = {
         nullable=True,
     ),  # type: ignore[assignment]
     "request_started_at": Column(
-        pa.DateTime,  # type: ignore[arg-type]
-        checks=[Check(_is_timezone_aware, element_wise=False)],
+        DatetimeTZDtype(tz="UTC"),
         nullable=False,
     ),  # type: ignore[assignment]
     "request_finished_at": Column(
-        pa.DateTime,  # type: ignore[arg-type]
-        checks=[Check(_is_timezone_aware, element_wise=False)],
+        DatetimeTZDtype(tz="UTC"),
         nullable=False,
     ),  # type: ignore[assignment]
     "ingested_at": Column(
-        pa.DateTime,  # type: ignore[arg-type]
-        checks=[Check(_is_timezone_aware, element_wise=False)],
+        DatetimeTZDtype(tz="UTC"),
         nullable=False,
     ),  # type: ignore[assignment]
     "records_fetched": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
@@ -133,7 +140,7 @@ _BASE_SCHEMA = create_schema(
     version=SCHEMA_VERSION,
     name="LoadMetaSchema",
     strict=True,
-    checks=[Check(_time_window_consistent, axis=1, name="time_window_consistency")],
+    checks=[Check(_time_window_consistent, axis=1, name="time_window_consistency", element_wise=False)],
 )
 LoadMetaSchema = _BASE_SCHEMA
 
@@ -144,4 +151,3 @@ __all__ = [
     "LoadMetaSchema",
     "SCHEMA_VERSION",
 ]
-

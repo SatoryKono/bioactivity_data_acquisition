@@ -229,4 +229,3 @@ def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
     )
 
     return DocCodeMatrix(rows=tuple(rows), csv_path=csv_path, json_path=json_path)
-

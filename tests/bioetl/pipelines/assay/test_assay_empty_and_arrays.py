@@ -21,7 +21,9 @@ def _create_minimal_config() -> PipelineConfig:
     return PipelineConfig(
         version=1,
         pipeline=PipelineMetadata(name="assay_chembl", version="1.0.0"),
-        transform=TransformConfig(arrays_to_header_rows=["assay_classifications", "assay_parameters"]),
+        transform=TransformConfig(
+            arrays_to_header_rows=["assay_classifications", "assay_parameters"]
+        ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
         validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
@@ -222,4 +224,3 @@ class TestEmptyFieldsAndArrays:
 
         # Should remain None
         assert pd.isna(result["assay_class_id"].iloc[0])
-

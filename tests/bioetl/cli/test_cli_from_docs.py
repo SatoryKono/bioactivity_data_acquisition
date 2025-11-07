@@ -13,7 +13,6 @@ tests to verify that CLI commands work correctly.
 from pathlib import Path
 
 import pytest
-
 from tests.tools.cli import run_cli_command
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -108,4 +107,3 @@ def test_testitem_chembl_alias_dry_run():
         timeout=60,
     )
     assert result.returncode == 0, f"testitem_chembl --dry-run failed: {result.stderr}"
-

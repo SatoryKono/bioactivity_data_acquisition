@@ -50,4 +50,3 @@ def test_serialize_objects_delegates_to_header_serializer() -> None:
     payload = [{"x": "X"}]
     assert serialize_objects(payload) == "x/X"
     assert serialize_objects(None) == ""
-

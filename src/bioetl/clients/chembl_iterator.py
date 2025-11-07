@@ -53,6 +53,8 @@ class ChemblEntityIterator:
             raise ValueError(msg)
 
         self._chembl_client = chembl_client
+        # Backwards compatibility for client attribute expected by legacy code/tests
+        self._client = chembl_client
         self._config = config
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
@@ -72,6 +74,24 @@ class ChemblEntityIterator:
             Версия ChEMBL release или None, если handshake не выполнялся.
         """
         return self._chembl_release
+
+    @property
+    def chembl_client(self) -> Any:
+        """Вернуть обёрнутый ChemblClient."""
+
+        return self._chembl_client
+
+    @property
+    def batch_size(self) -> int:
+        """Вернуть текущий размер батча для пагинации."""
+
+        return self._batch_size
+
+    @property
+    def max_url_length(self) -> int | None:
+        """Вернуть ограничение длины URL (если задано)."""
+
+        return self._max_url_length
 
     def handshake(
         self,
@@ -206,7 +226,7 @@ class ChemblEntityIterator:
 
     def _chunk_identifiers(
         self,
-        ids: Sequence[str],
+        ids: Sequence[object],
         *,
         select_fields: Sequence[str] | None = None,
     ) -> Iterable[Sequence[str]]:
@@ -215,7 +235,7 @@ class ChemblEntityIterator:
         Parameters
         ----------
         ids:
-            Последовательность идентификаторов для разбиения.
+            Последовательность идентификаторов (любые объекты) для разбиения.
         select_fields:
             Опциональный список полей для расчета длины URL.
 
@@ -227,7 +247,13 @@ class ChemblEntityIterator:
         chunk: deque[str] = deque()
 
         for identifier in ids:
-            if not identifier:
+            if identifier is None:
+                continue
+            if isinstance(identifier, str):
+                candidate_identifier = identifier.strip()
+            else:
+                candidate_identifier = str(identifier).strip()
+            if not candidate_identifier:
                 continue
 
             candidate_size = len(chunk) + 1
@@ -235,24 +261,27 @@ class ChemblEntityIterator:
             # Проверка длины URL, если включена
             if self._config.enable_url_length_check and self._max_url_length is not None:
                 candidate_param_length = self._encode_in_query(
-                    tuple(list(chunk) + [identifier]),
+                    tuple(list(chunk) + [candidate_identifier]),
                     select_fields=select_fields,
                 )
-                if candidate_size > self._batch_size or candidate_param_length > self._max_url_length:
+                if (
+                    candidate_size > self._batch_size
+                    or candidate_param_length > self._max_url_length
+                ):
                     if chunk:
                         yield tuple(chunk)
                         chunk.clear()
-                    chunk.append(identifier)
+                    chunk.append(candidate_identifier)
                     continue
             elif candidate_size > self._batch_size:
                 # Простая проверка размера чанка без проверки длины URL
                 if chunk:
                     yield tuple(chunk)
                     chunk.clear()
-                chunk.append(identifier)
+                chunk.append(candidate_identifier)
                 continue
 
-            chunk.append(identifier)
+            chunk.append(candidate_identifier)
 
         if chunk:
             yield tuple(chunk)
@@ -285,4 +314,3 @@ class ChemblEntityIterator:
         # Учитываем базовую длину endpoint для приблизительной оценки финальной длины URL
         base_length = self._config.base_endpoint_length or len(self._config.endpoint)
         return base_length + len("?") + len(params)
-

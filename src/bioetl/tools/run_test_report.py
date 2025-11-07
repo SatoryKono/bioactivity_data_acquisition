@@ -207,4 +207,3 @@ def generate_test_report(output_root: Path | None = None) -> int:
         log.info("tests_succeeded")
 
     return result.returncode
-

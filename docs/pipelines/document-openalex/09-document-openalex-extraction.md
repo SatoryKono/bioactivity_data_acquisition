@@ -491,17 +491,17 @@ class DocumentOpenAlexInputSchema(pa.DataFrameModel):
         nullable=True,
         regex=r"^10\.\d+/[^\s]+$"
     )
-    
+
     pmid: Series[int] = pa.Field(
         ge=1,
         nullable=True
     )
-    
+
     openalex_id: Series[str] = pa.Field(
         nullable=True,
         regex=r"^W\d+$"
     )
-    
+
     title: Series[str] = pa.Field(
         nullable=True
     )

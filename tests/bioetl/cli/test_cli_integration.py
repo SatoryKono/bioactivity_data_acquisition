@@ -79,11 +79,7 @@ determinism:
                     DeterminismHashingConfig,
                     DeterminismSortingConfig,
                 )
-                from bioetl.config.models.http import (
-                    HTTPClientConfig,
-                    HTTPConfig,
-                    RetryConfig,
-                )
+                from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
                 from bioetl.config.models.paths import MaterializationConfig
                 from bioetl.config.models.source import SourceConfig
                 from bioetl.config.models.validation import ValidationConfig

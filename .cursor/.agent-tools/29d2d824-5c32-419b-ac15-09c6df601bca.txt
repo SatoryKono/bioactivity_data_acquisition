@@ -26,7 +26,7 @@
 [1m[94m149 |[0m         def _make_request():
 [1m[94m150 |[0m             return self._request(method, path, expected_status=expected_status, headers=headers, **kwargs)
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^[0m
-[1m[94m151 |[0m         
+[1m[94m151 |[0m
 [1m[94m152 |[0m         return self.fallback_manager.execute_with_fallback(_make_request)
     [1m[94m|[0m
 
@@ -53,7 +53,7 @@
    [1m[94m-->[0m src/library/clients/pubmed.py:120:101
     [1m[94m|[0m
 [1m[94m118 |[0m             return self._normalise_record(payload)
-[1m[94m119 |[0m             
+[1m[94m119 |[0m
 [1m[94m120 |[0m         self.logger.warning("unexpected_payload_format", pmid=pmid, payload_keys=list(payload.keys()))
     [1m[94m|[0m                                                                                                     [1m[91m^^[0m
 [1m[94m121 |[0m         return None
@@ -162,8 +162,8 @@
    [1m[94m-->[0m src/library/documents/pipeline.py:134:101
     [1m[94m|[0m
 [1m[94m132 |[0m         "chembl_issue": None,
-[1m[94m133 |[0m         # Crossref columns  
-[1m[94m134 |[0m         "crossref_doi": None, "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None, 
+[1m[94m133 |[0m         # Crossref columns
+[1m[94m134 |[0m         "crossref_doi": None, "crossref_title": None, "crossref_doc_type": None, "crossref_subject": None,
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^[0m
 [1m[94m135 |[0m         "crossref_error": None,
 [1m[94m136 |[0m         # OpenAlex columns
@@ -218,7 +218,7 @@
 [1m[94m295 |[0m     if "classification" in normalised.columns:
 [1m[94m296 |[0m         normalised["document_classification"] = pd.to_numeric(normalised["classification"], errors='coerce')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^[0m
-[1m[94m297 |[0m     
+[1m[94m297 |[0m
 [1m[94m298 |[0m     if "document_contains_external_links" in normalised.columns:
     [1m[94m|[0m
 
@@ -228,7 +228,7 @@
 [1m[94m298 |[0m     if "document_contains_external_links" in normalised.columns:
 [1m[94m299 |[0m         normalised["referenses_on_previous_experiments"] = normalised["document_contains_external_links"].astype('boolean')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m300 |[0m     
+[1m[94m300 |[0m
 [1m[94m301 |[0m     if "is_experimental_doc" in normalised.columns:
     [1m[94m|[0m
 
@@ -238,7 +238,7 @@
 [1m[94m301 |[0m     if "is_experimental_doc" in normalised.columns:
 [1m[94m302 |[0m         normalised["original_experimental_document"] = normalised["is_experimental_doc"].astype('boolean')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^[0m
-[1m[94m303 |[0m     
+[1m[94m303 |[0m
 [1m[94m304 |[0m     # Также обрабатываем поля, если они уже имеют правильные имена
     [1m[94m|[0m
 
@@ -249,7 +249,7 @@
 [1m[94m305 |[0m     if "document_classification" in normalised.columns:
 [1m[94m306 |[0m         normalised["document_classification"] = pd.to_numeric(normalised["document_classification"], errors='coerce')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^[0m
-[1m[94m307 |[0m     
+[1m[94m307 |[0m
 [1m[94m308 |[0m     if "referenses_on_previous_experiments" in normalised.columns:
     [1m[94m|[0m
 
@@ -259,7 +259,7 @@
 [1m[94m308 |[0m     if "referenses_on_previous_experiments" in normalised.columns:
 [1m[94m309 |[0m         normalised["referenses_on_previous_experiments"] = normalised["referenses_on_previous_experiments"].astype('boolean')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m310 |[0m     
+[1m[94m310 |[0m
 [1m[94m311 |[0m     if "original_experimental_document" in normalised.columns:
     [1m[94m|[0m
 
@@ -269,7 +269,7 @@
 [1m[94m311 |[0m     if "original_experimental_document" in normalised.columns:
 [1m[94m312 |[0m         normalised["original_experimental_document"] = normalised["original_experimental_document"].astype('boolean')
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^[0m
-[1m[94m313 |[0m     
+[1m[94m313 |[0m
 [1m[94m314 |[0m     normalised = normalised.sort_values("document_chembl_id").reset_index(drop=True)
     [1m[94m|[0m
 
@@ -499,7 +499,7 @@
 [1m[94m126 |[0m         bool_matches = text_series.str.match(bool_pattern, na=False)
 [1m[94m127 |[0m         patterns['bool_like_cov'] = float(bool_matches.sum() / total_non_empty * 100) if total_non_empty > 0 else 0.0
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^[0m
-[1m[94m128 |[0m         
+[1m[94m128 |[0m
 [1m[94m129 |[0m         return patterns
     [1m[94m|[0m
 
@@ -546,7 +546,7 @@
 [1m[94m47 |[0m     # Фильтруем колонки для сортировки, оставляя только существующие
 [1m[94m48 |[0m     sort_by = [col for col in (determinism.sort.by or ordered.columns.tolist()) if col in df.columns]
    [1m[94m|[0m                                                                                                     [1m[91m^[0m
-[1m[94m49 |[0m     
+[1m[94m49 |[0m
 [1m[94m50 |[0m     # Если нет колонок для сортировки, возвращаем DataFrame как есть
    [1m[94m|[0m
 
@@ -609,7 +609,7 @@
    [1m[94m-->[0m src/library/etl/load.py:494:101
     [1m[94m|[0m
 [1m[94m492 |[0m                 return obj
-[1m[94m493 |[0m             
+[1m[94m493 |[0m
 [1m[94m494 |[0m             json_analysis = json.loads(json.dumps(detailed_corr_analysis, default=convert_numpy, indent=2))
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^[0m
 [1m[94m495 |[0m             json.dump(json_analysis, f, ensure_ascii=False, indent=2)
@@ -629,11 +629,11 @@
 [1m[91mE501 [0m[1mLine too long (101 > 100)[0m
    [1m[94m-->[0m src/library/etl/load.py:515:101
     [1m[94m|[0m
-[1m[94m513 |[0m             logger.info("auto_qc_corr_complete", 
+[1m[94m513 |[0m             logger.info("auto_qc_corr_complete",
 [1m[94m514 |[0m                        qc_files=[str(qc_path), str(enhanced_qc_path), str(detailed_qc_path)],
 [1m[94m515 |[0m                        corr_files=[str(corr_path), str(enhanced_corr_path), str(detailed_corr_path)])
     [1m[94m|[0m                                                                                                     [1m[91m^[0m
-[1m[94m516 |[0m     
+[1m[94m516 |[0m
 [1m[94m517 |[0m     except Exception as e:
     [1m[94m|[0m
 
@@ -674,7 +674,7 @@
    [1m[94m-->[0m src/library/etl/load.py:647:101
     [1m[94m|[0m
 [1m[94m645 |[0m                 return obj
-[1m[94m646 |[0m             
+[1m[94m646 |[0m
 [1m[94m647 |[0m             json_analysis = json.loads(json.dumps(detailed_corr_analysis, default=convert_numpy, indent=2))
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^[0m
 [1m[94m648 |[0m             json.dump(json_analysis, f, ensure_ascii=False, indent=2)
@@ -806,7 +806,7 @@
 [1m[94m181 |[0m     # Citation field
 [1m[94m182 |[0m     document_citation: Series[str] = pa.Field(nullable=True, description="Formatted citation string")
     [1m[94m|[0m                                                                                                     [1m[91m^[0m
-[1m[94m183 |[0m     
+[1m[94m183 |[0m
 [1m[94m184 |[0m     # Validation fields
     [1m[94m|[0m
 
@@ -857,7 +857,7 @@
 [1m[94m53 |[0m             fill_percentage = (filled_count / total_cells) * 100
 [1m[94m54 |[0m             print(f"{source:<20} {filled_count:4d}/{total_cells:4d} ячеек ({fill_percentage:5.1f}%)")
    [1m[94m|[0m                                                                                                     [1m[91m^[0m
-[1m[94m55 |[0m     
+[1m[94m55 |[0m
 [1m[94m56 |[0m     # Общая статистика
    [1m[94m|[0m
 
@@ -868,7 +868,7 @@
 [1m[94m70 |[0m     fully_filled_rows = df.notna().all(axis=1).sum()
 [1m[94m71 |[0m     print(f"Полностью заполненных строк: {fully_filled_rows}/{total_rows} ({fully_filled_rows/total_rows*100:.1f}%)")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^[0m
-[1m[94m72 |[0m     
+[1m[94m72 |[0m
 [1m[94m73 |[0m     # Проверяем строки с минимальным заполнением
    [1m[94m|[0m
 
@@ -876,7 +876,7 @@
   [1m[94m-->[0m src/library/tools/analyze_fixed_results.py:78:101
    [1m[94m|[0m
 [1m[94m76 |[0m     avg_fill_per_row = df.notna().sum(axis=1).mean()
-[1m[94m77 |[0m     
+[1m[94m77 |[0m
 [1m[94m78 |[0m     print(f"Минимальное заполнение в строке: {min_fill_per_row}/{total_columns} ({min_fill_per_row/total_columns*100:.1f}%)")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
 [1m[94m79 |[0m     print(f"Максимальное заполнение в строке: {max_fill_per_row}/{total_columns} ({max_fill_per_row/total_columns*100:.1f}%)")
@@ -899,7 +899,7 @@
 [1m[94m79 |[0m     print(f"Максимальное заполнение в строке: {max_fill_per_row}/{total_columns} ({max_fill_per_row/total_columns*100:.1f}%)")
 [1m[94m80 |[0m     print(f"Среднее заполнение в строке: {avg_fill_per_row:.1f}/{total_columns} ({avg_fill_per_row/total_columns*100:.1f}%)")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m81 |[0m     
+[1m[94m81 |[0m
 [1m[94m82 |[0m     # Показываем примеры заполненных полей
    [1m[94m|[0m
 
@@ -920,7 +920,7 @@
 [1m[94m190 |[0m         for api in slow_apis:
 [1m[94m191 |[0m             recommendations.append(f"- {api['api']}: {api['response_time']}с (рассмотрите кэширование)")
     [1m[94m|[0m                                                                                                     [1m[91m^^^^[0m
-[1m[94m192 |[0m     
+[1m[94m192 |[0m
 [1m[94m193 |[0m     if rate_limited_apis:
     [1m[94m|[0m
 
@@ -1043,7 +1043,7 @@
 [1m[94m40 |[0m     # Поля DOI из разных источников
 [1m[94m41 |[0m     doi_fields = ['chembl_doi', 'crossref_doi', 'openalex_doi', 'pubmed_doi', 'semantic_scholar_doi']
    [1m[94m|[0m                                                                                                     [1m[91m^[0m
-[1m[94m42 |[0m     
+[1m[94m42 |[0m
 [1m[94m43 |[0m     # Удаляем старые колонки валидации, если они есть
    [1m[94m|[0m
 
@@ -1053,7 +1053,7 @@
 [1m[94m110 |[0m     # Поля journal из разных источников
 [1m[94m111 |[0m     journal_fields = ['chembl_journal', 'crossref_journal', 'pubmed_journal', 'semantic_scholar_journal']
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^[0m
-[1m[94m112 |[0m     
+[1m[94m112 |[0m
 [1m[94m113 |[0m     invalid_journal = []
     [1m[94m|[0m
 
@@ -1064,7 +1064,7 @@
 [1m[94m138 |[0m             # Несколько journal - проверяем совпадения
 [1m[94m139 |[0m             chembl_journal = _normalize_value(row['chembl_journal']) if not _is_empty_value(row['chembl_journal']) else None
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m140 |[0m             
+[1m[94m140 |[0m
 [1m[94m141 |[0m             matches = 0
     [1m[94m|[0m
 
@@ -1075,7 +1075,7 @@
 [1m[94m302 |[0m             # Несколько volume - проверяем совпадения
 [1m[94m303 |[0m             chembl_volume = _normalize_value(row['chembl_volume']) if not _is_empty_value(row['chembl_volume']) else None
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m304 |[0m             
+[1m[94m304 |[0m
 [1m[94m305 |[0m             matches = 0
     [1m[94m|[0m
 
@@ -1086,7 +1086,7 @@
 [1m[94m375 |[0m             # Несколько issue - проверяем совпадения
 [1m[94m376 |[0m             chembl_issue = _normalize_value(row['chembl_issue']) if not _is_empty_value(row['chembl_issue']) else None
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^[0m
-[1m[94m377 |[0m             
+[1m[94m377 |[0m
 [1m[94m378 |[0m             matches = 0
     [1m[94m|[0m
 
@@ -1167,7 +1167,7 @@
 [1m[94m37 |[0m         for _, row in empty_crossref.head(5).iterrows():
 [1m[94m38 |[0m             print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['document_pubmed_id']}, Error={row['crossref_error']}")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m39 |[0m     
+[1m[94m39 |[0m
 [1m[94m40 |[0m     # Анализируем OpenAlex
    [1m[94m|[0m
 
@@ -1189,7 +1189,7 @@
 [1m[94m53 |[0m         for _, row in empty_openalex.head(5).iterrows():
 [1m[94m54 |[0m             print(f"  {row['document_chembl_id']}: DOI={row['doi']}, PMID={row['document_pubmed_id']}, Error={row['openalex_error']}")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m55 |[0m     
+[1m[94m55 |[0m
 [1m[94m56 |[0m     # Анализируем ошибки
    [1m[94m|[0m
 
@@ -1379,7 +1379,7 @@
 [1m[94m324 |[0m     parser.add_argument("--interval", type=int, default=60, help="Интервал между проверками (секунды)")
 [1m[94m325 |[0m     parser.add_argument("--duration", type=int, default=10, help="Продолжительность мониторинга (минуты)")
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^[0m
-[1m[94m326 |[0m     
+[1m[94m326 |[0m
 [1m[94m327 |[0m     args = parser.parse_args()
     [1m[94m|[0m
 
@@ -1421,7 +1421,7 @@
 [1m[94m237 |[0m     parser.add_argument("--interval", type=int, default=60, help="Интервал между проверками (секунды)")
 [1m[94m238 |[0m     parser.add_argument("--duration", type=int, default=10, help="Продолжительность мониторинга (минуты)")
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^[0m
-[1m[94m239 |[0m     
+[1m[94m239 |[0m
 [1m[94m240 |[0m     args = parser.parse_args()
     [1m[94m|[0m
 
@@ -1432,7 +1432,7 @@
 [1m[94m60 |[0m     print(f"Резервная копия: {'[OK]' if backup_config.exists() else '[MISSING]'}")
 [1m[94m61 |[0m     print(f"Конфигурация без Semantic Scholar: {'[OK]' if no_scholar_config.exists() else '[MISSING]'}")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^[0m
-[1m[94m62 |[0m     
+[1m[94m62 |[0m
 [1m[94m63 |[0m     if main_config.exists():
    [1m[94m|[0m
 
@@ -1443,7 +1443,7 @@
 [1m[94m94 |[0m     parser.add_argument("--status", action="store_true", help="Показать статус конфигурации")
 [1m[94m95 |[0m     parser.add_argument("--backup", action="store_true", help="Создать резервную копию текущей конфигурации")
    [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^[0m
-[1m[94m96 |[0m     
+[1m[94m96 |[0m
 [1m[94m97 |[0m     args = parser.parse_args()
    [1m[94m|[0m
 
@@ -1612,7 +1612,7 @@
 [1m[94m82 |[0m             high_severity = [i for i in result.correlation_insights if i.get('severity') == 'high']
 [1m[94m83 |[0m             medium_severity = [i for i in result.correlation_insights if i.get('severity') == 'medium']
    [1m[94m|[0m                                                                                                     [1m[91m^^^[0m
-[1m[94m84 |[0m             
+[1m[94m84 |[0m
 [1m[94m85 |[0m             print(f"  - Высокая важность: {len(high_severity)} инсайтов")
    [1m[94m|[0m
 
@@ -1641,7 +1641,7 @@
 [1m[94m61 |[0m [1m[94m…[0m     enhanced_qc_path = data_dir / f"{data_stem}_quality_report_enhanced.csv"
 [1m[94m62 |[0m [1m[94m…[0m     assert enhanced_qc_path.exists(), f"Расширенный QC отчет должен быть создан: {enhanced_qc_path}"
    [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^[0m
-[1m[94m63 |[0m [1m[94m…[0m     
+[1m[94m63 |[0m [1m[94m…[0m
 [1m[94m64 |[0m [1m[94m…[0m     # Детальные отчеты QC
    [1m[94m|[0m
 
@@ -1652,7 +1652,7 @@
 [1m[94m65 |[0m [1m[94m…[0m     detailed_qc_path = data_dir / f"{data_stem}_quality_report_detailed"
 [1m[94m66 |[0m [1m[94m…[0m     assert detailed_qc_path.exists(), f"Директория детальных QC отчетов должна быть создана: {detailed_qc_path}"
    [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m67 |[0m [1m[94m…[0m     
+[1m[94m67 |[0m [1m[94m…[0m
 [1m[94m68 |[0m [1m[94m…[0m     # Расширенные корреляционные отчеты
    [1m[94m|[0m
 
@@ -1685,7 +1685,7 @@
 [1m[94m94 |[0m [1m[94m…[0m     corr_enhanced_files = list(enhanced_corr_path.glob("*.csv"))
 [1m[94m95 |[0m [1m[94m…[0m     assert len(corr_enhanced_files) > 0, "В расширенной корреляционной директории должны быть файлы"
    [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^[0m
-[1m[94m96 |[0m [1m[94m…[0m     
+[1m[94m96 |[0m [1m[94m…[0m
 [1m[94m97 |[0m [1m[94m…[0m     # Проверяем, что в детальной корреляционной директории есть JSON файл
    [1m[94m|[0m
 
@@ -1696,7 +1696,7 @@
 [1m[94m150 |[0m [1m[94m…[0m     assert not qc_path.exists(), "QC отчет не должен создаваться для пустых данных"
 [1m[94m151 |[0m [1m[94m…[0m     assert not corr_path.exists(), "Корреляционный отчет не должен создаваться для пустых данных"
     [1m[94m|[0m                                                                                               [1m[91m^^^^^[0m
-[1m[94m152 |[0m [1m[94m…[0m     
+[1m[94m152 |[0m [1m[94m…[0m
 [1m[94m153 |[0m [1m[94m…[0m     print("Тест обработки пустого DataFrame прошел успешно!")
     [1m[94m|[0m
 
@@ -1713,7 +1713,7 @@
    [1m[94m-->[0m tests/test_auto_qc_correlation.py:192:101
     [1m[94m|[0m
 [1m[94m190 |[0m [1m[94m…[0m     expected_detailed_corr_path = data_dir / f"{data_stem}_correlation_report_detailed"
-[1m[94m191 |[0m [1m[94m…[0m     
+[1m[94m191 |[0m [1m[94m…[0m
 [1m[94m192 |[0m [1m[94m…[0m     assert expected_qc_path.exists(), f"QC отчет должен быть создан с правильным именем: {expected_qc_path}"
     [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^^^^^^^^^[0m
 [1m[94m193 |[0m [1m[94m…[0m     assert expected_corr_path.exists(), f"Корреляционный отчет должен быть создан с правильным именем: {expected_corr_path}"
@@ -1779,7 +1779,7 @@
 [1m[94m249 |[0m [1m[94m…[0m     # Должно быть 4 строки (по одной для каждой колонки) плюс summary
 [1m[94m250 |[0m [1m[94m…[0m     assert len(qc_report) >= 4, f"QC отчет должен содержать минимум 4 строки, получено {len(qc_report)}"
     [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^^^^^[0m
-[1m[94m251 |[0m [1m[94m…[0m     
+[1m[94m251 |[0m [1m[94m…[0m
 [1m[94m252 |[0m [1m[94m…[0m     # Проверяем наличие ожидаемых колонок в QC отчете
     [1m[94m|[0m
 
@@ -1789,7 +1789,7 @@
 [1m[94m261 |[0m [1m[94m…[0m     # Расширенный отчет должен содержать больше метрик
 [1m[94m262 |[0m [1m[94m…[0m     assert len(enhanced_qc_report) >= 4, "Расширенный QC отчет должен содержать минимум 4 строки"
     [1m[94m|[0m                                                                                               [1m[91m^^^^^[0m
-[1m[94m263 |[0m [1m[94m…[0m     
+[1m[94m263 |[0m [1m[94m…[0m
 [1m[94m264 |[0m [1m[94m…[0m     # Проверяем наличие расширенных метрик
     [1m[94m|[0m
 
@@ -1810,7 +1810,7 @@
 [1m[94m266 |[0m [1m[94m…[0m     for metric in enhanced_metrics:
 [1m[94m267 |[0m [1m[94m…[0m         assert metric in enhanced_qc_report.columns, f"Расширенный QC отчет должен содержать метрику '{metric}'"
     [1m[94m|[0m                                                                                               [1m[91m^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m268 |[0m [1m[94m…[0m     
+[1m[94m268 |[0m [1m[94m…[0m
 [1m[94m269 |[0m [1m[94m…[0m     print("Тест валидации содержимого отчетов прошел успешно!")
     [1m[94m|[0m
 
@@ -1828,7 +1828,7 @@
    [1m[94m-->[0m tests/test_auto_qc_correlation.py:282:101
     [1m[94m|[0m
 [1m[94m280 |[0m                     os.unlink(report_path)
-[1m[94m281 |[0m             
+[1m[94m281 |[0m
 [1m[94m282 |[0m             for suffix in ['_quality_report_detailed', '_correlation_report_enhanced', '_correlation_report_detailed']:
     [1m[94m|[0m                                                                                                     [1m[91m^^^^^^^^^^^^^^^^^^^[0m
 [1m[94m283 |[0m                 report_dir = data_dir / f"{data_stem}{suffix}"
@@ -1886,7 +1886,7 @@
 [1m[94m42 |[0m             else:
 [1m[94m43 |[0m                 assert actual == expected, f"Позиция {i}: ожидалось '{expected}', получено '{actual}'"
    [1m[94m|[0m                                                                                                     [1m[91m^^[0m
-[1m[94m44 |[0m         
+[1m[94m44 |[0m
 [1m[94m45 |[0m         # Проверяем вторую колонку
    [1m[94m|[0m
 
@@ -1977,7 +1977,7 @@
 [1m[94m137 |[0m         assert pd.isna(normalized_df['bool_col'].iloc[2])
 [1m[94m138 |[0m         assert normalized_df['bool_col'].iloc[3] == True
     [1m[94m|[0m                [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m139 |[0m         
+[1m[94m139 |[0m
 [1m[94m140 |[0m         # Проверяем, что index остался без изменений
     [1m[94m|[0m
 [1m[96mhelp[0m: [1mReplace with `normalized_df['bool_col'].iloc[3]`[0m
@@ -2012,7 +2012,7 @@
 [1m[94m193 |[0m             assert pd.isna(result_df['is_active'].iloc[2])  # NaN -> NA
 [1m[94m194 |[0m             assert result_df['is_active'].iloc[3] == True
     [1m[94m|[0m                    [1m[91m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
-[1m[94m195 |[0m             
+[1m[94m195 |[0m
 [1m[94m196 |[0m         finally:
     [1m[94m|[0m
 [1m[96mhelp[0m: [1mReplace with `result_df['is_active'].iloc[3]`[0m
@@ -2084,7 +2084,7 @@
    [1m[94m-->[0m tests/test_enhanced_qc.py:101:101
     [1m[94m|[0m
 [1m[94m 99 |[0m [1m[94m…[0m     assert numbers_analysis['numeric_mean'] == 5.5
-[1m[94m100 |[0m [1m[94m…[0m     
+[1m[94m100 |[0m [1m[94m…[0m
 [1m[94m101 |[0m [1m[94m…[0m     # Проверяем смешанные данные (может не иметь numeric_cov если pandas не считает колонку числовой)
     [1m[94m|[0m                                                                                                   [1m[91m^^^^^[0m
 [1m[94m102 |[0m [1m[94m…[0m     mixed_analysis = report['column_analysis']['mixed']
@@ -2103,4 +2103,3 @@
 
 Found 202 errors.
 No fixes available (16 hidden fixes can be enabled with the `--unsafe-fixes` option).
-

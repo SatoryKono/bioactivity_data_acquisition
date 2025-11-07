@@ -61,4 +61,3 @@ sources:
       base_url: https://www.guidetopharmacology.org/services
       cache:
         enabled: true
-

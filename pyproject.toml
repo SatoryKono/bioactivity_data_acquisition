@@ -91,6 +91,11 @@ where = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
+# На время рефакторинга проверяем только основные каталоги.
+src = [
+    "src/bioetl",
+    "tests",
+]
 
 [tool.ruff.lint]
 select = [
@@ -120,6 +125,7 @@ strict = true
 mypy_path = ["tools/typecheck/stubs"]
 files = [
     "src/bioetl",
+    "tests",
 ]
 
 [[tool.mypy.overrides]]
@@ -254,4 +260,3 @@ reportUntypedFunctionDecorator = false
 include = ["src/bioetl/pipelines/assay/**"]
 reportMissingImports = false
 reportUnknownVariableType = false
-

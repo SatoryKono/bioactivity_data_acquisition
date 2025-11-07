@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import Any, Mapping
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -110,8 +110,7 @@ def build_quality_report(
 
     duplicates = compute_duplicate_stats(df, business_key_fields=business_key_fields)
     rows: list[dict[str, Any]] = [
-        {"section": "summary", "metric": key, "value": value}
-        for key, value in duplicates.items()
+        {"section": "summary", "metric": key, "value": value} for key, value in duplicates.items()
     ]
 
     missing = compute_missingness(df)

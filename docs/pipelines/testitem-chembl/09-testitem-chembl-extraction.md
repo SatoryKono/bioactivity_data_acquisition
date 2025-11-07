@@ -276,35 +276,35 @@ if batch_size > 25:
 ```python
 def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
     """Extract molecule records by a specific list of IDs using batch extraction."""
-    
+
     # Batch extraction parameters
     batch_size = min(self._resolve_page_size(source_config), 25)
     limit = self.config.cli.limit
-    
+
     records: list[dict[str, Any]] = []
     total_batches = 0
-    
+
     # Process IDs in batches
     for i in range(0, len(ids), batch_size):
         batch_ids = ids[i : i + batch_size]
-        
+
         # Construct batch request
         params = {
             "molecule_chembl_id__in": ",".join(batch_ids),
             "format": "json",
             "limit": len(batch_ids),
         }
-        
+
         response = client.get("/molecule.json", params=params)
         payload = self._coerce_mapping(response.json())
         page_items = self._extract_page_items(payload)
-        
+
         records.extend(page_items)
         total_batches += 1
-        
+
         if limit is not None and len(records) >= limit:
             break
-    
+
     return pd.DataFrame.from_records(records)
 ```
 
@@ -482,21 +482,21 @@ def _atomic_write(
     run_id: str
 ) -> Path:
     """Atomic write with run_id-scoped temp directory."""
-    
+
     # Temp directory per run
     temp_dir = self.output_dir / ".tmp" / run_id
     temp_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Temp file
     temp_path = temp_dir / f"{target_path.name}.tmp"
-    
+
     # Write
     temp_path.write_bytes(content)
-    
+
     # Atomic rename (Windows: os.replace() instead of shutil.move())
     target_path.parent.mkdir(parents=True, exist_ok=True)
     os.replace(str(temp_path), str(target_path))
-    
+
     return target_path
 ```
 
@@ -536,7 +536,7 @@ TestItem pipeline обеспечивает детерминированный в
 def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     """
     Canonical serialization for deterministic hashing.
-    
+
     Rules:
     1. JSON with sort_keys=True, separators=(',', ':')
     2. ISO8601 UTC for all datetimes
@@ -544,12 +544,12 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
     4. Empty/None values: "" (empty string)
     5. Column order: строго по column_order
     """
-    
+
     canonical = {}
-    
+
     for col in column_order:
         value = row.get(col)
-        
+
         # Convert to canonical representation
         if pd.isna(value):
             canonical[col] = ""
@@ -561,7 +561,7 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
             canonical[col] = json.dumps(value, sort_keys=True, separators=(',', ':'))
         else:
             canonical[col] = str(value)
-    
+
     # JSON serialization with strict format
     return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
 ```
@@ -623,21 +623,21 @@ For detailed policy, see [Determinism Policy](../determinism/00-determinism-poli
 ```python
 def _check_referential_integrity(self, df: pd.DataFrame) -> None:
     """Ensure parent_chembl_id values resolve to known molecules."""
-    
+
     required_columns = {"molecule_chembl_id", "parent_chembl_id"}
     if df.empty or not required_columns.issubset(df.columns):
         return
-    
+
     parent_series = df["parent_chembl_id"].dropna()
     molecule_ids = df["molecule_chembl_id"].unique()
     known_ids = set(molecule_ids)
-    
+
     missing_mask = ~parent_series.isin(known_ids)
     missing_count = int(missing_mask.sum())
     missing_ratio = missing_count / len(parent_series) if len(parent_series) else 0.0
-    
+
     threshold = float(self.config.qc.thresholds.get("testitem.parent_missing_ratio", 0.0))
-    
+
     if missing_ratio > threshold:
         raise ValueError(
             "Referential integrity violation: parent_chembl_id references missing molecules"

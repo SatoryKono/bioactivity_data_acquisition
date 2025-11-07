@@ -77,11 +77,11 @@ def run_pipeline(
     # Validate config file exists
     if not config_path.exists():
         raise typer.BadParameter(f"Config file not found: {config_path}")
-    
+
     # Validate output directory is writable
     if not output_dir.parent.exists():
         raise typer.BadParameter(f"Output directory parent does not exist: {output_dir.parent}")
-    
+
     # Process pipeline
     process_pipeline(config_path, output_dir)
 ```
@@ -109,16 +109,16 @@ def run_pipeline(config_path: Path) -> None:
         if not config_path.exists():
             typer.echo(f"Error: Config file not found: {config_path}", err=True)
             raise typer.Exit(code=2)
-        
+
         # Process pipeline
         result = process_pipeline(config_path)
         if not result.success:
             typer.echo(f"Error: Pipeline failed: {result.error}", err=True)
             raise typer.Exit(code=1)
-        
+
         typer.echo("Pipeline completed successfully")
         raise typer.Exit(code=0)
-        
+
     except APIError as e:
         typer.echo(f"Error: API failure: {e}", err=True)
         raise typer.Exit(code=3)
@@ -165,7 +165,7 @@ def export_data(
         typer.echo(f"File already exists: {output_path}")
         typer.echo("Use --overwrite to replace it")
         raise typer.Exit(code=1)
-    
+
     export_data_to_file(output_path)
 ```
 
@@ -233,17 +233,17 @@ def run_pipeline(
         # Validation
         validate_config(config)
         validate_output_dir(output)
-        
+
         # Execution
         result = execute_pipeline(config, output, verbose=verbose)
-        
+
         if result.success:
             typer.echo("Pipeline completed successfully")
             raise typer.Exit(code=0)
         else:
             typer.echo(f"Pipeline failed: {result.error}", err=True)
             raise typer.Exit(code=1)
-            
+
     except ValidationError as e:
         typer.echo(f"Validation error: {e}", err=True)
         raise typer.Exit(code=2)

@@ -115,4 +115,3 @@ def serialize_objects(items: Any) -> str:
     """Serialize arbitrary objects (preferably list[dict]) via header/rows format."""
 
     return header_rows_serialize(items)
-

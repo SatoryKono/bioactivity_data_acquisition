@@ -49,4 +49,3 @@ class ChemblDocumentClient(ChemblEntityIterator):
             batch_size=batch_size,
             max_url_length=max_url_length,
         )
-

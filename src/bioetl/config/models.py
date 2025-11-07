@@ -72,7 +72,9 @@ class HTTPClientConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    timeout_sec: PositiveFloat = Field(default=60.0, description="Total request timeout in seconds.")
+    timeout_sec: PositiveFloat = Field(
+        default=60.0, description="Total request timeout in seconds."
+    )
     connect_timeout_sec: PositiveFloat = Field(
         default=15.0,
         description="Connection timeout in seconds.",
@@ -123,7 +125,9 @@ class CacheConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable or disable the on-disk cache.")
     directory: str = Field(default="http_cache", description="Directory used to store cached data.")
-    ttl: PositiveInt = Field(default=86_400, description="Time-to-live for cached entries in seconds.")
+    ttl: PositiveInt = Field(
+        default=86_400, description="Time-to-live for cached entries in seconds."
+    )
 
 
 class PathsConfig(BaseModel):
@@ -132,7 +136,9 @@ class PathsConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     input_root: str = Field(default="data/input", description="Default directory for input assets.")
-    output_root: str = Field(default="data/output", description="Default directory for pipeline outputs.")
+    output_root: str = Field(
+        default="data/output", description="Default directory for pipeline outputs."
+    )
     samples_root: str = Field(
         default="data/samples",
         description="Directory containing lightweight sample artifacts for local development.",
@@ -141,7 +147,9 @@ class PathsConfig(BaseModel):
         default=None,
         description="External object storage location for production-scale outputs (e.g., S3 URI).",
     )
-    cache_root: str = Field(default=".cache", description="Root directory for transient cache files.")
+    cache_root: str = Field(
+        default=".cache", description="Root directory for transient cache files."
+    )
 
 
 class MaterializationConfig(BaseModel):
@@ -149,7 +157,9 @@ class MaterializationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    root: str = Field(default="data/output", description="Base directory for materialized datasets.")
+    root: str = Field(
+        default="data/output", description="Base directory for materialized datasets."
+    )
     default_format: str = Field(
         default="parquet",
         description="Default output format for tabular data (e.g., parquet, csv).",
@@ -185,8 +195,12 @@ class DeterminismSerializationCSVConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     separator: str = Field(default=",", description="Column separator used when writing CSV files.")
-    quoting: str = Field(default="ALL", description="Quoting strategy compatible with pandas CSV writer.")
-    na_rep: str = Field(default="", description="String representation for missing values in CSV output.")
+    quoting: str = Field(
+        default="ALL", description="Quoting strategy compatible with pandas CSV writer."
+    )
+    na_rep: str = Field(
+        default="", description="String representation for missing values in CSV output."
+    )
 
 
 class DeterminismSerializationConfig(BaseModel):
@@ -194,7 +208,9 @@ class DeterminismSerializationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    csv: DeterminismSerializationCSVConfig = Field(default_factory=DeterminismSerializationCSVConfig)
+    csv: DeterminismSerializationCSVConfig = Field(
+        default_factory=DeterminismSerializationCSVConfig
+    )
     booleans: tuple[str, str] = Field(
         default=("True", "False"),
         description="Canonical string representations for boolean values.",
@@ -207,12 +223,16 @@ class DeterminismSortingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    by: list[str] = Field(default_factory=list, description="Columns defining the deterministic sort order.")
+    by: list[str] = Field(
+        default_factory=list, description="Columns defining the deterministic sort order."
+    )
     ascending: list[bool] = Field(
         default_factory=list,
         description="Sort direction per column; defaults to ascending when empty.",
     )
-    na_position: str = Field(default="last", description="Where to place null values during sorting.")
+    na_position: str = Field(
+        default="last", description="Where to place null values during sorting."
+    )
 
 
 class DeterminismHashingConfig(BaseModel):
@@ -220,7 +240,9 @@ class DeterminismHashingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    algorithm: str = Field(default="sha256", description="Hash algorithm used for row/business key hashes.")
+    algorithm: str = Field(
+        default="sha256", description="Hash algorithm used for row/business key hashes."
+    )
     row_fields: Sequence[str] = Field(
         default_factory=tuple,
         description="Columns included in the per-row hash calculation.",
@@ -298,7 +320,9 @@ class DeterminismConfig(BaseModel):
         default_factory=tuple,
         description="Expected column order for the final dataset.",
     )
-    serialization: DeterminismSerializationConfig = Field(default_factory=DeterminismSerializationConfig)
+    serialization: DeterminismSerializationConfig = Field(
+        default_factory=DeterminismSerializationConfig
+    )
     hashing: DeterminismHashingConfig = Field(default_factory=DeterminismHashingConfig)
     environment: DeterminismEnvironmentConfig = Field(default_factory=DeterminismEnvironmentConfig)
     write: DeterminismWriteConfig = Field(default_factory=DeterminismWriteConfig)
@@ -331,8 +355,12 @@ class ValidationConfig(BaseModel):
         default=None,
         description="Dotted path to the Pandera schema validating transformed data.",
     )
-    strict: bool = Field(default=True, description="If true, Pandera enforces column order and presence.")
-    coerce: bool = Field(default=True, description="If true, Pandera coerces data types during validation.")
+    strict: bool = Field(
+        default=True, description="If true, Pandera enforces column order and presence."
+    )
+    coerce: bool = Field(
+        default=True, description="If true, Pandera coerces data types during validation."
+    )
 
 
 class CLIConfig(BaseModel):
@@ -344,7 +372,9 @@ class CLIConfig(BaseModel):
         default_factory=tuple,
         description="Profiles requested via the --profile flag (in order).",
     )
-    dry_run: bool = Field(default=False, description="If true, skip the write/materialization stage.")
+    dry_run: bool = Field(
+        default=False, description="If true, skip the write/materialization stage."
+    )
     limit: PositiveInt | None = Field(
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
@@ -446,7 +476,9 @@ class SourceConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True, description="Toggle processing of this data source.")
-    description: str | None = Field(default=None, description="Human readable description of the source.")
+    description: str | None = Field(
+        default=None, description="Human readable description of the source."
+    )
     http_profile: str | None = Field(
         default=None,
         description="Reference to a named HTTP profile defined under http.profiles.",
@@ -472,7 +504,9 @@ class PipelineMetadata(BaseModel):
 
     name: str = Field(..., description="Unique name of the pipeline (e.g., activity, assay).")
     version: str = Field(..., description="Semantic version of the pipeline implementation.")
-    owner: str | None = Field(default=None, description="Team or individual responsible for the pipeline.")
+    owner: str | None = Field(
+        default=None, description="Team or individual responsible for the pipeline."
+    )
     description: str | None = Field(default=None, description="Short human readable description.")
 
 

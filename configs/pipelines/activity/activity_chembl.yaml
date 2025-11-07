@@ -182,4 +182,3 @@ chembl:
 
 validation:
   schema_out: bioetl.schemas.activity.activity_chembl.ActivitySchema
-

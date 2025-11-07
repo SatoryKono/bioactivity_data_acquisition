@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Callable
-from contextlib import contextmanager
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
-from typing import Any, ContextManager, Generator
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -205,7 +205,7 @@ def mock_chembl_api_client() -> MagicMock:
 @pytest.fixture  # type: ignore[misc]
 def mock_api_client_factory_patch(
     mock_chembl_api_client: MagicMock,
-) -> Callable[[MagicMock | None], ContextManager[MagicMock]]:
+) -> Callable[[MagicMock | None], AbstractContextManager[MagicMock]]:
     """Context manager fixture for patching ``APIClientFactory.for_source``."""
 
     def _factory(mock_client: MagicMock | None = None) -> Generator[MagicMock, None, None]:
@@ -252,10 +252,12 @@ def mock_chembl_client_with_data(
 
 
 @pytest.fixture  # type: ignore[misc]
-def mock_chembl_responses_for_endpoint() -> Callable[
-    [dict[str, Any] | list[dict[str, Any]], str, int | None],
-    tuple[MagicMock, MagicMock],
-]:
+def mock_chembl_responses_for_endpoint() -> (
+    Callable[
+        [dict[str, Any] | list[dict[str, Any]], str, int | None],
+        tuple[MagicMock, MagicMock],
+    ]
+):
     """Factory fixture for constructing ChEMBL endpoint responses."""
 
     def _create_responses(

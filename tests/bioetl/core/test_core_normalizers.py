@@ -47,4 +47,3 @@ def test_normalize_string_columns_supports_title_case_and_max_length() -> None:
     assert normalized_df.loc[0, "label"] == "MIXED"
     assert pd.isna(normalized_df.loc[1, "label"])
     assert stats.processed == 2
-

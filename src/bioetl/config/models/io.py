@@ -48,5 +48,3 @@ class IOConfig(BaseModel):
 
     input: IOInputConfig = Field(default_factory=IOInputConfig)
     output: IOOutputConfig = Field(default_factory=IOOutputConfig)
-
-

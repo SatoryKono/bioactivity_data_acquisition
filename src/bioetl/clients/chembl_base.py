@@ -233,4 +233,3 @@ class ChemblEntityFetcher:
             entities_with_records=len(result),
         )
         return result
-

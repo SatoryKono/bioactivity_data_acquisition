@@ -30,7 +30,9 @@ class PipelineMetadata(BaseModel):
 
     name: str = Field(..., description="Unique name of the pipeline (e.g., activity, assay).")
     version: str = Field(..., description="Semantic version of the pipeline implementation.")
-    owner: str | None = Field(default=None, description="Team or individual responsible for the pipeline.")
+    owner: str | None = Field(
+        default=None, description="Team or individual responsible for the pipeline."
+    )
     description: str | None = Field(default=None, description="Short human readable description.")
 
 
@@ -47,8 +49,12 @@ class PipelineConfig(BaseModel):
         description="Optional list of profile paths merged before this configuration.",
     )
     pipeline: PipelineMetadata = Field(..., description="Metadata describing the pipeline.")
-    runtime: RuntimeConfig = Field(default_factory=RuntimeConfig, description="Runtime execution parameters.")
-    io: IOConfig = Field(default_factory=IOConfig, description="Input/output configuration for the pipeline.")
+    runtime: RuntimeConfig = Field(
+        default_factory=RuntimeConfig, description="Runtime execution parameters."
+    )
+    io: IOConfig = Field(
+        default_factory=IOConfig, description="Input/output configuration for the pipeline."
+    )
     http: HTTPConfig = Field(..., description="HTTP client defaults and profiles.")
     cache: CacheConfig = Field(default_factory=CacheConfig)
     paths: PathsConfig = Field(default_factory=PathsConfig)
@@ -79,4 +85,3 @@ class PipelineConfig(BaseModel):
             )
             raise ValueError(msg)
         return self
-

@@ -32,4 +32,3 @@ class ChemblAssayEntityClient(ChemblEntityFetcher):
             chunk_size=100,
         )
         super().__init__(chembl_client, config)
-

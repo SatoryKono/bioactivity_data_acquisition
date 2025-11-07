@@ -34,17 +34,10 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
-from bioetl.pipelines.common.validation import (
-    format_failure_cases,
-    summarize_schema_errors,
-)
-from bioetl.qc.report import (
-    build_correlation_report as build_default_correlation_report,
-)
+from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
+from bioetl.qc.report import build_correlation_report as build_default_correlation_report
 from bioetl.qc.report import build_qc_metrics_payload
-from bioetl.qc.report import (
-    build_quality_report as build_default_quality_report,
-)
+from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry, get_schema
 
 
@@ -166,7 +159,7 @@ class PipelineBase(ABC):
     def _derive_trace_and_span(self) -> tuple[str, str]:
         seed = "".join(character for character in self.run_id if character.isalnum()) or "0"
         repeat_count = (32 // len(seed)) + 2
-        expanded = (seed * repeat_count)
+        expanded = seed * repeat_count
         trace_id = expanded[:32].ljust(32, "0")
         span_id = expanded[32:48].ljust(16, "0")
         return trace_id, span_id
@@ -256,9 +249,7 @@ class PipelineBase(ABC):
         qc_metrics = run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
         metadata = run_dir / f"{stem}_meta.yaml" if include_metadata else None
         manifest = (
-            run_dir / f"{stem}_run_manifest.{self.manifest_extension}"
-            if include_manifest
-            else None
+            run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
         )
         log_file = self.logs_directory / f"{stem}.{self.log_extension}"
 
@@ -487,9 +478,7 @@ class PipelineBase(ABC):
         else:
             candidate = getattr(client, close_method, None)
             if candidate is None or not callable(candidate):
-                msg = (
-                    f"Client '{name}' does not expose callable '{close_method}' and is not itself callable"
-                )
+                msg = f"Client '{name}' does not expose callable '{close_method}' and is not itself callable"
                 raise TypeError(msg)
 
             # Wrap to ensure return type is None
@@ -636,13 +625,7 @@ class PipelineBase(ABC):
             raise ValueError(msg)
 
         # Extract unique IDs, drop NaN, convert to string, sort for determinism
-        ids: list[str] = (
-            df[id_column_name]
-            .dropna()
-            .astype(str)
-            .unique()
-            .tolist()
-        )
+        ids: list[str] = df[id_column_name].dropna().astype(str).unique().tolist()
         ids.sort()  # Deterministic ordering
 
         log.info(
@@ -1044,9 +1027,7 @@ class PipelineBase(ABC):
 
         return df
 
-    def _order_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str]
-    ) -> pd.DataFrame:
+    def _order_schema_columns(self, df: pd.DataFrame, column_order: Sequence[str]) -> pd.DataFrame:
         """Return DataFrame with schema columns ordered ahead of extras.
 
         Parameters
@@ -1113,24 +1094,16 @@ class PipelineBase(ABC):
                     numeric_series = _to_numeric_series(column_series)
                     df[column_name] = cast(pd.Series[Any], numeric_series.astype("Int64"))
                 # Handle nullable floats
-                elif (
-                    hasattr(column_def.dtype, "name")
-                    and column_def.dtype.name == "Float64"
-                ):
+                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "Float64":
                     numeric_series_float = _to_numeric_series(column_series)
                     df[column_name] = cast(pd.Series[Any], numeric_series_float.astype("Float64"))
                 # Handle strings - convert to string, preserving None values
-                elif (
-                    hasattr(column_def.dtype, "name")
-                    and column_def.dtype.name == "string"
-                ):
+                elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
                     mask: pd.Series[bool] = column_series.notna()
                     if bool(mask.any()):
                         df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
             except (ValueError, TypeError) as exc:
-                log.warning(
-                    "type_conversion_failed", field=column_name, error=str(exc)
-                )
+                log.warning("type_conversion_failed", field=column_name, error=str(exc))
 
         return df
 
@@ -1152,6 +1125,8 @@ class PipelineBase(ABC):
         output_path: Path,
         *,
         extended: bool = False,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
     ) -> RunResult:
         """Write the DataFrame and all metadata artifacts to the output path.
 
@@ -1176,11 +1151,25 @@ class PipelineBase(ABC):
         log = UnifiedLogger.get(__name__)
 
         run_tag = self._normalise_run_tag(None)
-        mode = "extended" if extended else None
-        include_correlation = extended or self.config.postprocess.correlation.enabled
-        include_qc_metrics = extended
+        effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
+        mode = "extended" if effective_extended else None
+
+        postprocess_config = getattr(self.config, "postprocess", None)
+        correlation_config = getattr(postprocess_config, "correlation", None)
+        correlation_default = bool(getattr(correlation_config, "enabled", False))
+
+        include_correlation_flag = (
+            bool(include_correlation)
+            if include_correlation is not None
+            else (effective_extended or correlation_default)
+        )
+        include_qc_metrics_flag = (
+            bool(include_qc_metrics)
+            if include_qc_metrics is not None
+            else effective_extended
+        )
         include_metadata = True  # Всегда создавать meta.yaml
-        include_manifest = extended
+        include_manifest = effective_extended
 
         run_dir = output_path if output_path.is_dir() else output_path.parent
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -1188,8 +1177,8 @@ class PipelineBase(ABC):
         artifacts = self.plan_run_artifacts(
             run_tag=run_tag,
             mode=mode,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
+            include_correlation=include_correlation_flag,
+            include_qc_metrics=include_qc_metrics_flag,
             include_metadata=include_metadata,
             include_manifest=include_manifest,
             extras=None,
@@ -1222,7 +1211,9 @@ class PipelineBase(ABC):
 
         if self._validation_summary:
             validation_default: dict[str, Any] = {}
-            validation_dict = cast(dict[str, Any], metadata.setdefault("validation", validation_default))
+            validation_dict = cast(
+                dict[str, Any], metadata.setdefault("validation", validation_default)
+            )
             validation_dict.update(self._validation_summary)
 
         if metrics_summary:
@@ -1300,6 +1291,8 @@ class PipelineBase(ABC):
         output_path: Path,
         *args: object,
         extended: bool = False,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
         **kwargs: object,
     ) -> RunResult:
         """Execute the pipeline lifecycle and return collected artifacts.
@@ -1337,9 +1330,22 @@ class PipelineBase(ABC):
         self._stage_durations_ms = stage_durations_ms
         self._extract_metadata = {}
 
-        configured_mode = "extended" if extended else None
-        if self.config.cli.extended:
-            configured_mode = "extended"
+        effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
+        configured_mode = "extended" if effective_extended else None
+
+        postprocess_config = getattr(self.config, "postprocess", None)
+        correlation_config = getattr(postprocess_config, "correlation", None)
+        correlation_default = bool(getattr(correlation_config, "enabled", False))
+        include_correlation_flag = (
+            bool(include_correlation)
+            if include_correlation is not None
+            else (effective_extended or correlation_default)
+        )
+        include_qc_metrics_flag = (
+            bool(include_qc_metrics)
+            if include_qc_metrics is not None
+            else effective_extended
+        )
 
         UnifiedLogger.bind(stage="bootstrap")
         log.info("pipeline_started", mode=configured_mode, output_path=str(output_path))
@@ -1378,7 +1384,13 @@ class PipelineBase(ABC):
             with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
                 log.info("write_started", output_path=str(output_path))
                 write_start = time.perf_counter()
-                result = self.write(validated, output_path, extended=extended)
+                result = self.write(
+                    validated,
+                    output_path,
+                    extended=effective_extended,
+                    include_correlation=include_correlation_flag,
+                    include_qc_metrics=include_qc_metrics_flag,
+                )
                 duration = (time.perf_counter() - write_start) * 1000.0
                 stage_durations_ms["write"] = duration
                 log.info(

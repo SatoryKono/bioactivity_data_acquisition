@@ -142,4 +142,3 @@ COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
     # "pubmed": build_command_config_pubmed,
     # "semantic_scholar": build_command_config_semantic_scholar,
 }
-

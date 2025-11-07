@@ -26,7 +26,7 @@ from bioetl.pipelines.base import PipelineBase
 
 class ChEMBLActivityPipeline(PipelineBase):
     """Public pipeline for ChEMBL activity data extraction."""
-    
+
     def extract(self) -> pd.DataFrame:
         """Extract activity data from ChEMBL."""
         # Implementation
@@ -177,12 +177,12 @@ from abc import ABC, abstractmethod
 
 class SourceAdapter(ABC):
     """Base adapter for external data sources."""
-    
+
     @abstractmethod
     def fetch_data(self, params: dict) -> pd.DataFrame:
         """Fetch data from external source."""
         pass
-    
+
     @abstractmethod
     def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Normalize data to project schema."""
@@ -194,15 +194,15 @@ class SourceAdapter(ABC):
 ```python
 class ChEMBLAdapter(SourceAdapter):
     """Adapter for ChEMBL API."""
-    
+
     def __init__(self, client: UnifiedAPIClient):
         self.client = client
-    
+
     def fetch_data(self, params: dict) -> pd.DataFrame:
         """Fetch activity data from ChEMBL API."""
         response = self.client.get("/activity.json", params=params)
         return pd.DataFrame(response.json()["activities"])
-    
+
     def normalize(self, raw_data: pd.DataFrame) -> pd.DataFrame:
         """Normalize ChEMBL data to project schema."""
         # Normalization logic
@@ -227,26 +227,26 @@ from bioetl.pipelines.base import PipelineBase
 
 class ActivityPipeline(PipelineBase):
     """Activity data pipeline following standard contract."""
-    
+
     def extract(self) -> pd.DataFrame:
         """Extract raw activity data."""
         log.info("Extracting activity data", source=self.config.source)
         raw_data = self.adapter.fetch_data(self.config.extract_params)
         return raw_data
-    
+
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform and normalize data."""
         log.info("Transforming data", rows=len(df))
         normalized = self.adapter.normalize(df)
         enriched = self.enrich_data(normalized)
         return enriched
-    
+
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate data against schema."""
         log.info("Validating data", rows=len(df))
         validated = ActivitySchema.validate(df)
         return validated
-    
+
     def export(self, df: pd.DataFrame) -> None:
         """Export validated data."""
         log.info("Exporting data", rows=len(df))
@@ -273,10 +273,10 @@ def merge_activities(
         how="outer",
         suffixes=("_primary", "_secondary")
     )
-    
+
     # Conflict resolution: prefer primary source
     merged["value"] = merged["value_primary"].fillna(merged["value_secondary"])
-    
+
     return merged
 ```
 

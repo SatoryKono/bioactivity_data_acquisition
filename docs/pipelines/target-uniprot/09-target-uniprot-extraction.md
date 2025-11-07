@@ -82,7 +82,7 @@ http:
     headers:
       User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
       Accept: "application/json"
-  
+
   # Именованный профиль для UniProt
   profiles:
     uniprot:
@@ -123,12 +123,12 @@ sources:
     parameters:
       endpoint: "/uniprotkb"
       format: "json"  # json, tsv, xml (конфигурируемо)
-  
+
   # ID Mapping (опционально, для обогащения)
   uniprot_idmapping:
     enabled: false  # Отключен для основного пайплайна
     base_url: "https://rest.uniprot.org"
-  
+
   # Ortholog lookups (опционально)
   uniprot_orthologs:
     enabled: true  # Включен для поиска ортологов
@@ -145,13 +145,13 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   column_validation_ignore_suffixes: ["_scd", "_temp", "_meta", "_tmp"]
-  
+
   # Ключи сортировки (обязательно: первый ключ - uniprot_accession)
   sort:
     by: ["uniprot_accession"]
     ascending: [true]
     na_position: "last"
-  
+
   # Фиксированный порядок колонок (из UniProtTargetSchema.Config.column_order)
   column_order:
     - "uniprot_accession"
@@ -163,14 +163,14 @@ determinism:
     - "sequence"
     - "sequence_length"
     # ... остальные колонки в порядке из UniProtTargetSchema.Config.column_order
-  
+
   # Хеширование
   hashing:
     algorithm: "sha256"
     row_fields: []  # Все колонки из column_order (кроме exclude_fields)
     business_key_fields: ["uniprot_accession"]
     exclude_fields: ["generated_at", "run_id"]
-  
+
   # Сериализация
   serialization:
     csv:
@@ -179,16 +179,16 @@ determinism:
       na_rep: ""
     booleans: ["True", "False"]
     nan_rep: "NaN"
-  
+
   # Окружение
   environment:
     timezone: "UTC"
     locale: "C"
-  
+
   # Запись
   write:
     strategy: "atomic"
-  
+
   # Метаданные
   meta:
     location: "sibling"
@@ -316,14 +316,14 @@ SCHEMA_VERSION = "1.0.0"
 
 class UniProtTargetOutputSchema(pa.DataFrameModel):
     """Pandera schema for UniProt target output data."""
-    
+
     # Бизнес-ключ (обязательное поле, NOT NULL)
     uniprot_accession: Series[str] = pa.Field(
         description="UniProt accession identifier",
         nullable=False,
         regex="^[A-NR-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2}$|^[OPQ][0-9][A-Z0-9]{3}[0-9]$"
     )
-    
+
     # Основные поля UniProt entry
     entry_name: Series[str] = pa.Field(
         description="UniProt entry name",
@@ -345,7 +345,7 @@ class UniProtTargetOutputSchema(pa.DataFrameModel):
         description="NCBI taxonomy ID",
         nullable=True
     )
-    
+
     # Sequence data
     sequence: Series[str] = pa.Field(
         description="Protein sequence",
@@ -355,25 +355,25 @@ class UniProtTargetOutputSchema(pa.DataFrameModel):
         description="Sequence length",
         nullable=True
     )
-    
+
     # Features and annotations
     features: Series[str] = pa.Field(
         description="Features (JSON string)",
         nullable=True
     )
-    
+
     # Orthologs (если включено)
     ortholog_count: Series[Int64] = pa.Field(
         description="Number of orthologs",
         nullable=True
     )
-    
+
     # Isoform information
     isoform_count: Series[Int64] = pa.Field(
         description="Number of isoforms",
         nullable=True
     )
-    
+
     # Системные метаданные
     run_id: Series[str] = pa.Field(
         description="Pipeline run ID",
@@ -400,7 +400,7 @@ class UniProtTargetOutputSchema(pa.DataFrameModel):
         description="Extraction timestamp (UTC)",
         nullable=False
     )
-    
+
     # Хеши
     hash_row: Series[str] = pa.Field(
         description="SHA256 hash of entire row",
@@ -412,13 +412,13 @@ class UniProtTargetOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[a-f0-9]{64}$"
     )
-    
+
     # Индекс
     index: Series[Int64] = pa.Field(
         description="Row index",
         nullable=False
     )
-    
+
     # Порядок колонок
     class Config:
         strict = True
@@ -447,7 +447,7 @@ class UniProtTargetOutputSchema(pa.DataFrameModel):
             "hash_business_key",
             "index"
         ]
-    
+
     # Валидация уникальности бизнес-ключа
     @pa.check("uniprot_accession")
     def check_unique_accession(cls, series: Series[str]) -> Series[bool]:

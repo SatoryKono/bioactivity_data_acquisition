@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
-from typing import Mapping, MutableMapping, Sequence
 
 import pandera as pa
 
@@ -108,94 +108,73 @@ def _split_identifier(identifier: str) -> tuple[str, str]:
 
 SCHEMA_REGISTRY = SchemaRegistry()
 
-# Register built-in schemas.
-from .activity import (  # noqa: E402  (import after registry definition)
-    ActivitySchema,
-    COLUMN_ORDER as ACTIVITY_COLUMN_ORDER,
-    SCHEMA_VERSION as ACTIVITY_SCHEMA_VERSION,
-)
 
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.activity.activity_chembl.ActivitySchema",
-    schema=ActivitySchema,
-    version=ACTIVITY_SCHEMA_VERSION,
-    column_order=ACTIVITY_COLUMN_ORDER,
-    name=ActivitySchema.name,
-)
+def _register_builtin_schema(
+    *,
+    identifier: str,
+    module_path: str,
+    schema_attr: str,
+    version_attr: str,
+    column_order_attr: str,
+) -> None:
+    """Import module lazily and register declared schema."""
 
-# Register testitem schema
-from .testitem import (  # noqa: E402  (import after registry definition)
-    TestItemSchema,
-    COLUMN_ORDER as TESTITEM_COLUMN_ORDER,
-    SCHEMA_VERSION as TESTITEM_SCHEMA_VERSION,
-)
+    module = import_module(module_path)
+    schema: pa.DataFrameSchema = getattr(module, schema_attr)
+    version = getattr(module, version_attr)
+    column_order = getattr(module, column_order_attr)
+    name = getattr(schema, "name", identifier.split(".")[-1])
 
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.testitem.testitem_chembl.TestItemSchema",
-    schema=TestItemSchema,
-    version=TESTITEM_SCHEMA_VERSION,
-    column_order=TESTITEM_COLUMN_ORDER,
-    name=TestItemSchema.name,
-)
+    SCHEMA_REGISTRY.register(
+        identifier,
+        schema=schema,
+        version=str(version),
+        column_order=column_order,
+        name=name,
+    )
 
-# Register assay schema
-from .assay import (  # noqa: E402  (import after registry definition)
-    AssaySchema,
-    COLUMN_ORDER as ASSAY_COLUMN_ORDER,
-    SCHEMA_VERSION as ASSAY_SCHEMA_VERSION,
-)
 
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.assay.assay_chembl.AssaySchema",
-    schema=AssaySchema,
-    version=ASSAY_SCHEMA_VERSION,
-    column_order=ASSAY_COLUMN_ORDER,
-    name=AssaySchema.name,
+_register_builtin_schema(
+    identifier="bioetl.schemas.activity.activity_chembl.ActivitySchema",
+    module_path="bioetl.schemas.activity.activity_chembl",
+    schema_attr="ActivitySchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
-
-# Register document schema
-from .document import (  # noqa: E402  (import after registry definition)
-    DocumentSchema,
-    COLUMN_ORDER as DOCUMENT_COLUMN_ORDER,
-    SCHEMA_VERSION as DOCUMENT_SCHEMA_VERSION,
+_register_builtin_schema(
+    identifier="bioetl.schemas.testitem.testitem_chembl.TestItemSchema",
+    module_path="bioetl.schemas.testitem.testitem_chembl",
+    schema_attr="TestItemSchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
-
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.document.document_chembl.DocumentSchema",
-    schema=DocumentSchema,
-    version=DOCUMENT_SCHEMA_VERSION,
-    column_order=DOCUMENT_COLUMN_ORDER,
-    name=DocumentSchema.name,
+_register_builtin_schema(
+    identifier="bioetl.schemas.assay.assay_chembl.AssaySchema",
+    module_path="bioetl.schemas.assay.assay_chembl",
+    schema_attr="AssaySchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
-
-# Register target schema
-from .target import (  # noqa: E402  (import after registry definition)
-    TargetSchema,
-    COLUMN_ORDER as TARGET_COLUMN_ORDER,
-    SCHEMA_VERSION as TARGET_SCHEMA_VERSION,
+_register_builtin_schema(
+    identifier="bioetl.schemas.document.document_chembl.DocumentSchema",
+    module_path="bioetl.schemas.document.document_chembl",
+    schema_attr="DocumentSchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
-
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.target.target_chembl.TargetSchema",
-    schema=TargetSchema,
-    version=TARGET_SCHEMA_VERSION,
-    column_order=TARGET_COLUMN_ORDER,
-    name=TargetSchema.name,
+_register_builtin_schema(
+    identifier="bioetl.schemas.target.target_chembl.TargetSchema",
+    module_path="bioetl.schemas.target.target_chembl",
+    schema_attr="TargetSchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
-
-# Register load_meta schema
-from .load_meta import (  # noqa: E402  (import after registry definition)
-    LoadMetaSchema,
-    COLUMN_ORDER as LOAD_META_COLUMN_ORDER,
-    SCHEMA_VERSION as LOAD_META_SCHEMA_VERSION,
-)
-
-SCHEMA_REGISTRY.register(
-    "bioetl.schemas.load_meta.LoadMetaSchema",
-    schema=LoadMetaSchema,
-    version=LOAD_META_SCHEMA_VERSION,
-    column_order=LOAD_META_COLUMN_ORDER,
-    name=LoadMetaSchema.name,
+_register_builtin_schema(
+    identifier="bioetl.schemas.load_meta.LoadMetaSchema",
+    module_path="bioetl.schemas.load_meta",
+    schema_attr="LoadMetaSchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
 )
 
 

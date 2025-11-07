@@ -67,9 +67,7 @@ def _validate_block(name: str, block: Mapping[str, Any]) -> None:
 
         normalized_id = entry_id.strip()
         if normalized_id in seen_ids:
-            raise VocabStoreError(
-                f"Duplicate id '{normalized_id}' detected in dictionary '{name}'"
-            )
+            raise VocabStoreError(f"Duplicate id '{normalized_id}' detected in dictionary '{name}'")
         seen_ids.add(normalized_id)
 
         status = entry.get("status", "active")
@@ -192,9 +190,7 @@ def get_ids(
 
         status_raw = entry.get("status", "active")
         if not isinstance(status_raw, str):
-            raise VocabStoreError(
-                f"Dictionary '{name}' entry '{entry_id}' has non-string status"
-            )
+            raise VocabStoreError(f"Dictionary '{name}' entry '{entry_id}' has non-string status")
 
         status = status_raw.strip().lower()
         if status in allowed_statuses_set:
@@ -211,4 +207,3 @@ __all__ = [
     "get_ids",
     "load_vocab_store",
 ]
-

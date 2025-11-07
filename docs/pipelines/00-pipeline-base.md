@@ -475,7 +475,7 @@ All pipeline commands follow a consistent CLI contract. The following flags are 
   - Testing pipeline logic without producing artifacts
   - Validating input data format
   - Checking schema compliance
-  
+
   When `--dry-run` is used, the pipeline will:
   - Execute extract, transform, and validate stages
   - Perform all validation checks

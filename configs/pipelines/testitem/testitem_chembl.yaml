@@ -152,4 +152,3 @@ transform:
 
 validation:
   schema_out: bioetl.schemas.testitem.testitem_chembl.TestItemSchema
-

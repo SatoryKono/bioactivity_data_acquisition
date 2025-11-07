@@ -5,13 +5,13 @@ alwaysApply: false
 ---
 
 # POLICY
-- Every output table MUST have a Pandera schema; validate before any write.  
-- Enforce fixed column order via `ordered=True`; schema drives `column_order`.  
+- Every output table MUST have a Pandera schema; validate before any write.
+- Enforce fixed column order via `ordered=True`; schema drives `column_order`.
 - Version schemas; document changes and migrations.
 
 # WRITE CONTRACT
-- On validation failure: raise, do not write.  
-- Nullability explicit for all columns; use `coerce=True` when appropriate.  
+- On validation failure: raise, do not write.
+- Nullability explicit for all columns; use `coerce=True` when appropriate.
 - Reference controlled vocabularies (e.g., BAO, UniProt) where applicable.
 
 # REFERENCE

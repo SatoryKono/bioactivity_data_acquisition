@@ -39,6 +39,7 @@ class DeterministicWriteArtifacts:
     dataframe: pd.DataFrame
     metadata: Mapping[str, Any]
 
+
 def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     """Return ``df`` with integrity hash columns populated."""
 
@@ -53,26 +54,41 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
     else:
         row_fields = [col for col in df.columns if col not in exclude]
 
+    missing_row_fields = [field for field in row_fields if field not in df.columns]
+    if missing_row_fields:
+        missing_str = ", ".join(missing_row_fields)
+        raise KeyError(f"Field(s) {missing_str} is missing from dataframe")
+
     business_fields = list(hashing_config.business_key_fields)
+    missing_business_fields = [field for field in business_fields if field not in df.columns]
+    if missing_business_fields:
+        missing_str = ", ".join(missing_business_fields)
+        raise KeyError(f"Field(s) {missing_str} is missing from dataframe")
 
-    row_records: list[dict[str, Any]] = []
-    for tuple_values in df[row_fields].itertuples(index=False, name=None):
-        record = dict(zip(row_fields, tuple_values, strict=True))
-        row_records.append(record)
-    row_hashes = [hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records]
-    df = df.assign(**{row_column: row_hashes})
+    result = df.copy()
 
-    if business_fields:
+    if row_column not in result.columns:
+        row_records: list[dict[str, Any]] = []
+        for tuple_values in result[row_fields].itertuples(index=False, name=None):
+            record = dict(zip(row_fields, tuple_values, strict=True))
+            row_records.append(record)
+        row_hashes = [
+            hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
+        ]
+        result[row_column] = row_hashes
+
+    if business_fields and business_column not in result.columns:
         business_records: list[dict[str, Any]] = []
-        for tuple_values in df[business_fields].itertuples(index=False, name=None):
+        for tuple_values in result[business_fields].itertuples(index=False, name=None):
             record = dict(zip(business_fields, tuple_values, strict=True))
             business_records.append(record)
         business_hashes = [
             hash_from_mapping(record, business_fields, algorithm=algorithm)
             for record in business_records
         ]
-        df = df.assign(**{business_column: business_hashes})
-    return df
+        result[business_column] = business_hashes
+
+    return result
 
 
 def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
@@ -92,7 +108,9 @@ def _stable_sort(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
         msg = f"Sort columns missing from dataframe: {missing_columns}"
         raise KeyError(msg)
 
-    ascending_list: list[bool] = list(sort_config.ascending) if sort_config.ascending else [True] * len(sort_config.by)
+    ascending_list: list[bool] = (
+        list(sort_config.ascending) if sort_config.ascending else [True] * len(sort_config.by)
+    )
     if sort_config.na_position == "first" or sort_config.na_position == "last":
         na_pos_str = sort_config.na_position
     else:
@@ -120,10 +138,10 @@ def _enforce_column_order(df: pd.DataFrame, *, config: PipelineConfig) -> pd.Dat
 
 
 def prepare_dataframe(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
-    """Apply determinism rules (sort + column order) to ``df``."""
+    """Apply determinism rules (column order + sort) to ``df``."""
 
-    prepared = _stable_sort(df, config=config)
-    prepared = _enforce_column_order(prepared, config=config)
+    prepared = _enforce_column_order(df, config=config)
+    prepared = _stable_sort(prepared, config=config)
     return prepared
 
 
@@ -135,7 +153,12 @@ def _csv_quoting(config: PipelineConfig) -> CSVQuotingLiteral:
             msg = f"Invalid CSV quoting constant: {quoting_name}"
             raise ValueError(msg)
         # Ensure it's one of the valid CSV quoting constants
-        if quote_value not in (csv.QUOTE_ALL, csv.QUOTE_MINIMAL, csv.QUOTE_NONNUMERIC, csv.QUOTE_NONE):
+        if quote_value not in (
+            csv.QUOTE_ALL,
+            csv.QUOTE_MINIMAL,
+            csv.QUOTE_NONNUMERIC,
+            csv.QUOTE_NONE,
+        ):
             msg = f"Invalid CSV quoting constant value: {quote_value}"
             raise ValueError(msg)
         # Return validated quote value (guaranteed to be one of 0,1,2,3)
@@ -176,7 +199,9 @@ def write_yaml_atomic(payload: Mapping[str, Any], path: Path) -> None:
     os.replace(tmp_path, path)
 
 
-def write_frame_like(frame: pd.DataFrame | Mapping[str, Any], path: Path, *, config: PipelineConfig) -> None:
+def write_frame_like(
+    frame: pd.DataFrame | Mapping[str, Any], path: Path, *, config: PipelineConfig
+) -> None:
     """Write optional QC artefacts respecting deterministic CSV settings."""
 
     if isinstance(frame, pd.DataFrame):
@@ -211,7 +236,9 @@ def serialise_metadata(
         "pipeline_version": config.pipeline.version,
         "sorting": {
             "by": list(config.determinism.sort.by),
-            "ascending": list(config.determinism.sort.ascending or [True] * len(config.determinism.sort.by)),
+            "ascending": list(
+                config.determinism.sort.ascending or [True] * len(config.determinism.sort.by)
+            ),
             "na_position": config.determinism.sort.na_position,
         },
         "hashing": {
@@ -222,6 +249,23 @@ def serialise_metadata(
             "business_key_column": hashing.business_key_column,
         },
     }
+
+    hashing_column_meta: dict[str, Any] = {}
+    if hashing.row_hash_column in df.columns:
+        column = df[hashing.row_hash_column]
+        hashing_column_meta[hashing.row_hash_column] = {
+            "unique": int(column.nunique(dropna=False)),
+            "nullable": bool(column.isna().any()),
+        }
+    if hashing.business_key_column in df.columns:
+        column = df[hashing.business_key_column]
+        hashing_column_meta[hashing.business_key_column] = {
+            "unique": int(column.nunique(dropna=False)),
+            "nullable": bool(column.isna().any()),
+        }
+    if hashing_column_meta:
+        base_metadata["hashing"].update(hashing_column_meta)
+
     if config.extends:
         base_metadata["config_extends"] = list(config.extends)
     row_column = hashing.row_hash_column
@@ -313,8 +357,18 @@ def finalise_output(
     log.debug("writing_metadata", path=str(metadata_path))
     write_yaml_atomic(metadata, metadata_path)
 
-    emit_qc_artifact(quality_report, quality_path, config=config, log=log, artifact_name="quality_report")
-    emit_qc_artifact(correlation_report, correlation_path, config=config, log=log, artifact_name="correlation_report")
-    emit_qc_artifact(qc_metrics, qc_metrics_path, config=config, log=log, artifact_name="qc_metrics")
+    emit_qc_artifact(
+        quality_report, quality_path, config=config, log=log, artifact_name="quality_report"
+    )
+    emit_qc_artifact(
+        correlation_report,
+        correlation_path,
+        config=config,
+        log=log,
+        artifact_name="correlation_report",
+    )
+    emit_qc_artifact(
+        qc_metrics, qc_metrics_path, config=config, log=log, artifact_name="qc_metrics"
+    )
 
     return DeterministicWriteArtifacts(dataframe=prepared.dataframe, metadata=metadata)

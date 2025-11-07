@@ -1,6 +1,7 @@
 """Transform utilities for ChEMBL testitem pipeline array serialization and flattening."""
 
 from __future__ import annotations
+
 from collections.abc import Sequence
 from typing import Any
 
@@ -16,7 +17,9 @@ __all__ = [
 ]
 
 
-def flatten_object_col(df: pd.DataFrame, col: str, fields: Sequence[str], prefix: str) -> pd.DataFrame:
+def flatten_object_col(
+    df: pd.DataFrame, col: str, fields: Sequence[str], prefix: str
+) -> pd.DataFrame:
     """Flatten nested object column into flat columns with prefix.
 
     Parameters
@@ -91,7 +94,9 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
     df = df.copy()
 
     # Check if flattening is enabled
-    enable_flatten = getattr(cfg.transform, "enable_flatten", True) if hasattr(cfg, "transform") else True
+    enable_flatten = (
+        getattr(cfg.transform, "enable_flatten", True) if hasattr(cfg, "transform") else True
+    )
     enable_serialization = (
         getattr(cfg.transform, "enable_serialization", True) if hasattr(cfg, "transform") else True
     )
@@ -105,7 +110,11 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
                     df = flatten_object_col(df, obj_col, fields, prefix=f"{obj_col}__")
 
     # Serialize simple arrays
-    if enable_serialization and hasattr(cfg, "transform") and hasattr(cfg.transform, "arrays_simple_to_pipe"):
+    if (
+        enable_serialization
+        and hasattr(cfg, "transform")
+        and hasattr(cfg.transform, "arrays_simple_to_pipe")
+    ):
         arrays_simple = cfg.transform.arrays_simple_to_pipe
         if isinstance(arrays_simple, Sequence) and not isinstance(arrays_simple, (str, bytes)):
             for col in arrays_simple:
@@ -113,7 +122,11 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
                     df[col] = df[col].map(serialize_simple_list)
 
     # Serialize arrays of objects
-    if enable_serialization and hasattr(cfg, "transform") and hasattr(cfg.transform, "arrays_objects_to_header_rows"):
+    if (
+        enable_serialization
+        and hasattr(cfg, "transform")
+        and hasattr(cfg.transform, "arrays_objects_to_header_rows")
+    ):
         arrays_objects = cfg.transform.arrays_objects_to_header_rows
         if isinstance(arrays_objects, Sequence) and not isinstance(arrays_objects, (str, bytes)):
             for col in arrays_objects:
@@ -123,4 +136,3 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
                     df = df.drop(columns=[col])
 
     return df
-

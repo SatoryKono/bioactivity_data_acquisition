@@ -30,7 +30,9 @@ class TestQCMetrics:
 
     def test_build_qc_metrics(self, sample_activity_data: pd.DataFrame):
         """Test QC metrics payload building."""
-        metrics = build_qc_metrics_payload(sample_activity_data, business_key_fields=["activity_id"])
+        metrics = build_qc_metrics_payload(
+            sample_activity_data, business_key_fields=["activity_id"]
+        )
 
         assert metrics is not None
         assert isinstance(metrics, dict)
@@ -109,4 +111,3 @@ class TestQCMetrics:
         # Verify QC report is readable
         report_df = pd.read_csv(result.write_result.quality_report)  # type: ignore[arg-type]
         assert not report_df.empty
-

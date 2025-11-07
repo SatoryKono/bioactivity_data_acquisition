@@ -5,7 +5,11 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.qc.report import build_correlation_report, build_qc_metrics_payload, build_quality_report
+from bioetl.qc.report import (
+    build_correlation_report,
+    build_qc_metrics_payload,
+    build_quality_report,
+)
 
 
 @pytest.mark.unit
@@ -187,4 +191,3 @@ class TestQCReport:
 
         assert payload["total_missing_values"] == 0
         assert payload["columns_with_missing"] == ""
-

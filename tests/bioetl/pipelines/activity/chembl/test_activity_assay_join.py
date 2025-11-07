@@ -29,12 +29,14 @@ def mock_chembl_client() -> ChemblClient:
 @pytest.fixture
 def sample_activity_df() -> pd.DataFrame:
     """Sample activity DataFrame for extract testing."""
-    return pd.DataFrame({
-        "activity_id": [1, 2, 3, 4, 5],
-        "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102", "CHEMBL103", None],
-        "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
-        "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
-    })
+    return pd.DataFrame(
+        {
+            "activity_id": [1, 2, 3, 4, 5],
+            "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102", "CHEMBL103", None],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+            "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+        }
+    )
 
 
 @pytest.fixture
@@ -58,7 +60,9 @@ def mock_pipeline_config() -> PipelineConfig:
         sources={},
         paths=PathsConfig(output_root="data/output", cache_root="data/cache"),
         cache=CacheConfig(enabled=False),
-        validation=ValidationConfig(schema_out="bioetl.schemas.activity.activity_chembl.ActivitySchema"),
+        validation=ValidationConfig(
+            schema_out="bioetl.schemas.activity.activity_chembl.ActivitySchema"
+        ),
     )
 
 
@@ -338,10 +342,12 @@ class TestActivityAssayJoin:
         mock_chembl_client: ChemblClient,
     ) -> None:
         """Test that _extract_assay_fields handles missing assay_chembl_id column."""
-        df_without_assay_id = pd.DataFrame({
-            "activity_id": [1, 2, 3],
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
-        })
+        df_without_assay_id = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3],
+                "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+            }
+        )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
         result = mock_pipeline._extract_assay_fields(df_without_assay_id, mock_chembl_client, log)  # type: ignore[reportPrivateUsage]
@@ -372,4 +378,3 @@ class TestActivityAssayJoin:
         assert "assay_tax_id" in result.columns
         assert all(pd.isna(result["assay_organism"]))
         assert all(pd.isna(result["assay_tax_id"]))
-

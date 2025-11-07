@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 from bioetl.schemas.base import create_schema
-from bioetl.schemas.common import (
-    chembl_id_column,
-    nullable_pd_int64_column,
-    nullable_string_column,
-    string_column_with_check,
-)
+from bioetl.schemas.common import (chembl_id_column, nullable_pd_int64_column,
+                                   nullable_string_column,
+                                   string_column_with_check, uuid_column)
 from bioetl.schemas.vocab import required_vocab_ids
+
 TARGET_TYPES = required_vocab_ids("target_type")
 
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 COLUMN_ORDER = (
     "target_chembl_id",
@@ -32,6 +30,7 @@ COLUMN_ORDER = (
     "component_count",
     "hash_row",
     "hash_business_key",
+    "load_meta_id",
 )
 
 TargetSchema = create_schema(
@@ -52,6 +51,7 @@ TargetSchema = create_schema(
         "component_count": nullable_pd_int64_column(ge=0),
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
+        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="TargetSchema",
@@ -59,4 +59,3 @@ TargetSchema = create_schema(
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TARGET_TYPES", "TargetSchema"]
-

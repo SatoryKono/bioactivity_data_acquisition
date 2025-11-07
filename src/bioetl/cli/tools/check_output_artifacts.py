@@ -27,4 +27,3 @@ def main(max_bytes: int = typer.Option(MAX_BYTES, help="Порог размер�
 
 def run() -> None:
     app()
-

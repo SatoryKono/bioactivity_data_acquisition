@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import uuid
 from collections.abc import Callable
 from datetime import datetime
@@ -109,6 +110,9 @@ def create_pipeline_command(
     Callable:
         A Typer command function ready to be registered.
     """
+
+    pipeline_module_name = pipeline_class.__module__
+    pipeline_class_name = pipeline_class.__name__
 
     def command(
         config: Path = typer.Option(
@@ -247,8 +251,8 @@ def create_pipeline_command(
             tz = ZoneInfo(timezone_name)
         except Exception:  # pragma: no cover - invalid timezone handled by defaults
             tz = ZoneInfo("UTC")
-        pipeline_config.cli.date_tag = (
-            pipeline_config.cli.date_tag or datetime.now(tz).strftime("%Y%m%d")
+        pipeline_config.cli.date_tag = pipeline_config.cli.date_tag or datetime.now(tz).strftime(
+            "%Y%m%d"
         )
 
         log = UnifiedLogger.get(__name__)
@@ -263,13 +267,42 @@ def create_pipeline_command(
             extended=extended,
         )
 
-        pipeline = pipeline_class(pipeline_config, run_id)
+        try:
+            pipeline_module = importlib.import_module(pipeline_module_name)
+            pipeline_cls = getattr(pipeline_module, pipeline_class_name)
+        except (ModuleNotFoundError, AttributeError) as exc:  # pragma: no cover - defensive guard
+            log.error(
+                "cli_pipeline_class_lookup_failed",
+                pipeline=command_config.name,
+                module=pipeline_module_name,
+                class_name=pipeline_class_name,
+                run_id=run_id,
+                error=str(exc),
+                exc_info=True,
+            )
+            typer.echo(
+                "Error: Pipeline class could not be resolved. Please check installation.",
+                err=True,
+            )
+            raise typer.Exit(code=2) from exc
+
+        pipeline = pipeline_cls(pipeline_config, run_id)
+
+        postprocess_config = getattr(pipeline_config, "postprocess", None)
+        correlation_section = getattr(postprocess_config, "correlation", None)
+        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
+        effective_extended = bool(extended or pipeline_config.cli.extended)
+        run_kwargs: dict[str, Any] = {
+            "extended": effective_extended,
+            "include_correlation": effective_extended or correlation_enabled,
+            "include_qc_metrics": effective_extended,
+        }
 
         try:
             # Use output_dir as output_path for run()
             result = pipeline.run(
                 Path(output_dir),
-                extended=extended,
+                **run_kwargs,
             )
 
             log.info(
@@ -288,7 +321,9 @@ def create_pipeline_command(
         except Exception as exc:
             from requests.exceptions import HTTPError, RequestException, Timeout
 
-            if isinstance(exc, (ConnectionError, TimeoutError, RequestException, Timeout, HTTPError)):
+            if isinstance(
+                exc, (ConnectionError, TimeoutError, RequestException, Timeout, HTTPError)
+            ):
                 log.error("cli_pipeline_api_error", run_id=run_id, error=str(exc), exc_info=True)
                 typer.echo(f"Error: External API failure: {exc}", err=True)
                 raise typer.Exit(code=3) from exc
@@ -300,4 +335,3 @@ def create_pipeline_command(
     # Set command metadata
     command.__doc__ = command_config.description
     return command
-

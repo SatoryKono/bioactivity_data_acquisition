@@ -15,7 +15,7 @@ class RetryConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    total: PositiveInt = Field(
+    total: Annotated[int, Field(ge=0)] = Field(
         default=5,
         description="Total number of retry attempts (excluding the first call).",
     )
@@ -72,7 +72,9 @@ class HTTPClientConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    timeout_sec: PositiveFloat = Field(default=60.0, description="Total request timeout in seconds.")
+    timeout_sec: PositiveFloat = Field(
+        default=60.0, description="Total request timeout in seconds."
+    )
     connect_timeout_sec: PositiveFloat = Field(
         default=15.0,
         description="Connection timeout in seconds.",
@@ -114,4 +116,3 @@ class HTTPConfig(BaseModel):
         default_factory=dict,
         description="Named profiles that can be referenced by sources.",
     )
-

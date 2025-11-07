@@ -6,51 +6,21 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from bioetl.cli.tools import (
-    audit_docs as audit_docs_cli,
-)
-from bioetl.cli.tools import (
-    build_vocab_store as build_vocab_store_cli,
-)
-from bioetl.cli.tools import (
-    catalog_code_symbols as catalog_code_symbols_cli,
-)
-from bioetl.cli.tools import (
-    check_comments as check_comments_cli,
-)
-from bioetl.cli.tools import (
-    check_output_artifacts as check_output_artifacts_cli,
-)
-from bioetl.cli.tools import (
-    create_matrix_doc_code as create_matrix_doc_code_cli,
-)
-from bioetl.cli.tools import (
-    determinism_check as determinism_check_cli,
-)
-from bioetl.cli.tools import (
-    doctest_cli as doctest_cli_cli,
-)
-from bioetl.cli.tools import (
-    inventory_docs as inventory_docs_cli,
-)
-from bioetl.cli.tools import (
-    link_check as link_check_cli,
-)
-from bioetl.cli.tools import (
-    remove_type_ignore as remove_type_ignore_cli,
-)
-from bioetl.cli.tools import (
-    run_test_report as run_test_report_cli,
-)
-from bioetl.cli.tools import (
-    schema_guard as schema_guard_cli,
-)
-from bioetl.cli.tools import (
-    semantic_diff as semantic_diff_cli,
-)
-from bioetl.cli.tools import (
-    vocab_audit as vocab_audit_cli,
-)
+from bioetl.cli.tools import audit_docs as audit_docs_cli
+from bioetl.cli.tools import build_vocab_store as build_vocab_store_cli
+from bioetl.cli.tools import catalog_code_symbols as catalog_code_symbols_cli
+from bioetl.cli.tools import check_comments as check_comments_cli
+from bioetl.cli.tools import check_output_artifacts as check_output_artifacts_cli
+from bioetl.cli.tools import create_matrix_doc_code as create_matrix_doc_code_cli
+from bioetl.cli.tools import determinism_check as determinism_check_cli
+from bioetl.cli.tools import doctest_cli as doctest_cli_cli
+from bioetl.cli.tools import inventory_docs as inventory_docs_cli
+from bioetl.cli.tools import link_check as link_check_cli
+from bioetl.cli.tools import remove_type_ignore as remove_type_ignore_cli
+from bioetl.cli.tools import run_test_report as run_test_report_cli
+from bioetl.cli.tools import schema_guard as schema_guard_cli
+from bioetl.cli.tools import semantic_diff as semantic_diff_cli
+from bioetl.cli.tools import vocab_audit as vocab_audit_cli
 
 CLI_APPS: list[tuple[str, typer.Typer]] = [
     ("bioetl-audit-docs", audit_docs_cli.app),
@@ -79,4 +49,3 @@ def test_cli_app_provides_help(command_name: str, app: typer.Typer) -> None:
 
     assert result.exit_code == 0, result.stdout
     assert f"Usage: {command_name}" in result.stdout
-

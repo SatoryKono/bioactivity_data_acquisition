@@ -4,11 +4,7 @@ from __future__ import annotations
 
 from pandera import DataFrameSchema
 
-from bioetl.schemas.common import (
-    boolean_flag_column,
-    nullable_int64_column,
-    nullable_string_column,
-)
+from bioetl.schemas.common import boolean_flag_column, nullable_int64_column, nullable_string_column
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -52,4 +48,3 @@ __all__ = [
     "COMPOUND_RECORD_ENRICHMENT_SCHEMA",
     "DATA_VALIDITY_ENRICHMENT_SCHEMA",
 ]
-

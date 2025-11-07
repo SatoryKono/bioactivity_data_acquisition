@@ -206,7 +206,7 @@ def extract_data(source: str, batch_size: int) -> pd.DataFrame:
         source=source,
         batch_size=batch_size
     )
-    
+
     try:
         data = fetch_from_api(source, batch_size)
         elapsed_ms = (time.time() - start_time) * 1000

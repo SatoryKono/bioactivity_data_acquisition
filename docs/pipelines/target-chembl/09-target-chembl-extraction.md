@@ -82,7 +82,7 @@ http:
     headers:
       User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
       Accept: "application/json"
-  
+
   # Именованный профиль для ChEMBL
   profiles:
     chembl:
@@ -133,13 +133,13 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   column_validation_ignore_suffixes: ["_scd", "_temp", "_meta", "_tmp"]
-  
+
   # Ключи сортировки (обязательно: первый ключ - target_chembl_id)
   sort:
     by: ["target_chembl_id"]
     ascending: [true]
     na_position: "last"
-  
+
   # Фиксированный порядок колонок (из TargetSchema.Config.column_order)
   column_order:
     - "target_chembl_id"
@@ -147,14 +147,14 @@ determinism:
     - "organism"
     - "target_type"
     # ... остальные колонки в порядке из TargetSchema.Config.column_order
-  
+
   # Хеширование
   hashing:
     algorithm: "sha256"
     row_fields: []  # Все колонки из column_order (кроме exclude_fields)
     business_key_fields: ["target_chembl_id"]
     exclude_fields: ["generated_at", "run_id"]
-  
+
   # Сериализация
   serialization:
     csv:
@@ -163,16 +163,16 @@ determinism:
       na_rep: ""
     booleans: ["True", "False"]
     nan_rep: "NaN"
-  
+
   # Окружение
   environment:
     timezone: "UTC"
     locale: "C"
-  
+
   # Запись
   write:
     strategy: "atomic"
-  
+
   # Метаданные
   meta:
     location: "sibling"
@@ -299,14 +299,14 @@ SCHEMA_VERSION = "1.0.0"
 
 class TargetOutputSchema(pa.DataFrameModel):
     """Pandera schema for ChEMBL target output data."""
-    
+
     # Бизнес-ключ (обязательное поле, NOT NULL)
     target_chembl_id: Series[str] = pa.Field(
         description="ChEMBL target identifier",
         nullable=False,
         regex="^CHEMBL\\d+$"
     )
-    
+
     # Основные поля target
     pref_name: Series[str] = pa.Field(
         description="Preferred target name",
@@ -332,7 +332,7 @@ class TargetOutputSchema(pa.DataFrameModel):
         description="Number of components",
         nullable=True
     )
-    
+
     # Системные метаданные
     run_id: Series[str] = pa.Field(
         description="Pipeline run ID",
@@ -363,7 +363,7 @@ class TargetOutputSchema(pa.DataFrameModel):
         description="Extraction timestamp (UTC)",
         nullable=False
     )
-    
+
     # Хеши
     hash_row: Series[str] = pa.Field(
         description="SHA256 hash of entire row",
@@ -375,13 +375,13 @@ class TargetOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[a-f0-9]{64}$"
     )
-    
+
     # Индекс
     index: Series[Int64] = pa.Field(
         description="Row index",
         nullable=False
     )
-    
+
     # Порядок колонок
     class Config:
         strict = True
@@ -407,7 +407,7 @@ class TargetOutputSchema(pa.DataFrameModel):
             "hash_business_key",
             "index"
         ]
-    
+
     # Валидация уникальности бизнес-ключа
     @pa.check("target_chembl_id")
     def check_unique_target_id(cls, series: Series[str]) -> Series[bool]:
@@ -600,14 +600,14 @@ def calculate_hash_row(row: dict, column_order: list[str]) -> str:
     """Calculate hash of entire row excluding metadata fields."""
     canonical = {}
     exclude_fields = ["generated_at", "run_id"]
-    
+
     for col in column_order:
         if col in exclude_fields:
             continue
         value = row.get(col)
         # Каноническая нормализация значения
         canonical[col] = canonicalize_value(value)
-    
+
     # Каноническая JSON сериализация
     json_str = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
     return sha256(json_str.encode('utf-8')).hexdigest()
@@ -677,14 +677,14 @@ def atomic_write(df: pd.DataFrame, target_path: Path, run_id: str):
     temp_dir = target_path.parent / ".tmp" / run_id
     temp_dir.mkdir(parents=True, exist_ok=True)
     temp_path = temp_dir / f"{target_path.name}.tmp"
-    
+
     # 2. Запись во временный файл
     df.to_parquet(temp_path, index=False)
-    
+
     # 3. Atomic rename (fsync + rename)
     target_path.parent.mkdir(parents=True, exist_ok=True)
     os.replace(str(temp_path), str(target_path))  # Atomic на всех платформах
-    
+
     # 4. Очистка временной директории (если пуста)
     try:
         temp_dir.rmdir()
@@ -907,30 +907,30 @@ QC валидация выполняется на следующих этапа�
 def validate_qc(df: pd.DataFrame, config: PipelineConfig) -> QCResult:
     """Validate data quality metrics."""
     metrics = {}
-    
+
     # 1. ChEMBL coverage
     metrics["chembll_coverage"] = calculate_coverage(df)
     if metrics["chembll_coverage"] < 100.0:
         raise QCError("ChEMBL coverage below threshold")
-    
+
     # 2. Completeness
     metrics["completeness"] = calculate_completeness(df)
     if metrics["completeness"] < config.qc.thresholds.completeness:
         logger.warning("Completeness below threshold")
-    
+
     # 3. Uniqueness
     metrics["uniqueness"] = calculate_uniqueness(df)
     if metrics["uniqueness"] < 100.0:
         raise QCError("Uniqueness violation detected")
-    
+
     # 4. Schema compliance
     metrics["schema_compliance"] = validate_schema(df)
     if metrics["schema_compliance"] < 100.0:
         raise QCError("Schema compliance violation")
-    
+
     # 5. Generate QC report
     generate_qc_report(metrics, config.output_dir)
-    
+
     return QCResult(metrics=metrics, passed=True)
 ```
 

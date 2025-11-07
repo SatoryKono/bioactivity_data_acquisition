@@ -27,4 +27,3 @@ def coerce_bool(value: Any) -> bool:
         if lowered in {"0", "false", "no", "off"}:
             return False
     return bool(value)
-

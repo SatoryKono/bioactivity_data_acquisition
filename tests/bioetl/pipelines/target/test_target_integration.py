@@ -27,7 +27,10 @@ class TestChemblTargetPipelineIntegration:
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
         pipeline_config_fixture.materialization.root = str(tmp_path)  # type: ignore[attr-defined]
 
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_chembl_api_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source",
+            return_value=mock_chembl_api_client,
+        ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
             # Test extract in dry-run mode
@@ -49,7 +52,10 @@ class TestChemblTargetPipelineIntegration:
         mock_chembl_api_client: MagicMock,
     ) -> None:
         """Test transform with empty DataFrame."""
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_chembl_api_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source",
+            return_value=mock_chembl_api_client,
+        ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
             df = pd.DataFrame()
@@ -64,13 +70,18 @@ class TestChemblTargetPipelineIntegration:
         mock_chembl_api_client: MagicMock,
     ) -> None:
         """Test transform with minimal valid DataFrame."""
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_chembl_api_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source",
+            return_value=mock_chembl_api_client,
+        ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-            df = pd.DataFrame({
-                "target_chembl_id": ["CHEMBL1"],
-                "pref_name": ["Test Target"],
-            })
+            df = pd.DataFrame(
+                {
+                    "target_chembl_id": ["CHEMBL1"],
+                    "pref_name": ["Test Target"],
+                }
+            )
 
             # In dry-run mode, enrichment should be skipped
             pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
@@ -79,4 +90,3 @@ class TestChemblTargetPipelineIntegration:
             assert not result.empty
             assert "target_chembl_id" in result.columns
             assert result["target_chembl_id"].iloc[0] == "CHEMBL1"
-

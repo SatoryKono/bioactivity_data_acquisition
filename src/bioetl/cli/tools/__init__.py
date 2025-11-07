@@ -11,4 +11,3 @@ def create_app(name: str, help_text: str) -> typer.Typer:
     """Создаёт Typer-приложение без автодополнения."""
 
     return typer.Typer(name=name, help=help_text, add_completion=False)
-

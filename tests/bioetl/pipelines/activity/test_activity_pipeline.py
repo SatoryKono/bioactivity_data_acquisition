@@ -178,7 +178,16 @@ class TestChemblActivityPipelineTransformations:
 
         df = pd.DataFrame(
             {
-                "standard_units": ["nM", "nanomolar", "μM", "uM", "mM", "millimolar", "%", "percent"],
+                "standard_units": [
+                    "nM",
+                    "nanomolar",
+                    "μM",
+                    "uM",
+                    "mM",
+                    "millimolar",
+                    "%",
+                    "percent",
+                ],
             }
         )
 
@@ -1011,10 +1020,38 @@ class TestChemblActivityPipelineTransformations:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         properties = [
-            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},
-            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Exact duplicate
-            {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None, "result_flag": None},
-            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Another exact duplicate
+            {
+                "type": "pH",
+                "relation": "=",
+                "units": None,
+                "value": 7.4,
+                "text_value": None,
+                "result_flag": None,
+            },
+            {
+                "type": "pH",
+                "relation": "=",
+                "units": None,
+                "value": 7.4,
+                "text_value": None,
+                "result_flag": None,
+            },  # Exact duplicate
+            {
+                "type": "Temperature",
+                "relation": "=",
+                "units": "C",
+                "value": 37,
+                "text_value": None,
+                "result_flag": None,
+            },
+            {
+                "type": "pH",
+                "relation": "=",
+                "units": None,
+                "value": 7.4,
+                "text_value": None,
+                "result_flag": None,
+            },  # Another exact duplicate
         ]
 
         deduplicated, stats = pipeline._deduplicate_activity_properties(  # type: ignore[reportPrivateUsage]
@@ -1035,11 +1072,46 @@ class TestChemblActivityPipelineTransformations:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         properties = [
-            {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None, "result_flag": None},  # Valid
-            {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None, "result_flag": None},  # Valid
-            {"type": "Comment", "relation": None, "units": None, "value": None, "text_value": "test", "result_flag": None},  # Valid
-            {"type": "Invalid", "relation": "=", "units": None, "value": 10.0, "text_value": "also set", "result_flag": None},  # Invalid: both set
-            {"type": "Invalid2", "relation": "invalid", "units": None, "value": 5.0, "text_value": None, "result_flag": None},  # Invalid: relation not in RELATIONS
+            {
+                "type": "pH",
+                "relation": "=",
+                "units": None,
+                "value": 7.4,
+                "text_value": None,
+                "result_flag": None,
+            },  # Valid
+            {
+                "type": "Temperature",
+                "relation": "=",
+                "units": "C",
+                "value": 37,
+                "text_value": None,
+                "result_flag": None,
+            },  # Valid
+            {
+                "type": "Comment",
+                "relation": None,
+                "units": None,
+                "value": None,
+                "text_value": "test",
+                "result_flag": None,
+            },  # Valid
+            {
+                "type": "Invalid",
+                "relation": "=",
+                "units": None,
+                "value": 10.0,
+                "text_value": "also set",
+                "result_flag": None,
+            },  # Invalid: both set
+            {
+                "type": "Invalid2",
+                "relation": "invalid",
+                "units": None,
+                "value": 5.0,
+                "text_value": None,
+                "result_flag": None,
+            },  # Invalid: relation not in RELATIONS
         ]
 
         validated, stats = pipeline._validate_activity_properties_truv(  # type: ignore[reportPrivateUsage]
@@ -1100,8 +1172,20 @@ class TestChemblActivityPipelineTransformations:
             "activity_id": 1,
             "activity_properties": [
                 {"type": "pH", "relation": "=", "units": None, "value": 7.4, "text_value": None},
-                {"type": "Temperature", "relation": "=", "units": "C", "value": 37, "text_value": None},
-                {"type": "Invalid", "relation": "=", "units": None, "value": 10.0, "text_value": "also set"},  # Invalid but kept
+                {
+                    "type": "Temperature",
+                    "relation": "=",
+                    "units": "C",
+                    "value": 37,
+                    "text_value": None,
+                },
+                {
+                    "type": "Invalid",
+                    "relation": "=",
+                    "units": None,
+                    "value": 10.0,
+                    "text_value": "also set",
+                },  # Invalid but kept
             ],
         }
 
@@ -1114,4 +1198,3 @@ class TestChemblActivityPipelineTransformations:
         assert isinstance(props, list)
         # All 3 properties should be present (invalid one is kept but logged)
         assert len(props) == 3
-

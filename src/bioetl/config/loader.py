@@ -8,8 +8,6 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic_settings.sources import EnvSettingsSource, PydanticBaseSettingsSource
 from yaml.nodes import ScalarNode
 
 from .models.base import PipelineConfig
@@ -81,9 +79,7 @@ def load_config(
 
     requested_profiles: list[Path] = []
     if include_default_profiles:
-        requested_profiles.extend(
-            _discover_layer_files(DEFAULTS_DIR, base=path.parent)
-        )
+        requested_profiles.extend(_discover_layer_files(DEFAULTS_DIR, base=path.parent))
     if profiles:
         requested_profiles.extend(Path(p).expanduser() for p in profiles)
 
@@ -190,8 +186,72 @@ def _load_yaml(path: Path) -> Any:
     Loader.add_constructor("!include", construct_include)
 
     with path.open("r", encoding="utf-8") as handle:
-        data = yaml.load(handle, Loader=Loader)
-    return {} if data is None else data
+        raw_text = handle.read()
+
+    normalized_text = raw_text.replace("<<:", "__merge__:")
+    data = yaml.load(normalized_text, Loader=Loader)
+    if data is None:
+        return {}
+    return _apply_yaml_merge(data)
+
+
+def _apply_yaml_merge(payload: Any) -> Any:
+    if isinstance(payload, MutableMapping):
+        typed_payload = cast(MutableMapping[str, Any], payload)
+        result: dict[str, Any] = {}
+
+        merge_value: Any | None = typed_payload.get("__merge__")
+        if merge_value is None:
+            merge_value = typed_payload.get("<<")
+
+        if merge_value is not None:
+            def _normalize_merge_source(candidate: Any) -> Mapping[str, Any]:
+                merged_candidate = _apply_yaml_merge(candidate)
+                if not isinstance(merged_candidate, Mapping):
+                    msg = "YAML merge source must be a mapping"
+                    raise TypeError(msg)
+                return cast(Mapping[str, Any], merged_candidate)
+
+            if isinstance(merge_value, Mapping):
+                typed_sources: tuple[Mapping[str, Any], ...] = (
+                    _normalize_merge_source(merge_value),
+                )
+            elif isinstance(merge_value, Iterable) and not isinstance(merge_value, (str, bytes)):
+                typed_sources = tuple(
+                    _normalize_merge_source(source)
+                    for source in cast(Iterable[Any], merge_value)
+                )
+            else:
+                typed_sources = (
+                    _normalize_merge_source(merge_value),
+                )
+
+            for merged_source in typed_sources:
+                result = _deep_merge(result, merged_source)
+
+        for raw_key, raw_value in typed_payload.items():
+            if raw_key in ("<<", "__merge__"):
+                continue
+
+            processed_value = _apply_yaml_merge(raw_value)
+            key_str = str(raw_key)
+
+            existing_value = result.get(key_str)
+            if isinstance(existing_value, Mapping) and isinstance(processed_value, Mapping):
+                result[key_str] = _deep_merge(
+                    cast(Mapping[str, Any], existing_value),
+                    cast(Mapping[str, Any], processed_value),
+                )
+            else:
+                result[key_str] = processed_value
+
+        return result
+
+    if isinstance(payload, list):
+        typed_list = cast(list[Any], payload)
+        return [_apply_yaml_merge(item) for item in typed_list]
+
+    return payload
 
 
 def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
@@ -237,11 +297,7 @@ def _deep_merge(
 ) -> dict[str, Any]:
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
-        if (
-            key in merged
-            and isinstance(merged[key], MutableMapping)
-            and isinstance(value, Mapping)
-        ):
+        if key in merged and isinstance(merged[key], MutableMapping) and isinstance(value, Mapping):
             merged[key] = _deep_merge(
                 cast(Mapping[str, Any], merged[key]),
                 cast(Mapping[str, Any], value),
@@ -272,15 +328,22 @@ def _coerce_value(value: Any) -> Any:
 def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> dict[str, Any]:
     overrides: dict[str, Any] = {}
     for prefix in prefixes:
-        scoped: dict[str, str] = {
-            key[len(prefix) :]: value
+        if not prefix:
+            continue
+        scoped_items = (
+            (key[len(prefix) :], value)
             for key, value in env.items()
             if key.startswith(prefix) and key[len(prefix) :]
-        }
-        if not scoped:
-            continue
-        parsed = _parse_env_mapping(scoped)
-        overrides = _deep_merge(overrides, parsed)
+        )
+        scoped_tree: dict[str, Any] = {}
+        for raw_key, raw_value in scoped_items:
+            parts = [segment.strip().lower() for segment in raw_key.split("__") if segment.strip()]
+            if not parts:
+                continue
+            parsed_value = _coerce_value(raw_value)
+            _assign_nested(scoped_tree, parts, parsed_value)
+        if scoped_tree:
+            overrides = _deep_merge(overrides, scoped_tree)
     return overrides
 
 
@@ -351,84 +414,6 @@ def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
             return candidate
 
     return (Path.cwd() / directory).resolve()
-
-
-class _PipelineEnvSettings(BaseSettings):
-    """Support typed environment overrides using pydantic-settings."""
-
-    model_config = SettingsConfigDict(
-        env_prefix="",
-        env_nested_delimiter="__",
-        case_sensitive=False,
-        extra="allow",
-    )
-
-    version: int | None = None
-    extends: tuple[str, ...] | None = None
-    pipeline: dict[str, Any] | None = None
-    runtime: dict[str, Any] | None = None
-    io: dict[str, Any] | None = None
-    http: dict[str, Any] | None = None
-    cache: dict[str, Any] | None = None
-    paths: dict[str, Any] | None = None
-    determinism: dict[str, Any] | None = None
-    materialization: dict[str, Any] | None = None
-    fallbacks: dict[str, Any] | None = None
-    validation: dict[str, Any] | None = None
-    transform: dict[str, Any] | None = None
-    postprocess: dict[str, Any] | None = None
-    sources: dict[str, Any] | None = None
-    cli: dict[str, Any] | None = None
-    logging: dict[str, Any] | None = None
-    telemetry: dict[str, Any] | None = None
-    chembl: dict[str, Any] | None = None
-
-
-def _parse_env_mapping(data: Mapping[str, str]) -> dict[str, Any]:
-    if not data:
-        return {}
-
-    class _ScopedSettings(_PipelineEnvSettings):
-        @classmethod
-        def settings_customise_sources(
-            cls,
-            settings_cls: type[BaseSettings],
-            init_settings: PydanticBaseSettingsSource,
-            env_settings: PydanticBaseSettingsSource,
-            dotenv_settings: PydanticBaseSettingsSource,
-            file_secret_settings: PydanticBaseSettingsSource,
-        ) -> tuple[PydanticBaseSettingsSource, ...]:
-            class _MappingEnvSource(EnvSettingsSource):
-                def __init__(self, settings_cls: type[BaseSettings], payload: Mapping[str, str]) -> None:
-                    self._payload: dict[str, str | None] = dict(payload)
-                    super().__init__(
-                        settings_cls,
-                        case_sensitive=cls.model_config.get("case_sensitive"),
-                        env_prefix=cls.model_config.get("env_prefix"),
-                        env_nested_delimiter=cls.model_config.get("env_nested_delimiter"),
-                        env_nested_max_split=cls.model_config.get("env_nested_max_split"),
-                        env_ignore_empty=cls.model_config.get("env_ignore_empty"),
-                        env_parse_none_str=cls.model_config.get("env_parse_none_str"),
-                        env_parse_enums=cls.model_config.get("env_parse_enums"),
-                    )
-
-                def _load_env_vars(self) -> Mapping[str, str | None]:
-                    return self._payload
-
-            return (
-                init_settings,
-                _MappingEnvSource(settings_cls, data),
-                dotenv_settings,
-                file_secret_settings,
-            )
-
-    settings = _ScopedSettings()
-    payload: MutableMapping[str, Any] = dict(
-        settings.model_dump(exclude_none=True, exclude_unset=True)
-    )
-    if settings.model_extra:
-        payload = _deep_merge(payload, settings.model_extra)
-    return payload
 
 
 def _stringify_profile(profile: Path, *, base: Path) -> str:

@@ -12,5 +12,6 @@ class CacheConfig(BaseModel):
 
     enabled: bool = Field(default=True, description="Enable or disable the on-disk cache.")
     directory: str = Field(default="http_cache", description="Directory used to store cached data.")
-    ttl: PositiveInt = Field(default=86_400, description="Time-to-live for cached entries in seconds.")
-
+    ttl: PositiveInt = Field(
+        default=86_400, description="Time-to-live for cached entries in seconds."
+    )

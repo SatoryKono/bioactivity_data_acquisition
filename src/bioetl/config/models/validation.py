@@ -18,6 +18,9 @@ class ValidationConfig(BaseModel):
         default=None,
         description="Dotted path to the Pandera schema validating transformed data.",
     )
-    strict: bool = Field(default=True, description="If true, Pandera enforces column order and presence.")
-    coerce: bool = Field(default=True, description="If true, Pandera coerces data types during validation.")
-
+    strict: bool = Field(
+        default=True, description="If true, Pandera enforces column order and presence."
+    )
+    coerce: bool = Field(
+        default=True, description="If true, Pandera coerces data types during validation."
+    )

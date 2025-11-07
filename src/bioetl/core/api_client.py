@@ -259,7 +259,9 @@ def _parse_retry_after(value: str | None) -> float | None:
     return max(delta, 0.0)
 
 
-def _deep_merge(base: MutableMapping[str, Any], override: Mapping[str, Any]) -> MutableMapping[str, Any]:
+def _deep_merge(
+    base: MutableMapping[str, Any], override: Mapping[str, Any]
+) -> MutableMapping[str, Any]:
     for key, value in override.items():
         if key in base and isinstance(base[key], MutableMapping) and isinstance(value, Mapping):
             # Type narrowing: we've confirmed base[key] is MutableMapping and value is Mapping
@@ -541,7 +543,7 @@ class UnifiedAPIClient:
         if state.retry_after is not None:
             return state.retry_after
         attempt_index = max(state.attempt - 1, 0)
-        delay = self._backoff_multiplier ** attempt_index
+        delay = self._backoff_multiplier**attempt_index
         delay = min(delay, self._backoff_max)
         if self.config.rate_limit_jitter and delay > 0:
             delay += random.uniform(0.0, min(delay, 1.0))
@@ -554,7 +556,9 @@ class UnifiedAPIClient:
         time.sleep(duration)
 
 
-def merge_http_configs(base: HTTPClientConfig, *overrides: HTTPClientConfig | None) -> HTTPClientConfig:
+def merge_http_configs(
+    base: HTTPClientConfig, *overrides: HTTPClientConfig | None
+) -> HTTPClientConfig:
     """Return a new ``HTTPClientConfig`` merging overrides on top of ``base``."""
 
     payload: MutableMapping[str, Any] = base.model_dump()

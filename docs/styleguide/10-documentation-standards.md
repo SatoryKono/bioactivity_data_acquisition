@@ -128,11 +128,11 @@ Any changes to public APIs, CLI, or schemas **MUST** be documented:
 ```python
 def process_data(df: pd.DataFrame, batch_size: int = 1000) -> pd.DataFrame:
     """Process data in batches.
-    
+
     Args:
         df: Input DataFrame
         batch_size: Number of rows per batch (default: 1000, changed from 500 in v1.1.0)
-    
+
     Returns:
         Processed DataFrame
     """

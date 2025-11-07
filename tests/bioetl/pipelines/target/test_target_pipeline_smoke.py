@@ -109,13 +109,21 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_serializes_array_fields(self, tmp_path: Path) -> None:
         """Test that target pipeline serializes array fields to strings."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "target" / "target_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "target"
+            / "target_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
@@ -127,10 +135,16 @@ class TestTargetPipelineSmoke:
         # Check that serialized array fields are present
         assert "cross_references__flat" in df.columns, "cross_references__flat missing"
         assert "target_components__flat" in df.columns, "target_components__flat missing"
-        assert "target_component_synonyms__flat" in df.columns, "target_component_synonyms__flat missing"
+        assert (
+            "target_component_synonyms__flat" in df.columns
+        ), "target_component_synonyms__flat missing"
 
         # Check that array fields are strings (not lists)
-        for col in ["cross_references__flat", "target_components__flat", "target_component_synonyms__flat"]:
+        for col in [
+            "cross_references__flat",
+            "target_components__flat",
+            "target_component_synonyms__flat",
+        ]:
             if col in df.columns:
                 series = df[col]
                 for value in series.dropna():
@@ -143,13 +157,21 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that target pipeline extracts all required scalar fields."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "target" / "target_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "target"
+            / "target_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -183,13 +205,21 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_array_fields_format(self, tmp_path: Path) -> None:
         """Test that array fields follow header+rows format."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "target" / "target_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "target"
+            / "target_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -205,7 +235,9 @@ class TestTargetPipelineSmoke:
                 if value:  # Non-empty values
                     # Should have format: header/row1/row2/...
                     parts = value.split("/")
-                    assert len(parts) >= 2, f"cross_references should have header+rows, got: {value[:100]}"
+                    assert (
+                        len(parts) >= 2
+                    ), f"cross_references should have header+rows, got: {value[:100]}"
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
                     # Check that header contains expected keys
@@ -217,7 +249,9 @@ class TestTargetPipelineSmoke:
             for value in components:
                 if value:  # Non-empty values
                     parts = value.split("/")
-                    assert len(parts) >= 2, f"target_components should have header+rows, got: {value[:100]}"
+                    assert (
+                        len(parts) >= 2
+                    ), f"target_components should have header+rows, got: {value[:100]}"
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
 
@@ -227,7 +261,9 @@ class TestTargetPipelineSmoke:
             for value in synonyms:
                 if value:  # Non-empty values
                     parts = value.split("/")
-                    assert len(parts) >= 2, f"target_component_synonyms should have header+rows, got: {value[:100]}"
+                    assert (
+                        len(parts) >= 2
+                    ), f"target_component_synonyms should have header+rows, got: {value[:100]}"
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
                     # Check that header contains expected keys
@@ -235,7 +271,13 @@ class TestTargetPipelineSmoke:
 
     def test_target_pipeline_handles_empty_arrays(self, tmp_path: Path) -> None:
         """Test that target pipeline handles empty arrays correctly."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "target" / "target_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "target"
+            / "target_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Create targets with empty arrays
@@ -253,7 +295,9 @@ class TestTargetPipelineSmoke:
         ]
 
         mock_client = setup_mock_api_client(mock_targets)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             config.cli.limit = 1
@@ -269,4 +313,3 @@ class TestTargetPipelineSmoke:
         assert df["cross_references__flat"].iloc[0] == ""
         assert df["target_components__flat"].iloc[0] == ""
         assert df["target_component_synonyms__flat"].iloc[0] == ""
-

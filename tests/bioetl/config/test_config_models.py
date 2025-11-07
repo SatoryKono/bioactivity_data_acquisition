@@ -24,7 +24,9 @@ def test_runtime_config_defaults() -> None:
 def test_io_config_roundtrip() -> None:
     config = IOConfig(
         input=IOInputConfig(format="parquet", encoding="utf-8", header=False, path="input.parquet"),
-        output=IOOutputConfig(format="csv", partition_by=("year",), overwrite=False, path="output.csv"),
+        output=IOOutputConfig(
+            format="csv", partition_by=("year",), overwrite=False, path="output.csv"
+        ),
     )
 
     assert config.input.format == "parquet"
@@ -46,11 +48,11 @@ def test_logging_config_context_fields() -> None:
 
 @pytest.mark.unit
 def test_telemetry_config_sampling() -> None:
-    config = TelemetryConfig(enabled=True, exporter="jaeger", endpoint="http://localhost:14268", sampling_ratio=0.5)
+    config = TelemetryConfig(
+        enabled=True, exporter="jaeger", endpoint="http://localhost:14268", sampling_ratio=0.5
+    )
 
     assert config.enabled is True
     assert config.exporter == "jaeger"
     assert config.endpoint == "http://localhost:14268"
     assert pytest.approx(config.sampling_ratio) == 0.5
-
-

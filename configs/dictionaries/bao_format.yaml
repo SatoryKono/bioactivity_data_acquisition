@@ -32,4 +32,3 @@ values:
     status: "active"
 rules:
   normalization: "strip; uppercase; ensure BAO prefix"
-

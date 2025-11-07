@@ -211,11 +211,13 @@ def enrich_with_document_terms(
     # Создать DataFrame для join
     enrichment_data: list[dict[str, Any]] = []
     for doc_id, term_weight in agg_result.items():
-        enrichment_data.append({
-            "document_chembl_id": doc_id,
-            "term": term_weight["term"],
-            "weight": term_weight["weight"],
-        })
+        enrichment_data.append(
+            {
+                "document_chembl_id": doc_id,
+                "term": term_weight["term"],
+                "weight": term_weight["weight"],
+            }
+        )
 
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
@@ -254,4 +256,3 @@ def enrich_with_document_terms(
         documents_with_terms=len(agg_result),
     )
     return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
-

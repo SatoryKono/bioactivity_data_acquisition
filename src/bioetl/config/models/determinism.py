@@ -13,8 +13,12 @@ class DeterminismSerializationCSVConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     separator: str = Field(default=",", description="Column separator used when writing CSV files.")
-    quoting: str = Field(default="ALL", description="Quoting strategy compatible with pandas CSV writer.")
-    na_rep: str = Field(default="", description="String representation for missing values in CSV output.")
+    quoting: str = Field(
+        default="ALL", description="Quoting strategy compatible with pandas CSV writer."
+    )
+    na_rep: str = Field(
+        default="", description="String representation for missing values in CSV output."
+    )
 
 
 class DeterminismSerializationConfig(BaseModel):
@@ -22,7 +26,9 @@ class DeterminismSerializationConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    csv: DeterminismSerializationCSVConfig = Field(default_factory=DeterminismSerializationCSVConfig)
+    csv: DeterminismSerializationCSVConfig = Field(
+        default_factory=DeterminismSerializationCSVConfig
+    )
     booleans: tuple[str, str] = Field(
         default=("True", "False"),
         description="Canonical string representations for boolean values.",
@@ -35,12 +41,16 @@ class DeterminismSortingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    by: list[str] = Field(default_factory=list, description="Columns defining the deterministic sort order.")
+    by: list[str] = Field(
+        default_factory=list, description="Columns defining the deterministic sort order."
+    )
     ascending: list[bool] = Field(
         default_factory=list,
         description="Sort direction per column; defaults to ascending when empty.",
     )
-    na_position: str = Field(default="last", description="Where to place null values during sorting.")
+    na_position: str = Field(
+        default="last", description="Where to place null values during sorting."
+    )
 
 
 class DeterminismHashColumnSchema(BaseModel):
@@ -58,7 +68,9 @@ class DeterminismHashingConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    algorithm: str = Field(default="sha256", description="Hash algorithm used for row/business key hashes.")
+    algorithm: str = Field(
+        default="sha256", description="Hash algorithm used for row/business key hashes."
+    )
     row_fields: Sequence[str] = Field(
         default_factory=tuple,
         description="Columns included in the per-row hash calculation.",
@@ -152,7 +164,9 @@ class DeterminismConfig(BaseModel):
         default_factory=tuple,
         description="Expected column order for the final dataset.",
     )
-    serialization: DeterminismSerializationConfig = Field(default_factory=DeterminismSerializationConfig)
+    serialization: DeterminismSerializationConfig = Field(
+        default_factory=DeterminismSerializationConfig
+    )
     hashing: DeterminismHashingConfig = Field(default_factory=DeterminismHashingConfig)
     environment: DeterminismEnvironmentConfig = Field(default_factory=DeterminismEnvironmentConfig)
     write: DeterminismWriteConfig = Field(default_factory=DeterminismWriteConfig)
@@ -170,4 +184,3 @@ class DeterminismConfig(BaseModel):
             msg = "determinism.column_order must not contain duplicate columns"
             raise ValueError(msg)
         return self
-

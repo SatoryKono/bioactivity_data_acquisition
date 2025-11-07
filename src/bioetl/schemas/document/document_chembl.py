@@ -9,9 +9,10 @@ from bioetl.schemas.common import (
     nullable_int64_column,
     nullable_string_column,
     string_column_with_check,
+    uuid_column,
 )
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 
 COLUMN_ORDER = (
     "document_chembl_id",
@@ -36,6 +37,7 @@ COLUMN_ORDER = (
     "hash_row",
     "term",
     "weight",
+    "load_meta_id",
 )
 
 DocumentSchema = create_schema(
@@ -62,10 +64,10 @@ DocumentSchema = create_schema(
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "term": nullable_string_column(),
         "weight": nullable_string_column(),
+        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="DocumentSchema",
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "DocumentSchema"]
-

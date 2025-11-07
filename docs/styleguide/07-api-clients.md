@@ -239,16 +239,16 @@ def fetch_all_pages(client: UnifiedAPIClient, endpoint: str):
     """Fetch all pages from paginated API."""
     all_items = []
     page = 1
-    
+
     while True:
         response = client.get(endpoint, params={"page": page, "page_size": 100})
         data = response.json()
         all_items.extend(data["items"])
-        
+
         if not data.get("has_more"):
             break
         page += 1
-    
+
     return all_items
 ```
 

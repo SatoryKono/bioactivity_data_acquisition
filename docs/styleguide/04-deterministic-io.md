@@ -107,13 +107,13 @@ def write_atomic(content: str, path: Path):
     # 1. Write to temporary file
     tmp_path = path.with_suffix(".tmp")
     tmp_path.write_text(content, encoding="utf-8")
-    
+
     # 2. Flush to disk (fsync)
     tmp_path_file = tmp_path.open("wb")
     tmp_path_file.flush()
     os.fsync(tmp_path_file.fileno())
     tmp_path_file.close()
-    
+
     # 3. Atomic rename
     os.replace(tmp_path, path)
 ```
@@ -127,15 +127,15 @@ import os
 def write_dataframe_atomic(df: pd.DataFrame, path: Path):
     """Write DataFrame atomically."""
     tmp_path = path.with_suffix(".tmp")
-    
+
     # Write to temp file
     df.to_csv(tmp_path, index=False, encoding="utf-8")
-    
+
     # Flush and sync
     with tmp_path.open("rb+") as f:
         f.flush()
         os.fsync(f.fileno())
-    
+
     # Atomic rename
     os.replace(tmp_path, path)
 ```
@@ -210,7 +210,7 @@ def generate_meta_yaml(
     """Generate meta.yaml content."""
     # Calculate checksum
     file_hash = hashlib.blake2b(file_path.read_bytes()).hexdigest()
-    
+
     return {
         "pipeline_version": pipeline_version,
         "git_commit": git_commit,

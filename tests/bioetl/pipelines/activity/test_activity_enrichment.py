@@ -28,17 +28,19 @@ def mock_chembl_client() -> ChemblClient:
 @pytest.fixture
 def sample_activity_df() -> pd.DataFrame:
     """Sample activity DataFrame for enrichment testing."""
-    return pd.DataFrame({
-        "activity_id": [1, 2, 3, 4, 5],
-        "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102", "CHEMBL103", "CHEMBL104"],
-        "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
-        "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002", "CHEMBL1003", None],
-        "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
-        "type": ["IC50", "EC50", "Ki", "Kd", "IC50"],
-        "relation": ["=", "=", "=", "=", "="],
-        "value": [10.5, 20.3, 5.7, 15.2, 8.9],
-        "units": ["nM", "nM", "nM", "nM", "nM"],
-    })
+    return pd.DataFrame(
+        {
+            "activity_id": [1, 2, 3, 4, 5],
+            "assay_chembl_id": ["CHEMBL100", "CHEMBL101", "CHEMBL102", "CHEMBL103", "CHEMBL104"],
+            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+            "document_chembl_id": ["CHEMBL1000", "CHEMBL1001", "CHEMBL1002", "CHEMBL1003", None],
+            "testitem_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3", "CHEMBL4", "CHEMBL5"],
+            "type": ["IC50", "EC50", "Ki", "Kd", "IC50"],
+            "relation": ["=", "=", "=", "=", "="],
+            "value": [10.5, 20.3, 5.7, 15.2, 8.9],
+            "units": ["nM", "nM", "nM", "nM", "nM"],
+        }
+    )
 
 
 @pytest.fixture
@@ -172,20 +174,25 @@ class TestActivityEnrichment:
     ) -> None:
         """Test that assay enrichment handles None/NA values in assay_chembl_id."""
         # Add a row with None assay_chembl_id
-        df_with_none = pd.concat([
-            sample_activity_df,
-            pd.DataFrame({
-                "activity_id": [6],
-                "assay_chembl_id": [None],
-                "molecule_chembl_id": ["CHEMBL6"],
-                "document_chembl_id": ["CHEMBL1006"],
-                "testitem_chembl_id": ["CHEMBL6"],
-                "type": ["IC50"],
-                "relation": ["="],
-                "value": [10.0],
-                "units": ["nM"],
-            }),
-        ], ignore_index=True)
+        df_with_none = pd.concat(
+            [
+                sample_activity_df,
+                pd.DataFrame(
+                    {
+                        "activity_id": [6],
+                        "assay_chembl_id": [None],
+                        "molecule_chembl_id": ["CHEMBL6"],
+                        "document_chembl_id": ["CHEMBL1006"],
+                        "testitem_chembl_id": ["CHEMBL6"],
+                        "type": ["IC50"],
+                        "relation": ["="],
+                        "value": [10.0],
+                        "units": ["nM"],
+                    }
+                ),
+            ],
+            ignore_index=True,
+        )
 
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
             return_value={}
@@ -617,9 +624,9 @@ class TestActivityEnrichment:
         # Проверка: если standard_text_value не NULL, то standard_value должен быть NULL
         mask_text_not_null = df["standard_text_value"].notna()
         mask_value_null = df["standard_value"].isna()
-        assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
-            "Invariant violated: standard_text_value IS NOT NULL but standard_value is not NULL"
-        )
+        assert (
+            (mask_text_not_null & ~mask_value_null).sum() == 0
+        ), "Invariant violated: standard_text_value IS NOT NULL but standard_value is not NULL"
 
     def test_invariant_text_value_implies_null_value(
         self,
@@ -633,9 +640,9 @@ class TestActivityEnrichment:
         # Проверка: если text_value не NULL, то value должен быть NULL
         mask_text_not_null = df["text_value"].notna()
         mask_value_null = df["value"].isna()
-        assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
-            "Invariant violated: text_value IS NOT NULL but value is not NULL"
-        )
+        assert (
+            mask_text_not_null & ~mask_value_null
+        ).sum() == 0, "Invariant violated: text_value IS NOT NULL but value is not NULL"
 
     def test_invariant_data_validity_comment_implies_description(
         self,
@@ -658,15 +665,19 @@ class TestActivityEnrichment:
             }
         )
 
-        config = {"enabled": True, "fields": ["data_validity_comment", "description"], "page_limit": 1000}
+        config = {
+            "enabled": True,
+            "fields": ["data_validity_comment", "description"],
+            "page_limit": 1000,
+        }
         result = enrich_with_data_validity(df, mock_chembl_client, config)
 
         # Проверка: если data_validity_comment не NULL, то data_validity_description должен быть не NULL
         mask_comment_not_null = result["data_validity_comment"].notna()
         mask_description_not_null = result["data_validity_description"].notna()
-        assert (mask_comment_not_null & ~mask_description_not_null).sum() == 0, (
-            "Invariant violated: data_validity_comment IS NOT NULL but data_validity_description is NULL"
-        )
+        assert (
+            (mask_comment_not_null & ~mask_description_not_null).sum() == 0
+        ), "Invariant violated: data_validity_comment IS NOT NULL but data_validity_description is NULL"
 
     def test_invariant_curated_implies_curated_by_not_null(
         self,
@@ -680,9 +691,9 @@ class TestActivityEnrichment:
         # Проверка: если curated == TRUE, то curated_by должен быть не NULL
         curated_rows = df[df["curated"] == True]  # noqa: E712
         if not curated_rows.empty:
-            assert curated_rows["curated_by"].notna().all(), (
-                "Invariant violated: curated == TRUE but curated_by is NULL"
-            )
+            assert (
+                curated_rows["curated_by"].notna().all()
+            ), "Invariant violated: curated == TRUE but curated_by is NULL"
 
     def test_invariant_removed_always_null_on_extraction(
         self,
@@ -690,7 +701,11 @@ class TestActivityEnrichment:
         sample_activity_df: pd.DataFrame,
     ) -> None:
         """Test invariant: removed always NULL on extraction stage."""
-        config = {"enabled": True, "fields": ["molecule_chembl_id", "pref_name", "molecule_structures"], "page_limit": 1000}
+        config = {
+            "enabled": True,
+            "fields": ["molecule_chembl_id", "pref_name", "molecule_structures"],
+            "page_limit": 1000,
+        }
 
         # Mock fetch_molecules_by_ids
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
@@ -707,9 +722,9 @@ class TestActivityEnrichment:
 
         # Проверка: removed всегда NULL
         if "removed" in result.columns:
-            assert result["removed"].isna().all(), (
-                "Invariant violated: removed is not NULL on extraction stage"
-            )
+            assert (
+                result["removed"].isna().all()
+            ), "Invariant violated: removed is not NULL on extraction stage"
 
     def test_invariant_assay_organism_and_tax_id_consistency(
         self,
@@ -733,7 +748,11 @@ class TestActivityEnrichment:
             }
         )
 
-        config = {"enabled": True, "fields": ["assay_chembl_id", "assay_organism", "assay_tax_id"], "page_limit": 1000}
+        config = {
+            "enabled": True,
+            "fields": ["assay_chembl_id", "assay_organism", "assay_tax_id"],
+            "page_limit": 1000,
+        }
         result = enrich_with_assay(sample_activity_df, mock_chembl_client, config)
 
         # Проверка: если assay_organism NULL, то assay_tax_id должен быть NULL (или наоборот - редкие legacy-ряды допускаются)
@@ -741,7 +760,6 @@ class TestActivityEnrichment:
         mask_tax_id_not_null = result["assay_tax_id"].notna()
         inconsistent_count = (mask_organism_null & mask_tax_id_not_null).sum()
         # Допускаем редкие legacy-ряды, но их должно быть близко к 0
-        assert inconsistent_count <= 1, (
-            f"Invariant violated: too many rows with assay_organism NULL but assay_tax_id NOT NULL: {inconsistent_count}"
-        )
-
+        assert (
+            inconsistent_count <= 1
+        ), f"Invariant violated: too many rows with assay_organism NULL but assay_tax_id NOT NULL: {inconsistent_count}"

@@ -85,7 +85,7 @@
 
 ## Доступные команды
 - `/run_assay` - запуск assay pipeline
-- `/run_activity` - запуск activity pipeline  
+- `/run_activity` - запуск activity pipeline
 - `/run_document` - запуск document pipeline
 - `/run_target` - запуск target pipeline
 - `/run_testitem` - запуск testitem pipeline

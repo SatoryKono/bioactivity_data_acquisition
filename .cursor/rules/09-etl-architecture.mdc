@@ -8,9 +8,9 @@ alwaysApply: false
 - Pipeline names: `{entity}_{source}` (e.g., `activity_chembl`, `target_uniprot`).
 
 # ARCHITECTURE
-- Unified components: Logger, OutputWriter, APIClient, Schema.  
-- Adapter pattern for external sources.  
-- Contract stages: extract → transform → validate → export.  
+- Unified components: Logger, OutputWriter, APIClient, Schema.
+- Adapter pattern for external sources.
+- Contract stages: extract → transform → validate → export.
 - Prefer star schema: dims (documents, targets, assays, testitems) + fact (activity).
 
 # IDP

@@ -108,7 +108,7 @@ def test_activity_schema_golden(golden_dir: Path):
     """Golden test for activity schema validation."""
     data = load_test_data()
     validated = validate_with_schema(data, ActivitySchema)
-    
+
     output_file = golden_dir / "activity_validated.golden"
     if output_file.exists():
         expected = output_file.read_text()
@@ -166,7 +166,7 @@ class TestChemBLNormalizer:
     def test_normalize_id_valid(self):
         """Test normalization of valid ChEMBL ID."""
         assert normalize_chembl_id("CHEMBL123") == "CHEMBL123"
-    
+
     @pytest.mark.unit
     def test_normalize_id_invalid(self):
         """Test normalization of invalid ChEMBL ID."""

@@ -36,4 +36,3 @@ def load_typer_app(module_path: str, app_name: str = "app") -> typer.Typer:
     if app is None:
         raise RuntimeError(f"Module {module_path} does not define Typer app '{app_name}'")
     return app
-

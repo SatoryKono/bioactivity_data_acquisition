@@ -93,7 +93,7 @@ class PipelineConfig(BaseModel):
     version: str = "1.0.0"
     output_dir: Path
     batch_size: int = Field(default=1000, ge=1, le=10000)
-    
+
     class Config:
         env_prefix = "PIPELINE_"
         env_file = ".env"
@@ -110,7 +110,7 @@ def load_config(config_path: Path) -> PipelineConfig:
     """Load and validate configuration."""
     with config_path.open() as f:
         config_data = yaml.safe_load(f)
-    
+
     # Merge with environment variables
     config = PipelineConfig(**config_data)
     return config
@@ -163,19 +163,19 @@ import yaml
 def load_config_with_profiles(config_path: Path, profile_names: list[str]) -> dict:
     """Load config with profile inheritance."""
     config = {}
-    
+
     # Load profiles first
     for profile_name in profile_names:
         profile_path = Path(f"configs/defaults/{profile_name}.yaml")
         with profile_path.open() as f:
             profile_data = yaml.safe_load(f)
             config = merge_config(config, profile_data)
-    
+
     # Load main config
     with config_path.open() as f:
         main_config = yaml.safe_load(f)
         config = merge_config(config, main_config)
-    
+
     return config
 ```
 
@@ -193,7 +193,7 @@ class APIConfig(BaseModel):
     base_url: str
     timeout: float = Field(default=30.0, gt=0.0)
     api_key: str = Field(..., min_length=1)
-    
+
     @validator("base_url")
     def validate_url(cls, v):
         if not v.startswith(("http://", "https://")):
@@ -212,16 +212,16 @@ from datetime import datetime, timedelta
 
 class RotatingSecret:
     """Secret with rotation support."""
-    
+
     def __init__(self, secret_name: str, rotation_interval_days: int = 90):
         self.secret_name = secret_name
         self.rotation_interval = timedelta(days=rotation_interval_days)
         self.last_rotated = self.load_rotation_date()
-    
+
     def needs_rotation(self) -> bool:
         """Check if secret needs rotation."""
         return datetime.now() - self.last_rotated > self.rotation_interval
-    
+
     def rotate(self):
         """Rotate secret."""
         # Rotation logic

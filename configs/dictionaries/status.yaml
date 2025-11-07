@@ -16,4 +16,3 @@ values:
     status: "active"
 rules:
   normalization: "строчные значения, отсутствие пробелов"
-

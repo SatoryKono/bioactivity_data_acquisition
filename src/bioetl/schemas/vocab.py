@@ -7,14 +7,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from bioetl.etl.vocab_store import (
-    VocabStoreError,
-    clear_vocab_store_cache,
-    load_vocab_store,
-)
-from bioetl.etl.vocab_store import (
-    get_ids as _get_ids,
-)
+from bioetl.etl.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
+from bioetl.etl.vocab_store import get_ids as _get_ids
 
 VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
 
@@ -82,4 +76,3 @@ __all__ = [
     "vocab_ids",
     "vocab_store",
 ]
-

@@ -31,4 +31,3 @@ def main() -> None:
 
 def run() -> None:
     app()
-

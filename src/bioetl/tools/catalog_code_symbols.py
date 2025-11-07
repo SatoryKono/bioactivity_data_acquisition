@@ -51,14 +51,10 @@ def extract_method_signature(method: Any) -> dict[str, Any]:
                 "name": param_name,
                 "kind": str(param.kind),
                 "annotation": (
-                    str(param.annotation)
-                    if param.annotation != inspect.Parameter.empty
-                    else None
+                    str(param.annotation) if param.annotation != inspect.Parameter.empty else None
                 ),
                 "default": (
-                    str(param.default)
-                    if param.default != inspect.Parameter.empty
-                    else None
+                    str(param.default) if param.default != inspect.Parameter.empty else None
                 ),
             }
         )
@@ -113,7 +109,9 @@ def extract_config_models() -> dict[str, Any]:
             for field_name, field_info in model.model_fields.items():
                 fields[field_name] = {
                     "type": str(getattr(field_info, "annotation", None)),
-                    "required": field_info.is_required() if hasattr(field_info, "is_required") else None,
+                    "required": field_info.is_required()
+                    if hasattr(field_info, "is_required")
+                    else None,
                     "default": (
                         str(field_info.default)
                         if getattr(field_info, "default", None) is not None
@@ -194,4 +192,3 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
         json_path=json_path,
         cli_path=cli_path,
     )
-

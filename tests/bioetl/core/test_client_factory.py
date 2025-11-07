@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,7 +70,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.build(base_url="https://example.com/api")
+            _client = factory.build(base_url="https://example.com/api")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -87,7 +86,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.build(base_url="https://example.com/api", source="chembl")
+            _client = factory.build(base_url="https://example.com/api", source="chembl")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -101,7 +100,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.build(base_url="https://example.com/api", profile="fast")
+            _client = factory.build(base_url="https://example.com/api", profile="fast")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -117,7 +116,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.build(base_url="https://example.com/api", overrides=overrides)
+            _client = factory.build(base_url="https://example.com/api", overrides=overrides)
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -131,7 +130,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.build(base_url="https://example.com/api", name="custom_client")
+            _client = factory.build(base_url="https://example.com/api", name="custom_client")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -152,7 +151,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.for_source("test_source", base_url="https://example.com/api")
+            _client = factory.for_source("test_source", base_url="https://example.com/api")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -172,7 +171,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.for_source("chembl", base_url="https://example.com/api")
+            _client = factory.for_source("chembl", base_url="https://example.com/api")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -192,7 +191,7 @@ class TestAPIClientFactory:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
-            client = factory.for_source("chembl", base_url="https://example.com/api")
+            _client = factory.for_source("chembl", base_url="https://example.com/api")
 
             assert mock_client_class.called
             call_args = mock_client_class.call_args
@@ -206,4 +205,3 @@ class TestAPIClientFactory:
 
         with pytest.raises(KeyError, match="Unknown source"):
             factory.for_source("unknown_source", base_url="https://example.com/api")
-

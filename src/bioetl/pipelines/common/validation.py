@@ -91,9 +91,7 @@ def format_failure_cases(
         sample = failure_cases.head(sample_size)
         sample_records: list[dict[str, Any]] = []
         for _, row in sample.iterrows():
-            record: dict[str, Any] = {
-                str(column): row[column] for column in sample.columns
-            }
+            record: dict[str, Any] = {str(column): row[column] for column in sample.columns}
             sample_records.append(record)
         formatted["sample"] = sample_records
 
@@ -101,4 +99,3 @@ def format_failure_cases(
 
 
 __all__ = ["summarize_schema_errors", "format_failure_cases"]
-

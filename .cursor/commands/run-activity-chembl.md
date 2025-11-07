@@ -42,4 +42,3 @@
 - Конфигурация: `configs/pipelines/activity/activity_chembl.yaml`
 - Документация: `docs/pipelines/activity-chembl/`
 - CLI справка: `docs/cli/01-cli-commands.md`
-

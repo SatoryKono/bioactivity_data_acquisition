@@ -46,7 +46,9 @@ class TestItemSourceParameters(BaseModel):
         select_fields_raw = params.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
-            if isinstance(select_fields_raw, Sequence) and not isinstance(select_fields_raw, (str, bytes)):
+            if isinstance(select_fields_raw, Sequence) and not isinstance(
+                select_fields_raw, (str, bytes)
+            ):
                 # Type narrowing: after isinstance check, select_fields_raw is Sequence[Any]
                 # Явно типизируем элементы для избежания предупреждений типизации
                 # basedpyright не может вывести тип field из Sequence[Any]
@@ -119,4 +121,3 @@ class TestItemSourceConfig(BaseModel):
             page_size=page_size,
             parameters=parameters_obj,
         )
-

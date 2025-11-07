@@ -18,4 +18,3 @@ class FallbacksConfig(BaseModel):
         default=None,
         description="Maximum fallback depth allowed before failing fast.",
     )
-

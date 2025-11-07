@@ -249,25 +249,25 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor={valu
 def extract_issn(record):
     """Extract ISSN from Crossref record"""
     issn_data = {}
-    
+
     if 'ISSN' in record:
         issn_list = record['ISSN']
         if len(issn_list) > 0:
             issn_data['issn_print'] = issn_list[0]
         if len(issn_list) > 1:
             issn_data['issn_electronic'] = issn_list[1]
-    
+
     # Check issn-type array
     if 'issn-type' in record:
         for issn_obj in record['issn-type']:
             issn_type = issn_obj.get('type')
             issn_value = issn_obj.get('value')
-            
+
             if issn_type == 'print':
                 issn_data['issn_print'] = issn_value
             elif issn_type == 'electronic':
                 issn_data['issn_electronic'] = issn_value
-    
+
     return issn_data
 ```
 
@@ -278,13 +278,13 @@ def normalize_orcid(orcid_value):
     """Normalize ORCID value"""
     if not orcid_value:
         return None
-    
+
     orcid = orcid_value.replace('https://orcid.org/', '')
     orcid = orcid.replace('http://orcid.org/', '')
-    
+
     if re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
         return orcid
-    
+
     return None
 ```
 

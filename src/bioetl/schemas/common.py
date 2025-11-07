@@ -345,4 +345,3 @@ __all__ = [
     "nullable_object_column",
     "uuid_column",
 ]
-

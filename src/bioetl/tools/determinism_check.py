@@ -85,7 +85,9 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
         return -1, "", str(exc)
 
 
-def compare_logs(logs1: list[dict[str, Any]], logs2: list[dict[str, Any]]) -> tuple[bool, list[str]]:
+def compare_logs(
+    logs1: list[dict[str, Any]], logs2: list[dict[str, Any]]
+) -> tuple[bool, list[str]]:
     """Сравнивает наборы логов и возвращает (идентичны, список отличий)."""
 
     differences: list[str] = []
@@ -144,7 +146,9 @@ def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -
 
     with tmp.open("w", encoding="utf-8") as handle:
         handle.write("# Determinism Check Report\n\n")
-        handle.write("**Purpose**: Verify that pipeline runs produce identical structured logs.\n\n")
+        handle.write(
+            "**Purpose**: Verify that pipeline runs produce identical structured logs.\n\n"
+        )
         handle.write(f"**Total pipelines tested**: {len(results)}\n\n")
         handle.write(f"- ✅ Deterministic: {total_deterministic}\n")
         handle.write(f"- ❌ Non-deterministic: {total_non_deterministic}\n\n")
@@ -175,7 +179,9 @@ def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -
     tmp.replace(report_path)
 
 
-def run_determinism_check(pipelines: tuple[str, ...] | None = None) -> dict[str, DeterminismRunResult]:
+def run_determinism_check(
+    pipelines: tuple[str, ...] | None = None,
+) -> dict[str, DeterminismRunResult]:
     """Запускает проверку детерминизма и возвращает результаты."""
 
     UnifiedLogger.configure()
@@ -198,7 +204,9 @@ def run_determinism_check(pipelines: tuple[str, ...] | None = None) -> dict[str,
 
             if exit_code1 != 0:
                 error_message = f"Run 1 failed with exit code {exit_code1}: {stderr1[:200]}"
-                log.warning("pipeline_run_failed", pipeline=pipeline_name, attempt=1, error=error_message)
+                log.warning(
+                    "pipeline_run_failed", pipeline=pipeline_name, attempt=1, error=error_message
+                )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
                     deterministic=False,
@@ -218,7 +226,9 @@ def run_determinism_check(pipelines: tuple[str, ...] | None = None) -> dict[str,
 
             if exit_code2 != 0:
                 error_message = f"Run 2 failed with exit code {exit_code2}: {stderr2[:200]}"
-                log.warning("pipeline_run_failed", pipeline=pipeline_name, attempt=2, error=error_message)
+                log.warning(
+                    "pipeline_run_failed", pipeline=pipeline_name, attempt=2, error=error_message
+                )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
                     deterministic=False,
@@ -263,4 +273,3 @@ def run_determinism_check(pipelines: tuple[str, ...] | None = None) -> dict[str,
     log.info("determinism_check_report_written", path=str(report_path))
 
     return results
-

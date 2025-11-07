@@ -96,4 +96,3 @@ def write_inventory(
     )
 
     return InventoryResult(files=docs_files, inventory_path=inventory_path, hashes_path=hashes_path)
-

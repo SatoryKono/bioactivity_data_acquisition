@@ -42,7 +42,9 @@ class DocumentSourceParameters(BaseModel):
         select_fields_raw = params.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
-            if isinstance(select_fields_raw, Sequence) and not isinstance(select_fields_raw, (str, bytes)):
+            if isinstance(select_fields_raw, Sequence) and not isinstance(
+                select_fields_raw, (str, bytes)
+            ):
                 select_fields = tuple(str(field) for field in select_fields_raw)
 
         return cls(
@@ -80,7 +82,7 @@ class DocumentSourceConfig(BaseModel):
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> "DocumentSourceConfig":
+    def from_source_config(cls, config: SourceConfig) -> DocumentSourceConfig:
         """Create a :class:`DocumentSourceConfig` from the generic :class:`SourceConfig`.
 
         Parameters
@@ -104,4 +106,3 @@ class DocumentSourceConfig(BaseModel):
             batch_size=batch_size,
             parameters=parameters,
         )
-

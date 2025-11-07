@@ -38,4 +38,3 @@ def test_hash_from_mapping_returns_digest() -> None:
     digest = hash_from_mapping(mapping, ["id", "value"], algorithm="sha256")
 
     assert len(digest) == 64
-

@@ -82,7 +82,7 @@ http:
     headers:
       User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
       Accept: "application/json"
-  
+
   # Именованный профиль для UniProt ID Mapping
   profiles:
     uniprot_idmapping:
@@ -141,13 +141,13 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   column_validation_ignore_suffixes: ["_scd", "_temp", "_meta", "_tmp"]
-  
+
   # Ключи сортировки (обязательно: первый ключ - target_chembl_id, затем uniprot_accession)
   sort:
     by: ["target_chembl_id", "uniprot_accession"]
     ascending: [true, true]
     na_position: "last"
-  
+
   # Фиксированный порядок колонок (из ChEMBL2UniProtMappingSchema.Config.column_order)
   column_order:
     - "target_chembl_id"
@@ -156,14 +156,14 @@ determinism:
     - "mapping_status"
     - "mapping_source"
     # ... остальные колонки в порядке из ChEMBL2UniProtMappingSchema.Config.column_order
-  
+
   # Хеширование
   hashing:
     algorithm: "sha256"
     row_fields: []  # Все колонки из column_order (кроме exclude_fields)
     business_key_fields: ["target_chembl_id", "uniprot_accession"]  # Составной ключ
     exclude_fields: ["generated_at", "run_id"]
-  
+
   # Сериализация
   serialization:
     csv:
@@ -172,16 +172,16 @@ determinism:
       na_rep: ""
     booleans: ["True", "False"]
     nan_rep: "NaN"
-  
+
   # Окружение
   environment:
     timezone: "UTC"
     locale: "C"
-  
+
   # Запись
   write:
     strategy: "atomic"
-  
+
   # Метаданные
   meta:
     location: "sibling"
@@ -311,7 +311,7 @@ SCHEMA_VERSION = "1.0.0"
 
 class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
     """Pandera schema for ChEMBL to UniProt mapping output data."""
-    
+
     # Составной бизнес-ключ (обязательные поля, NOT NULL)
     target_chembl_id: Series[str] = pa.Field(
         description="ChEMBL target identifier",
@@ -323,7 +323,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[A-NR-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2}$|^[OPQ][0-9][A-Z0-9]{3}[0-9]$"
     )
-    
+
     # Маппинг метаданные
     confidence_score: Series[Float64] = pa.Field(
         description="Confidence score for the mapping (0.0-1.0)",
@@ -341,7 +341,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         nullable=False,
         isin=["UniProt_IDMapping", "UniProt_IDMapping_FALLBACK"]
     )
-    
+
     # One-to-many detection
     is_primary_mapping: Series[pa.typing.Bool] = pa.Field(
         description="Whether this is the primary mapping (for one-to-many cases)",
@@ -351,7 +351,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         description="Total number of mappings for this target_chembl_id",
         nullable=True
     )
-    
+
     # Системные метаданные
     run_id: Series[str] = pa.Field(
         description="Pipeline run ID",
@@ -378,7 +378,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         description="Extraction timestamp (UTC)",
         nullable=False
     )
-    
+
     # Хеши
     hash_row: Series[str] = pa.Field(
         description="SHA256 hash of entire row",
@@ -390,13 +390,13 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[a-f0-9]{64}$"
     )
-    
+
     # Индекс
     index: Series[Int64] = pa.Field(
         description="Row index",
         nullable=False
     )
-    
+
     # Порядок колонок
     class Config:
         strict = True
@@ -421,7 +421,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
             "hash_business_key",
             "index"
         ]
-    
+
     # Валидация уникальности составного бизнес-ключа
     @pa.check("target_chembl_id", "uniprot_accession")
     def check_unique_composite_key(cls, df: pd.DataFrame) -> Series[bool]:
@@ -870,15 +870,15 @@ UniProt ID Mapping API использует асинхронный процес�
 def process_one_to_many(mapping_results: list[dict]) -> pd.DataFrame:
     """Process one-to-many mappings."""
     df = pd.DataFrame(mapping_results)
-    
+
     # Подсчет маппингов для каждого target_chembl_id
     mapping_counts = df.groupby("target_chembl_id").size()
     df["total_mappings_count"] = df["target_chembl_id"].map(mapping_counts)
-    
+
     # Сортировка по confidence_score (если доступен) для определения primary
     df = df.sort_values(["target_chembl_id", "confidence_score"], ascending=[True, False])
     df["is_primary_mapping"] = ~df.duplicated(subset=["target_chembl_id"], keep="first")
-    
+
     return df
 ```
 

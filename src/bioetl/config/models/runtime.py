@@ -26,5 +26,3 @@ class RuntimeConfig(BaseModel):
         default=42,
         description="Инициализационное значение генераторов случайных чисел для детерминизма.",
     )
-
-

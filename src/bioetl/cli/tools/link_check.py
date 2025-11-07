@@ -26,4 +26,3 @@ def main(timeout: int = typer.Option(300, help="Таймаут запуска ly
 
 def run() -> None:
     app()
-

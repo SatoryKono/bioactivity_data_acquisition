@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from typing import Any, cast
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 
 from bioetl.core.serialization import header_rows_serialize
@@ -15,6 +17,23 @@ __all__ = [
     "extract_and_serialize_component_synonyms",
     "flatten_target_components",
 ]
+
+
+def _collect_dicts(source: Any) -> list[dict[str, Any]]:
+    """Collect dictionary entries from arbitrary source keeping order."""
+
+    result: list[dict[str, Any]] = []
+    if isinstance(source, dict):
+        result.append(cast(dict[str, Any], source))
+        return result
+
+    if isinstance(source, Iterable) and not isinstance(source, (str, bytes)):
+        iterable_source = cast(Iterable[Any], source)
+        for element in iterable_source:
+            if isinstance(element, dict):
+                result.append(cast(dict[str, Any], element))
+
+    return result
 
 
 def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
@@ -52,11 +71,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
 
     # Extract target_components
     comps_raw: Any = rec.get("target_components") or []
-    comps: list[dict[str, Any]] = []
-    if isinstance(comps_raw, list):
-        comps = [cast(dict[str, Any], c) for c in comps_raw if isinstance(c, dict)]  # pyright: ignore[reportUnknownVariableType]
-    elif isinstance(comps_raw, dict):
-        comps = [cast(dict[str, Any], comps_raw)]
+    comps: list[dict[str, Any]] = _collect_dicts(comps_raw)
 
     # Extract UniProt accessions
     accessions: list[str] = []
@@ -71,13 +86,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
         # Extract synonyms from this component
         syns: Any = component.get("target_component_synonyms")
         if syns:
-            if isinstance(syns, list):
-                all_synonyms.extend(cast(list[dict[str, Any]], syns))  # pyright: ignore[reportUnknownArgumentType]
-            elif isinstance(syns, dict):
-                all_synonyms.append(cast(dict[str, Any], syns))
-            else:
-                # Single value: wrap in dict if needed
-                all_synonyms.append(cast(dict[str, Any], syns))
+            all_synonyms.extend(_collect_dicts(syns))
 
     # Serialize uniprot_accessions as JSON array
     unique_accessions = sorted(set(accessions))
@@ -103,11 +112,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
 
     # Serialize cross_references from top-level
     xrefs_raw: Any = rec.get("cross_references") or []
-    xrefs: list[dict[str, Any]] = []
-    if isinstance(xrefs_raw, list):
-        xrefs = [cast(dict[str, Any], x) for x in xrefs_raw if isinstance(x, dict)]  # pyright: ignore[reportUnknownVariableType]
-    elif isinstance(xrefs_raw, dict):
-        xrefs = [cast(dict[str, Any], xrefs_raw)]
+    xrefs: list[dict[str, Any]] = _collect_dicts(xrefs_raw)
     if xrefs:
         result["cross_references__flat"] = header_rows_serialize(xrefs)
 
@@ -130,31 +135,18 @@ def extract_and_serialize_component_synonyms(target_components: Any) -> str:
     if target_components is None:
         return ""
 
-    if not isinstance(target_components, list):
-        # Single dict: extract synonyms if present
-        if isinstance(target_components, dict):
-            syns_raw: Any = target_components.get("target_component_synonyms")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
-            if syns_raw:
-                return header_rows_serialize(syns_raw if isinstance(syns_raw, list) else [syns_raw])
+    components: list[dict[str, Any]] = _collect_dicts(target_components)
+    if not components:
         return ""
 
-    if not target_components:
-        return ""
-
-    # Extract all synonyms from all components
     all_synonyms: list[dict[str, Any]] = []
-    for component_raw in target_components:  # pyright: ignore[reportUnknownVariableType]
-        if isinstance(component_raw, dict):
-            component = cast(dict[str, Any], component_raw)
-            syns_item: Any = component.get("target_component_synonyms")  # pyright: ignore[reportUnknownMemberType]
-            if syns_item:
-                if isinstance(syns_item, list):
-                    all_synonyms.extend(cast(list[dict[str, Any]], syns_item))  # pyright: ignore[reportUnknownArgumentType]
-                elif isinstance(syns_item, dict):
-                    all_synonyms.append(cast(dict[str, Any], syns_item))
-                else:
-                    # Single value: wrap in list
-                    all_synonyms.append(cast(dict[str, Any], syns_item))
+    for component in components:
+        syns_item: Any = component.get("target_component_synonyms")
+        if syns_item:
+            all_synonyms.extend(_collect_dicts(syns_item))
+
+    if not all_synonyms:
+        return ""
 
     return header_rows_serialize(all_synonyms)
 
@@ -199,13 +191,14 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
             for key, value in row_dict.items():
                 # Handle array-like values: check if it's an array first
                 if isinstance(value, np.ndarray):
+                    array_value = cast(npt.NDArray[Any], value)
                     # For arrays, check if empty or if all values are NaN
-                    if value.size == 0:
+                    if array_value.size == 0:
                         row_dict[key] = None
                     else:
                         # Check if all values are NaN using numpy's isnan
                         try:
-                            if np.all(np.isnan(value)):  # pyright: ignore[reportUnknownArgumentType]
+                            if bool(np.all(pd.isna(array_value))):
                                 row_dict[key] = None
                         except (TypeError, ValueError):
                             # If isnan fails (e.g., string array), keep as is
@@ -244,4 +237,3 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
             df = df.drop(columns=[col])
 
     return df
-

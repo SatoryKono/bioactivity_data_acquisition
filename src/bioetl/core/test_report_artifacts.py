@@ -13,7 +13,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Final
 
-
 TEST_REPORTS_ROOT: Final[Path] = Path("data/output/test-reports")
 
 PYTEST_REPORT_NAME: Final[str] = "pytest-report.json"
@@ -74,5 +73,3 @@ class TestReportMeta:
             "business_key_hash": self.business_key_hash,
             "status": self.status,
         }
-
-

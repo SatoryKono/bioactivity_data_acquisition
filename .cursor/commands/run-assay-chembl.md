@@ -42,4 +42,3 @@
 - Конфигурация: `configs/pipelines/assay/assay_chembl.yaml`
 - Документация: `docs/pipelines/assay-chembl/`
 - CLI справка: `docs/cli/01-cli-commands.md`
-

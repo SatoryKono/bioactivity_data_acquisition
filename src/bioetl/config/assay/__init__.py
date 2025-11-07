@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
@@ -30,7 +31,7 @@ class AssaySourceParameters(BaseModel):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> "AssaySourceParameters":
+    def from_mapping(cls, params: Mapping[str, Any]) -> AssaySourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -70,7 +71,7 @@ class AssaySourceConfig(BaseModel):
     parameters: AssaySourceParameters = Field(default_factory=AssaySourceParameters)
 
     @model_validator(mode="after")
-    def enforce_limits(self) -> "AssaySourceConfig":
+    def enforce_limits(self) -> AssaySourceConfig:
         """Ensure the configured values adhere to documented constraints.
 
         Returns
@@ -85,7 +86,7 @@ class AssaySourceConfig(BaseModel):
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> "AssaySourceConfig":
+    def from_source_config(cls, config: SourceConfig) -> AssaySourceConfig:
         """Create an :class:`AssaySourceConfig` from the generic :class:`SourceConfig`.
 
         Parameters
@@ -143,4 +144,3 @@ class AssaySourceConfig(BaseModel):
             msg = "max_url_length must be a positive integer"
             raise ValueError(msg)
         return value
-

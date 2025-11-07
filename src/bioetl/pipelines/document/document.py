@@ -6,6 +6,7 @@ import re
 import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
+from numbers import Integral, Real
 from typing import Any, cast
 
 import pandas as pd
@@ -82,7 +83,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_document_client")
+        client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_document_client"
+        )
 
         self._chembl_release = self.fetch_chembl_release(client, log)
 
@@ -93,7 +96,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             page_size = min(page_size, limit)
         page_size = max(page_size, 1)
 
-        select_fields = self._resolve_select_fields(source_raw, default_fields=list(API_DOCUMENT_FIELDS))
+        select_fields = self._resolve_select_fields(
+            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
+        )
         # Защита: добавить обязательные поля, если их нет
         select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
         records: list[dict[str, Any]] = []
@@ -111,7 +116,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         }
         if parameter_filters:
             filters_payload["parameters"] = parameter_filters
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self._chembl_release,
             filters=compact_filters,
@@ -123,7 +130,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             page_start = time.perf_counter()
             response = client.get(next_endpoint, params=params)
             payload = self._coerce_mapping(response.json())
-            page_items = self._extract_page_items(payload, items_keys=("documents", "data", "items", "results"))
+            page_items = self._extract_page_items(
+                payload, items_keys=("documents", "data", "items", "results")
+            )
 
             # Process nested fields for each item
             processed_items: list[dict[str, Any]] = []
@@ -194,13 +203,17 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client("chembl", base_url=base_url, client_name="chembl_document_client")
+        client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_document_client"
+        )
 
         self._chembl_release = self.fetch_chembl_release(client, log)
 
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
-        select_fields = self._resolve_select_fields(source_raw, default_fields=list(API_DOCUMENT_FIELDS))
+        select_fields = self._resolve_select_fields(
+            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
+        )
         # Защита: добавить обязательные поля, если их нет
         select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
 
@@ -393,13 +406,47 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize journal
         if "journal" in normalized_df.columns:
-            normalized_df["journal"] = normalized_df["journal"].apply(self._normalize_journal)  # pyright: ignore[reportUnknownMemberType]
+            journal_series: pd.Series[Any] = normalized_df["journal"]
+            normalized_df["journal"] = journal_series.map(
+                lambda value: self._normalize_journal(value)
+            )
 
         # Normalize authors
         if "authors" in normalized_df.columns:
-            authors_result = normalized_df["authors"].apply(self._normalize_authors)  # pyright: ignore[reportUnknownMemberType]
-            normalized_df["authors"] = authors_result.apply(lambda x: x[0] if isinstance(x, tuple) else "")  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
-            normalized_df["authors_count"] = authors_result.apply(lambda x: x[1] if isinstance(x, tuple) else 0)  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType]
+            def _to_author_tuple(item: object) -> tuple[str, int] | None:
+                if not isinstance(item, tuple):
+                    return None
+                tuple_item = cast(tuple[object, ...], item)
+                if len(tuple_item) != 2:
+                    return None
+                name_raw, count_raw = tuple_item
+                if not isinstance(name_raw, str):
+                    return None
+                name_value: str = name_raw
+                if isinstance(count_raw, Integral):
+                    count_value = int(count_raw)
+                elif isinstance(count_raw, Real):
+                    float_value = float(count_raw)
+                    if not float_value.is_integer():
+                        return None
+                    count_value = int(float_value)
+                else:
+                    return None
+                if count_value < 0:
+                    return None
+                return (name_value, count_value)
+
+            def _author_name_from_tuple(data: tuple[str, int] | None) -> str:
+                return data[0] if data is not None else ""
+
+            def _author_count_from_tuple(data: tuple[str, int] | None) -> int:
+                return data[1] if data is not None else 0
+
+            authors_series: pd.Series[Any] = normalized_df["authors"]
+            normalized_result = authors_series.map(self._normalize_authors)
+            normalized_tuples = normalized_result.map(_to_author_tuple)
+            normalized_df["authors"] = normalized_tuples.map(_author_name_from_tuple)
+            normalized_df["authors_count"] = normalized_tuples.map(_author_count_from_tuple)
 
         return normalized_df
 
@@ -432,10 +479,32 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize year
         if "year" in df.columns:
-            df["year"] = pd.to_numeric(df["year"], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
-            df["year"] = df["year"].apply(  # pyright: ignore[reportUnknownMemberType,reportUnknownLambdaType,reportUnknownArgumentType]
-                lambda x: int(x) if pd.notna(x) and 1500 <= x <= 2100 else None  # pyright: ignore[reportUnknownLambdaType,reportUnknownArgumentType]
-            ).astype("Int64")
+            def _coerce_year(value: object) -> int | None:
+                if value is None or value is pd.NA:
+                    return None
+                if isinstance(value, Integral):
+                    year_int = int(value)
+                elif isinstance(value, Real):
+                    float_value = float(value)
+                    if not float_value.is_integer():
+                        return None
+                    year_int = int(float_value)
+                elif isinstance(value, str):
+                    stripped = value.strip()
+                    if not stripped:
+                        return None
+                    if not stripped.isdigit():
+                        return None
+                    year_int = int(stripped)
+                else:
+                    return None
+
+                if 1500 <= year_int <= 2100:
+                    return year_int
+                return None
+
+            normalized_year = df["year"].map(_coerce_year)
+            df["year"] = normalized_year.astype("Int64")
 
         return df
 
@@ -472,7 +541,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return
         duplicates = df["document_chembl_id"].duplicated()
         if duplicates.any():
-            duplicate_ids = df[df["document_chembl_id"].duplicated()]["document_chembl_id"].unique().tolist()
+            duplicate_ids = (
+                df[df["document_chembl_id"].duplicated()]["document_chembl_id"].unique().tolist()
+            )
             log.warning(
                 "document_id_duplicates",
                 duplicate_count=duplicates.sum(),
@@ -531,7 +602,13 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
-        api_client, _ = self.prepare_chembl_client("chembl", base_url=self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters))), client_name="chembl_enrichment_client")
+        api_client, _ = self.prepare_chembl_client(
+            "chembl",
+            base_url=self._resolve_base_url(
+                cast(Mapping[str, Any], dict(source_config.parameters))
+            ),
+            client_name="chembl_enrichment_client",
+        )
         chembl_client = ChemblClient(
             api_client,
             load_meta_store=self.load_meta_store,
@@ -554,5 +631,3 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         if isinstance(payload, Mapping):
             return cast(dict[str, Any], payload)
         return {}
-
-

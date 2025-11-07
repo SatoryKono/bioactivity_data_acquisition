@@ -66,4 +66,3 @@ class ChemblAssayClient(ChemblEntityIterator):
 
         # Используем унифицированный entity client для получения по ID
         self._entity_client = ChemblAssayEntityClient(client)
-

@@ -6,4 +6,3 @@
 validation:
   strict: true
   coerce: true  # Default: true, can be overridden in pipeline configs (e.g., target.yaml uses false)
-

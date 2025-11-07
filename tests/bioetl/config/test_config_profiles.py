@@ -8,7 +8,6 @@ import pytest
 
 from bioetl.config.loader import load_config
 
-
 PIPELINE_CONFIGS = [
     Path("configs/pipelines/activity/activity_chembl.yaml"),
     Path("configs/pipelines/assay/assay_chembl.yaml"),
@@ -19,7 +18,9 @@ PIPELINE_CONFIGS = [
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize("config_path", PIPELINE_CONFIGS, ids=[path.stem for path in PIPELINE_CONFIGS])
+@pytest.mark.parametrize(
+    "config_path", PIPELINE_CONFIGS, ids=[path.stem for path in PIPELINE_CONFIGS]
+)
 def test_pipeline_config_profile_merge(config_path: Path) -> None:
     config = load_config(config_path, include_default_profiles=False)
 
@@ -40,4 +41,3 @@ def test_pipeline_config_profile_merge(config_path: Path) -> None:
     chembl_source = config.sources.get("chembl")
     assert chembl_source is not None
     assert "base_url" in chembl_source.parameters
-

@@ -54,9 +54,7 @@ _COMPOUND_COLUMNS: tuple[tuple[str, str], ...] = (
     ("removed", "boolean"),
 )
 
-_DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (
-    ("data_validity_description", "string"),
-)
+_DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (("data_validity_description", "string"),)
 
 
 def _extract_first_present(record: Mapping[str, Any], keys: Iterable[str]) -> Any:
@@ -100,12 +98,7 @@ def enrich_with_assay(
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 2) Собрать уникальные валидные идентификаторы (без iterrows: быстрее и чище)
-    assay_ids = (
-        df_act["assay_chembl_id"]
-        .dropna()
-        .astype(str)
-        .str.strip()
-    )
+    assay_ids = df_act["assay_chembl_id"].dropna().astype(str).str.strip()
     assay_ids = assay_ids[assay_ids.ne("")].unique().tolist()
 
     # Гарантируем наличие выходных колонок даже при пустом наборе ID
@@ -131,11 +124,14 @@ def enrich_with_assay(
     #  - корректно пройдёт пагинацию по page_meta (limit/offset/next/total_count)
     #  - вернёт dict: {assay_chembl_id: record_dict}
     log.info("enrichment_fetching_assays", ids_count=len(assay_ids))
-    records_by_id: dict[str, dict[str, Any]] = client.fetch_assays_by_ids(
-        ids=assay_ids,
-        fields=fields,
-        page_limit=page_limit,
-    ) or {}
+    records_by_id: dict[str, dict[str, Any]] = (
+        client.fetch_assays_by_ids(
+            ids=assay_ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
+        or {}
+    )
 
     # 5) Построить таблицу обогащения (только нужные выходные поля)
     if not records_by_id:
@@ -165,6 +161,17 @@ def enrich_with_assay(
     ).reindex(original_index)
 
     # 7) Приведение типов (софт)
+    if "assay_organism_enrich" in df_merged.columns:
+        df_merged["assay_organism"] = df_merged["assay_organism_enrich"].combine_first(
+            df_merged["assay_organism"]
+        )
+        df_merged = df_merged.drop(columns=["assay_organism_enrich"])
+    if "assay_tax_id_enrich" in df_merged.columns:
+        df_merged["assay_tax_id"] = df_merged["assay_tax_id_enrich"].combine_first(
+            df_merged["assay_tax_id"]
+        )
+        df_merged = df_merged.drop(columns=["assay_tax_id_enrich"])
+
     if "assay_organism" not in df_merged.columns:
         df_merged["assay_organism"] = pd.NA
     if "assay_tax_id" not in df_merged.columns:
@@ -361,18 +368,32 @@ def enrich_with_compound_record(
                             row_id = int(str(row_id_raw))
                         if row_id in fallback_dict:
                             # Проверить, нужно ли применять fallback (если compound_name/compound_key пустые)
-                            compound_name = df_result.loc[idx, "compound_name"] if "compound_name" in df_result.columns else pd.NA
-                            compound_key = df_result.loc[idx, "compound_key"] if "compound_key" in df_result.columns else pd.NA
+                            compound_name = (
+                                df_result.loc[idx, "compound_name"]
+                                if "compound_name" in df_result.columns
+                                else pd.NA
+                            )
+                            compound_key = (
+                                df_result.loc[idx, "compound_key"]
+                                if "compound_key" in df_result.columns
+                                else pd.NA
+                            )
 
-                            name_empty = pd.isna(compound_name) or (str(compound_name).strip() == "")
+                            name_empty = pd.isna(compound_name) or (
+                                str(compound_name).strip() == ""
+                            )
                             key_empty = pd.isna(compound_key) or (str(compound_key).strip() == "")
 
                             if name_empty or key_empty:
                                 fallback_data = fallback_dict[row_id]
                                 if name_empty and fallback_data.get("compound_name") is not None:
-                                    df_result.loc[idx, "compound_name"] = fallback_data["compound_name"]
+                                    df_result.loc[idx, "compound_name"] = fallback_data[
+                                        "compound_name"
+                                    ]
                                 if key_empty and fallback_data.get("compound_key") is not None:
-                                    df_result.loc[idx, "compound_key"] = fallback_data["compound_key"]
+                                    df_result.loc[idx, "compound_key"] = fallback_data[
+                                        "compound_key"
+                                    ]
                     except (ValueError, TypeError):
                         continue
 
@@ -391,7 +412,7 @@ def enrich_with_compound_record(
     # 9) Надёжное приведение булевых для curated
     if "curated" in df_result.columns:
         # Нормализовать возможные представления перед приведением к boolean
-        df_result["curated"] = df_result["curated"].replace({  # type: ignore[reportUnknownMemberType]
+        curated_mapping: Mapping[object, bool] = {
             1: True,
             0: False,
             "1": True,
@@ -400,7 +421,12 @@ def enrich_with_compound_record(
             "false": False,
             "True": True,
             "False": False,
-        })
+        }
+        curated_series = df_result["curated"]
+        normalized_curated = curated_series.map(curated_mapping)
+        mapped_mask = normalized_curated.notna()
+        if mapped_mask.any():
+            df_result.loc[mapped_mask, "curated"] = normalized_curated[mapped_mask]
         df_result["curated"] = df_result["curated"].astype("boolean")
 
     # 10) Нормализовать типы для строковых полей
@@ -507,24 +533,28 @@ def _enrich_by_pairs(
             curated = curated_raw if curated_raw is not None else None
 
             pairs_found += 1
-            enrichment_data.append({
-                "molecule_chembl_id": pair[0],
-                "document_chembl_id": pair[1],
-                "compound_name": compound_name,
-                "compound_key": compound_key,
-                "curated": curated,
-                "removed": None,
-            })
+            enrichment_data.append(
+                {
+                    "molecule_chembl_id": pair[0],
+                    "document_chembl_id": pair[1],
+                    "compound_name": compound_name,
+                    "compound_key": compound_key,
+                    "curated": curated,
+                    "removed": None,
+                }
+            )
         else:
             pairs_not_found += 1
-            enrichment_data.append({
-                "molecule_chembl_id": pair[0],
-                "document_chembl_id": pair[1],
-                "compound_name": None,
-                "compound_key": None,
-                "curated": None,
-                "removed": None,
-            })
+            enrichment_data.append(
+                {
+                    "molecule_chembl_id": pair[0],
+                    "document_chembl_id": pair[1],
+                    "compound_name": None,
+                    "compound_key": None,
+                    "curated": None,
+                    "removed": None,
+                }
+            )
 
     # Логирование результатов
     log.info(
@@ -680,14 +710,18 @@ def _enrich_by_record_id(
     # Создать DataFrame для join
     compound_data: list[dict[str, Any]] = []
     for record_id, record in compound_records_dict.items():
-        compound_data.append({
-            "record_id": record_id,
-            "compound_key": record.get("compound_key"),
-            "compound_name": record.get("compound_name"),
-        })
+        compound_data.append(
+            {
+                "record_id": record_id,
+                "compound_key": record.get("compound_key"),
+                "compound_name": record.get("compound_name"),
+            }
+        )
 
-    df_compound = pd.DataFrame(compound_data) if compound_data else pd.DataFrame(
-        columns=["record_id", "compound_key", "compound_name"]
+    df_compound = (
+        pd.DataFrame(compound_data)
+        if compound_data
+        else pd.DataFrame(columns=["record_id", "compound_key", "compound_name"])
     )
 
     # Нормализовать record_id в df_act для join
@@ -806,16 +840,20 @@ def enrich_with_data_validity(
     for comment in set(validity_comments):
         record = records_dict.get(comment)
         if record:
-            enrichment_data.append({
-                "data_validity_comment": comment,
-                "data_validity_description": record.get("description"),
-            })
+            enrichment_data.append(
+                {
+                    "data_validity_comment": comment,
+                    "data_validity_description": record.get("description"),
+                }
+            )
         else:
             # Если запись не найдена, оставляем description как NULL
-            enrichment_data.append({
-                "data_validity_comment": comment,
-                "data_validity_description": None,
-            })
+            enrichment_data.append(
+                {
+                    "data_validity_comment": comment,
+                    "data_validity_description": None,
+                }
+            )
 
     if not enrichment_data:
         log.debug("enrichment_no_records_found")
@@ -849,4 +887,3 @@ def enrich_with_data_validity(
         records_matched=len(records_dict),
     )
     return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_result, lazy=True)
-

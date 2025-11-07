@@ -91,14 +91,18 @@ def sample_dataframe() -> pd.DataFrame:
 class TestOutput:
     """Test suite for output utilities."""
 
-    def test_prepare_dataframe_sort(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame) -> None:
+    def test_prepare_dataframe_sort(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame
+    ) -> None:
         """Test preparing dataframe with sorting."""
         result = prepare_dataframe(sample_dataframe, config=output_config)
 
         assert result["id"].tolist() == [1, 2, 3]
         assert result["value"].tolist() == [10.0, 20.0, 30.0]
 
-    def test_prepare_dataframe_column_order(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame) -> None:
+    def test_prepare_dataframe_column_order(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame
+    ) -> None:
         """Test preparing dataframe with column order."""
         # Set column_order and schema_out
         output_config.determinism.column_order = ("id", "value")
@@ -132,7 +136,9 @@ class TestOutput:
         with pytest.raises(ValueError, match="missing columns"):
             prepare_dataframe(df, config=output_config)
 
-    def test_ensure_hash_columns_basic(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame) -> None:
+    def test_ensure_hash_columns_basic(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame
+    ) -> None:
         """Test ensuring hash columns are added."""
         result = ensure_hash_columns(sample_dataframe, config=output_config)
 
@@ -141,14 +147,18 @@ class TestOutput:
         assert len(result["hash_row"]) == 3
         assert len(result["hash_business_key"]) == 3
 
-    def test_ensure_hash_columns_existing(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame) -> None:
+    def test_ensure_hash_columns_existing(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame
+    ) -> None:
         """Test ensuring hash columns when they already exist."""
         sample_dataframe["hash_row"] = "existing"
         result = ensure_hash_columns(sample_dataframe, config=output_config)
 
         assert result["hash_row"].tolist() == ["existing"] * 3
 
-    def test_ensure_hash_columns_no_business_key(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame) -> None:
+    def test_ensure_hash_columns_no_business_key(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame
+    ) -> None:
         """Test ensuring hash columns without business key."""
         output_config.determinism.hashing.business_key_fields = ()
         result = ensure_hash_columns(sample_dataframe, config=output_config)
@@ -164,7 +174,9 @@ class TestOutput:
         with pytest.raises(KeyError, match="is missing from dataframe"):
             ensure_hash_columns(df, config=output_config)
 
-    def test_write_dataset_atomic(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path) -> None:
+    def test_write_dataset_atomic(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Test writing dataset atomically."""
         output_path = tmp_path / "output.csv"
         write_dataset_atomic(sample_dataframe, output_path, config=output_config)
@@ -176,7 +188,9 @@ class TestOutput:
         loaded = pd.read_csv(output_path)  # type: ignore[unknown-member]
         assert len(loaded) == 3
 
-    def test_write_dataset_atomic_creates_directory(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path) -> None:
+    def test_write_dataset_atomic_creates_directory(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Test writing dataset creates directory if needed."""
         output_path = tmp_path / "subdir" / "output.csv"
         write_dataset_atomic(sample_dataframe, output_path, config=output_config)
@@ -211,7 +225,9 @@ class TestOutput:
         assert output_path.exists()
         assert output_path.parent.exists()
 
-    def test_write_frame_like_dataframe(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path) -> None:
+    def test_write_frame_like_dataframe(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Test writing frame-like with DataFrame."""
         output_path = tmp_path / "output.csv"
         write_frame_like(sample_dataframe, output_path, config=output_config)
@@ -231,7 +247,9 @@ class TestOutput:
         assert len(loaded) == 1
         assert loaded["id"].iloc[0] == 1
 
-    def test_serialise_metadata_basic(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path) -> None:
+    def test_serialise_metadata_basic(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Test serializing metadata."""
         dataset_path = tmp_path / "output.csv"
         result = serialise_metadata(
@@ -249,7 +267,9 @@ class TestOutput:
         assert result["pipeline"] == "test_pipeline"
         assert result["run_id"] == "test-run-123"
 
-    def test_serialise_metadata_with_hashes(self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path) -> None:
+    def test_serialise_metadata_with_hashes(
+        self, output_config: PipelineConfig, sample_dataframe: pd.DataFrame, tmp_path: Path
+    ) -> None:
         """Test serializing metadata with hash columns."""
         df_with_hashes = ensure_hash_columns(sample_dataframe, config=output_config)
         dataset_path = tmp_path / "output.csv"
@@ -263,7 +283,9 @@ class TestOutput:
         )
 
         assert "row_count" in result
-        assert "hash_row" in result.get("hashing", {}) or "hash_business_key" in result.get("hashing", {})
+        assert "hash_row" in result.get("hashing", {}) or "hash_business_key" in result.get(
+            "hashing", {}
+        )
 
     def test_deterministic_write_artifacts(self) -> None:
         """Test DeterministicWriteArtifacts dataclass."""
@@ -274,4 +296,3 @@ class TestOutput:
 
         assert artifacts.dataframe.equals(df)
         assert artifacts.metadata == metadata
-

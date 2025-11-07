@@ -17,7 +17,9 @@ class CLIConfig(BaseModel):
         default_factory=tuple,
         description="Profiles requested via the --profile flag (in order).",
     )
-    dry_run: bool = Field(default=False, description="If true, skip the write/materialization stage.")
+    dry_run: bool = Field(
+        default=False, description="If true, skip the write/materialization stage."
+    )
     limit: PositiveInt | None = Field(
         default=None,
         description="Optional limit applied to extracted records for sampling/testing.",
@@ -58,4 +60,3 @@ class CLIConfig(BaseModel):
         default_factory=dict,
         description="Key/value overrides provided via --set CLI arguments.",
     )
-

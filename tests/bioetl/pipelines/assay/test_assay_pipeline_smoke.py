@@ -110,13 +110,21 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_serializes_array_fields(self, tmp_path: Path) -> None:
         """Test that assay pipeline serializes array fields to strings."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "assay"
+            / "assay_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
@@ -125,13 +133,17 @@ class TestAssayPipelineSmoke:
             df = pipeline.transform(df)
 
         # Check that array fields are present
-        assert "assay_classifications" in df.columns or "assay_parameters" in df.columns, "Array fields missing"
+        assert (
+            "assay_classifications" in df.columns or "assay_parameters" in df.columns
+        ), "Array fields missing"
 
         # Check that array fields are strings (not lists)
         if "assay_classifications" in df.columns:
             classifications = df["assay_classifications"]
             for value in classifications.dropna():
-                assert isinstance(value, str), f"assay_classifications should be string, got {type(value)}"
+                assert isinstance(
+                    value, str
+                ), f"assay_classifications should be string, got {type(value)}"
                 # Check pattern: header+rows format (header/row1/row2/...)
                 # Empty string is valid, or should match pattern ^[^/]+(/.+)?$
                 if value:
@@ -142,7 +154,9 @@ class TestAssayPipelineSmoke:
         if "assay_parameters" in df.columns:
             parameters = df["assay_parameters"]
             for value in parameters.dropna():
-                assert isinstance(value, str), f"assay_parameters should be string, got {type(value)}"
+                assert isinstance(
+                    value, str
+                ), f"assay_parameters should be string, got {type(value)}"
                 # Check pattern: header+rows format
                 if value:
                     assert re.match(
@@ -151,13 +165,21 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that assay pipeline extracts all required scalar fields."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "assay"
+            / "assay_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -196,13 +218,21 @@ class TestAssayPipelineSmoke:
 
     def test_assay_pipeline_array_fields_format(self, tmp_path: Path) -> None:
         """Test that array fields follow header+rows format."""
-        config_path = Path(__file__).parent.parent.parent / "configs" / "pipelines" / "assay" / "assay_chembl.yaml"
+        config_path = (
+            Path(__file__).parent.parent.parent
+            / "configs"
+            / "pipelines"
+            / "assay"
+            / "assay_chembl.yaml"
+        )
         config = load_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=10)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client):
+        with patch(
+            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+        ):
             pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -232,4 +262,3 @@ class TestAssayPipelineSmoke:
                     header = parts[0]
                     # Header should have keys (pipe-separated if multiple, or single key)
                     assert len(header) > 0, f"Header should not be empty, got: {header}"
-

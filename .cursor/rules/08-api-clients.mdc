@@ -5,12 +5,12 @@ alwaysApply: false
 ---
 
 # CONTRACT
-- All HTTP calls via `UnifiedAPIClient`.  
-- Retries: exponential backoff with jitter; give up on non-retryable 4xx.  
-- Throttling: token bucket with jitter; respect Retry-After.  
-- Circuit breaker to prevent cascades.  
-- TTL cache for expensive reads.  
-- Strict timeouts; include proper User-Agent and required headers.  
+- All HTTP calls via `UnifiedAPIClient`.
+- Retries: exponential backoff with jitter; give up on non-retryable 4xx.
+- Throttling: token bucket with jitter; respect Retry-After.
+- Circuit breaker to prevent cascades.
+- TTL cache for expensive reads.
+- Strict timeouts; include proper User-Agent and required headers.
 - Handle pagination consistently.
 
 # ERROR HANDLING

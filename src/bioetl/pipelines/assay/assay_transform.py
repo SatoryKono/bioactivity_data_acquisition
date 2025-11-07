@@ -160,10 +160,7 @@ def validate_assay_parameters_truv(
             standard_text_value_is_null = (
                 standard_text_value is None
                 or (isinstance(standard_text_value, float) and pd.isna(standard_text_value))
-                or (
-                    isinstance(standard_text_value, str)
-                    and standard_text_value.strip() == ""
-                )
+                or (isinstance(standard_text_value, str) and standard_text_value.strip() == "")
             )
 
             if not standard_value_is_null and not standard_text_value_is_null:
@@ -206,9 +203,7 @@ def validate_assay_parameters_truv(
 
             # Проверка relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}
             relation: Any = param_dict.get("relation")
-            if relation is not None and not (
-                isinstance(relation, float) and pd.isna(relation)
-            ):
+            if relation is not None and not (isinstance(relation, float) and pd.isna(relation)):
                 relation_str = str(relation).strip()
                 if relation_str and relation_str not in STANDARD_RELATIONS:
                     warnings.append(
@@ -235,4 +230,3 @@ def validate_assay_parameters_truv(
         log.debug("truv_validation_passed", rows_checked=len(df))
 
     return df
-

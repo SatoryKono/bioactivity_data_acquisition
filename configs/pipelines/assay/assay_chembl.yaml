@@ -133,4 +133,3 @@ chembl:
 
 validation:
   schema_out: bioetl.schemas.assay.assay_chembl.AssaySchema
-

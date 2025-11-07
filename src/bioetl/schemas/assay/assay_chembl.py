@@ -9,12 +9,14 @@ from bioetl.schemas.common import (
     nullable_string_column,
     row_metadata_columns,
     string_column_with_check,
+    uuid_column,
 )
 from bioetl.schemas.vocab import required_vocab_ids
+
 ASSAY_TYPES = required_vocab_ids("assay_type")
 
 
-SCHEMA_VERSION = "1.2.0"
+SCHEMA_VERSION = "1.3.0"
 
 COLUMN_ORDER = (
     "assay_chembl_id",
@@ -47,6 +49,7 @@ COLUMN_ORDER = (
     "curation_level",
     "hash_row",
     "hash_business_key",
+    "load_meta_id",
 )
 
 # Row metadata columns
@@ -83,10 +86,10 @@ AssaySchema = create_schema(
         "curation_level": nullable_string_column(),
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
+        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="AssaySchema",
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "ASSAY_TYPES", "AssaySchema"]
-

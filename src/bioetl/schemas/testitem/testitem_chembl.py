@@ -10,9 +10,10 @@ from bioetl.schemas.common import (
     nullable_pd_int64_column,
     nullable_string_column,
     string_column_with_check,
+    uuid_column,
 )
 
-SCHEMA_VERSION = "1.1.0"
+SCHEMA_VERSION = "1.2.0"
 
 COLUMN_ORDER = (
     # Scalars
@@ -73,6 +74,7 @@ COLUMN_ORDER = (
     "_api_version",
     "hash_row",
     "hash_business_key",
+    "load_meta_id",
 )
 
 TestItemSchema = create_schema(
@@ -137,6 +139,7 @@ TestItemSchema = create_schema(
         "_api_version": non_nullable_string_column(),
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
+        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="TestItemSchema",
@@ -144,4 +147,3 @@ TestItemSchema = create_schema(
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TestItemSchema"]
-

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -144,6 +145,7 @@ def enrich_with_assay_classifications(
 
     # Обработать каждую запись assay
     for idx, row in df_assay.iterrows():
+        row_key: Any = idx
         assay_id = row.get("assay_chembl_id")
         if pd.isna(assay_id) or assay_id is None:
             continue
@@ -190,11 +192,10 @@ def enrich_with_assay_classifications(
 
         # Сохранить результаты
         if classifications:
-            # Сериализовать массив в JSON-строку
-            import json
-
-            df_assay.loc[idx, "assay_classifications"] = json.dumps(classifications, ensure_ascii=False)  # type: ignore[assignment]
-            df_assay.loc[idx, "assay_class_id"] = ";".join(class_ids)  # type: ignore[assignment]
+            serialized = json.dumps(classifications, ensure_ascii=False)
+            class_id_joined = ";".join(class_ids)
+            df_assay.at[row_key, "assay_classifications"] = serialized
+            df_assay.at[row_key, "assay_class_id"] = class_id_joined
 
     log.info(
         "enrichment_classifications_complete",
@@ -339,8 +340,6 @@ def enrich_with_assay_parameters(
 
         # Сериализовать массив в JSON-строку
         if params_list:
-            import json
-
             df_assay.loc[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)  # type: ignore[assignment]
 
     log.info(
@@ -348,4 +347,3 @@ def enrich_with_assay_parameters(
         assays_with_parameters=len(df_assay[df_assay["assay_parameters"].notna()]),
     )
     return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
-

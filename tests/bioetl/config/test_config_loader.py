@@ -352,4 +352,3 @@ pipeline:
 
         assert config.pipeline.name == "override_pipeline"
         assert config.http.default.timeout_sec == 30.0
-

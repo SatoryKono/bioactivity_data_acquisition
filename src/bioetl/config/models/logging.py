@@ -23,5 +23,3 @@ class LoggingConfig(BaseModel):
         default_factory=lambda: ("pipeline", "run_id"),
         description="Обязательные поля контекста, которые должны присутствовать в каждом сообщении.",
     )
-
-

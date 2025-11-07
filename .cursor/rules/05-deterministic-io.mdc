@@ -5,13 +5,13 @@ alwaysApply: false
 ---
 
 # DETERMINISM
-- Sort rows by business keys with stable sort; preserve schema-defined column order.  
-- Timestamps in UTC ISO-8601 only.  
-- JSON with sorted keys; CSV preserves schema order.  
+- Sort rows by business keys with stable sort; preserve schema-defined column order.
+- Timestamps in UTC ISO-8601 only.
+- JSON with sorted keys; CSV preserves schema order.
 - All writes use temp → fsync → atomic rename.
 
 # QC SIDECAR
-- For each output, write `*.meta.yaml` with checksums, row_count, pipeline_version, git_commit, generated_at_utc.  
+- For each output, write `*.meta.yaml` with checksums, row_count, pipeline_version, git_commit, generated_at_utc.
 - Business keys explicit; use BLAKE2 for composite key/hash derivations.
 
 # REFERENCE

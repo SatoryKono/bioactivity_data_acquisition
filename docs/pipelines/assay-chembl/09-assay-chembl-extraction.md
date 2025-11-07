@@ -1058,7 +1058,7 @@ http:
     headers:
       User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
       Accept: "application/json"
-  
+
   # Именованный профиль для ChEMBL
   profiles:
     chembl:
@@ -1109,13 +1109,13 @@ determinism:
   float_precision: 6
   datetime_format: "iso8601"
   column_validation_ignore_suffixes: ["_scd", "_temp", "_meta", "_tmp"]
-  
+
   # Ключи сортировки (обязательно: первый ключ - assay_chembl_id)
   sort:
     by: ["assay_chembl_id", "row_subtype", "row_index"]
     ascending: [true, true, true]
     na_position: "last"
-  
+
   # Фиксированный порядок колонок (71 колонка из AssaySchema)
   column_order:
     - "assay_chembl_id"
@@ -1123,14 +1123,14 @@ determinism:
     - "assay_type"
     - "confidence_score"
     # ... остальные 67 колонок в порядке из AssaySchema.Config.column_order
-  
+
   # Хеширование
   hashing:
     algorithm: "sha256"
     row_fields: []  # Все колонки из column_order (кроме exclude_fields)
     business_key_fields: ["assay_chembl_id"]
     exclude_fields: ["generated_at", "run_id"]
-  
+
   # Сериализация
   serialization:
     csv:
@@ -1139,16 +1139,16 @@ determinism:
       na_rep: ""
     booleans: ["True", "False"]
     nan_rep: "NaN"
-  
+
   # Окружение
   environment:
     timezone: "UTC"
     locale: "C"
-  
+
   # Запись
   write:
     strategy: "atomic"
-  
+
   # Метаданные
   meta:
     location: "sibling"
@@ -1170,7 +1170,7 @@ validation:
 enrichment:
   enabled: true
   strict_enrichment: true  # Запрет неразрешенных полей
-  
+
   # Whitelist для Target enrichment
   target_fields:
     - "target_chembl_id"
@@ -1180,7 +1180,7 @@ enrichment:
     - "species_group_flag"
     - "tax_id"
     - "component_count"
-  
+
   # Whitelist для Assay Class enrichment
   assay_class_fields:
     - "assay_class_id"
@@ -1311,14 +1311,14 @@ SCHEMA_VERSION = "2.0.0"
 
 class AssayOutputSchema(pa.DataFrameModel):
     """Pandera schema for ChEMBL assay output data."""
-    
+
     # Бизнес-ключ (обязательное поле, NOT NULL)
     assay_chembl_id: Series[str] = pa.Field(
         description="ChEMBL assay identifier",
         nullable=False,
         regex="^CHEMBL\\d+$"
     )
-    
+
     # Основные поля assay
     target_chembl_id: Series[str] = pa.Field(
         description="ChEMBL target identifier",
@@ -1338,7 +1338,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         description="Taxonomy ID",
         nullable=True
     )
-    
+
     # Параметры assay (long format)
     param_index: Series[Int64] = pa.Field(
         description="Index of assay parameter",
@@ -1353,7 +1353,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         nullable=True
     )
     # ... остальные поля параметров
-    
+
     # Variant sequences (long format)
     variant_index: Series[Int64] = pa.Field(
         description="Index of variant sequence",
@@ -1364,7 +1364,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         nullable=True
     )
     # ... остальные поля variant
-    
+
     # Assay classifications (long format)
     class_index: Series[Int64] = pa.Field(
         description="Index of assay classification",
@@ -1374,7 +1374,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         description="Assay class identifier",
         nullable=True
     )
-    
+
     # Enrichment fields (Target whitelist)
     pref_name: Series[str] = pa.Field(
         description="Preferred target name",
@@ -1385,7 +1385,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         nullable=True
     )
     # ... остальные enrichment поля
-    
+
     # Системные метаданные
     run_id: Series[str] = pa.Field(
         description="Pipeline run ID",
@@ -1416,7 +1416,7 @@ class AssayOutputSchema(pa.DataFrameModel):
         description="Extraction timestamp (UTC)",
         nullable=False
     )
-    
+
     # Хеши
     hash_row: Series[str] = pa.Field(
         description="SHA256 hash of entire row",
@@ -1428,13 +1428,13 @@ class AssayOutputSchema(pa.DataFrameModel):
         nullable=False,
         regex="^[a-f0-9]{64}$"
     )
-    
+
     # Индекс
     index: Series[Int64] = pa.Field(
         description="Row index",
         nullable=False
     )
-    
+
     # Порядок колонок (71 колонка)
     class Config:
         strict = True
@@ -1457,7 +1457,7 @@ class AssayOutputSchema(pa.DataFrameModel):
             "hash_business_key",
             "index"
         ]
-    
+
     # Валидация уникальности бизнес-ключа
     @pa.check("assay_chembl_id")
     def check_unique_assay_id(cls, series: Series[str]) -> Series[bool]:

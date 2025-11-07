@@ -194,7 +194,9 @@ class TestUnifiedAPIClient:
     @patch("bioetl.core.api_client.requests.Session")
     def test_get_retry_on_429(self, mock_session_class: Any) -> None:
         """Test retry on 429 status code."""
-        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0)
+        )
         mock_session = MagicMock()
         mock_response_429 = MagicMock(spec=Response)
         mock_response_429.status_code = 429
@@ -215,7 +217,9 @@ class TestUnifiedAPIClient:
     @patch("bioetl.core.api_client.requests.Session")
     def test_get_retry_on_500(self, mock_session_class: Any) -> None:
         """Test retry on 500 status code."""
-        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0)
+        )
         mock_session = MagicMock()
         mock_response_500 = MagicMock(spec=Response)
         mock_response_500.status_code = 500
@@ -236,7 +240,9 @@ class TestUnifiedAPIClient:
     @patch("bioetl.core.api_client.requests.Session")
     def test_get_retry_exhausted(self, mock_session_class: Any) -> None:
         """Test retry exhaustion."""
-        config = HTTPClientConfig(retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(total=2, backoff_multiplier=1.0, backoff_max=1.0)
+        )
         mock_session = MagicMock()
         mock_response_500 = MagicMock(spec=Response)
         mock_response_500.status_code = 500
@@ -255,9 +261,14 @@ class TestUnifiedAPIClient:
     @patch("bioetl.core.api_client.requests.Session")
     def test_get_connection_error_with_retry(self, mock_session_class: Any) -> None:
         """Test retry on connection error."""
-        config = HTTPClientConfig(retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0)
+        )
         mock_session = MagicMock()
-        mock_session.request.side_effect = [ConnectionError("Connection failed"), MagicMock(spec=Response)]
+        mock_session.request.side_effect = [
+            ConnectionError("Connection failed"),
+            MagicMock(spec=Response),
+        ]
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 200
         mock_response.json.return_value = {"data": "test"}
@@ -274,7 +285,9 @@ class TestUnifiedAPIClient:
     @patch("bioetl.core.api_client.requests.Session")
     def test_get_timeout_error(self, mock_session_class: Any) -> None:
         """Test timeout error handling."""
-        config = HTTPClientConfig(retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0))
+        config = HTTPClientConfig(
+            retries=RetryConfig(total=1, backoff_multiplier=1.0, backoff_max=1.0)
+        )
         mock_session = MagicMock()
         mock_session.request.side_effect = Timeout("Request timeout")
         mock_session_class.return_value = mock_session
@@ -292,7 +305,9 @@ class TestUnifiedAPIClient:
         mock_response = MagicMock(spec=Response)
         mock_response.status_code = 400
         mock_response.headers = {}
-        mock_response.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("400 Client Error"))
+        mock_response.raise_for_status = MagicMock(
+            side_effect=requests.exceptions.HTTPError("400 Client Error")
+        )
         mock_session.request.return_value = mock_response
         mock_session_class.return_value = mock_session
 
@@ -538,11 +553,11 @@ class TestCircuitBreaker:
         # Wait for timeout
         time.sleep(0.15)
 
-        # Next call should transition to half-open
+        # Next call should allow a trial execution (half-open) but failure reopens the circuit
         with pytest.raises(ConnectionError):
             cb.call(failing_func)
 
-        assert cb.state == "half-open"
+        assert cb.state == "open"
 
     def test_call_success_in_half_open_closes(self):
         """Test successful call in half-open state closes circuit."""
@@ -612,7 +627,9 @@ class TestUnifiedAPIClientCircuitBreaker:
         mock_response_500 = MagicMock(spec=Response)
         mock_response_500.status_code = 500
         mock_response_500.headers = {}
-        mock_response_500.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("500 Server Error"))
+        mock_response_500.raise_for_status = MagicMock(
+            side_effect=requests.exceptions.HTTPError("500 Server Error")
+        )
         mock_session.request.return_value = mock_response_500
         mock_session_class.return_value = mock_session
 
@@ -640,7 +657,9 @@ class TestUnifiedAPIClientCircuitBreaker:
         mock_response_500 = MagicMock(spec=Response)
         mock_response_500.status_code = 500
         mock_response_500.headers = {}
-        mock_response_500.raise_for_status = MagicMock(side_effect=requests.exceptions.HTTPError("500 Server Error"))
+        mock_response_500.raise_for_status = MagicMock(
+            side_effect=requests.exceptions.HTTPError("500 Server Error")
+        )
         mock_response_200 = MagicMock(spec=Response)
         mock_response_200.status_code = 200
         mock_response_200.json.return_value = {"data": "test"}
@@ -664,4 +683,3 @@ class TestUnifiedAPIClientCircuitBreaker:
         response = client.get("/endpoint")
         assert response.status_code == 200
         assert client._circuit_breaker.state == "closed"  # type: ignore[reportPrivateUsage]
-

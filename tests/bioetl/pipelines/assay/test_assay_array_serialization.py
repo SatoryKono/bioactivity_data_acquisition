@@ -130,10 +130,12 @@ class TestSerializeArrayFields:
 
     def test_serialize_single_column(self) -> None:
         """Test serialization of single column."""
-        df = pd.DataFrame({
-            "id": [1, 2],
-            "data": [[{"a": "A"}], [{"b": "B"}]],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2],
+                "data": [[{"a": "A"}], [{"b": "B"}]],
+            }
+        )
         result = serialize_array_fields(df, ["data"])
         assert result["id"].tolist() == [1, 2]
         assert result["data"].iloc[0] == "a/A"
@@ -141,14 +143,22 @@ class TestSerializeArrayFields:
 
     def test_serialize_multiple_columns(self) -> None:
         """Test serialization of multiple columns."""
-        df = pd.DataFrame({
-            "id": [1],
-            "classifications": [[{"type": "A"}]],
-            "parameters": [[{"param": "value"}]],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1],
+                "classifications": [[{"type": "A"}]],
+                "parameters": [[{"param": "value"}]],
+            }
+        )
         result = serialize_array_fields(df, ["classifications", "parameters"])
-        assert "type|/A" in result["classifications"].iloc[0] or result["classifications"].iloc[0] == "type/A"
-        assert "param|/value" in result["parameters"].iloc[0] or result["parameters"].iloc[0] == "param/value"
+        assert (
+            "type|/A" in result["classifications"].iloc[0]
+            or result["classifications"].iloc[0] == "type/A"
+        )
+        assert (
+            "param|/value" in result["parameters"].iloc[0]
+            or result["parameters"].iloc[0] == "param/value"
+        )
 
     def test_serialize_missing_column(self) -> None:
         """Test serialization when column is missing."""
@@ -165,21 +175,24 @@ class TestSerializeArrayFields:
 
     def test_serialize_none_values(self) -> None:
         """Test serialization with None values in column."""
-        df = pd.DataFrame({
-            "id": [1, 2],
-            "data": [None, [{"a": "A"}]],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2],
+                "data": [None, [{"a": "A"}]],
+            }
+        )
         result = serialize_array_fields(df, ["data"])
         assert result["data"].iloc[0] == ""
         assert result["data"].iloc[1] == "a/A"
 
     def test_serialize_empty_lists(self) -> None:
         """Test serialization with empty lists."""
-        df = pd.DataFrame({
-            "id": [1, 2],
-            "data": [[], [{"a": "A"}]],
-        })
+        df = pd.DataFrame(
+            {
+                "id": [1, 2],
+                "data": [[], [{"a": "A"}]],
+            }
+        )
         result = serialize_array_fields(df, ["data"])
         assert result["data"].iloc[0] == ""
         assert result["data"].iloc[1] == "a/A"
-

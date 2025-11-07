@@ -36,4 +36,3 @@ class TransformConfig(BaseModel):
         default_factory=dict,
         description="Mapping of nested object column names to lists of field names to flatten.",
     )
-

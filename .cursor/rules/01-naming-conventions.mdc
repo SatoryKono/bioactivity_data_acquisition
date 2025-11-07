@@ -8,12 +8,12 @@ alwaysApply: false
 Keep doc navigation predictable.
 
 # RULES
-- Filenames in English, lowercase, words separated by hyphens.  
-- Sequenced docs use two-digit prefix `NN-` (e.g., `01-overview.md`).  
+- Filenames in English, lowercase, words separated by hyphens.
+- Sequenced docs use two-digit prefix `NN-` (e.g., `01-overview.md`).
 - Directory landing pages named `INDEX.md` (section-level) and `README.md` (subdir overviews).
 
 # EXAMPLES
-Valid: `docs/etl_contract/00-etl-overview.md`, `docs/pipelines/10-chembl-pipelines-catalog.md`  
+Valid: `docs/etl_contract/00-etl-overview.md`, `docs/pipelines/10-chembl-pipelines-catalog.md`
 Invalid: `Docs/Overview.MD`, `etlOverview.md`, `01_overview.md`
 
 # REFERENCE

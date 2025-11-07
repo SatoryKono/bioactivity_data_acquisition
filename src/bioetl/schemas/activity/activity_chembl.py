@@ -23,10 +23,11 @@ from bioetl.schemas.common import (
     nullable_string_column,
     row_metadata_columns,
     string_column_with_check,
+    uuid_column,
 )
 from bioetl.schemas.vocab import required_vocab_ids
 
-SCHEMA_VERSION = "1.6.0"
+SCHEMA_VERSION = "1.7.0"
 
 COLUMN_ORDER = (
     "activity_id",
@@ -81,6 +82,7 @@ COLUMN_ORDER = (
     "removed",
     "hash_row",
     "hash_business_key",
+    "load_meta_id",
 )
 
 STANDARD_TYPES = required_vocab_ids("activity_standard_type")
@@ -164,6 +166,7 @@ def _is_valid_activity_properties(value: object) -> bool:
 
     return True
 
+
 # Row metadata columns
 row_meta = row_metadata_columns()
 
@@ -226,6 +229,7 @@ ActivitySchema = create_schema(
         "removed": boolean_flag_column(),
         "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
         "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
+        "load_meta_id": uuid_column(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="ActivitySchema",
@@ -239,4 +243,3 @@ __all__ = [
     "ACTIVITY_PROPERTY_KEYS",
     "ActivitySchema",
 ]
-

@@ -5,7 +5,6 @@ from typing import Any
 
 __all__ = ["EntityConfig", "ChemblEntityFetcher"]
 
-
 class EntityConfig:
     endpoint: str
     filter_param: str
@@ -33,26 +32,22 @@ class EntityConfig:
         enable_url_length_check: bool = False,
     ) -> None: ...
 
-
 class ChemblEntityFetcher:
     _chembl_client: Any
     _config: EntityConfig
 
     def __init__(self, chembl_client: Any, config: EntityConfig) -> None: ...
-
     def fetch_by_ids(
         self,
         ids: Iterable[str],
         fields: Sequence[str],
         page_limit: int = 1000,
     ) -> dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]: ...
-
     def _build_dict_result(
         self,
         records: list[dict[str, Any]],
         unique_ids: set[str],
     ) -> dict[str, dict[str, Any]]: ...
-
     def _build_list_result(
         self,
         records: list[dict[str, Any]],

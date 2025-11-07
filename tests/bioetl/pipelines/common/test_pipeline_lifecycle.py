@@ -92,7 +92,9 @@ class TestPipelineLifecycle:
         tmp_output_dir: Path,
     ):
         """Test pipeline lifecycle with validation error."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity_chembl:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.activity_chembl:ActivitySchema"
+        )
         pipeline_config_fixture.validation.strict = True
         pipeline_config_fixture.determinism.sort.by = []
         pipeline_config_fixture.determinism.sort.ascending = []
@@ -167,4 +169,3 @@ class TestPipelineLifecycle:
 
             # Should handle empty data gracefully
             assert result.write_result.dataset.exists()
-

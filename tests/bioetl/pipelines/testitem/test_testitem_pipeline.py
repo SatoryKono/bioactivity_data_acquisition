@@ -8,7 +8,6 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline
 
 
@@ -26,7 +25,9 @@ class TestTestItemChemblPipeline:
         assert pipeline._chembl_db_version is None  # noqa: SLF001  # type: ignore[attr-defined]
         assert pipeline._api_version is None  # noqa: SLF001  # type: ignore[attr-defined]
 
-    def test_fetch_chembl_release(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_fetch_chembl_release(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test fetching ChEMBL release from status endpoint."""
         pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
@@ -46,7 +47,9 @@ class TestTestItemChemblPipeline:
         assert pipeline._chembl_db_version == "31"  # noqa: SLF001  # type: ignore[attr-defined]
         assert pipeline._api_version == "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
-    def test_flatten_nested_structures_removed(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_flatten_nested_structures_removed(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test that _flatten_nested_structures is no longer used (replaced by testitem_transform.transform)."""
         # This test verifies that flattening is now handled by testitem_transform.transform
         # The actual flattening tests are in test_testitem_flatten_and_serialize.py
@@ -56,14 +59,18 @@ class TestTestItemChemblPipeline:
         # The transform method now uses testitem_transform.transform instead
         assert hasattr(pipeline, "transform")
 
-    def test_normalize_identifiers(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_normalize_identifiers(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test normalization of ChEMBL identifiers and InChI keys."""
         pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        df = pd.DataFrame({
-            "molecule_chembl_id": [" CHEMBL1 ", "CHEMBL2"],
-            "molecule_structures__standard_inchi_key": [" lfqscwfljhtthz-uhfffaoysa-n ", ""],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": [" CHEMBL1 ", "CHEMBL2"],
+                "molecule_structures__standard_inchi_key": [" lfqscwfljhtthz-uhfffaoysa-n ", ""],
+            }
+        )
 
         from bioetl.core.logger import UnifiedLogger
 
@@ -74,17 +81,24 @@ class TestTestItemChemblPipeline:
         # Note: standard_inchi_key is now under molecule_structures__ prefix after flattening
         # But normalize_identifiers should still handle it if present
         if "molecule_structures__standard_inchi_key" in result.columns:
-            assert result["molecule_structures__standard_inchi_key"].iloc[0] == "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+            assert (
+                result["molecule_structures__standard_inchi_key"].iloc[0]
+                == "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"
+            )
             assert pd.isna(result["molecule_structures__standard_inchi_key"].iloc[1])
 
-    def test_normalize_string_fields(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_normalize_string_fields(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test normalization of string fields."""
         pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        df = pd.DataFrame({
-            "pref_name": [" Ethanol ", " Methane"],
-            "molecule_structures__canonical_smiles": [" CCO ", ""],
-        })
+        df = pd.DataFrame(
+            {
+                "pref_name": [" Ethanol ", " Methane"],
+                "molecule_structures__canonical_smiles": [" CCO ", ""],
+            }
+        )
 
         from bioetl.core.logger import UnifiedLogger
 
@@ -97,16 +111,20 @@ class TestTestItemChemblPipeline:
             assert result["molecule_structures__canonical_smiles"].iloc[0] == "CCO"
             assert pd.isna(result["molecule_structures__canonical_smiles"].iloc[1])
 
-    def test_deduplicate_molecules(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_deduplicate_molecules(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test deduplication of molecules."""
         pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
-            "molecule_structures__standard_inchi_key": ["KEY1", "KEY1", "KEY2"],
-            "molecule_structures__canonical_smiles": ["CCO", "CCO", "CC"],
-            "molecule_properties__full_mwt": [46.07, 46.07, 30.07],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+                "molecule_structures__standard_inchi_key": ["KEY1", "KEY1", "KEY2"],
+                "molecule_structures__canonical_smiles": ["CCO", "CCO", "CC"],
+                "molecule_properties__full_mwt": [46.07, 46.07, 30.07],
+            }
+        )
 
         from bioetl.core.logger import UnifiedLogger
 
@@ -117,22 +135,29 @@ class TestTestItemChemblPipeline:
         assert "CHEMBL1" in result["molecule_chembl_id"].values
         assert "CHEMBL3" in result["molecule_chembl_id"].values
 
-    def test_transform_with_nested_data(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_transform_with_nested_data(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test transform with nested ChEMBL data."""
         pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
-        df = pd.DataFrame({
-            "molecule_chembl_id": ["CHEMBL1"],
-            "pref_name": ["Ethanol"],
-            "molecule_structures": [
-                {"canonical_smiles": "CCO", "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"},
-            ],
-            "molecule_properties": [
-                {"full_mwt": 46.07, "alogp": 0.31},
-            ],
-        })
+        df = pd.DataFrame(
+            {
+                "molecule_chembl_id": ["CHEMBL1"],
+                "pref_name": ["Ethanol"],
+                "molecule_structures": [
+                    {
+                        "canonical_smiles": "CCO",
+                        "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N",
+                    },
+                ],
+                "molecule_properties": [
+                    {"full_mwt": 46.07, "alogp": 0.31},
+                ],
+            }
+        )
 
         result = pipeline.transform(df)
 
@@ -177,7 +202,9 @@ class TestTestItemChemblPipeline:
         assert result[0]["molecule_chembl_id"] == "CHEMBL1"
         assert result[1]["molecule_chembl_id"] == "CHEMBL2"
 
-    def test_next_link_extraction(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
+    def test_next_link_extraction(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
         """Test extraction of next link from page_meta."""
         base_url = "https://www.ebi.ac.uk/chembl/api/data"
 
@@ -203,4 +230,3 @@ class TestTestItemChemblPipeline:
         payload = {"page_meta": {"next": None}}
         result = TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
         assert result is None
-

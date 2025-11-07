@@ -50,9 +50,7 @@ HTTP_CALL_PATTERN = re.compile(
 ONLY_PATTERN = re.compile(r"(?:only|fields|select)\s*=\s*(?P<val>[^,&\\)]+)")
 PAGINATION_PATTERN = re.compile(r"(limit|offset|page|cursor|per_page|size)")
 RETRY_PATTERN = re.compile(r"retry|retri|backoff|tenacity", re.IGNORECASE)
-DF_BIRTH_PATTERN = re.compile(
-    r"pd\.DataFrame|spark\.createDataFrame|json_normalize|to_pandas"
-)
+DF_BIRTH_PATTERN = re.compile(r"pd\.DataFrame|spark\.createDataFrame|json_normalize|to_pandas")
 BASE_URL_PATTERN = re.compile(r"url\s*=\s*['\"](?P<url>https?://[^'\"]+)")
 
 
@@ -189,4 +187,3 @@ def main() -> None:
 
 if __name__ == "__main__":  # pragma: no cover - CLI entrypoint
     main()
-

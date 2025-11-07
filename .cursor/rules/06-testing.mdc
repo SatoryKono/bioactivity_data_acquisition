@@ -8,9 +8,9 @@ alwaysApply: false
 unit, integration, golden, determinism, property, schema, qc, slow, api, benchmark.
 
 # RULES
-- Unit tests do NOT hit network; mock external calls.  
-- Golden tests protect critical outputs and schemas.  
-- Use Hypothesis for transformation properties.  
+- Unit tests do NOT hit network; mock external calls.
+- Golden tests protect critical outputs and schemas.
+- Use Hypothesis for transformation properties.
 - CI blocks merge if coverage < 85% for `src/bioetl`.
 
 # STRUCTURE

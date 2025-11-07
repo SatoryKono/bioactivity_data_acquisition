@@ -21,7 +21,9 @@ def _write_stub_report(output_file: Path) -> None:
     with tmp.open("w", encoding="utf-8") as handle:
         handle.write("# Link Check Report\n\n")
         handle.write("## Status\n\n")
-        handle.write("**Warning:** lychee is not installed. Please install it to run link checks.\n\n")
+        handle.write(
+            "**Warning:** lychee is not installed. Please install it to run link checks.\n\n"
+        )
         handle.write("```bash\n")
         handle.write("# Install lychee:\n")
         handle.write("cargo install lychee\n")
@@ -81,4 +83,3 @@ def run_link_check(timeout_seconds: int = 300) -> int:
     except subprocess.TimeoutExpired:
         log.error("lychee_timeout", timeout_seconds=timeout_seconds)
         return 1
-

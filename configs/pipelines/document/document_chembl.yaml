@@ -96,4 +96,3 @@ chembl:
 
 validation:
   schema_out: bioetl.schemas.document.document_chembl.DocumentSchema
-

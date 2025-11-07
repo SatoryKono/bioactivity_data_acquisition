@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
-from typing import Mapping, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

@@ -116,11 +116,7 @@ class ChemblPipelineBase(PipelineBase):
 
         attrs = getattr(parameters, "__dict__", None)
         if isinstance(attrs, dict):
-            return {
-                str(key): value
-                for key, value in attrs.items()
-                if not key.startswith("_")
-            }
+            return {str(key): value for key, value in attrs.items() if not key.startswith("_")}
 
         return {}
 
@@ -435,7 +431,9 @@ class ChemblPipelineBase(PipelineBase):
             return None
 
         next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportAssignmentType]
-        next_link: str | None = cast(str | None, next_link_raw) if next_link_raw is not None else None
+        next_link: str | None = (
+            cast(str | None, next_link_raw) if next_link_raw is not None else None
+        )
         if not isinstance(next_link, str) or not next_link:
             return None
 
@@ -587,4 +585,3 @@ class ChemblPipelineBase(PipelineBase):
         )
 
         return dataframe
-

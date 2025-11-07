@@ -45,4 +45,3 @@ values:
     status: "active"
 rules:
   normalization: "strip; uppercase textual forms; map unicode inequality symbols to ASCII"
-

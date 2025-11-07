@@ -34,9 +34,7 @@ def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
                         else "Any"
                     ),
                     "default": (
-                        str(param.default)
-                        if param.default != inspect.Parameter.empty
-                        else None
+                        str(param.default) if param.default != inspect.Parameter.empty else None
                     ),
                 }
             )
@@ -105,7 +103,9 @@ def extract_config_fields_from_code() -> dict[str, Any]:
         for field_name, field_info in PipelineConfig.model_fields.items():
             fields[field_name] = {
                 "type": str(getattr(field_info, "annotation", None)),
-                "required": field_info.is_required() if hasattr(field_info, "is_required") else None,
+                "required": field_info.is_required()
+                if hasattr(field_info, "is_required")
+                else None,
                 "default": (
                     str(field_info.default)
                     if getattr(field_info, "default", None) is not None
@@ -261,4 +261,3 @@ def run_semantic_diff() -> Path:
 
     log.info("semantic_diff_written", path=str(output_file))
     return output_file
-

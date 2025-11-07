@@ -123,7 +123,9 @@ http:
             # Skip this test if CLI command format is wrong
             if "Got unexpected extra argument" in error_output:
                 pytest.skip("CLI command format issue - skipping test")
-        assert result.exit_code == 0, f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
+        assert (
+            result.exit_code == 0
+        ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
         assert "Configuration validated successfully" in result.stdout
 
     def test_activity_command_invalid_config(self, tmp_path: Path):
@@ -176,7 +178,9 @@ sources:
 
         with (
             patch("bioetl.cli.command.load_config") as mock_load_config,
-            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch(
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            ) as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -205,7 +209,9 @@ sources:
                 ],
             )
 
-            assert result.exit_code == 0, f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
+            assert (
+                result.exit_code == 0
+            ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
             # Check that limit was passed to config
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)
@@ -241,7 +247,9 @@ sources:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class:
+        with patch(
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+        ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -294,17 +302,17 @@ http:
 
         result = runner.invoke(
             CLI_APP,
-                [
-                    "activity_chembl",
-                    "--config",
-                    str(config_file),
-                    "--output-dir",
-                    str(output_dir),
-                    "--limit",
-                    "5",
-                    "--sample",
-                    "5",
-                ],
+            [
+                "activity_chembl",
+                "--config",
+                str(config_file),
+                "--output-dir",
+                str(output_dir),
+                "--limit",
+                "5",
+                "--sample",
+                "5",
+            ],
         )
 
         assert result.exit_code == 2
@@ -392,7 +400,9 @@ validation:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch(
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            ) as mock_pipeline_class,
             patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
@@ -452,7 +462,9 @@ http:
 
         with (
             patch("bioetl.cli.command.load_config") as mock_load_config,
-            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class,
+            patch(
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            ) as mock_pipeline_class,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -486,4 +498,3 @@ http:
             call_kwargs = mock_pipeline.run.call_args[1]
             assert call_kwargs["include_correlation"] is True
             assert call_kwargs["include_qc_metrics"] is True
-

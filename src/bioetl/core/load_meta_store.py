@@ -28,7 +28,9 @@ def _utcnow() -> datetime:
 
 
 def _canonical_json(payload: Any) -> str:
-    return json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(
+        payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
+    )
 
 
 @dataclass(slots=True)
@@ -233,7 +235,9 @@ class LoadMetaStore:
                 msg = "Only parquet format is supported for pandas DataFrames"
                 raise RuntimeError(msg)
             suffix = path.suffix or ".parquet"
-            with tempfile.NamedTemporaryFile("wb", suffix=suffix, delete=False, dir=path.parent) as handle:
+            with tempfile.NamedTemporaryFile(
+                "wb", suffix=suffix, delete=False, dir=path.parent
+            ) as handle:
                 temp_path = Path(handle.name)
             try:
                 frame.to_parquet(temp_path, index=False)
@@ -274,4 +278,3 @@ def _write_spark_dataframe(frame: Any, path: Path, *, fmt: str) -> None:
     except Exception:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise
-

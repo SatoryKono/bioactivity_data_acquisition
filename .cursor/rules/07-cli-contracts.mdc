@@ -5,8 +5,8 @@ alwaysApply: false
 ---
 
 # INTERFACE
-- Typer-based commands; prefer named options over ambiguous positionals.  
-- Validate inputs (paths exist, dirs writable) before execution.  
+- Typer-based commands; prefer named options over ambiguous positionals.
+- Validate inputs (paths exist, dirs writable) before execution.
 - Standard exit codes: 0 success; 1 general error; 2 config error; 3 external dependency.
 
 # UX

@@ -227,7 +227,9 @@ def extract_pipeline_info(pipeline_name: str) -> PipelineInfo:
         info["has_config"] = bool(re.search(r"config|configuration|yaml|profile", content))
         info["has_schema"] = bool(re.search(r"schema|pandera|validation|column_order", content))
         info["has_io"] = bool(re.search(r"input|output|format|csv|parquet", content))
-        info["has_determinism"] = bool(re.search(r"determinism|hash_row|hash_business_key|sort|utc", content))
+        info["has_determinism"] = bool(
+            re.search(r"determinism|hash_row|hash_business_key|sort|utc", content)
+        )
         info["has_qc"] = bool(re.search(r"qc|quality|metric|golden", content))
         info["has_logging"] = bool(re.search(r"log|logging|structured|json|run_id", content))
 
@@ -238,7 +240,9 @@ def _ensure_parent_directory(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _write_csv_atomic(path: Path, fieldnames: Sequence[str], rows: Sequence[Mapping[str, str]]) -> None:
+def _write_csv_atomic(
+    path: Path, fieldnames: Sequence[str], rows: Sequence[Mapping[str, str]]
+) -> None:
     _ensure_parent_directory(path)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", newline="", encoding="utf-8") as handle:
@@ -383,4 +387,3 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
     UnifiedLogger.bind(stage="complete")
     log = UnifiedLogger.get(__name__)
     log.info("audit_finished")
-

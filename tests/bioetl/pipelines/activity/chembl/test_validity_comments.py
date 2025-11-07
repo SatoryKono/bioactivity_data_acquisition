@@ -20,9 +20,15 @@ class TestValidityCommentsSchema:
     def test_schema_shape(self) -> None:
         """Test that schema contains three comment columns."""
         schema_columns = set(ActivitySchema.columns.keys())
-        required_columns = {"activity_comment", "data_validity_comment", "data_validity_description"}
+        required_columns = {
+            "activity_comment",
+            "data_validity_comment",
+            "data_validity_description",
+        }
 
-        assert required_columns.issubset(schema_columns), f"Missing columns: {required_columns - schema_columns}"
+        assert required_columns.issubset(
+            schema_columns
+        ), f"Missing columns: {required_columns - schema_columns}"
 
     def test_schema_column_types(self) -> None:
         """Test that comment columns have correct types (nullable string)."""
@@ -433,7 +439,9 @@ class TestValidityCommentsOnlyFields:
         assert "data_validity_description" in result.columns
 
         # Проверка что значения корректно заполнены
-        assert result["data_validity_description"].iloc[0] == "This record has been manually validated"
+        assert (
+            result["data_validity_description"].iloc[0] == "This record has been manually validated"
+        )
         assert result["data_validity_description"].iloc[1] == "Value is outside the typical range"
         assert pd.isna(result["data_validity_description"].iloc[2])  # None для пустого comment
 
@@ -441,4 +449,3 @@ class TestValidityCommentsOnlyFields:
         call_args = mock_chembl_client.fetch_data_validity_lookup.call_args
         assert set(call_args.kwargs["comments"]) == {"Manually validated", "Outside typical range"}
         assert call_args.kwargs["fields"] == ["data_validity_comment", "description"]
-

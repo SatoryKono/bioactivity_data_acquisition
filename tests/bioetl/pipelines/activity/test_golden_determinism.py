@@ -77,7 +77,9 @@ class TestGoldenDeterminism:
         result = pipeline.write(sample_activity_data, artifacts.run_directory, extended=True)
 
         # Load and verify meta.yaml structure
-        assert result.write_result.metadata is not None, "metadata should be created with extended=True"
+        assert (
+            result.write_result.metadata is not None
+        ), "metadata should be created with extended=True"
         meta_content = yaml.safe_load(result.write_result.metadata.read_text())
 
         # Verify required fields based on actual metadata structure
@@ -130,11 +132,16 @@ class TestGoldenDeterminism:
         df_schema_cols = [col for col in df.columns if col in schema_cols]
 
         # Check that schema columns (excluding enrichment) are in the correct order
-        assert df_schema_cols == schema_cols, "Schema columns (excluding enrichment) must be in the correct order before hash columns"
+        assert (
+            df_schema_cols == schema_cols
+        ), "Schema columns (excluding enrichment) must be in the correct order before hash columns"
 
         # Hash columns should be at the end (if present)
         if "hash_row" in df.columns:
-            assert df.columns[-2] == "hash_row" or df.columns[-1] == "hash_row", "hash_row should be at the end"
+            assert (
+                df.columns[-2] == "hash_row" or df.columns[-1] == "hash_row"
+            ), "hash_row should be at the end"
         if "hash_business_key" in df.columns:
-            assert df.columns[-1] == "hash_business_key", "hash_business_key should be the last column"
-
+            assert (
+                df.columns[-1] == "hash_business_key"
+            ), "hash_business_key should be the last column"

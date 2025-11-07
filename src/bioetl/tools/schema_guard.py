@@ -203,4 +203,3 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
     log.info("schema_guard_report_written", path=str(report_path))
 
     return results, registry_errors, report_path
-

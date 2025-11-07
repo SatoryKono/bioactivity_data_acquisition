@@ -113,7 +113,12 @@ class TestAssayParametersTruvValidation:
                         [
                             {"type": "TEMPERATURE", "value": 37.0, "active": 1},
                             {"type": "pH", "value": 7.4, "active": 0},
-                            {"type": "CONDITION", "value": None, "text_value": "test", "active": None},
+                            {
+                                "type": "CONDITION",
+                                "value": None,
+                                "text_value": "test",
+                                "active": None,
+                            },
                         ],
                     ),
                 ],
@@ -321,4 +326,3 @@ class TestAssayParametersTruvValidation:
 
         with pytest.raises(ValueError, match="TRUV validation failed"):
             validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
-

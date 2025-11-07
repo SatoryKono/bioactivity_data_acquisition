@@ -77,9 +77,7 @@ def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
                 oversized.append((file_path.relative_to(repo_root), size))
 
     if oversized:
-        formatted = "\n".join(
-            f"  - {path} ({size / 1_000_000:.2f} MB)" for path, size in oversized
-        )
+        formatted = "\n".join(f"  - {path} ({size / 1_000_000:.2f} MB)" for path, size in oversized)
         errors.append(
             "Large files found in data/output. Upload them to the external bucket and keep only small samples locally:\n"
             f"{formatted}"
@@ -87,4 +85,3 @@ def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
 
     log.info("output_artifact_check_completed", issues=len(errors))
     return errors
-

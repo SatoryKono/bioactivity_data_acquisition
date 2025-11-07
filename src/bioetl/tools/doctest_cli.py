@@ -237,4 +237,3 @@ def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExam
     report_path = _write_report(results)
     log.info("cli_doctest_report_written", path=str(report_path))
     return results, report_path
-

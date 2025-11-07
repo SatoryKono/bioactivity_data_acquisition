@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Iterable, Mapping, Pattern, Sequence
+from re import Pattern
 
 import pandas as pd
 
@@ -178,7 +179,7 @@ def normalize_string_columns(
         if rule.empty_to_null:
             result[column] = result[column].replace("", pd.NA)
 
-        stats.add(column, int(mask.sum()))
+        processed_count = int(result.loc[mask, column].notna().sum())
+        stats.add(column, processed_count)
 
     return result, stats
-

@@ -5,8 +5,8 @@ alwaysApply: false
 ---
 
 # MANDATORY
-- Use `UnifiedLogger` only; no `print()` or stdlib `logging` in production code.  
-- Set run context at process/pipeline start; mandatory fields auto-injected (run_id, pipeline, stage, timestamp_utc).  
+- Use `UnifiedLogger` only; no `print()` or stdlib `logging` in production code.
+- Set run context at process/pipeline start; mandatory fields auto-injected (run_id, pipeline, stage, timestamp_utc).
 - Redact secrets and sensitive identifiers.
 
 # LEVELS
