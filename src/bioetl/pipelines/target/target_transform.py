@@ -209,7 +209,8 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
                     else:
                         # Check if all values are NaN using numpy's isnan
                         try:
-                            if bool(np.all(pd.isna(array_value))):
+                            nan_mask = np.asarray(pd.isna(array_value), dtype=bool)
+                            if bool(np.all(nan_mask)):
                                 row_dict[key] = None
                         except (TypeError, ValueError):
                             # If isnan fails (e.g., string array), keep as is

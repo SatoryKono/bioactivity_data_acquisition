@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -105,6 +105,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         super().__init__(config, run_id)
         self._chembl_release: str | None = None
         self._last_batch_extract_stats: dict[str, Any] | None = None
+        self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
 
     @property
     def chembl_release(self) -> str | None:
@@ -1620,22 +1621,27 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if metrics:
             log.info("validity_comments_metrics", **metrics)
 
-    def _get_data_validity_comment_whitelist(self) -> list[str] | None:
-        """Получить whitelist допустимых значений для data_validity_comment из конфига.
+    def _get_data_validity_comment_whitelist(self) -> list[str]:
+        """Получить whitelist допустимых значений для data_validity_comment из словаря.
 
-        Returns
-        -------
-        list[str] | None:
-            Список допустимых значений или None, если не настроен.
+        Raises
+        ------
+        RuntimeError
+            Если словарь недоступен или пуст.
         """
+
         try:
-            values = sorted(required_vocab_ids("data_validity_comment"))
+            values = sorted(self._required_vocab_ids("data_validity_comment"))
         except RuntimeError as exc:
-            UnifiedLogger.get(__name__).warning(
-                "data_validity_comment_dictionary_unavailable",
+            UnifiedLogger.get(__name__).bind(
+                component=f"{self.pipeline_code}.validation",
+                run_id=self.run_id,
+            ).error(
+                "data_validity_comment_whitelist_unavailable",
                 error=str(exc),
             )
-            return None
+            raise
+
         return values
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:

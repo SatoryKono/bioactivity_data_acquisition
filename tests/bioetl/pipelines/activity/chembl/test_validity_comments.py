@@ -237,10 +237,10 @@ class TestValidityCommentsSoftEnum:
         warning_metrics = warning_call[1]
         assert warning_metrics["unknown_count"] == 2
 
-    def test_soft_enum_validation_without_whitelist(
+    def test_soft_enum_validation_missing_whitelist_raises(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
-        """Test that soft enum validation skips when whitelist is not configured."""
+        """Test that soft enum validation fails fast when whitelist недоступен."""
         config = pipeline_config_fixture
 
         with patch(
@@ -257,10 +257,8 @@ class TestValidityCommentsSoftEnum:
         )
 
         log = MagicMock()
-        pipeline._validate_data_validity_comment_soft_enum(df, log)  # type: ignore[reportPrivateUsage]
-
-        # Не должно быть предупреждений если whitelist не настроен
-        log.warning.assert_not_called()
+        with pytest.raises(RuntimeError, match="dictionary missing"):
+            pipeline._validate_data_validity_comment_soft_enum(df, log)  # type: ignore[reportPrivateUsage]
 
     def test_soft_enum_validation_all_valid(
         self, pipeline_config_fixture: PipelineConfig, run_id: str

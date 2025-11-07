@@ -12,7 +12,11 @@ from zoneinfo import ZoneInfo
 
 import typer
 
-from bioetl.config import load_config
+from bioetl.config import (
+    apply_runtime_overrides,
+    load_config,
+    load_environment_settings,
+)
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
@@ -190,6 +194,14 @@ def create_pipeline_command(
         """Execute the pipeline command."""
         if limit is not None and sample is not None:
             raise typer.BadParameter("--limit and --sample are mutually exclusive")
+
+        try:
+            env_settings = load_environment_settings()
+        except ValueError as exc:
+            typer.echo(f"Error: Environment validation failed: {exc}", err=True)
+            raise typer.Exit(code=2) from exc
+
+        apply_runtime_overrides(env_settings)
 
         _validate_config_path(config)
         _validate_output_dir(output_dir)

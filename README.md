@@ -18,6 +18,7 @@
 Слои кода, тестов, конфигураций и артефактов описаны в разделе
 [Repository Topology](docs/repository_topology.md). Используйте его как точку
 старта для навигации по проекту и проверки правил размещения артефактов.
+
 ## Каталоги данных и образцы
 
 - Полноразмерные выгрузки пайплайнов и отчёты перены в бакет `s3://bioactivity-data-lake/output`
@@ -35,6 +36,7 @@
   Scholar, IUPHAR и др.).
 - **Названия секретов**: используйте единый префикс `bioetl/<environment>/` и
   храните ключи в формате JSON:
+
   ```json
   {
     "PUBMED_TOOL": "bioetl-document-pipeline",
@@ -45,6 +47,7 @@
     "IUPHAR_API_KEY": "..."
   }
   ```
+
 - **Доступ**: ограничьте ACL только сервисным аккаунтам пайплайна и членам
   команды данных.
 
@@ -58,11 +61,23 @@
 4. Никогда не коммитьте `.env`, `.env.key` или другие файлы с реальными
    значениями.
 
+## Как запускать локально
+
+1. `cp configs/templates/.env.local.template .env`
+2. `export $(grep -v '^#' .env | xargs)`
+3. `pip install -e .[dev]`
+4. `pytest`
+
+`.env` и другие файлы с реальными значениями игнорируются Git (см. `.gitignore`) и
+не подлежат коммиту.
+
 ### CI / Orchestration
 
 - GitHub Actions/Argo должны читать секреты непосредственно из Vault или из
   настроенных переменных окружения (например, `SEMANTIC_SCHOLAR_API_KEY`), а не
   из файлов в репозитории.
+- Рекомендуемые имена секретов: `PUBMED_TOOL`, `PUBMED_EMAIL`, `PUBMED_API_KEY`,
+  `CROSSREF_MAILTO`, `SEMANTIC_SCHOLAR_API_KEY`, `IUPHAR_API_KEY`, `VOCAB_STORE`.
 - При необходимости используйте GitHub OIDC + Vault для динамического получения
   ключей во время выполнения.
 
@@ -124,6 +139,7 @@ CI запускает `detect-secrets` по всем файлам репозит
 `pre-commit` конфигурация репозитория уже включает хуки `detect-secrets` и
 `detect-private-key`. После выполнения `pre-commit install -t pre-commit` и
 `pre-commit install -t commit-msg` проверки запускаются автоматически.
+
 Если нужно зафиксировать новое, но безопасное исключение, обновите baseline:
 
 ```bash
@@ -155,6 +171,7 @@ detect-secrets scan src tests configs scripts docs README.md > .secrets.baseline
 
 Полный перечень служебных утилит с артефактами и примерами доступен в
 [`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
+
 ## Architecture Decision Records (ADR)
 
 Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:

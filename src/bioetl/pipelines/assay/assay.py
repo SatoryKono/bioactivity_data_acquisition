@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -30,6 +31,79 @@ from bioetl.pipelines.assay.assay_transform import (
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
 from ..chembl_base import ChemblPipelineBase
+
+_CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
+    "assay_class_id",
+    "class_id",
+    "id",
+    "bao_format",
+)
+
+_BAO_CANONICAL_PATTERN = re.compile(r"^BAO_\d{7}$")
+_BAO_FLEXIBLE_PATTERN = re.compile(r"^BAO[:_](\d{7})$", re.IGNORECASE)
+_BAO_DIGIT_PATTERN = re.compile(r"^(\d{7})$")
+
+
+def _normalize_bao_identifier(raw_value: Any) -> str | None:
+    if raw_value is None:
+        return None
+    if isinstance(raw_value, float) and pd.isna(raw_value):
+        return None
+
+    text = str(raw_value).strip()
+    if not text:
+        return None
+
+    upper = text.upper()
+    if _BAO_CANONICAL_PATTERN.match(upper):
+        return upper
+
+    flexible_match = _BAO_FLEXIBLE_PATTERN.match(upper)
+    if flexible_match:
+        return f"BAO_{flexible_match.group(1)}"
+
+    digit_match = _BAO_DIGIT_PATTERN.match(upper)
+    if digit_match:
+        return f"BAO_{digit_match.group(1)}"
+
+    return None
+
+
+def _iter_classification_mappings(node: Any) -> Iterator[Mapping[str, Any]]:
+    if node is None:
+        return
+
+    if isinstance(node, Mapping):
+        mapping = cast(Mapping[str, Any], node)
+        yield mapping
+        for nested_value in mapping.values():
+            yield from _iter_classification_mappings(nested_value)
+        return
+
+    if isinstance(node, (list, tuple, set)):
+        iterable = cast(Iterable[Any], node)
+        for item in iterable:
+            yield from _iter_classification_mappings(item)
+
+
+def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
+    identifiers: list[str] = []
+    seen: set[str] = set()
+
+    for mapping in _iter_classification_mappings(node):
+        for key in _CLASSIFICATION_ID_KEYS:
+            if key not in mapping:
+                continue
+            normalized = _normalize_bao_identifier(mapping.get(key))
+            if normalized is None:
+                continue
+            if normalized in seen:
+                break
+            seen.add(normalized)
+            identifiers.append(normalized)
+            break
+
+    return identifiers
 
 # Обязательные поля, которые всегда должны быть в запросе к API
 MUST_HAVE_FIELDS = {
@@ -512,6 +586,40 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             log.debug("validating_assay_parameters_truv")
             df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
 
+        if "assay_classifications" in df.columns:
+            if "assay_class_id" not in df.columns:
+                df["assay_class_id"] = pd.NA
+
+            updated_rows = 0
+            classifications_series = df["assay_classifications"]
+
+            for row_index, value in classifications_series.items():
+                if value is None or value is pd.NA:
+                    continue
+                if isinstance(value, float) and pd.isna(value):
+                    continue
+                if isinstance(value, str):
+                    # Уже сериализовано, обогащение выполняется позже.
+                    continue
+
+                extracted_ids = _extract_bao_ids_from_classifications(value)
+                if not extracted_ids:
+                    continue
+
+                joined_ids = ";".join(extracted_ids)
+                row_label = cast(Any, row_index)
+                current_value = df.at[row_label, "assay_class_id"]
+
+                if pd.isna(current_value) or current_value != joined_ids:
+                    df.at[row_label, "assay_class_id"] = joined_ids
+                    updated_rows += 1
+
+            if updated_rows > 0:
+                log.debug(
+                    "assay_class_id_extracted_from_classifications",
+                    rows_updated=updated_rows,
+                )
+
         # Note: assay_parameters and assay_classifications сериализуются
         # в _serialize_array_fields() и сохраняются в финальной схеме
 
@@ -693,7 +801,16 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         # Создать HTTP клиент для запросов к API
         # Используем тот же источник что и в extract
-        source_raw = self._resolve_source_config("chembl")
+        try:
+            source_raw = self._resolve_source_config("chembl")
+        except KeyError as exc:
+            log.debug(
+                "enrichment_skipped_missing_source",
+                source="chembl",
+                message="Skipping enrichment: source configuration not available",
+                error=str(exc),
+            )
+            return df
         source_config = AssaySourceConfig.from_source_config(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)

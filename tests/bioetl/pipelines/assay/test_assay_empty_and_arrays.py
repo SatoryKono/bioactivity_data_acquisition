@@ -207,6 +207,84 @@ class TestEmptyFieldsAndArrays:
         # Should remain None
         assert pd.isna(result["assay_class_id"].iloc[0])
 
+    def test_normalize_non_canonical_bao_values(self) -> None:
+        """Normalize various BAO identifier representations from classifications."""
+
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "assay_classifications": [
+                    [
+                        {"assay_class_id": "bao_0000015"},
+                        {"class_id": "BAO:0000016"},
+                        {"id": "0000017"},
+                        {"bao_format": "BAO_0000018"},
+                    ]
+                ],
+                "assay_class_id": [None],
+            }
+        )
+
+        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        mock_log = MagicMock()
+        result = pipeline._normalize_nested_structures(df, mock_log)
+
+        assert (
+            result["assay_class_id"].iloc[0]
+            == "BAO_0000015;BAO_0000016;BAO_0000017;BAO_0000018"
+        )
+
+    def test_extract_from_nested_classifications(self) -> None:
+        """Extract BAO identifiers from nested classification structures."""
+
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "assay_classifications": [
+                    [
+                        {
+                            "metadata": {
+                                "children": [
+                                    {"assay_class_id": "bao_0000015"},
+                                    {"classifications": [{"id": "BAO:0000016"}]},
+                                ]
+                            }
+                        }
+                    ]
+                ],
+                "assay_class_id": [None],
+            }
+        )
+
+        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        mock_log = MagicMock()
+        result = pipeline._normalize_nested_structures(df, mock_log)
+
+        assert result["assay_class_id"].iloc[0] == "BAO_0000015;BAO_0000016"
+
+    def test_deduplicate_bao_ids(self) -> None:
+        """Deduplicate BAO identifiers extracted from classifications."""
+
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "assay_classifications": [
+                    [
+                        {"assay_class_id": "BAO_0000015"},
+                        {"class_id": "BAO:0000015"},
+                        {"id": "0000015"},
+                    ]
+                ],
+                "assay_class_id": [None],
+            }
+        )
+
+        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        mock_log = MagicMock()
+        result = pipeline._normalize_nested_structures(df, mock_log)
+
+        assert result["assay_class_id"].iloc[0] == "BAO_0000015"
+
     def test_none_classifications(self) -> None:
         """Test that None classifications doesn't extract assay_class_id."""
         df = pd.DataFrame(
