@@ -44,6 +44,7 @@ coverage.xml
 htmlcov/
 .tox/
 .hypothesis/
+test_output.txt
 
 # Type checking
 .mypy_cache/
