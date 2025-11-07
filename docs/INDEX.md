@@ -60,6 +60,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - [00-cli-overview.md](cli/00-cli-overview.md) - CLI overview and principles
 - [01-cli-commands.md](cli/01-cli-commands.md) - CLI commands reference
 - [02-cli-exit_codes.md](cli/02-cli-exit_codes.md) - Exit codes specification
+- [03-cli-utilities.md](cli/03-cli-utilities.md) - Repository CLI utilities inventory
 
 ### Configurations (`configs/`)
 

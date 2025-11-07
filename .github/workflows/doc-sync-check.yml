@@ -78,7 +78,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run CLI doctest
-        run: python tests/doctest_cli.py || true
+        run: python scripts/doctest_cli.py || true
 
       - name: Upload doctest report
         uses: actions/upload-artifact@v4
@@ -104,7 +104,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run schema guard
-        run: python tests/schema_guard.py || true
+        run: python scripts/schema_guard.py || true
 
       - name: Upload schema guard report
         uses: actions/upload-artifact@v4
@@ -130,7 +130,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run determinism check
-        run: python tests/determinism_check.py || true
+        run: python scripts/determinism_check.py || true
 
       - name: Upload determinism report
         uses: actions/upload-artifact@v4
