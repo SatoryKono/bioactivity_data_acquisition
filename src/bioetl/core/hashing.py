@@ -6,14 +6,23 @@ import hashlib
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Protocol, cast
 
 _DEFAULT_SEPARATOR = "\u001f"
 
+class _PandasModule(Protocol):
+    NA: object
+
+    def isna(self, value: Any) -> Any:  # pragma: no cover - runtime dynamic typing
+        ...
+
+
 try:  # Optional dependency (avoids importing pandas when not installed)
-    import pandas as _pd  # type: ignore
+    import pandas as _pd_module
 except ImportError:  # pragma: no cover - pandas is always available in runtime env
-    _pd = None
+    _pd_module = None
+
+_pd: _PandasModule | None = cast("_PandasModule | None", _pd_module)
 
 
 def _is_missing(value: Any) -> bool:

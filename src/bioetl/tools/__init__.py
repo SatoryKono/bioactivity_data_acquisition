@@ -35,4 +35,9 @@ def load_typer_app(module_path: str, app_name: str = "app") -> typer.Typer:
     app = getattr(module, app_name, None)
     if app is None:
         raise RuntimeError(f"Module {module_path} does not define Typer app '{app_name}'")
+    if not isinstance(app, typer.Typer):
+        raise TypeError(
+            f"Attribute '{app_name}' of module {module_path} is not a Typer application; "
+            f"got {type(app)!r}"
+        )
     return app

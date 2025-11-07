@@ -17,6 +17,7 @@ from functools import partial
 from typing import Any
 
 import structlog
+from structlog.stdlib import BoundLogger
 from structlog.contextvars import (
     bind_contextvars,
     clear_contextvars,
@@ -202,10 +203,13 @@ def reset_global_context() -> None:
     clear_contextvars()
 
 
-def get_logger(name: str = "bioetl") -> structlog.stdlib.BoundLogger:
+def get_logger(name: str = "bioetl") -> BoundLogger:
     """Return a configured bound logger."""
 
-    return structlog.get_logger(name)
+    logger = structlog.get_logger(name)
+    if not isinstance(logger, BoundLogger):
+        raise TypeError("structlog.get_logger returned unexpected logger type")
+    return logger
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +247,7 @@ class UnifiedLogger:
         configure_logging(config, additional_processors=additional_processors)
 
     @staticmethod
-    def get(name: str | None = None) -> structlog.stdlib.BoundLogger:
+    def get(name: str | None = None) -> BoundLogger:
         """Return a configured bound logger."""
 
         return get_logger(name or UnifiedLogger._default_logger_name)

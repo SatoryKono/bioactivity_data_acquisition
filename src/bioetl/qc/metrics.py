@@ -63,13 +63,14 @@ def compute_missingness(df: pd.DataFrame) -> pd.DataFrame:
 
     missing_count = df.isna().sum()
     total_rows = int(len(df))
-    missing_ratio = missing_count / total_rows if total_rows else 0.0
+    missing_count_int = missing_count.astype("int64")
+    missing_ratio = (missing_count / total_rows).astype("float64")
 
     result = pd.DataFrame(
         {
             "column": missing_count.index,
-            "missing_count": missing_count.astype("int64").values,
-            "missing_ratio": missing_ratio.astype("float64").values,
+            "missing_count": missing_count_int.values,
+            "missing_ratio": missing_ratio.values,
         }
     )
     return result.sort_values(by="missing_count", ascending=False).reset_index(drop=True)

@@ -33,7 +33,7 @@ def header_rows_serialize(items: Any) -> str:
         json_str = json.dumps(items, ensure_ascii=False, sort_keys=True)
         return escape_delims(json_str)
 
-    typed_items: list[Any] = cast(list[Any], items)
+    typed_items: list[Any] = list(items)
     if not typed_items:
         return ""
 

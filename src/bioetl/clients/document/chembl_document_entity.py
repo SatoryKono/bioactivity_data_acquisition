@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from bioetl.clients.chembl_base import ChemblEntityFetcher, EntityConfig
+from bioetl.clients.chembl_base import ChemblClientProtocol, ChemblEntityFetcher, EntityConfig
 
 if TYPE_CHECKING:
     from bioetl.clients import ChemblClient
@@ -15,7 +15,7 @@ __all__ = ["ChemblDocumentTermEntityClient"]
 class ChemblDocumentTermEntityClient(ChemblEntityFetcher):
     """Клиент для получения document_term записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClient) -> None:
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для document_term.
 
         Parameters

@@ -9,7 +9,8 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.clients import ChemblActivityClient, ChemblClient
+from bioetl.clients.activity.chembl_activity import ChemblActivityClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
@@ -473,30 +474,36 @@ def _extract_molecule_name(record: dict[str, Any], fallback_id: str) -> str:
 
     # Приоритет 2: первый элемент из molecule_synonyms
     synonyms = record.get("molecule_synonyms")
-    if synonyms:
-        if isinstance(synonyms, list) and len(synonyms) > 0:  # type: ignore[arg-type]
-            # Если список объектов с полем molecule_synonym
-            first_syn: Any = synonyms[0]  # type: ignore[assignment]
-            if isinstance(first_syn, dict):
-                first_syn_dict: Mapping[str, Any] = cast(Mapping[str, Any], first_syn)
-                synonym_value: Any = first_syn_dict.get("molecule_synonym")
-                if synonym_value:
-                    return str(synonym_value).strip()
-            # Если список строк
-            elif isinstance(first_syn, str):
-                return first_syn.strip()
-        # Если словарь
-        elif isinstance(synonyms, dict):
-            synonyms_dict: Mapping[str, Any] = cast(Mapping[str, Any], synonyms)
-            synonym_value_from_dict: Any = synonyms_dict.get("molecule_synonym")
-            if synonym_value_from_dict:
-                if isinstance(synonym_value_from_dict, list) and len(synonym_value_from_dict) > 0:  # type: ignore[arg-type]
-                    first_val: Any = synonym_value_from_dict[0]  # type: ignore[assignment]
-                    if isinstance(first_val, dict):
-                        first_val_dict: Mapping[str, Any] = cast(Mapping[str, Any], first_val)
-                        return str(first_val_dict.get("molecule_synonym", "")).strip()
-                    return str(first_val).strip()  # type: ignore[arg-type]
-                return str(synonym_value_from_dict).strip()  # type: ignore[arg-type]
+    if isinstance(synonyms, list):
+        for entry in synonyms:
+            if isinstance(entry, Mapping):
+                synonym_value = entry.get("molecule_synonym")
+                if isinstance(synonym_value, str):
+                    candidate = synonym_value.strip()
+                    if candidate:
+                        return candidate
+            elif isinstance(entry, str):
+                candidate = entry.strip()
+                if candidate:
+                    return candidate
+    elif isinstance(synonyms, Mapping):
+        synonym_entry = synonyms.get("molecule_synonym")
+        if isinstance(synonym_entry, list):
+            for raw_value in synonym_entry:
+                if isinstance(raw_value, Mapping):
+                    nested_value = raw_value.get("molecule_synonym")
+                    if isinstance(nested_value, str):
+                        candidate = nested_value.strip()
+                        if candidate:
+                            return candidate
+                elif isinstance(raw_value, str):
+                    candidate = raw_value.strip()
+                    if candidate:
+                        return candidate
+        elif isinstance(synonym_entry, str):
+            candidate = synonym_entry.strip()
+            if candidate:
+                return candidate
 
     # Приоритет 3: fallback на molecule_key
     return fallback_id

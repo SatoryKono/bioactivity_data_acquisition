@@ -340,7 +340,7 @@ def enrich_with_assay_parameters(
 
         # Сериализовать массив в JSON-строку
         if params_list:
-            df_assay.loc[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)  # type: ignore[assignment]
+            df_assay.at[idx, "assay_parameters"] = json.dumps(params_list, ensure_ascii=False)
 
     log.info(
         "enrichment_parameters_complete",

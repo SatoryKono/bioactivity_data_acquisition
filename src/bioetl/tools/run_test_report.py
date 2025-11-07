@@ -184,7 +184,10 @@ def generate_test_report(output_root: Path | None = None) -> int:
     )
 
     meta_payload = meta.to_ordered_dict()
-    meta_payload["summary"] = summary
+    meta_payload_with_summary: dict[str, str | int | dict[str, int]] = {
+        **meta_payload,
+        "summary": summary,
+    }
 
     log.info(
         "writing_meta",
@@ -193,7 +196,7 @@ def generate_test_report(output_root: Path | None = None) -> int:
         row_count=row_count,
         coverage_xml=str(artifacts.coverage_xml),
     )
-    _write_yaml_atomic(artifacts.meta_yaml, meta_payload)
+    _write_yaml_atomic(artifacts.meta_yaml, meta_payload_with_summary)
 
     if html_dir.exists():
         shutil.rmtree(html_dir)

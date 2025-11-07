@@ -24,14 +24,13 @@ def _collect_dicts(source: Any) -> list[dict[str, Any]]:
 
     result: list[dict[str, Any]] = []
     if isinstance(source, dict):
-        result.append(cast(dict[str, Any], source))
+        result.append(source)
         return result
 
     if isinstance(source, Iterable) and not isinstance(source, (str, bytes)):
-        iterable_source = cast(Iterable[Any], source)
-        for element in iterable_source:
+        for element in source:
             if isinstance(element, dict):
-                result.append(cast(dict[str, Any], element))
+                result.append(element)
 
     return result
 

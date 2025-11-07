@@ -178,7 +178,7 @@ def _load_yaml(path: Path) -> Any:
     class Loader(yaml.SafeLoader):
         pass
 
-    def construct_include(loader: Loader, node: ScalarNode) -> Any:  # type: ignore[override]
+    def construct_include(loader: Loader, node: ScalarNode) -> Any:
         filename = loader.construct_scalar(node)
         include_path = _resolve_reference(filename, base=path.parent)
         return _load_yaml(include_path)
@@ -248,8 +248,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
         return result
 
     if isinstance(payload, list):
-        typed_list = cast(list[Any], payload)
-        return [_apply_yaml_merge(item) for item in typed_list]
+        return [_apply_yaml_merge(item) for item in payload]
 
     return payload
 
@@ -259,12 +258,14 @@ def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
         msg = f"Configuration file must produce a mapping: {path}"
         raise TypeError(msg)
     typed_value = cast(MutableMapping[Any, Any], value)
-    non_string_keys = [key for key in typed_value.keys() if not isinstance(key, str)]
+    non_string_keys: list[Any] = [key for key in typed_value.keys() if not isinstance(key, str)]
     if non_string_keys:
         keys = ", ".join(map(str, non_string_keys))
         msg = f"Configuration mapping must use string keys: {path} (invalid keys: {keys})"
         raise TypeError(msg)
-    return {cast(str, key): typed_value[key] for key in typed_value}
+    typed_mapping = cast(MutableMapping[str, Any], typed_value)
+    result: dict[str, Any] = dict(typed_mapping)
+    return result
 
 
 def _resolve_reference(value: str | Path, *, base: Path) -> Path:

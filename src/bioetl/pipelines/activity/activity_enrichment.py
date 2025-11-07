@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from bioetl.clients import ChemblClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.activity import (
     ASSAY_ENRICHMENT_SCHEMA,

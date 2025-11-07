@@ -2,18 +2,29 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 
-if TYPE_CHECKING:
-    from bioetl.clients import ChemblClient
+__all__ = ["EntityConfig", "ChemblEntityFetcher", "ChemblClientProtocol"]
 
-__all__ = ["EntityConfig", "ChemblEntityFetcher"]
+
+class ChemblClientProtocol(Protocol):
+    """Минимальный контракт клиента ChEMBL, используемый фетчерами."""
+
+    def paginate(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        page_size: int = 200,
+        items_key: str | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        ...
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -62,7 +73,7 @@ class ChemblEntityFetcher:
     типами сущностей ChEMBL API.
     """
 
-    def __init__(self, chembl_client: ChemblClient, config: EntityConfig) -> None:  # type: ignore[valid-type]
+    def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None:
         """Инициализировать fetcher для сущности.
 
         Parameters
