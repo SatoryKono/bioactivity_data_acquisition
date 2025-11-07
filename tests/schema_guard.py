@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).parent.parent
-AUDIT_RESULTS = ROOT / "audit_results"
+ARTIFACTS_DIR = ROOT / "artifacts"
 CONFIGS = ROOT / "configs" / "pipelines" / "chembl"
 
 
@@ -114,8 +114,8 @@ def main() -> int:
                 print(f"    - {error}")
 
     # Generate report
-    AUDIT_RESULTS.mkdir(exist_ok=True)
-    report_path = AUDIT_RESULTS / "SCHEMA_GUARD_REPORT.md"
+    ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+    report_path = ARTIFACTS_DIR / "SCHEMA_GUARD_REPORT.md"
 
     total_valid = sum(1 for r in results.values() if r["valid"])
     total_invalid = len(results) - total_valid

@@ -6,8 +6,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent.parent
 DOCS = ROOT / "docs"
-AUDIT_RESULTS = ROOT / "audit_results"
-AUDIT_RESULTS.mkdir(exist_ok=True)
+ARTIFACTS_DIR = ROOT / "artifacts"
+ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_file_hash(filepath: Path) -> str:
@@ -25,7 +25,7 @@ def main():
     md_files = sorted(DOCS.rglob("*.md"))
     
     # Запись списка файлов
-    inventory_file = AUDIT_RESULTS / "docs_inventory.txt"
+    inventory_file = ARTIFACTS_DIR / "docs_inventory.txt"
     with inventory_file.open("w", encoding="utf-8") as f:
         for filepath in md_files:
             f.write(f"{filepath.relative_to(ROOT)}\n")
@@ -34,7 +34,7 @@ def main():
     print(f"Inventory saved to {inventory_file}")
     
     # Вычисление хешей
-    hashes_file = AUDIT_RESULTS / "docs_hashes.txt"
+    hashes_file = ARTIFACTS_DIR / "docs_hashes.txt"
     with hashes_file.open("w", encoding="utf-8") as f:
         for filepath in md_files:
             file_hash = get_file_hash(filepath)

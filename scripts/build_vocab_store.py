@@ -66,7 +66,7 @@ def main(
         readable=True,
     ),
     output: Path = typer.Option(
-        Path("configs/chembl_dictionaries.yaml"),
+        Path("artifacts/chembl_dictionaries.yaml"),
         help="Destination path for the aggregated vocabulary store.",
         file_okay=True,
         dir_okay=False,
