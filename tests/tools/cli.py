@@ -9,17 +9,12 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-SRC_PATH = PROJECT_ROOT / "src"
 
 
 def _build_env(extra_env: Mapping[str, str] | None = None) -> dict[str, str]:
-    """Create an environment with the project ``src`` on ``PYTHONPATH``."""
-    env = os.environ.copy()
-    python_path_entries: list[str] = [str(SRC_PATH)]
-    existing = env.get("PYTHONPATH")
-    if existing:
-        python_path_entries.append(existing)
-    env["PYTHONPATH"] = os.pathsep.join(python_path_entries)
+    """Builder for CLI environment without manipulating ``PYTHONPATH``."""
+
+    env = dict(os.environ)
     if extra_env:
         env.update(extra_env)
     return env

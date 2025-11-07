@@ -1,2 +1,9 @@
-"""Test suite for BioETL framework."""
+"""Пакет с тестовыми сценариями и вспомогательными модулями."""
+
+from __future__ import annotations
+
+__all__ = ("__version__",)
+
+
+__version__ = "0.0.0"
 

@@ -1,1 +1,0 @@
-"""Activity pipeline integration tests."""

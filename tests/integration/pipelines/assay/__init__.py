@@ -1,1 +1,0 @@
-"""Assay pipeline integration tests."""

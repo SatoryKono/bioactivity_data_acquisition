@@ -1,1 +1,9 @@
-"""Utility helpers for the BioETL test suite."""
+"""Утилиты и фикстуры для модульных тестов."""
+
+from __future__ import annotations
+
+__all__ = ["__version__"]
+
+
+__version__ = "0.0.0"
+

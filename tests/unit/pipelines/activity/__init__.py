@@ -1,1 +1,0 @@
-"""Activity pipeline unit tests."""

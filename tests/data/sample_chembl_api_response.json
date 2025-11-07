@@ -1,0 +1,33 @@
+{
+  "activities": [
+    {
+      "activity_id": 1,
+      "assay_chembl_id": "CHEMBL100",
+      "document_chembl_id": "CHEMBL300",
+      "molecule_chembl_id": "CHEMBL1",
+      "standard_relation": "=",
+      "standard_type": "IC50",
+      "standard_units": "nM",
+      "standard_value": 10.5,
+      "target_chembl_id": "CHEMBL200"
+    },
+    {
+      "activity_id": 2,
+      "assay_chembl_id": "CHEMBL101",
+      "document_chembl_id": "CHEMBL301",
+      "molecule_chembl_id": "CHEMBL2",
+      "standard_relation": ">",
+      "standard_type": "EC50",
+      "standard_units": "μM",
+      "standard_value": 20.0,
+      "target_chembl_id": "CHEMBL201"
+    }
+  ],
+  "page_meta": {
+    "count": 2,
+    "limit": 25,
+    "next": null,
+    "offset": 0
+  }
+}
+
