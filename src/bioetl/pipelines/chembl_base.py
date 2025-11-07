@@ -278,10 +278,11 @@ class ChemblPipelineBase(PipelineBase):
         if log is None:
             log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
+        release_value: str | None = None
+
         # Check if client is ChemblClient by checking for handshake method
         if hasattr(client, "handshake") and callable(getattr(client, "handshake", None)):  # pyright: ignore[reportArgumentType]
             request_timestamp = datetime.now(timezone.utc)
-            release_value: str | None = None
             try:
                 status = client.handshake("/status")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
                 if isinstance(status, Mapping):
@@ -301,7 +302,6 @@ class ChemblPipelineBase(PipelineBase):
         # Use direct HTTP for UnifiedAPIClient
         if hasattr(client, "get") and callable(getattr(client, "get", None)):  # pyright: ignore[reportArgumentType]
             request_timestamp = datetime.now(timezone.utc)
-            release_value: str | None = None
             try:
                 response = client.get("/status.json")  # pyright: ignore[reportAttributeAccessIssue, reportAny]
                 if hasattr(response, "json"):  # pyright: ignore[reportArgumentType]

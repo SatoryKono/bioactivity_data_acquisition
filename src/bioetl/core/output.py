@@ -67,17 +67,16 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
 
     result = df.copy()
 
-    if row_column not in result.columns:
-        row_records: list[dict[str, Any]] = []
-        for tuple_values in result[row_fields].itertuples(index=False, name=None):
-            record = dict(zip(row_fields, tuple_values, strict=True))
-            row_records.append(record)
-        row_hashes = [
-            hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
-        ]
-        result[row_column] = row_hashes
+    row_records: list[dict[str, Any]] = []
+    for tuple_values in result[row_fields].itertuples(index=False, name=None):
+        record = dict(zip(row_fields, tuple_values, strict=True))
+        row_records.append(record)
+    row_hashes = [
+        hash_from_mapping(record, row_fields, algorithm=algorithm) for record in row_records
+    ]
+    result[row_column] = pd.Series(row_hashes, index=result.index, dtype="string")
 
-    if business_fields and business_column not in result.columns:
+    if business_fields:
         business_records: list[dict[str, Any]] = []
         for tuple_values in result[business_fields].itertuples(index=False, name=None):
             record = dict(zip(business_fields, tuple_values, strict=True))
@@ -86,7 +85,9 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
             hash_from_mapping(record, business_fields, algorithm=algorithm)
             for record in business_records
         ]
-        result[business_column] = business_hashes
+        result[business_column] = pd.Series(
+            business_hashes, index=result.index, dtype="string"
+        )
 
     return result
 

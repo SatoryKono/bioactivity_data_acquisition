@@ -8,7 +8,8 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.clients import ChemblClient, ChemblTestitemClient
+from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
@@ -149,7 +150,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         ):
             records.append(item)
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
+        dataframe = pd.DataFrame.from_records(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
         elif "molecule_chembl_id" in dataframe.columns:
@@ -266,7 +267,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             if limit is not None and len(records) >= limit:
                 break
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # type: ignore[arg-type]
+        dataframe = pd.DataFrame.from_records(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
         elif "molecule_chembl_id" in dataframe.columns:

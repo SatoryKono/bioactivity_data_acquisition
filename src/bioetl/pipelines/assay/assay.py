@@ -9,7 +9,7 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.clients import ChemblClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger

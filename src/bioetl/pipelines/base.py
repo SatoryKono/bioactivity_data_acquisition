@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import time
+import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
@@ -418,8 +419,7 @@ class PipelineBase(ABC):
         def _normalise_value(candidate: Any) -> Any:
             if isinstance(candidate, Mapping):
                 normalised_items: list[tuple[str, Any]] = []
-                mapping_candidate = cast(Mapping[Any, Any], candidate)
-                for mapping_key_any, mapping_value_any in mapping_candidate.items():
+                for mapping_key_any, mapping_value_any in candidate.items():
                     key_as_str = str(mapping_key_any)
                     normalised_value = _normalise_value(mapping_value_any)
                     normalised_items.append((key_as_str, normalised_value))
@@ -427,8 +427,7 @@ class PipelineBase(ABC):
                 return dict(normalised_items)
             if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
                 normalised_sequence: list[Any] = []
-                sequence_candidate: Sequence[Any] = cast(Sequence[Any], candidate)
-                for sequence_item_any in sequence_candidate:
+                for sequence_item_any in candidate:
                     normalised_sequence.append(_normalise_value(sequence_item_any))
                 return normalised_sequence
             if isinstance(candidate, datetime):
@@ -1012,11 +1011,9 @@ class PipelineBase(ABC):
                 factory = spec.get("factory")
                 if callable(factory):
                     produced = factory(row_count)
-                    if isinstance(produced, pd.Series):
-                        produced_series = cast(pd.Series[Any], produced)
-                        if len(produced_series) == row_count:
-                            df[column] = produced_series
-                            continue
+                    if isinstance(produced, pd.Series) and len(produced) == row_count:
+                        df[column] = produced
+                        continue
                 default_value = spec.get("default", pd.NA)
                 dtype = spec.get("dtype")
                 if dtype is not None:
@@ -1459,6 +1456,7 @@ class PipelineBase(ABC):
         error_summary: str | None = None
 
         df_for_validation = ensure_hash_columns(df, config=self.config)
+        df_for_validation = self._ensure_load_meta_ids(df_for_validation)
 
         try:
             validated = schema.validate(df_for_validation, lazy=True)
@@ -1513,6 +1511,48 @@ class PipelineBase(ABC):
             )
 
         return validated
+
+    def _ensure_load_meta_ids(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Populate ``load_meta_id`` column with deterministic UUIDs when missing."""
+
+        if df.empty:
+            return df
+
+        load_meta_column = "load_meta_id"
+        if load_meta_column not in df.columns:
+            df[load_meta_column] = pd.Series([pd.NA] * len(df), dtype="string")
+
+        load_meta_series = df[load_meta_column].astype("string")
+        df[load_meta_column] = load_meta_series
+        missing_mask = load_meta_series.isna() | (load_meta_series.str.strip() == "")
+        if not bool(missing_mask.any()):
+            return df
+
+        row_hash_column = self.config.determinism.hashing.row_hash_column
+        if row_hash_column not in df.columns:
+            msg = (
+                f"Column '{row_hash_column}' is required to synthesize load_meta_id values, "
+                "but it is missing from dataframe"
+            )
+            raise KeyError(msg)
+
+        namespace_seed = f"bioetl:{self.config.pipeline.name}:{self.config.pipeline.version}"
+        namespace_uuid = uuid.uuid5(uuid.NAMESPACE_URL, namespace_seed)
+
+        synthetic_values: dict[int, str] = {}
+        for position, index in enumerate(df.index[missing_mask]):
+            row_hash_value = str(df.at[index, row_hash_column])
+            synthetic_uuid = uuid.uuid5(
+                namespace_uuid,
+                f"{self.run_id}:{position}:{row_hash_value}",
+            )
+            synthetic_values[index] = str(synthetic_uuid)
+
+        for idx, value in synthetic_values.items():
+            df.at[idx, load_meta_column] = value
+
+        df[load_meta_column] = df[load_meta_column].astype("string")
+        return df
 
     @staticmethod
     def _clone_schema_with_options(

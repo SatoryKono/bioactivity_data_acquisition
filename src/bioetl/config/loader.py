@@ -248,7 +248,11 @@ def _apply_yaml_merge(payload: Any) -> Any:
         return result
 
     if isinstance(payload, list):
-        return [_apply_yaml_merge(item) for item in payload]
+        typed_list = cast(list[Any], payload)
+        merged_elements: list[Any] = []
+        for element in typed_list:
+            merged_elements.append(_apply_yaml_merge(element))
+        return merged_elements
 
     return payload
 

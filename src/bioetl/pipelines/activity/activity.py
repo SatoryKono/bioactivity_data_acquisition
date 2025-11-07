@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
@@ -16,7 +16,7 @@ import pandas as pd
 import pandera.errors
 from requests.exceptions import RequestException
 
-from bioetl.clients import ChemblClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
@@ -1521,10 +1521,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df_result["assay_organism"] = df_result["assay_organism"].astype("string")
 
         # assay_tax_id может приходить строкой — приводим к Int64 с NA
-        assay_tax_series: pd.Series[Any] = df_result["assay_tax_id"]
-        to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
-        tax_id_numeric = to_numeric_series(assay_tax_series, errors="coerce")
-        df_result["assay_tax_id"] = tax_id_numeric.astype("Int64")
+        df_result["assay_tax_id"] = pd.to_numeric(
+            df_result["assay_tax_id"], errors="coerce"
+        ).astype("Int64")
 
         # Проверка диапазона для assay_tax_id (>= 1 или NA)
         mask_valid = df_result["assay_tax_id"].notna()

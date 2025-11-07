@@ -11,7 +11,7 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.clients import ChemblClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns

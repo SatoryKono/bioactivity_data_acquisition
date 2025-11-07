@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-from bioetl.clients.chembl_base import ChemblEntityFetcher, EntityConfig
-
-if TYPE_CHECKING:
-    from bioetl.clients import ChemblClient
+from bioetl.clients.chembl_base import (
+    ChemblClientProtocol,
+    ChemblEntityFetcher,
+    EntityConfig,
+)
 
 __all__ = [
     "ChemblMoleculeEntityClient",
@@ -23,7 +24,7 @@ __all__ = [
 class ChemblMoleculeEntityClient(ChemblEntityFetcher):
     """Клиент для получения molecule записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: "ChemblClient") -> None:  # type: ignore[valid-type]  # noqa: UP037
+    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
         """Инициализировать клиент для molecule.
 
         Parameters

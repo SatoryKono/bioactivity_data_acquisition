@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -180,8 +180,9 @@ def enrich_with_assay(
     df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
 
     # assay_tax_id может приходить строкой — приводим к Int64 с NA
-    tax_id_numeric: pd.Series[Any] = pd.to_numeric(df_merged["assay_tax_id"], errors="coerce")  # type: ignore[reportUnknownMemberType]
-    df_merged["assay_tax_id"] = tax_id_numeric.astype("Int64")
+    df_merged["assay_tax_id"] = pd.to_numeric(
+        df_merged["assay_tax_id"], errors="coerce"
+    ).astype("Int64")
 
     log.info(
         "enrichment_completed",
@@ -451,13 +452,11 @@ def _enrich_by_pairs(
 ) -> pd.DataFrame:
     """Обогатить DataFrame activity через пары (molecule_chembl_id, document_chembl_id)."""
     # Нормализация ключей до сборки пар: upper, strip
-    pairs_df = (
-        df_act[["molecule_chembl_id", "document_chembl_id"]]
-        .astype("string")
-        .apply(lambda s: s.str.strip().str.upper(), axis=0)  # type: ignore[reportUnknownArgumentType,reportUnknownLambdaType,reportUnknownMemberType]
-        .dropna()  # type: ignore[reportUnknownMemberType]
-        .drop_duplicates()  # type: ignore[reportUnknownMemberType]
-    )
+    pairs_df = df_act[["molecule_chembl_id", "document_chembl_id"]].astype("string").copy()
+    for column in pairs_df.columns:
+        pairs_df[column] = pairs_df[column].str.strip().str.upper()
+    pairs_df = pairs_df.dropna()
+    pairs_df = pairs_df.drop_duplicates()
     pairs: set[tuple[str, str]] = set(map(tuple, pairs_df.to_numpy()))
 
     if not pairs:
@@ -877,6 +876,16 @@ def enrich_with_data_validity(
 
     # Восстановить исходный порядок
     df_result = df_result.reindex(original_index)
+
+    # Если комментарий присутствует, но описание отсутствует, используем комментарий как описание
+    comment_series = df_result["data_validity_comment"].astype("string")
+    description_series = df_result["data_validity_description"]
+    missing_description_mask = comment_series.notna() & (comment_series.str.strip() != "")
+    missing_description_mask &= description_series.isna()
+    if bool(missing_description_mask.any()):
+        df_result.loc[missing_description_mask, "data_validity_description"] = comment_series.loc[
+            missing_description_mask
+        ]
 
     # Нормализовать типы
     df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
