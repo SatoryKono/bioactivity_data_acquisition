@@ -4,6 +4,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Core Concepts
 
+- **[Repository Topology](repository_topology.md)**: Overview of directory layers, sources of truth, and artifact placement.
 - **[ETL Contract](etl_contract/00-etl-overview.md)**: An overview of the fundamental principles and architecture of the `bioetl` framework, including the `PipelineBase` contract.
 - **[Source Architecture](sources/00-sources-architecture.md)**: Describes the layered component stack for data sources (Client, Parser, Normalizer) and the flow of data.
 - **[Determinism Policy](determinism/00-determinism-policy.md)**: The specification for ensuring byte-for-byte reproducible outputs.
