@@ -715,6 +715,8 @@ The determinism policy also standardizes value canonicalization, serialization, 
 
 Общие параметры ChEMBL берутся из include `configs/includes/chembl_source.yaml`: `base_url`, `batch_size`, `max_url_length`, заголовки и флаг `rate_limit_jitter`. Эти ключи наследуются всеми профильными конфигами ChEMBL.【F:src/bioetl/configs/includes/chembl_source.yaml†L1-L11】
 
+Группа `chembl_release` в таблицах сопоставления теперь закреплена за общим mixin `ChemblReleaseMixin`: handshake, нормализация и запись метаданных выполняются централизованно, поэтому в матрицах полей она отмечена как «унифицировано».【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L921-L921】
+
 Профильные конфиги для отдельных пайплайнов:
 
 - `configs/pipelines/activity.yaml` задаёт собственный `batch_size`, заголовок `User-Agent` и QC-политику дубликатов/единиц; сортировка фиксирована по `activity_id`.【F:src/bioetl/configs/pipelines/activity.yaml†L1-L86】

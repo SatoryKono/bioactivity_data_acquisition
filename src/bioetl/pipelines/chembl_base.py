@@ -23,7 +23,7 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
-from .common.release_tracker import ChemblReleaseMixin
+from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
@@ -293,27 +293,28 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
         release_value: str | None = None
+        requested_at = datetime.now(timezone.utc)
 
         # Check if client is ChemblClient by checking for handshake method
         handshake_candidate = getattr(client, "handshake", None)
         if callable(handshake_candidate):
-            handshake = cast(Callable[[str], Any], handshake_candidate)
-            request_timestamp = datetime.now(timezone.utc)
             try:
-                status = handshake("/status")
-                if isinstance(status, Mapping):
-                    status_mapping = cast(Mapping[str, Any], status)
-                    candidate = status_mapping.get("chembl_db_version") or status_mapping.get("chembl_release")
-                    if isinstance(candidate, str):
-                        release_value = candidate
-                        log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
+                handshake_result: ChemblHandshakeResult = self.perform_chembl_handshake(
+                    client,
+                    log=log,
+                    event=f"{self.pipeline_code}.status",
+                    endpoint="/status",
+                    enabled=True,
+                )
+                release_value = handshake_result.release
+                requested_at = handshake_result.requested_at_utc
             except Exception as exc:
                 log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
             finally:
                 self._update_release(release_value)
                 self.record_extract_metadata(
                     chembl_release=release_value,
-                    requested_at_utc=request_timestamp,
+                    requested_at_utc=requested_at,
                 )
             return release_value
 
@@ -321,7 +322,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         get_candidate = getattr(client, "get", None)
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
-            request_timestamp = datetime.now(timezone.utc)
+            requested_at = datetime.now(timezone.utc)
             try:
                 response = client_get("/status.json")
                 json_candidate = getattr(response, "json", None)
@@ -336,7 +337,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 self._update_release(release_value)
                 self.record_extract_metadata(
                     chembl_release=release_value,
-                    requested_at_utc=request_timestamp,
+                    requested_at_utc=requested_at,
                 )
             return release_value
         self._update_release(None)
@@ -359,102 +360,17 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         source_config: ChemblPipelineSourceConfig[Any],
         log: BoundLogger,
         event: str,
-    ) -> Mapping[str, Any]:
+    ) -> ChemblHandshakeResult:
         """Выполнить handshake для переданного клиента и обновить release."""
 
-        handshake_method = getattr(handshake_target, "handshake", None)
-        if not callable(handshake_method):
-            log.debug(
-                f"{event}.skipped",
-                reason="handshake_method_missing",
-            )
-            return {}
-
-        if not source_config.handshake_enabled:
-            log.info(
-                f"{event}.skipped",
-                handshake_enabled=False,
-                handshake_endpoint=source_config.handshake_endpoint,
-            )
-            return {}
-
-        payload_raw = self._invoke_handshake(
-            handshake_method,
+        handshake_result: ChemblHandshakeResult = self.perform_chembl_handshake(
+            handshake_target,
+            log=log,
+            event=event,
             endpoint=source_config.handshake_endpoint,
+            enabled=source_config.handshake_enabled,
         )
-        payload = self._coerce_mapping(payload_raw)
-        release_value = self._extract_chembl_release(payload)
-        if release_value:
-            self._update_release(release_value)
-        else:
-            candidate_release = getattr(handshake_target, "chembl_release", None)
-            if isinstance(candidate_release, str):
-                self._update_release(candidate_release)
-
-        log.info(
-            event,
-            chembl_release=self.chembl_release,
-            handshake_endpoint=source_config.handshake_endpoint,
-            handshake_enabled=source_config.handshake_enabled,
-        )
-        return payload
-
-    @staticmethod
-    def _extract_chembl_release(payload: Mapping[str, Any]) -> str | None:
-        """Extract ChEMBL release version from status payload.
-
-        Parameters
-        ----------
-        payload
-            Status response payload mapping.
-
-        Returns
-        -------
-        str | None
-            The release version string, or None if not found.
-        """
-        for key in ("chembl_release", "chembl_db_version", "release", "version"):
-            value = payload.get(key)
-            if isinstance(value, str) and value.strip():
-                return value
-        return None
-
-    # ------------------------------------------------------------------
-    # Response processing utilities
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _coerce_mapping(payload: Any) -> dict[str, Any]:
-        """Coerce payload to dictionary mapping.
-
-        Parameters
-        ----------
-        payload
-            Response payload (may be dict, Mapping, or other).
-
-        Returns
-        -------
-        dict[str, Any]
-            Dictionary representation of the payload.
-        """
-        if isinstance(payload, Mapping):
-            mapping = cast(Mapping[object, Any], payload)
-            return ChemblPipelineBase._stringify_mapping(mapping)
-        return {}
-
-    @staticmethod
-    def _invoke_handshake(
-        handshake_callable: Callable[..., Any],
-        *,
-        endpoint: str,
-    ) -> Mapping[str, Any]:
-        """Вызывает handshake с поддержкой исторических сигнатур клиентов."""
-
-        try:
-            result = handshake_callable(endpoint=endpoint, enabled=True)
-        except TypeError:
-            result = handshake_callable(endpoint=endpoint)
-        return cast(Mapping[str, Any], result)
+        return handshake_result
 
     @staticmethod
     def _extract_page_items(

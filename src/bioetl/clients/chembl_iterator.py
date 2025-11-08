@@ -103,17 +103,14 @@ class ChemblEntityIterator(ChemblReleaseMixin):
         Mapping[str, object]:
             Payload ответа от handshake или пустой словарь, если disabled.
         """
-        if not enabled:
-            return {}
-
-        payload = self._chembl_client.handshake(endpoint)
-        release = payload.get("chembl_db_version")
-        if isinstance(release, str):
-            self._update_release(release)
-        else:
-            self._update_release(None)
-
-        return cast(Mapping[str, object], payload)
+        result = self.perform_chembl_handshake(
+            self._chembl_client,
+            log=self._log,
+            event=f"{self._config.log_prefix}.handshake",
+            endpoint=endpoint,
+            enabled=enabled,
+        )
+        return cast(Mapping[str, object], result.payload)
 
     def iterate_all(
         self,

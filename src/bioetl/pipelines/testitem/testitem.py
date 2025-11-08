@@ -13,6 +13,8 @@ from structlog.stdlib import BoundLogger
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
+from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
+from bioetl.config.testitem import TestItemSourceParameters
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
@@ -63,9 +65,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
-        *,
-        source_config: TestItemSourceConfig,
         log: BoundLogger | None = None,
+        *,
+        source_config: (
+            ChemblPipelineSourceConfig[TestItemSourceParameters]
+            | TestItemSourceConfig
+            | None
+        ) = None,
     ) -> str | None:
         """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
 
@@ -76,32 +82,35 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         else:
             bound_log = log
 
-        request_timestamp = datetime.now(timezone.utc)
+        resolved_source_config = source_config
+        if resolved_source_config is None:
+            source_raw = self._resolve_source_config("chembl")
+            resolved_source_config = TestItemSourceConfig.from_source_config(source_raw)
 
-        payload = self.perform_source_handshake(
+        handshake_result = self.perform_source_handshake(
             client,
-            source_config=source_config,
+            source_config=resolved_source_config,
             log=bound_log,
             event="chembl_testitem.handshake",
         )
+        payload: Mapping[str, Any] = handshake_result.payload
 
-        release_value = self.chembl_release
+        release_value = handshake_result.release
         api_version: str | None = None
-        if isinstance(payload, Mapping):
-            api_candidate = payload.get("api_version")
-            if isinstance(api_candidate, str) and api_candidate.strip():
-                api_version = api_candidate
-            if release_value is None:
-                extracted_release = self._extract_chembl_release(payload)
-                if extracted_release:
-                    release_value = extracted_release
-                    self._update_release(extracted_release)
+        api_candidate = payload.get("api_version")
+        if isinstance(api_candidate, str) and api_candidate.strip():
+            api_version = api_candidate
+        if release_value is None:
+            extracted_release = self._extract_chembl_release(payload)
+            if extracted_release:
+                release_value = extracted_release
+                self._update_release(extracted_release)
 
         self._chembl_db_version = release_value
         self._api_version = api_version
         self.record_extract_metadata(
             chembl_release=release_value,
-            requested_at_utc=request_timestamp,
+            requested_at_utc=handshake_result.requested_at_utc,
         )
 
         return release_value
@@ -169,8 +178,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        page_size = self._resolve_page_size(source_config.page_size, limit)
         limit = self.config.cli.limit
+        page_size = self._resolve_page_size(source_config.page_size, limit)
         select_fields = source_config.parameters.select_fields
         if select_fields is not None:
             select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))

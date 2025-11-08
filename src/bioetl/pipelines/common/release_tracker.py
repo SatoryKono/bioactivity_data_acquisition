@@ -1,13 +1,28 @@
-"""Reusable helpers for отслеживания релиза ChEMBL на уровне пайплайнов.
-
-Mixin предоставляет единое хранение и обновление `chembl_release` для всех
-ChEMBL-пайплайнов и итераторов, устраняя дублирование кода в отдельных
-классах.
-"""
+"""Унифицированное управление ChEMBL release для пайплайнов и итераторов."""
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, ClassVar, Protocol, cast, runtime_checkable
+
+from structlog.stdlib import BoundLogger
+
+__all__ = [
+    "ChemblHandshakeResult",
+    "ChemblReleaseMixin",
+    "ChemblReleaseTracker",
+]
+
+
+@dataclass(frozen=True)
+class ChemblHandshakeResult:
+    """Результат handshake-запроса к ChEMBL."""
+
+    payload: dict[str, Any]
+    release: str | None
+    requested_at_utc: datetime
 
 
 @runtime_checkable
@@ -18,16 +33,22 @@ class ChemblReleaseTracker(Protocol):
 
     @property
     def chembl_release(self) -> str | None:
-        """Возвращает кешированный номер релиза ChEMBL."""
+        """Вернуть кешированный номер релиза ChEMBL."""
 
     def _update_release(self, value: str | None) -> None:
-        """Обновляет кеш релиза ChEMBL."""
+        """Обновить кеш релиза ChEMBL."""
 
 
 class ChemblReleaseMixin:
-    """Mixin с реализацией `ChemblReleaseTracker`."""
+    """Mixin с реализацией отслеживания ChEMBL release и handshake-хелперами."""
 
     _chembl_release: str | None
+    _RELEASE_KEYS: ClassVar[tuple[str, ...]] = (
+        "chembl_release",
+        "chembl_db_version",
+        "release",
+        "version",
+    )
 
     def __init__(self, *args: object, **kwargs: object) -> None:
         self._chembl_release = None
@@ -35,12 +56,174 @@ class ChemblReleaseMixin:
 
     @property
     def chembl_release(self) -> str | None:
-        """Возвращает актуальный релиз ChEMBL, если он был зафиксирован."""
+        """Вернуть актуальный релиз ChEMBL (если он был зафиксирован)."""
 
         return self._chembl_release
 
     def _update_release(self, value: str | None) -> None:
-        """Сохраняет номер релиза ChEMBL (может быть None при сбое handshake)."""
+        """Сохранить номер релиза ChEMBL (None допустимо при ошибках handshake)."""
 
-        self._chembl_release = value if value else None
+        self._chembl_release = self._normalize_release(value)
+
+    def perform_chembl_handshake(
+        self,
+        handshake_target: Any,
+        *,
+        log: BoundLogger,
+        event: str,
+        endpoint: str,
+        enabled: bool,
+        release_attr_fallback: str = "chembl_release",
+    ) -> ChemblHandshakeResult:
+        """Выполнить handshake с клиентом ChEMBL и обновить кеш релиза.
+
+        Parameters
+        ----------
+        handshake_target:
+            Объект с методом `handshake(endpoint=..., enabled=...)`.
+        log:
+            Структурный логгер для фиксирования событий handshake.
+        event:
+            Имя события для логирования (например, ``"chembl_assay.handshake"``).
+        endpoint:
+            Endpoint, по которому выполняется handshake.
+        enabled:
+            Флаг включенности handshake согласно конфигурации.
+        release_attr_fallback:
+            Имя атрибута handshake_target, из которого можно взять релиз,
+            если payload его не содержит.
+
+        Returns
+        -------
+        ChemblHandshakeResult
+            Структура с payload, релизом и временем запроса.
+        """
+
+        requested_at = datetime.now(timezone.utc)
+
+        handshake_method = getattr(handshake_target, "handshake", None)
+        if not callable(handshake_method):
+            log.debug(
+                f"{event}.skipped",
+                reason="handshake_method_missing",
+                handshake_endpoint=endpoint,
+            )
+            fallback_release = self._extract_fallback_release(
+                handshake_target,
+                release_attr_fallback=release_attr_fallback,
+            )
+            if fallback_release is not None:
+                self._update_release(fallback_release)
+            return ChemblHandshakeResult(
+                payload={},
+                release=self.chembl_release,
+                requested_at_utc=requested_at,
+            )
+
+        if not enabled:
+            log.info(
+                f"{event}.skipped",
+                handshake_enabled=False,
+                handshake_endpoint=endpoint,
+            )
+            return ChemblHandshakeResult(
+                payload={},
+                release=self.chembl_release,
+                requested_at_utc=requested_at,
+            )
+
+        raw_payload = self._invoke_handshake(
+            handshake_method,
+            endpoint=endpoint,
+            enabled=enabled,
+        )
+        payload = self._coerce_mapping(raw_payload)
+        release = self._extract_chembl_release(payload)
+
+        if release is not None:
+            self._update_release(release)
+        else:
+            fallback_release = self._extract_fallback_release(
+                handshake_target,
+                release_attr_fallback=release_attr_fallback,
+            )
+            if fallback_release is not None:
+                self._update_release(fallback_release)
+
+        log.info(
+            event,
+            chembl_release=self.chembl_release,
+            handshake_endpoint=endpoint,
+            handshake_enabled=enabled,
+        )
+        return ChemblHandshakeResult(
+            payload=payload,
+            release=self.chembl_release,
+            requested_at_utc=requested_at,
+        )
+
+    @staticmethod
+    def _normalize_release(value: Any) -> str | None:
+        """Привести значение релиза к каноническому виду."""
+
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            value = str(value)
+        normalized = value.strip()
+        return normalized or None
+
+    @staticmethod
+    def _stringify_mapping(mapping: Mapping[object, Any]) -> dict[str, Any]:
+        """Вернуть отображение с ключами-строками."""
+
+        return {str(key): value for key, value in mapping.items()}
+
+    @classmethod
+    def _coerce_mapping(cls, payload: Any) -> dict[str, Any]:
+        """Привести payload к словарю со строковыми ключами."""
+
+        if isinstance(payload, Mapping):
+            mapping = cast(Mapping[object, Any], payload)
+            return cls._stringify_mapping(mapping)
+        return {}
+
+    @classmethod
+    def _extract_chembl_release(cls, payload: Mapping[str, Any]) -> str | None:
+        """Извлечь номер релиза из payload."""
+
+        for key in cls._RELEASE_KEYS:
+            candidate = payload.get(key)
+            normalized = cls._normalize_release(candidate)
+            if normalized is not None:
+                return normalized
+        return None
+
+    @staticmethod
+    def _invoke_handshake(
+        handshake_callable: Callable[..., Any],
+        *,
+        endpoint: str,
+        enabled: bool,
+    ) -> Mapping[str, Any]:
+        """Безопасно вызвать handshake с поддержкой исторических сигнатур."""
+
+        try:
+            result = handshake_callable(endpoint=endpoint, enabled=enabled)
+        except TypeError:
+            result = handshake_callable(endpoint=endpoint)
+        return cast(Mapping[str, Any], result)
+
+    def _extract_fallback_release(
+        self,
+        handshake_target: Any,
+        *,
+        release_attr_fallback: str,
+    ) -> str | None:
+        """Получить релиз из запасного атрибута клиента."""
+
+        if not release_attr_fallback:
+            return None
+        candidate = getattr(handshake_target, release_attr_fallback, None)
+        return self._normalize_release(candidate)
 

@@ -1923,22 +1923,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return record
 
     @staticmethod
-    def _coerce_mapping(payload: Any) -> dict[str, Any]:
-        if isinstance(payload, Mapping):
-            return cast(dict[str, Any], payload)
-        return {}
-
-    @staticmethod
-    def _extract_chembl_release(payload: Mapping[str, Any]) -> str | None:
-        for key in ("chembl_release", "chembl_db_version", "release", "version"):
-            value = payload.get(key)
-            if isinstance(value, str) and value.strip():
-                return value
-            if value is not None:
-                return str(value)
-        return None
-
-    @staticmethod
     def _extract_page_items(
         payload: Mapping[str, Any],
         items_keys: Sequence[str] | None = None,
