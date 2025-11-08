@@ -16,6 +16,8 @@ from typing import Any
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .utils import coerce_bool
+
 
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 
@@ -63,17 +65,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("offline_chembl_client", mode="before")
     @classmethod
     def _coerce_bool(cls, value: Any) -> bool:
-        if isinstance(value, bool):
-            return value
-        if value is None:
-            return False
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"1", "true", "yes", "on"}:
-                return True
-            if normalized in {"0", "false", "no", "off"}:
-                return False
-        return bool(value)
+        return coerce_bool(value)
 
     @field_validator("pubmed_tool")
     @classmethod

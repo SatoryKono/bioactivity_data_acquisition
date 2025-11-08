@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import pytest
 
+from pydantic import SecretStr
+
 from bioetl.config import apply_runtime_overrides, load_environment_settings
+from bioetl.config.environment import EnvironmentSettings
 
 
 @pytest.mark.unit
@@ -67,4 +70,22 @@ def test_apply_runtime_overrides_preserves_existing(monkeypatch: pytest.MonkeyPa
 
     assert "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL" not in applied
     assert existing_env["BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL"] == "custom"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("on", True),
+        ("Off", False),
+        (SecretStr("yes"), True),
+        (SecretStr("0"), False),
+    ],
+)
+def test_environment_settings_offline_chembl_client(raw: object, expected: bool) -> None:
+    """The offline client flag relies on the shared boolean coercion."""
+
+    settings = EnvironmentSettings(BIOETL_OFFLINE_CHEMBL_CLIENT=raw)
+
+    assert settings.offline_chembl_client is expected
 
