@@ -18,15 +18,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any, Callable, cast
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, cast
 
 JSON_PRIMITIVE_TYPES: tuple[type[Any], ...] = (str, int, float, bool, type(None))
 
-Predicate = Callable[[Any], bool]
+Predicate = Callable[[object], bool]
 
 
-def is_iterable(obj: Any, /, *, exclude_str: bool = True) -> bool:
+def is_iterable(obj: object, /, *, exclude_str: bool = True) -> bool:
     """Проверить, что объект итерируем, опираясь на вызов ``iter(obj)``.
 
     ``isinstance(obj, Iterable)`` не считается достаточным критерием: объекты,
@@ -58,7 +58,7 @@ def is_iterable(obj: Any, /, *, exclude_str: bool = True) -> bool:
 
 
 def assert_iterable(
-    obj: Any,
+    obj: object,
     /,
     *,
     exclude_str: bool = True,
@@ -75,7 +75,7 @@ def assert_iterable(
     return cast(Iterable[Any], obj)
 
 
-def is_list_of(obj: Any, predicate: Predicate) -> bool:
+def is_list_of(obj: object, predicate: Predicate) -> bool:
     """Проверить, что объект — список, чьи элементы удовлетворяют предикату."""
 
     if not isinstance(obj, list):
@@ -84,7 +84,7 @@ def is_list_of(obj: Any, predicate: Predicate) -> bool:
 
 
 def assert_list_of(
-    obj: Any,
+    obj: object,
     predicate: Predicate,
     *,
     argument_name: str = "value",
@@ -96,8 +96,10 @@ def assert_list_of(
         msg = f"{argument_name} должен быть list, получено {type(obj)!r}"
         raise TypeError(msg)
 
+    obj_list: list[Any] = cast(list[Any], obj)
+
     violations: list[int] = []
-    for index, element in enumerate(obj):
+    for index, element in enumerate(obj_list):
         if not predicate(element):
             violations.append(index)
 
@@ -109,17 +111,17 @@ def assert_list_of(
         )
         raise ValueError(msg)
 
-    return obj
+    return obj_list
 
 
-def is_json_mapping(obj: Any) -> bool:
+def is_json_mapping(obj: object) -> bool:
     """Проверить, что объект — JSON-подобный словарь с ключами-строками."""
 
     return _is_json_mapping_internal(obj, seen_ids=set())
 
 
 def assert_json_mapping(
-    obj: Any,
+    obj: object,
     *,
     argument_name: str = "value",
 ) -> Mapping[str, Any]:
@@ -132,7 +134,7 @@ def assert_json_mapping(
     return mapping
 
 
-def _is_json_mapping_internal(obj: Any, *, seen_ids: set[int]) -> bool:
+def _is_json_mapping_internal(obj: object, *, seen_ids: set[int]) -> bool:
     if not isinstance(obj, Mapping):
         return False
 
@@ -141,8 +143,10 @@ def _is_json_mapping_internal(obj: Any, *, seen_ids: set[int]) -> bool:
         return False
     seen_ids.add(obj_id)
 
-    for key, value in obj.items():
-        if not isinstance(key, str):
+    mapping_obj: Mapping[object, object] = cast(Mapping[object, object], obj)
+
+    for key_obj, value in mapping_obj.items():
+        if not isinstance(key_obj, str):
             return False
         if not _is_json_value(value, seen_ids=seen_ids):
             return False
@@ -150,15 +154,17 @@ def _is_json_mapping_internal(obj: Any, *, seen_ids: set[int]) -> bool:
     return True
 
 
-def _is_json_value(value: Any, *, seen_ids: set[int]) -> bool:
+def _is_json_value(value: object, *, seen_ids: set[int]) -> bool:
     if isinstance(value, JSON_PRIMITIVE_TYPES):
         return True
 
     if isinstance(value, list):
-        return all(_is_json_value(element, seen_ids=seen_ids) for element in value)
+        list_value: list[object] = cast(list[object], value)
+        return all(_is_json_value(element, seen_ids=seen_ids) for element in list_value)
 
     if isinstance(value, Mapping):
-        return _is_json_mapping_internal(value, seen_ids=seen_ids)
+        mapping_value: Mapping[object, object] = cast(Mapping[object, object], value)
+        return _is_json_mapping_internal(mapping_value, seen_ids=seen_ids)
 
     return False
 
