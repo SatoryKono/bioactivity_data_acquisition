@@ -4,6 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from pydantic import ValidationError
+
+from bioetl.config.models import (
+    DeterminismConfig,
+    DeterminismSortingConfig,
+    HTTPClientConfig,
+)
 from bioetl.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
 from bioetl.config.models.logging import LoggingConfig
 from bioetl.config.models.runtime import RuntimeConfig
@@ -56,3 +63,34 @@ def test_telemetry_config_sampling() -> None:
     assert config.exporter == "jaeger"
     assert config.endpoint == "http://localhost:14268"
     assert pytest.approx(config.sampling_ratio) == 0.5
+
+
+@pytest.mark.unit
+def test_determinism_config_validates_sort_lengths() -> None:
+    with pytest.raises(
+        ValueError, match="determinism.sort.ascending must be empty or match determinism.sort.by length"
+    ):
+        DeterminismConfig(
+            sort=DeterminismSortingConfig(by=["id"], ascending=[True, False])
+        )
+
+
+@pytest.mark.unit
+def test_determinism_config_detects_duplicate_columns() -> None:
+    with pytest.raises(ValueError, match="determinism.sort.by must not contain duplicate columns"):
+        DeterminismConfig(sort=DeterminismSortingConfig(by=["id", "id"]))
+
+    with pytest.raises(ValueError, match="determinism.column_order must not contain duplicate columns"):
+        DeterminismConfig(column_order=("id", "id"))
+
+
+@pytest.mark.unit
+def test_http_client_config_defaults_and_extra_fields() -> None:
+    config = HTTPClientConfig()
+
+    assert config.timeout_sec == 60.0
+    assert config.headers["User-Agent"] == "BioETL/1.0 (UnifiedAPIClient)"
+    assert config.rate_limit.max_calls == 10
+
+    with pytest.raises(ValidationError):
+        HTTPClientConfig(unknown_option=True)  # type: ignore[arg-type]

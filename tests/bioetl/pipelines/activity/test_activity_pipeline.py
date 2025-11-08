@@ -527,7 +527,7 @@ class TestChemblActivityPipelineTransformations:
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        pipeline._chembl_release = "33"  # type: ignore[reportPrivateUsage]
+        pipeline._update_release("33")  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [1, 2, 3]})
 
@@ -572,7 +572,7 @@ class TestChemblActivityPipelineTransformations:
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        pipeline._chembl_release = "33"  # type: ignore[reportPrivateUsage]
+        pipeline._update_release("33")  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [10, 11]})
         client = MagicMock()
@@ -608,7 +608,7 @@ class TestChemblActivityPipelineTransformations:
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
-        pipeline._chembl_release = "34"  # type: ignore[reportPrivateUsage]
+        pipeline._update_release("34")  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [42]})
         client = MagicMock()

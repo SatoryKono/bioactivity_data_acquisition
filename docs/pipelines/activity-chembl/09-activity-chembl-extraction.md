@@ -918,6 +918,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 | ACTIVITY.activity_properties | activity_properties | string | [{"type":"IC50","relation":"=","units":"nM","value":10.0,"text_value":null,"result_flag":true}] | normalized json array | каждый объект содержит только {type, relation, units, value, text_value, result_flag} | /activity | - |
 
 | ACTIVITY.compound_key | compound_key | string | CHEMBL998\|Ki\|CHEMBL231 | concat | len<=256 | derived | бизнес-ключ |
+| META.chembl_release | chembl_release | string | CHEMBL_36 | фиксируется через ChemblReleaseMixin | not null | /status.json | унифицировано (ChemblReleaseMixin) |
 
 ### Дополнительные поля (enrichment из связанных источников)
 

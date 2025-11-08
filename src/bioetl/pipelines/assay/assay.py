@@ -123,13 +123,6 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._chembl_release: str | None = None
-
-    @property
-    def chembl_release(self) -> str | None:
-        """Return the cached ChEMBL release captured during extraction."""
-
-        return self._chembl_release
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -183,17 +176,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             max_url_length=source_config.max_url_length,
         )
 
-        assay_client.handshake(
-            endpoint=source_config.parameters.handshake_endpoint,
-            enabled=source_config.parameters.handshake_enabled,
-        )
-        self._chembl_release = assay_client.chembl_release
-
-        log.info(
-            "chembl_assay.handshake",
-            chembl_release=self._chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
-            handshake_enabled=source_config.parameters.handshake_enabled,
+        self.perform_source_handshake(
+            assay_client,
+            source_config=source_config,
+            log=log,
+            event="chembl_assay.handshake",
         )
 
         if self.config.cli.dry_run:
@@ -202,7 +189,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "chembl_assay.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -236,7 +223,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             key: value for key, value in filters_payload.items() if value is not None
         }
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -271,7 +258,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     missing_fields=missing_in_response,
                     requested_fields_count=len(select_fields),
                     received_fields_count=len(actual_fields),
-                    chembl_release=self._chembl_release,
+                    chembl_release=self.chembl_release,
                     message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
                 )
 
@@ -283,8 +270,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             "chembl_assay.extract_summary",
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
+            chembl_release=self.chembl_release,
+            handshake_endpoint=source_config.handshake_endpoint,
             limit=limit,
         )
         return dataframe
@@ -324,17 +311,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             max_url_length=source_config.max_url_length,
         )
 
-        assay_client.handshake(
-            endpoint=source_config.parameters.handshake_endpoint,
-            enabled=source_config.parameters.handshake_enabled,
-        )
-        self._chembl_release = assay_client.chembl_release
-
-        log.info(
-            "chembl_assay.handshake",
-            chembl_release=self._chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
-            handshake_enabled=source_config.parameters.handshake_enabled,
+        self.perform_source_handshake(
+            assay_client,
+            source_config=source_config,
+            log=log,
+            event="chembl_assay.handshake",
         )
 
         if self.config.cli.dry_run:
@@ -343,7 +324,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "chembl_assay.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -371,7 +352,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_id_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -406,7 +387,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     missing_fields=missing_in_response,
                     requested_fields_count=len(select_fields),
                     received_fields_count=len(actual_fields),
-                    chembl_release=self._chembl_release,
+                    chembl_release=self.chembl_release,
                     message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
                 )
 
@@ -419,7 +400,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             limit=limit,
         )
         return dataframe
@@ -739,14 +720,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     log.warning(
                         "missing_field_not_requested",
                         column=column,
-                        chembl_release=self._chembl_release,
+                        chembl_release=self.chembl_release,
                         message=f"Field {column} not found in API response and was not requested in select_fields",
                     )
                 else:
                     log.warning(
                         "missing_field_in_response",
                         column=column,
-                        chembl_release=self._chembl_release,
+                        chembl_release=self.chembl_release,
                         message=f"Field {column} was requested but not found in API response",
                     )
 
@@ -765,7 +746,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                         "missing_column_not_requested",
                         column=column,
                         version_introduced=version,
-                        chembl_release=self._chembl_release,
+                        chembl_release=self.chembl_release,
                         message=f"Column {column} not found in API response and was not requested in select_fields, setting to NULL",
                     )
                 else:
@@ -773,7 +754,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                         "missing_optional_column",
                         column=column,
                         version_introduced=version,
-                        chembl_release=self._chembl_release,
+                        chembl_release=self.chembl_release,
                         message=f"Column {column} not found in API response, setting to NULL",
                     )
 
@@ -785,7 +766,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 missing_in_select_fields=sorted(missing_in_select_fields)
                 if missing_in_select_fields
                 else None,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
 
         return df

@@ -78,7 +78,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -86,7 +86,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -111,7 +111,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             key: value for key, value in filters_payload.items() if value is not None
         }
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -134,7 +134,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             "chembl_target.extract_summary",
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             limit=limit,
         )
         return dataframe
@@ -163,7 +163,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -171,7 +171,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -188,7 +188,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_id_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -236,7 +236,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             limit=limit,
         )
         return dataframe

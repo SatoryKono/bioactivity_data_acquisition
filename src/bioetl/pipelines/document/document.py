@@ -83,18 +83,25 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client(
+        http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
         )
 
-        self._chembl_release = self.fetch_chembl_release(client, log)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        self.perform_source_handshake(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+            event="chembl_document.handshake",
+        )
 
-        batch_size = source_config.batch_size
         limit = self.config.cli.limit
-        page_size = min(batch_size, 25)
-        if limit is not None:
-            page_size = min(page_size, limit)
-        page_size = max(page_size, 1)
+        page_size = self._resolve_page_size(source_config.page_size, limit)
 
         select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
@@ -113,6 +120,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             "limit": int(limit) if limit is not None else None,
             "page_size": page_size,
             "select_fields": list(select_fields),
+            "max_url_length": source_config.max_url_length,
         }
         if parameter_filters:
             filters_payload["parameters"] = parameter_filters
@@ -120,7 +128,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             key: value for key, value in filters_payload.items() if value is not None
         }
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -128,7 +136,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         while next_endpoint:
             page_start = time.perf_counter()
-            response = client.get(next_endpoint, params=params)
+            response = http_client.get(next_endpoint, params=params)
             payload = self._coerce_mapping(response.json())
             page_items = self._extract_page_items(
                 payload, items_keys=("documents", "data", "items", "results")
@@ -179,7 +187,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             "chembl_document.extract_summary",
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             pages=pages,
         )
         return dataframe
@@ -203,11 +211,22 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client(
+        http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
         )
 
-        self._chembl_release = self.fetch_chembl_release(client, log)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        self.perform_source_handshake(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+            event="chembl_document.handshake",
+        )
 
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
@@ -221,23 +240,25 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             "mode": "ids",
             "requested_ids": [str(value) for value in ids],
             "limit": int(self.config.cli.limit) if self.config.cli.limit is not None else None,
-            "batch_size": source_config.batch_size,
+            "page_size": source_config.page_size,
+            "max_url_length": source_config.max_url_length,
             "select_fields": list(select_fields),
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             filters=compact_id_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        batch_dataframe = self.extract_ids_paginated(
+        batch_dataframe: pd.DataFrame = self.extract_ids_paginated(
             ids,
             endpoint="/document.json",
             id_column="document_chembl_id",
             id_param_name="document_chembl_id__in",
-            client=client,
-            batch_size=source_config.batch_size,
+            client=http_client,
+            page_size=source_config.page_size,
+            max_url_length=source_config.max_url_length,
             limit=self.config.cli.limit,
             select_fields=select_fields,
             items_keys=("documents", "data", "items", "results"),
@@ -251,7 +272,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             rows=int(batch_dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             batches=batch_stats.get("batches"),
             api_calls=batch_stats.get("api_calls"),
             cache_hits=batch_stats.get("cache_hits"),

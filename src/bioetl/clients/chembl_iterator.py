@@ -9,6 +9,7 @@ from urllib.parse import urlencode
 
 from bioetl.clients.chembl_base import EntityConfig
 from bioetl.core.logger import UnifiedLogger
+from bioetl.pipelines.common.release_tracker import ChemblReleaseMixin
 
 # ChemblClient is dynamically loaded in __init__.py, so we use Any for type checking
 # Import is done at runtime to avoid circular dependencies
@@ -16,7 +17,7 @@ from bioetl.core.logger import UnifiedLogger
 __all__ = ["ChemblEntityIterator"]
 
 
-class ChemblEntityIterator:
+class ChemblEntityIterator(ChemblReleaseMixin):
     """Базовый класс для итерации по сущностям ChEMBL.
 
     Предоставляет унифицированный интерфейс для итерации по записям
@@ -45,6 +46,7 @@ class ChemblEntityIterator:
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
+        super().__init__()
         if batch_size <= 0:
             msg = "batch_size must be a positive integer"
             raise ValueError(msg)
@@ -58,22 +60,10 @@ class ChemblEntityIterator:
         self._config = config
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
-        self._chembl_release: str | None = None
         self._log = UnifiedLogger.get(__name__).bind(
             component="chembl_iterator",
             entity=config.log_prefix,
         )
-
-    @property
-    def chembl_release(self) -> str | None:
-        """Вернуть ChEMBL release, полученный во время handshake.
-
-        Returns
-        -------
-        str | None:
-            Версия ChEMBL release или None, если handshake не выполнялся.
-        """
-        return self._chembl_release
 
     @property
     def chembl_client(self) -> Any:
@@ -119,7 +109,9 @@ class ChemblEntityIterator:
         payload = self._chembl_client.handshake(endpoint)
         release = payload.get("chembl_db_version")
         if isinstance(release, str):
-            self._chembl_release = release
+            self._update_release(release)
+        else:
+            self._update_release(None)
 
         return cast(Mapping[str, object], payload)
 

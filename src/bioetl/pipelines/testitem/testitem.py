@@ -63,9 +63,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
+        *,
+        source_config: TestItemSourceConfig,
         log: BoundLogger | None = None,
     ) -> str | None:
-        """Capture ChEMBL release and API version from status endpoint."""
+        """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
 
         if log is None:
             bound_log: BoundLogger = UnifiedLogger.get(__name__).bind(
@@ -75,41 +77,32 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             bound_log = log
 
         request_timestamp = datetime.now(timezone.utc)
-        release_value: str | None = None
+
+        payload = self.perform_source_handshake(
+            client,
+            source_config=source_config,
+            log=bound_log,
+            event="chembl_testitem.handshake",
+        )
+
+        release_value = self.chembl_release
         api_version: str | None = None
+        if isinstance(payload, Mapping):
+            api_candidate = payload.get("api_version")
+            if isinstance(api_candidate, str) and api_candidate.strip():
+                api_version = api_candidate
+            if release_value is None:
+                extracted_release = self._extract_chembl_release(payload)
+                if extracted_release:
+                    release_value = extracted_release
+                    self._update_release(extracted_release)
 
-        try:
-            status_payload: dict[str, Any] = {}
-            handshake_candidate = getattr(client, "handshake", None)
-            if callable(handshake_candidate):
-                status_payload = self._coerce_mapping(handshake_candidate("/status"))
-            else:
-                get_candidate = getattr(client, "get", None)
-                if callable(get_candidate):
-                    response = get_candidate("/status.json")
-                    json_candidate = getattr(response, "json", None)
-                    if callable(json_candidate):
-                        status_payload = self._coerce_mapping(json_candidate())
-
-            if status_payload:
-                release_value = self._extract_chembl_release(status_payload)
-                api_candidate = status_payload.get("api_version")
-                if isinstance(api_candidate, str) and api_candidate.strip():
-                    api_version = api_candidate
-                bound_log.info(
-                    "chembl_testitem.status",
-                    chembl_db_version=release_value,
-                    api_version=api_version,
-                )
-        except Exception as exc:  # noqa: BLE001
-            bound_log.warning("chembl_testitem.status_failed", error=str(exc))
-        finally:
-            self._chembl_db_version = release_value
-            self._api_version = api_version
-            self.record_extract_metadata(
-                chembl_release=release_value,
-                requested_at_utc=request_timestamp,
-            )
+        self._chembl_db_version = release_value
+        self._api_version = api_version
+        self.record_extract_metadata(
+            chembl_release=release_value,
+            requested_at_utc=request_timestamp,
+        )
 
         return release_value
 
@@ -159,7 +152,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        self._fetch_chembl_release(chembl_client, log)
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -172,7 +169,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        page_size = source_config.page_size
+        page_size = self._resolve_page_size(source_config.page_size, limit)
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
         if select_fields is not None:
@@ -180,8 +177,26 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         log.debug("chembl_testitem.select_fields", fields=select_fields)
         records: list[Mapping[str, Any]] = []
 
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields) if select_fields else None,
+            "max_url_length": source_config.max_url_length,
+        }
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
+
         # Используем специализированный клиент для testitem (molecule)
-        testitem_client = ChemblTestitemClient(chembl_client, batch_size=min(page_size, 25))
+        testitem_client = ChemblTestitemClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
         for item in testitem_client.iterate_all(
             limit=limit,
             page_size=page_size,
@@ -235,7 +250,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        self._fetch_chembl_release(chembl_client, log)
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -249,44 +268,37 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             return pd.DataFrame()
 
         page_size = source_config.page_size
-        # Ensure page_size <= 25 for ChEMBL API URL length limit
-        page_size = min(page_size, 25)
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
         if select_fields is not None:
             select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
         log.debug("chembl_testitem.select_fields", fields=select_fields)
 
+        filters_payload = {
+            "mode": "ids",
+            "requested_ids": [str(identifier) for identifier in ids],
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "max_url_length": source_config.max_url_length,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
+
         records: list[Mapping[str, Any]] = []
-        ids_list = list(ids)
-
-        # Process IDs in chunks to avoid URL length limits
-        chunk_size = min(page_size, 25)  # Conservative limit for molecule_chembl_id__in
-        for i in range(0, len(ids_list), chunk_size):
-            chunk = ids_list[i : i + chunk_size]
-            params: dict[str, Any] = {
-                "molecule_chembl_id__in": ",".join(chunk),
-                "limit": min(page_size, 25),
-            }
-            if select_fields:
-                params["only"] = ",".join(select_fields)
-
-            try:
-                # Используем специализированный клиент для testitem (molecule)
-                testitem_client = ChemblTestitemClient(chembl_client, batch_size=min(page_size, 25))
-                for item in testitem_client.iterate_by_ids(chunk, select_fields=select_fields):
-                    records.append(item)
-                    if limit is not None and len(records) >= limit:
-                        break
-            except Exception as exc:
-                log.warning(
-                    "chembl_testitem.fetch_error",
-                    molecule_count=len(chunk),
-                    error=str(exc),
-                    exc_info=True,
-                )
-
+        testitem_client = ChemblTestitemClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
+        for item in testitem_client.iterate_by_ids(ids, select_fields=select_fields):
+            records.append(item)
             if limit is not None and len(records) >= limit:
+                records = records[: int(limit)]
                 break
 
         dataframe = pd.DataFrame(records)

@@ -90,6 +90,43 @@ def _validate_output_dir(output_dir: Path) -> None:
         raise typer.Exit(code=2) from exc
 
 
+def _update_pipeline_config_from_cli(
+    pipeline_config: Any,
+    *,
+    dry_run: bool,
+    limit: int | None,
+    sample: int | None,
+    extended: bool,
+    golden: Path | None,
+    input_file: Path | None,
+    verbose: bool,
+    fail_on_schema_drift: bool,
+    validate_columns: bool,
+    output_dir: Path,
+) -> None:
+    """Apply CLI flag values to the mutable pipeline configuration."""
+
+    pipeline_config.cli.dry_run = dry_run
+    if limit is not None:
+        pipeline_config.cli.limit = limit
+    if sample is not None:
+        pipeline_config.cli.sample = sample
+
+    pipeline_config.cli.extended = extended
+    if golden is not None:
+        pipeline_config.cli.golden = str(golden)
+    if input_file is not None:
+        pipeline_config.cli.input_file = str(input_file)
+
+    pipeline_config.cli.verbose = verbose
+    pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
+    pipeline_config.cli.validate_columns = validate_columns
+    if not validate_columns:
+        pipeline_config.validation.strict = False
+
+    pipeline_config.materialization.root = str(output_dir)
+
+
 def create_pipeline_command(
     pipeline_class: type[PipelineBase],
     command_config: Any,  # CommandConfig from registry
@@ -229,24 +266,19 @@ def create_pipeline_command(
             )
             raise typer.Exit(code=2) from exc
 
-        # Apply CLI options to config
-        pipeline_config.cli.dry_run = dry_run
-        if limit is not None:
-            pipeline_config.cli.limit = limit
-        if sample is not None:
-            pipeline_config.cli.sample = sample
-        pipeline_config.cli.extended = extended
-        if golden is not None:
-            pipeline_config.cli.golden = str(golden)
-        if input_file is not None:
-            pipeline_config.cli.input_file = str(input_file)
-        pipeline_config.cli.verbose = verbose
-        pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
-        pipeline_config.cli.validate_columns = validate_columns
-        if not validate_columns:
-            pipeline_config.validation.strict = False
-
-        pipeline_config.materialization.root = str(output_dir)
+        _update_pipeline_config_from_cli(
+            pipeline_config,
+            dry_run=dry_run,
+            limit=limit,
+            sample=sample,
+            extended=extended,
+            golden=golden,
+            input_file=input_file,
+            verbose=verbose,
+            fail_on_schema_drift=fail_on_schema_drift,
+            validate_columns=validate_columns,
+            output_dir=output_dir,
+        )
 
         # Configure logging
         log_level = "DEBUG" if verbose else "INFO"

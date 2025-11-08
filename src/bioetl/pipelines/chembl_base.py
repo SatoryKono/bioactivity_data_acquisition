@@ -10,24 +10,33 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, cast
-from urllib.parse import urlparse
+from typing import Any, Protocol, cast
+from urllib.parse import urlencode, urlparse
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from bioetl.config.models.source import SourceConfig
+from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
+from .common.release_tracker import ChemblReleaseMixin
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
 
 
-class ChemblPipelineBase(PipelineBase):
+class ProcessItemFn(Protocol):
+    """Signature for per-item processing callbacks used in pagination."""
+
+    def __call__(self, __item: dict[str, Any]) -> dict[str, Any]:
+        ...
+
+
+class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
     This class provides common functionality for all ChEMBL pipelines,
@@ -47,12 +56,6 @@ class ChemblPipelineBase(PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
-        self._chembl_release: str | None = None
-
-    @property
-    def chembl_release(self) -> str | None:
-        """Return the cached ChEMBL release captured during extraction."""
-        return self._chembl_release
 
     # ------------------------------------------------------------------
     # Configuration resolution methods
@@ -307,6 +310,7 @@ class ChemblPipelineBase(PipelineBase):
             except Exception as exc:
                 log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
             finally:
+                self._update_release(release_value)
                 self.record_extract_metadata(
                     chembl_release=release_value,
                     requested_at_utc=request_timestamp,
@@ -329,11 +333,13 @@ class ChemblPipelineBase(PipelineBase):
             except Exception as exc:
                 log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
             finally:
+                self._update_release(release_value)
                 self.record_extract_metadata(
                     chembl_release=release_value,
                     requested_at_utc=request_timestamp,
                 )
             return release_value
+        self._update_release(None)
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
         return None
 
@@ -345,6 +351,53 @@ class ChemblPipelineBase(PipelineBase):
         """Backward compatible wrapper for tests expecting private method."""
 
         return self.fetch_chembl_release(client, log)
+
+    def perform_source_handshake(
+        self,
+        handshake_target: Any,
+        *,
+        source_config: ChemblPipelineSourceConfig[Any],
+        log: BoundLogger,
+        event: str,
+    ) -> Mapping[str, Any]:
+        """Выполнить handshake для переданного клиента и обновить release."""
+
+        handshake_method = getattr(handshake_target, "handshake", None)
+        if not callable(handshake_method):
+            log.debug(
+                f"{event}.skipped",
+                reason="handshake_method_missing",
+            )
+            return {}
+
+        if not source_config.handshake_enabled:
+            log.info(
+                f"{event}.skipped",
+                handshake_enabled=False,
+                handshake_endpoint=source_config.handshake_endpoint,
+            )
+            return {}
+
+        payload_raw = self._invoke_handshake(
+            handshake_method,
+            endpoint=source_config.handshake_endpoint,
+        )
+        payload = self._coerce_mapping(payload_raw)
+        release_value = self._extract_chembl_release(payload)
+        if release_value:
+            self._update_release(release_value)
+        else:
+            candidate_release = getattr(handshake_target, "chembl_release", None)
+            if isinstance(candidate_release, str):
+                self._update_release(candidate_release)
+
+        log.info(
+            event,
+            chembl_release=self.chembl_release,
+            handshake_endpoint=source_config.handshake_endpoint,
+            handshake_enabled=source_config.handshake_enabled,
+        )
+        return payload
 
     @staticmethod
     def _extract_chembl_release(payload: Mapping[str, Any]) -> str | None:
@@ -388,6 +441,20 @@ class ChemblPipelineBase(PipelineBase):
             mapping = cast(Mapping[object, Any], payload)
             return ChemblPipelineBase._stringify_mapping(mapping)
         return {}
+
+    @staticmethod
+    def _invoke_handshake(
+        handshake_callable: Callable[..., Any],
+        *,
+        endpoint: str,
+    ) -> Mapping[str, Any]:
+        """Вызывает handshake с поддержкой исторических сигнатур клиентов."""
+
+        try:
+            result = handshake_callable(endpoint=endpoint, enabled=True)
+        except TypeError:
+            result = handshake_callable(endpoint=endpoint)
+        return cast(Mapping[str, Any], result)
 
     @staticmethod
     def _extract_page_items(
@@ -508,7 +575,9 @@ class ChemblPipelineBase(PipelineBase):
         limit: int | None = None,
         select_fields: Sequence[str] | None = None,
         items_keys: Sequence[str] | None = None,
-        process_item: Any | None = None,
+        page_size: int | None = None,
+        max_url_length: int | None = None,
+        process_item: ProcessItemFn | None = None,
     ) -> pd.DataFrame:
         """Extract records by batching ID values with pagination support.
 
@@ -532,6 +601,10 @@ class ChemblPipelineBase(PipelineBase):
             Optional list of fields to select from the API.
         items_keys
             Optional keys to check for items in response (passed to _extract_page_items).
+        page_size
+            Optional explicit page size for batched requests. Defaults to config.
+        max_url_length
+            Optional explicit maximum URL length used to split batches.
         process_item
             Optional callable to process each item before adding to results.
 
@@ -543,13 +616,30 @@ class ChemblPipelineBase(PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
 
-        if batch_size is None:
-            source_config = self._resolve_source_config("chembl")
-            batch_size = self._resolve_batch_size(source_config)
+        source_config_raw = self._resolve_source_config("chembl")
+        chembl_source_config = cast(
+            ChemblPipelineSourceConfig[Any],
+            ChemblPipelineSourceConfig.from_source_config(source_config_raw),
+        )
 
-        # Ensure batch_size does not exceed ChEMBL API limit
-        batch_size = min(batch_size, 25)
-        batch_size = max(batch_size, 1)
+        defaults = ChemblPipelineSourceConfig.defaults
+        config_page_size = int(chembl_source_config.page_size)
+        effective_page_size = page_size if page_size is not None else config_page_size
+        base_batch_size = batch_size if batch_size is not None else effective_page_size
+        effective_size = self._resolve_page_size(
+            base_batch_size,
+            limit,
+            hard_cap=defaults.page_size_cap,
+        )
+        max_url_length_candidate: Any = getattr(chembl_source_config, "max_url_length", None)
+        config_max_url_length = (
+            int(max_url_length_candidate)
+            if isinstance(max_url_length_candidate, int)
+            else None
+        )
+        effective_max_url_length = (
+            max_url_length if max_url_length is not None else config_max_url_length
+        )
 
         # Extract unique IDs, filter out NaN, sort for determinism
         unique_ids = sorted({str(id_val) for id_val in ids if id_val and str(id_val).strip()})
@@ -563,42 +653,91 @@ class ChemblPipelineBase(PipelineBase):
         batches = 0
         api_calls = 0
 
-        for i in range(0, len(unique_ids), batch_size):
-            batch_ids = unique_ids[i : i + batch_size]
+        def _should_flush(candidate: Sequence[str]) -> bool:
+            if len(candidate) > effective_size:
+                return True
+            if effective_max_url_length is None:
+                return False
+            query_params: dict[str, str] = {id_param_name: ",".join(candidate)}
+            if select_fields:
+                query_params["only"] = ",".join(select_fields)
+            encoded: str = urlencode(query_params)
+            estimated_length = len(endpoint) + 1 + len(encoded)
+            return estimated_length > effective_max_url_length
+
+        current_batch: list[str] = []
+        for identifier in unique_ids:
+            candidate_batch = [*current_batch, identifier]
+            if current_batch and _should_flush(candidate_batch):
+                batches += 1
+                request_params: dict[str, Any] = {
+                    id_param_name: ",".join(current_batch),
+                    "limit": len(current_batch),
+                }
+                if select_fields:
+                    request_params["only"] = ",".join(select_fields)
+
+                limit_reached = False
+                try:
+                    response = client.get(endpoint, params=request_params)
+                    api_calls += 1
+                    payload = self._coerce_mapping(response.json())
+                    page_items = self._extract_page_items(payload, items_keys=items_keys)
+
+                    for item in page_items:
+                        processed_item = process_item(dict(item)) if process_item else dict(item)
+                        all_records.append(processed_item)
+
+                    if limit is not None and len(all_records) >= limit:
+                        all_records = all_records[:limit]
+                        limit_reached = True
+                        break
+
+                except Exception as exc:
+                    log.warning(
+                        "extract_ids_paginated.batch_error",
+                        batch_ids=current_batch,
+                        error=str(exc),
+                        exc_info=True,
+                    )
+                if limit_reached:
+                    break
+                current_batch = [identifier]
+                continue
+
+            current_batch = candidate_batch
+
+        if current_batch:
             batches += 1
 
-            params: dict[str, Any] = {
-                id_param_name: ",".join(batch_ids),
-                "limit": batch_size,
+            final_request_params: dict[str, Any] = {
+                id_param_name: ",".join(current_batch),
+                "limit": len(current_batch),
             }
             if select_fields:
-                params["only"] = ",".join(select_fields)
+                final_request_params["only"] = ",".join(select_fields)
 
             try:
-                response = client.get(endpoint, params=params)
+                response = client.get(endpoint, params=final_request_params)
                 api_calls += 1
                 payload = self._coerce_mapping(response.json())
                 page_items = self._extract_page_items(payload, items_keys=items_keys)
 
                 for item in page_items:
-                    if process_item:
-                        processed_item = process_item(dict(item))
-                    else:
-                        processed_item = dict(item)
+                    processed_item = process_item(dict(item)) if process_item else dict(item)
                     all_records.append(processed_item)
 
-                if limit is not None and len(all_records) >= limit:
-                    all_records = all_records[:limit]
-                    break
+                    if limit is not None and len(all_records) >= limit:
+                        all_records = all_records[:limit]
+                        break
 
             except Exception as exc:
                 log.warning(
                     "extract_ids_paginated.batch_error",
-                    batch_ids=batch_ids,
+                    batch_ids=current_batch,
                     error=str(exc),
                     exc_info=True,
                 )
-
         dataframe = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
         if dataframe.empty:
             dataframe = pd.DataFrame({id_column: pd.Series(dtype="string")})
@@ -606,13 +745,16 @@ class ChemblPipelineBase(PipelineBase):
             dataframe = dataframe.sort_values(id_column).reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - method_start) * 1000.0
-        log.info(
-            "extract_ids_paginated.summary",
-            rows=int(dataframe.shape[0]),
-            requested=len(unique_ids),
-            batches=batches,
-            api_calls=api_calls,
-            duration_ms=duration_ms,
-        )
+        summary: dict[str, int | float] = {
+            "rows": int(dataframe.shape[0]),
+            "requested": len(unique_ids),
+            "batches": batches,
+            "api_calls": api_calls,
+            "duration_ms": duration_ms,
+        }
+        log.info("extract_ids_paginated.summary", **summary)
+
+        if hasattr(self, "_last_batch_extract_stats"):
+            self._last_batch_extract_stats = summary  # pyright: ignore[reportAttributeAccessIssue]
 
         return dataframe

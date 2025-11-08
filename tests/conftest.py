@@ -297,3 +297,62 @@ def mock_chembl_responses_for_endpoint() -> (
         return mock_status_response, mock_data_response
 
     return _create_responses
+
+
+class _DummyLogger:
+    """Лёгкий логгер для подмены UnifiedLogger."""
+
+    def bind(self, *_: Any, **__: Any) -> "_DummyLogger":
+        return self
+
+    def info(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def debug(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def warning(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def error(self, *_: Any, **__: Any) -> None:
+        return None
+
+
+@pytest.fixture  # type: ignore[misc]
+def dummy_logger() -> _DummyLogger:
+    """Возвращает мок-логгер с методами info/warning."""
+
+    return _DummyLogger()
+
+
+@pytest.fixture  # type: ignore[misc]
+def patch_unified_logger(
+    monkeypatch: pytest.MonkeyPatch, dummy_logger: _DummyLogger
+) -> Callable[[Any], _DummyLogger]:
+    """Подменяет `UnifiedLogger` в целевом модуле и возвращает используемый мок."""
+
+    def _apply(module: Any) -> _DummyLogger:
+        monkeypatch.setattr(
+            module.UnifiedLogger,
+            "configure",
+            staticmethod(lambda *args, **kwargs: None),
+        )
+        monkeypatch.setattr(module.UnifiedLogger, "get", staticmethod(lambda *_: dummy_logger))
+        return dummy_logger
+
+    return _apply
+
+
+@pytest.fixture  # type: ignore[misc]
+def track_path_replace(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, Path]]:
+    """Отслеживает вызовы `Path.replace` и восстанавливает оригинал по завершении."""
+
+    calls: list[tuple[Path, Path]] = []
+    original_replace = Path.replace
+
+    def _tracking_replace(self: Path, target: Path) -> Path:
+        calls.append((self, target))
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", _tracking_replace, raising=False)
+    return calls
