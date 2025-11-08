@@ -24,7 +24,7 @@ These profiles are merged with pipeline-specific configs and CLI overrides to cr
 
 ## 2. Type-Safe Configuration
 
-All HTTP client settings are defined in the `PipelineConfig` Pydantic model (`[ref: repo:src/bioetl/config/models.py@refactoring_001]`). The newly created `configs/defaults/network.yaml` provides a standard set of these values.
+All HTTP client settings are defined in the `PipelineConfig` Pydantic model (`[ref: repo:src/bioetl/config/models/policies.py]`). The newly created `configs/defaults/network.yaml` provides a standard set of these values.
 
 **Key Configuration Fields (`APIConfig` in `api_client.py`):**
 

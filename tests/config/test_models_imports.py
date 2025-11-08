@@ -16,7 +16,7 @@ def test_legacy_models_reexports_pipeline_config() -> None:
     with pytest.warns(DeprecationWarning):
         legacy_module = importlib.import_module("bioetl.config.models")
 
-    from bioetl.config.models.base import PipelineConfig, PipelineMetadata
+    from bioetl.config.models.models import PipelineConfig, PipelineMetadata
 
     assert legacy_module.PipelineConfig is PipelineConfig
     assert legacy_module.PipelineMetadata is PipelineMetadata

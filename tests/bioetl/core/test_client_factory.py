@@ -7,9 +7,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.models import PipelineMetadata
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import SourceConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory
 

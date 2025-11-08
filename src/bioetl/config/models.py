@@ -4,10 +4,27 @@ from __future__ import annotations
 
 import warnings
 
-from .models.base import PipelineConfig, PipelineMetadata
-from .models.cache import CacheConfig
-from .models.cli import CLIConfig
-from .models.determinism import (
+from .models.models import (
+    CacheConfig,
+    CLIConfig,
+    IOConfig,
+    IOInputConfig,
+    IOOutputConfig,
+    LoggingConfig,
+    MaterializationConfig,
+    PathsConfig,
+    PipelineConfig,
+    PipelineMetadata,
+    PostprocessConfig,
+    PostprocessCorrelationConfig,
+    RuntimeConfig,
+    SourceConfig,
+    TelemetryConfig,
+    TransformConfig,
+    ValidationConfig,
+)
+from .models.policies import (
+    CircuitBreakerConfig,
     DeterminismConfig,
     DeterminismEnvironmentConfig,
     DeterminismHashColumnSchema,
@@ -17,25 +34,13 @@ from .models.determinism import (
     DeterminismSerializationConfig,
     DeterminismSortingConfig,
     DeterminismWriteConfig,
-)
-from .models.fallbacks import FallbacksConfig
-from .models.http import (
-    CircuitBreakerConfig,
+    FallbacksConfig,
     HTTPClientConfig,
     HTTPConfig,
     RateLimitConfig,
     RetryConfig,
     StatusCode,
 )
-from .models.io import IOConfig, IOInputConfig, IOOutputConfig
-from .models.logging import LoggingConfig
-from .models.paths import MaterializationConfig, PathsConfig
-from .models.postprocess import PostprocessConfig, PostprocessCorrelationConfig
-from .models.runtime import RuntimeConfig
-from .models.source import SourceConfig
-from .models.telemetry import TelemetryConfig
-from .models.transform import TransformConfig
-from .models.validation import ValidationConfig
 
 __all__ = [
     "PipelineConfig",
@@ -74,8 +79,8 @@ __all__ = [
 ]
 
 warnings.warn(
-    "Importing from 'bioetl.config.models' is deprecated; use modules under "
-    "'bioetl.config.models.*' instead.",
+    "Importing from 'bioetl.config.models' (module) is deprecated; use 'bioetl.config.models." \
+    "models' or 'bioetl.config.models.policies' instead.",
     DeprecationWarning,
     stacklevel=2,
 )
