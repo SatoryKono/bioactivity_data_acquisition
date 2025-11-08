@@ -9,7 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bioetl.config import load_config
+from bioetl.config import read_pipeline_config
 from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
 
@@ -218,7 +218,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -273,7 +273,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -326,7 +326,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=10)

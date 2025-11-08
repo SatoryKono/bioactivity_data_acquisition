@@ -9,6 +9,7 @@ basic integrity checks to ensure the dictionaries remain well-formed.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
@@ -142,8 +143,8 @@ def clear_vocab_store_cache() -> None:
     _load_vocab_store_cached.cache_clear()
 
 
-def load_vocab_store(path: str | Path) -> dict[str, Any]:
-    """Load a vocabulary store from a directory of YAML files or an aggregate file.
+def read_vocab_store(path: str | Path) -> dict[str, Any]:
+    """Read a vocabulary store from a directory of YAML files or an aggregate file.
 
     Parameters
     ----------
@@ -160,6 +161,18 @@ def load_vocab_store(path: str | Path) -> dict[str, Any]:
 
     normalized = _normalize_path(path)
     return _load_vocab_store_cached(str(normalized))
+
+
+def load_vocab_store(path: str | Path) -> dict[str, Any]:
+    """Deprecated wrapper for :func:`read_vocab_store`."""
+
+    warnings.warn(
+        "load_vocab_store() is deprecated and will be removed in a future release; "
+        "use read_vocab_store() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_vocab_store(path)
 
 
 def get_ids(
@@ -214,5 +227,6 @@ __all__ = [
     "VocabStoreError",
     "clear_vocab_store_cache",
     "get_ids",
+    "read_vocab_store",
     "load_vocab_store",
 ]

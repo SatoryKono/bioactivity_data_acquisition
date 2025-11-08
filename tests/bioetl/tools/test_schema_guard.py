@@ -74,7 +74,7 @@ def test_run_schema_guard_generates_report(
     activity_config_path = config_root / "activity.yaml"
     activity_config_path.write_text("dummy: value", encoding="utf-8")
 
-    def fake_load_config(path: Path) -> Any:
+    def fake_read_pipeline_config(path: Path) -> Any:
         if path.name == "activity.yaml":
             return SimpleNamespace(
                 pipeline=SimpleNamespace(name="activity"),
@@ -92,7 +92,7 @@ def test_run_schema_guard_generates_report(
     monkeypatch.setattr(schema_guard, "CONFIGS", config_root)
     monkeypatch.setattr(schema_guard, "ARTIFACTS_DIR", tmp_path / "artifacts")
     monkeypatch.setattr(schema_guard, "SCHEMA_REGISTRY", DummyRegistry())
-    monkeypatch.setattr("bioetl.config.loader.load_config", fake_load_config)
+    monkeypatch.setattr("bioetl.config.loader.read_pipeline_config", fake_read_pipeline_config)
     patch_unified_logger(schema_guard)
 
     results, registry_errors, report_path = schema_guard.run_schema_guard()

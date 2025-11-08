@@ -49,7 +49,7 @@ def test_build_vocab_store_success(
         },
     }
 
-    monkeypatch.setattr("bioetl.tools.build_vocab_store.load_vocab_store", lambda *_: store)
+    monkeypatch.setattr("bioetl.tools.build_vocab_store.read_vocab_store", lambda *_: store)
 
     output_path = tmp_path / "aggregated.yaml"
     result_path = build_vocab_store(tmp_path / "vocab", output_path)
@@ -73,7 +73,7 @@ def test_build_vocab_store_inconsistent_release(monkeypatch: pytest.MonkeyPatch)
         "dictionary_a": {"meta": {"chembl_release": "34"}, "values": []},
         "dictionary_b": {"meta": {"chembl_release": "35"}, "values": []},
     }
-    monkeypatch.setattr("bioetl.tools.build_vocab_store.load_vocab_store", lambda *_: store)
+    monkeypatch.setattr("bioetl.tools.build_vocab_store.read_vocab_store", lambda *_: store)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.clear_vocab_store_cache", lambda: None)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.UnifiedLogger.configure", lambda: None)
     monkeypatch.setattr(
@@ -90,7 +90,7 @@ def test_build_vocab_store_invalid_meta_section(monkeypatch: pytest.MonkeyPatch)
     """Ошибка при неверном типе meta-секции словаря."""
 
     store = {"dictionary_a": {"meta": ["not-a-mapping"], "values": []}}
-    monkeypatch.setattr("bioetl.tools.build_vocab_store.load_vocab_store", lambda *_: store)
+    monkeypatch.setattr("bioetl.tools.build_vocab_store.read_vocab_store", lambda *_: store)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.clear_vocab_store_cache", lambda: None)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.UnifiedLogger.configure", lambda: None)
     monkeypatch.setattr(
@@ -107,7 +107,7 @@ def test_build_vocab_store_handles_empty_store(monkeypatch: pytest.MonkeyPatch) 
     """Ошибка при отсутствии словарей."""
 
     store: dict[str, Any] = {}
-    monkeypatch.setattr("bioetl.tools.build_vocab_store.load_vocab_store", lambda *_: store)
+    monkeypatch.setattr("bioetl.tools.build_vocab_store.read_vocab_store", lambda *_: store)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.clear_vocab_store_cache", lambda: None)
     monkeypatch.setattr("bioetl.tools.build_vocab_store.UnifiedLogger.configure", lambda: None)
     monkeypatch.setattr(

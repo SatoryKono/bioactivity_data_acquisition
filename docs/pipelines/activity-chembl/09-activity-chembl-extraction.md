@@ -1737,6 +1737,7 @@ print(f"Received {len(data.get('activities', []))} activities")
 
 ```python
 
+from bioetl.config import read_pipeline_config
 from unified_client import UnifiedAPIClient
 from activity_schema import ActivitySchema
 from unified_output import UnifiedOutputWriter
@@ -1744,7 +1745,7 @@ import pandas as pd
 
 # Инициализация
 
-config = load_config("chembl_activity.yaml")
+config = read_pipeline_config("chembl_activity.yaml")
 client = UnifiedAPIClient(config.api)
 schema = ActivitySchema()
 writer = UnifiedOutputWriter(config.output)

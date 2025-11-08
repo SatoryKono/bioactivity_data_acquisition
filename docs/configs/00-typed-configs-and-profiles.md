@@ -250,7 +250,7 @@ CLI `--set` overrides (глубокий merge по ключам)
 переменные окружения BIOETL__/BIOACTIVITY__ (наивысший приоритет)
 ```
 
-Псевдокод соответствует `load_config`: профили из `extends` обрабатываются рекурсивно, затем применяется основной YAML, после чего последовательно накладываются CLI-override и env-overrides, и только потом выполняется `PipelineConfig.model_validate()`.[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001][ref: config-loader]
+Псевдокод соответствует `read_pipeline_config`: профили из `extends` обрабатываются рекурсивно, затем применяется основной YAML, после чего последовательно накладываются CLI-override и env-overrides, и только потом выполняется `PipelineConfig.model_validate()`.[ref: repo:docs/configs/00-typed-configs-and-profiles.md@refactoring_001][ref: config-loader]
 
 ## 5. Профили `base.yaml` и `determinism.yaml`
 

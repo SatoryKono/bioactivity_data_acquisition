@@ -53,20 +53,20 @@ determinism:
 
         output_dir = tmp_path / "output"
 
-        # Mock load_config to avoid profile resolution issues in tests
+        # Mock read_pipeline_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             from pathlib import Path as PathType
 
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
 
             # Load config without default profiles for test
             # Use absolute path to avoid resolution issues
             abs_config_path = PathType(config_file).resolve()
             try:
-                real_config = real_load_config(
+                real_config = real_read_pipeline_config(
                     config_path=abs_config_path,
                     include_default_profiles=False,
                 )
@@ -122,7 +122,7 @@ determinism:
                     },
                     cli=CLIConfig(),
                 )
-            mock_load_config.return_value = real_config
+            mock_read_pipeline_config.return_value = real_config
             mock_client = MagicMock()
             mock_status_response = MagicMock()
             mock_status_response.json.return_value = {"chembl_release": "33"}
@@ -177,19 +177,19 @@ http:
 
         output_dir = tmp_path / "output"
 
-        # Mock load_config to avoid profile resolution issues in tests
+        # Mock read_pipeline_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch("bioetl.cli.command.create_pipeline_command") as mock_create_command,
         ):
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
 
             # Load config without default profiles for test
-            real_config = real_load_config(
+            real_config = real_read_pipeline_config(
                 config_path=config_file,
                 include_default_profiles=False,
             )
-            mock_load_config.return_value = real_config
+            mock_read_pipeline_config.return_value = real_config
 
             # Create a mock command that raises an error
             def mock_command(*args: Any, **kwargs: Any) -> None:

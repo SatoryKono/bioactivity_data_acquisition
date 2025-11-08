@@ -24,7 +24,7 @@ This approach is **not dynamic**. Adding a new pipeline requires explicitly addi
 
 ## 3. Configuration Loading and Precedence
 
-The single most important function of the CLI is to build the `PipelineConfig` object that will be passed to the pipeline. It does this by loading and merging settings from multiple sources in a strict order of precedence. This entire process is managed by the `load_config` function found in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
+The single most important function of the CLI is to build the `PipelineConfig` object that will be passed to the pipeline. It does this by loading and merging settings from multiple sources in a strict order of precedence. This entire process is managed by the `read_pipeline_config` function found in `[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
 
 The order of precedence is as follows (where 4 has the highest precedence and overrides all others):
 

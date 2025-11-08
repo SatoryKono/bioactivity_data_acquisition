@@ -7,7 +7,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-from bioetl.etl.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
+from bioetl.etl.vocab_store import (
+    VocabStoreError,
+    clear_vocab_store_cache,
+    read_vocab_store,
+)
 from bioetl.etl.vocab_store import get_ids as _get_ids
 
 VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
@@ -27,7 +31,7 @@ def _resolve_vocab_path() -> Path:
 @lru_cache(maxsize=1)
 def _load_store() -> Mapping[str, Any]:
     path = _resolve_vocab_path()
-    return load_vocab_store(path)
+    return read_vocab_store(path)
 
 
 def refresh_vocab_store_cache() -> None:

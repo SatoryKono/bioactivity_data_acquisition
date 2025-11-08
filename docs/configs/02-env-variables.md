@@ -11,7 +11,7 @@
 
 Модуль `src/bioetl/config/environment.py` реализует связку:
 
-- `load_environment_settings()` — читает `.env` (если присутствует) и валидирует значения.
+- `read_environment_settings()` — читает `.env` (если присутствует) и валидирует значения (исторический алиас `load_environment_settings()` оставлен с предупреждением на период депрекейта).
 - `apply_runtime_overrides()` — синхронизирует «короткие» переменные с вложенными `BIOETL__SOURCES__...` ключами, не перетирая ручные overrides.
 
 Шаблоны `.env` расположены в `configs/templates/` и документируют минимальный набор переменных для локальной разработки (`.env.local.template`), общего dev-окружения (`.env.dev.template`) и CI (`.env.ci.template`).
