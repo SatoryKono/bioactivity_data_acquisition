@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, cast
+from typing import Any, Callable, cast
 from urllib.parse import urlencode
 
-from bioetl.clients.chembl_base import EntityConfig
+from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
 from bioetl.core.logger import UnifiedLogger
 from bioetl.pipelines.common.release_tracker import ChemblReleaseMixin
 
@@ -27,7 +27,7 @@ class ChemblEntityIterator(ChemblReleaseMixin):
 
     def __init__(
         self,
-        chembl_client: Any,
+        chembl_client: ChemblClientProtocol,
         config: EntityConfig,
         *,
         batch_size: int,
@@ -54,9 +54,9 @@ class ChemblEntityIterator(ChemblReleaseMixin):
             msg = "max_url_length must be a positive integer if provided"
             raise ValueError(msg)
 
-        self._chembl_client = chembl_client
+        self._chembl_client: ChemblClientProtocol = chembl_client
         # Backwards compatibility for client attribute expected by legacy code/tests
-        self._client = chembl_client
+        self._client: ChemblClientProtocol = chembl_client
         self._config = config
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
@@ -66,7 +66,7 @@ class ChemblEntityIterator(ChemblReleaseMixin):
         )
 
     @property
-    def chembl_client(self) -> Any:
+    def chembl_client(self) -> ChemblClientProtocol:
         """Вернуть обёрнутый ChemblClient."""
 
         return self._chembl_client
@@ -111,6 +111,21 @@ class ChemblEntityIterator(ChemblReleaseMixin):
             enabled=enabled,
         )
         return cast(Mapping[str, object], result.payload)
+
+    def iter(
+        self,
+        *,
+        limit: int | None = None,
+        page_size: int | None = None,
+        select_fields: Sequence[str] | None = None,
+    ) -> Iterator[Mapping[str, object]]:
+        """Совместимый с :class:`EntityClient` поток записей."""
+
+        yield from self.iterate_all(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
+        )
 
     def iterate_all(
         self,
@@ -158,6 +173,16 @@ class ChemblEntityIterator(ChemblReleaseMixin):
             if limit is not None and yielded >= limit:
                 break
 
+    def fetch(
+        self,
+        ids: Sequence[str],
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> Iterator[Mapping[str, object]]:
+        """Реализация контракта :class:`EntityClient` для выборки по ID."""
+
+        yield from self.iterate_by_ids(ids, select_fields=select_fields)
+
     def iterate_by_ids(
         self,
         ids: Sequence[str],
@@ -189,6 +214,13 @@ class ChemblEntityIterator(ChemblReleaseMixin):
                 page_size=len(chunk),
                 items_key=self._config.items_key,
             )
+
+    def close(self) -> None:
+        """Попытаться закрыть обёрнутый клиент, если он поддерживает close()."""
+
+        close_method: Callable[[], object] | None = getattr(self._chembl_client, "close", None)
+        if callable(close_method):
+            close_method()
 
     # ------------------------------------------------------------------
     # Internal helpers
