@@ -9,6 +9,8 @@ from typing import Any, ClassVar, Protocol, cast, runtime_checkable
 
 from structlog.stdlib import BoundLogger
 
+from bioetl.core.mapping_utils import stringify_mapping
+
 __all__ = [
     "ChemblHandshakeResult",
     "ChemblReleaseMixin",
@@ -173,19 +175,13 @@ class ChemblReleaseMixin:
         normalized = value.strip()
         return normalized or None
 
-    @staticmethod
-    def _stringify_mapping(mapping: Mapping[object, Any]) -> dict[str, Any]:
-        """Вернуть отображение с ключами-строками."""
-
-        return {str(key): value for key, value in mapping.items()}
-
     @classmethod
     def _coerce_mapping(cls, payload: Any) -> dict[str, Any]:
         """Привести payload к словарю со строковыми ключами."""
 
         if isinstance(payload, Mapping):
             mapping = cast(Mapping[object, Any], payload)
-            return cls._stringify_mapping(mapping)
+            return stringify_mapping(mapping)
         return {}
 
     @classmethod
