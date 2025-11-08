@@ -66,6 +66,12 @@ CONST:          ^[A-Z][A-Z0-9_]*$
 | config | `.yaml`, `.yml`, `.json` | `^[a-z0-9_]+\.(yaml|yml|json)$` |
 | docs | `.md` | `\d{2}-.*\.md` |
 
+## Enforcement
+
+- Конфигурация `ruff` и `flake8` включает правило `N` (`pep8-naming`), а whitelist для dunder-хуков и защищённых структур (_ClassName, _helper) оформлен через `ignore-names` и `ignore-class-names`.
+- CLI-команда `bioetl-validate-naming-violations` проверяет, что `docs/styleguide/VIOLATIONS_TABLE.md` пуст и тем самым блокирует попадание новых нарушений.
+- Любое подтверждённое исключение описывается в таблице нарушений и в `12-naming-normalization-plan.md` с указанием владельца и срока устранения.
+
 ## DRY and Deduplication
 
 - Shared utilities belong in `utils/` (e.g., `io_utils.py`, `string_utils.py`, `retry_utils.py`)
