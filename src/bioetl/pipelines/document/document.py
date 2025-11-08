@@ -7,7 +7,7 @@ import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from numbers import Integral, Real
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pandas as pd
 
@@ -45,7 +45,7 @@ MUST_HAVE_FIELDS = {"document_chembl_id", "doi", "issue"}
 class ChemblDocumentPipeline(ChemblPipelineBase):
     """ETL pipeline extracting document records from the ChEMBL API."""
 
-    actor = "document_chembl"
+    ACTOR: ClassVar[str] = "document_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)

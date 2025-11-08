@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pandas as pd
 from pandas import Series
@@ -120,7 +120,7 @@ MUST_HAVE_FIELDS = {
 class ChemblAssayPipeline(ChemblPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
-    actor = "assay_chembl"
+    ACTOR: ClassVar[str] = "assay_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
