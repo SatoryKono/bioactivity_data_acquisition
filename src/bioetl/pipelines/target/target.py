@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 import pandas as pd
 
@@ -32,7 +32,7 @@ from .target_transform import serialize_target_arrays
 class ChemblTargetPipeline(ChemblPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
-    actor = "target_chembl"
+    ACTOR: ClassVar[str] = "target_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
