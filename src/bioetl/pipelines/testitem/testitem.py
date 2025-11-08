@@ -12,6 +12,7 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
+from bioetl.clients.types import EntityClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.config.testitem import TestItemSourceParameters
@@ -201,12 +202,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         )
 
         # Используем специализированный клиент для testitem (molecule)
-        testitem_client = ChemblTestitemClient(
+        testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
             chembl_client,
             batch_size=page_size,
             max_url_length=source_config.max_url_length,
         )
-        for item in testitem_client.iterate_all(
+        for item in testitem_client.iter(
             limit=limit,
             page_size=page_size,
             select_fields=select_fields,
@@ -299,12 +300,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         )
 
         records: list[Mapping[str, Any]] = []
-        testitem_client = ChemblTestitemClient(
+        testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
             chembl_client,
             batch_size=page_size,
             max_url_length=source_config.max_url_length,
         )
-        for item in testitem_client.iterate_by_ids(ids, select_fields=select_fields):
+        for item in testitem_client.fetch(ids, select_fields=select_fields):
             records.append(item)
             if limit is not None and len(records) >= limit:
                 records = records[: int(limit)]

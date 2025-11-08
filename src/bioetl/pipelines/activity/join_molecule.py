@@ -11,6 +11,7 @@ import pandas as pd
 
 from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.types import EntityClient
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
@@ -169,11 +170,14 @@ def _fetch_activity_by_ids(
         return pd.DataFrame(columns=fields)
 
     # Используем специализированный клиент для activity
-    activity_client = ChemblActivityClient(client, batch_size=batch_size)
+    activity_client: EntityClient[Mapping[str, object]] = ChemblActivityClient(
+        client,
+        batch_size=batch_size,
+    )
     all_records: list[dict[str, Any]] = []
 
     try:
-        for record in activity_client.iterate_by_ids(unique_ids, select_fields=fields):
+        for record in activity_client.fetch(unique_ids, select_fields=fields):
             all_records.append(dict(record))
     except Exception as exc:
         log.warning(

@@ -13,6 +13,7 @@ from pandas import Series
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.types import EntityClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
@@ -170,7 +171,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        assay_client = ChemblAssayClient(
+        assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
             batch_size=source_config.batch_size,
             max_url_length=source_config.max_url_length,
@@ -227,7 +228,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        for item in assay_client.iterate_all(
+        for item in assay_client.iter(
             limit=limit, page_size=page_size, select_fields=select_fields
         ):
             records.append(item)
@@ -304,7 +305,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        assay_client = ChemblAssayClient(
+        assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
             batch_size=source_config.batch_size,
             max_url_length=source_config.max_url_length,
@@ -355,7 +356,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        for item in assay_client.iterate_by_ids(ids, select_fields=select_fields):
+        for item in assay_client.fetch(ids, select_fields=select_fields):
             records.append(item)
             if limit is not None and len(records) >= limit:
                 break

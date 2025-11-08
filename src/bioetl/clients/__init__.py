@@ -16,6 +16,7 @@ from .chembl_entities import (
     ChemblMoleculeEntityClient,
 )
 from .chembl_iterator import ChemblEntityIterator
+from .types import EntityClient
 from .document.chembl_document import ChemblDocumentClient
 from .document.chembl_document_entity import ChemblDocumentTermEntityClient
 from .target.chembl_target import ChemblTargetClient
@@ -41,6 +42,7 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestitemClient",
     # Новые специализированные клиенты (для расширенного использования)
+    "EntityClient",
     "ChemblEntityFetcher",
     "ChemblEntityIterator",
     "EntityConfig",
