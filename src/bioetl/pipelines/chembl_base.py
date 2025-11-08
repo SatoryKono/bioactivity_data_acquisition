@@ -21,6 +21,7 @@ from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.mapping_utils import stringify_mapping
 
 from .base import PipelineBase
 from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
@@ -86,12 +87,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             raise KeyError(msg) from exc
 
     @staticmethod
-    def _stringify_mapping(mapping: Mapping[object, Any]) -> dict[str, Any]:
-        """Return mapping with stringified keys preserving values."""
-
-        return {str(key): value for key, value in mapping.items()}
-
-    @staticmethod
     def _normalize_parameters(parameters: Any) -> dict[str, Any]:
         """Return parameters as a plain mapping.
 
@@ -110,21 +105,21 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         if isinstance(parameters, Mapping):
             mapping = cast(Mapping[object, Any], parameters)
-            return ChemblPipelineBase._stringify_mapping(mapping)
+            return stringify_mapping(mapping)
 
         model_dump = getattr(parameters, "model_dump", None)
         if callable(model_dump):
             dumped = model_dump()
             if isinstance(dumped, Mapping):
                 mapping = cast(Mapping[object, Any], dumped)
-                return ChemblPipelineBase._stringify_mapping(mapping)
+                return stringify_mapping(mapping)
 
         as_dict = getattr(parameters, "dict", None)
         if callable(as_dict):
             dumped = as_dict()
             if isinstance(dumped, Mapping):
                 mapping = cast(Mapping[object, Any], dumped)
-                return ChemblPipelineBase._stringify_mapping(mapping)
+                return stringify_mapping(mapping)
 
         attrs = getattr(parameters, "__dict__", None)
         if isinstance(attrs, dict):
@@ -403,7 +398,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 for item in sequence_items:
                     if isinstance(item, Mapping):
                         mapping = cast(Mapping[object, Any], item)
-                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
+                        candidates.append(stringify_mapping(mapping))
                 if candidates:
                     return candidates
 
@@ -417,7 +412,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 for item in sequence_items:
                     if isinstance(item, Mapping):
                         mapping = cast(Mapping[object, Any], item)
-                        candidates.append(ChemblPipelineBase._stringify_mapping(mapping))
+                        candidates.append(stringify_mapping(mapping))
                 if candidates:
                     return candidates
         return []
