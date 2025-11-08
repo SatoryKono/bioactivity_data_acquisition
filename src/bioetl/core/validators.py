@@ -105,7 +105,7 @@ def assert_list_of(
         predicate_hint = f" предикат {predicate_name}" if predicate_name else ""
         msg = (
             f"{argument_name} содержит элементы, не удовлетворяющие{predicate_hint}: "
-            f"индексы {violations}"
+            f"индексы (indices {violations})"
         )
         raise ValueError(msg)
 
