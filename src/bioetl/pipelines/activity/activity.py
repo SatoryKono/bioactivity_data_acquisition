@@ -150,7 +150,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         client, base_url = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
@@ -163,7 +163,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         page_size = self._resolve_page_size(batch_size, limit)
 
         parameters = self._normalize_parameters(source_config.parameters)
-        select_fields = self._resolve_select_fields(source_raw, default_fields=API_ACTIVITY_FIELDS)
+        select_fields_tuple = source_config.parameters.select_fields
+        if select_fields_tuple:
+            select_fields = list(select_fields_tuple)
+        else:
+            select_fields = list(API_ACTIVITY_FIELDS)
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
@@ -279,7 +283,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
@@ -540,7 +544,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -608,7 +612,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -687,7 +691,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -755,7 +759,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        source_config = ActivitySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -812,7 +816,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
         source_config_raw = self._resolve_source_config("chembl")
-        activity_source_config = ActivitySourceConfig.from_source_config(source_config_raw)
+        activity_source_config = ActivitySourceConfig.from_source(source_config_raw)
 
         if isinstance(dataset, pd.Series):
             input_frame = dataset.to_frame(name="activity_id")

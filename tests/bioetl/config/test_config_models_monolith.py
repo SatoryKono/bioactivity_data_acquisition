@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
+import math
+from importlib import import_module
 from types import ModuleType
 
 import pytest
@@ -12,18 +11,9 @@ import pytest
 
 @pytest.fixture(scope="module")
 def monolith_module() -> ModuleType:
-    """Load the legacy configuration models module from its file path."""
+    """Load the modern configuration models package."""
 
-    module_name = "bioetl.config._models_monolith"
-    module_path = Path(__file__).resolve().parents[3] / "src" / "bioetl" / "config" / "models.py"
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError("Unable to load legacy configuration models module.")
-
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
+    return import_module("bioetl.config.models")
 
 
 @pytest.mark.unit
@@ -34,10 +24,10 @@ def test_retry_rate_limit_defaults(monolith_module: ModuleType) -> None:
     rate_limit_config = monolith_module.RateLimitConfig()
 
     assert retry_config.total == 5
-    assert retry_config.backoff_multiplier == pytest.approx(2.0)
+    assert math.isclose(retry_config.backoff_multiplier, 2.0, rel_tol=1e-9, abs_tol=0.0)
     assert retry_config.statuses == (408, 429, 500, 502, 503, 504)
     assert rate_limit_config.max_calls == 10
-    assert rate_limit_config.period == pytest.approx(1.0)
+    assert math.isclose(rate_limit_config.period, 1.0, rel_tol=1e-9, abs_tol=0.0)
 
 
 @pytest.mark.unit
@@ -50,8 +40,8 @@ def test_http_client_config_customization(monolith_module: ModuleType) -> None:
         headers={"User-Agent": "custom-agent/0.1"},
     )
 
-    assert client_config.timeout_sec == pytest.approx(30.0)
-    assert client_config.connect_timeout_sec == pytest.approx(5.0)
+    assert math.isclose(client_config.timeout_sec, 30.0, rel_tol=1e-9, abs_tol=0.0)
+    assert math.isclose(client_config.connect_timeout_sec, 5.0, rel_tol=1e-9, abs_tol=0.0)
     assert client_config.headers["User-Agent"] == "custom-agent/0.1"
     assert client_config.rate_limit.max_calls == 10
     assert client_config.circuit_breaker.failure_threshold == 5

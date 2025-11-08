@@ -1,22 +1,27 @@
-"""Tests for the deprecated config.models compatibility shim."""
+"""Тесты для канонических модулей конфигураций."""
 
 from __future__ import annotations
 
 import importlib
-import sys
 
 import pytest
 
 
 @pytest.mark.unit
-def test_legacy_models_reexports_pipeline_config() -> None:
-    """Ensure the deprecated module re-exports the canonical classes."""
-    sys.modules.pop("bioetl.config.models", None)
+@pytest.mark.parametrize(
+    ("module_name", "attributes"),
+    [
+        ("bioetl.config.models.base", ("PipelineConfig", "PipelineMetadata")),
+        ("bioetl.config.models.determinism", ("DeterminismConfig", "DeterminismSortingConfig")),
+        ("bioetl.config.models.http", ("HTTPClientConfig", "HTTPConfig")),
+    ],
+)
+def test_canonical_config_modules_expose_expected_symbols(
+    module_name: str,
+    attributes: tuple[str, ...],
+) -> None:
+    """Проверяет, что прямые модули содержат публичные классы."""
+    module = importlib.import_module(module_name)
 
-    with pytest.warns(DeprecationWarning):
-        legacy_module = importlib.import_module("bioetl.config.models")
-
-    from bioetl.config.models.base import PipelineConfig, PipelineMetadata
-
-    assert legacy_module.PipelineConfig is PipelineConfig
-    assert legacy_module.PipelineMetadata is PipelineMetadata
+    for attr in attributes:
+        assert hasattr(module, attr), f"Модуль {module_name} не содержит {attr}"

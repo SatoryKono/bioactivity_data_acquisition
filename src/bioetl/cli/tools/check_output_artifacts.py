@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.check_output_artifacts import MAX_BYTES, check_output_artifacts
 
 app = create_app(
@@ -26,4 +26,4 @@ def main(max_bytes: int = typer.Option(MAX_BYTES, help="Порог размер�
 
 
 def run() -> None:
-    app()
+    run_app(app)

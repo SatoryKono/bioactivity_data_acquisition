@@ -158,7 +158,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source_config(source_raw)
+        source_config = AssaySourceConfig.from_source(source_raw)
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -196,10 +196,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
         page_size = source_config.batch_size
-        select_fields = self._resolve_select_fields(source_raw)
-        # Защита: добавить обязательные поля, если их нет
-        if select_fields:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields_tuple = source_config.parameters.select_fields
+        if select_fields_tuple:
+            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
         else:
             select_fields = list(MUST_HAVE_FIELDS)
 
@@ -293,7 +292,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source_config(source_raw)
+        source_config = AssaySourceConfig.from_source(source_raw)
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -330,10 +329,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
-        select_fields = self._resolve_select_fields(source_raw)
-        # Защита: добавить обязательные поля, если их нет
-        if select_fields:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields_tuple = source_config.parameters.select_fields
+        if select_fields_tuple:
+            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
         else:
             select_fields = list(MUST_HAVE_FIELDS)
 
@@ -801,7 +799,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 error=str(exc),
             )
             return df
-        source_config = AssaySourceConfig.from_source_config(source_raw)
+        source_config = AssaySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
 

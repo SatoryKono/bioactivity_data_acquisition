@@ -85,7 +85,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         resolved_source_config = source_config
         if resolved_source_config is None:
             source_raw = self._resolve_source_config("chembl")
-            resolved_source_config = TestItemSourceConfig.from_source_config(source_raw)
+            resolved_source_config = TestItemSourceConfig.from_source(source_raw)
 
         handshake_result = self.perform_source_handshake(
             client,
@@ -149,7 +149,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
+        source_config = TestItemSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -247,7 +247,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
+        source_config = TestItemSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"

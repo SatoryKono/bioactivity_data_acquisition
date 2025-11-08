@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.link_check import run_link_check
 
 app = create_app(
@@ -25,4 +25,4 @@ def main(timeout: int = typer.Option(300, help="Таймаут запуска ly
 
 
 def run() -> None:
-    app()
+    run_app(app)

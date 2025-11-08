@@ -102,7 +102,7 @@ class PipelineConfig(BaseModel):
 ### Configuration Loading
 
 ```python
-from bioetl.config.models import PipelineConfig
+from bioetl.config.models.base import PipelineConfig
 import yaml
 from pathlib import Path
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.doctest_cli import extract_cli_examples, run_examples
 
 app = create_app(
@@ -30,4 +30,4 @@ def main() -> None:
 
 
 def run() -> None:
-    app()
+    run_app(app)

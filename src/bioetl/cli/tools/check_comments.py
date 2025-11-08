@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.check_comments import run_comment_check
 
 app = create_app(
@@ -29,4 +29,4 @@ def main(
 
 
 def run() -> None:
-    app()
+    run_app(app)

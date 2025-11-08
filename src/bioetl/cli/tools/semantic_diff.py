@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.semantic_diff import run_semantic_diff
 
 app = create_app(
@@ -22,4 +22,4 @@ def main() -> None:
 
 
 def run() -> None:
-    app()
+    run_app(app)

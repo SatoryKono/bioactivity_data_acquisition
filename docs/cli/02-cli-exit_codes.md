@@ -13,6 +13,7 @@ For a general overview of the CLI, see `[ref: repo:docs/cli/00-cli-overview.md@r
 | `0` | Success | The pipeline completed all stages successfully. | Process exits normally after printing the execution summary. |
 | `1` | Application error | A runtime failure occurred inside the pipeline, column validator, or supporting services. | `typer.Exit(code=1)` raised with a structured error message and `pipeline_failed` log. |
 | `2` | Usage error | Typer rejected the CLI invocation before the pipeline started. | Typer prints a usage banner and exits with code `2`. |
+| `130` | Interrupted | Run was aborted with `KeyboardInterrupt` (Ctrl+C). | Unified runner converts interruption into POSIX-compliant exit code `130`. |
 
 ## 2. Exception → Exit Code Matrix
 
@@ -30,6 +31,7 @@ The CLI wraps every pipeline command in `[ref: repo:src/bioetl/cli/command.py@re
 | `1` | `requests.exceptions.ReadTimeout` | ChEMBL document client `[ref: repo:src/bioetl/sources/chembl/document/client/document_client.py@refactoring_001]` | Batched ChEMBL fetch exceeded the per-request timeout and the recursive retry logic exhausted all splits. |
 | `1` | `typer.Exit(1)` | Column validator `[ref: repo:src/bioetl/cli/command.py@refactoring_001]` | Column comparison detected missing/extra columns and aborted the run after printing the validation report. |
 | `2` | `typer.BadParameter` | CLI option validators `[ref: repo:src/bioetl/cli/command.py@refactoring_001]` | Mutually exclusive `--sample/--limit`, out-of-range sample size, or unsupported `--mode`. |
+| `130` | `KeyboardInterrupt` | Unified runner `[ref: repo:src/bioetl/cli/common.py@test_refactoring_32]` | Operator aborted execution with Ctrl+C; the runner logs `cli_runner_interrupted` and exits with `130`. |
 
 ### HTTP-specific behaviour
 
@@ -100,3 +102,11 @@ When integrating the CLI into automated environments, you **MUST** check the exi
 - `if ! python -m bioetl.cli.main activity ...; then echo "Pipeline failed!"; exit 1; fi`
 - **Exit code `1`** indicates a problem with the pipeline's execution, configuration, or the data itself. The logs from the run are essential for diagnosing the root cause.
 - **Exit code `2`** indicates a problem with how the CI script is *invoking* the command. This is a script-level bug and should be fixed in the CI configuration.
+
+## 5. Unified CLI runner
+
+All CLI entry points delegate execution to `bioetl.cli.common.run` so that logging, exit-code mapping, and signal handling stay consistent. Utility apps under `bioetl.cli.tools.*` should invoke `bioetl.cli.tools.run_app(app)` instead of embedding custom `app()` wrappers. This ensures:
+
+- Structured logging is initialised exactly once per command.
+- Exceptions are translated according to the tables above, including deterministic handling for `KeyboardInterrupt`.
+- Future improvements to logging or tracing propagate automatically without modifying each CLI module.

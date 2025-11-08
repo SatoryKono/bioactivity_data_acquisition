@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.inventory_docs import collect_markdown_files, write_inventory
 
 app = create_app(
@@ -43,4 +43,4 @@ def main(
 def run() -> None:
     """Запуск Typer-приложения."""
 
-    app()
+    run_app(app)

@@ -81,7 +81,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
@@ -103,9 +103,11 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(source_config.page_size, limit)
 
-        select_fields = self._resolve_select_fields(
-            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
-        )
+        select_fields_tuple = source_config.parameters.select_fields
+        if select_fields_tuple:
+            select_fields = list(select_fields_tuple)
+        else:
+            select_fields = list(API_DOCUMENT_FIELDS)
         # Защита: добавить обязательные поля, если их нет
         select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
         records: list[dict[str, Any]] = []
@@ -209,7 +211,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
@@ -229,7 +231,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         )
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
         )
@@ -622,7 +624,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         api_client, _ = self.prepare_chembl_client(
             "chembl",
             base_url=self._resolve_base_url(

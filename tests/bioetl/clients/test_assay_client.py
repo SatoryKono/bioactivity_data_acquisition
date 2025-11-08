@@ -92,7 +92,8 @@ class TestChemblAssayClient:
 
         result = client.handshake(enabled=True)
 
-        handshake_mock.assert_called_once_with("/status")
+        handshake_mock.assert_called_once()
+        assert handshake_mock.call_args.kwargs == {"endpoint": "/status", "enabled": True}
         assert result["chembl_db_version"] == "33"
         assert client.chembl_release == "33"
 
@@ -125,7 +126,7 @@ class TestChemblAssayClient:
 
         client.handshake(endpoint="/custom", enabled=True)
 
-        handshake_mock.assert_called_with("/custom")
+        handshake_mock.assert_called_with(endpoint="/custom", enabled=True)
 
     def test_handshake_no_release_in_payload(self, mock_chembl_client: MagicMock) -> None:
         """Test handshake when payload has no release."""

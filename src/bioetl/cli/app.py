@@ -9,6 +9,7 @@ from __future__ import annotations
 import typer
 
 from bioetl.cli.command import create_pipeline_command
+from bioetl.cli.common import run as run_cli
 from bioetl.cli.registry import COMMAND_REGISTRY
 
 __all__ = ["app", "create_app"]
@@ -64,8 +65,10 @@ app = create_app()
 
 
 def run() -> None:
-    """Entry point for CLI application."""
-    app()
+    """Entry point for CLI application with унифицированным раннером."""
+    exit_code = run_cli(app, setup_logging=False)
+    if exit_code != 0:
+        raise SystemExit(exit_code)
 
 
 if __name__ == "__main__":

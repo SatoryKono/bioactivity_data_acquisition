@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.tools.schema_guard import run_schema_guard
 
 app = create_app(
@@ -29,4 +29,4 @@ def main() -> None:
 
 
 def run() -> None:
-    app()
+    run_app(app)

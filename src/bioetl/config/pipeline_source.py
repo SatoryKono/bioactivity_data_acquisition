@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+from .common.source_adapter import (
+    extract_allowed_parameters,
+    normalize_base_url,
+    normalize_select_fields,
+)
 from .models.http import HTTPClientConfig
 from .models.source import SourceConfig
 from .utils import coerce_bool
@@ -31,6 +36,7 @@ class BaseSourceParameters(BaseModel):
     """Базовые параметры источника с общими полями."""
 
     model_config = ConfigDict(extra="forbid")
+    allowed_fields: ClassVar[tuple[str, ...]] = ("base_url", "select_fields")
 
     base_url: str | None = Field(
         default=None,
@@ -45,27 +51,11 @@ class BaseSourceParameters(BaseModel):
     def from_mapping(cls, params: Mapping[str, Any]) -> BaseSourceParameters:
         """Создать параметры из произвольного словаря."""
 
+        allowed = extract_allowed_parameters(params, cls.allowed_fields)
         return cls(
-            base_url=cls._coerce_base_url(params.get("base_url")),
-            select_fields=cls._coerce_select_fields(params.get("select_fields")),
+            base_url=normalize_base_url(allowed.get("base_url")),
+            select_fields=normalize_select_fields(allowed.get("select_fields")),
         )
-
-    @staticmethod
-    def _coerce_base_url(raw: Any) -> str | None:
-        if raw is None:
-            return None
-        candidate = str(raw).strip()
-        return candidate or None
-
-    @staticmethod
-    def _coerce_select_fields(raw: Any) -> tuple[str, ...] | None:
-        if raw is None:
-            return None
-        if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
-            sequence_raw = cast(Sequence[object], raw)
-            coerced = tuple(str(item) for item in sequence_raw if item is not None)
-            return coerced or None
-        return None
 
 
 class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
@@ -114,18 +104,20 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         return self.page_size
 
     @model_validator(mode="after")
-    def enforce_limits(self) -> ChemblPipelineSourceConfig[ParamsT]:
-        """Применить классовые ограничения к размеру страницы и длине URL."""
+    def _apply_limits(self) -> ChemblPipelineSourceConfig[ParamsT]:
+        """Pydantic-валидатор для применения ограничений."""
 
-        defaults = self.defaults
-        if self.page_size > defaults.page_size_cap:
-            self.page_size = defaults.page_size_cap
-        if self.max_url_length > defaults.max_url_length_cap:
-            self.max_url_length = defaults.max_url_length_cap
+        self._clamp_limits()
+        return self
+
+    def enforce_limits(self) -> ChemblPipelineSourceConfig[ParamsT]:
+        """Идемпотентное применение ограничений после инициализации."""
+
+        self._clamp_limits()
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
+    def from_source(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
         """Сконструировать пайплайновый конфиг из общих SourceConfig-данных."""
 
         params_mapping = dict(config.parameters)
@@ -160,6 +152,19 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
             handshake_enabled=handshake_enabled,
             parameters=parameters,
         )
+
+    @classmethod
+    def from_source_config(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
+        """Обратная совместимость. Используйте `from_source`."""
+
+        return cls.from_source(config)
+
+    def _clamp_limits(self) -> None:
+        defaults = self.defaults
+        if self.page_size > defaults.page_size_cap:
+            self.page_size = defaults.page_size_cap
+        if self.max_url_length > defaults.max_url_length_cap:
+            self.max_url_length = defaults.max_url_length_cap
 
     @classmethod
     def _resolve_page_size(

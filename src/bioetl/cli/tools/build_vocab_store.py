@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app
+from bioetl.cli.tools import create_app, run_app
 from bioetl.etl.vocab_store import VocabStoreError
 from bioetl.tools.build_vocab_store import build_vocab_store
 
@@ -45,4 +45,4 @@ def main(
 
 
 def run() -> None:
-    app()
+    run_app(app)
