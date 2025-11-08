@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
+from typing import Any
 from unittest.mock import Mock
 
 import pandas as pd
@@ -256,7 +258,10 @@ class TestChemblTargetPipeline:
         assert "pref_name" in result.columns
 
     def test_enrich_protein_classifications_initializes_columns(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that enrich_protein_classifications initializes new columns."""
         pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
@@ -267,6 +272,17 @@ class TestChemblTargetPipeline:
             }
         )
 
+        class _StubChemblClient:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+            def paginate(
+                self, *_: Any, **__: Any
+            ) -> Iterator[dict[str, Any]]:
+                return iter(())
+
+        monkeypatch.setattr("bioetl.pipelines.target.target.ChemblClient", _StubChemblClient)
+
         from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
@@ -276,6 +292,8 @@ class TestChemblTargetPipeline:
 
         assert "protein_class_list" in result.columns
         assert "protein_class_top" in result.columns
+        assert pd.isna(result.loc[0, "protein_class_list"])
+        assert pd.isna(result.loc[0, "protein_class_top"])
 
     def test_enrich_protein_classifications_skips_when_data_present(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
