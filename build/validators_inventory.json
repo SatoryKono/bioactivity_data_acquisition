@@ -1,0 +1,176 @@
+[
+  {
+    "classification": "validator",
+    "doc": null,
+    "module": "bioetl.core.validators",
+    "name": "_is_json_mapping_internal",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "bioetl.core.validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": null,
+    "module": "bioetl.core.validators",
+    "name": "_is_json_value",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "bioetl.core.validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Убедиться, что аргумент итерируем; иначе выбросить :class:`TypeError`.",
+    "module": "bioetl.core.validators",
+    "name": "assert_iterable",
+    "notes": [
+      "Убедиться, что аргумент итерируем; иначе выбросить :class:`TypeError`."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Убедиться, что объект — корректный JSON-подобный словарь.",
+    "module": "bioetl.core.validators",
+    "name": "assert_json_mapping",
+    "notes": [
+      "Убедиться, что объект — корректный JSON-подобный словарь."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Убедиться, что аргумент — список, элементы которого проходят проверку.",
+    "module": "bioetl.core.validators",
+    "name": "assert_list_of",
+    "notes": [
+      "Убедиться, что аргумент — список, элементы которого проходят проверку."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "bioetl.etl.vocab_store",
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Проверить, что объект итерируем, опираясь на вызов ``iter(obj)``.",
+    "module": "bioetl.core.validators",
+    "name": "is_iterable",
+    "notes": [
+      "Проверить, что объект итерируем, опираясь на вызов ``iter(obj)``."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "bioetl.config.loader",
+      "bioetl.core.validators",
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Проверить, что объект — JSON-подобный словарь с ключами-строками.",
+    "module": "bioetl.core.validators",
+    "name": "is_json_mapping",
+    "notes": [
+      "Проверить, что объект — JSON-подобный словарь с ключами-строками."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "bioetl.core.validators",
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Проверить, что объект — список, чьи элементы удовлетворяют предикату.",
+    "module": "bioetl.core.validators",
+    "name": "is_list_of",
+    "notes": [
+      "Проверить, что объект — список, чьи элементы удовлетворяют предикату."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/core/validators.py",
+    "usages": [
+      "tests.bioetl.core.test_validators"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Element-wise validator ensuring activity_properties stores normalized JSON arrays.",
+    "module": "bioetl.schemas.activity.activity_chembl",
+    "name": "_is_valid_activity_properties",
+    "notes": [
+      "Element-wise validator ensuring activity_properties stores normalized JSON arrays."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/activity/activity_chembl.py",
+    "usages": [
+      "bioetl.schemas.activity.activity_chembl"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": "Return True if the payload item only contains the allowed keys and value types.",
+    "module": "bioetl.schemas.activity.activity_chembl",
+    "name": "_is_valid_activity_property_item",
+    "notes": [
+      "Return True if the payload item only contains the allowed keys and value types."
+    ],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/activity/activity_chembl.py",
+    "usages": [
+      "bioetl.schemas.activity.activity_chembl"
+    ]
+  },
+  {
+    "classification": "normalizer",
+    "doc": null,
+    "module": "bioetl.schemas.load_meta",
+    "name": "_coerce_timestamp",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/load_meta.py",
+    "usages": [
+      "bioetl.schemas.load_meta"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": null,
+    "module": "bioetl.schemas.load_meta",
+    "name": "_is_valid_json_string",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/load_meta.py",
+    "usages": [
+      "bioetl.schemas.load_meta"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": null,
+    "module": "bioetl.schemas.load_meta",
+    "name": "_validate_json_series",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/load_meta.py",
+    "usages": [
+      "bioetl.schemas.load_meta"
+    ]
+  },
+  {
+    "classification": "validator",
+    "doc": null,
+    "module": "bioetl.schemas.load_meta",
+    "name": "_validate_optional_json_series",
+    "notes": [],
+    "path": "/workspace/bioactivity_data_acquisition/src/bioetl/schemas/load_meta.py",
+    "usages": [
+      "bioetl.schemas.load_meta"
+    ]
+  }
+]
