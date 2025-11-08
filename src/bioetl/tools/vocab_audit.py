@@ -16,7 +16,7 @@ from typing import Any, Protocol, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.etl.vocab_store import VocabStoreError, load_vocab_store
+from bioetl.etl.vocab_store import VocabStoreError, read_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
 _chembl_new_client: Any | None = None
@@ -147,7 +147,7 @@ def _resolve_store_path(store: Path | None) -> Path:
 
 def _load_store(path: Path) -> Mapping[str, object]:
     try:
-        store = load_vocab_store(path)
+        store = read_vocab_store(path)
     except VocabStoreError as exc:
         raise RuntimeError(f"Failed to load vocabulary store at {path}: {exc}") from exc
     return cast(Mapping[str, object], store)

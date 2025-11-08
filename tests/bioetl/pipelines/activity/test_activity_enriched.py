@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from bioetl.config import load_config
+from bioetl.config import read_pipeline_config
 
 
 @pytest.mark.integration
@@ -106,7 +106,7 @@ cli:
                 mock_fetch.return_value = mock_records
 
                 # Load config
-                config = load_config(config_path)
+                config = read_pipeline_config(config_path)
 
                 # Run pipeline (this will call transform which includes enrichment)
                 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
@@ -194,7 +194,7 @@ cli:
         ) as mock_extract:
             mock_extract.return_value = sample_data
 
-            config = load_config(config_path)
+            config = read_pipeline_config(config_path)
             from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
             pipeline = ChemblActivityPipeline(config, run_id="test_run")

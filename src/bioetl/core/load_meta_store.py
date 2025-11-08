@@ -39,7 +39,7 @@ def _canonical_json(payload: Any) -> str:
     )
 
 
-def _normalise_base_url(value: Any) -> str:
+def _normalize_base_url(value: Any) -> str:
     text = str(value)
     if text.startswith("http://") or text.startswith("https://"):
         return text
@@ -128,7 +128,7 @@ class LoadMetaStore:
         """Create a new active load_meta record and return its identifier."""
 
         load_meta_id = str(uuid4())
-        base_url = _normalise_base_url(request_base_url)
+        base_url = _normalize_base_url(request_base_url)
         if isinstance(request_params, str):
             params_json = request_params
         else:

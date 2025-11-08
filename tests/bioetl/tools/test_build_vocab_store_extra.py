@@ -77,7 +77,7 @@ def test_build_vocab_store_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
 
     monkeypatch.setattr(module, "_utc_timestamp", lambda: "2025-01-01T00:00:00Z")
     monkeypatch.setattr(module, "clear_vocab_store_cache", lambda: None)
-    monkeypatch.setattr(module, "load_vocab_store", lambda path: vocab_payload)
+    monkeypatch.setattr(module, "read_vocab_store", lambda path: vocab_payload)
 
     result = module.build_vocab_store(src=src_dir, output=output_path)
 
@@ -98,7 +98,7 @@ def test_build_vocab_store_missing_release(monkeypatch: pytest.MonkeyPatch, tmp_
     }
 
     monkeypatch.setattr(module, "clear_vocab_store_cache", lambda: None)
-    monkeypatch.setattr(module, "load_vocab_store", lambda path: payload)
+    monkeypatch.setattr(module, "read_vocab_store", lambda path: payload)
 
     with pytest.raises(VocabStoreError):
         module.build_vocab_store(src=src_dir, output=output_path)

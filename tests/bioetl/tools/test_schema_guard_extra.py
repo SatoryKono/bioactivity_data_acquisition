@@ -132,7 +132,7 @@ def test_validate_config_success(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
         determinism=SimpleNamespace(sort=SimpleNamespace(by=["id"])),
     )
 
-    fake_module = SimpleNamespace(load_config=lambda path: config_obj)
+    fake_module = SimpleNamespace(read_pipeline_config=lambda path: config_obj)
     monkeypatch.setitem(sys.modules, "bioetl.config.loader", fake_module)
 
     valid, payload = module._validate_config(tmp_path / "activity.yaml")
@@ -145,7 +145,7 @@ def test_validate_config_handles_exception(monkeypatch: pytest.MonkeyPatch, tmp_
     def _raise(_: Path) -> None:
         raise RuntimeError("boom")
 
-    fake_module = SimpleNamespace(load_config=_raise)
+    fake_module = SimpleNamespace(read_pipeline_config=_raise)
     monkeypatch.setitem(sys.modules, "bioetl.config.loader", fake_module)
 
     valid, payload = module._validate_config(tmp_path / "broken.yaml")

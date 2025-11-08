@@ -6,27 +6,27 @@ import pytest
 
 from pydantic import SecretStr
 
-from bioetl.config import apply_runtime_overrides, load_environment_settings
+from bioetl.config import apply_runtime_overrides, read_environment_settings
 from bioetl.config.environment import EnvironmentSettings
 
 
 @pytest.mark.unit
-def test_load_environment_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_environment_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("BIOETL_ENV", raising=False)
     monkeypatch.delenv("PUBMED_TOOL", raising=False)
 
-    settings = load_environment_settings()
+    settings = read_environment_settings()
 
     assert settings.bioetl_env == "dev"
     assert settings.pubmed_tool is None
 
 
 @pytest.mark.unit
-def test_load_environment_settings_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_read_environment_settings_invalid_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("BIOETL_ENV", "qa")
 
     with pytest.raises(ValueError, match="BIOETL_ENV must be one of"):
-        load_environment_settings()
+        read_environment_settings()
 
 
 @pytest.mark.unit
@@ -38,7 +38,7 @@ def test_apply_runtime_overrides_sets_nested_keys(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "semantic-secret")
     monkeypatch.setenv("IUPHAR_API_KEY", "iuphar-secret")
 
-    settings = load_environment_settings()
+    settings = read_environment_settings()
 
     target_env: dict[str, str] = {}
     applied = apply_runtime_overrides(settings, environ=target_env)
@@ -60,7 +60,7 @@ def test_apply_runtime_overrides_sets_nested_keys(monkeypatch: pytest.MonkeyPatc
 def test_apply_runtime_overrides_preserves_existing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PUBMED_TOOL", "bioetl-cli")
 
-    settings = load_environment_settings()
+    settings = read_environment_settings()
 
     existing_env: dict[str, str] = {
         "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL": "custom",

@@ -114,7 +114,7 @@ def test_create_pipeline_command_environment_failure(
     def raise_env_error() -> None:
         raise ValueError("invalid env")
 
-    monkeypatch.setattr(cli_command, "load_environment_settings", raise_env_error)
+    monkeypatch.setattr(cli_command, "read_environment_settings", raise_env_error)
     monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
     patch_unified_logger(cli_command)
 
@@ -159,9 +159,9 @@ def test_create_pipeline_command_success(
 
     stub_config = _build_stub_config(tmp_path)
 
-    monkeypatch.setattr(cli_command, "load_environment_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
     monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
-    monkeypatch.setattr(cli_command, "load_config", lambda **_: stub_config)
+    monkeypatch.setattr(cli_command, "read_pipeline_config", lambda **_: stub_config)
     patch_unified_logger(cli_command)
 
     with pytest.raises(typer.Exit) as exit_info:
@@ -207,9 +207,9 @@ def test_create_pipeline_command_api_failure(
     def failing_run(self: Any, *_: Any, **__: Any) -> None:  # noqa: ANN001
         raise RequestException("boom")
 
-    monkeypatch.setattr(cli_command, "load_environment_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
     monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
-    monkeypatch.setattr(cli_command, "load_config", lambda **_: stub_config)
+    monkeypatch.setattr(cli_command, "read_pipeline_config", lambda **_: stub_config)
     patch_unified_logger(cli_command)
     monkeypatch.setattr(sys.modules[pipeline_class.__module__].DummyPipeline, "run", failing_run)
 
@@ -251,9 +251,9 @@ def test_create_pipeline_command_missing_config(
     def raise_missing_config(**_: Any) -> None:
         raise FileNotFoundError("profile.yaml")
 
-    monkeypatch.setattr(cli_command, "load_environment_settings", lambda: SimpleNamespace())
+    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
     monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
-    monkeypatch.setattr(cli_command, "load_config", raise_missing_config)
+    monkeypatch.setattr(cli_command, "read_pipeline_config", raise_missing_config)
     patch_unified_logger(cli_command)
 
     with pytest.raises(typer.Exit) as exit_info:
