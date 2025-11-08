@@ -31,6 +31,26 @@ class RetryConfig(BaseModel):
         default=(408, 429, 500, 502, 503, 504),
         description="HTTP status codes that should trigger a retry.",
     )
+    allowed_methods: tuple[str, ...] = Field(
+        default=("GET", "HEAD", "OPTIONS"),
+        description="HTTP methods that are considered safe for retries.",
+    )
+    respect_retry_after: bool = Field(
+        default=True,
+        description="Whether to honour the Retry-After header when present.",
+    )
+    retry_on_connection_errors: bool = Field(
+        default=True,
+        description="Retry when a connection-related error is raised by the transport.",
+    )
+    retry_on_read_errors: bool = Field(
+        default=True,
+        description="Retry when a read timeout or similar socket error occurs.",
+    )
+    retry_on_other_errors: bool = Field(
+        default=False,
+        description="Retry on any other error raised by the transport stack.",
+    )
 
 
 class RateLimitConfig(BaseModel):
@@ -83,6 +103,14 @@ class HTTPClientConfig(BaseModel):
         default=60.0,
         description="Socket read timeout in seconds.",
     )
+    write_timeout_sec: PositiveFloat = Field(
+        default=60.0,
+        description="Socket write timeout in seconds.",
+    )
+    pool_timeout_sec: PositiveFloat = Field(
+        default=5.0,
+        description="Maximum time to wait for a connection from the pool.",
+    )
     retries: RetryConfig = Field(default_factory=RetryConfig)
     rate_limit: RateLimitConfig = Field(default_factory=RateLimitConfig)
     rate_limit_jitter: bool = Field(
@@ -97,6 +125,38 @@ class HTTPClientConfig(BaseModel):
             "Accept-Encoding": "gzip, deflate",
         },
         description="Default headers that will be sent with each request.",
+    )
+    proxies: Mapping[str, str] | None = Field(
+        default=None,
+        description="Optional proxy configuration mapping scheme to proxy URL.",
+    )
+    verify: bool | str = Field(
+        default=True,
+        description="SSL verification flag or path to CA bundle.",
+    )
+    cert: str | tuple[str, str] | None = Field(
+        default=None,
+        description="Client certificate to present for TLS connections.",
+    )
+    trust_env: bool = Field(
+        default=False,
+        description="Respect environment variables such as HTTP(S)_PROXY when True.",
+    )
+    pool_connections: PositiveInt = Field(
+        default=10,
+        description="Number of connections to cache per host.",
+    )
+    pool_maxsize: PositiveInt = Field(
+        default=10,
+        description="Maximum number of connections to save in the pool.",
+    )
+    pool_block: bool = Field(
+        default=True,
+        description="Block when the connection pool is exhausted instead of failing fast.",
+    )
+    max_redirects: PositiveInt = Field(
+        default=30,
+        description="Maximum number of redirects to follow automatically.",
     )
     max_url_length: PositiveInt = Field(
         default=2000,
