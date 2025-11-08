@@ -4,14 +4,17 @@ from __future__ import annotations
 
 import time
 from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.testitem import COLUMN_ORDER
 
@@ -56,6 +59,59 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def api_version(self) -> str | None:
         """Return the cached ChEMBL API version captured during extraction."""
         return self._api_version
+
+    def _fetch_chembl_release(
+        self,
+        client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
+        log: BoundLogger | None = None,
+    ) -> str | None:
+        """Capture ChEMBL release and API version from status endpoint."""
+
+        if log is None:
+            bound_log: BoundLogger = UnifiedLogger.get(__name__).bind(
+                component=f"{self.pipeline_code}.extract"
+            )
+        else:
+            bound_log = log
+
+        request_timestamp = datetime.now(timezone.utc)
+        release_value: str | None = None
+        api_version: str | None = None
+
+        try:
+            status_payload: dict[str, Any] = {}
+            handshake_candidate = getattr(client, "handshake", None)
+            if callable(handshake_candidate):
+                status_payload = self._coerce_mapping(handshake_candidate("/status"))
+            else:
+                get_candidate = getattr(client, "get", None)
+                if callable(get_candidate):
+                    response = get_candidate("/status.json")
+                    json_candidate = getattr(response, "json", None)
+                    if callable(json_candidate):
+                        status_payload = self._coerce_mapping(json_candidate())
+
+            if status_payload:
+                release_value = self._extract_chembl_release(status_payload)
+                api_candidate = status_payload.get("api_version")
+                if isinstance(api_candidate, str) and api_candidate.strip():
+                    api_version = api_candidate
+                bound_log.info(
+                    "chembl_testitem.status",
+                    chembl_db_version=release_value,
+                    api_version=api_version,
+                )
+        except Exception as exc:  # noqa: BLE001
+            bound_log.warning("chembl_testitem.status_failed", error=str(exc))
+        finally:
+            self._chembl_db_version = release_value
+            self._api_version = api_version
+            self.record_extract_metadata(
+                chembl_release=release_value,
+                requested_at_utc=request_timestamp,
+            )
+
+        return release_value
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -103,24 +159,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        # Fetch release and API version using handshake
-        try:
-            status = chembl_client.handshake("/status")
-            release_value = status.get("chembl_db_version")
-            api_value = status.get("api_version")
-            if isinstance(release_value, str):
-                self._chembl_db_version = release_value
-            if isinstance(api_value, str):
-                self._api_version = api_value
-            log.info(
-                "chembl_testitem.status",
-                chembl_db_version=self._chembl_db_version,
-                api_version=self._api_version,
-            )
-        except Exception as exc:
-            log.warning("chembl_testitem.status_failed", error=str(exc))
-            self._chembl_db_version = None
-            self._api_version = None
+        self._fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -196,24 +235,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        # Fetch release and API version using handshake
-        try:
-            status = chembl_client.handshake("/status")
-            release_value = status.get("chembl_db_version")
-            api_value = status.get("api_version")
-            if isinstance(release_value, str):
-                self._chembl_db_version = release_value
-            if isinstance(api_value, str):
-                self._api_version = api_value
-            log.info(
-                "chembl_testitem.status",
-                chembl_db_version=self._chembl_db_version,
-                api_version=self._api_version,
-            )
-        except Exception as exc:
-            log.warning("chembl_testitem.status_failed", error=str(exc))
-            self._chembl_db_version = None
-            self._api_version = None
+        self._fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0

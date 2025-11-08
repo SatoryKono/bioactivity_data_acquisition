@@ -8,7 +8,12 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from bioetl.schemas.load_meta import LoadMetaSchema
+from bioetl.core.hashing import hash_from_mapping
+from bioetl.schemas.load_meta import (
+    BUSINESS_KEY_FIELDS,
+    ROW_HASH_FIELDS,
+    LoadMetaSchema,
+)
 
 
 def _utc(seconds: int = 0) -> datetime:
@@ -36,6 +41,8 @@ def _record(**overrides: object) -> dict[str, object]:
         "notes": None,
     }
     payload.update(overrides)
+    payload["hash_business_key"] = hash_from_mapping(payload, BUSINESS_KEY_FIELDS)
+    payload["hash_row"] = hash_from_mapping(payload, ROW_HASH_FIELDS)
     return payload
 
 

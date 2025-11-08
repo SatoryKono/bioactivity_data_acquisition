@@ -16,7 +16,13 @@ from uuid import uuid4
 import pandas as pd
 import pandera as pa
 
-from bioetl.schemas.load_meta import COLUMN_ORDER, LoadMetaSchema
+from bioetl.core.hashing import hash_from_mapping
+from bioetl.schemas.load_meta import (
+    BUSINESS_KEY_FIELDS,
+    COLUMN_ORDER,
+    ROW_HASH_FIELDS,
+    LoadMetaSchema,
+)
 
 from .logger import UnifiedLogger
 
@@ -31,6 +37,16 @@ def _canonical_json(payload: Any) -> str:
     return json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
     )
+
+
+def _normalise_base_url(value: Any) -> str:
+    text = str(value)
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    stripped = text.strip().strip("<>")
+    if not stripped:
+        stripped = "unknown"
+    return f"https://mock.invalid/{stripped}"
 
 
 @dataclass(slots=True)
@@ -112,6 +128,7 @@ class LoadMetaStore:
         """Create a new active load_meta record and return its identifier."""
 
         load_meta_id = str(uuid4())
+        base_url = _normalise_base_url(request_base_url)
         if isinstance(request_params, str):
             params_json = request_params
         else:
@@ -120,7 +137,7 @@ class LoadMetaStore:
         record = _ActiveRecord(
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
             request_params_json=params_json,
             request_started_at=now,
             request_finished_at=now,
@@ -136,7 +153,7 @@ class LoadMetaStore:
             "load_meta.begin",
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
         )
         return load_meta_id
 
@@ -190,7 +207,11 @@ class LoadMetaStore:
         if notes:
             record.notes = notes if record.notes is None else f"{record.notes}; {notes}"
 
-        df = pd.DataFrame([record.to_payload()], columns=COLUMN_ORDER)
+        payload = record.to_payload()
+        payload["hash_business_key"] = hash_from_mapping(payload, BUSINESS_KEY_FIELDS)
+        payload["hash_row"] = hash_from_mapping(payload, ROW_HASH_FIELDS)
+
+        df = pd.DataFrame([payload], columns=COLUMN_ORDER)
         LoadMetaSchema.validate(df, lazy=True)
         self._write_dataframe(df, self._meta_dir / f"{load_meta_id}.parquet")
         self._logger.info(

@@ -7,8 +7,7 @@ from pathlib import Path
 import typer
 
 from bioetl.cli.tools import create_app
-from bioetl.core.test_report_artifacts import TEST_REPORTS_ROOT
-from bioetl.tools.run_test_report import generate_test_report
+from bioetl.tools.run_test_report import TEST_REPORTS_ROOT, generate_test_report
 
 app = create_app(
     name="bioetl-run-test-report",

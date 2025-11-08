@@ -749,7 +749,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         return normalized_df
 
-    def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
+    def _normalize_data_types(
+        self, df: pd.DataFrame, schema: Any | None, log: Any
+    ) -> pd.DataFrame:
         """Normalize data types to match schema expectations.
 
         Overrides base implementation to handle component_count and species_group_flag specially.

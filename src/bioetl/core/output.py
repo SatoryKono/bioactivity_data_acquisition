@@ -67,8 +67,19 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
 
     result = df.copy()
 
-    recompute_row_hash = row_column not in result.columns or result[row_column].isna().any()
-    if recompute_row_hash:
+    def _needs_recompute(series: pd.Series) -> bool:
+        if series.empty:
+            return True
+        as_string = series.astype("string")
+        return bool(as_string.isna().any() or (as_string.str.strip() == "").any())
+
+    if row_column in result.columns:
+        row_needs_recompute = _needs_recompute(result[row_column])
+    else:
+        row_needs_recompute = True
+
+    if row_needs_recompute:
+        row_fields = list(row_fields)  # ensure deterministic ordering
         row_records: list[dict[str, Any]] = []
         for tuple_values in result[row_fields].itertuples(index=False, name=None):
             record = dict(zip(row_fields, tuple_values, strict=True))
@@ -79,10 +90,11 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
         result[row_column] = pd.Series(row_hashes, index=result.index, dtype="string")
 
     if business_fields:
-        recompute_business_hash = (
-            business_column not in result.columns or result[business_column].isna().any()
-        )
-        if recompute_business_hash:
+        if business_column in result.columns:
+            business_needs_recompute = _needs_recompute(result[business_column])
+        else:
+            business_needs_recompute = True
+        if business_needs_recompute:
             business_records: list[dict[str, Any]] = []
             for tuple_values in result[business_fields].itertuples(index=False, name=None):
                 record = dict(zip(business_fields, tuple_values, strict=True))

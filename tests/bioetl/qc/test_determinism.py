@@ -24,7 +24,7 @@ class TestDeterminismQC:
     ):
         """Test that hash_row is consistent across runs."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.hashing.row_fields = [
@@ -63,7 +63,7 @@ class TestDeterminismQC:
     ):
         """Test that hash_business_key is consistent."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -95,7 +95,7 @@ class TestDeterminismQC:
     ):
         """Test that sort order is stable."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
@@ -124,7 +124,7 @@ class TestDeterminismQC:
     ):
         """Test that CSV file checksums are consistent."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.activity.activity_chembl:ActivitySchema"
         )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
 

@@ -85,8 +85,11 @@ COLUMN_ORDER = (
     "hash_business_key",
 )
 
-STANDARD_TYPES = required_vocab_ids("activity_standard_type")
-RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
+STANDARD_TYPES = required_vocab_ids(
+    "activity_standard_type",
+    allowed_statuses=("active",),
+)
+RELATIONS = {"=", "<", ">", "~"}
 ACTIVITY_PROPERTY_KEYS = (
     "type",
     "relation",
