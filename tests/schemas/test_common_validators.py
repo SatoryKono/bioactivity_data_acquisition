@@ -1,16 +1,22 @@
 import math
 from collections.abc import Iterator
+from datetime import datetime
 from decimal import Decimal
 
+import pandas as pd
 import pytest
 
 from bioetl.schemas.common import (
     chunked,
+    coerce_optional_timestamp,
     coerce_to_float,
     coerce_to_int,
     coerce_to_str,
     ensure_iterable,
+    ensure_json_array,
+    ensure_json_text,
     ensure_unique,
+    is_null_like,
     non_empty,
     normalize_date,
     require_keys,
@@ -178,3 +184,38 @@ def test_validate_url_allows_reference_when_requested() -> None:
 def test_validate_url_rejects_reference_by_default() -> None:
     with pytest.raises(ValueError):
         validate_url("/relative/path")
+
+
+def test_is_null_like_identifies_missing_values() -> None:
+    assert is_null_like(None)
+    assert is_null_like(float("nan"))
+    assert not is_null_like("value")
+
+
+def test_ensure_json_text_accepts_valid_payload() -> None:
+    assert ensure_json_text(" {\"key\": 1} ") == '{"key": 1}'
+
+
+def test_ensure_json_text_rejects_invalid_payload() -> None:
+    with pytest.raises(ValueError):
+        ensure_json_text("not json")
+
+
+def test_ensure_json_array_validates_items() -> None:
+    def _validator(item: object) -> None:
+        if not isinstance(item, int):
+            raise TypeError("expected integer")
+
+    assert ensure_json_array("[1, 2, 3]", item_validator=_validator) == [1, 2, 3]
+
+
+def test_ensure_json_array_rejects_non_arrays() -> None:
+    with pytest.raises(ValueError):
+        ensure_json_array("{\"key\": 1}")
+
+
+def test_coerce_optional_timestamp_handles_series() -> None:
+    timestamp = pd.Timestamp("2024-01-01T00:00:00Z")
+    series = pd.Series([timestamp])
+    result = coerce_optional_timestamp(series)
+    assert isinstance(result, datetime)

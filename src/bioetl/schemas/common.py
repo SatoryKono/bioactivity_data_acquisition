@@ -14,8 +14,11 @@ consistent.
 
 from __future__ import annotations
 
+import json
+import math
 import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, TypeVar, overload
 from urllib.parse import quote, unquote, urlparse, urlunparse
@@ -272,6 +275,29 @@ def chunked(items: Iterable[T], size: int) -> Iterator[list[T]]:
             yield chunk
 
 
+def is_null_like(value: Any) -> bool:
+    """Return ``True`` when *value* represents a missing scalar."""
+
+    if value is None:
+        return True
+
+    if isinstance(value, float) and math.isnan(value):
+        return True
+
+    if value is pd.NA or value is pd.NaT:
+        return True
+
+    try:
+        result = pd.isna(value)
+    except TypeError:
+        return False
+
+    if isinstance(result, bool):
+        return result
+
+    return False
+
+
 def require_keys(obj: Mapping[str, Any], keys: Sequence[str]) -> None:
     """Ensure that *obj* exposes all *keys*.
 
@@ -475,6 +501,77 @@ def coerce_to_str(
         text = unicodedata.normalize("NFC", text)
 
     return text
+
+
+def ensure_json_text(value: Any) -> str:
+    """Validate that *value* is a non-empty JSON document encoded as text."""
+
+    if value is None or value is pd.NA:
+        raise TypeError("JSON value cannot be null")
+
+    if isinstance(value, bytes):
+        text = value.decode("utf-8")
+    elif isinstance(value, str):
+        text = value
+    else:
+        raise TypeError("JSON value must be a string")
+
+    candidate = text.strip()
+    if not candidate:
+        raise ValueError("JSON text cannot be empty")
+
+    try:
+        json.loads(candidate)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("invalid JSON document") from exc
+
+    return candidate
+
+
+def ensure_json_array(
+    value: Any, *, item_validator: Callable[[Any], None] | None = None
+) -> list[Any]:
+    """Validate that *value* encodes a JSON array and optionally inspect items."""
+
+    candidate = ensure_json_text(value)
+    payload = json.loads(candidate)
+
+    if not isinstance(payload, list):
+        raise ValueError("JSON document must be an array")
+
+    if item_validator is not None:
+        for index, item in enumerate(payload):
+            try:
+                item_validator(item)
+            except Exception as exc:  # pragma: no cover - defensive wrapper
+                raise ValueError(
+                    f"invalid array item at index {index}"
+                ) from exc
+
+    return payload
+
+
+def coerce_optional_timestamp(value: Any) -> datetime | None:
+    """Return a ``datetime`` when *value* resembles a pandas timestamp."""
+
+    if isinstance(value, pd.Series):
+        if value.empty:
+            return None
+        try:
+            scalar = value.item()
+        except ValueError:
+            return None
+        return coerce_optional_timestamp(scalar)
+
+    if isinstance(value, pd.Timestamp):
+        if pd.isna(value):
+            return None
+        return value.to_pydatetime()
+
+    if isinstance(value, datetime):
+        return value
+
+    return None
 
 
 def normalize_date(value: str) -> str:

@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-import json
-import math
+from collections.abc import Mapping
 from numbers import Number
-from typing import cast
 
-import pandas as pd
 import pandera as pa
 from pandera import Check, Column
 
@@ -16,6 +13,8 @@ from bioetl.schemas.common import (
     bao_id_column,
     boolean_flag_column,
     chembl_id_column,
+    ensure_json_array,
+    is_null_like,
     non_nullable_int64_column,
     nullable_float64_column,
     nullable_int64_column,
@@ -100,73 +99,51 @@ ACTIVITY_PROPERTY_KEYS = (
 )
 
 
-def _is_valid_activity_property_item(item: dict[str, object]) -> bool:
-    """Return True if the payload item only contains the allowed keys and value types."""
+def _validate_activity_property_item(item: Mapping[str, object]) -> None:
+    """Ensure activity property items expose the expected structure."""
+
+    if not isinstance(item, Mapping):
+        raise TypeError("activity property item must be a mapping")
 
     if set(item.keys()) != set(ACTIVITY_PROPERTY_KEYS):
-        return False
+        raise ValueError("unexpected keys in activity property item")
 
-    type_value = item["type"]
-    if type_value is not None and not isinstance(type_value, str):
-        return False
+    if not isinstance(item["type"], (str, type(None))):
+        raise TypeError("type must be a string or null")
 
-    relation_value = item["relation"]
-    if relation_value is not None and not isinstance(relation_value, str):
-        return False
+    if not isinstance(item["relation"], (str, type(None))):
+        raise TypeError("relation must be a string or null")
 
-    units_value = item["units"]
-    if units_value is not None and not isinstance(units_value, str):
-        return False
+    if not isinstance(item["units"], (str, type(None))):
+        raise TypeError("units must be a string or null")
 
     value_value = item["value"]
     if value_value is not None and not isinstance(value_value, (Number, str)):
-        return False
+        raise TypeError("value must be numeric, string, or null")
 
-    text_value = item["text_value"]
-    if text_value is not None and not isinstance(text_value, str):
-        return False
+    if not isinstance(item["text_value"], (str, type(None))):
+        raise TypeError("text_value must be a string or null")
 
     result_flag = item["result_flag"]
-    if result_flag is not None and not isinstance(result_flag, bool):
-        if isinstance(result_flag, int):
-            if result_flag not in (0, 1):
-                return False
-        else:
-            return False
-
-    return True
+    if result_flag is None:
+        return
+    if isinstance(result_flag, bool):
+        return
+    if isinstance(result_flag, int) and result_flag in (0, 1):
+        return
+    raise TypeError("result_flag must be a boolean or 0/1")
 
 
 def _is_valid_activity_properties(value: object) -> bool:
     """Element-wise validator ensuring activity_properties stores normalized JSON arrays."""
 
-    if value is None:
+    if is_null_like(value):
         return True
-    if value is pd.NA:
-        return True
-    if isinstance(value, (float, int)) and not isinstance(value, bool):
-        try:
-            if math.isnan(float(value)):  # type: ignore[arg-type]
-                return True
-        except (TypeError, ValueError):
-            pass
-    if not isinstance(value, str):
-        return False
 
     try:
-        payload = json.loads(value)
+        ensure_json_array(value, item_validator=_validate_activity_property_item)
     except (TypeError, ValueError):
         return False
-
-    if not isinstance(payload, list):
-        return False
-
-    # Явная типизация для mypy
-    payload_list: list[dict[str, object]] = cast(list[dict[str, object]], payload)
-    for item in payload_list:
-        if not _is_valid_activity_property_item(item):
-            return False
-
     return True
 
 

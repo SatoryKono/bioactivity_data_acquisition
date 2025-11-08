@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from collections.abc import Iterable
-from datetime import datetime
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 import pandera as pa
@@ -13,7 +10,14 @@ from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
 from bioetl.schemas.base import create_schema
-from bioetl.schemas.common import string_column_with_check, uuid_column
+from bioetl.schemas.common import (
+    coerce_optional_timestamp,
+    ensure_json_text,
+    is_null_like,
+    sort_normalized,
+    string_column_with_check,
+    uuid_column,
+)
 from bioetl.schemas.vocab import required_vocab_ids
 
 SCHEMA_VERSION = "1.0.0"
@@ -52,63 +56,39 @@ ROW_HASH_FIELDS = BASE_COLUMNS
 
 COLUMN_ORDER = (*BASE_COLUMNS, "hash_business_key", "hash_row")
 
-def _sorted_vocab_ids(vocab_key: str) -> tuple[str, ...]:
-    vocab_items: Iterable[Any] = required_vocab_ids(vocab_key)
-    return tuple(sorted(str(item) for item in vocab_items))
-
-
-ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = _sorted_vocab_ids("source_system")
-ALLOWED_STATUS_VALUES: tuple[str, ...] = _sorted_vocab_ids("status")
-
-
-def _is_valid_json_string(value: Any) -> bool:
-    if value is None or value is pd.NA:
-        return False
-    if not isinstance(value, str) or not value.strip():
-        return False
-    try:
-        json.loads(value)
-    except (TypeError, ValueError):
-        return False
-    return True
-
-
-def _validate_json_series(series: pd.Series) -> bool:
-    return bool(series.map(_is_valid_json_string).all())
-
-
-def _validate_optional_json_series(series: pd.Series) -> bool:
-    non_null = series.dropna()
-    if non_null.empty:
-        return True
-    return bool(non_null.map(_is_valid_json_string).all())
-
-
-def _coerce_timestamp(value: Any) -> datetime | None:
-    if isinstance(value, pd.Series):
-        if value.empty:
-            return None
-        try:
-            scalar_value = cast(Any, value.item())
-        except ValueError:
-            return None
-        return _coerce_timestamp(scalar_value)
-    if isinstance(value, pd.Timestamp):
-        return value.to_pydatetime()
-    if isinstance(value, datetime):
-        return value
-    return None
+ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = tuple(
+    sort_normalized(str(item) for item in required_vocab_ids("source_system"))
+)
+ALLOWED_STATUS_VALUES: tuple[str, ...] = tuple(
+    sort_normalized(str(item) for item in required_vocab_ids("status"))
+)
 
 
 def _time_window_consistent(row: pd.Series[Any], **_: Any) -> bool:
-    start = _coerce_timestamp(row.get("request_started_at"))
-    finish = _coerce_timestamp(row.get("request_finished_at"))
-    ingested = _coerce_timestamp(row.get("ingested_at"))
+    start = coerce_optional_timestamp(row.get("request_started_at"))
+    finish = coerce_optional_timestamp(row.get("request_finished_at"))
+    ingested = coerce_optional_timestamp(row.get("ingested_at"))
 
     if not (start and finish and ingested):
         return False
 
     return start <= finish <= ingested
+
+
+def _validate_json_series(series: pd.Series[Any]) -> bool:
+    try:
+        series.map(ensure_json_text)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _validate_optional_json_series(series: pd.Series[Any]) -> bool:
+    mask = series.map(is_null_like)
+    non_null = series[~mask]
+    if non_null.empty:
+        return True
+    return _validate_json_series(non_null)
 
 
 columns: dict[str, Column] = {
