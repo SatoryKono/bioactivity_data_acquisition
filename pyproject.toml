@@ -61,6 +61,7 @@ dev = [
     "bandit>=1.7.5",
     "safety>=2.3.5",
     "detect-secrets>=1.4.0",
+    "flake8-pep8-naming>=0.13.3",
 ]
 
 [project.scripts]
@@ -80,6 +81,7 @@ bioetl-run-test-report = "bioetl.cli.tools.run_test_report:app"
 bioetl-schema-guard = "bioetl.cli.tools.schema_guard:app"
 bioetl-semantic-diff = "bioetl.cli.tools.semantic_diff:app"
 bioetl-vocab-audit = "bioetl.cli.tools.vocab_audit:app"
+bioetl-validate-naming-violations = "bioetl.cli.tools.validate_naming_violations:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -106,6 +108,7 @@ select = [
     "C",  # flake8-comprehensions
     "B",  # flake8-bugbear
     "UP", # pyupgrade
+    "N",  # pep8-naming
 ]
 ignore = [
     "E501",  # line too long, handled by formatter
@@ -117,6 +120,14 @@ ignore = [
 known-first-party = [
     "bioetl",
     "bioetl.sources",
+]
+
+[tool.ruff.lint.pep8_naming]
+ignore-names = [
+    "__.*__",  # dunder-хуки и специальные методы Python
+]
+ignore-class-names = [
+    "_.*",  # защищённые классы/протоколы, задокументированные в naming policy
 ]
 
 [tool.mypy]
@@ -231,7 +242,13 @@ combine_as_imports = true
 [tool.flake8]
 max-line-length = 100
 extend-ignore = ["E203", "W503", "B008", "C901"]
-extend-select = ["B", "C4"]
+extend-select = ["B", "C4", "N"]
+ignore-names = [
+    "__.*__",  # разрешённые dunder-методы
+]
+ignore-class-names = [
+    "_.*",  # защищённые структуры, описанные в naming policy
+]
 
 [tool.pyright]
 pythonVersion = "3.10"

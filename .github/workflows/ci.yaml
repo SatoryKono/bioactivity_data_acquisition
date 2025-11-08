@@ -44,6 +44,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
+      - name: Ensure naming violations table is empty
+        run: bioetl-validate-naming-violations
+
       - name: Run pre-commit (all files)
         run: pre-commit run --all-files --show-diff-on-failure
 

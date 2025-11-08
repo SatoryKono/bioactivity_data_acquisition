@@ -32,6 +32,7 @@ repos:
         additional_dependencies:
           - flake8-bugbear==24.2.8
           - flake8-comprehensions==3.16.0
+          - flake8-pep8-naming==0.13.3
 
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
@@ -107,6 +108,12 @@ repos:
       - id: check-output-artifacts
         name: Ensure large artifacts are not committed under data/output
         entry: python -m bioetl.cli.tools.check_output_artifacts
+        language: system
+        pass_filenames: false
+
+      - id: check-naming-violations
+        name: Ensure naming violations table is empty
+        entry: python -m bioetl.cli.tools.validate_naming_violations
         language: system
         pass_filenames: false
 

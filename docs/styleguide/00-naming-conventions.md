@@ -80,3 +80,10 @@ Primary index files or landing pages for a directory **SHOULD** be named `INDEX.
 | Sequenced Content | `NN-topic-name.md` | `01-metrics-catalog.md` |
 | Main Index File | `INDEX.md` | `docs/INDEX.md` |
 | Directory Overview | `README.md` or `SECTION.md` | `README.md` |
+
+## 4. Исключения и контроль соблюдения
+
+- **Допустимые исключения**: dunder-хуки (`__init__`, `__iter__`, `__call__` и т.п.) и защищённые вспомогательные функции/классы с префиксом `_` (например, `_normalize_payload`, `_RetryState`). Они перечислены в конфигурации `ruff` и `flake8` через `ignore-names`/`ignore-class-names`.
+- **Реестр исключений**: файл `docs/styleguide/VIOLATIONS_TABLE.md` содержит фактические нарушения. Таблица должна быть пустой; любая строка требует обоснования и отдельного плана устранения.
+- **CI-проверка**: команда `bioetl-validate-naming-violations` (также доступна через pre-commit) блокирует пайплайн, если таблица нарушений не пуста.
+- **Документирование**: при добавлении временного исключения необходимо обновить эту таблицу и план нормализации имён с указанием сроков устранения.
