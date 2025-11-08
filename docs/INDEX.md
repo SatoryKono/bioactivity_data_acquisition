@@ -40,6 +40,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 ## Style Guides
 
 - **[Naming Conventions](styleguide/00-naming-conventions.md)**: The standard for naming documentation files (convention: `<NN>-<entity>-<source>-<topic>.md` for pipeline documentation).
+- **[Naming Policy](styleguide/11-naming-policy.md)**: Canonical rules for package, module, test, and documentation naming across the repository.
 - **[Python Code Style](styleguide/01-python-code-style.md)**: Code formatting, type annotations, and quality standards (ruff, black, mypy).
 - **[Logging Guidelines](styleguide/02-logging-guidelines.md)**: Centralized logging with UnifiedLogger, structured JSON logs, and context enrichment.
 - **[Data Schemas and Validation](styleguide/03-data-schemas.md)**: Pandera schema requirements, validation workflows, and schema versioning.

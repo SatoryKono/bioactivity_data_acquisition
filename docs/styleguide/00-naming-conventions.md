@@ -1,6 +1,6 @@
 # Documentation Naming Conventions
 
-This document outlines the standard naming conventions for documentation files within the `bioetl` project. Following these conventions ensures consistency and predictability in the documentation structure.
+This document outlines the standard naming conventions for documentation files within the `bioetl` project. Following these conventions ensures consistency and predictability in the documentation structure. For repository-wide module and object naming rules, see [11 Naming Policy](11-naming-policy.md).
 
 ## 1. General Principles
 

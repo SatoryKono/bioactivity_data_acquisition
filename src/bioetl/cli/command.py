@@ -4,23 +4,40 @@ from __future__ import annotations
 
 import importlib
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import typer
 
-from bioetl.config import (
-    apply_runtime_overrides,
-    read_environment_settings,
-    read_pipeline_config,
+from bioetl.config.environment import apply_runtime_overrides, read_environment_settings
+from bioetl.config.models import (
+    CLIConfig,
+    DeterminismConfig,
+    DeterminismEnvironmentConfig,
+    PipelineConfig,
 )
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
 __all__ = ["create_pipeline_command", "CommonOptions"]
+
+if TYPE_CHECKING:
+    def read_pipeline_config_impl(
+        *,
+        config_path: str | Path,
+        profiles: Sequence[str | Path] | None = None,
+        cli_overrides: Mapping[str, Any] | None = None,
+        env: Mapping[str, str] | None = None,
+        env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+        include_default_profiles: bool = False,
+    ) -> PipelineConfig:
+        ...
+
+else:
+    from bioetl.config.loader import read_pipeline_config as read_pipeline_config_impl
 
 
 class CommonOptions:
@@ -91,7 +108,7 @@ def _validate_output_dir(output_dir: Path) -> None:
 
 
 def _update_pipeline_config_from_cli(
-    pipeline_config: Any,
+    pipeline_config: PipelineConfig,
     *,
     dry_run: bool,
     limit: int | None,
@@ -106,25 +123,47 @@ def _update_pipeline_config_from_cli(
 ) -> None:
     """Apply CLI flag values to the mutable pipeline configuration."""
 
-    pipeline_config.cli.dry_run = dry_run
+    cli_config: CLIConfig = pipeline_config.cli
+
+    cli_config.dry_run = dry_run
     if limit is not None:
-        pipeline_config.cli.limit = limit
+        cli_config.limit = limit
     if sample is not None:
-        pipeline_config.cli.sample = sample
+        cli_config.sample = sample
 
-    pipeline_config.cli.extended = extended
+    cli_config.extended = extended
     if golden is not None:
-        pipeline_config.cli.golden = str(golden)
+        cli_config.golden = str(golden)
     if input_file is not None:
-        pipeline_config.cli.input_file = str(input_file)
+        cli_config.input_file = str(input_file)
 
-    pipeline_config.cli.verbose = verbose
-    pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
-    pipeline_config.cli.validate_columns = validate_columns
+    cli_config.verbose = verbose
+    cli_config.fail_on_schema_drift = fail_on_schema_drift
+    cli_config.validate_columns = validate_columns
     if not validate_columns:
         pipeline_config.validation.strict = False
 
     pipeline_config.materialization.root = str(output_dir)
+
+def _read_pipeline_config(
+    *,
+    config_path: str | Path,
+    profiles: Sequence[str | Path] | None = None,
+    cli_overrides: Mapping[str, Any] | None = None,
+    env: Mapping[str, str] | None = None,
+    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+    include_default_profiles: bool = False,
+) -> PipelineConfig:
+    """Typed wrapper вокруг загрузчика конфигурации."""
+
+    return read_pipeline_config_impl(
+        config_path=config_path,
+        profiles=profiles,
+        cli_overrides=cli_overrides,
+        env=env,
+        env_prefixes=env_prefixes,
+        include_default_profiles=include_default_profiles,
+    )
 
 
 def create_pipeline_command(
@@ -248,7 +287,7 @@ def create_pipeline_command(
             cli_overrides = _parse_set_overrides(set_overrides)
 
         try:
-            pipeline_config = read_pipeline_config(
+            pipeline_config = _read_pipeline_config(
                 config_path=config,
                 cli_overrides=cli_overrides,
                 include_default_profiles=True,
@@ -290,14 +329,15 @@ def create_pipeline_command(
 
         # Generate run_id and deterministic date tag
         run_id = str(uuid.uuid4())
-        timezone_name = pipeline_config.determinism.environment.timezone
+        determinism_config: DeterminismConfig = pipeline_config.determinism
+        environment_config: DeterminismEnvironmentConfig = determinism_config.environment
+        timezone_name: str = environment_config.timezone
         try:
             tz = ZoneInfo(timezone_name)
         except Exception:  # pragma: no cover - invalid timezone handled by defaults
             tz = ZoneInfo("UTC")
-        pipeline_config.cli.date_tag = pipeline_config.cli.date_tag or datetime.now(tz).strftime(
-            "%Y%m%d"
-        )
+        cli_config: CLIConfig = pipeline_config.cli
+        cli_config.date_tag = cli_config.date_tag or datetime.now(tz).strftime("%Y%m%d")
 
         log = UnifiedLogger.get(__name__)
         log.info(
@@ -332,9 +372,9 @@ def create_pipeline_command(
 
         pipeline = pipeline_cls(pipeline_config, run_id)
 
-        postprocess_config = getattr(pipeline_config, "postprocess", None)
-        correlation_section = getattr(postprocess_config, "correlation", None)
-        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
+        postprocess_config = pipeline_config.postprocess
+        correlation_section = postprocess_config.correlation
+        correlation_enabled = bool(correlation_section.enabled)
         effective_extended = bool(extended or pipeline_config.cli.extended)
         run_kwargs: dict[str, Any] = {
             "extended": effective_extended,

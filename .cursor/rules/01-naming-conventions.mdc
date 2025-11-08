@@ -17,4 +17,4 @@ Valid: `docs/etl_contract/00-etl-overview.md`, `docs/pipelines/10-chembl-pipelin
 Invalid: `Docs/Overview.MD`, `etlOverview.md`, `01_overview.md`
 
 # REFERENCE
-See [docs/styleguide/00-naming-conventions.md](../../docs/styleguide/00-naming-conventions.md) for detailed documentation.
+See [docs/styleguide/00-naming-conventions.md](../../docs/styleguide/00-naming-conventions.md) and [docs/styleguide/11-naming-policy.md](../../docs/styleguide/11-naming-policy.md) for detailed documentation.

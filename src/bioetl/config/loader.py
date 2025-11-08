@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Any, cast
 
 import yaml
-from yaml.nodes import ScalarNode
 
+from bioetl.core.common.config_utils import ensure_mapping, load_yaml_document
 from bioetl.core.validators import is_iterable
 from .models.base import PipelineConfig
 
@@ -188,7 +188,19 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
         msg = f"Circular extends detected: {cycle}"
         raise ValueError(msg)
 
-    data = _ensure_mapping(_load_yaml(resolved), resolved)
+    raw_payload = load_yaml_document(
+        resolved,
+        include_resolver=lambda reference, base_dir: _resolve_reference(reference, base=base_dir),
+        preprocess=_preprocess_yaml_for_merge,
+    )
+    if raw_payload is None:
+        raw_payload = {}
+    data = ensure_mapping(
+        _apply_yaml_merge(raw_payload),
+        context=str(resolved),
+        type_error_message=lambda _value, _context: f"Configuration file must produce a mapping: {resolved}",
+        invalid_key_message=lambda _invalid, _context: f"Configuration mapping must use string keys: {resolved}",
+    )
     extends = data.pop("extends", ())
     if isinstance(extends, (str, Path)):
         extends = (extends,)
@@ -199,29 +211,6 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
         merged = _deep_merge(merged, _load_with_extends(reference_path, stack=(*lineage, resolved)))
 
     return _deep_merge(merged, data)
-
-
-def _load_yaml(path: Path) -> Any:
-    """Load a YAML file supporting ``!include`` directives."""
-
-    class Loader(yaml.SafeLoader):
-        pass
-
-    def construct_include(loader: Loader, node: ScalarNode) -> Any:
-        filename = loader.construct_scalar(node)
-        include_path = _resolve_reference(filename, base=path.parent)
-        return _load_yaml(include_path)
-
-    Loader.add_constructor("!include", construct_include)
-
-    with path.open("r", encoding="utf-8") as handle:
-        raw_text = handle.read()
-
-    normalized_text = raw_text.replace("<<:", "__merge__:")
-    data = yaml.load(normalized_text, Loader=Loader)
-    if data is None:
-        return {}
-    return _apply_yaml_merge(data)
 
 
 def _convert_mapping_to_string_keys(
@@ -309,16 +298,6 @@ def _apply_yaml_merge(payload: Any) -> Any:
         ]
 
     return payload
-
-
-def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
-    if not isinstance(value, MutableMapping):
-        msg = f"Configuration file must produce a mapping: {path}"
-        raise TypeError(msg)
-    return _convert_mapping_to_string_keys(
-        value,
-        context=f"Configuration mapping must use string keys: {path}",
-    )
 
 
 def _resolve_reference(value: str | Path, *, base: Path) -> Path:
@@ -475,3 +454,7 @@ def _stringify_profile(profile: Path, *, base: Path) -> str:
         return str(profile.relative_to(base))
     except ValueError:
         return str(profile)
+
+
+def _preprocess_yaml_for_merge(text: str) -> str:
+    return text.replace("<<:", "__merge__:")

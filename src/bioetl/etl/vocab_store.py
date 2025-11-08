@@ -17,6 +17,7 @@ from typing import Any, Final, cast
 
 import yaml
 
+from bioetl.core.common.config_utils import ensure_mapping, load_yaml_document
 from bioetl.core.validators import assert_list_of
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
@@ -28,18 +29,18 @@ class VocabStoreError(RuntimeError):
 
 
 def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
-        raise VocabStoreError(f"Expected mapping for {context}, got {type(value)!r}")
-
-    keys_view = cast(Iterable[Any], value.keys())
-
-    for key_obj in keys_view:
-        if not isinstance(key_obj, str):
-            raise VocabStoreError(
-                f"Expected string keys for {context}, got key of type {type(key_obj)!r}"
-            )
-
-    return cast(Mapping[str, Any], value)
+    return ensure_mapping(
+        value,
+        context=context,
+        exception_type=VocabStoreError,
+        coerce_dict=False,
+        type_error_message=lambda candidate, _: f"Expected mapping for {context}, got {type(candidate)!r}",
+        invalid_key_message=lambda invalid_keys, _: (
+            f"Expected string keys for {context}, got key of type {type(invalid_keys[0])!r}"
+            if invalid_keys
+            else f"Expected string keys for {context}"
+        ),
+    )
 
 
 def _ensure_list(value: Any, *, context: str) -> list[Any]:
@@ -94,7 +95,7 @@ def _validate_block(name: str, block: Mapping[str, Any]) -> None:
 
 def _load_yaml(path: Path) -> Mapping[str, Any]:
     try:
-        payload = yaml.safe_load(path.read_text(encoding="utf-8"))
+        payload = load_yaml_document(path)
     except FileNotFoundError as exc:
         raise VocabStoreError(f"Vocabulary file not found: {path}") from exc
     except yaml.YAMLError as exc:  # pragma: no cover - re-raising with context
