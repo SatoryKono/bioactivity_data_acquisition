@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 import yaml
 from yaml.nodes import ScalarNode
 
+from bioetl.core.validators import is_iterable
 from .models.base import PipelineConfig
 
 DEFAULTS_DIR = Path("configs/defaults")
@@ -17,14 +18,6 @@ ENV_ROOT_DIR = Path("configs/env")
 ENVIRONMENT_VARIABLE = "BIOETL_ENV"
 VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
-
-
-def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
-    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
-
-
-def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
-    return isinstance(value, list)
 
 
 def load_config(
@@ -250,7 +243,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
                 typed_sources: tuple[Mapping[str, Any], ...] = (
                     _normalize_merge_source(merge_value),
                 )
-            elif _is_non_string_iterable(merge_value):
+            elif is_iterable(merge_value):
                 merge_iterable: Iterable[Any] = merge_value
                 typed_sources = tuple(
                     _normalize_merge_source(source_any) for source_any in merge_iterable
@@ -280,7 +273,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         return result
 
-    if _is_any_list(payload):
+    if isinstance(payload, list):
         payload_list: list[Any] = payload
         return [
             _apply_yaml_merge(element_any)

@@ -12,9 +12,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, TypeGuard, cast
+from typing import Any, Final, cast
 
 import yaml
+
+from bioetl.core.validators import assert_list_of
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}
@@ -39,15 +41,22 @@ def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], value)
 
 
-def _is_list_of_any(value: Any) -> TypeGuard[list[Any]]:
-    return isinstance(value, list)
-
-
 def _ensure_list(value: Any, *, context: str) -> list[Any]:
-    if not _is_list_of_any(value):
-        raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}")
+    try:
+        validated = assert_list_of(
+            value,
+            lambda _: True,
+            argument_name=context,
+            predicate_name="lambda _: True",
+        )
+    except TypeError as exc:
+        raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}") from exc
+    except ValueError as exc:
+        raise VocabStoreError(
+            f"List contents for {context} failed validation: {exc}"
+        ) from exc
 
-    copied_list: list[Any] = list(value)
+    copied_list: list[Any] = list(validated)
     return copied_list
 
 
