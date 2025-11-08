@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Iterable
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import pandera as pa
@@ -51,8 +52,13 @@ ROW_HASH_FIELDS = BASE_COLUMNS
 
 COLUMN_ORDER = (*BASE_COLUMNS, "hash_business_key", "hash_row")
 
-ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = tuple(sorted(required_vocab_ids("source_system")))
-ALLOWED_STATUS_VALUES: tuple[str, ...] = tuple(sorted(required_vocab_ids("status")))
+def _sorted_vocab_ids(vocab_key: str) -> tuple[str, ...]:
+    vocab_items: Iterable[Any] = required_vocab_ids(vocab_key)
+    return tuple(sorted(str(item) for item in vocab_items))
+
+
+ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = _sorted_vocab_ids("source_system")
+ALLOWED_STATUS_VALUES: tuple[str, ...] = _sorted_vocab_ids("status")
 
 
 def _is_valid_json_string(value: Any) -> bool:
@@ -78,23 +84,28 @@ def _validate_optional_json_series(series: pd.Series) -> bool:
     return bool(non_null.map(_is_valid_json_string).all())
 
 
-def _time_window_consistent(row: pd.Series, **_: Any) -> bool:
-    start = row["request_started_at"]
-    finish = row["request_finished_at"]
-    ingested = row["ingested_at"]
+def _coerce_timestamp(value: Any) -> datetime | None:
+    if isinstance(value, pd.Series):
+        if value.empty:
+            return None
+        try:
+            scalar_value = cast(Any, value.item())
+        except ValueError:
+            return None
+        return _coerce_timestamp(scalar_value)
+    if isinstance(value, pd.Timestamp):
+        return value.to_pydatetime()
+    if isinstance(value, datetime):
+        return value
+    return None
 
-    if isinstance(start, pd.Series):
-        start = start.iloc[0]
-    if isinstance(finish, pd.Series):
-        finish = finish.iloc[0]
-    if isinstance(ingested, pd.Series):
-        ingested = ingested.iloc[0]
 
-    if not (
-        isinstance(start, datetime)
-        and isinstance(finish, datetime)
-        and isinstance(ingested, datetime)
-    ):
+def _time_window_consistent(row: pd.Series[Any], **_: Any) -> bool:
+    start = _coerce_timestamp(row.get("request_started_at"))
+    finish = _coerce_timestamp(row.get("request_finished_at"))
+    ingested = _coerce_timestamp(row.get("ingested_at"))
+
+    if not (start and finish and ingested):
         return False
 
     return start <= finish <= ingested
@@ -104,14 +115,14 @@ columns: dict[str, Column] = {
     "load_meta_id": uuid_column(nullable=False, unique=True),
     "source_system": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check.isin(ALLOWED_SOURCE_SYSTEMS)],
+        checks=[Check.isin(ALLOWED_SOURCE_SYSTEMS)],  # type: ignore[arg-type]
         nullable=False,
     ),  # type: ignore[assignment]
     "source_release": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "source_api_version": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "request_base_url": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check.str_matches(r"^https?://")],
+        checks=[Check.str_matches(r"^https?://")],  # type: ignore[arg-type]
         nullable=False,
     ),  # type: ignore[assignment]
     "request_params_json": Column(
@@ -139,7 +150,7 @@ columns: dict[str, Column] = {
     "records_fetched": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
     "status": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check.isin(ALLOWED_STATUS_VALUES)],
+        checks=[Check.isin(ALLOWED_STATUS_VALUES)],  # type: ignore[arg-type]
         nullable=False,
     ),  # type: ignore[assignment]
     "error_message_opt": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]

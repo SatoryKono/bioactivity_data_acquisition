@@ -7,11 +7,13 @@
 The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to interact with external data sources. This client provides a centralized, configurable, and resilient layer for all outgoing HTTP requests. Its implementation can be found in `[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`.
 
 The primary goals of this unified client are:
+
 - **Centralized Configuration**: Provide a single point for setting up timeouts, retry policies, rate limits, and headers.
 - **Resilience**: Automatically handle transient network errors, server-side issues (`5xx`), and rate limiting (`429`) through a robust retry mechanism with exponential backoff.
 - **Predictability**: Ensure consistent behavior across all pipelines by using shared configuration profiles.
 
 Configuration is managed through a layered system, where settings from standardized profiles are merged with pipeline-specific configs. The key profiles are:
+
 - **`base.yaml`**: Provides foundational settings for all pipelines.
 - **`network.yaml`**: Contains a standard, resilient configuration for network interactions, including timeouts and retry policies. It is recommended for pipelines that interact with external APIs.
 - **`determinism.yaml`**: Provides settings to ensure reproducible, deterministic outputs, such as sort keys and hashing configurations.
@@ -67,6 +69,7 @@ The `TokenBucketLimiter` protects upstream services by throttling the number of 
 The retry logic is implemented in the `RetryPolicy` class within `api_client.py`.
 
 **Error Classification:**
+
 - **Retryable**: The system **MUST** retry on the following conditions:
   - Any exception that is a subclass of `requests.exceptions.RequestException` (e.g., `ConnectionError`, `Timeout`).
   - HTTP responses with a `5xx` status code (e.g., `500`, `502`, `503`, `504`).
@@ -113,8 +116,10 @@ When the circuit breaker is open, the client raises `CircuitBreakerOpenError`, w
 ## 6. Quotas, Limits, and `429 Too Many Requests`
 
 The client handles rate limiting in two ways:
+
 1. **Proactive Rate Limiting**: The `TokenBucketLimiter` class ensures that the client does not exceed the `rate_limit.max_calls` per `rate_limit.period` defined in the configuration.
 2. **Reactive Backoff**: If the server responds with a `429 Too Many Requests` status, the retry logic is triggered. The client **MUST** prioritize the `Retry-After` header from the response to determine the backoff delay.
+
 - **Reference**: [RFC 6585, Section 4: 429 Too Many Requests](https://datatracker.ietf.org/doc/html/rfc6585#section-4)
 
 ## 7. Telemetry and Logging
@@ -175,6 +180,7 @@ This is an example of a structured log record for a retryable error, as it would
 
 - **Current State**: The core `UnifiedAPIClient` does not have a generic pagination handler. Pagination logic is expected to be handled by the source-specific clients that use it (e.g., a ChEMBL client).
 - **Normative Standard**: Source-specific clients SHOULD implement pagination by:
+
   - Handling page/size or offset/limit parameters.
   - Parsing `next` links from response bodies or `Link` headers.
   - Respecting rate limits between page requests.
@@ -187,11 +193,13 @@ This is an example of a structured log record for a retryable error, as it would
 ## 9. Test Plan
 
 - **Unit Tests**:
+
   - Verify that the `RetryPolicy` correctly identifies retryable vs. non-retryable status codes.
   - Verify that `parse_retry_after` correctly parses both integer and HTTP-date formats.
   - Verify the backoff calculation is correct and respects `backoff_max`.
   - Verify that a `Retry-After` value correctly overrides the calculated backoff.
 - **Integration Tests**:
+
   - Using a mock server, simulate a `429` response with a `Retry-After` header and assert the client waits for the specified duration.
   - Simulate a `503` error and assert that the client performs the correct number of retries with exponential backoff.
   - Test the circuit breaker by sending a series of failing requests and asserting that it opens and subsequently closes.

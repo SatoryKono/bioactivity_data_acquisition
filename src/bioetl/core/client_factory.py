@@ -19,6 +19,11 @@ class APIClientFactory:
         self._config = config
         self._log = UnifiedLogger.get(__name__).bind(component="client_factory")
 
+    @property
+    def config(self) -> PipelineConfig:
+        """Return конфигурацию пайплайна, использующуюся фабрикой."""
+        return self._config
+
     def build(
         self,
         *,
