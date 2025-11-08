@@ -8,13 +8,14 @@ from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+from bioetl.config.models.models import SourceConfig
+from bioetl.config.models.policies import HTTPClientConfig
+
 from .common.source_adapter import (
     extract_allowed_parameters,
     normalize_base_url,
     normalize_select_fields,
 )
-from .models.http import HTTPClientConfig
-from .models.source import SourceConfig
 from .utils import coerce_bool
 
 ParamsT = TypeVar("ParamsT", bound="BaseSourceParameters")
@@ -120,7 +121,7 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
     def from_source(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
         """Сконструировать пайплайновый конфиг из общих SourceConfig-данных."""
 
-        params_mapping = dict(config.parameters)
+        params_mapping: dict[str, Any] = dict(config.parameters)
         handshake_endpoint = cls._resolve_handshake_endpoint(
             params_mapping.pop("handshake_endpoint", None),
         )

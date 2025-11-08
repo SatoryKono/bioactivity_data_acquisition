@@ -19,14 +19,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Mapping
-from typing import Any, cast
+from typing import Any, TypeGuard, TypeVar, cast
+
+T = TypeVar("T")
 
 JSON_PRIMITIVE_TYPES: tuple[type[Any], ...] = (str, int, float, bool, type(None))
 
-Predicate = Callable[[object], bool]
-
-
-def is_iterable(obj: object, /, *, exclude_str: bool = True) -> bool:
+def is_iterable(obj: Any, /, *, exclude_str: bool = True) -> bool:
     """Проверить, что объект итерируем, опираясь на вызов ``iter(obj)``.
 
     ``isinstance(obj, Iterable)`` не считается достаточным критерием: объекты,
@@ -51,14 +50,14 @@ def is_iterable(obj: object, /, *, exclude_str: bool = True) -> bool:
         return False
 
     try:
-        iter(obj)
+        iter(cast(Iterable[Any], obj))
     except TypeError:
         return False
     return True
 
 
 def assert_iterable(
-    obj: object,
+    obj: Any,
     /,
     *,
     exclude_str: bool = True,
@@ -75,28 +74,29 @@ def assert_iterable(
     return cast(Iterable[Any], obj)
 
 
-def is_list_of(obj: object, predicate: Predicate) -> bool:
+def is_list_of(obj: object, predicate: Callable[[T], bool]) -> TypeGuard[list[T]]:
     """Проверить, что объект — список, чьи элементы удовлетворяют предикату."""
 
     if not isinstance(obj, list):
         return False
-    return all(predicate(element) for element in obj)
+    obj_list = cast(list[T], obj)
+    return all(predicate(element) for element in obj_list)
 
 
 def assert_list_of(
     obj: object,
-    predicate: Predicate,
+    predicate: Callable[[T], bool],
     *,
     argument_name: str = "value",
     predicate_name: str | None = None,
-) -> list[Any]:
+) -> list[T]:
     """Убедиться, что аргумент — список, элементы которого проходят проверку."""
 
     if not isinstance(obj, list):
         msg = f"{argument_name} должен быть list, получено {type(obj)!r}"
         raise TypeError(msg)
 
-    obj_list: list[Any] = cast(list[Any], obj)
+    obj_list = cast(list[T], obj)
 
     violations: list[int] = []
     for index, element in enumerate(obj_list):
@@ -138,12 +138,12 @@ def _is_json_mapping_internal(obj: object, *, seen_ids: set[int]) -> bool:
     if not isinstance(obj, Mapping):
         return False
 
-    obj_id = id(obj)
+    mapping_obj: Mapping[object, object] = cast(Mapping[object, object], obj)
+
+    obj_id = id(mapping_obj)
     if obj_id in seen_ids:
         return False
     seen_ids.add(obj_id)
-
-    mapping_obj: Mapping[object, object] = cast(Mapping[object, object], obj)
 
     for key_obj, value in mapping_obj.items():
         if not isinstance(key_obj, str):
