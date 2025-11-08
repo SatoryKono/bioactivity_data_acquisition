@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.config.loader import load_config
+from bioetl.config.loader import read_pipeline_config
 
 PIPELINE_CONFIGS = [
     Path("configs/pipelines/activity/activity_chembl.yaml"),
@@ -22,7 +22,7 @@ PIPELINE_CONFIGS = [
     "config_path", PIPELINE_CONFIGS, ids=[path.stem for path in PIPELINE_CONFIGS]
 )
 def test_pipeline_config_profile_merge(config_path: Path) -> None:
-    config = load_config(config_path, include_default_profiles=False)
+    config = read_pipeline_config(config_path, include_default_profiles=False)
 
     # Runtime defaults propagated from base profile
     assert config.runtime.parallelism >= 1

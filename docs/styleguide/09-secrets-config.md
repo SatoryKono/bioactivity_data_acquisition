@@ -106,8 +106,8 @@ from bioetl.config.models.base import PipelineConfig
 import yaml
 from pathlib import Path
 
-def load_config(config_path: Path) -> PipelineConfig:
-    """Load and validate configuration."""
+def read_pipeline_config(config_path: Path) -> PipelineConfig:
+    """Read and validate configuration."""
     with config_path.open() as f:
         config_data = yaml.safe_load(f)
 
@@ -160,8 +160,8 @@ pipeline:
 from pathlib import Path
 import yaml
 
-def load_config_with_profiles(config_path: Path, profile_names: list[str]) -> dict:
-    """Load config with profile inheritance."""
+def read_pipeline_config_with_profiles(config_path: Path, profile_names: list[str]) -> dict:
+    """Read config with profile inheritance."""
     config = {}
 
     # Load profiles first

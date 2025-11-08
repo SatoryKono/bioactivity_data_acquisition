@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Any
@@ -89,8 +90,8 @@ class EnvironmentSettings(BaseSettings):
         return normalized
 
 
-def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
-    """Load and validate BioETL environment settings.
+def read_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
+    """Read and validate BioETL environment settings.
 
     Parameters
     ----------
@@ -103,6 +104,18 @@ def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSet
     if env_file is not None:
         init_kwargs["_env_file"] = env_file
     return EnvironmentSettings(**init_kwargs)
+
+
+def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
+    """Deprecated wrapper for :func:`read_environment_settings`."""
+
+    warnings.warn(
+        "load_environment_settings() is deprecated and will be removed in a future "
+        "release; use read_environment_settings() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_environment_settings(env_file=env_file)
 
 
 def apply_runtime_overrides(
@@ -176,6 +189,7 @@ def apply_runtime_overrides(
 __all__ = [
     "EnvironmentSettings",
     "apply_runtime_overrides",
+    "read_environment_settings",
     "load_environment_settings",
 ]
 

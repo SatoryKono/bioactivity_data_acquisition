@@ -209,10 +209,10 @@ All major features **SHOULD** include runnable examples:
 
 ```python
 from bioetl.pipelines import ActivityPipeline
-from bioetl.config import load_config
+from bioetl.config import read_pipeline_config
 
 # Load configuration
-config = load_config("configs/pipelines/activity.yaml")
+config = read_pipeline_config("configs/pipelines/activity.yaml")
 
 # Create pipeline
 pipeline = ActivityPipeline(config)

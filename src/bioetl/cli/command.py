@@ -14,8 +14,8 @@ import typer
 
 from bioetl.config import (
     apply_runtime_overrides,
-    load_config,
-    load_environment_settings,
+    read_environment_settings,
+    read_pipeline_config,
 )
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
@@ -233,7 +233,7 @@ def create_pipeline_command(
             raise typer.BadParameter("--limit and --sample are mutually exclusive")
 
         try:
-            env_settings = load_environment_settings()
+            env_settings = read_environment_settings()
         except ValueError as exc:
             typer.echo(f"Error: Environment validation failed: {exc}", err=True)
             raise typer.Exit(code=2) from exc
@@ -248,7 +248,7 @@ def create_pipeline_command(
             cli_overrides = _parse_set_overrides(set_overrides)
 
         try:
-            pipeline_config = load_config(
+            pipeline_config = read_pipeline_config(
                 config_path=config,
                 cli_overrides=cli_overrides,
                 include_default_profiles=True,

@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from bioetl.config import load_config
+from bioetl.config import read_pipeline_config
 from bioetl.pipelines.document.document import ChemblDocumentPipeline
 
 
@@ -125,7 +125,7 @@ class TestDocumentPipelineSmoke:
             / "document"
             / "document_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Ensure enrichment is disabled
         if config.chembl and config.chembl.get("document"):
@@ -178,7 +178,7 @@ class TestDocumentPipelineSmoke:
             / "document"
             / "document_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Enable enrichment - convert to dict to allow modification
         chembl_dict = dict(config.chembl) if config.chembl else {}
@@ -258,7 +258,7 @@ class TestDocumentPipelineSmoke:
             / "document"
             / "document_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         mock_documents = create_mock_document_data(count=2)
 

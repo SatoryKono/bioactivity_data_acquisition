@@ -217,10 +217,10 @@ This is an example of a structured log record for a retryable error, as it would
 # 3. Instantiate the client using the final config.
 
 from bioetl.core.api_client import UnifiedAPIClient, APIConfig
-from bioetl.config.loader import load_config
+from bioetl.config.loader import read_pipeline_config
 
 # This is what happens inside the framework:
-config = load_config("my_pipeline.yaml") # Assumes `extends: [network.yaml]`
+config = read_pipeline_config("my_pipeline.yaml") # Assumes `extends: [network.yaml]`
 http_profile = config.http["default"]
 
 api_config = APIConfig(

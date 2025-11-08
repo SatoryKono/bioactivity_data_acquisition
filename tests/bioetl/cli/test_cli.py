@@ -177,18 +177,18 @@ sources:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch(
                 "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
 
-            real_config = real_load_config(
+            real_config = real_read_pipeline_config(
                 config_path=config_file,
                 include_default_profiles=True,
             )
-            mock_load_config.return_value = real_config
+            mock_read_pipeline_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -339,14 +339,14 @@ http:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.command.load_config") as mock_load_config:
+        with patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config:
             mock_config = MagicMock()
             mock_config.cli.dry_run = False
             mock_config.cli.limit = None
             mock_config.cli.extended = False
             mock_config.cli.golden = None
             mock_config.materialization.root = str(output_dir)
-            mock_load_config.return_value = mock_config
+            mock_read_pipeline_config.return_value = mock_config
 
             result = runner.invoke(
                 CLI_APP,
@@ -366,8 +366,8 @@ http:
 
             assert result.exit_code == 0
             # Check that overrides were passed
-            assert mock_load_config.called
-            call_kwargs = mock_load_config.call_args[1]
+            assert mock_read_pipeline_config.called
+            call_kwargs = mock_read_pipeline_config.call_args[1]
             assert "cli.limit" in call_kwargs["cli_overrides"]
             assert "http.default.timeout_sec" in call_kwargs["cli_overrides"]
 
@@ -461,18 +461,18 @@ http:
         output_dir = tmp_path / "output"
 
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch(
                 "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
 
-            real_config = real_load_config(
+            real_config = real_read_pipeline_config(
                 config_path=config_file,
                 include_default_profiles=False,
             )
-            mock_load_config.return_value = real_config
+            mock_read_pipeline_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
