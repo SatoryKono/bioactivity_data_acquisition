@@ -19,27 +19,59 @@ DOI_PATTERN = r"^10\.\d{4,9}/\S+$"
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-def chembl_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
-    """Create a ChEMBL ID column with validation.
+def _build_string_column(
+    *,
+    nullable: bool,
+    unique: bool,
+    checks: list[Check],
+) -> Column:
+    """Internal helper for constructing string columns."""
+    return Column(
+        pa.String,
+        checks=checks or None,  # type: ignore[arg-type,assignment]
+        nullable=nullable,
+        unique=unique,
+    )
+
+
+def string_column(
+    *,
+    nullable: bool,
+    pattern: str | None = None,
+    unique: bool = False,
+) -> Column:
+    """Create a string column with optional pattern constraint.
 
     Parameters
     ----------
     nullable
         Whether the column can contain null values.
+    pattern
+        Regex pattern column values must satisfy.
     unique
         Whether the column values must be unique.
 
     Returns
     -------
     Column
-        A Pandera Column definition for ChEMBL IDs.
+        A Pandera Column definition for strings.
     """
-    return Column(
-        pa.String,  # type: ignore[arg-type]
-        Check.str_matches(CHEMBL_ID_PATTERN),  # type: ignore[arg-type]
-        nullable=nullable,
-        unique=unique,
-    )
+    checks: list[Check] = []
+    if pattern is not None:
+        checks.append(Check.str_matches(pattern))  # type: ignore[arg-type]
+    return _build_string_column(nullable=nullable, unique=unique, checks=checks)
+
+
+def object_column(*, nullable: bool) -> Column:
+    """Create an object column with nullable control."""
+
+    return Column(pa.Object, nullable=nullable)  # type: ignore[assignment]
+
+
+def chembl_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Create a ChEMBL ID column with validation."""
+
+    return string_column(nullable=nullable, unique=unique, pattern=CHEMBL_ID_PATTERN)
 
 
 def nullable_string_column() -> Column:
@@ -50,7 +82,7 @@ def nullable_string_column() -> Column:
     Column
         A Pandera Column definition for nullable strings.
     """
-    return Column(pa.String, nullable=True)  # type: ignore[assignment]
+    return string_column(nullable=True)
 
 
 def non_nullable_string_column() -> Column:
@@ -61,7 +93,7 @@ def non_nullable_string_column() -> Column:
     Column
         A Pandera Column definition for non-nullable strings.
     """
-    return Column(pa.String, nullable=False)  # type: ignore[assignment]
+    return string_column(nullable=False)
 
 
 def nullable_int64_column(
@@ -244,17 +276,17 @@ def string_column_with_check(
     Column
         A Pandera Column definition for strings with checks.
     """
-    checks: list[Check] = []
-    if pattern is not None:
-        checks.append(Check.str_matches(pattern))  # type: ignore[arg-type]
+    base_column = string_column(nullable=nullable, pattern=pattern, unique=unique)
+    initial_checks: list[Check] = list(base_column.checks or [])
+    checks: list[Check] = list(initial_checks)
     if isin is not None:
         checks.append(Check.isin(isin))  # type: ignore[arg-type]
     if str_length is not None:
         checks.append(Check.str_length(str_length[0], str_length[1]))  # type: ignore[arg-type]
 
-    if checks:
-        return Column(pa.String, checks=checks, nullable=nullable, unique=unique)  # type: ignore[assignment]
-    return Column(pa.String, nullable=nullable, unique=unique)  # type: ignore[assignment]
+    if checks == initial_checks:
+        return base_column
+    return _build_string_column(nullable=nullable, unique=unique, checks=checks)
 
 
 def row_metadata_columns() -> dict[str, Column]:
@@ -284,7 +316,7 @@ def bao_id_column(*, nullable: bool = True) -> Column:
     Column
         A Pandera Column definition for BAO IDs.
     """
-    return string_column_with_check(pattern=BAO_ID_PATTERN, nullable=nullable)
+    return string_column(nullable=nullable, pattern=BAO_ID_PATTERN)
 
 
 def doi_column(*, nullable: bool = True) -> Column:
@@ -300,7 +332,7 @@ def doi_column(*, nullable: bool = True) -> Column:
     Column
         A Pandera Column definition for DOIs.
     """
-    return string_column_with_check(pattern=DOI_PATTERN, nullable=nullable)
+    return string_column(nullable=nullable, pattern=DOI_PATTERN)
 
 
 def nullable_object_column() -> Column:
@@ -311,18 +343,13 @@ def nullable_object_column() -> Column:
     Column
         A Pandera Column definition for nullable objects.
     """
-    return Column(pa.Object, nullable=True)  # type: ignore[assignment]
+    return object_column(nullable=True)
 
 
 def uuid_column(*, nullable: bool = False, unique: bool = False) -> Column:
     """Create a UUID column enforcing canonical hyphenated format."""
 
-    return Column(  # type: ignore[assignment]
-        pa.String,
-        Check.str_matches(UUID_PATTERN),  # type: ignore[arg-type]
-        nullable=nullable,
-        unique=unique,
-    )
+    return string_column(nullable=nullable, unique=unique, pattern=UUID_PATTERN)
 
 
 __all__ = [
@@ -339,9 +366,11 @@ __all__ = [
     "nullable_float64_column",
     "boolean_flag_column",
     "string_column_with_check",
+    "string_column",
     "row_metadata_columns",
     "bao_id_column",
     "doi_column",
     "nullable_object_column",
+    "object_column",
     "uuid_column",
 ]
