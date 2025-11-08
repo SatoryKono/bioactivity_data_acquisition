@@ -14,6 +14,7 @@ from .logger import (
     get_logger,
     reset_global_context,
 )
+from .mapping_utils import stringify_mapping
 
 __all__ = [
     "APIClientFactory",
@@ -30,4 +31,5 @@ __all__ = [
     "get_logger",
     "merge_http_configs",
     "reset_global_context",
+    "stringify_mapping",
 ]
