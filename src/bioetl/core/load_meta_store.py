@@ -20,8 +20,8 @@ from bioetl.core.hashing import hash_from_mapping
 from bioetl.schemas.load_meta import (
     BUSINESS_KEY_FIELDS,
     COLUMN_ORDER,
-    LoadMetaSchema,
     ROW_HASH_FIELDS,
+    LoadMetaSchema,
 )
 
 from .logger import UnifiedLogger
