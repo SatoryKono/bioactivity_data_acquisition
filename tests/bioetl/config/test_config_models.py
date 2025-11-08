@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-import pytest
+import math
 
+import pytest
 from pydantic import ValidationError
 
-from bioetl.config.models.models import IOConfig, IOInputConfig, IOOutputConfig
-from bioetl.config.models.models import LoggingConfig
-from bioetl.config.models.models import RuntimeConfig
-from bioetl.config.models.models import TelemetryConfig
+from bioetl.config.models.models import (
+    IOConfig,
+    IOInputConfig,
+    IOOutputConfig,
+    LoggingConfig,
+    RuntimeConfig,
+    TelemetryConfig,
+)
 from bioetl.config.models.policies import (
     DeterminismConfig,
     DeterminismSortingConfig,
@@ -62,7 +67,7 @@ def test_telemetry_config_sampling() -> None:
     assert config.enabled is True
     assert config.exporter == "jaeger"
     assert config.endpoint == "http://localhost:14268"
-    assert pytest.approx(config.sampling_ratio) == 0.5
+    assert math.isclose(config.sampling_ratio, 0.5, rel_tol=1e-12)
 
 
 @pytest.mark.unit

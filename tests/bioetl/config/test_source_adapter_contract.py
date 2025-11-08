@@ -9,7 +9,7 @@ import pytest
 from bioetl.config.activity import ActivitySourceConfig
 from bioetl.config.assay import AssaySourceConfig
 from bioetl.config.document import DocumentSourceConfig
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.models import SourceConfig
 from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.config.target import TargetSourceConfig
 from bioetl.config.testitem import TestItemSourceConfig
