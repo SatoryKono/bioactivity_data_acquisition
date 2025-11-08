@@ -9,7 +9,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -99,7 +99,7 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
 class ChemblActivityPipeline(ChemblPipelineBase):
     """ETL pipeline extracting activity records from the ChEMBL API."""
 
-    actor = "activity_chembl"
+    ACTOR: ClassVar[str] = "activity_chembl"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)

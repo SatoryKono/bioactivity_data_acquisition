@@ -10,7 +10,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, Protocol, cast
+from typing import Any, ClassVar, Protocol, cast
 from urllib.parse import urlencode, urlparse
 
 import pandas as pd
@@ -45,6 +45,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     and data extraction utilities.
     """
 
+    ACTOR: ClassVar[str] = "chembl_pipeline"
+
     def __init__(self, config: Any, run_id: str) -> None:
         """Initialize the ChEMBL pipeline base.
 
@@ -57,6 +59,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+
+    @property
+    def actor(self) -> str:
+        """Return canonical actor identifier for logging and metadata."""
+
+        return self.ACTOR
 
     # ------------------------------------------------------------------
     # Configuration resolution methods
