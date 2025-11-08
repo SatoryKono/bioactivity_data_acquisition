@@ -21,6 +21,7 @@
 | `bioetl-run-test-report` | `bioetl.cli.tools.run_test_report` | Запускает `pytest`, собирает отчёты и выпускает `meta.yaml`. | Каталог внутри `TEST_REPORTS_ROOT`. | `bioetl-run-test-report --output-root artifacts/test-reports` |
 | `bioetl-schema-guard` | `bioetl.cli.tools.schema_guard` | Валидирует конфиги пайплайнов и контролирует целостность Pandera-схем. | `artifacts/SCHEMA_GUARD_REPORT.md`. | `bioetl-schema-guard` |
 | `bioetl-semantic-diff` | `bioetl.cli.tools.semantic_diff` | Сравнивает документацию и реализацию ключевых API. | `artifacts/semantic-diff-report.json`. | `bioetl-semantic-diff` |
+| `bioetl-validate-naming-violations` | `bioetl.cli.tools.validate_naming_violations` | Проверяет, что таблица нарушений именований пуста (блокирует CI). | — | `bioetl-validate-naming-violations` |
 | `bioetl-vocab-audit` | `bioetl.cli.tools.vocab_audit` | Сравнивает значения из ChEMBL с локальными словарями. | `artifacts/vocab_audit.csv`, `artifacts/vocab_audit.meta.yaml`. | `bioetl-vocab-audit --pages 5 --page-size 500` |
 
 Все CLI команды доступны после `pip install -e .[dev]` и исполняются из корня репозитория,
