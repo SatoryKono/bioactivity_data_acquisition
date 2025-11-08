@@ -6,11 +6,12 @@ import json
 import os
 import tempfile
 from collections import defaultdict
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from hashlib import blake2b
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Mapping, MutableMapping, Sequence, Set
+from typing import Any
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SRC_ROOT = PROJECT_ROOT / "src" / "bioetl"
@@ -18,7 +19,7 @@ SCHEMAS_ROOT = SRC_ROOT / "schemas"
 VALIDATORS_FILE = SRC_ROOT / "core" / "validators.py"
 TARGET_FILES = [VALIDATORS_FILE] + sorted(SCHEMAS_ROOT.rglob("*.py"))
 
-IGNORED_FILES: Set[Path] = {
+IGNORED_FILES: set[Path] = {
     path for path in TARGET_FILES if path.name == "__init__.py"
 }
 
@@ -32,9 +33,9 @@ class FunctionInfo:
     lineno: int
     is_private: bool
     kind: str
-    tags: Set[str] = field(default_factory=set)
+    tags: set[str] = field(default_factory=set)
     duplicate_hash: str = ""
-    callers: Set[str] = field(default_factory=set)
+    callers: set[str] = field(default_factory=set)
 
 
 def path_to_module(path: Path) -> str:
@@ -76,8 +77,8 @@ def normalized_function_hash(node: ast.FunctionDef) -> str:
     return digest
 
 
-def extract_tags(node: ast.FunctionDef) -> Set[str]:
-    tags: Set[str] = set()
+def extract_tags(node: ast.FunctionDef) -> set[str]:
+    tags: set[str] = set()
     for subnode in ast.walk(node):
         if isinstance(subnode, ast.Call):
             func = subnode.func
@@ -128,7 +129,7 @@ def extract_tags(node: ast.FunctionDef) -> Set[str]:
 
 
 def resolve_attribute_name(node: ast.Attribute) -> str:
-    parts: List[str] = []
+    parts: list[str] = []
     current: ast.AST | None = node
     while isinstance(current, ast.Attribute):
         parts.append(current.attr)
@@ -139,8 +140,8 @@ def resolve_attribute_name(node: ast.Attribute) -> str:
     return ".".join(parts)
 
 
-def collect_functions() -> Dict[str, FunctionInfo]:
-    functions: Dict[str, FunctionInfo] = {}
+def collect_functions() -> dict[str, FunctionInfo]:
+    functions: dict[str, FunctionInfo] = {}
     for path in TARGET_FILES:
         if path in IGNORED_FILES:
             continue
@@ -198,7 +199,7 @@ def resolve_call(func: ast.AST, imports: Mapping[str, ImportAlias]) -> tuple[str
         if alias and not alias.name:
             return alias.module, "__call__"
     elif isinstance(func, ast.Attribute):
-        attr_chain: List[str] = []
+        attr_chain: list[str] = []
         current: ast.AST | None = func
         while isinstance(current, ast.Attribute):
             attr_chain.append(current.attr)
@@ -229,7 +230,7 @@ def collect_usages(functions: Mapping[str, FunctionInfo]) -> None:
                     continue
                 module, attr = resolved
                 if module in target_modules:
-                    possible_names: List[str] = []
+                    possible_names: list[str] = []
                     if attr == "__call__" and isinstance(node.func, ast.Attribute):
                         possible_names.append(node.func.attr)
                     else:
@@ -240,15 +241,15 @@ def collect_usages(functions: Mapping[str, FunctionInfo]) -> None:
                             functions[qualname].callers.add(module_name)
 
 
-def detect_duplicates(functions: Mapping[str, FunctionInfo]) -> Mapping[str, List[str]]:
-    duplicates: MutableMapping[str, List[str]] = defaultdict(list)
+def detect_duplicates(functions: Mapping[str, FunctionInfo]) -> Mapping[str, list[str]]:
+    duplicates: MutableMapping[str, list[str]] = defaultdict(list)
     for info in functions.values():
         duplicates[info.duplicate_hash].append(info.qualname)
     return duplicates
 
 
-def build_notes(info: FunctionInfo, duplicates: Mapping[str, List[str]]) -> List[str]:
-    notes: List[str] = []
+def build_notes(info: FunctionInfo, duplicates: Mapping[str, list[str]]) -> list[str]:
+    notes: list[str] = []
     if info.tags:
         notes.append("tags=" + ",".join(sorted(info.tags)))
     dup_candidates = [name for name in duplicates[info.duplicate_hash] if name != info.qualname]
@@ -259,10 +260,10 @@ def build_notes(info: FunctionInfo, duplicates: Mapping[str, List[str]]) -> List
     return notes
 
 
-def write_json(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, List[str]]) -> None:
+def write_json(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, list[str]]) -> None:
     output_path = PROJECT_ROOT / "build" / "validators_inventory.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    functions_payload: List[Dict[str, Any]] = []
+    functions_payload: list[dict[str, Any]] = []
     for qualname in sorted(functions.keys()):
         info = functions[qualname]
         functions_payload.append(
@@ -279,7 +280,7 @@ def write_json(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, L
                 "duplicates": [name for name in sorted(duplicates[info.duplicate_hash]) if name != info.qualname],
             }
         )
-    payload: Dict[str, Any] = {
+    payload: dict[str, Any] = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "functions": functions_payload,
     }
@@ -287,7 +288,7 @@ def write_json(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, L
     write_atomically(output_path, serialized.encode("utf-8"))
 
 
-def write_markdown(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, List[str]]) -> None:
+def write_markdown(functions: Mapping[str, FunctionInfo], duplicates: Mapping[str, list[str]]) -> None:
     output_path = PROJECT_ROOT / "docs" / "schemas" / "00-inventory.md"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     lines = [

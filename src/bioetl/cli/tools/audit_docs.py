@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.audit_docs import run_audit
 
 app = create_app(
@@ -29,9 +29,5 @@ def main(
 
     run_audit(artifacts_dir=artifacts.resolve())
     typer.echo(f"Аудит завершён, отчёты находятся в {artifacts.resolve()}")
-
-
-def run() -> None:
-    """Запускает Typer-приложение."""
-
-    run_app(app)
+run = runner_factory(app)
+run.__doc__ = "Запускает Typer-приложение."

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.check_output_artifacts import MAX_BYTES, check_output_artifacts
 
 app = create_app(
@@ -23,7 +23,4 @@ def main(max_bytes: int = typer.Option(MAX_BYTES, help="Порог размер�
             typer.secho(error, fg=typer.colors.RED)
         raise typer.Exit(code=1)
     typer.echo("Каталог data/output чистый: артефактов не обнаружено")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

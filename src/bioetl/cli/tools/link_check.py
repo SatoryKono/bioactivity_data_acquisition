@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.link_check import run_link_check
 
 app = create_app(
@@ -22,7 +22,4 @@ def main(timeout: int = typer.Option(300, help="Таймаут запуска ly
         typer.secho(f"Lychee завершился с кодом {exit_code}", fg=typer.colors.RED)
         raise typer.Exit(code=exit_code)
     typer.echo("Отчёт по ссылкам сформирован")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

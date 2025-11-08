@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.common import run as run_cli
+from bioetl.cli.runner import runner_factory
 
-__all__ = ["create_app", "run_app"]
+__all__ = ["create_app", "run_app", "runner_factory"]
 
 
 def create_app(name: str, help_text: str) -> typer.Typer:
@@ -18,6 +18,5 @@ def create_app(name: str, help_text: str) -> typer.Typer:
 def run_app(app: typer.Typer, *, setup_logging: bool = True) -> None:
     """Запускает Typer-приложение через общий раннер."""
 
-    exit_code = run_cli(app, setup_logging=setup_logging)
-    if exit_code != 0:
-        raise SystemExit(exit_code)
+    runner = runner_factory(app, setup_logging=setup_logging)
+    runner()

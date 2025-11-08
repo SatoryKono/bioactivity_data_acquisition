@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.vocab_audit import audit_vocabularies
 
 app = create_app(
@@ -35,7 +35,4 @@ def main(
     typer.echo(
         f"Аудит завершён: {len(result.rows)} строк, отчёт {result.output}, мета {result.meta}"
     )
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

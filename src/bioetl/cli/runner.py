@@ -9,7 +9,7 @@ import typer
 
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 
-__all__ = ["run"]
+__all__ = ["run", "runner_factory"]
 
 _DEFAULT_LOG_LEVEL: Final[str] = "INFO"
 _INTERRUPTED_EXIT_CODE: Final[int] = 130
@@ -61,7 +61,8 @@ def run(fn: Callable[[], int | None], *, setup_logging: bool = True) -> int:
         return exit_code
 
     except typer.Exit as exc:
-        exit_code = exc.exit_code if exc.exit_code is not None else 0
+        exit_code_attr = getattr(exc, "exit_code", None)
+        exit_code = int(exit_code_attr) if exit_code_attr is not None else 0
         log.info("cli_runner_typer_exit", exit_code=exit_code)
         return exit_code
 
@@ -88,4 +89,30 @@ def run(fn: Callable[[], int | None], *, setup_logging: bool = True) -> int:
 
     finally:
         UnifiedLogger.reset()
+
+
+def runner_factory(
+    fn: Callable[[], int | None], *, setup_logging: bool = True
+) -> Callable[[], None]:
+    """Создать обёртку для запуска CLI-функции через общий раннер.
+
+    Parameters
+    ----------
+    fn:
+        Вызываемый объект CLI, обычно ``typer.Typer`` или функция-обработчик.
+    setup_logging:
+        Если истина, включает настройку логирования перед запуском.
+
+    Returns
+    -------
+    Callable[[], None]
+        Функция без аргументов, завершающая процесс при ненулевом коде выхода.
+    """
+
+    def _runner() -> None:
+        exit_code = run(fn, setup_logging=setup_logging)
+        if exit_code != 0:
+            raise SystemExit(exit_code)
+
+    return _runner
 

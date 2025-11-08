@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.check_comments import run_comment_check
 
 app = create_app(
@@ -26,7 +26,4 @@ def main(
     except NotImplementedError as exc:  # pragma: no cover - статус ожидаемо неуспешный
         typer.secho(str(exc), fg=typer.colors.YELLOW)
         raise typer.Exit(code=1) from exc
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

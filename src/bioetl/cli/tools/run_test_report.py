@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.run_test_report import TEST_REPORTS_ROOT, generate_test_report
 
 app = create_app(
@@ -29,7 +29,4 @@ def main(
 
     exit_code = generate_test_report(output_root=output_root.resolve())
     raise typer.Exit(code=exit_code)
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

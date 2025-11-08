@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.common import ensure_columns
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.assay import (
     ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA,
@@ -19,17 +20,6 @@ __all__ = [
     "enrich_with_assay_classifications",
     "enrich_with_assay_parameters",
 ]
-
-
-def _ensure_columns(
-    df: pd.DataFrame,
-    columns: tuple[tuple[str, str], ...],
-) -> pd.DataFrame:
-    result = df.copy()
-    for name, dtype in columns:
-        if name not in result.columns:
-            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
-    return result
 
 
 _CLASSIFICATION_COLUMNS: tuple[tuple[str, str], ...] = (
@@ -65,7 +55,7 @@ def enrich_with_assay_classifications(
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
-    df_assay = _ensure_columns(df_assay, _CLASSIFICATION_COLUMNS)
+    df_assay = ensure_columns(df_assay, _CLASSIFICATION_COLUMNS)
 
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")
@@ -242,7 +232,7 @@ def enrich_with_assay_parameters(
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
-    df_assay = _ensure_columns(df_assay, _PARAMETERS_COLUMNS)
+    df_assay = ensure_columns(df_assay, _PARAMETERS_COLUMNS)
 
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")

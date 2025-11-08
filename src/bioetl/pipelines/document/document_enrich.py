@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.common import ensure_columns
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
@@ -37,17 +38,6 @@ def _escape_pipe(value: str | Any) -> str:
         return ""
 
     return text.replace("\\", "\\\\").replace("|", "\\|")
-
-
-def _ensure_columns(
-    df: pd.DataFrame,
-    columns: tuple[tuple[str, str], ...],
-) -> pd.DataFrame:
-    result = df.copy()
-    for name, dtype in columns:
-        if name not in result.columns:
-            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
-    return result
 
 
 _DOCUMENT_TERM_COLUMNS: tuple[tuple[str, str], ...] = (
@@ -178,7 +168,7 @@ def enrich_with_document_terms(
             result_frame[column_name] = result_frame[column_name].astype("string")
         return result_frame
 
-    df_docs = _ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
+    df_docs = ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
 
     if df_docs.empty:
         log.debug("enrichment_skipped_empty_dataframe")

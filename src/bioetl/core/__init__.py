@@ -2,6 +2,7 @@
 
 from .api_client import TokenBucketLimiter, UnifiedAPIClient, merge_http_configs
 from .client_factory import APIClientFactory
+from .common import ensure_columns
 from .logger import (
     DEFAULT_LOG_LEVEL,
     MANDATORY_FIELDS,
@@ -19,6 +20,7 @@ from .mapping_utils import stringify_mapping
 __all__ = [
     "APIClientFactory",
     "DEFAULT_LOG_LEVEL",
+    "ensure_columns",
     "LogConfig",
     "LogFormat",
     "MANDATORY_FIELDS",

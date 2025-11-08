@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.semantic_diff import run_semantic_diff
 
 app = create_app(
@@ -19,7 +19,4 @@ def main() -> None:
 
     report_path = run_semantic_diff()
     typer.echo(f"Семантический diff записан в {report_path}")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

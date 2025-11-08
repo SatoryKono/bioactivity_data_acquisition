@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.determinism_check import run_determinism_check
 
 app = create_app(
@@ -32,7 +32,4 @@ def main(
         )
         raise typer.Exit(code=1)
     typer.echo("Все проверенные пайплайны детерминированы")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

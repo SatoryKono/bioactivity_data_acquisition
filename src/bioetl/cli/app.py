@@ -9,8 +9,8 @@ from __future__ import annotations
 import typer
 
 from bioetl.cli.command import create_pipeline_command
-from bioetl.cli.common import run as run_cli
 from bioetl.cli.registry import COMMAND_REGISTRY
+from bioetl.cli.runner import runner_factory
 
 __all__ = ["app", "create_app"]
 
@@ -25,7 +25,7 @@ def create_app() -> typer.Typer:
 
     # Register list command first
     @app.command(name="list")
-    def list_commands() -> None:
+    def list_commands() -> None:  # pyright: ignore[reportUnusedFunction]
         """List all available pipeline commands."""
         commands = sorted(COMMAND_REGISTRY.keys())
         typer.echo("Available pipeline commands:")
@@ -64,11 +64,8 @@ def create_app() -> typer.Typer:
 app = create_app()
 
 
-def run() -> None:
-    """Entry point for CLI application with унифицированным раннером."""
-    exit_code = run_cli(app, setup_logging=False)
-    if exit_code != 0:
-        raise SystemExit(exit_code)
+run = runner_factory(app, setup_logging=False)
+run.__doc__ = "Entry point for CLI application with унифицированным раннером."
 
 
 if __name__ == "__main__":

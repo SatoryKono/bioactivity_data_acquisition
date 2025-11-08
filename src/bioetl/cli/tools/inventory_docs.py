@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.inventory_docs import collect_markdown_files, write_inventory
 
 app = create_app(
@@ -38,9 +38,5 @@ def main(
         f"Инвентаризация завершена: {len(result.files)} файлов. "
         f"Список -> {result.inventory_path}, хеши -> {result.hashes_path}"
     )
-
-
-def run() -> None:
-    """Запуск Typer-приложения."""
-
-    run_app(app)
+run = runner_factory(app)
+run.__doc__ = "Запуск Typer-приложения."

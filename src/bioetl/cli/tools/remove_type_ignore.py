@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.remove_type_ignore import remove_type_ignore
 
 app = create_app(
@@ -23,7 +23,4 @@ def main(
 
     count = remove_type_ignore(root=root.resolve())
     typer.echo(f"Удалено {count} директив type: ignore")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.catalog_code_symbols import catalog_code_symbols
 
 app = create_app(
@@ -30,9 +30,5 @@ def main(
         f"pipeline методы={len(result.pipeline_signatures)}, "
         f"CLI команды={len(result.cli_commands)}"
     )
-
-
-def run() -> None:
-    """Запуск Typer-приложения."""
-
-    run_app(app)
+run = runner_factory(app)
+run.__doc__ = "Запуск Typer-приложения."

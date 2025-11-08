@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.common import ensure_columns
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.activity import (
     ASSAY_ENRICHMENT_SCHEMA,
@@ -17,19 +18,6 @@ from bioetl.schemas.activity import (
 )
 
 __all__ = ["enrich_with_assay", "enrich_with_compound_record", "enrich_with_data_validity"]
-
-
-def _ensure_columns(
-    df: pd.DataFrame,
-    columns: tuple[tuple[str, str], ...],
-) -> pd.DataFrame:
-    """Ensure that ``df`` contains columns with provided dtypes."""
-
-    result = df.copy()
-    for name, dtype in columns:
-        if name not in result.columns:
-            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
-    return result
 
 
 _COMPOUND_FIELD_ALIASES: dict[str, tuple[str, ...]] = {
@@ -86,7 +74,7 @@ def enrich_with_assay(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
-    df_act = _ensure_columns(df_act, _ASSAY_COLUMNS)
+    df_act = ensure_columns(df_act, _ASSAY_COLUMNS)
 
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")
@@ -221,7 +209,7 @@ def enrich_with_compound_record(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
-    df_act = _ensure_columns(df_act, _COMPOUND_COLUMNS)
+    df_act = ensure_columns(df_act, _COMPOUND_COLUMNS)
 
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")

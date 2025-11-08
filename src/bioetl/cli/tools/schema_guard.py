@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.schema_guard import run_schema_guard
 
 app = create_app(
@@ -26,7 +26,4 @@ def main() -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(f"Все конфигурации валидны. Отчёт: {report_path}")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.doctest_cli import extract_cli_examples, run_examples
 
 app = create_app(
@@ -27,7 +27,4 @@ def main() -> None:
         )
         raise typer.Exit(code=1)
     typer.echo(f"Все {len(results)} примеров прошли успешно. Отчёт {report_path}")
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

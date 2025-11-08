@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.etl.vocab_store import VocabStoreError
 from bioetl.tools.build_vocab_store import build_vocab_store
 
@@ -42,7 +42,4 @@ def main(
     except VocabStoreError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)

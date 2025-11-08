@@ -6,7 +6,7 @@ from pathlib import Path
 
 import typer
 
-from bioetl.cli.tools import create_app, run_app
+from bioetl.cli.tools import create_app, runner_factory
 from bioetl.tools.create_matrix_doc_code import write_matrix
 
 app = create_app(
@@ -29,7 +29,4 @@ def main(
         f"Матрица с {len(result.rows)} строками записана в "
         f"{result.csv_path} и {result.json_path}"
     )
-
-
-def run() -> None:
-    run_app(app)
+run = runner_factory(app)
