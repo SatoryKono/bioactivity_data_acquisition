@@ -25,3 +25,14 @@ def test_canonical_config_modules_expose_expected_symbols(
 
     for attr in attributes:
         assert hasattr(module, attr), f"Модуль {module_name} не содержит {attr}"
+
+
+@pytest.mark.unit
+def test_legacy_models_module_emits_deprecation_and_reexports() -> None:
+    with pytest.warns(DeprecationWarning):
+        legacy_module = importlib.import_module("bioetl.config.models")
+
+    from bioetl.config.models.models import PipelineConfig, PipelineMetadata
+
+    assert legacy_module.PipelineConfig is PipelineConfig
+    assert legacy_module.PipelineMetadata is PipelineMetadata

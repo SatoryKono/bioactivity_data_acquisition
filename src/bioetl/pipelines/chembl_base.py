@@ -16,7 +16,7 @@ from urllib.parse import urlencode, urlparse
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.models import SourceConfig
 from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient

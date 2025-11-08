@@ -6,12 +6,15 @@ import pytest
 
 from pydantic import ValidationError
 
-from bioetl.config.models.determinism import DeterminismConfig, DeterminismSortingConfig
-from bioetl.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
-from bioetl.config.models.http import HTTPClientConfig
-from bioetl.config.models.logging import LoggingConfig
-from bioetl.config.models.runtime import RuntimeConfig
-from bioetl.config.models.telemetry import TelemetryConfig
+from bioetl.config.models.models import IOConfig, IOInputConfig, IOOutputConfig
+from bioetl.config.models.models import LoggingConfig
+from bioetl.config.models.models import RuntimeConfig
+from bioetl.config.models.models import TelemetryConfig
+from bioetl.config.models.policies import (
+    DeterminismConfig,
+    DeterminismSortingConfig,
+    HTTPClientConfig,
+)
 
 
 @pytest.mark.unit

@@ -6,7 +6,12 @@
 
 Every pipeline in the `bioetl` framework is driven by a declarative YAML configuration file. This approach separates the pipeline's logic (defined in its Python class) from its behavior (defined in the YAML), making pipelines flexible, reusable, and easy to manage.
 
-All configuration files are validated at runtime against a set of strongly-typed Pydantic models located in `src/bioetl/config/models/`. The models are organized into logical modules (base, http, cache, paths, determinism, validation, transform, postprocess, source, cli, fallbacks) and are all re-exported through `src/bioetl/config/models/__init__.py` for backward compatibility. This ensures that all configurations are well-formed and contain all necessary parameters before the pipeline begins execution.
+All configuration files are validated at runtime against a set of strongly-typed Pydantic models located in `src/bioetl/config/models/`. The package now follows a simplified two-module layout:
+
+- `models.py` — core configuration sections (pipeline metadata, runtime, IO, paths, transforms, etc.).
+- `policies.py` — behavioural policies such as HTTP retries/rate limits, determinism controls and fallback toggles.
+
+For backward compatibility the former fine-grained modules (e.g. `base`, `http`, `determinism`) remain available as deprecated re-exports until **bioetl 2.0**. Importing from them will raise a `DeprecationWarning`. This structure keeps the public surface compact while ensuring all configurations remain validated before execution.
 
 ## Configuration Skeleton
 

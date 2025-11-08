@@ -13,18 +13,18 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.cli import CLIConfig
-from bioetl.config.models.determinism import (
+from bioetl.config.models.models import PipelineMetadata
+from bioetl.config.models.models import CLIConfig
+from bioetl.config.models.policies import (
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSortingConfig,
 )
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.postprocess import PostprocessConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.config.models.validation import ValidationConfig
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import MaterializationConfig
+from bioetl.config.models.models import PostprocessConfig
+from bioetl.config.models.models import SourceConfig
+from bioetl.config.models.models import ValidationConfig
 from bioetl.core.api_client import UnifiedAPIClient
 
 DATA_DIR = Path(__file__).parent / "data"

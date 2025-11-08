@@ -3259,7 +3259,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             # Create a modified config with the correct sort keys
             from copy import deepcopy
 
-            from bioetl.config.models.determinism import DeterminismSortingConfig
+            from bioetl.config.models.policies import DeterminismSortingConfig
 
             modified_config = deepcopy(self.config)
             modified_config.determinism.sort = DeterminismSortingConfig(
