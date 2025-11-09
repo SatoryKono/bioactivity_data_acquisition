@@ -20,14 +20,14 @@ from bioetl.etl.vocab_store import VocabStoreError, read_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
 _chembl_new_client: Any | None = None
-_chembl_import_error: Exception | None = None
+_CHEMBL_IMPORT_ERROR: Exception | None = None
 try:  # pragma: no cover - runtime optional dependency
     from chembl_webresource_client.new_client import new_client as _chembl_new_client
 except Exception as exc:  # pragma: no cover - offline fallback
     _chembl_new_client = None
-    _chembl_import_error = exc
+    _CHEMBL_IMPORT_ERROR = exc
 else:  # pragma: no cover - executed when dependency available
-    _chembl_import_error = None
+    _CHEMBL_IMPORT_ERROR = None
 
 __all__ = ["audit_vocabularies", "FieldSpec"]
 
@@ -86,10 +86,10 @@ def _resolve_chembl_client() -> _ChemblClientProtocol:
         return cast(_ChemblClientProtocol, _chembl_new_client)
 
     log = UnifiedLogger.get(__name__)
-    if _chembl_import_error is not None:
+    if _CHEMBL_IMPORT_ERROR is not None:
         log.warning(
             "chembl_client.offline_stub_activated",
-            reason=str(_chembl_import_error),
+            reason=str(_CHEMBL_IMPORT_ERROR),
         )
     else:
         log.info("chembl_client.offline_stub_forced")
