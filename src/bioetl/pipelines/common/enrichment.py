@@ -12,14 +12,27 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, Protocol, cast, runtime_checkable
+from typing import Any, Protocol, TypeGuard, TypeVar, cast, runtime_checkable
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+_ValueT = TypeVar("_ValueT")
+
 ConfigPath = tuple[str, ...]
 EnrichmentFn = Callable[[pd.DataFrame, Any, Mapping[str, Any]], pd.DataFrame]
 LoggerCallback = Callable[[BoundLogger], None]
+
+
+def _mapping_has_str_keys(
+    candidate: Mapping[Any, _ValueT],
+) -> TypeGuard[Mapping[str, _ValueT]]:
+    """Return ``True`` when mapping keys are strings."""
+
+    for key in candidate.keys():
+        if not isinstance(key, str):
+            return False
+    return True
 
 
 def _as_str_mapping(candidate: Any) -> Mapping[str, Any] | None:
@@ -28,11 +41,11 @@ def _as_str_mapping(candidate: Any) -> Mapping[str, Any] | None:
     if not isinstance(candidate, Mapping):
         return None
 
-    if any(not isinstance(key, str) for key in candidate.keys()):
+    if not _mapping_has_str_keys(candidate):
         return None
 
-    mapping_candidate = cast(Mapping[str, Any], candidate)
-    return dict(mapping_candidate.items())
+    str_mapping = cast(Mapping[str, Any], candidate)
+    return dict(str_mapping.items())
 
 
 def _normalize_mapping(candidate: Any) -> Mapping[str, Any] | None:
