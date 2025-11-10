@@ -183,7 +183,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.fetch_chembl_release(client, log, source_config=source_config)
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -316,7 +316,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.fetch_chembl_release(client, log, source_config=source_config)
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit

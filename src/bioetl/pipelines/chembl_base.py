@@ -259,6 +259,61 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
             return []
         return list(normalized)
 
+    @staticmethod
+    def _resolve_handshake_settings(
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None,
+    ) -> tuple[str, bool]:
+        """Return handshake endpoint and enable flag derived from ``source_config``."""
+
+        default_endpoint = "/status.json"
+        default_enabled = True
+
+        if source_config is None:
+            return default_endpoint, default_enabled
+
+        endpoint_candidate: Any = cast(Any, getattr(source_config, "handshake_endpoint", None))
+        if endpoint_candidate is None:
+            parameters_attr = getattr(source_config, "parameters", None)
+            if isinstance(parameters_attr, Mapping):
+                parameters_mapping = cast(Mapping[str, Any], parameters_attr)
+                endpoint_candidate = parameters_mapping.get("handshake_endpoint")
+
+        if endpoint_candidate is None:
+            endpoint_value = default_endpoint
+        else:
+            endpoint_value = str(endpoint_candidate).strip() or default_endpoint
+
+        enabled_candidate: Any = cast(Any, getattr(source_config, "handshake_enabled", None))
+        if enabled_candidate is None:
+            parameters_attr = getattr(source_config, "parameters", None)
+            if isinstance(parameters_attr, Mapping):
+                parameters_mapping = cast(Mapping[str, Any], parameters_attr)
+                enabled_candidate = parameters_mapping.get("handshake_enabled")
+
+        if enabled_candidate is None:
+            enabled_value = default_enabled
+        elif isinstance(enabled_candidate, bool):
+            enabled_value = enabled_candidate
+        elif isinstance(enabled_candidate, str):
+            enabled_value = enabled_candidate.strip().lower() not in {"false", "0", "no"}
+        else:
+            enabled_value = bool(cast(object, enabled_candidate))
+
+        return endpoint_value, enabled_value
+
+    @staticmethod
+    def _normalise_handshake_endpoint(endpoint: str) -> str:
+        """Normalise handshake endpoint to a relative or absolute URL."""
+
+        candidate = endpoint.strip()
+        if not candidate:
+            return "/status.json"
+        if candidate.startswith(("http://", "https://")):
+            return candidate
+        if not candidate.startswith("/"):
+            candidate = f"/{candidate}"
+        return candidate
+
     # ------------------------------------------------------------------
     # API client management
     # ------------------------------------------------------------------
@@ -302,6 +357,8 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
     ) -> str | None:
         """Fetch ChEMBL release version from status endpoint.
 
@@ -325,6 +382,8 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
 
         release_value: str | None = None
         requested_at = datetime.now(timezone.utc)
+        handshake_endpoint, handshake_enabled = self._resolve_handshake_settings(source_config)
+        normalized_endpoint = self._normalise_handshake_endpoint(handshake_endpoint)
 
         # Check if client is ChemblClient by checking for handshake method
         handshake_candidate = getattr(client, "handshake", None)
@@ -334,8 +393,8 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     client,
                     log=log,
                     event=f"{self.pipeline_code}.status",
-                    endpoint="/status",
-                    enabled=True,
+                    endpoint=normalized_endpoint,
+                    enabled=handshake_enabled,
                 )
                 release_value = handshake_result.release
                 requested_at = handshake_result.requested_at_utc
@@ -354,8 +413,19 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
             requested_at = datetime.now(timezone.utc)
+            if not handshake_enabled:
+                log.info(
+                    f"{self.pipeline_code}.status_skipped",
+                    handshake_enabled=False,
+                    endpoint=normalized_endpoint,
+                )
+                self.record_extract_metadata(
+                    chembl_release=self.chembl_release,
+                    requested_at_utc=requested_at,
+                )
+                return self.chembl_release
             try:
-                response = client_get("/status.json")
+                response = client_get(normalized_endpoint)
                 json_candidate = getattr(response, "json", None)
                 if callable(json_candidate):
                     status_payload_raw = json_candidate()
@@ -379,10 +449,12 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
     ) -> str | None:
         """Backward compatible wrapper for tests expecting private method."""
 
-        return self.fetch_chembl_release(client, log)
+        return self.fetch_chembl_release(client, log, source_config=source_config)
 
     def perform_source_handshake(
         self,
