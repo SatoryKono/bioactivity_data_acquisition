@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, cast
+from functools import partial
+from typing import Any, Callable, cast
 
 from bioetl.clients.assay.chembl_assay_entity import ChemblAssayEntityClient
 from bioetl.clients.chembl_entities import (
@@ -214,6 +215,28 @@ class ChemblClient:
         return combined.split("?", 1)[0]
 
     # ------------------------------------------------------------------
+    # Internal fetching helper
+    # ------------------------------------------------------------------
+
+    def _fetch_entity(
+        self,
+        entity: Callable[[Iterable[Any], Sequence[str], int], Any] | Any,
+        ids: Iterable[Any],
+        fields: Sequence[str],
+        page_limit: int,
+    ) -> Any:
+        """Invoke ``fetch_by_ids`` (or a compatible callable) on ``entity``."""
+
+        fetch_by_ids = getattr(entity, "fetch_by_ids", None)
+        if fetch_by_ids is not None:
+            fetcher = cast(Callable[[Iterable[Any], Sequence[str], int], Any], fetch_by_ids)
+        elif callable(entity):
+            fetcher = cast(Callable[[Iterable[Any], Sequence[str], int], Any], entity)
+        else:
+            raise AttributeError("Entity does not provide fetch_by_ids")
+        return fetcher(ids, fields, page_limit)
+
+    # ------------------------------------------------------------------
     # Assay fetching
     # ------------------------------------------------------------------
 
@@ -239,7 +262,7 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by assay_chembl_id -> record dict.
         """
-        result = self._assay_entity.fetch_by_ids(ids, fields, page_limit)
+        result = self._fetch_entity(self._assay_entity, ids, fields, page_limit)
         return cast(dict[str, dict[str, Any]], result)
 
     # ------------------------------------------------------------------
@@ -268,7 +291,7 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by molecule_chembl_id -> record dict.
         """
-        result = self._molecule_entity.fetch_by_ids(ids, fields, page_limit)
+        result = self._fetch_entity(self._molecule_entity, ids, fields, page_limit)
         return cast(dict[str, dict[str, Any]], result)
 
     # ------------------------------------------------------------------
@@ -297,7 +320,7 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by data_validity_comment -> record dict.
         """
-        result = self._data_validity_entity.fetch_by_ids(comments, fields, page_limit)
+        result = self._fetch_entity(self._data_validity_entity, comments, fields, page_limit)
         return cast(dict[str, dict[str, Any]], result)
 
     # ------------------------------------------------------------------
@@ -327,8 +350,17 @@ class ChemblClient:
             Dictionary keyed by (molecule_chembl_id, document_chembl_id) -> record dict.
             Only one record per pair (deduplicated by priority).
         """
-        result = self._compound_record_entity.fetch_by_pairs(pairs, fields, page_limit)
-        return result
+        result = self._fetch_entity(
+            lambda fetch_pairs, fetch_fields, fetch_page_limit: self._compound_record_entity.fetch_by_pairs(  # noqa: E501
+                cast(Iterable[tuple[str, str]], fetch_pairs),
+                fetch_fields,
+                fetch_page_limit,
+            ),
+            pairs,
+            fields,
+            page_limit,
+        )
+        return cast(dict[tuple[str, str], dict[str, Any]], result)
 
     # ------------------------------------------------------------------
     # Document term fetching
@@ -357,7 +389,7 @@ class ChemblClient:
             Dictionary keyed by document_chembl_id -> list of record dicts.
             Each document can have multiple terms, so values are lists.
         """
-        result = self._document_term_entity.fetch_by_ids(ids, fields, page_limit)
+        result = self._fetch_entity(self._document_term_entity, ids, fields, page_limit)
         return cast(dict[str, list[dict[str, Any]]], result)
 
     # ------------------------------------------------------------------
@@ -387,7 +419,7 @@ class ChemblClient:
             Dictionary keyed by assay_chembl_id -> list of record dicts.
             Each assay can have multiple class mappings, so values are lists.
         """
-        result = self._assay_class_map_entity.fetch_by_ids(assay_ids, fields, page_limit)
+        result = self._fetch_entity(self._assay_class_map_entity, assay_ids, fields, page_limit)
         return cast(dict[str, list[dict[str, Any]]], result)
 
     # ------------------------------------------------------------------
@@ -420,10 +452,12 @@ class ChemblClient:
             Dictionary keyed by assay_chembl_id -> list of record dicts.
             Each assay can have multiple parameters, so values are lists.
         """
-        result = self._assay_parameters_entity.fetch_by_ids(
-            assay_ids, fields, page_limit, active_only=active_only
+        fetcher = partial(
+            self._assay_parameters_entity.fetch_by_ids,
+            active_only=active_only,
         )
-        return result
+        result = self._fetch_entity(fetcher, assay_ids, fields, page_limit)
+        return cast(dict[str, list[dict[str, Any]]], result)
 
     # ------------------------------------------------------------------
     # Assay classification fetching
@@ -451,5 +485,5 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by assay_class_id -> record dict.
         """
-        result = self._assay_classification_entity.fetch_by_ids(class_ids, fields, page_limit)
+        result = self._fetch_entity(self._assay_classification_entity, class_ids, fields, page_limit)
         return cast(dict[str, dict[str, Any]], result)
