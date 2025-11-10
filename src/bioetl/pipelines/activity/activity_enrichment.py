@@ -775,7 +775,7 @@ def enrich_with_data_validity(
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
-    df_act = _ensure_columns(df_act, _DATA_VALIDITY_COLUMNS)
+    df_act = ensure_columns(df_act, _DATA_VALIDITY_COLUMNS)
 
     if df_act.empty:
         log.debug("enrichment_skipped_empty_dataframe")

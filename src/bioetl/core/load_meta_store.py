@@ -50,7 +50,7 @@ def _normalize_base_url(value: Any) -> str:
 
 
 @dataclass(slots=True)
-class _ActiveRecord:
+class LoadMetaActiveRecord:
     load_meta_id: str
     source_system: str
     request_base_url: str
@@ -107,7 +107,7 @@ class LoadMetaStore:
         self._meta_dir.mkdir(parents=True, exist_ok=True)
         self._dataset_format = dataset_format
         self._logger = UnifiedLogger.get(__name__).bind(component="load_meta_store")
-        self._active: dict[str, _ActiveRecord] = {}
+        self._active: dict[str, LoadMetaActiveRecord] = {}
 
     # ------------------------------------------------------------------
     # Public API
@@ -134,7 +134,7 @@ class LoadMetaStore:
         else:
             params_json = _canonical_json(request_params)
         now = _utcnow()
-        record = _ActiveRecord(
+        record = LoadMetaActiveRecord(
             load_meta_id=load_meta_id,
             source_system=source_system,
             request_base_url=base_url,
@@ -242,7 +242,7 @@ class LoadMetaStore:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _require_active(self, load_meta_id: str) -> _ActiveRecord:
+    def _require_active(self, load_meta_id: str) -> LoadMetaActiveRecord:
         try:
             return self._active[load_meta_id]
         except KeyError as exc:  # pragma: no cover - defensive guard

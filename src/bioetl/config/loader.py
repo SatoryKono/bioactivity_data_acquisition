@@ -10,15 +10,48 @@ from typing import Any, cast
 
 import yaml
 
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core.common.config_utils import ensure_mapping, load_yaml_document
 from bioetl.core.validators import is_iterable
-from .models.base import PipelineConfig
 
 DEFAULTS_DIR = Path("configs/defaults")
 ENV_ROOT_DIR = Path("configs/env")
 ENVIRONMENT_VARIABLE = "BIOETL_ENV"
 VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
+
+
+def _ensure_mapping(value: Any, context: str | Path) -> dict[str, Any]:
+    """Убедиться, что YAML-разбор возвращает отображение со строковыми ключами."""
+
+    context_str = str(context)
+    return ensure_mapping(
+        value,
+        context=context_str,
+        type_error_message=lambda _value, _context: (
+            f"Configuration file must produce a mapping: {context_str}"
+        ),
+        invalid_key_message=lambda _invalid, _context: (
+            f"Configuration mapping must use string keys: {context_str}"
+        ),
+    )
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    """Загрузить YAML-файл с поддержкой ``!include`` и merge-операторов."""
+
+    resolved = path.expanduser().resolve()
+    raw_payload = load_yaml_document(
+        resolved,
+        include_resolver=lambda reference, base_dir: _resolve_reference(
+            reference, base=base_dir
+        ),
+        preprocess=_preprocess_yaml_for_merge,
+    )
+    if raw_payload is None:
+        raw_payload = {}
+    merged_payload = _apply_yaml_merge(raw_payload)
+    return _ensure_mapping(merged_payload, context=resolved)
 
 
 def read_pipeline_config(
@@ -188,19 +221,7 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
         msg = f"Circular extends detected: {cycle}"
         raise ValueError(msg)
 
-    raw_payload = load_yaml_document(
-        resolved,
-        include_resolver=lambda reference, base_dir: _resolve_reference(reference, base=base_dir),
-        preprocess=_preprocess_yaml_for_merge,
-    )
-    if raw_payload is None:
-        raw_payload = {}
-    data = ensure_mapping(
-        _apply_yaml_merge(raw_payload),
-        context=str(resolved),
-        type_error_message=lambda _value, _context: f"Configuration file must produce a mapping: {resolved}",
-        invalid_key_message=lambda _invalid, _context: f"Configuration mapping must use string keys: {resolved}",
-    )
+    data = _load_yaml(resolved)
     extends = data.pop("extends", ())
     if isinstance(extends, (str, Path)):
         extends = (extends,)
@@ -291,11 +312,8 @@ def _apply_yaml_merge(payload: Any) -> Any:
         return result
 
     if isinstance(payload, list):
-        payload_list: list[Any] = payload
-        return [
-            _apply_yaml_merge(element_any)
-            for element_any in payload_list
-        ]
+        payload_list = cast(list[Any], payload)
+        return [_apply_yaml_merge(element_any) for element_any in payload_list]
 
     return payload
 

@@ -19,16 +19,6 @@ from bioetl.core.logger import UnifiedLogger
 from bioetl.etl.vocab_store import VocabStoreError, read_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
-_chembl_new_client: Any | None = None
-_chembl_import_error: Exception | None = None
-try:  # pragma: no cover - runtime optional dependency
-    from chembl_webresource_client.new_client import new_client as _chembl_new_client
-except Exception as exc:  # pragma: no cover - offline fallback
-    _chembl_new_client = None
-    _chembl_import_error = exc
-else:  # pragma: no cover - executed when dependency available
-    _chembl_import_error = None
-
 __all__ = ["audit_vocabularies", "FieldSpec"]
 
 
@@ -40,25 +30,36 @@ DEFAULT_DICTIONARY_DIR = Path("configs/dictionaries")
 PIPELINE_VERSION = "0.1.0"
 
 
-class _QueryProtocol(Protocol):
-    def only(self, field: str) -> _QueryProtocol:
+class QueryProtocol(Protocol):
+    def only(self, field: str) -> QueryProtocol:
         ...
 
     def __iter__(self) -> Iterator[Mapping[str, object]]:
         ...
 
 
-class _ResourceProtocol(Protocol):
-    def filter(self, **filters: Any) -> _QueryProtocol:
+class ResourceProtocol(Protocol):
+    def filter(self, **filters: Any) -> QueryProtocol:
         ...
 
 
-class _ChemblClientProtocol(Protocol):
-    activity: _ResourceProtocol
-    assay: _ResourceProtocol
-    target: _ResourceProtocol
-    data_validity_lookup: _ResourceProtocol
-    mechanism: _ResourceProtocol
+class ChemblClientProtocol(Protocol):
+    activity: ResourceProtocol
+    assay: ResourceProtocol
+    target: ResourceProtocol
+    data_validity_lookup: ResourceProtocol
+    mechanism: ResourceProtocol
+
+
+_chembl_new_client: ChemblClientProtocol | None = None
+_chembl_import_error: Exception | None = None
+try:  # pragma: no cover - runtime optional dependency
+    from chembl_webresource_client.new_client import new_client as chembl_new_client
+except Exception as exc:  # pragma: no cover - offline fallback
+    _chembl_import_error = exc
+else:  # pragma: no cover - executed when dependency available
+    _chembl_new_client = cast(ChemblClientProtocol, chembl_new_client)
+    _chembl_import_error = None
 
 
 @dataclass(frozen=True)
@@ -80,10 +81,10 @@ def _is_truthy(value: str | None) -> bool:
     return normalized in {"1", "true", "yes", "on"}
 
 
-def _resolve_chembl_client() -> _ChemblClientProtocol:
+def _resolve_chembl_client() -> ChemblClientProtocol:
     use_offline = _is_truthy(os.getenv(OFFLINE_CLIENT_ENV))
     if not use_offline and _chembl_new_client is not None:
-        return cast(_ChemblClientProtocol, _chembl_new_client)
+        return _chembl_new_client
 
     log = UnifiedLogger.get(__name__)
     if _chembl_import_error is not None:
@@ -93,10 +94,10 @@ def _resolve_chembl_client() -> _ChemblClientProtocol:
         )
     else:
         log.info("chembl_client.offline_stub_forced")
-    return cast(_ChemblClientProtocol, get_offline_new_client())
+    return cast(ChemblClientProtocol, get_offline_new_client())
 
 
-new_client: _ChemblClientProtocol = _resolve_chembl_client()
+new_client: ChemblClientProtocol = _resolve_chembl_client()
 
 
 FIELD_SPECS: tuple[FieldSpec, ...] = (
@@ -208,7 +209,7 @@ def _classify(status: str | None) -> str:
 
 
 def _fetch_unique_values(spec: FieldSpec, *, page_size: int, pages: int) -> Counter[str]:
-    resource = cast(_ResourceProtocol, getattr(new_client, spec.resource))
+    resource = cast(ResourceProtocol, getattr(new_client, spec.resource))
     counter: Counter[str] = Counter()
     filters_base = dict(spec.filters or {})
 

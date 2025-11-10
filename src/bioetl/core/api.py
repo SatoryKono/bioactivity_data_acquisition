@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-import logging
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass, field
 from importlib import metadata
-from typing import Mapping, MutableMapping
+from typing import Any, cast
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from bioetl.config.models.policies import HTTPClientConfig
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = [
@@ -24,6 +25,10 @@ __all__ = [
 
 
 _LOG = UnifiedLogger.get(__name__).bind(component="api_factory")
+
+
+def _empty_str_dict() -> dict[str, str]:
+    return cast(dict[str, str], {})
 
 
 def _default_user_agent() -> str:
@@ -89,7 +94,7 @@ class ApiProfile:
     timeouts: ApiTimeouts = field(default_factory=ApiTimeouts)
     limits: ApiConnectionLimits = field(default_factory=ApiConnectionLimits)
     retries: ApiRetryPolicy = field(default_factory=ApiRetryPolicy)
-    headers: Mapping[str, str] = field(default_factory=dict)
+    headers: Mapping[str, str] = field(default_factory=_empty_str_dict)
     proxies: Mapping[str, str] | None = None
     verify: bool | str = True
     cert: str | tuple[str, str] | None = None
@@ -97,29 +102,44 @@ class ApiProfile:
     max_redirects: int = 30
 
 
-class _ConfiguredSession(requests.Session):
+class ConfiguredSession(requests.Session):
     """Session subclass injecting default timeouts for every request."""
 
     def __init__(self, *, default_timeout: tuple[float, float]) -> None:
         super().__init__()
         self._default_timeout = default_timeout
 
-    def request(self, method: str, url: str, **kwargs):  # type: ignore[override]
+    def request(self, method: str, url: str, **kwargs: Any) -> requests.Response:  # type: ignore[override]
         if "timeout" not in kwargs or kwargs["timeout"] is None:
             kwargs["timeout"] = self._default_timeout
         return super().request(method, url, **kwargs)
 
 
-class _LoggingRetry(Retry):
+class LoggingRetry(Retry):
     """Retry subclass emitting structured logs for every retry attempt."""
 
-    def __init__(self, *, logger: logging.Logger, profile_name: str, **kwargs) -> None:
-        self._logger = logger
+    def __init__(self, *, logger: Any, profile_name: str, **kwargs: Any) -> None:
+        self._logger: Any = logger
         self._profile_name = profile_name
         super().__init__(**kwargs)
 
-    def increment(self, method, url, response=None, error=None, *_args, **_kwargs):  # type: ignore[override]
-        new_retry = super().increment(method, url, response=response, error=error, *_args, **_kwargs)
+    def increment(
+        self,
+        method: str | None = None,
+        url: str | None = None,
+        response: Any = None,
+        error: Exception | None = None,
+        _pool: Any = None,
+        _stacktrace: Any = None,
+    ) -> Retry:
+        new_retry = super().increment(
+            method,
+            url,
+            response=response,
+            error=error,
+            _pool=_pool,
+            _stacktrace=_stacktrace,
+        )
         attempt = len(new_retry.history) + 1
         wait_seconds = new_retry.get_backoff_time()
         status_code = getattr(response, "status", None)
@@ -137,20 +157,20 @@ class _LoggingRetry(Retry):
         )
         return new_retry
 
-    def new(self, **kwargs):  # type: ignore[override]
+    def new(self, **kwargs: Any) -> LoggingRetry:
         kwargs.setdefault("logger", self._logger)
         kwargs.setdefault("profile_name", self._profile_name)
         return super().new(**kwargs)
 
 
-class _LoggingHTTPAdapter(HTTPAdapter):
+class LoggingHTTPAdapter(HTTPAdapter):
     """Adapter that wires retry strategy and connection pool settings."""
 
     def __init__(self, *, profile: ApiProfile) -> None:
         retry_policy = profile.retries
         retry_attempts = max(retry_policy.total, 0)
         status_attempts = retry_attempts + 1 if retry_attempts else 0
-        retry = _LoggingRetry(
+        retry = LoggingRetry(
             logger=_LOG,
             profile_name=profile.name,
             total=None,
@@ -174,7 +194,7 @@ class _LoggingHTTPAdapter(HTTPAdapter):
         )
 
 
-def _prepare_session(session: _ConfiguredSession, profile: ApiProfile) -> None:
+def _prepare_session(session: ConfiguredSession, profile: ApiProfile) -> None:
     headers: MutableMapping[str, str] = {"User-Agent": _default_user_agent()}
     headers.update(profile.headers)
     session.headers.clear()
@@ -186,7 +206,7 @@ def _prepare_session(session: _ConfiguredSession, profile: ApiProfile) -> None:
         session.cert = profile.cert
     session.trust_env = profile.trust_env
     session.max_redirects = profile.max_redirects
-    adapter = _LoggingHTTPAdapter(profile=profile)
+    adapter = LoggingHTTPAdapter(profile=profile)
     session.mount("http://", adapter)
     session.mount("https://", adapter)
 
@@ -194,20 +214,15 @@ def _prepare_session(session: _ConfiguredSession, profile: ApiProfile) -> None:
 def get_api_client(profile: ApiProfile) -> requests.Session:
     """Build and return a configured :class:`requests.Session` for the profile."""
 
-    session = _ConfiguredSession(default_timeout=profile.timeouts.as_requests_timeout())
+    session = ConfiguredSession(default_timeout=profile.timeouts.as_requests_timeout())
     _prepare_session(session, profile)
     _LOG.debug("http.session.created", profile=profile.name)
     return session
 
 
-def profile_from_http_config(config: "HTTPClientConfig", *, name: str = "default") -> ApiProfile:
+def profile_from_http_config(config: HTTPClientConfig, *, name: str = "default") -> ApiProfile:
     """Translate :class:`HTTPClientConfig` into :class:`ApiProfile`."""
 
-    from bioetl.config.models.policies import HTTPClientConfig  # Lazy import to avoid cycle
-
-    if not isinstance(config, HTTPClientConfig):  # pragma: no cover - defensive guard
-        msg = "config must be an instance of HTTPClientConfig"
-        raise TypeError(msg)
     timeouts = ApiTimeouts(
         connect=float(config.connect_timeout_sec),
         read=float(config.read_timeout_sec),
@@ -231,14 +246,23 @@ def profile_from_http_config(config: "HTTPClientConfig", *, name: str = "default
         retry_on_read_errors=bool(config.retries.retry_on_read_errors),
         retry_on_other_errors=bool(config.retries.retry_on_other_errors),
     )
-    headers = dict(config.headers)
+    header_items: list[tuple[str, str]] = [
+        (str(key), str(value)) for key, value in config.headers.items()
+    ]
+    headers: dict[str, str] = dict(header_items)
+    proxies: Mapping[str, str] | None = (
+        {str(key): str(value) for key, value in config.proxies.items()}
+        if config.proxies
+        else None
+    )
+
     return ApiProfile(
         name=name,
         timeouts=timeouts,
         limits=limits,
         retries=retries,
         headers=headers,
-        proxies=dict(config.proxies) if config.proxies else None,
+        proxies=proxies,
         verify=config.verify,
         cert=config.cert,
         trust_env=config.trust_env,

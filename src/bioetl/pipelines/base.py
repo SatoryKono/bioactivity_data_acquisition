@@ -15,7 +15,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -120,11 +120,11 @@ class RunResult:
 class PipelineBase(ABC):
     """Shared orchestration helpers for ETL pipelines."""
 
-    dataset_extension: str = "csv"
-    qc_extension: str = "csv"
-    manifest_extension: str = "json"
-    log_extension: str = "log"
-    deterministic_folder_prefix: str = "_"
+    DATASET_EXTENSION: ClassVar[str] = "csv"
+    QC_EXTENSION: ClassVar[str] = "csv"
+    MANIFEST_EXTENSION: ClassVar[str] = "json"
+    LOG_EXTENSION: ClassVar[str] = "log"
+    DETERMINISTIC_FOLDER_PREFIX: ClassVar[str] = "_"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.config = config
@@ -150,7 +150,7 @@ class PipelineBase(ABC):
         Does not create the directory. Use _ensure_pipeline_directory_exists()
         to create it when needed.
         """
-        return self.output_root / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+        return self.output_root / f"{self.DETERMINISTIC_FOLDER_PREFIX}{self.pipeline_code}"
 
     def _ensure_pipeline_directory_exists(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
@@ -248,19 +248,21 @@ class PipelineBase(ABC):
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
         run_dir = run_directory if run_directory is not None else self.pipeline_directory
-        dataset = run_dir / f"{stem}.{self.dataset_extension}"
-        quality = run_dir / f"{stem}_quality_report.{self.qc_extension}"
+        dataset = run_dir / f"{stem}.{self.DATASET_EXTENSION}"
+        quality = run_dir / f"{stem}_quality_report.{self.QC_EXTENSION}"
         correlation = (
-            run_dir / f"{stem}_correlation_report.{self.qc_extension}"
+            run_dir / f"{stem}_correlation_report.{self.QC_EXTENSION}"
             if include_correlation
             else None
         )
-        qc_metrics = run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
+        qc_metrics = run_dir / f"{stem}_qc.{self.QC_EXTENSION}" if include_qc_metrics else None
         metadata = run_dir / f"{stem}_meta.yaml" if include_metadata else None
         manifest = (
-            run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
+            run_dir / f"{stem}_run_manifest.{self.MANIFEST_EXTENSION}"
+            if include_manifest
+            else None
         )
-        log_file = self.logs_directory / f"{stem}.{self.log_extension}"
+        log_file = self.logs_directory / f"{stem}.{self.LOG_EXTENSION}"
 
         write_artifacts = WriteArtifacts(
             dataset=dataset,
@@ -283,7 +285,7 @@ class PipelineBase(ABC):
         if not self.pipeline_directory.exists():
             return []
 
-        suffix = f".{self.dataset_extension}"
+        suffix = f".{self.DATASET_EXTENSION}"
         dataset_files = sorted(
             (
                 path
@@ -309,19 +311,19 @@ class PipelineBase(ABC):
             for candidate in self._artifact_candidates(outdated_stem):
                 if candidate.exists():
                     candidate.unlink()
-            log_candidate = self.logs_directory / f"{outdated_stem}.{self.log_extension}"
+            log_candidate = self.logs_directory / f"{outdated_stem}.{self.LOG_EXTENSION}"
             if log_candidate.exists():
                 log_candidate.unlink()
 
     def _artifact_candidates(self, stem: str) -> Iterable[Path]:
         """Yield the expected artifact paths for ``stem``."""
 
-        yield self.pipeline_directory / f"{stem}.{self.dataset_extension}"
-        yield self.pipeline_directory / f"{stem}_quality_report.{self.qc_extension}"
-        yield self.pipeline_directory / f"{stem}_correlation_report.{self.qc_extension}"
-        yield self.pipeline_directory / f"{stem}_qc.{self.qc_extension}"
+        yield self.pipeline_directory / f"{stem}.{self.DATASET_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_quality_report.{self.QC_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_correlation_report.{self.QC_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_qc.{self.QC_EXTENSION}"
         yield self.pipeline_directory / f"{stem}_meta.yaml"
-        yield self.pipeline_directory / f"{stem}_run_manifest.{self.manifest_extension}"
+        yield self.pipeline_directory / f"{stem}_run_manifest.{self.MANIFEST_EXTENSION}"
 
     @abstractmethod
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
@@ -1079,9 +1081,9 @@ class PipelineBase(ABC):
                 if callable(factory):
                     produced = factory(row_count)
                     if isinstance(produced, pd.Series):
-                        produced_series = cast(Series, produced)
+                        produced_series = cast(pd.Series[Any], produced)
                         if len(produced_series) == row_count:
-                            df[column] = produced_series
+                            df[column] = produced
                             continue
                     if isinstance(produced, Sequence) and not isinstance(
                         produced, (str, bytes, bytearray)

@@ -22,7 +22,7 @@ from bioetl.config.models import (
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
-__all__ = ["create_pipeline_command", "CommonOptions"]
+__all__ = ["create_pipeline_command", "CommonOptions", "read_pipeline_config"]
 
 if TYPE_CHECKING:
     def read_pipeline_config_impl(
@@ -157,6 +157,32 @@ def _read_pipeline_config(
     """Typed wrapper вокруг загрузчика конфигурации."""
 
     return read_pipeline_config_impl(
+        config_path=config_path,
+        profiles=profiles,
+        cli_overrides=cli_overrides,
+        env=env,
+        env_prefixes=env_prefixes,
+        include_default_profiles=include_default_profiles,
+    )
+
+
+def read_pipeline_config(
+    *,
+    config_path: str | Path,
+    profiles: Sequence[str | Path] | None = None,
+    cli_overrides: Mapping[str, Any] | None = None,
+    env: Mapping[str, str] | None = None,
+    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+    include_default_profiles: bool = False,
+) -> PipelineConfig:
+    """Совместимый алиас вокруг загрузчика конфигурации.
+
+    Исторически ``bioetl.cli.command.read_pipeline_config`` использовался в
+    тестах и документации, поэтому сохраняем доступ к функции с тем же
+    контрактом.
+    """
+
+    return _read_pipeline_config(
         config_path=config_path,
         profiles=profiles,
         cli_overrides=cli_overrides,

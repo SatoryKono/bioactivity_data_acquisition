@@ -5,3 +5,4 @@
 | Category | Identifier | Path | Detected_At | Status | Notes |
 |---|---|---|---|---|---|
 
+Актуальные нарушения отсутствуют.

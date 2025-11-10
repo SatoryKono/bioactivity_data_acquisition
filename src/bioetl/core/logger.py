@@ -9,7 +9,7 @@ as by golden tests.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Iterator, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
@@ -17,13 +17,13 @@ from functools import partial
 from typing import Any, cast
 
 import structlog
-from structlog.stdlib import BoundLogger
 from structlog.contextvars import (
     bind_contextvars,
     clear_contextvars,
     get_contextvars,
     unbind_contextvars,
 )
+from structlog.stdlib import BoundLogger
 
 __all__ = [
     "LogFormat",
@@ -86,10 +86,29 @@ class LogConfig:
 def _coerce_log_level(level: int | str) -> int:
     if isinstance(level, int):
         return level
-    coerced = logging.getLevelName(level.upper())
-    if isinstance(coerced, int):
-        return coerced
+    level_name = level.upper()
+    mapping = _get_level_name_mapping()
+    mapped_level = mapping.get(level_name)
+    if isinstance(mapped_level, int):
+        return mapped_level
     raise ValueError(f"Unsupported log level: {level}")
+
+
+def _get_level_name_mapping() -> Mapping[str, int]:
+    get_mapping = getattr(logging, "getLevelNamesMapping", None)
+    if callable(get_mapping):
+        mapping = get_mapping()
+        if isinstance(mapping, Mapping):
+            return cast(Mapping[str, int], mapping)
+    # Fallback to standard level names if advanced mapping is unavailable.
+    return {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+        "NOTSET": logging.NOTSET,
+    }
 
 
 def _redact_sensitive_values(
