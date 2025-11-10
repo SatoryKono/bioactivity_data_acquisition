@@ -99,8 +99,8 @@ def extract_config_models() -> dict[str, Any]:
     """Извлекает модели конфигов из Pydantic."""
 
     try:
-        from bioetl.config.models.base import PipelineConfig, PipelineMetadata
-        from bioetl.config.models.determinism import DeterminismConfig
+        from bioetl.config.models.models import PipelineConfig, PipelineMetadata
+        from bioetl.config.models.policies import DeterminismConfig
     except ImportError as exc:  # pragma: no cover - инфраструктурная ошибка
         return {"error": f"Failed to import config models: {exc}"}
 

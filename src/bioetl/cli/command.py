@@ -13,12 +13,8 @@ from zoneinfo import ZoneInfo
 import typer
 
 from bioetl.config.environment import apply_runtime_overrides, read_environment_settings
-from bioetl.config.models import (
-    CLIConfig,
-    DeterminismConfig,
-    DeterminismEnvironmentConfig,
-    PipelineConfig,
-)
+from bioetl.config.models.models import CLIConfig, PipelineConfig
+from bioetl.config.models.policies import DeterminismConfig, DeterminismEnvironmentConfig
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 

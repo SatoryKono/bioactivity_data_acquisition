@@ -22,7 +22,7 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
     try:
         sig = inspect.signature(method)
-        params = []
+        params: list[dict[str, Any]] = []
         for param_name, param in sig.parameters.items():
             params.append(
                 {
@@ -54,7 +54,7 @@ def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
 def extract_pipeline_base_methods() -> dict[str, Any]:
     from bioetl.pipelines.base import PipelineBase
 
-    methods = {}
+    methods: dict[str, Any] = {}
     for method_name in ["extract", "transform", "validate", "write", "run"]:
         if hasattr(PipelineBase, method_name):
             method = getattr(PipelineBase, method_name)
@@ -94,7 +94,7 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 
 def extract_config_fields_from_code() -> dict[str, Any]:
     try:
-        from bioetl.config.models.base import PipelineConfig
+        from bioetl.config.models.models import PipelineConfig
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 
@@ -198,7 +198,7 @@ def compare_methods(code_methods: dict[str, Any], doc_methods: dict[str, Any]) -
             }
             continue
 
-        issues = []
+        issues: list[str] = []
         if code_method.get("return_annotation") != doc_method.get("return_annotation"):
             issues.append(
                 "Return type mismatch: code="
