@@ -1081,7 +1081,7 @@ class PipelineBase(ABC):
                 if callable(factory):
                     produced = factory(row_count)
                     if isinstance(produced, pd.Series):
-                        produced_series = cast(pd.Series[Any], produced)
+                        produced_series = cast(Series, produced)
                         if len(produced_series) == row_count:
                             df[column] = produced
                             continue
@@ -1158,7 +1158,7 @@ class PipelineBase(ABC):
             schema = schema_entry.schema
 
         def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
-            to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
+            to_numeric_series = cast(Callable[..., Series], pd.to_numeric)
             return to_numeric_series(series, errors="coerce")
 
         # Get column definitions from schema

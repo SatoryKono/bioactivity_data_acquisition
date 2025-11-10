@@ -313,7 +313,7 @@ def create_pipeline_command(
             cli_overrides = _parse_set_overrides(set_overrides)
 
         try:
-            pipeline_config = _read_pipeline_config(
+            pipeline_config = read_pipeline_config(
                 config_path=config,
                 cli_overrides=cli_overrides,
                 include_default_profiles=True,
