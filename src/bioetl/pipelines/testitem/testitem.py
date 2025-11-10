@@ -45,10 +45,10 @@ MUST_HAVE_FIELDS = {
 
 
 @no_type_check
-def _coerce_numeric_series(series: pd.Series) -> Series[float]:
+def _coerce_numeric_series(series: pd.Series) -> Series:
     """Convert arbitrary series to float series with NaNs on errors."""
 
-    return cast(Series[float], pd.to_numeric(series, errors="coerce"))
+    return cast(Series, pd.to_numeric(series, errors="coerce"))
 
 
 def _augment_select_fields(existing: tuple[str, ...] | None) -> tuple[str, ...] | None:
@@ -72,10 +72,10 @@ def _ensure_iterable_records(
 
 
 @no_type_check
-def _series_isin(series: Series, values: Iterable[object]) -> Series[bool]:
+def _series_isin(series: Series, values: Iterable[object]) -> Series:
     """Wrapper over Series.isin for static type checkers."""
 
-    return cast(Series[bool], series.isin(values))
+    return cast(Series, series.isin(values))
 
 
 class TestItemChemblPipeline(ChemblPipelineBase):
