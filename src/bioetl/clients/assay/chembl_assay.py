@@ -13,7 +13,9 @@ from bioetl.clients.chembl_iterator import ChemblEntityIterator
 # Use importlib to load from chembl.py file, not from chembl/ package
 # Path updated: now in assay/ subdirectory, so chembl.py is in parent directory
 _CHEMBL_MODULE_PATH = Path(__file__).parent.parent / "chembl.py"
-_CHEMBL_SPEC = importlib.util.spec_from_file_location("bioetl.clients.chembl_client", _CHEMBL_MODULE_PATH)
+_CHEMBL_SPEC = importlib.util.spec_from_file_location(
+    "bioetl.clients.chembl_client", _CHEMBL_MODULE_PATH
+)
 if _CHEMBL_SPEC is not None and _CHEMBL_SPEC.loader is not None:
     _CHEMBL_MODULE = importlib.util.module_from_spec(_CHEMBL_SPEC)
     _CHEMBL_SPEC.loader.exec_module(_CHEMBL_MODULE)

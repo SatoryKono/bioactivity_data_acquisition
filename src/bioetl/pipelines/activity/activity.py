@@ -235,7 +235,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(
+            records
+        )  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -416,11 +418,15 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Ensure target_tax_id has correct nullable integer type before validation
         if "target_tax_id" in df.columns:
-            dtype_name: str = str(df["target_tax_id"].dtype.name)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+            dtype_name: str = str(
+                df["target_tax_id"].dtype.name
+            )  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
             if dtype_name != "Int64":
                 # Convert to nullable Int64 if not already
-                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df["target_tax_id"], errors="coerce"
+                numeric_series: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        df["target_tax_id"], errors="coerce"
+                    )
                 )
                 df["target_tax_id"] = numeric_series.astype("Int64")
 
@@ -1008,7 +1014,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._last_batch_extract_stats = summary
         log.info("chembl_activity.batch_summary", **summary)
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(
+            records
+        )  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -1942,7 +1950,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
         page_meta: Any = payload.get("page_meta")
         if isinstance(page_meta, Mapping):
-            next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
+            next_link_raw: Any = page_meta.get(
+                "next"
+            )  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
             next_link: str | None = (
                 cast(str | None, next_link_raw) if next_link_raw is not None else None
             )
@@ -2261,8 +2271,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
 
                 # Convert to numeric (NaN for empty/invalid values)
-                numeric_series_std: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
+                numeric_series_std: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        series, errors="coerce"
+                    )
                 )
                 df.loc[mask, "standard_value"] = numeric_series_std
 
@@ -2286,7 +2298,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
-                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
+                invalid_mask = mask & ~df["standard_relation"].isin(
+                    RELATIONS
+                )  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
@@ -2299,7 +2313,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     df.loc[mask, "standard_type"].astype(str).str.strip()
                 )
                 standard_types_set: set[str] = STANDARD_TYPES
-                invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # pyright: ignore[reportUnknownMemberType]
+                invalid_mask = mask & ~df["standard_type"].isin(
+                    standard_types_set
+                )  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning("invalid_standard_type", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_type"] = None
@@ -2352,7 +2368,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "relation"] = series
-                invalid_mask = mask & ~df["relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
+                invalid_mask = mask & ~df["relation"].isin(
+                    RELATIONS
+                )  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning("invalid_relation", count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "relation"] = None
@@ -2364,8 +2382,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "standard_upper_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_std_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
+                numeric_series_std_upper: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        series, errors="coerce"
+                    )
                 )
                 df.loc[mask, "standard_upper_value"] = numeric_series_std_upper
                 negative_mask = mask & (df["standard_upper_value"] < 0)
@@ -2380,8 +2400,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "upper_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
+                numeric_series_upper: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        series, errors="coerce"
+                    )
                 )
                 df.loc[mask, "upper_value"] = numeric_series_upper
                 negative_mask = mask & (df["upper_value"] < 0)
@@ -2396,8 +2418,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "lower_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_lower: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
+                numeric_series_lower: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        series, errors="coerce"
+                    )
                 )
                 df.loc[mask, "lower_value"] = numeric_series_lower
                 negative_mask = mask & (df["lower_value"] < 0)
@@ -2796,8 +2820,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_int: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
+                numeric_series_int: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        df[field], errors="coerce"
+                    )
                 )
                 df[field] = numeric_series_int.astype("Int64")
             except (ValueError, TypeError) as exc:
@@ -2810,15 +2836,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             try:
                 if field == "row_index":
                     # row_index should be non-nullable, but use Int64 for consistency
-                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series_row: pd.Series[Any] = pd.to_numeric(
+                        df[field], errors="coerce"
+                    )  # pyright: ignore[reportUnknownMemberType]
                     df[field] = numeric_series_row.astype("Int64")
                     # Fill any NA values with sequential index
                     if df[field].isna().any():
                         df[field] = range(len(df))
                 else:
                     # Convert to numeric, preserving NA values
-                    nullable_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                        df[field], errors="coerce"
+                    nullable_numeric_series: pd.Series[Any] = (
+                        pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                            df[field], errors="coerce"
+                        )
                     )
                     # Use Int64 (nullable integer) to preserve NA values
                     df[field] = nullable_numeric_series.astype("Int64")
@@ -2841,8 +2871,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_float: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
+                numeric_series_float: pd.Series[Any] = (
+                    pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                        df[field], errors="coerce"
+                    )
                 )
                 df[field] = numeric_series_float.astype("float64")
             except (ValueError, TypeError) as exc:
@@ -2858,13 +2890,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 # Конвертируем в boolean, сохраняя NA значения
                 if field in ("curated", "removed"):
                     # Конвертируем напрямую в boolean dtype, сохраняя NA
-                    df[field] = df[field].astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                    df[field] = df[field].astype(
+                        "boolean"
+                    )  # pyright: ignore[reportUnknownMemberType]
                 else:
                     # Для остальных bool полей используем стандартную логику
-                    bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                        df[field], errors="coerce"
+                    bool_numeric_series: pd.Series[Any] = (
+                        pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                            df[field], errors="coerce"
+                        )
                     )
-                    df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                    df[field] = (bool_numeric_series != 0).astype(
+                        "boolean"
+                    )  # pyright: ignore[reportUnknownMemberType]
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
 
@@ -2872,12 +2910,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_flag: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                numeric_series_flag: pd.Series[Any] = pd.to_numeric(
+                    df[field], errors="coerce"
+                )  # pyright: ignore[reportUnknownMemberType]
                 df[field] = numeric_series_flag.astype("Int64")
                 mask_valid = df[field].notna()
                 if mask_valid.any():
                     valid_values = df.loc[mask_valid, field]
-                    invalid_valid_mask = ~valid_values.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
+                    invalid_valid_mask = ~valid_values.isin(
+                        [0, 1]
+                    )  # pyright: ignore[reportUnknownMemberType]
                     if invalid_valid_mask.any():
                         invalid_index = valid_values.index[invalid_valid_mask]
                         log.warning(
@@ -3085,9 +3127,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 continue
 
             error_details: dict[str, Any] = {
-                "row_index": int(row_index)
-                if isinstance(row_index, (int, float))
-                else str(row_index),
+                "row_index": (
+                    int(row_index) if isinstance(row_index, (int, float)) else str(row_index)
+                ),
             }
 
             # Add activity_id if available

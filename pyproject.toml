@@ -122,12 +122,9 @@ known-first-party = [
     "bioetl.sources",
 ]
 
-[tool.ruff.lint.pep8_naming]
+[tool.ruff.lint.pep8-naming]
 ignore-names = [
     "__.*__",  # dunder-хуки и специальные методы Python
-]
-ignore-class-names = [
-    "_.*",  # защищённые классы/протоколы, задокументированные в naming policy
 ]
 
 [tool.mypy]

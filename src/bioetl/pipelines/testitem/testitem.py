@@ -69,9 +69,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         log: BoundLogger | None = None,
         *,
         source_config: (
-            ChemblPipelineSourceConfig[TestItemSourceParameters]
-            | TestItemSourceConfig
-            | None
+            ChemblPipelineSourceConfig[TestItemSourceParameters] | TestItemSourceConfig | None
         ) = None,
     ) -> str | None:
         """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
@@ -194,7 +192,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "select_fields": list(select_fields) if select_fields else None,
             "max_url_length": source_config.max_url_length,
         }
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self.chembl_release,
             filters=compact_filters,
@@ -292,7 +292,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "max_url_length": source_config.max_url_length,
             "select_fields": list(select_fields) if select_fields else None,
         }
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self.chembl_release,
             filters=compact_filters,
@@ -629,12 +631,18 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                         converted.loc[mask & (col_str == "Y")] = 1
                         converted.loc[mask & (col_str == "N")] = 0
                         # For values that are not Y/N, try numeric conversion
-                        other_mask = mask & ~col_str.isin(["Y", "N"])  # pyright: ignore[reportUnknownMemberType]
+                        other_mask = mask & ~col_str.isin(
+                            ["Y", "N"]
+                        )  # pyright: ignore[reportUnknownMemberType]
                         if other_mask.any():
                             # Try to convert existing numeric values
-                            numeric_vals = pd.to_numeric(df.loc[other_mask, col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                            numeric_vals = pd.to_numeric(
+                                df.loc[other_mask, col], errors="coerce"
+                            )  # pyright: ignore[reportUnknownMemberType]
                             # Keep only valid numeric values (0 or 1)
-                            valid_numeric = numeric_vals.notna() & numeric_vals.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
+                            valid_numeric = numeric_vals.notna() & numeric_vals.isin(
+                                [0, 1]
+                            )  # pyright: ignore[reportUnknownMemberType]
                             # Set all other_mask values to NA first
                             converted.loc[other_mask] = pd.NA
                             # Then restore valid numeric values
@@ -643,7 +651,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                                 converted.loc[valid_indices] = numeric_vals.loc[valid_indices]
                         df[col] = converted
                     # Convert to Int64, ensuring only 0 or 1
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = pd.to_numeric(
+                        df[col], errors="coerce"
+                    )  # pyright: ignore[reportUnknownMemberType]
                     numeric_series = numeric_series.where(
                         (numeric_series == 0) | (numeric_series == 1) | numeric_series.isna()
                     )
@@ -660,7 +670,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     "num_ro5_violations",
                     "rtb",
                 ]:
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = pd.to_numeric(
+                        df[col], errors="coerce"
+                    )  # pyright: ignore[reportUnknownMemberType]
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     df[col] = numeric_series.astype("Int64")
 

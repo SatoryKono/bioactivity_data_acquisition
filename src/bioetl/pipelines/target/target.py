@@ -424,9 +424,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         # Add component_count column (only for missing values)
         if "component_count" in df.columns:
-            mask = target_membership & (
-                df["component_count"].isna() | (df["component_count"] == 0)
-            )
+            mask = target_membership & (df["component_count"].isna() | (df["component_count"] == 0))
             if mask.any():
                 df.loc[mask, "component_count"] = df.loc[mask, "target_chembl_id"].map(
                     lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
@@ -699,11 +697,15 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             )
             if mask.any():
                 df.loc[mask, "protein_class_list"] = df.loc[mask, "target_chembl_id"].map(
-                    lambda x: json.dumps(
-                        classification_list_map.get(str(x), []), ensure_ascii=False, sort_keys=True
+                    lambda x: (
+                        json.dumps(
+                            classification_list_map.get(str(x), []),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        )
+                        if pd.notna(x) and str(x) in classification_list_map
+                        else pd.NA
                     )
-                    if pd.notna(x) and str(x) in classification_list_map
-                    else pd.NA
                 )
 
         # Add protein_class_top column (only for missing values)
@@ -713,11 +715,15 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             )
             if mask.any():
                 df.loc[mask, "protein_class_top"] = df.loc[mask, "target_chembl_id"].map(
-                    lambda x: json.dumps(
-                        classification_top_map.get(str(x), {}), ensure_ascii=False, sort_keys=True
+                    lambda x: (
+                        json.dumps(
+                            classification_top_map.get(str(x), {}),
+                            ensure_ascii=False,
+                            sort_keys=True,
+                        )
+                        if pd.notna(x) and str(x) in classification_top_map
+                        else pd.NA
                     )
-                    if pd.notna(x) and str(x) in classification_top_map
-                    else pd.NA
                 )
 
         log.info(
@@ -749,9 +755,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         return normalized_df
 
-    def _normalize_data_types(
-        self, df: pd.DataFrame, schema: Any | None, log: Any
-    ) -> pd.DataFrame:
+    def _normalize_data_types(self, df: pd.DataFrame, schema: Any | None, log: Any) -> pd.DataFrame:
         """Normalize data types to match schema expectations.
 
         Overrides base implementation to handle component_count and species_group_flag specially.

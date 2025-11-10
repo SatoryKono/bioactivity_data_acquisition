@@ -107,6 +107,7 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
     return identifiers
 
+
 # Обязательные поля, которые всегда должны быть в запросе к API
 MUST_HAVE_FIELDS = {
     "assay_chembl_id",
@@ -762,9 +763,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "missing_columns_handled",
                 missing_in_response=missing_in_response if missing_in_response else None,
                 missing_columns=missing_columns if missing_columns else None,
-                missing_in_select_fields=sorted(missing_in_select_fields)
-                if missing_in_select_fields
-                else None,
+                missing_in_select_fields=(
+                    sorted(missing_in_select_fields) if missing_in_select_fields else None
+                ),
                 chembl_release=self.chembl_release,
             )
 

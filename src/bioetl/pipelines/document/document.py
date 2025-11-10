@@ -178,7 +178,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(
+            records
+        )  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if dataframe.empty:
             dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
         elif "document_chembl_id" in dataframe.columns:
@@ -382,11 +384,15 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize DOI
         if "doi" in df.columns:
-            df["doi_clean"] = df["doi"].apply(self._normalize_doi)  # pyright: ignore[reportUnknownMemberType]
+            df["doi_clean"] = df["doi"].apply(
+                self._normalize_doi
+            )  # pyright: ignore[reportUnknownMemberType]
 
         # Normalize PMID
         if "pubmed_id" in df.columns:
-            df["pubmed_id"] = pd.to_numeric(df["pubmed_id"], errors="coerce").astype("Int64")  # pyright: ignore[reportUnknownMemberType]
+            df["pubmed_id"] = pd.to_numeric(df["pubmed_id"], errors="coerce").astype(
+                "Int64"
+            )  # pyright: ignore[reportUnknownMemberType]
 
         return df
 
@@ -436,6 +442,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize authors
         if "authors" in normalized_df.columns:
+
             def _to_author_tuple(item: object) -> tuple[str, int] | None:
                 if not isinstance(item, tuple):
                     return None
@@ -502,6 +509,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize year
         if "year" in df.columns:
+
             def _coerce_year(value: object) -> int | None:
                 if value is None or value is pd.NA:
                     return None
@@ -647,4 +655,3 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # For documents, there are typically no nested objects to extract
         # But we keep this method for consistency with other pipelines
         return record
-

@@ -33,8 +33,7 @@ from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
 class ProcessItemFn(Protocol):
     """Signature for per-item processing callbacks used in pagination."""
 
-    def __call__(self, __item: dict[str, Any]) -> dict[str, Any]:
-        ...
+    def __call__(self, __item: dict[str, Any]) -> dict[str, Any]: ...
 
 
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
@@ -552,9 +551,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         )
         max_url_length_candidate: Any = getattr(chembl_source_config, "max_url_length", None)
         config_max_url_length = (
-            int(max_url_length_candidate)
-            if isinstance(max_url_length_candidate, int)
-            else None
+            int(max_url_length_candidate) if isinstance(max_url_length_candidate, int) else None
         )
         effective_max_url_length = (
             max_url_length if max_url_length is not None else config_max_url_length
@@ -657,7 +654,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     error=str(exc),
                     exc_info=True,
                 )
-        dataframe = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame.from_records(
+            all_records
+        )  # pyright: ignore[reportUnknownMemberType]
         if dataframe.empty:
             dataframe = pd.DataFrame({id_column: pd.Series(dtype="string")})
         elif id_column in dataframe.columns:
