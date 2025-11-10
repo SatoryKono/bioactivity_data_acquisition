@@ -9,7 +9,13 @@ from typing import Any
 
 from .models import (
     CacheConfig,
+    ChemblCircuitBreakerConfig,
+    ChemblClientConfig,
+    ChemblPreflightConfig,
+    ChemblPreflightRetryConfig,
+    ChemblTimeoutConfig,
     CLIConfig,
+    ClientsConfig,
     IOConfig,
     IOInputConfig,
     IOOutputConfig,
@@ -33,8 +39,8 @@ from .policies import (
     DeterminismHashColumnSchema,
     DeterminismHashingConfig,
     DeterminismMetaConfig,
-    DeterminismSerializationCSVConfig,
     DeterminismSerializationConfig,
+    DeterminismSerializationCSVConfig,
     DeterminismSortingConfig,
     DeterminismWriteConfig,
     FallbacksConfig,
@@ -61,6 +67,12 @@ __all__ = [
     "IOOutputConfig",
     "PathsConfig",
     "MaterializationConfig",
+    "ClientsConfig",
+    "ChemblClientConfig",
+    "ChemblPreflightConfig",
+    "ChemblPreflightRetryConfig",
+    "ChemblTimeoutConfig",
+    "ChemblCircuitBreakerConfig",
     "DeterminismConfig",
     "DeterminismSortingConfig",
     "DeterminismSerializationConfig",
@@ -87,11 +99,11 @@ _DEPRECATION_MESSAGE = (
     "instead."
 )
 
-_DEPRECATED_ATTRS = {name: None for name in __all__}
+_DEPRECATED_NAMES = frozenset(__all__)
 
 
 def __getattr__(name: str) -> Any:
-    if name in globals() and name in _DEPRECATED_ATTRS:
+    if name in globals() and name in _DEPRECATED_NAMES:
         warnings.warn(_DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
         return globals()[name]
     msg = f"module 'bioetl.config.models' has no attribute '{name}'"
@@ -101,7 +113,8 @@ def __getattr__(name: str) -> Any:
 def _install_deprecated_module(module_name: str, exported: tuple[str, ...], target: str) -> None:
     full_name = f"{__name__}.{module_name}"
     module = types.ModuleType(full_name)
-    module.__all__ = list(exported)
+    module_dict = module.__dict__
+    module_dict["__all__"] = list(exported)
     message = (
         f"Module '{full_name}' is deprecated and will be removed in bioetl 2.0. Import from "
         f"'bioetl.config.models.{target}' instead."
@@ -113,9 +126,9 @@ def _install_deprecated_module(module_name: str, exported: tuple[str, ...], targ
             return globals()[attr]
         raise AttributeError(f"module '{full_name}' has no attribute '{attr}'")
 
-    module.__getattr__ = _deprecated_getattr  # type: ignore[attr-defined]
+    module_dict["__getattr__"] = _deprecated_getattr
     for attr in exported:
-        setattr(module, attr, globals()[attr])
+        module_dict[attr] = globals()[attr]
     sys.modules[full_name] = module
 
 

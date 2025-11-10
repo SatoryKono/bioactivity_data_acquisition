@@ -33,6 +33,7 @@ These switches are available to every pipeline command. Flags marked as **requir
 | `--validate-columns / --no-validate-columns` | | No | Control column validation hooks in the post-processing stage. | `--validate-columns` |
 | `--extended / --no-extended` | | No | Enable extended QC artifacts. | `--no-extended` |
 | `--verbose` | `-v` | No | Emit verbose (development) logging. | `False` |
+| `--preflight-handshake / --no-preflight-handshake` | | No | Force-enable or disable the ChEMBL preflight handshake guard before extract stages. | Falls back to config |
 
 ## Determinism building blocks
 

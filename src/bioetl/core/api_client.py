@@ -6,16 +6,16 @@ import random
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Generator, Mapping, MutableMapping
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Any, Generator, Literal, cast
+from typing import Any, Literal, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 
 import requests
 from requests import Response
-from requests.exceptions import HTTPError, RequestException
+from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
 from bioetl.config.models.policies import CircuitBreakerConfig, HTTPClientConfig
@@ -310,7 +310,7 @@ class UnifiedAPIClient:
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | tuple[float, float] | None = None,
-        retry_strategy: "RetryStrategy" | None = None,
+        retry_strategy: RetryStrategy | None = None,
     ) -> Response:
         params_dict: dict[str, Any] = dict(params or {})
         full_url: str | None = None
@@ -353,7 +353,7 @@ class UnifiedAPIClient:
         data: Any | None = None,
         headers: Mapping[str, str] | None = None,
         timeout: float | tuple[float, float] | None = None,
-        retry_strategy: "RetryStrategy" | None = None,
+        retry_strategy: RetryStrategy | None = None,
     ) -> Response:
         url = self._resolve_url(endpoint)
         request_id = str(uuid4())
@@ -403,7 +403,7 @@ class UnifiedAPIClient:
             return response
 
         try:
-            return self._circuit_breaker.call(_execute)
+            return cast(Response, self._circuit_breaker.call(_execute))
         except RequestException as exc:
             self._logger.warning(
                 "http.request.exception",
@@ -417,25 +417,24 @@ class UnifiedAPIClient:
     def _retry_override(self, strategy: RetryStrategy) -> Generator[None, None, None]:
         """Temporarily override adapter retry configuration."""
 
-        if strategy in (None, "default"):
+        if strategy is None or strategy == "default":
             yield
             return
 
-        override: Retry
-        if strategy == "none":
-            override = Retry(total=0, connect=0, read=0, other=0, status=0)
-        elif isinstance(strategy, Retry):
+        if isinstance(strategy, Retry):
             override = strategy
-        else:  # pragma: no cover - defensive guard for future literals
+        elif strategy == "none":
+            override = Retry(total=0, connect=0, read=0, other=0, status=0)
+        else:
             msg = f"Unsupported retry strategy: {strategy!r}"
             raise ValueError(msg)
 
-        adapters: list[tuple[Any, Retry]] = []
+        adapters: list[tuple[HTTPAdapter, Retry]] = []
         try:
             for adapter in self._session.adapters.values():
-                current = getattr(adapter, "max_retries", None)
-                if not isinstance(current, Retry):
+                if not isinstance(adapter, HTTPAdapter):
                     continue
+                current = adapter.max_retries
                 adapters.append((adapter, current))
                 adapter.max_retries = override
             yield

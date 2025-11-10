@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from functools import partial
-from typing import Any, Callable, cast
+from time import monotonic, perf_counter, sleep
+from typing import Any, cast
 
 from requests import RequestException
 
@@ -18,11 +21,24 @@ from bioetl.clients.chembl_entities import (
     ChemblMoleculeEntityClient,
 )
 from bioetl.clients.document.chembl_document_entity import ChemblDocumentTermEntityClient
+from bioetl.config.models.models import ChemblClientConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.mapping_utils import stringify_mapping
 
 __all__ = ["ChemblClient"]
+
+
+@dataclass(slots=True)
+class _HandshakeCacheEntry:
+    """Cached payload for preflight handshake."""
+
+    payload: dict[str, Any]
+    expires_at: float
+    requested_at_utc: datetime
+    success: bool
+    status_code: int | None
 
 
 class ChemblClient:
@@ -35,17 +51,29 @@ class ChemblClient:
         load_meta_store: LoadMetaStore | None = None,
         job_id: str | None = None,
         operator: str | None = None,
-        handshake_timeout: float | tuple[float, float] | None = 10.0,
+        settings: ChemblClientConfig | None = None,
+        handshake_timeout: float | tuple[float, float] | None = None,
     ) -> None:
         self._client = client
         self._log = UnifiedLogger.get(__name__).bind(component="chembl_client")
-        self._status_cache: dict[str, Mapping[str, Any]] = {}
+        self._settings = settings or ChemblClientConfig()
+        self._preflight_config = self._settings.preflight
+        self._timeout_config = self._settings.timeout
+        self._circuit_breaker_config = self._settings.circuit_breaker
+        self._default_timeout = (
+            self._coerce_timeout(handshake_timeout)
+            if handshake_timeout is not None
+            else self._timeout_from_config()
+        )
+        self._handshake_budget = max(float(self._preflight_config.budget_seconds), 0.0)
+        self._handshake_cache_ttl = max(float(self._preflight_config.cache_ttl_seconds), 0.0)
+        self._failure_cache_ttl = max(float(self._circuit_breaker_config.open_seconds), 0.0)
+        self._status_cache: dict[str, _HandshakeCacheEntry] = {}
         self._load_meta_store = load_meta_store
         self._job_id = job_id
         self._operator = operator
         self._chembl_release: str | None = None
         self._api_version: str | None = None
-        self._handshake_timeout = self._normalize_timeout(handshake_timeout)
         # Инициализация специализированных клиентов для сущностей
         self._assay_entity = ChemblAssayEntityClient(self)
         self._molecule_entity = ChemblMoleculeEntityClient(self)
@@ -62,125 +90,360 @@ class ChemblClient:
 
     def handshake(
         self,
-        endpoint: str = "/status",
+        endpoint: str | None = None,
         *,
-        enabled: bool = True,
+        enabled: bool | None = None,
         timeout: float | tuple[float, float] | None = None,
+        budget_seconds: float | None = None,
     ) -> Mapping[str, Any]:
         """Perform the handshake for ``endpoint`` once and cache the payload."""
 
-        if not enabled:
-            self._log.info(
-                "chembl.handshake.skipped",
-                endpoint=endpoint,
-                handshake_enabled=enabled,
-            )
-            return self._status_cache.get(endpoint, {})
-
-        cached = self._status_cache.get(endpoint)
-        if cached is not None:
-            return cached
-
-        endpoints_to_try = self._expand_handshake_endpoints(endpoint)
-        last_error: Exception | None = None
-
-        effective_timeout = (
-            self._handshake_timeout
-            if timeout is None
-            else self._normalize_timeout(timeout)
+        resolved_endpoint = self._normalize_endpoint_path(
+            endpoint if endpoint is not None else self._preflight_config.url
+        )
+        resolved_enabled = (
+            self._preflight_config.enabled if enabled is None else bool(enabled)
         )
 
-        for candidate in endpoints_to_try:
-            cached_candidate = self._status_cache.get(candidate)
-            if cached_candidate is not None:
-                self._status_cache.setdefault(endpoint, cached_candidate)
-                return cached_candidate
-
-            try:
-                response = self._client.get(
-                    candidate,
-                    timeout=effective_timeout,
-                    retry_strategy="none",
-                )
-                payload = response.json()
-            except RequestException as exc:
-                last_error = exc
-                self._log.warning(
-                    "chembl.handshake.failed",
-                    endpoint=candidate,
-                    error=str(exc),
-                )
-                continue
-            except Exception as exc:  # pragma: no cover - defensive
-                last_error = exc
-                self._log.warning(
-                    "chembl.handshake.failed",
-                    endpoint=candidate,
-                    error=str(exc),
-                )
-                continue
-
-            release = payload.get("chembl_db_version")
-            api_version = payload.get("api_version")
-            if isinstance(release, str):
-                self._chembl_release = release
-            if isinstance(api_version, str):
-                self._api_version = api_version
-
-            self._status_cache[candidate] = payload
-            self._status_cache.setdefault(endpoint, payload)
+        if not resolved_enabled:
             self._log.info(
-                "chembl.handshake",
-                endpoint=candidate,
-                chembl_release=self._chembl_release,
-                api_version=self._api_version,
+                "chembl.handshake.skipped",
+                endpoint=resolved_endpoint,
+                handshake_enabled=False,
+                phase="skip",
             )
-            return payload
+            cached_entry = self._get_cached_entry(resolved_endpoint)
+            return dict(cached_entry.payload) if cached_entry is not None else {}
 
-        self._status_cache.setdefault(endpoint, {})
-        if last_error is not None:
-            self._log.error(
-                "chembl.handshake.unavailable",
-                endpoints=endpoints_to_try,
-                error=str(last_error),
+        endpoints = self._collect_handshake_endpoints(resolved_endpoint)
+        cached_entry = self._get_first_cached_entry(endpoints)
+        if cached_entry is not None:
+            self._status_cache.setdefault(resolved_endpoint, cached_entry)
+            if cached_entry.success:
+                return dict(cached_entry.payload)
+            self._log.debug(
+                "chembl.handshake.cached_failure",
+                endpoint=resolved_endpoint,
+                requested_at=cached_entry.requested_at_utc.isoformat(),
+                phase="cache",
             )
-        return self._status_cache[endpoint]
+            return dict(cached_entry.payload)
+
+        budget = (
+            float(budget_seconds)
+            if budget_seconds is not None
+            else self._handshake_budget
+        )
+        deadline = monotonic() + budget if budget and budget > 0 else None
+        base_timeout = (
+            self._coerce_timeout(timeout)
+            if timeout is not None
+            else self._default_timeout
+        )
+        max_attempts = max(1, int(self._preflight_config.retry.total) + 1)
+        allowed_methods = {
+            method.strip().upper() for method in self._preflight_config.retry.allowed_methods
+        }
+        status_forcelist = set(self._preflight_config.retry.status_forcelist)
+        backoff_factor = float(self._preflight_config.retry.backoff_factor)
+        overall_attempt = 0
+        last_error: BaseException | None = None
+
+        for candidate in endpoints:
+            for attempt in range(1, max_attempts + 1):
+                overall_attempt += 1
+                now_monotonic = monotonic()
+                if deadline is not None and now_monotonic >= deadline:
+                    self._log.warning(
+                        "chembl.handshake.budget_exhausted",
+                        endpoint=candidate,
+                        attempt=overall_attempt,
+                        budget_seconds=budget,
+                        phase="budget_exhausted",
+                    )
+                    break
+
+                remaining_budget = None if deadline is None else deadline - now_monotonic
+                effective_timeout = self._compute_effective_timeout(
+                    base_timeout, remaining_budget
+                )
+                requested_at = datetime.now(timezone.utc)
+                start_perf = perf_counter()
+
+                try:
+                    response = self._client.get(
+                        candidate,
+                        timeout=effective_timeout,
+                        retry_strategy="none",
+                    )
+                    payload_raw = response.json()
+                    if not isinstance(payload_raw, Mapping):
+                        raise TypeError(
+                            f"handshake payload must be mapping, got {type(payload_raw).__name__}"
+                        )
+                    payload = self._coerce_mapping(payload_raw)
+                    self._update_versions(payload)
+
+                    duration_ms = (perf_counter() - start_perf) * 1000.0
+                    elapsed_ms = self._elapsed_ms(response)
+                    self._store_handshake_result(
+                        payload=payload,
+                        endpoints=endpoints,
+                        requested_at=requested_at,
+                        success=True,
+                        status_code=response.status_code,
+                        ttl=self._handshake_cache_ttl,
+                    )
+                    self._log.info(
+                        "chembl.handshake.success",
+                        endpoint=candidate,
+                        attempt=overall_attempt,
+                        status_code=response.status_code,
+                        duration_ms=duration_ms,
+                        ttfb_ms=elapsed_ms,
+                        timeout_connect_ms=effective_timeout[0] * 1000.0,
+                        timeout_read_ms=effective_timeout[1] * 1000.0,
+                        phase="success",
+                    )
+                    return payload
+                except RequestException as exc:
+                    status_code = getattr(getattr(exc, "response", None), "status_code", None)
+                    duration_ms = (perf_counter() - start_perf) * 1000.0
+                    elapsed_ms = self._elapsed_ms(getattr(exc, "response", None))
+                    last_error = exc
+                    will_retry = (
+                        attempt < max_attempts
+                        and "GET" in allowed_methods
+                        and (status_code is None or status_code in status_forcelist)
+                    )
+                    self._log.warning(
+                        "chembl.handshake.attempt_failed",
+                        endpoint=candidate,
+                        attempt=overall_attempt,
+                        status_code=status_code,
+                        duration_ms=duration_ms,
+                        ttfb_ms=elapsed_ms,
+                        timeout_connect_ms=effective_timeout[0] * 1000.0,
+                        timeout_read_ms=effective_timeout[1] * 1000.0,
+                        will_retry=will_retry,
+                        error=str(exc),
+                        phase="attempt",
+                    )
+                    if not will_retry:
+                        break
+                    delay = self._calculate_backoff_delay(attempt, backoff_factor)
+                    if deadline is not None:
+                        remaining = deadline - monotonic()
+                        delay = min(delay, max(remaining, 0.0))
+                    if delay > 0:
+                        sleep(delay)
+                    continue
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    last_error = exc
+                    self._log.warning(
+                        "chembl.handshake.exception",
+                        endpoint=candidate,
+                        attempt=overall_attempt,
+                        error=str(exc),
+                        phase="attempt",
+                    )
+                    break
+
+            if deadline is not None and monotonic() >= deadline:
+                break
+
+        failure_status = self._extract_status_code(last_error)
+        self._store_handshake_result(
+            payload={},
+            endpoints=endpoints,
+            requested_at=datetime.now(timezone.utc),
+            success=False,
+            status_code=failure_status,
+            ttl=self._failure_cache_ttl,
+        )
+        self._log.error(
+            "chembl.handshake.fail_open",
+            endpoints=endpoints,
+            error=str(last_error) if last_error else None,
+            handshake_enabled=resolved_enabled,
+            phase="fail_open",
+        )
+        return {}
+
+    def _collect_handshake_endpoints(self, primary: str) -> tuple[str, ...]:
+        sequence: list[str] = []
+        for candidate in self._expand_handshake_endpoints(primary):
+            sequence.append(candidate)
+        for fallback in self._preflight_config.fallback_urls:
+            for candidate in self._expand_handshake_endpoints(fallback):
+                sequence.append(candidate)
+
+        ordered: list[str] = []
+        seen: set[str] = set()
+        for candidate in sequence:
+            normalized = self._normalize_endpoint_path(candidate)
+            if normalized not in seen:
+                seen.add(normalized)
+                ordered.append(normalized)
+        return tuple(ordered)
 
     @staticmethod
-    def _normalize_timeout(
-        timeout: float | tuple[float, float] | None,
-    ) -> tuple[float, float] | None:
-        """Coerce timeout to the shape expected by ``requests``."""
+    def _normalize_endpoint_path(endpoint: str | None) -> str:
+        if endpoint is None or not endpoint.strip():
+            return "/status"
+        normalized = endpoint.strip()
+        if not normalized.startswith("/"):
+            normalized = f"/{normalized}"
+        return normalized
 
-        if timeout is None:
+    def _get_cached_entry(self, endpoint: str) -> _HandshakeCacheEntry | None:
+        entry = self._status_cache.get(endpoint)
+        if entry is None:
             return None
+        if entry.expires_at <= monotonic():
+            self._status_cache.pop(endpoint, None)
+            return None
+        return entry
+
+    def _get_first_cached_entry(
+        self,
+        endpoints: Sequence[str],
+    ) -> _HandshakeCacheEntry | None:
+        for candidate in endpoints:
+            entry = self._get_cached_entry(candidate)
+            if entry is not None:
+                return entry
+        return None
+
+    def _store_handshake_result(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        endpoints: Sequence[str],
+        requested_at: datetime,
+        success: bool,
+        status_code: int | None,
+        ttl: float,
+    ) -> None:
+        expires_at = monotonic() + max(ttl, 0.0)
+        entry = _HandshakeCacheEntry(
+            payload=dict(payload),
+            expires_at=expires_at,
+            requested_at_utc=requested_at,
+            success=success,
+            status_code=status_code,
+        )
+        for candidate in endpoints:
+            normalized = self._normalize_endpoint_path(candidate)
+            self._status_cache[normalized] = entry
+
+    def _timeout_from_config(self) -> tuple[float, float]:
+        connect = max(float(self._timeout_config.connect_seconds), 0.001)
+        read = max(float(self._timeout_config.read_seconds), 0.001)
+        total = float(self._timeout_config.total_seconds)
+        if total > 0:
+            connect = min(connect, total)
+            remaining = max(total - connect, 0.0)
+            if remaining > 0:
+                read = min(read, remaining)
+            if read <= 0:
+                read = min(float(self._timeout_config.read_seconds), total)
+        return (max(connect, 0.001), max(read, 0.001))
+
+    def _coerce_timeout(
+        self,
+        timeout: float | tuple[float, float] | None,
+    ) -> tuple[float, float]:
+        if timeout is None:
+            return self._default_timeout
         if isinstance(timeout, (int, float)):
             value = float(timeout)
             if value <= 0:
                 msg = "handshake_timeout must be positive"
                 raise ValueError(msg)
             connect = min(value, 3.05)
-            return (connect, value)
-        if (
-            isinstance(timeout, tuple)
-            and len(timeout) == 2
-            and all(isinstance(part, (int, float)) for part in timeout)
-        ):
-            connect = float(timeout[0])
-            read = float(timeout[1])
-            if connect <= 0 or read <= 0:
-                msg = "handshake_timeout components must be positive"
-                raise ValueError(msg)
-            return (connect, read)
-        msg = "handshake_timeout must be a positive float or a (connect, read) tuple"
-        raise ValueError(msg)
+            return (max(connect, 0.001), value)
+        try:
+            connect_raw, read_raw = tuple(cast(Iterable[Any], timeout))
+        except (TypeError, ValueError) as exc:
+            msg = "handshake_timeout must be a positive float or a (connect, read) tuple"
+            raise ValueError(msg) from exc
+        try:
+            connect = float(connect_raw)
+            read = float(read_raw)
+        except (TypeError, ValueError) as exc:
+            msg = "handshake_timeout tuple must contain numeric values"
+            raise ValueError(msg) from exc
+        if connect <= 0 or read <= 0:
+            msg = "handshake_timeout components must be positive"
+            raise ValueError(msg)
+        return (max(connect, 0.001), max(read, 0.001))
+
+    @staticmethod
+    def _compute_effective_timeout(
+        base_timeout: tuple[float, float],
+        remaining_budget: float | None,
+    ) -> tuple[float, float]:
+        if remaining_budget is None:
+            return base_timeout
+        connect, read = base_timeout
+        if remaining_budget <= 0:
+            return (max(connect, 0.001), max(read, 0.001))
+        adjusted_connect = min(connect, remaining_budget)
+        remaining_after_connect = max(remaining_budget - adjusted_connect, 0.0)
+        adjusted_read = (
+            min(read, remaining_after_connect) if remaining_after_connect > 0 else min(read, remaining_budget)
+        )
+        return (max(adjusted_connect, 0.001), max(adjusted_read, 0.001))
+
+    @staticmethod
+    def _calculate_backoff_delay(attempt: int, factor: float) -> float:
+        if attempt <= 1 or factor <= 0:
+            return 0.0
+        backoff_multiplier = float(2 ** (attempt - 2))
+        return factor * backoff_multiplier
+
+    @staticmethod
+    def _elapsed_ms(response: Any | None) -> float | None:
+        if response is None:
+            return None
+        elapsed = getattr(response, "elapsed", None)
+        if elapsed is None:
+            return None
+        if isinstance(elapsed, timedelta):
+            return elapsed.total_seconds() * 1000.0
+        if isinstance(elapsed, (int, float)):
+            return float(elapsed) * 1000.0
+        duration_seconds = getattr(elapsed, "total_seconds", None)
+        if callable(duration_seconds):
+            seconds = duration_seconds()
+            if isinstance(seconds, (int, float)):
+                numeric_seconds = float(seconds)
+                return numeric_seconds * 1000.0
+            return None
+        return None
+
+    @staticmethod
+    def _extract_status_code(error: BaseException | None) -> int | None:
+        if isinstance(error, RequestException):
+            response = getattr(error, "response", None)
+            if response is not None:
+                return getattr(response, "status_code", None)
+        return None
+
+    def _update_versions(self, payload: Mapping[str, Any]) -> None:
+        release = payload.get("chembl_db_version")
+        api_version = payload.get("api_version")
+        if isinstance(release, str):
+            self._chembl_release = release
+        if isinstance(api_version, str):
+            self._api_version = api_version
 
     @staticmethod
     def _expand_handshake_endpoints(endpoint: str) -> tuple[str, ...]:
         """Return a deterministic list of handshake endpoints to try."""
 
-        normalized = endpoint or "/status"
-        normalized = normalized if normalized.startswith("/") else f"/{normalized}"
+        normalized = ChemblClient._normalize_endpoint_path(endpoint)
 
         if normalized.endswith(".json"):
             fallback = normalized[: -len(".json")]
@@ -203,7 +466,8 @@ class ChemblClient:
     ) -> Iterator[Mapping[str, Any]]:
         """Yield records for ``endpoint`` honouring ChEMBL pagination."""
 
-        self.handshake()
+        if self._preflight_config.enabled:
+            self.handshake()
         next_url: str | None = endpoint
         query: dict[str, Any] | None = dict(params) if params is not None else None
         if page_size and query is not None:
@@ -228,7 +492,7 @@ class ChemblClient:
                 response = self._client.get(
                     normalized_url, params=query if next_url == endpoint else None
                 )
-                payload: Mapping[str, Any] = response.json()
+                payload = self._coerce_mapping(response.json())
                 items = list(self._extract_items(payload, items_key))
                 if load_meta_id is not None and store is not None:
                     pagination_snapshot: dict[str, Any] = {
@@ -326,6 +590,15 @@ class ChemblClient:
         base = self._client.base_url or ""
         combined = f"{base.rstrip('/')}/{endpoint.lstrip('/')}" if base else endpoint
         return combined.split("?", 1)[0]
+
+    @staticmethod
+    def _coerce_mapping(payload: Any) -> dict[str, Any]:
+        """Return payload coerced to a plain dict with string keys."""
+
+        if isinstance(payload, Mapping):
+            mapping = cast(Mapping[object, Any], payload)
+            return stringify_mapping(mapping)
+        return {}
 
     # ------------------------------------------------------------------
     # Internal fetching helper

@@ -5,7 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PositiveFloat,
+    PositiveInt,
+    field_validator,
+    model_validator,
+)
 
 from .policies import (
     DeterminismConfig,
@@ -318,6 +326,154 @@ class CLIConfig(BaseModel):
     )
 
 
+class ChemblPreflightRetryConfig(BaseModel):
+    """Retry policy for ChEMBL preflight handshake."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    total: int = Field(
+        default=3,
+        ge=0,
+        description="Maximum retry attempts (excluding the first request).",
+    )
+    backoff_factor: PositiveFloat = Field(
+        default=0.5,
+        description="Exponential backoff factor between retry attempts.",
+    )
+    status_forcelist: tuple[int, ...] = Field(
+        default=(429, 500, 502, 503, 504),
+        description="HTTP status codes that trigger a retry.",
+    )
+    allowed_methods: tuple[str, ...] = Field(
+        default=("GET", "HEAD"),
+        description="HTTP methods that may be retried safely.",
+    )
+
+    @field_validator("allowed_methods")
+    @classmethod
+    def _normalize_methods(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        normalized: list[str] = []
+        for method in value:
+            candidate = method.strip().upper()
+            if not candidate:
+                continue
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return tuple(normalized)
+
+
+class ChemblPreflightConfig(BaseModel):
+    """Preflight handshake configuration for ChEMBL client."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(
+        default=False,
+        description="Enable or disable preflight handshake before pipeline start.",
+    )
+    url: str = Field(
+        default="/data/status",
+        description="Primary endpoint used for the preflight handshake.",
+    )
+    fallback_urls: tuple[str, ...] = Field(
+        default=("/data/version", "/data"),
+        description="Fallback endpoints probed when the primary handshake fails.",
+    )
+    retry: ChemblPreflightRetryConfig = Field(
+        default_factory=ChemblPreflightRetryConfig,
+        description="Retry policy applied to preflight handshake requests.",
+    )
+    budget_seconds: PositiveFloat = Field(
+        default=10.0,
+        description="Global wall-clock budget for all preflight attempts.",
+    )
+    cache_ttl_seconds: PositiveFloat = Field(
+        default=600.0,
+        description="TTL for successful handshake payload cached in memory.",
+    )
+
+    @field_validator("fallback_urls")
+    @classmethod
+    def _normalize_urls(cls, value: tuple[str, ...]) -> tuple[str, ...]:
+        ordered: dict[str, None] = {}
+        for candidate in value:
+            normalized = candidate.strip()
+            if not normalized:
+                continue
+            if not normalized.startswith("/"):
+                normalized = f"/{normalized}"
+            ordered.setdefault(normalized, None)
+        return tuple(ordered.keys())
+
+
+class ChemblTimeoutConfig(BaseModel):
+    """Timeout overrides for ChEMBL client operations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    connect_seconds: PositiveFloat = Field(
+        default=2.0,
+        description="Connection timeout applied to preflight requests.",
+    )
+    read_seconds: PositiveFloat = Field(
+        default=5.0,
+        description="Read timeout applied to preflight requests.",
+    )
+    total_seconds: PositiveFloat = Field(
+        default=10.0,
+        description="Overall timeout budget for preflight requests.",
+    )
+
+
+class ChemblCircuitBreakerConfig(BaseModel):
+    """Circuit breaker policy used by the ChEMBL client."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    error_threshold: PositiveInt = Field(
+        default=3,
+        description="Number of consecutive failures required to open the circuit.",
+    )
+    open_seconds: PositiveFloat = Field(
+        default=60.0,
+        description="Duration in seconds to keep the circuit open before half-open checks.",
+    )
+
+
+class ChemblClientConfig(BaseModel):
+    """Composite configuration for the ChEMBL client."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    base_url: str = Field(
+        default="https://www.ebi.ac.uk/chembl/api",
+        description="Base URL for ChEMBL REST API requests.",
+    )
+    preflight: ChemblPreflightConfig = Field(
+        default_factory=ChemblPreflightConfig,
+        description="Preflight handshake settings.",
+    )
+    timeout: ChemblTimeoutConfig = Field(
+        default_factory=ChemblTimeoutConfig,
+        description="Timeout overrides for handshake and readiness checks.",
+    )
+    circuit_breaker: ChemblCircuitBreakerConfig = Field(
+        default_factory=ChemblCircuitBreakerConfig,
+        description="Circuit breaker policy for outbound calls.",
+    )
+
+
+class ClientsConfig(BaseModel):
+    """Client configuration section."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    chembl: ChemblClientConfig = Field(
+        default_factory=ChemblClientConfig,
+        description="ChEMBL-specific client configuration.",
+    )
+
+
 class SourceConfig(BaseModel):
     """Per-source overrides and metadata."""
 
@@ -375,6 +531,10 @@ class PipelineConfig(BaseModel):
     postprocess: PostprocessConfig = Field(default_factory=PostprocessConfig)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
+    clients: ClientsConfig = Field(
+        default_factory=ClientsConfig,
+        description="HTTP client overrides scoped to specific upstream services.",
+    )
     sources: dict[str, SourceConfig] = Field(
         default_factory=dict,
         description="Per-source settings keyed by a short identifier.",
@@ -405,6 +565,12 @@ __all__ = [
     "IOConfig",
     "PathsConfig",
     "MaterializationConfig",
+    "ClientsConfig",
+    "ChemblClientConfig",
+    "ChemblPreflightConfig",
+    "ChemblPreflightRetryConfig",
+    "ChemblTimeoutConfig",
+    "ChemblCircuitBreakerConfig",
     "ValidationConfig",
     "TransformConfig",
     "PostprocessCorrelationConfig",

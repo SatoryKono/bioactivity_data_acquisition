@@ -339,6 +339,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     endpoint="/status",
                     enabled=True,
                     timeout=timeout,
+                    budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
                 )
                 release_value = handshake_result.release
                 requested_at = handshake_result.requested_at_utc
@@ -364,7 +365,6 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     response = client_get(
                         endpoint,
                         timeout=timeout,
-                        retry_strategy="none",
                     )
                     json_candidate = getattr(response, "json", None)
                     if callable(json_candidate):
@@ -441,8 +441,43 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
             endpoint=source_config.handshake_endpoint,
             enabled=source_config.handshake_enabled,
             timeout=source_config.handshake_timeout_sec,
+            budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
         )
         return handshake_result
+
+    def ensure_chembl_release(
+        self,
+        client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
+        *,
+        log: BoundLogger,
+        timeout: float | tuple[float, float] | None = None,
+    ) -> str | None:
+        """Гарантировать наличие нормализованного номера релиза ChEMBL.
+
+        Если release уже известен и является непустой строкой, возвращает его.
+        В противном случае выполняет fetch через статус-эндпоинт.
+        """
+
+        cached = self.chembl_release
+        if isinstance(cached, str):
+            normalized = cached.strip()
+            if normalized:
+                if normalized != cached:
+                    self._update_release(normalized)
+                return normalized
+
+        fetched = self.fetch_chembl_release(
+            client,
+            log,
+            timeout=timeout,
+        )
+        if isinstance(fetched, str):
+            normalized_fetched = fetched.strip()
+            if normalized_fetched:
+                if normalized_fetched != fetched:
+                    self._update_release(normalized_fetched)
+                return normalized_fetched
+        return None
 
     @staticmethod
     def _extract_page_items(
@@ -607,7 +642,10 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         source_config_raw = self._resolve_source_config("chembl")
         chembl_source_config = cast(
             ChemblSourceConfig,
-            ChemblPipelineSourceConfig.from_source_config(source_config_raw),
+            ChemblPipelineSourceConfig.from_source_config(
+                source_config_raw,
+                client_config=self.config.clients.chembl,
+            ),
         )
 
         defaults = ChemblPipelineSourceConfig.defaults

@@ -69,8 +69,8 @@ class TestChemblActivityPipelineTransformations:
         assert second_call_endpoint == "/status.json"
         assert mock_client.get.call_args_list[0].kwargs["timeout"] is None
         assert mock_client.get.call_args_list[1].kwargs["timeout"] is None
-        assert mock_client.get.call_args_list[0].kwargs["retry_strategy"] == "none"
-        assert mock_client.get.call_args_list[1].kwargs["retry_strategy"] == "none"
+        assert "retry_strategy" not in mock_client.get.call_args_list[0].kwargs
+        assert "retry_strategy" not in mock_client.get.call_args_list[1].kwargs
 
     def test_fetch_release_timeout_keyword_backward_compatibility(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -91,7 +91,7 @@ class TestChemblActivityPipelineTransformations:
 
         pipeline.fetch_chembl_release = MagicMock(side_effect=side_effect)  # type: ignore[assignment]
 
-        result = pipeline._fetch_chembl_release(  # noqa: SLF001
+        result = pipeline._fetch_chembl_release(  # noqa: SLF001  # type: ignore[reportPrivateUsage]
             mock_client,
             log=log,
             timeout=5.0,
@@ -1189,7 +1189,7 @@ class TestChemblActivityPipelineTransformations:
         assert stats["invalid_count"] == 2  # 2 invalid properties
         assert stats["valid_count"] == len(validated)
 
-    def test_extract_activity_properties_missing_chEMBL_v24(
+    def test_extract_activity_properties_missing_chembl_v24(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of missing activity_properties (ChEMBL < v24 compatibility)."""
@@ -1208,7 +1208,7 @@ class TestChemblActivityPipelineTransformations:
         assert "activity_properties" in result
         assert result["activity_properties"] is None
 
-    def test_extract_activity_properties_null_chEMBL_v24(
+    def test_extract_activity_properties_null_chembl_v24(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of null activity_properties (ChEMBL < v24 compatibility)."""

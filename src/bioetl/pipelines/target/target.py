@@ -249,6 +249,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
         if df.empty:
+            df = self._normalize_data_types(df, TargetSchema, log)
+            df = self._order_schema_columns(df, COLUMN_ORDER)
             log.debug("transform_empty_dataframe")
             return df
 
