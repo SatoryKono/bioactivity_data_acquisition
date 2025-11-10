@@ -96,13 +96,11 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(source_config.page_size, limit)
 
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(select_fields_tuple)
-        else:
-            select_fields = list(API_DOCUMENT_FIELDS)
-        # Защита: добавить обязательные поля, если их нет
-        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+        select_fields = self._resolve_select_fields(
+            source_config,
+            default_fields=API_DOCUMENT_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
+        )
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/document.json"
         params: Mapping[str, Any] | None = {
@@ -226,10 +224,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source(source_raw)
         select_fields = self._resolve_select_fields(
-            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
+            source_raw,
+            default_fields=API_DOCUMENT_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
         )
-        # Защита: добавить обязательные поля, если их нет
-        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
 
         id_filters = {
             "mode": "ids",

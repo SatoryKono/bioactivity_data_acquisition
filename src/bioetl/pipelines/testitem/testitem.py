@@ -51,15 +51,6 @@ def _coerce_numeric_series(series: pd.Series) -> Series:
     return cast(Series, pd.to_numeric(series, errors="coerce"))
 
 
-def _augment_select_fields(existing: tuple[str, ...] | None) -> tuple[str, ...] | None:
-    """Ensure mandatory select fields are always included while preserving order."""
-
-    if existing is None:
-        return None
-    merged = dict.fromkeys((*existing, *MUST_HAVE_FIELDS))
-    return tuple(merged)
-
-
 @no_type_check
 def _ensure_iterable_records(
     fetched: Mapping[str, object] | Iterable[Mapping[str, object]]
@@ -211,7 +202,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(source_config.page_size, limit)
-        select_fields = _augment_select_fields(source_config.parameters.select_fields)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
         log.debug("chembl_testitem.select_fields", fields=select_fields)
         records: list[Mapping[str, object]] = []
 
@@ -309,7 +304,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         page_size = source_config.page_size
         limit = self.config.cli.limit
-        select_fields = _augment_select_fields(source_config.parameters.select_fields)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
         log.debug("chembl_testitem.select_fields", fields=select_fields)
 
         filters_payload = {

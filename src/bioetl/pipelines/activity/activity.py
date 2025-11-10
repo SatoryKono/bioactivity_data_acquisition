@@ -182,11 +182,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         page_size = self._resolve_page_size(batch_size, limit)
 
         parameters = self._normalize_parameters(source_config.parameters)
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(select_fields_tuple)
-        else:
-            select_fields = list(API_ACTIVITY_FIELDS)
+        select_fields_tuple = self.normalize_select_fields(
+            source_config.parameters.select_fields,
+            default=API_ACTIVITY_FIELDS,
+        )
+        select_fields = list(select_fields_tuple or ())
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
@@ -928,10 +928,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
-                    configured_fields = activity_source_config.parameters.select_fields
-                    select_fields = (
-                        list(configured_fields) if configured_fields else list(API_ACTIVITY_FIELDS)
+                    configured_fields = self.normalize_select_fields(
+                        activity_source_config.parameters.select_fields,
+                        default=API_ACTIVITY_FIELDS,
                     )
+                    select_fields = list(configured_fields or ())
                     params = {
                         "activity_id__in": ",".join(batch_keys),
                         "only": ",".join(select_fields),
