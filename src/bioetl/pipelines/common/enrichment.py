@@ -10,9 +10,9 @@ appropriate configuration blocks and executes enabled rules sequentially.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -29,7 +29,10 @@ def _as_str_mapping(candidate: Any) -> Mapping[str, Any] | None:
         return None
 
     result: dict[str, Any] = {}
-    mapping_dict: dict[Any, Any] = dict(candidate.items())
+    items_iterable: Iterable[tuple[Any, Any]] = cast(
+        Iterable[tuple[Any, Any]], candidate.items()
+    )
+    mapping_dict: dict[Any, Any] = dict(items_iterable)
     for key_candidate, value_candidate in mapping_dict.items():
         if not isinstance(key_candidate, str):
             return None
