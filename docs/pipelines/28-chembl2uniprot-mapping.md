@@ -302,7 +302,7 @@ ChEMBL2UniProt Mapping pipeline использует Pandera для строго
 ```python
 # src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

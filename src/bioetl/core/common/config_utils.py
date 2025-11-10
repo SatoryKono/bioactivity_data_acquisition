@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import Any, Literal, cast, overload
 
 import yaml
 from yaml.nodes import ScalarNode
@@ -15,7 +15,6 @@ InvalidKeyMessageFactory = Callable[[list[Any], str], str]
 
 TypeErrorMessage = str | TypeErrorMessageFactory | None
 InvalidKeyMessage = str | InvalidKeyMessageFactory | None
-ResultMapping = TypeVar("ResultMapping", dict[str, Any], Mapping[str, Any])
 
 
 def load_yaml_document(
@@ -29,12 +28,11 @@ def load_yaml_document(
 
     resolved_path = Path(path).expanduser().resolve()
 
-    class Loader(loader_cls):
-        pass
+    loader_type = cast(type[yaml.SafeLoader], type("Loader", (loader_cls,), {}))
 
     if include_resolver is not None:
 
-        def construct_include(loader: Loader, node: ScalarNode) -> Any:
+        def construct_include(loader: yaml.SafeLoader, node: ScalarNode) -> Any:
             filename = loader.construct_scalar(node)
             include_path = include_resolver(filename, resolved_path.parent)
             return load_yaml_document(
@@ -44,7 +42,7 @@ def load_yaml_document(
                 include_resolver=include_resolver,
             )
 
-        Loader.add_constructor("!include", construct_include)
+        loader_type.add_constructor("!include", construct_include)
 
     with resolved_path.open("r", encoding="utf-8") as handle:
         text = handle.read()
@@ -52,7 +50,49 @@ def load_yaml_document(
     if preprocess is not None:
         text = preprocess(text)
 
-    return yaml.load(text, Loader=Loader)
+    return yaml.load(text, Loader=loader_type)
+
+
+@overload
+def ensure_mapping(
+    value: Any,
+    *,
+    context: str,
+    exception_type: type[Exception] = ...,
+    require_string_keys: bool = ...,
+    coerce_dict: Literal[False],
+    type_error_message: TypeErrorMessage = ...,
+    invalid_key_message: InvalidKeyMessage = ...,
+) -> Mapping[str, Any]:
+    ...
+
+
+@overload
+def ensure_mapping(
+    value: Any,
+    *,
+    context: str,
+    exception_type: type[Exception] = TypeError,
+    require_string_keys: bool = True,
+    coerce_dict: Literal[True] = True,
+    type_error_message: TypeErrorMessage = None,
+    invalid_key_message: InvalidKeyMessage = None,
+) -> dict[str, Any]:
+    ...
+
+
+@overload
+def ensure_mapping(
+    value: Any,
+    *,
+    context: str,
+    exception_type: type[Exception] = TypeError,
+    require_string_keys: bool = True,
+    coerce_dict: bool,
+    type_error_message: TypeErrorMessage = None,
+    invalid_key_message: InvalidKeyMessage = None,
+) -> Mapping[str, Any] | dict[str, Any]:
+    ...
 
 
 def ensure_mapping(
@@ -64,7 +104,7 @@ def ensure_mapping(
     coerce_dict: bool = True,
     type_error_message: TypeErrorMessage = None,
     invalid_key_message: InvalidKeyMessage = None,
-) -> ResultMapping:
+) -> Mapping[str, Any] | dict[str, Any]:
     """Убедиться, что объект является отображением с ожидаемыми ключами."""
 
     if not isinstance(value, Mapping):
@@ -80,14 +120,16 @@ def ensure_mapping(
             raise exception_type(message)
 
     if not coerce_dict:
-        return cast(ResultMapping, mapping)
+        if require_string_keys:
+            return cast(Mapping[str, Any], mapping)
+        return mapping
 
     if require_string_keys:
-        normalized: dict[str, Any] = {cast(str, key): value for key, value in mapping.items()}
+        normalized = {str(key): item for key, item in mapping.items()}
     else:
         normalized = dict(mapping.items())
 
-    return cast(ResultMapping, normalized)
+    return normalized
 
 
 def _resolve_type_error_message(

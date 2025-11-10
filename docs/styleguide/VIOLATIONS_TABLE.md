@@ -5,3 +5,7 @@
 | Category | Identifier | Path | Detected_At | Status | Notes |
 |---|---|---|---|---|---|
 
+Актуальные нарушения отсутствуют.
+
+> Отчёт генерируется командой `bioetl-validate-naming-violations`. При появлении строки в таблице необходимо приложить ссылку на issue/PR с планом устранения, указать дедлайн и обновить [12 Naming Normalization Plan](12-naming-normalization-plan.md#категории-нарушений). До удаления записи пайплайн остаётся в статусе блокирующего нарушения.
+<!-- ensure single trailing newline -->

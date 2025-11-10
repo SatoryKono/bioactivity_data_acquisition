@@ -4,7 +4,9 @@ import pandas as pd
 
 from bioetl.core.normalizers import (
     IdentifierRule,
+    IdentifierStats,
     StringRule,
+    StringStats,
     normalize_identifier_columns,
     normalize_string_columns,
 )
@@ -47,3 +49,25 @@ def test_normalize_string_columns_supports_title_case_and_max_length() -> None:
     assert normalized_df.loc[0, "label"] == "MIXED"
     assert pd.isna(normalized_df.loc[1, "label"])
     assert stats.processed == 2
+
+
+def test_identifier_stats_has_changes_flag() -> None:
+    stats = IdentifierStats()
+
+    assert not stats.has_changes
+
+    stats.add("column", normalized_count=3, invalid_count=1)
+
+    assert stats.has_changes
+    assert stats.per_column == {"column": {"normalized": 3, "invalid": 1}}
+
+
+def test_string_stats_has_changes_flag() -> None:
+    stats = StringStats()
+
+    assert not stats.has_changes
+
+    stats.add("column", processed_count=2)
+
+    assert stats.has_changes
+    assert stats.per_column == {"column": 2}

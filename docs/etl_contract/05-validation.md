@@ -26,7 +26,7 @@ Below is an example of a Pandera schema for a hypothetical `activity` pipeline. 
 ```python
 # file: src/bioetl/schemas/chembl/activity_out.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 
 class ActivitySchema(pa.SchemaModel):

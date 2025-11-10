@@ -307,6 +307,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
 - **`text_value`** (string, nullable): Текстовое значение для качественных параметров
 
 **TRUV-инвариант:** `value` и `text_value` взаимоисключающие (XOR):
+
 - Если `value IS NOT NULL` → `text_value` должен быть `NULL`
 - Если `text_value IS NOT NULL` → `value` должен быть `NULL`
 - Оба не могут быть одновременно не NULL
@@ -1302,7 +1303,7 @@ Assay pipeline использует Pandera для строгой валидац
 ```python
 # src/bioetl/schemas/chembl/assay/assay_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

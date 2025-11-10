@@ -1,13 +1,11 @@
 """Функции для детерминированной подготовки табличных данных."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import Tuple
 
 import pandas as pd
 
-ColumnSpec = Tuple[str, str]
+ColumnSpec = tuple[str, str]
 ColumnSpecs = Iterable[ColumnSpec]
 
 

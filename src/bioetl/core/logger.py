@@ -9,21 +9,22 @@ as by golden tests.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterable, Iterator, MutableMapping, Sequence
+from collections.abc import Iterable, Iterator, Mapping, MutableMapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import structlog
-from structlog.stdlib import BoundLogger
 from structlog.contextvars import (
     bind_contextvars,
     clear_contextvars,
     get_contextvars,
     unbind_contextvars,
 )
+from structlog.exceptions import DropEvent
+from structlog.stdlib import BoundLogger
 
 __all__ = [
     "LogFormat",
@@ -60,6 +61,18 @@ MANDATORY_FIELDS: Sequence[str] = (
 )
 """Fields that must always be present in the structured event dictionary."""
 
+_DEFAULT_LOGGER_NAME: Final[str] = "bioetl"
+_LOG_METHOD_TO_LEVEL: Mapping[str, int] = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "warn": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    "exception": logging.ERROR,
+    "fatal": logging.CRITICAL,
+}
+
 _KEY_ORDER: Sequence[str] = (
     "timestamp",
     "level",
@@ -86,10 +99,29 @@ class LogConfig:
 def _coerce_log_level(level: int | str) -> int:
     if isinstance(level, int):
         return level
-    coerced = logging.getLevelName(level.upper())
-    if isinstance(coerced, int):
-        return coerced
+    level_name = level.upper()
+    mapping = _get_level_name_mapping()
+    mapped_level = mapping.get(level_name)
+    if isinstance(mapped_level, int):
+        return mapped_level
     raise ValueError(f"Unsupported log level: {level}")
+
+
+def _get_level_name_mapping() -> Mapping[str, int]:
+    get_mapping = getattr(logging, "getLevelNamesMapping", None)
+    if callable(get_mapping):
+        mapping = get_mapping()
+        if isinstance(mapping, Mapping):
+            return cast(Mapping[str, int], mapping)
+    # Fallback to standard level names if advanced mapping is unavailable.
+    return {
+        "CRITICAL": logging.CRITICAL,
+        "ERROR": logging.ERROR,
+        "WARNING": logging.WARNING,
+        "INFO": logging.INFO,
+        "DEBUG": logging.DEBUG,
+        "NOTSET": logging.NOTSET,
+    }
 
 
 def _redact_sensitive_values(
@@ -152,6 +184,20 @@ def _renderer_for(format: LogFormat) -> Any:
     return structlog.processors.JSONRenderer(sort_keys=True, ensure_ascii=False)
 
 
+def _safe_filter_by_level(
+    logger: logging.Logger | None,
+    method_name: str,
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
+    """Drop events that do not satisfy the active logging level."""
+
+    effective_logger = logger or logging.getLogger(_DEFAULT_LOGGER_NAME)
+    level = _LOG_METHOD_TO_LEVEL.get(method_name.lower(), logging.INFO)
+    if effective_logger.isEnabledFor(level):
+        return event_dict
+    raise DropEvent
+
+
 def configure_logging(
     config: LogConfig | None = None,
     *,
@@ -166,7 +212,7 @@ def configure_logging(
     renderer = _renderer_for(cfg.format)
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=[*shared_processors, structlog.stdlib.filter_by_level],
+        foreign_pre_chain=[*shared_processors, _safe_filter_by_level],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
@@ -181,7 +227,7 @@ def configure_logging(
     structlog.configure(
         processors=[
             *shared_processors,
-            structlog.stdlib.filter_by_level,
+            _safe_filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,
@@ -236,7 +282,7 @@ def _restore_previous_context(previous: dict[str, Any]) -> None:
 class UnifiedLogger:
     """Facade that exposes a minimal, documented logging API."""
 
-    _default_logger_name = "bioetl"
+    _default_logger_name = _DEFAULT_LOGGER_NAME
 
     @staticmethod
     def configure(

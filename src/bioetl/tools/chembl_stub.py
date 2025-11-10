@@ -7,9 +7,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Iterator, Mapping, Sequence
-
 
 __all__ = [
     "OfflineChemblClient",
@@ -21,43 +20,43 @@ _ActivityRecord = Mapping[str, object]
 
 
 @dataclass(frozen=True)
-class _OfflineQuery:
+class OfflineQuery:
     """Имитация ленивого результата ``.filter()`` ChEMBL клиента."""
 
     _rows: Sequence[Mapping[str, object]]
 
-    def only(self, field: str) -> "_OfflineQuery":
+    def only(self, field: str) -> OfflineQuery:
         trimmed: list[Mapping[str, object]] = []
         for row in self._rows:
             trimmed.append({field: row.get(field)})
-        return _OfflineQuery(trimmed)
+        return OfflineQuery(trimmed)
 
     def __iter__(self) -> Iterator[Mapping[str, object]]:
         return iter(self._rows)
 
 
 @dataclass(frozen=True)
-class _OfflineResource:
+class OfflineResource:
     """Простейший ресурс с поддержкой ``filter`` и пагинации."""
 
     _records: Sequence[Mapping[str, object]]
 
-    def filter(self, **filters: object) -> _OfflineQuery:
+    def filter(self, **filters: object) -> OfflineQuery:
         limit = _safe_int(filters.get("limit"), len(self._records))
         offset = _safe_int(filters.get("offset"), 0)
         sliced = self._records[offset : offset + limit]
-        return _OfflineQuery(list(sliced))
+        return OfflineQuery(list(sliced))
 
 
 @dataclass
 class OfflineChemblClient:
     """Фиктивный клиент с минимально необходимыми ресурсами."""
 
-    activity: _OfflineResource
-    assay: _OfflineResource
-    target: _OfflineResource
-    data_validity_lookup: _OfflineResource
-    mechanism: _OfflineResource
+    activity: OfflineResource
+    assay: OfflineResource
+    target: OfflineResource
+    data_validity_lookup: OfflineResource
+    mechanism: OfflineResource
 
 
 _OFFLINE_DATA: dict[str, list[_ActivityRecord]] = {
@@ -96,11 +95,11 @@ def get_offline_new_client() -> OfflineChemblClient:
     """Вернуть детерминированный офлайн-клиент."""
 
     return OfflineChemblClient(
-        activity=_OfflineResource(_OFFLINE_DATA["activity"]),
-        assay=_OfflineResource(_OFFLINE_DATA["assay"]),
-        target=_OfflineResource(_OFFLINE_DATA["target"]),
-        data_validity_lookup=_OfflineResource(_OFFLINE_DATA["data_validity_lookup"]),
-        mechanism=_OfflineResource(_OFFLINE_DATA["mechanism"]),
+        activity=OfflineResource(_OFFLINE_DATA["activity"]),
+        assay=OfflineResource(_OFFLINE_DATA["assay"]),
+        target=OfflineResource(_OFFLINE_DATA["target"]),
+        data_validity_lookup=OfflineResource(_OFFLINE_DATA["data_validity_lookup"]),
+        mechanism=OfflineResource(_OFFLINE_DATA["mechanism"]),
     )
 
 

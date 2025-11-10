@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
-from bioetl.clients.chembl_iterator import ChemblEntityIterator
+from typing import ClassVar
+
+from bioetl.clients.chembl_base import ChemblClientProtocol
+from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 __all__ = ["ChemblActivityClient"]
 
 
-class ChemblActivityClient(ChemblEntityIterator):
+class ChemblActivityClient(ChemblEntityClientBase):
     """High level helper focused on retrieving activity payloads."""
+
+    ENTITY_KEY: ClassVar[str] = "activity"
 
     def __init__(
         self,
@@ -29,21 +33,8 @@ class ChemblActivityClient(ChemblEntityIterator):
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
-        config = EntityConfig(
-            endpoint="/activity.json",
-            filter_param="activity_id__in",
-            id_key="activity_id",
-            items_key="activities",
-            log_prefix="activity",
-            chunk_size=100,
-            supports_list_result=False,
-            base_endpoint_length=len("/activity.json?"),
-            enable_url_length_check=False,
-        )
-
         super().__init__(
             chembl_client=chembl_client,
-            config=config,
             batch_size=batch_size,
             max_url_length=max_url_length,
         )

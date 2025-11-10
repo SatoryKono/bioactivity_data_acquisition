@@ -76,12 +76,15 @@ class TestPipelineLifecycle:
             meta_content = yaml.safe_load(result.write_result.metadata.read_text())
             assert meta_content.get("chembl_release") == "33"
             assert "requested_at_utc" in meta_content
-            datetime.fromisoformat(str(meta_content["requested_at_utc"]).replace("Z", "+00:00"))
+            requested_at_raw = str(meta_content["requested_at_utc"])
+            assert requested_at_raw.endswith("Z")
+            datetime.fromisoformat(requested_at_raw.replace("Z", "+00:00"))
             filters_section = meta_content.get("filters")
             assert isinstance(filters_section, dict)
             filters_section = cast(dict[str, Any], filters_section)
             assert filters_section.get("mode") == "all"
             assert "page_size" in filters_section
+            assert list(filters_section) == sorted(filters_section)
             assert meta_content.get("config_version") == pipeline_config_fixture.version
             assert meta_content.get("pipeline_version") == pipeline_config_fixture.pipeline.version
 

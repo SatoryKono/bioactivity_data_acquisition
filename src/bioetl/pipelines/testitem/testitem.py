@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, cast, no_type_check
 
 import pandas as pd
+from pandas import Series
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
 from bioetl.clients.types import EntityClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
+from bioetl.config.models.models import SourceConfig
 from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.config.testitem import TestItemSourceParameters
 from bioetl.core import UnifiedLogger
@@ -25,7 +27,7 @@ from ..chembl_base import ChemblPipelineBase
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     # Скаляры
     "molecule_chembl_id",
     "pref_name",
@@ -40,7 +42,32 @@ MUST_HAVE_FIELDS = {
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
-}
+)
+
+
+@no_type_check
+def _coerce_numeric_series(series: pd.Series) -> Series:
+    """Convert arbitrary series to float series with NaNs on errors."""
+
+    return cast(Series, pd.to_numeric(series, errors="coerce"))
+
+
+@no_type_check
+def _ensure_iterable_records(
+    fetched: Mapping[str, object] | Iterable[Mapping[str, object]]
+) -> Iterable[Mapping[str, object]]:
+    """Normalize fetch() result to an iterable of records."""
+
+    if isinstance(fetched, Mapping):
+        return (fetched,)
+    return fetched
+
+
+@no_type_check
+def _series_isin(series: Series, values: Iterable[object]) -> Series:
+    """Wrapper over Series.isin for static type checkers."""
+
+    return cast(Series, series.isin(values))
 
 
 class TestItemChemblPipeline(ChemblPipelineBase):
@@ -68,11 +95,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
         *,
-        source_config: (
-            ChemblPipelineSourceConfig[TestItemSourceParameters]
-            | TestItemSourceConfig
-            | None
-        ) = None,
+        timeout: float | tuple[float, float] | None = None,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
     ) -> str | None:
         """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
 
@@ -83,10 +107,34 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         else:
             bound_log = log
 
-        resolved_source_config = source_config
-        if resolved_source_config is None:
+        resolved_source_config: ChemblPipelineSourceConfig[TestItemSourceParameters]
+
+        if source_config is None:
             source_raw = self._resolve_source_config("chembl")
-            resolved_source_config = TestItemSourceConfig.from_source(source_raw)
+            resolved_source_config = TestItemSourceConfig.from_source(
+                source_raw,
+                client_config=self.config.clients.chembl,
+            )
+
+        elif isinstance(source_config, TestItemSourceConfig):
+            resolved_source_config = source_config
+        elif isinstance(source_config, SourceConfig):
+            resolved_source_config = TestItemSourceConfig.from_source(
+                source_config,
+                client_config=self.config.clients.chembl,
+            )
+        else:
+            resolved_source_config = cast(
+                ChemblPipelineSourceConfig[TestItemSourceParameters],
+                source_config,
+            )
+
+        if timeout is not None:
+            bound_log.warning(
+                "chembl_testitem.release_timeout_ignored",
+                timeout=timeout,
+                hint="TestItem handshake не поддерживает таймаут; передайте None.",
+            )
 
         handshake_result = self.perform_source_handshake(
             client,
@@ -95,6 +143,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             event="chembl_testitem.handshake",
         )
         payload: Mapping[str, Any] = handshake_result.payload
+        metadata_requested_at = handshake_result.requested_at_utc
 
         release_value = handshake_result.release
         api_version: str | None = None
@@ -107,18 +156,42 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 release_value = extracted_release
                 self._update_release(extracted_release)
 
+        if release_value is None or api_version is None:
+            forced_handshake = self.perform_chembl_handshake(
+                client,
+                log=bound_log,
+                event="chembl_testitem.status_refresh",
+                endpoint=resolved_source_config.handshake_endpoint,
+                enabled=True,
+                timeout=resolved_source_config.handshake_timeout_sec,
+                budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
+            )
+            payload = forced_handshake.payload or payload
+            metadata_requested_at = forced_handshake.requested_at_utc
+            if release_value is None:
+                release_value = forced_handshake.release
+            if api_version is None:
+                refreshed_api = payload.get("api_version")
+                if isinstance(refreshed_api, str) and refreshed_api.strip():
+                    api_version = refreshed_api
+
+        if release_value is None:
+            release_value = self.fetch_chembl_release(
+                client,
+                bound_log,
+                timeout=resolved_source_config.handshake_timeout_sec,
+            )
+            metadata_requested_at = datetime.now(timezone.utc)
+
         self._chembl_db_version = release_value
         self._api_version = api_version
         self.record_extract_metadata(
             chembl_release=release_value,
-            requested_at_utc=handshake_result.requested_at_utc,
+            requested_at_utc=metadata_requested_at,
         )
 
         return release_value
 
-    # ------------------------------------------------------------------
-    # Pipeline stages
-    # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch molecule payloads from ChEMBL using the unified HTTP client.
@@ -150,7 +223,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source(source_raw)
+        source_config = TestItemSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -161,6 +237,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,
@@ -181,11 +259,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(source_config.page_size, limit)
-        select_fields = source_config.parameters.select_fields
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
         log.debug("chembl_testitem.select_fields", fields=select_fields)
-        records: list[Mapping[str, Any]] = []
+        records: list[Mapping[str, object]] = []
 
         filters_payload: dict[str, Any] = {
             "mode": "all",
@@ -194,7 +274,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "select_fields": list(select_fields) if select_fields else None,
             "max_url_length": source_config.max_url_length,
         }
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self.chembl_release,
             filters=compact_filters,
@@ -248,7 +330,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source(source_raw)
+        source_config = TestItemSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -259,6 +344,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,
@@ -279,9 +366,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         page_size = source_config.page_size
         limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
         log.debug("chembl_testitem.select_fields", fields=select_fields)
 
         filters_payload = {
@@ -292,23 +381,26 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "max_url_length": source_config.max_url_length,
             "select_fields": list(select_fields) if select_fields else None,
         }
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
         self.record_extract_metadata(
             chembl_release=self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        records: list[Mapping[str, Any]] = []
+        records: list[Mapping[str, object]] = []
         testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
             chembl_client,
             batch_size=page_size,
             max_url_length=source_config.max_url_length,
         )
-        for item in testitem_client.fetch(ids, select_fields=select_fields):
+        fetched_records = testitem_client.fetch(ids, select_fields=select_fields)
+        record_iterable = _ensure_iterable_records(fetched_records)
+        for item in record_iterable:
             records.append(item)
             if limit is not None and len(records) >= limit:
-                records = records[: int(limit)]
                 break
 
         dataframe = pd.DataFrame(records)
@@ -593,10 +685,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         for col in int_ge_zero_columns + int_columns + boolean_columns:
             if col in df.columns:
                 # Convert to numeric, coercing errors and None to NaN
-                numeric_series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[col],
-                    errors="coerce",
-                )
+                numeric_series = _coerce_numeric_series(df[col])
                 # For columns that should be >= 0, replace negative values with NaN
                 if col in int_ge_zero_columns:
                     # Replace negative values with NaN
@@ -622,19 +711,24 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     mask = df[col].notna()
                     if mask.any():
                         # Convert to string and uppercase for comparison
-                        col_str = df.loc[mask, col].astype(str).str.upper().str.strip()
+                        col_str_series = df.loc[mask, col].astype(str)
+                        col_str: Series[str] = col_str_series.str.upper().str.strip()
                         # Create new series with converted values
                         converted = df[col].copy()
                         # Map Y to 1, N to 0
                         converted.loc[mask & (col_str == "Y")] = 1
                         converted.loc[mask & (col_str == "N")] = 0
                         # For values that are not Y/N, try numeric conversion
-                        other_mask = mask & ~col_str.isin(["Y", "N"])  # pyright: ignore[reportUnknownMemberType]
+                        other_mask = mask & ~_series_isin(col_str, ["Y", "N"])
                         if other_mask.any():
                             # Try to convert existing numeric values
-                            numeric_vals = pd.to_numeric(df.loc[other_mask, col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                            numeric_vals: Series[float] = _coerce_numeric_series(
+                                df.loc[other_mask, col]
+                            )
                             # Keep only valid numeric values (0 or 1)
-                            valid_numeric = numeric_vals.notna() & numeric_vals.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
+                            valid_numeric: Series[bool] = numeric_vals.notna() & _series_isin(
+                                numeric_vals, [0, 1]
+                            )
                             # Set all other_mask values to NA first
                             converted.loc[other_mask] = pd.NA
                             # Then restore valid numeric values
@@ -643,7 +737,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                                 converted.loc[valid_indices] = numeric_vals.loc[valid_indices]
                         df[col] = converted
                     # Convert to Int64, ensuring only 0 or 1
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = _coerce_numeric_series(df[col])
                     numeric_series = numeric_series.where(
                         (numeric_series == 0) | (numeric_series == 1) | numeric_series.isna()
                     )
@@ -660,7 +754,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     "num_ro5_violations",
                     "rtb",
                 ]:
-                    numeric_series = pd.to_numeric(df[col], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = _coerce_numeric_series(df[col])
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     df[col] = numeric_series.astype("Int64")
 

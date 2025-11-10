@@ -42,7 +42,7 @@ Documentation manuals **MUST** use `NN-topic-name.md`, e.g. `09-document-chembl-
 
 ## Regular Expressions
 
-```
+```regex
 PACKAGE/MODULE: ^[a-z][a-z0-9_]*$
 TEST MODULE:    ^test_[a-z0-9_]+\.py$
 CLASS:          ^[A-Z][A-Za-z0-9]*$
@@ -60,15 +60,15 @@ CONST:          ^[A-Z][A-Z0-9_]*$
 | clients | `.py` | `^.*Client\.py$` for classes, `client_.*\.py` for modules |
 | core | `.py` | No prefixes; base classes use `*Base`, `*ABC` |
 | pipelines | `.py` | `<provider>/<entity>/<stage>.py` |
-| schemas | `.py`, `.yaml`, `.yml` | `.*_schema\.(py|ya?ml)$` |
+| schemas | `.py`, `.yaml`, `.yml` | `.*_schema\.(py&#124;ya?ml)$` |
 | utils | `.py` | `.*_utils\.py` |
 | tests | `.py` | `test_.*\.py` |
-| config | `.yaml`, `.yml`, `.json` | `^[a-z0-9_]+\.(yaml|yml|json)$` |
+| config | `.yaml`, `.yml`, `.json` | `^[a-z0-9_]+\.(yaml&#124;yml&#124;json)$` |
 | docs | `.md` | `\d{2}-.*\.md` |
 
 ## Enforcement
 
-- Конфигурация `ruff` и `flake8` включает правило `N` (`pep8-naming`), а whitelist для dunder-хуков и защищённых структур (_ClassName, _helper) оформлен через `ignore-names` и `ignore-class-names`.
+- Конфигурация `ruff` и `flake8` включает правило `N` (`pep8-naming`), а whitelist для dunder-хуков и защищённых структур (`_ClassName`, `_helper`) оформлен через `ignore-names` и `ignore-class-names`.
 - CLI-команда `bioetl-validate-naming-violations` проверяет, что `docs/styleguide/VIOLATIONS_TABLE.md` пуст и тем самым блокирует попадание новых нарушений.
 - Любое подтверждённое исключение описывается в таблице нарушений и в `12-naming-normalization-plan.md` с указанием владельца и срока устранения.
 
@@ -83,5 +83,3 @@ CONST:          ^[A-Z][A-Z0-9_]*$
 ## Registry Key Naming
 
 Strategy registry keys **MUST** use `<provider>:<entity>:<stage>` pointing to the concrete class implementation, e.g. `chembl:assay:extract`.
-
-

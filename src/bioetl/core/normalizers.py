@@ -6,6 +6,7 @@ import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from re import Pattern
+from typing import Generic, TypeVar
 
 import pandas as pd
 
@@ -17,6 +18,20 @@ __all__ = [
     "normalize_identifier_columns",
     "normalize_string_columns",
 ]
+
+
+_PerColumnValue = TypeVar("_PerColumnValue")
+
+
+@dataclass
+class HasChangesMixin(Generic[_PerColumnValue]):
+    """Provide ``per_column`` storage and a convenience flag."""
+
+    per_column: dict[str, _PerColumnValue] = field(default_factory=dict)
+
+    @property
+    def has_changes(self) -> bool:
+        return bool(self.per_column)
 
 
 @dataclass(frozen=True)
@@ -32,12 +47,11 @@ class IdentifierRule:
 
 
 @dataclass
-class IdentifierStats:
+class IdentifierStats(HasChangesMixin[dict[str, int]]):
     """Aggregate metrics produced by identifier normalization."""
 
     normalized: int = 0
     invalid: int = 0
-    per_column: dict[str, dict[str, int]] = field(default_factory=dict)
 
     def add(self, column: str, normalized_count: int, invalid_count: int) -> None:
         if normalized_count == 0 and invalid_count == 0:
@@ -48,10 +62,6 @@ class IdentifierStats:
         }
         self.normalized += normalized_count
         self.invalid += invalid_count
-
-    @property
-    def has_changes(self) -> bool:
-        return bool(self.per_column)
 
 
 @dataclass(frozen=True)
@@ -68,19 +78,13 @@ class StringRule:
 
 
 @dataclass
-class StringStats:
+class StringStats(HasChangesMixin[int]):
     """Aggregate metrics produced by string normalization."""
-
-    per_column: dict[str, int] = field(default_factory=dict)
 
     def add(self, column: str, processed_count: int) -> None:
         if processed_count == 0:
             return
         self.per_column[column] = processed_count
-
-    @property
-    def has_changes(self) -> bool:
-        return bool(self.per_column)
 
     @property
     def processed(self) -> int:

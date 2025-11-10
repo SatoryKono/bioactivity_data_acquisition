@@ -10,7 +10,7 @@ from .environment import (
     read_environment_settings,
 )
 from .loader import load_config, read_pipeline_config
-from .models import PipelineConfig
+from .models.models import PipelineConfig
 from .pipeline_source import BaseSourceParameters, ChemblPipelineSourceConfig, SourceConfigDefaults
 from .target import TargetSourceConfig, TargetSourceParameters
 from .testitem import TestItemSourceConfig, TestItemSourceParameters

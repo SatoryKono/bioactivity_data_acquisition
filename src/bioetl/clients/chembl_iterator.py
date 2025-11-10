@@ -88,6 +88,7 @@ class ChemblEntityIterator(ChemblReleaseMixin):
         *,
         endpoint: str = "/status",
         enabled: bool = True,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Mapping[str, object]:
         """Выполнить handshake и кэшировать идентификатор release.
 
@@ -109,6 +110,7 @@ class ChemblEntityIterator(ChemblReleaseMixin):
             event=f"{self._config.log_prefix}.handshake",
             endpoint=endpoint,
             enabled=enabled,
+            timeout=timeout,
         )
         return cast(Mapping[str, object], result.payload)
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 import typer
 
@@ -64,4 +64,3 @@ def main(table: Path = typer.Option(DEFAULT_TABLE_PATH, exists=True, readable=Tr
 
 
 run = runner_factory(app)
-

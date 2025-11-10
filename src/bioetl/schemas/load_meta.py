@@ -8,9 +8,9 @@ from datetime import datetime
 from typing import Any, cast
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandas import DatetimeTZDtype
-from pandera import Check, Column
+from pandera.pandas import Check, Column
 
 from bioetl.schemas.base import create_schema
 from bioetl.schemas.common import string_column_with_check, uuid_column

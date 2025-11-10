@@ -13,8 +13,9 @@ from typing import Any, ClassVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
-import pandera.errors
+from pandera import errors as pandera_errors
 from requests.exceptions import RequestException
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
@@ -25,6 +26,11 @@ from bioetl.core.normalizers import (
     StringRule,
     normalize_identifier_columns,
     normalize_string_columns,
+)
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentRule,
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
 )
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -45,6 +51,31 @@ from .activity_enrichment import (
     enrich_with_data_validity,
 )
 from .join_molecule import join_activity_with_molecule
+
+
+def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
+    """Коэрцировать значения серии в числовой формат с заменой ошибок на NA."""
+
+    def _coerce_value(value: Any) -> Any:
+        if pd.isna(value):
+            return pd.NA
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return value
+        text = str(value).strip()
+        if not text:
+            return pd.NA
+        try:
+            return float(text)
+        except (TypeError, ValueError):
+            return pd.NA
+
+    coerced = series.map(_coerce_value)
+    return coerced.astype("Float64")
+
+
+ALLOWED_RELATIONS: tuple[str, ...] = tuple(sorted(RELATIONS))
+STANDARD_TYPES_ALLOWED: tuple[str, ...] = tuple(sorted(STANDARD_TYPES))
+
 
 API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "activity_id",
@@ -103,8 +134,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._last_batch_extract_stats: dict[str, Any] | None = None
+        self._last_batch_extract_stats: dict[str, int | float] | None = None
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
+        self._chembl_enrichment_client: ChemblClient | None = None
+        self._enrichment_strategy: EnrichmentStrategy | None = None
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch activity payloads from ChEMBL using the unified HTTP client.
@@ -114,17 +147,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_activity.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
+        override_ids: Sequence[str] | None = None
 
         # Legacy support: check kwargs for activity_ids (deprecated)
         payload_activity_ids = kwargs.get("activity_ids")
@@ -135,13 +158,17 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             if isinstance(payload_activity_ids, Sequence):
                 sequence_ids: Sequence[str | int] = cast(Sequence[str | int], payload_activity_ids)
-                ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
+                override_ids = [str(id_val) for id_val in sequence_ids]
             else:
-                ids_list = [str(payload_activity_ids)]
-            return self.extract_by_ids(ids_list)
+                override_ids = [str(payload_activity_ids)]
 
-        log.info("chembl_activity.extract_mode", mode="full")
-        return self.extract_all()
+        return self._extract_with_optional_ids(
+            log=log,
+            event_name="chembl_activity.extract_mode",
+            extract_all=self.extract_all,
+            extract_by_ids=self.extract_by_ids,
+            override_ids=override_ids,
+        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all activity records from ChEMBL using pagination."""
@@ -150,24 +177,38 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         client, base_url = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.perform_source_handshake(
+            client,
+            source_config=source_config,
+            log=log,
+            event="chembl_activity.handshake",
+        )
+
+        release_value = self.ensure_chembl_release(
+            client,
+            log=log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(batch_size, limit)
 
         parameters = self._normalize_parameters(source_config.parameters)
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(select_fields_tuple)
-        else:
-            select_fields = list(API_ACTIVITY_FIELDS)
+        select_fields_tuple = self.normalize_select_fields(
+            source_config.parameters.select_fields,
+            default=API_ACTIVITY_FIELDS,
+        )
+        select_fields = list(select_fields_tuple or ())
         records: list[dict[str, Any]] = []
         next_endpoint: str | None = "/activity.json"
         params: Mapping[str, Any] | None = {
@@ -187,7 +228,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             key: value for key, value in filters_payload.items() if value is not None
         }
         self.record_extract_metadata(
-            chembl_release=self.chembl_release,
+            chembl_release=release_value,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -235,7 +276,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -250,6 +291,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
@@ -261,7 +304,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             "chembl_activity.extract_summary",
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
+            chembl_release=release_value or self.chembl_release,
             pages=pages,
         )
         return dataframe
@@ -283,13 +326,27 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.perform_source_handshake(
+            client,
+            source_config=source_config,
+            log=log,
+            event="chembl_activity.handshake",
+        )
+
+        release_value = self.ensure_chembl_release(
+            client,
+            log=log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -305,7 +362,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
-            chembl_release=self.chembl_release,
+            chembl_release=release_value,
             filters=compact_id_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -324,7 +381,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             rows=int(batch_dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
+            chembl_release=release_value or self.chembl_release,
             batches=batch_stats.get("batches"),
             api_calls=batch_stats.get("api_calls"),
             cache_hits=batch_stats.get("cache_hits"),
@@ -368,21 +425,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._validate_foreign_keys(df, log)
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
-        # Enrichment: compound_record fields
-        if self._should_enrich_compound_record():
-            df = self._enrich_compound_record(df)
-
-        # Enrichment: assay fields
-        if self._should_enrich_assay():
-            df = self._enrich_assay(df)
-
-        # Enrichment: molecule fields
-        if self._should_enrich_molecule():
-            df = self._enrich_molecule(df)
-
-        # Enrichment: data_validity fields
-        if self._should_enrich_data_validity():
-            df = self._enrich_data_validity(df)
+        df = self._apply_enrichment(df)
 
         # Finalize identifier columns BEFORE ordering to ensure all required columns exist
         df = self._finalize_identifier_columns(df, log)
@@ -416,12 +459,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Ensure target_tax_id has correct nullable integer type before validation
         if "target_tax_id" in df.columns:
-            dtype_name: str = str(df["target_tax_id"].dtype.name)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+            target_tax_series = df["target_tax_id"]
+            dtype_name: str = str(target_tax_series.dtype)
             if dtype_name != "Int64":
                 # Convert to nullable Int64 if not already
-                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df["target_tax_id"], errors="coerce"
-                )
+                numeric_series: pd.Series[Any] = _to_numeric_series(target_tax_series)
                 df["target_tax_id"] = numeric_series.astype("Int64")
 
         # Pre-validation checks
@@ -446,7 +488,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 coerce=original_coerce,  # Log original value for clarity
             )
             return validated
-        except pandera.errors.SchemaErrors as exc:
+        except pandera_errors.SchemaErrors as exc:
             # Extract detailed error information
             failure_cases_df: pd.DataFrame | None = None
             if hasattr(exc, "failure_cases"):
@@ -491,308 +533,117 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _should_enrich_compound_record(self) -> bool:
-        """Проверить, включено ли обогащение compound_record в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            compound_record_section: Any = enrich_section.get("compound_record")
-            if not isinstance(compound_record_section, Mapping):
-                return False
-            compound_record_section = cast(Mapping[str, Any], compound_record_section)
-            enabled: Any = compound_record_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+    def _apply_enrichment(self, df: pd.DataFrame) -> pd.DataFrame:
+        strategy = self._ensure_enrichment_strategy()
+        return strategy.execute(df)
 
-    def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из compound_record."""
+    def _ensure_enrichment_strategy(self) -> EnrichmentStrategy:
+        if self._enrichment_strategy is not None:
+            return self._enrichment_strategy
+
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        compound_record_section: Any = enrich_section.get("compound_record")
-                        if isinstance(compound_record_section, Mapping):
-                            compound_record_section = cast(
-                                Mapping[str, Any], compound_record_section
-                            )
-                            enrich_cfg = dict(compound_record_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        def molecule_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            return self._enrich_molecule_with_client(frame, client, cfg, log)
 
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию обогащения
-        return enrich_with_compound_record(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_assay(self) -> bool:
-        """Проверить, включено ли обогащение assay в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            assay_section: Any = enrich_section.get("assay")
-            if not isinstance(assay_section, Mapping):
-                return False
-            assay_section = cast(Mapping[str, Any], assay_section)
-            enabled: Any = assay_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из assay."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        assay_section: Any = enrich_section.get("assay")
-                        if isinstance(assay_section, Mapping):
-                            assay_section = cast(Mapping[str, Any], assay_section)
-                            enrich_cfg = dict(assay_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию обогащения
-        return enrich_with_assay(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_data_validity(self) -> bool:
-        """Проверить, включено ли обогащение data_validity в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            data_validity_section: Any = enrich_section.get("data_validity")
-            if not isinstance(data_validity_section, Mapping):
-                return False
-            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-            enabled: Any = data_validity_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из data_validity_lookup."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        data_validity_section: Any = enrich_section.get("data_validity")
-                        if isinstance(data_validity_section, Mapping):
-                            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-                            enrich_cfg = dict(data_validity_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Проверка: если data_validity_description уже заполнено (не все NA), логировать информационное сообщение
-        if "data_validity_description" in df.columns:
-            non_na_count = int(df["data_validity_description"].notna().sum())
-            if non_na_count > 0:
+        def data_validity_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            if "data_validity_description" in frame.columns and frame[
+                "data_validity_description"
+            ].notna().any():
                 log.info(
                     "enrichment_data_validity_description_already_filled",
-                    non_na_count=non_na_count,
-                    total_count=len(df),
-                    message="data_validity_description already populated from extract, enrichment will update/overwrite",
+                    message=(
+                        "data_validity_description already populated from extract, enrichment will update/overwrite"
+                    ),
                 )
+            return enrich_with_data_validity(frame, client, cfg)
 
-        # Создать или переиспользовать клиент ChEMBL
+        rules: tuple[FunctionEnrichmentRule, ...] = (
+            FunctionEnrichmentRule(
+                name="activity_compound_record",
+                config_path=("compound_record",),
+                function=enrich_with_compound_record,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_assay",
+                config_path=("assay",),
+                function=enrich_with_assay,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_molecule",
+                config_path=("molecule",),
+                function=molecule_rule,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_data_validity",
+                config_path=("data_validity",),
+                function=data_validity_rule,
+            ),
+        )
+
+        self._enrichment_strategy = EnrichmentStrategy(
+            config_root=self.config.chembl,
+            base_path=("activity", "enrich"),
+            rules=cast(Sequence[EnrichmentRule], rules),
+            logger=log,
+            client_provider=self._get_chembl_enrichment_client,
+        )
+        return self._enrichment_strategy
+
+    def _get_chembl_enrichment_client(self) -> ChemblClient:
+        if self._chembl_enrichment_client is not None:
+            return self._chembl_enrichment_client
+
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
+        self._chembl_enrichment_client = ChemblClient(
             api_client,
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
+        return self._chembl_enrichment_client
 
-        # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
-        return enrich_with_data_validity(df, chembl_client, enrich_cfg)
+    def _enrich_molecule_with_client(
+        self,
+        df: pd.DataFrame,
+        client: ChemblClient,
+        cfg: Mapping[str, Any],
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        df_join = join_activity_with_molecule(df, client, cfg)
 
-    def _should_enrich_molecule(self) -> bool:
-        """Проверить, включено ли обогащение molecule в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            molecule_section: Any = enrich_section.get("molecule")
-            if not isinstance(molecule_section, Mapping):
-                return False
-            molecule_section = cast(Mapping[str, Any], molecule_section)
-            enabled: Any = molecule_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из molecule через join."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        molecule_section: Any = enrich_section.get("molecule")
-                        if isinstance(molecule_section, Mapping):
-                            molecule_section = cast(Mapping[str, Any], molecule_section)
-                            enrich_cfg = dict(molecule_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию join для получения molecule_name
-        df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
-
-        # Коалесцировать molecule_name из join в molecule_pref_name если оно пусто
         if "molecule_name" in df_join.columns:
             if "molecule_pref_name" not in df.columns:
                 df["molecule_pref_name"] = pd.NA
-            # Заполнить molecule_pref_name из molecule_name где оно пусто
             mask = df["molecule_pref_name"].isna() | (
                 df["molecule_pref_name"].astype("string").str.strip() == ""
             )
             if mask.any():
-                # Merge по activity_id для получения molecule_name
                 df_merged = df.merge(
                     df_join[["activity_id", "molecule_name"]],
                     on="activity_id",
                     how="left",
                     suffixes=("", "_join"),
                 )
-                # Заполнить molecule_pref_name из molecule_name где оно пусто
                 df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
                 log.info(
                     "molecule_pref_name_enriched",
@@ -816,7 +667,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
         source_config_raw = self._resolve_source_config("chembl")
-        activity_source_config = ActivitySourceConfig.from_source(source_config_raw)
+        activity_source_config = ActivitySourceConfig.from_source(
+            source_config_raw,
+            client_config=self.config.clients.chembl,
+        )
 
         if isinstance(dataset, pd.Series):
             input_frame = dataset.to_frame(name="activity_id")
@@ -910,10 +764,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     batch_records = cached_records
                     cache_hits += len(batch_keys)
                 else:
-                    configured_fields = activity_source_config.parameters.select_fields
-                    select_fields = (
-                        list(configured_fields) if configured_fields else list(API_ACTIVITY_FIELDS)
+                    configured_fields = self.normalize_select_fields(
+                        activity_source_config.parameters.select_fields,
+                        default=API_ACTIVITY_FIELDS,
                     )
+                    select_fields = list(configured_fields or ())
                     params = {
                         "activity_id__in": ",".join(batch_keys),
                         "only": ",".join(select_fields),
@@ -1008,7 +863,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._last_batch_extract_stats = summary
         log.info("chembl_activity.batch_summary", **summary)
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
         elif "activity_id" in dataframe.columns:
@@ -1027,6 +882,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=activity_source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
@@ -1519,9 +1376,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df_result["assay_organism"] = df_result["assay_organism"].astype("string")
 
         # assay_tax_id может приходить строкой — приводим к Int64 с NA
-        df_result["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-            df_result["assay_tax_id"], errors="coerce"
-        ).astype("Int64")
+        df_result["assay_tax_id"] = _to_numeric_series(df_result["assay_tax_id"]).astype("Int64")
 
         # Проверка диапазона для assay_tax_id (>= 1 или NA)
         mask_valid = df_result["assay_tax_id"].notna()
@@ -1940,12 +1795,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     @staticmethod
     def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
-        page_meta: Any = payload.get("page_meta")
-        if isinstance(page_meta, Mapping):
-            next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-            next_link: str | None = (
-                cast(str | None, next_link_raw) if next_link_raw is not None else None
-            )
+        page_meta_candidate = payload.get("page_meta")
+        if isinstance(page_meta_candidate, Mapping):
+            page_meta = cast(Mapping[str, Any], page_meta_candidate)
+            raw_next_link = page_meta.get("next")
+            if isinstance(raw_next_link, str):
+                next_link: str | None = raw_next_link
+            elif raw_next_link is None:
+                next_link = None
+            else:
+                next_link = str(raw_next_link)
             if isinstance(next_link, str) and next_link:
                 # urlparse returns ParseResult with str path when input is str
                 base_path_parse_result = urlparse(base_url)
@@ -2261,9 +2120,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
 
                 # Convert to numeric (NaN for empty/invalid values)
-                numeric_series_std: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
-                )
+                numeric_series_std: pd.Series[Any] = _to_numeric_series(series)
                 df.loc[mask, "standard_value"] = numeric_series_std
 
                 # Check for negative values (should be >= 0)
@@ -2280,29 +2137,36 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 "≥": ">=",
                 "≠": "~",
             }
-            mask = df["standard_relation"].notna()
+            relation_column = df["standard_relation"]
+            mask = relation_column.notna()
             if mask.any():
-                series = df.loc[mask, "standard_relation"].astype(str).str.strip()
+                series = relation_column.loc[mask].astype(str).str.strip()
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "standard_relation"] = series
-                invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
-                if invalid_mask.any():
-                    log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
-                    df.loc[invalid_mask, "standard_relation"] = None
+                invalid_indices = [
+                    idx
+                    for idx, value in df.loc[mask, "standard_relation"].items()
+                    if str(value) not in ALLOWED_RELATIONS
+                ]
+                if invalid_indices:
+                    log.warning("invalid_standard_relation", count=len(invalid_indices))
+                    df.loc[invalid_indices, "standard_relation"] = None
                 normalized_count += int(mask.sum())
 
         if "standard_type" in df.columns:
-            mask = df["standard_type"].notna()
+            type_column = df["standard_type"]
+            mask = type_column.notna()
             if mask.any():
-                df.loc[mask, "standard_type"] = (
-                    df.loc[mask, "standard_type"].astype(str).str.strip()
-                )
-                standard_types_set: set[str] = STANDARD_TYPES
-                invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # pyright: ignore[reportUnknownMemberType]
-                if invalid_mask.any():
-                    log.warning("invalid_standard_type", count=int(invalid_mask.sum()))
-                    df.loc[invalid_mask, "standard_type"] = None
+                df.loc[mask, "standard_type"] = type_column.loc[mask].astype(str).str.strip()
+                invalid_indices = [
+                    idx
+                    for idx, value in df.loc[mask, "standard_type"].items()
+                    if str(value) not in STANDARD_TYPES_ALLOWED
+                ]
+                if invalid_indices:
+                    log.warning("invalid_standard_type", count=len(invalid_indices))
+                    df.loc[invalid_indices, "standard_type"] = None
                 normalized_count += int(mask.sum())
 
         if "standard_units" in df.columns:
@@ -2346,16 +2210,21 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 "≥": ">=",
                 "≠": "~",
             }
-            mask = df["relation"].notna()
+            relation_column = df["relation"]
+            mask = relation_column.notna()
             if mask.any():
-                series = df.loc[mask, "relation"].astype(str).str.strip()
+                series = relation_column.loc[mask].astype(str).str.strip()
                 for unicode_char, ascii_repl in unicode_to_ascii.items():
                     series = series.str.replace(unicode_char, ascii_repl, regex=False)
                 df.loc[mask, "relation"] = series
-                invalid_mask = mask & ~df["relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
-                if invalid_mask.any():
-                    log.warning("invalid_relation", count=int(invalid_mask.sum()))
-                    df.loc[invalid_mask, "relation"] = None
+                invalid_indices = [
+                    idx
+                    for idx, value in df.loc[mask, "relation"].items()
+                    if str(value) not in ALLOWED_RELATIONS
+                ]
+                if invalid_indices:
+                    log.warning("invalid_relation", count=len(invalid_indices))
+                    df.loc[invalid_indices, "relation"] = None
                 normalized_count += int(mask.sum())
 
         if "standard_upper_value" in df.columns:
@@ -2364,9 +2233,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "standard_upper_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_std_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
-                )
+                numeric_series_std_upper: pd.Series[Any] = _to_numeric_series(series)
                 df.loc[mask, "standard_upper_value"] = numeric_series_std_upper
                 negative_mask = mask & (df["standard_upper_value"] < 0)
                 if negative_mask.any():
@@ -2380,9 +2247,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "upper_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_upper: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
-                )
+                numeric_series_upper: pd.Series[Any] = _to_numeric_series(series)
                 df.loc[mask, "upper_value"] = numeric_series_upper
                 negative_mask = mask & (df["upper_value"] < 0)
                 if negative_mask.any():
@@ -2396,9 +2261,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 series = df.loc[mask, "lower_value"].astype(str).str.strip()
                 series = series.str.replace(r"[,\s]", "", regex=True)
                 series = series.str.extract(r"([+-]?\d*\.?\d+)", expand=False)
-                numeric_series_lower: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    series, errors="coerce"
-                )
+                numeric_series_lower: pd.Series[Any] = _to_numeric_series(series)
                 df.loc[mask, "lower_value"] = numeric_series_lower
                 negative_mask = mask & (df["lower_value"] < 0)
                 if negative_mask.any():
@@ -2796,9 +2659,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_int: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
-                )
+                field_series = df[field]
+                numeric_series_int: pd.Series[Any] = _to_numeric_series(field_series)
                 df[field] = numeric_series_int.astype("Int64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
@@ -2810,16 +2672,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             try:
                 if field == "row_index":
                     # row_index should be non-nullable, but use Int64 for consistency
-                    numeric_series_row: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                    row_series = df[field]
+                    numeric_series_row: pd.Series[Any] = _to_numeric_series(row_series)
                     df[field] = numeric_series_row.astype("Int64")
                     # Fill any NA values with sequential index
                     if df[field].isna().any():
                         df[field] = range(len(df))
                 else:
                     # Convert to numeric, preserving NA values
-                    nullable_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                        df[field], errors="coerce"
-                    )
+                    nullable_series = df[field]
+                    nullable_numeric_series: pd.Series[Any] = _to_numeric_series(nullable_series)
                     # Use Int64 (nullable integer) to preserve NA values
                     df[field] = nullable_numeric_series.astype("Int64")
                     # For nullable fields, ensure values >= 1 if not NA
@@ -2841,9 +2703,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_float: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[field], errors="coerce"
-                )
+                float_series = df[field]
+                numeric_series_float: pd.Series[Any] = _to_numeric_series(float_series)
                 df[field] = numeric_series_float.astype("float64")
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
@@ -2858,13 +2719,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 # Конвертируем в boolean, сохраняя NA значения
                 if field in ("curated", "removed"):
                     # Конвертируем напрямую в boolean dtype, сохраняя NA
-                    df[field] = df[field].astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                    boolean_series = df[field]
+                    df[field] = boolean_series.astype("boolean")
                 else:
                     # Для остальных bool полей используем стандартную логику
-                    bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                        df[field], errors="coerce"
-                    )
-                    df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
+                    bool_series = df[field]
+                    bool_numeric_series: pd.Series[Any] = _to_numeric_series(bool_series)
+                    df[field] = (bool_numeric_series != 0).astype("boolean")
             except (ValueError, TypeError) as exc:
                 log.warning("bool_conversion_failed", field=field, error=str(exc))
 
@@ -2872,20 +2733,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                numeric_series_flag: pd.Series[Any] = pd.to_numeric(df[field], errors="coerce")  # pyright: ignore[reportUnknownMemberType]
+                flag_series = df[field]
+                numeric_series_flag: pd.Series[Any] = _to_numeric_series(flag_series)
                 df[field] = numeric_series_flag.astype("Int64")
                 mask_valid = df[field].notna()
                 if mask_valid.any():
                     valid_values = df.loc[mask_valid, field]
-                    invalid_valid_mask = ~valid_values.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
-                    if invalid_valid_mask.any():
-                        invalid_index = valid_values.index[invalid_valid_mask]
+                    invalid_indices = [
+                        idx for idx, value in valid_values.items() if value not in (0, 1)
+                    ]
+                    if invalid_indices:
                         log.warning(
                             "invalid_standard_flag",
                             field=field,
-                            count=int(invalid_valid_mask.sum()),
+                            count=len(invalid_indices),
                         )
-                        df.loc[invalid_index, field] = pd.NA
+                        df.loc[invalid_indices, field] = pd.NA
             except (ValueError, TypeError) as exc:
                 log.warning("type_conversion_failed", field=field, error=str(exc))
 
@@ -3085,9 +2948,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 continue
 
             error_details: dict[str, Any] = {
-                "row_index": int(row_index)
-                if isinstance(row_index, (int, float))
-                else str(row_index),
+                "row_index": (
+                    int(row_index) if isinstance(row_index, (int, float)) else str(row_index)
+                ),
             }
 
             # Add activity_id if available

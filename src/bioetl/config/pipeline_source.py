@@ -8,7 +8,7 @@ from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
-from bioetl.config.models.models import SourceConfig
+from bioetl.config.models.models import ChemblClientConfig, SourceConfig
 from bioetl.config.models.policies import HTTPClientConfig
 
 from .common.source_adapter import (
@@ -29,8 +29,9 @@ class SourceConfigDefaults:
     page_size_cap: int = 25
     max_url_length: int = 2000
     max_url_length_cap: int = 2000
-    handshake_endpoint: str = "/status.json"
-    handshake_enabled: bool = True
+    handshake_endpoint: str = "/status"
+    handshake_enabled: bool = False
+    handshake_timeout_sec: float = 10.0
 
 
 class BaseSourceParameters(BaseModel):
@@ -86,12 +87,17 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         description="Максимальная допустимая длина URL для батчевых операций.",
     )
     handshake_endpoint: str = Field(
-        default="/status.json",
+        default="/status",
         description="Endpoint для handshake перед экстракцией.",
     )
     handshake_enabled: bool = Field(
         default=True,
         description="Флаг выполнения handshake перед экстракцией.",
+    )
+    handshake_timeout_sec: float = Field(
+        default=10.0,
+        gt=0,
+        description="Максимальный таймаут (сек) для handshake-запроса.",
     )
     parameters: ParamsT
 
@@ -118,15 +124,30 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         return self
 
     @classmethod
-    def from_source(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
+    def from_source(
+        cls,
+        config: SourceConfig,
+        *,
+        client_config: ChemblClientConfig | None = None,
+    ) -> ChemblPipelineSourceConfig[ParamsT]:
         """Сконструировать пайплайновый конфиг из общих SourceConfig-данных."""
 
         params_mapping: dict[str, Any] = dict(config.parameters)
+        preflight = client_config.preflight if client_config is not None else None
+        timeout_defaults = (
+            client_config.timeout if client_config is not None else None
+        )
         handshake_endpoint = cls._resolve_handshake_endpoint(
             params_mapping.pop("handshake_endpoint", None),
+            default=preflight.url if preflight is not None else None,
         )
         handshake_enabled = cls._resolve_handshake_enabled(
             params_mapping.pop("handshake_enabled", None),
+            default=preflight.enabled if preflight is not None else None,
+        )
+        handshake_timeout_sec = cls._resolve_handshake_timeout(
+            params_mapping.pop("handshake_timeout_sec", None),
+            default=timeout_defaults.total_seconds if timeout_defaults is not None else None,
         )
         max_url_length = cls._resolve_max_url_length(
             params_mapping.pop("max_url_length", None),
@@ -151,14 +172,20 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
             max_url_length=max_url_length,
             handshake_endpoint=handshake_endpoint,
             handshake_enabled=handshake_enabled,
+            handshake_timeout_sec=handshake_timeout_sec,
             parameters=parameters,
         )
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> ChemblPipelineSourceConfig[ParamsT]:
+    def from_source_config(
+        cls,
+        config: SourceConfig,
+        *,
+        client_config: ChemblClientConfig | None = None,
+    ) -> ChemblPipelineSourceConfig[ParamsT]:
         """Обратная совместимость. Используйте `from_source`."""
 
-        return cls.from_source(config)
+        return cls.from_source(config, client_config=client_config)
 
     def _clamp_limits(self) -> None:
         defaults = self.defaults
@@ -210,18 +237,43 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         return min(value, cap)
 
     @classmethod
-    def _resolve_handshake_endpoint(cls, raw: Any) -> str:
-        default_endpoint = cls.defaults.handshake_endpoint
+    def _resolve_handshake_endpoint(cls, raw: Any, *, default: str | None = None) -> str:
+        default_endpoint = default or cls.defaults.handshake_endpoint
         if raw is None:
             return default_endpoint
         candidate = str(raw).strip()
         return candidate or default_endpoint
 
     @classmethod
-    def _resolve_handshake_enabled(cls, raw: Any) -> bool:
+    def _resolve_handshake_enabled(
+        cls,
+        raw: Any,
+        *,
+        default: bool | None = None,
+    ) -> bool:
         if raw is None:
-            return cls.defaults.handshake_enabled
+            return cls.defaults.handshake_enabled if default is None else bool(default)
         return coerce_bool(raw)
+
+    @classmethod
+    def _resolve_handshake_timeout(
+        cls,
+        raw: Any,
+        *,
+        default: float | None = None,
+    ) -> float:
+        default_timeout = default if default is not None else cls.defaults.handshake_timeout_sec
+        if raw is None:
+            return default_timeout
+        try:
+            value = float(raw)
+        except (TypeError, ValueError) as exc:
+            msg = "handshake_timeout_sec должен быть положительным числом"
+            raise ValueError(msg) from exc
+        if value <= 0:
+            msg = "handshake_timeout_sec должен быть положительным числом"
+            raise ValueError(msg)
+        return value
 
 
 __all__ = [

@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, ClassVar, cast
 
 import pandas as pd
 from pandas import Series
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
@@ -29,6 +30,10 @@ from bioetl.pipelines.assay.assay_enrichment import (
 from bioetl.pipelines.assay.assay_transform import (
     serialize_array_fields,
     validate_assay_parameters_truv,
+)
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
@@ -107,14 +112,15 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
     return identifiers
 
+
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     "assay_chembl_id",
-    #   "assay_category",
-    #   "assay_group",
-    #   "src_assay_id",
-    #   "curation_level",
-}
+    # "assay_category",
+    # "assay_group",
+    # "src_assay_id",
+    # "curation_level",
+)
 
 
 class ChemblAssayPipeline(ChemblPipelineBase):
@@ -124,6 +130,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
+        self._chembl_enrichment_client: ChemblClient | None = None
+        self._enrichment_strategy: EnrichmentStrategy | None = None
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -137,20 +145,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_assay.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
-
-        log.info("chembl_assay.extract_mode", mode="full")
-        return self.extract_all()
+        return self._extract_with_optional_ids(
+            log=log,
+            event_name="chembl_assay.extract_mode",
+            extract_all=self.extract_all,
+            extract_by_ids=self.extract_by_ids,
+        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all assay records from ChEMBL using pagination."""
@@ -159,7 +159,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -170,6 +173,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -194,14 +199,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
         page_size = source_config.batch_size
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            default_fields=MUST_HAVE_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
+        )
 
         log.debug(
             "chembl_assay.select_fields",
@@ -229,11 +234,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         )
 
         for item in assay_client.iter(
-            limit=limit, page_size=page_size, select_fields=select_fields
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
         ):
-            records.append(item)
+            record_dict: dict[str, Any] = dict(cast(Mapping[str, Any], item))
+            records.append(record_dict)
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(records)
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
@@ -293,7 +301,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -304,6 +315,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -328,13 +341,13 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            default_fields=MUST_HAVE_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
+        )
 
         log.debug(
             "chembl_assay.select_fields",
@@ -356,12 +369,20 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        for item in assay_client.fetch(ids, select_fields=select_fields):
-            records.append(item)
+        fetched_records = assay_client.fetch(ids, select_fields=select_fields)
+        fetch_iterable: Iterable[Mapping[str, object]]
+        if isinstance(fetched_records, Mapping):
+            fetch_iterable = (cast(Mapping[str, object], fetched_records),)
+        else:
+            fetch_iterable = fetched_records
+
+        for item in fetch_iterable:
+            record_dict: dict[str, Any] = dict(cast(Mapping[str, Any], item))
+            records.append(record_dict)
             if limit is not None and len(records) >= limit:
                 break
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(records)
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
@@ -422,7 +443,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_string_fields(df, log)
-        df = self._enrich_with_related_data(df, log)
+        df = self._apply_enrichment(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._serialize_array_fields(df, log)
         df = self._add_row_metadata(df, log)
@@ -436,6 +457,111 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _apply_enrichment(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        strategy = self._ensure_enrichment_strategy(log)
+        return strategy.execute(df)
+
+    def _ensure_enrichment_strategy(self, log: BoundLogger) -> EnrichmentStrategy:
+        if self._enrichment_strategy is not None:
+            return self._enrichment_strategy
+
+        def classifications_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            log.info("enrichment_classifications_started")
+            result = enrich_with_assay_classifications(frame, client, cfg)
+            log.info("enrichment_classifications_completed")
+            if "assay_class_id" in result.columns:
+                filled_count = int(result["assay_class_id"].notna().sum())
+                total_count = len(result)
+                if filled_count == 0:
+                    log.warning(
+                        "assay_class_id_empty_after_enrichment",
+                        total_assays=total_count,
+                        filled_count=0,
+                        message=(
+                            "assay_class_id is empty after enrichment. Check if ASSAY_CLASS_MAP contains data for these assays."
+                        ),
+                    )
+                else:
+                    log.debug(
+                        "assay_class_id_enrichment_stats",
+                        total_assays=total_count,
+                        filled_count=filled_count,
+                        empty_count=total_count - filled_count,
+                    )
+            else:
+                log.warning(
+                    "assay_class_id_column_missing_after_enrichment",
+                    message="assay_class_id column is missing after enrichment",
+                )
+            return result
+
+        def parameters_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            log.info("enrichment_parameters_started")
+            result = enrich_with_assay_parameters(frame, client, cfg)
+            log.info("enrichment_parameters_completed")
+            return result
+
+        def missing_classifications(logger: BoundLogger) -> None:
+            logger.warning(
+                "enrichment_classifications_disabled",
+                message=(
+                    "Enrichment for classifications is not configured. assay_class_id will remain NULL."
+                ),
+            )
+
+        self._enrichment_strategy = EnrichmentStrategy(
+            config_root=self.config.chembl,
+            base_path=("assay", "enrich"),
+            rules=[
+                FunctionEnrichmentRule(
+                    name="assay_classifications",
+                    config_path=("classifications",),
+                    function=classifications_rule,
+                    on_missing_config=missing_classifications,
+                ),
+                FunctionEnrichmentRule(
+                    name="assay_parameters",
+                    config_path=("parameters",),
+                    function=parameters_rule,
+                ),
+            ],
+            logger=log,
+            client_provider=self._get_chembl_enrichment_client,
+        )
+        return self._enrichment_strategy
+
+    def _get_chembl_enrichment_client(self) -> ChemblClient:
+        if self._chembl_enrichment_client is not None:
+            return self._chembl_enrichment_client
+
+        source_raw = self._resolve_source_config("chembl")
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
+        self._chembl_enrichment_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
+        )
+        return self._chembl_enrichment_client
 
     def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Serialize array-of-object fields to header+rows format."""
@@ -651,6 +777,15 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             df["row_index"] = range(len(df))
             log.debug("row_index_filled", count=len(df))
 
+        if "confidence_score" in df.columns:
+            to_numeric_series = cast(Callable[..., Series], pd.to_numeric)
+            numeric_confidence = to_numeric_series(df["confidence_score"], errors="coerce")
+            df["confidence_score"] = Series(numeric_confidence, dtype="Int64")
+            log.debug(
+                "confidence_score_normalized",
+                non_null_count=int(df["confidence_score"].notna().sum()),
+            )
+
         return df
 
     def _check_missing_columns(
@@ -762,31 +897,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "missing_columns_handled",
                 missing_in_response=missing_in_response if missing_in_response else None,
                 missing_columns=missing_columns if missing_columns else None,
-                missing_in_select_fields=sorted(missing_in_select_fields)
-                if missing_in_select_fields
-                else None,
+                missing_in_select_fields=(
+                    sorted(missing_in_select_fields) if missing_in_select_fields else None
+                ),
                 chembl_release=self.chembl_release,
             )
 
         return df
 
-    def _enrich_with_related_data(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Обогатить DataFrame данными из связанных таблиц (ASSAY_CLASS_MAP, ASSAY_PARAMETERS).
-
-        Parameters
-        ----------
-        df:
-            DataFrame с данными assay.
-        log:
-            UnifiedLogger для логирования.
-
-        Returns
-        -------
-        pd.DataFrame:
-            Обогащенный DataFrame с данными из связанных таблиц.
-        """
-        if df.empty:
-            return df
 
         # Создать HTTP клиент для запросов к API
         # Используем тот же источник что и в extract
@@ -800,7 +918,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 error=str(exc),
             )
             return df
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
 
@@ -812,6 +933,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
 
         # Получить конфигурацию enrichment из config.chembl.assay.enrich

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -15,8 +15,6 @@ import yaml
 
 from bioetl.config import PipelineConfig
 from bioetl.core.hashing import hash_from_mapping
-
-from .logger import UnifiedLogger
 
 # CSV quoting type for pandas to_csv
 # Values: 0=QUOTE_MINIMAL, 1=QUOTE_ALL, 2=QUOTE_NONNUMERIC, 3=QUOTE_NONE
@@ -336,58 +334,3 @@ def emit_qc_artifact(
     write_frame_like(frame, target_path, config=config)
     return target_path
 
-
-def finalise_output(
-    df: pd.DataFrame,
-    *,
-    config: PipelineConfig,
-    run_id: str,
-    pipeline_code: str,
-    dataset_path: Path,
-    metadata_path: Path,
-    stage_durations_ms: Mapping[str, float],
-    metadata_hook: Callable[[Mapping[str, Any], pd.DataFrame], Mapping[str, Any]] | None = None,
-    quality_report: pd.DataFrame | Mapping[str, Any] | None = None,
-    quality_path: Path | None = None,
-    correlation_report: pd.DataFrame | Mapping[str, Any] | None = None,
-    correlation_path: Path | None = None,
-    qc_metrics: pd.DataFrame | Mapping[str, Any] | None = None,
-    qc_metrics_path: Path | None = None,
-) -> DeterministicWriteArtifacts:
-    """Persist the dataset and optional QC artefacts."""
-
-    log = UnifiedLogger.get(__name__)
-    log.debug("building_write_artifacts", dataset=str(dataset_path))
-    prepared = build_write_artifacts(
-        df,
-        config=config,
-        run_id=run_id,
-        pipeline_code=pipeline_code,
-        dataset_path=dataset_path,
-        stage_durations_ms=stage_durations_ms,
-    )
-    metadata = dict(prepared.metadata)
-    if metadata_hook is not None:
-        metadata = dict(metadata_hook(metadata, prepared.dataframe))
-
-    log.debug("writing_dataset", path=str(dataset_path), rows=len(prepared.dataframe))
-    write_dataset_atomic(prepared.dataframe, dataset_path, config=config)
-
-    log.debug("writing_metadata", path=str(metadata_path))
-    write_yaml_atomic(metadata, metadata_path)
-
-    emit_qc_artifact(
-        quality_report, quality_path, config=config, log=log, artifact_name="quality_report"
-    )
-    emit_qc_artifact(
-        correlation_report,
-        correlation_path,
-        config=config,
-        log=log,
-        artifact_name="correlation_report",
-    )
-    emit_qc_artifact(
-        qc_metrics, qc_metrics_path, config=config, log=log, artifact_name="qc_metrics"
-    )
-
-    return DeterministicWriteArtifacts(dataframe=prepared.dataframe, metadata=metadata)

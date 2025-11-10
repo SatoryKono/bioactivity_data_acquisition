@@ -25,6 +25,7 @@ from bioetl.core.mapping_utils import stringify_mapping
 
 from .base import PipelineBase
 from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
+from .common.select_fields import SelectFieldsMixin
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
@@ -33,11 +34,17 @@ from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
 class ProcessItemFn(Protocol):
     """Signature for per-item processing callbacks used in pagination."""
 
-    def __call__(self, __item: dict[str, Any]) -> dict[str, Any]:
-        ...
+    def __call__(self, __item: dict[str, Any]) -> dict[str, Any]: ...
 
 
-class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
+class ChemblSourceConfig(Protocol):
+    """Минимальный контракт конфигурации источника ChEMBL."""
+
+    page_size: int
+    max_url_length: int
+
+
+class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
     This class provides common functionality for all ChEMBL pipelines,
@@ -59,6 +66,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+        self._last_batch_extract_stats: dict[str, int | float] | None = None
 
     @property
     def actor(self) -> str:
@@ -199,8 +207,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
     def _resolve_select_fields(
         self,
-        source_config: SourceConfig,
+        source_config: SourceConfig | ChemblPipelineSourceConfig[Any],
         default_fields: Sequence[str] | None = None,
+        *,
+        required_fields: Sequence[str] | None = None,
+        preserve_none: bool = False,
     ) -> list[str]:
         """Resolve select_fields from config or use default.
 
@@ -210,6 +221,14 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Source configuration object.
         default_fields
             Optional default field list to use if not configured.
+        required_fields
+            Optional iterable of mandatory fields that should always be
+            present in the resulting list.
+        preserve_none
+            When ``True`` return an empty list if neither configured nor
+            default fields are supplied. This mirrors
+            :func:`normalize_select_fields` semantics where ``None`` would be
+            returned.
 
         Returns
         -------
@@ -217,6 +236,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             List of field names to select from the API.
         """
         parameters_raw = getattr(source_config, "parameters", {})
+        configured: Sequence[str] | None = None
         if isinstance(parameters_raw, Mapping):
             parameters = cast(Mapping[str, Any], parameters_raw)
             select_fields_raw = parameters.get("select_fields")
@@ -225,11 +245,74 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 and isinstance(select_fields_raw, Sequence)
                 and not isinstance(select_fields_raw, (str, bytes))
             ):
-                select_fields = cast(Sequence[Any], select_fields_raw)
-                return [str(field) for field in select_fields]
-        if default_fields:
-            return list(default_fields)
-        return []
+                configured = tuple(
+                    str(field) for field in cast(Sequence[Any], select_fields_raw)
+                )
+
+        normalized = self.normalize_select_fields(
+            configured,
+            default=default_fields,
+            required=required_fields or (),
+            preserve_none=preserve_none,
+        )
+        if normalized is None:
+            return []
+        return list(normalized)
+
+    @staticmethod
+    def _resolve_handshake_settings(
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None,
+    ) -> tuple[str, bool]:
+        """Return handshake endpoint and enable flag derived from ``source_config``."""
+
+        default_endpoint = "/status"
+        default_enabled = True
+
+        if source_config is None:
+            return default_endpoint, default_enabled
+
+        endpoint_candidate: Any = cast(Any, getattr(source_config, "handshake_endpoint", None))
+        if endpoint_candidate is None:
+            parameters_attr = getattr(source_config, "parameters", None)
+            if isinstance(parameters_attr, Mapping):
+                parameters_mapping = cast(Mapping[str, Any], parameters_attr)
+                endpoint_candidate = parameters_mapping.get("handshake_endpoint")
+
+        if endpoint_candidate is None:
+            endpoint_value = default_endpoint
+        else:
+            endpoint_value = str(endpoint_candidate).strip() or default_endpoint
+
+        enabled_candidate: Any = cast(Any, getattr(source_config, "handshake_enabled", None))
+        if enabled_candidate is None:
+            parameters_attr = getattr(source_config, "parameters", None)
+            if isinstance(parameters_attr, Mapping):
+                parameters_mapping = cast(Mapping[str, Any], parameters_attr)
+                enabled_candidate = parameters_mapping.get("handshake_enabled")
+
+        if enabled_candidate is None:
+            enabled_value = default_enabled
+        elif isinstance(enabled_candidate, bool):
+            enabled_value = enabled_candidate
+        elif isinstance(enabled_candidate, str):
+            enabled_value = enabled_candidate.strip().lower() not in {"false", "0", "no"}
+        else:
+            enabled_value = bool(cast(object, enabled_candidate))
+
+        return endpoint_value, enabled_value
+
+    @staticmethod
+    def _normalise_handshake_endpoint(endpoint: str) -> str:
+        """Normalise handshake endpoint to a relative or absolute URL."""
+
+        candidate = endpoint.strip()
+        if not candidate:
+            return "/status"
+        if candidate.startswith(("http://", "https://")):
+            return candidate
+        if not candidate.startswith("/"):
+            candidate = f"/{candidate}"
+        return candidate
 
     # ------------------------------------------------------------------
     # API client management
@@ -274,6 +357,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
         """Fetch ChEMBL release version from status endpoint.
 
@@ -297,6 +383,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         release_value: str | None = None
         requested_at = datetime.now(timezone.utc)
+        handshake_endpoint, handshake_enabled = self._resolve_handshake_settings(source_config)
+        normalized_endpoint = self._normalise_handshake_endpoint(handshake_endpoint)
 
         # Check if client is ChemblClient by checking for handshake method
         handshake_candidate = getattr(client, "handshake", None)
@@ -306,8 +394,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     client,
                     log=log,
                     event=f"{self.pipeline_code}.status",
-                    endpoint="/status",
-                    enabled=True,
+                    endpoint=normalized_endpoint,
+                    enabled=handshake_enabled,
+                    timeout=timeout,
+                    budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
                 )
                 release_value = handshake_result.release
                 requested_at = handshake_result.requested_at_utc
@@ -326,22 +416,74 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
             requested_at = datetime.now(timezone.utc)
-            try:
-                response = client_get("/status.json")
-                json_candidate = getattr(response, "json", None)
-                if callable(json_candidate):
-                    status_payload_raw = json_candidate()
-                    status_payload = self._coerce_mapping(status_payload_raw)
-                    release_value = self._extract_chembl_release(status_payload)
-                    log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
-            except Exception as exc:
-                log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
-            finally:
-                self._update_release(release_value)
+            if not handshake_enabled:
+                log.info(
+                    f"{self.pipeline_code}.status_skipped",
+                    handshake_enabled=False,
+                    endpoint=normalized_endpoint,
+                )
                 self.record_extract_metadata(
-                    chembl_release=release_value,
+                    chembl_release=self.chembl_release,
                     requested_at_utc=requested_at,
                 )
+                return self.chembl_release
+
+            try:
+                fallback_attr = cast(
+                    Sequence[str] | None,
+                    getattr(
+                        self.config.clients.chembl.preflight,
+                        "fallback_urls",
+                        (),
+                    ),
+                )
+                fallback_urls = tuple(fallback_attr) if fallback_attr else ()
+            except AttributeError:
+                fallback_urls = ()
+
+            built_in_fallbacks: tuple[str, ...] = ("/status", "/status.json")
+            endpoints_to_try = tuple(
+                endpoint
+                for endpoint in dict.fromkeys(
+                    (
+                        normalized_endpoint,
+                        *built_in_fallbacks,
+                        *fallback_urls,
+                    )
+                )
+                if endpoint
+            )
+
+            for endpoint in endpoints_to_try:
+                if not endpoint:
+                    continue
+                request_kwargs: dict[str, Any] = {}
+                if timeout is not None:
+                    request_kwargs["timeout"] = timeout
+                try:
+                    response = client_get(endpoint, **request_kwargs)
+                    json_candidate = getattr(response, "json", None)
+                    if callable(json_candidate):
+                        status_payload_raw = json_candidate()
+                        status_payload = self._coerce_mapping(status_payload_raw)
+                        release_value = self._extract_chembl_release(status_payload)
+                        log.info(
+                            f"{self.pipeline_code}.status",
+                            chembl_release=release_value,
+                            status_endpoint=endpoint,
+                        )
+                        break
+                except Exception as exc:
+                    log.warning(
+                        f"{self.pipeline_code}.status_failed",
+                        error=str(exc),
+                        status_endpoint=endpoint,
+                    )
+            self._update_release(release_value)
+            self.record_extract_metadata(
+                chembl_release=release_value,
+                requested_at_utc=requested_at,
+            )
             return release_value
         self._update_release(None)
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
@@ -351,10 +493,35 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
-        """Backward compatible wrapper for tests expecting private method."""
+        """Backward compatible wrapper handling legacy fetch signatures."""
 
-        return self.fetch_chembl_release(client, log)
+        bound_log = (
+            log
+            if log is not None
+            else UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        )
+
+        try:
+            return self.fetch_chembl_release(
+                client,
+                bound_log,
+                source_config=source_config,
+                timeout=timeout,
+            )
+        except TypeError as exc:
+            timeout_is_unexpected = timeout is not None and "timeout" in str(exc)
+            if not timeout_is_unexpected:
+                raise
+            bound_log.warning(
+                f"{self.pipeline_code}.release_timeout_unsupported",
+                error=str(exc),
+                timeout=timeout,
+            )
+            return self.fetch_chembl_release(client, bound_log, source_config=source_config)
 
     def perform_source_handshake(
         self,
@@ -372,8 +539,44 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             event=event,
             endpoint=source_config.handshake_endpoint,
             enabled=source_config.handshake_enabled,
+            timeout=source_config.handshake_timeout_sec,
+            budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
         )
         return handshake_result
+
+    def ensure_chembl_release(
+        self,
+        client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
+        *,
+        log: BoundLogger,
+        timeout: float | tuple[float, float] | None = None,
+    ) -> str | None:
+        """Гарантировать наличие нормализованного номера релиза ChEMBL.
+
+        Если release уже известен и является непустой строкой, возвращает его.
+        В противном случае выполняет fetch через статус-эндпоинт.
+        """
+
+        cached = self.chembl_release
+        if isinstance(cached, str):
+            normalized = cached.strip()
+            if normalized:
+                if normalized != cached:
+                    self._update_release(normalized)
+                return normalized
+
+        fetched = self.fetch_chembl_release(
+            client,
+            log,
+            timeout=timeout,
+        )
+        if isinstance(fetched, str):
+            normalized_fetched = fetched.strip()
+            if normalized_fetched:
+                if normalized_fetched != fetched:
+                    self._update_release(normalized_fetched)
+                return normalized_fetched
+        return None
 
     @staticmethod
     def _extract_page_items(
@@ -537,8 +740,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         source_config_raw = self._resolve_source_config("chembl")
         chembl_source_config = cast(
-            ChemblPipelineSourceConfig[Any],
-            ChemblPipelineSourceConfig.from_source_config(source_config_raw),
+            ChemblSourceConfig,
+            ChemblPipelineSourceConfig.from_source_config(
+                source_config_raw,
+                client_config=self.config.clients.chembl,
+            ),
         )
 
         defaults = ChemblPipelineSourceConfig.defaults
@@ -550,12 +756,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             limit,
             hard_cap=defaults.page_size_cap,
         )
-        max_url_length_candidate: Any = getattr(chembl_source_config, "max_url_length", None)
-        config_max_url_length = (
-            int(max_url_length_candidate)
-            if isinstance(max_url_length_candidate, int)
-            else None
-        )
+        config_max_url_length = int(chembl_source_config.max_url_length)
         effective_max_url_length = (
             max_url_length if max_url_length is not None else config_max_url_length
         )
@@ -575,8 +776,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         def _should_flush(candidate: Sequence[str]) -> bool:
             if len(candidate) > effective_size:
                 return True
-            if effective_max_url_length is None:
-                return False
             query_params: dict[str, str] = {id_param_name: ",".join(candidate)}
             if select_fields:
                 query_params["only"] = ",".join(select_fields)
@@ -657,7 +856,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     error=str(exc),
                     exc_info=True,
                 )
-        dataframe = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(all_records)
         if dataframe.empty:
             dataframe = pd.DataFrame({id_column: pd.Series(dtype="string")})
         elif id_column in dataframe.columns:

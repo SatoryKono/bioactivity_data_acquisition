@@ -101,7 +101,7 @@ class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
             Экземпляр ChemblClient для выполнения запросов.
         """
         config = EntityConfig(
-            endpoint="/assay_parameters.json",
+            endpoint="/assay_parameter.json",
             filter_param="assay_chembl_id__in",
             id_key="assay_chembl_id",
             items_key="assay_parameters",

@@ -6,15 +6,16 @@ import hashlib
 import math
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
-from typing import Any
+from typing import Any, cast
 
-_DEFAULT_SEPARATOR = "\u001f"
+DEFAULT_COMPONENT_SEPARATOR = "\u001f"
 
-_pd: Any | None
 try:  # Optional dependency (avoids importing pandas when not installed)
-    import pandas as _pd
+    import pandas as _pandas
 except ImportError:  # pragma: no cover - pandas is always available in runtime env
-    _pd = None
+    _pandas = None
+
+PANDAS_MODULE: Any | None = _pandas
 
 
 def _is_missing(value: Any) -> bool:
@@ -22,13 +23,13 @@ def _is_missing(value: Any) -> bool:
         return True
     if isinstance(value, float) and math.isnan(value):
         return True
-    if _pd is not None:
+    if PANDAS_MODULE is not None:
         # pandas exposes dedicated singleton objects for NA values
-        if value is getattr(_pd, "NA", object()):
+        if value is getattr(PANDAS_MODULE, "NA", object()):
             return True
-        if hasattr(_pd, "isna"):
+        if hasattr(PANDAS_MODULE, "isna"):
             try:
-                result = _pd.isna(value)
+                result = PANDAS_MODULE.isna(value)
             except TypeError:
                 pass
             else:
@@ -63,17 +64,19 @@ def _normalise_component(value: Any) -> str:
         return value.isoformat()
 
     if isinstance(value, Mapping):
+        mapping_value = cast(Mapping[Any, Any], value)
         items: list[str] = []
-        for key in sorted(value.keys(), key=lambda candidate: str(candidate)):
-            component = value[key]
+        for key in sorted(mapping_value.keys(), key=str):
+            component = mapping_value[key]
             key_part = str(key).strip().lower()
             value_part = _normalise_component(component)
             items.append(f"{key_part}={value_part}")
-        return _DEFAULT_SEPARATOR.join(items)
+        return DEFAULT_COMPONENT_SEPARATOR.join(items)
 
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        normalised_items = [_normalise_component(item) for item in value]
-        return _DEFAULT_SEPARATOR.join(sorted(normalised_items))
+        sequence_value = cast(Sequence[Any], value)
+        normalised_items = [_normalise_component(item) for item in sequence_value]
+        return DEFAULT_COMPONENT_SEPARATOR.join(sorted(normalised_items))
 
     return str(value).strip().lower()
 
@@ -82,7 +85,7 @@ def compute_hash(
     components: Iterable[Any],
     *,
     algorithm: str = "sha256",
-    separator: str = _DEFAULT_SEPARATOR,
+    separator: str = DEFAULT_COMPONENT_SEPARATOR,
 ) -> str:
     """Return digest for the provided components using canonical normalisation."""
 
@@ -103,7 +106,7 @@ def hash_from_mapping(
     fields: Sequence[str],
     *,
     algorithm: str = "sha256",
-    separator: str = _DEFAULT_SEPARATOR,
+    separator: str = DEFAULT_COMPONENT_SEPARATOR,
 ) -> str:
     """Compute hash for subset of mapping fields (pd.Series compatible)."""
 

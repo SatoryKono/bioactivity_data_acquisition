@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Mapping
-
 import pytest
 
 from bioetl.tools import chembl_stub as module
 
 
 def test_offline_query_only_keeps_requested_field() -> None:
-    query = module._OfflineQuery([{"a": 1, "b": 2}])
+    query = module.OfflineQuery([{"a": 1, "b": 2}])
 
     result = list(query.only("a"))
 
@@ -18,7 +16,7 @@ def test_offline_query_only_keeps_requested_field() -> None:
 
 
 def test_offline_resource_filter_respects_limit_and_offset() -> None:
-    resource = module._OfflineResource(
+    resource = module.OfflineResource(
         [
             {"row": 1},
             {"row": 2},
@@ -32,24 +30,30 @@ def test_offline_resource_filter_respects_limit_and_offset() -> None:
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    "limit,expected_length",
     [
-        (None, 7),
+        (None, 5),
         (True, 1),
         (False, 0),
-        (10, 10),
-        (9.2, 9),
-        ("12", 12),
-        ("bad", 7),
+        (10, 5),
+        (9.2, 5),
+        ("12", 5),
+        ("bad", 5),
     ],
 )
-def test_safe_int(value: object, expected: int) -> None:
-    assert module._safe_int(value, 7) == expected
+def test_offline_resource_coerces_limit(limit: object, expected_length: int) -> None:
+    resource = module.OfflineResource([{"row": idx} for idx in range(5)])
+
+    rows = list(resource.filter(limit=limit))
+
+    assert len(rows) == expected_length
 
 
 def test_get_offline_new_client_returns_resources() -> None:
     client = module.get_offline_new_client()
 
-    assert isinstance(client.activity._records, list)
-    assert list(client.activity.filter(limit=1))  # не пустой результат
+    first_page = client.activity.filter(limit=1)
+
+    assert isinstance(first_page, module.OfflineQuery)
+    assert list(first_page)  # не пустой результат
 

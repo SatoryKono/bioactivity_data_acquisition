@@ -8,7 +8,7 @@
   version: 1
 
   runtime:
-    parallelism: 4
+    parallelism: 1
     chunk_rows: 100000
     dry_run: false
     seed: 42
@@ -36,7 +36,7 @@
         backoff_max: 60.0
         statuses: [408, 429, 500, 502, 503, 504]
       rate_limit:
-        max_calls: 10
+        max_calls: 1
         period: 1.0
       rate_limit_jitter: true
       headers:

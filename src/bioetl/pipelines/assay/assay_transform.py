@@ -17,6 +17,7 @@ __all__ = [
 ]
 
 AssayParam = dict[str, Any]
+STANDARD_RELATIONS: frozenset[str] = frozenset({"=", "<", "≤", ">", "≥", "~"})
 
 
 def _is_null_like(value: Any) -> bool:
@@ -83,9 +84,6 @@ def validate_assay_parameters_truv(
     if column not in df.columns:
         log.debug("truv_validation_skipped_missing_column", column=column)
         return df
-
-    # Стандартные операторы relation
-    STANDARD_RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
 
     errors: list[str] = []
     warnings: list[str] = []

@@ -13,15 +13,15 @@ import uuid
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pandera.errors
 from pandas import Series
-from pandera import DataFrameSchema
+from pandera.pandas import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
@@ -37,6 +37,7 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
+from bioetl.pipelines.common.metadata import normalise_metadata_value
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
@@ -120,11 +121,11 @@ class RunResult:
 class PipelineBase(ABC):
     """Shared orchestration helpers for ETL pipelines."""
 
-    dataset_extension: str = "csv"
-    qc_extension: str = "csv"
-    manifest_extension: str = "json"
-    log_extension: str = "log"
-    deterministic_folder_prefix: str = "_"
+    DATASET_EXTENSION: ClassVar[str] = "csv"
+    QC_EXTENSION: ClassVar[str] = "csv"
+    MANIFEST_EXTENSION: ClassVar[str] = "json"
+    LOG_EXTENSION: ClassVar[str] = "log"
+    DETERMINISTIC_FOLDER_PREFIX: ClassVar[str] = "_"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.config = config
@@ -150,7 +151,7 @@ class PipelineBase(ABC):
         Does not create the directory. Use _ensure_pipeline_directory_exists()
         to create it when needed.
         """
-        return self.output_root / f"{self.deterministic_folder_prefix}{self.pipeline_code}"
+        return self.output_root / f"{self.DETERMINISTIC_FOLDER_PREFIX}{self.pipeline_code}"
 
     def _ensure_pipeline_directory_exists(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
@@ -248,19 +249,21 @@ class PipelineBase(ABC):
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
         run_dir = run_directory if run_directory is not None else self.pipeline_directory
-        dataset = run_dir / f"{stem}.{self.dataset_extension}"
-        quality = run_dir / f"{stem}_quality_report.{self.qc_extension}"
+        dataset = run_dir / f"{stem}.{self.DATASET_EXTENSION}"
+        quality = run_dir / f"{stem}_quality_report.{self.QC_EXTENSION}"
         correlation = (
-            run_dir / f"{stem}_correlation_report.{self.qc_extension}"
+            run_dir / f"{stem}_correlation_report.{self.QC_EXTENSION}"
             if include_correlation
             else None
         )
-        qc_metrics = run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
+        qc_metrics = run_dir / f"{stem}_qc.{self.QC_EXTENSION}" if include_qc_metrics else None
         metadata = run_dir / f"{stem}_meta.yaml" if include_metadata else None
         manifest = (
-            run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
+            run_dir / f"{stem}_run_manifest.{self.MANIFEST_EXTENSION}"
+            if include_manifest
+            else None
         )
-        log_file = self.logs_directory / f"{stem}.{self.log_extension}"
+        log_file = self.logs_directory / f"{stem}.{self.LOG_EXTENSION}"
 
         write_artifacts = WriteArtifacts(
             dataset=dataset,
@@ -283,7 +286,7 @@ class PipelineBase(ABC):
         if not self.pipeline_directory.exists():
             return []
 
-        suffix = f".{self.dataset_extension}"
+        suffix = f".{self.DATASET_EXTENSION}"
         dataset_files = sorted(
             (
                 path
@@ -309,19 +312,19 @@ class PipelineBase(ABC):
             for candidate in self._artifact_candidates(outdated_stem):
                 if candidate.exists():
                     candidate.unlink()
-            log_candidate = self.logs_directory / f"{outdated_stem}.{self.log_extension}"
+            log_candidate = self.logs_directory / f"{outdated_stem}.{self.LOG_EXTENSION}"
             if log_candidate.exists():
                 log_candidate.unlink()
 
     def _artifact_candidates(self, stem: str) -> Iterable[Path]:
         """Yield the expected artifact paths for ``stem``."""
 
-        yield self.pipeline_directory / f"{stem}.{self.dataset_extension}"
-        yield self.pipeline_directory / f"{stem}_quality_report.{self.qc_extension}"
-        yield self.pipeline_directory / f"{stem}_correlation_report.{self.qc_extension}"
-        yield self.pipeline_directory / f"{stem}_qc.{self.qc_extension}"
+        yield self.pipeline_directory / f"{stem}.{self.DATASET_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_quality_report.{self.QC_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_correlation_report.{self.QC_EXTENSION}"
+        yield self.pipeline_directory / f"{stem}_qc.{self.QC_EXTENSION}"
         yield self.pipeline_directory / f"{stem}_meta.yaml"
-        yield self.pipeline_directory / f"{stem}_run_manifest.{self.manifest_extension}"
+        yield self.pipeline_directory / f"{stem}_run_manifest.{self.MANIFEST_EXTENSION}"
 
     @abstractmethod
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
@@ -354,6 +357,69 @@ class PipelineBase(ABC):
         pd.DataFrame:
             DataFrame containing extracted records.
         """
+
+    def _extract_with_optional_ids(
+        self,
+        *,
+        log: BoundLogger,
+        event_name: str,
+        extract_all: Callable[[], pd.DataFrame],
+        extract_by_ids: Callable[[Sequence[str]], pd.DataFrame],
+        id_column_name: str | None = None,
+        limit: int | None = None,
+        sample: int | None = None,
+        override_ids: Iterable[str] | str | None = None,
+        override_log_fields: Mapping[str, object] | None = None,
+    ) -> pd.DataFrame:
+        """Execute extraction with optional ID filtering.
+
+        The helper inspects the ``input_file`` CLI option and, when provided,
+        routes the pipeline through ``extract_by_ids`` with deterministically
+        ordered identifiers. When no input file is configured the helper falls
+        back to ``extract_all`` or, if ``override_ids`` are supplied, executes a
+        batched extraction using those identifiers instead. Structured log
+        events are emitted to keep observability consistent across pipelines.
+        """
+
+        resolved_limit = limit if limit is not None else self.config.cli.limit
+        resolved_sample = sample if sample is not None else self.config.cli.sample
+        resolved_id_column = id_column_name or self._get_id_column_name()
+
+        ids_from_input: list[str] | None = None
+        if self.config.cli.input_file:
+            ids_from_input = self._read_input_ids(
+                id_column_name=resolved_id_column,
+                limit=resolved_limit,
+                sample=resolved_sample,
+            )
+
+        if ids_from_input:
+            log.info(
+                event_name,
+                mode="batch",
+                ids_count=len(ids_from_input),
+            )
+            return extract_by_ids(ids_from_input)
+
+        override_list: list[str] | None = None
+        if override_ids is not None:
+            if isinstance(override_ids, (str, bytes)):
+                override_list = [str(override_ids)]
+            else:
+                override_list = [str(identifier) for identifier in override_ids]
+
+        if override_list:
+            log_payload: dict[str, object] = {
+                "mode": "batch",
+                "ids_count": len(override_list),
+            }
+            if override_log_fields:
+                log_payload.update(dict(override_log_fields))
+            log.info(event_name, **log_payload)
+            return extract_by_ids(override_list)
+
+        log.info(event_name, mode="full")
+        return extract_all()
 
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -415,47 +481,18 @@ class PipelineBase(ABC):
     ) -> None:
         """Record metadata produced during ``extract`` for inclusion in ``meta.yaml``."""
 
-        def _normalise_timestamp(value: datetime | str) -> str:
-            if isinstance(value, datetime):
-                if value.tzinfo is None:
-                    value = value.replace(tzinfo=timezone.utc)
-                else:
-                    value = value.astimezone(timezone.utc)
-                return value.isoformat().replace("+00:00", "Z")
-            return value
-
-        def _normalise_value(candidate: Any) -> Any:
-            if isinstance(candidate, Mapping):
-                mapping_items = cast(Mapping[object, Any], candidate)
-                normalised_items: list[tuple[str, Any]] = []
-                for key, value in mapping_items.items():
-                    key_as_str = str(key)
-                    normalised_value = _normalise_value(value)
-                    normalised_items.append((key_as_str, normalised_value))
-                normalised_items.sort(key=lambda item: item[0])
-                return dict(normalised_items)
-            if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-                normalised_sequence: list[Any] = []
-                sequence_items = cast(Sequence[object], candidate)
-                for item in sequence_items:
-                    normalised_sequence.append(_normalise_value(item))
-                return normalised_sequence
-            if isinstance(candidate, datetime):
-                return _normalise_timestamp(candidate)
-            return candidate
-
         metadata = dict(self._extract_metadata)
         if chembl_release is not None:
             metadata["chembl_release"] = chembl_release
         if filters is not None:
             filters_mapping = dict(filters) if not isinstance(filters, Mapping) else filters
-            metadata["filters"] = _normalise_value(filters_mapping)
+            metadata["filters"] = normalise_metadata_value(filters_mapping)
         if requested_at_utc is not None:
-            metadata["requested_at_utc"] = _normalise_timestamp(requested_at_utc)
+            metadata["requested_at_utc"] = normalise_metadata_value(requested_at_utc)
         for key, value in extra.items():
             if value is None:
                 continue
-            metadata[key] = _normalise_value(value)
+            metadata[key] = normalise_metadata_value(value)
         self._extract_metadata = metadata
 
     def close_resources(self) -> None:
@@ -992,7 +1029,7 @@ class PipelineBase(ABC):
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         """Default column factories and dtypes for schema-required columns."""
 
-        def _row_index_factory(count: int) -> pd.Series[Any]:
+        def _row_index_factory(count: int) -> Series:
             return pd.Series(range(count), dtype="Int64")
 
         return {
@@ -1043,8 +1080,6 @@ class PipelineBase(ABC):
             DataFrame with all schema columns present (missing ones filled with NA).
         """
         df = df.copy()
-        if df.empty:
-            return df
 
         effective_log: BoundLogger | None = None
         if log is None:
@@ -1155,8 +1190,8 @@ class PipelineBase(ABC):
                 return df
             schema = schema_entry.schema
 
-        def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
-            to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
+        def _to_numeric_series(series: Series) -> Series:
+            to_numeric_series = cast(Callable[..., Series], pd.to_numeric)
             return to_numeric_series(series, errors="coerce")
 
         # Get column definitions from schema

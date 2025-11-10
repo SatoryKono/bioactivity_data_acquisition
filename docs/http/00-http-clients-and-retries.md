@@ -190,7 +190,31 @@ This is an example of a structured log record for a retryable error, as it would
 - **Response Processing**: The `request_json` and `request_text` methods handle the decoding of response bodies.
 - **Error Hierarchy**: The client uses standard `requests.exceptions`, primarily `HTTPError` for `4xx`/`5xx` responses and `RequestException` for other network issues. A custom `CircuitBreakerOpenError` is raised when the circuit breaker is in the open state and blocks requests.
 
-## 9. Test Plan
+## 9. ChEMBL Preflight Handshake
+
+The ChEMBL pipelines add an explicit readiness check on top of `UnifiedAPIClient`. The configuration lives under `clients.chembl` in the pipeline config and is type-checked by `ChemblClientConfig`. Key fields include:
+
+| Key | Default | Description |
+| --- | --- | --- |
+| `clients.chembl.base_url` | `https://www.ebi.ac.uk/chembl/api` | Root URL for REST calls; individual sources append `/data/...` paths. |
+| `clients.chembl.preflight.enabled` | `false` | When `true`, the CLI performs a lightweight handshake before extraction; when `false`, the run skips the readiness gate. |
+| `clients.chembl.preflight.url` | `/status` | Primary endpoint used for the handshake. |
+| `clients.chembl.preflight.fallback_urls` | `["/status.json", "/data/version", "/data"]` | Ordered list of fallback endpoints when the primary fails. |
+| `clients.chembl.preflight.retry.total` | `3` | Retry budget per endpoint (excluding the first attempt). |
+| `clients.chembl.preflight.retry.backoff_factor` | `0.5` | Exponential backoff multiplier between retries. |
+| `clients.chembl.preflight.budget_seconds` | `10.0` | Wall-clock ceiling for all handshake attempts; once exhausted the run fails open. |
+| `clients.chembl.preflight.cache_ttl_seconds` | `600.0` | TTL for a successful handshake result; cached failures reuse the circuit breaker timeout. |
+| `clients.chembl.timeout.{connect,read,total}_seconds` | `2.0`, `5.0`, `10.0` | Fine-grained overrides used during the handshake. |
+| `clients.chembl.circuit_breaker.open_seconds` | `60.0` | Duration to suppress new handshakes after repeated failures. |
+
+Operationally:
+
+- Every handshake attempt is logged with `phase` markers (`success`, `attempt`, `budget_exhausted`, `fail_open`, `cache`, `skip`) plus `status_code`, `duration_ms`, `ttfb_ms`, and the effective timeouts.
+- Successful responses populate ChEMBL release metadata (`chembl_db_version`, `api_version`) which is cached for 10 minutes by default.
+- Failures are cached until the circuit breaker cools down, preventing startup storms when the upstream API is degraded.
+- The CLI exposes `--preflight-handshake/--no-preflight-handshake` to override configuration per run.
+
+## 10. Test Plan
 
 - **Unit Tests**:
 
@@ -204,7 +228,7 @@ This is an example of a structured log record for a retryable error, as it would
   - Simulate a `503` error and assert that the client performs the correct number of retries with exponential backoff.
   - Test the circuit breaker by sending a series of failing requests and asserting that it opens and subsequently closes.
 
-## 10. Examples
+## 11. Examples
 
 **Creating and using a client with `network.yaml`:**
 

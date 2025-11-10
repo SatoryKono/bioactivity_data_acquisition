@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
-from bioetl.clients.chembl_iterator import ChemblEntityIterator
+from typing import ClassVar
+
+from bioetl.clients.chembl_base import ChemblClientProtocol
+from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 __all__ = ["ChemblDocumentClient"]
 
 
-class ChemblDocumentClient(ChemblEntityIterator):
+class ChemblDocumentClient(ChemblEntityClientBase):
     """High level helper focused on retrieving document payloads."""
+
+    ENTITY_KEY: ClassVar[str] = "document"
 
     def __init__(
         self,
@@ -29,21 +33,8 @@ class ChemblDocumentClient(ChemblEntityIterator):
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
-        config = EntityConfig(
-            endpoint="/document.json",
-            filter_param="document_chembl_id__in",
-            id_key="document_chembl_id",
-            items_key="documents",
-            log_prefix="document",
-            chunk_size=100,
-            supports_list_result=False,
-            base_endpoint_length=len("/document.json?"),
-            enable_url_length_check=False,
-        )
-
         super().__init__(
             chembl_client=chembl_client,
-            config=config,
             batch_size=batch_size,
             max_url_length=max_url_length,
         )

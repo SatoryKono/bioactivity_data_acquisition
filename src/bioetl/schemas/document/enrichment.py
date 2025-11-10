@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pandera import DataFrameSchema
+from pandera.pandas import DataFrameSchema
 
 from bioetl.schemas.common import nullable_string_column
 

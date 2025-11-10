@@ -48,7 +48,7 @@ Define the schema for your pipeline's **output**. This is a critical step that d
 
 ```python
 # file: src/bioetl/schemas/uniprot/protein_out.py
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, String, Int64
 
 class UniprotProteinSchema(pa.SchemaModel):

@@ -317,7 +317,7 @@ Target-IUPHAR pipeline использует Pandera для строгой вал
 ```python
 # src/bioetl/schemas/iuphar/target/iuphar_target_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

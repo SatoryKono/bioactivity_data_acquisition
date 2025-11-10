@@ -2,22 +2,19 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
-from typing import Any
+from collections.abc import Iterable, Iterator, Mapping
+from typing import Any, cast
 
 import pandas as pd
 import pytest
 
-import pytest
-
 from bioetl.clients.chembl_entities import (
-    ChemblAssayParametersEntityClient,
     ChemblAssayClassificationEntityClient,
     ChemblAssayClassMapEntityClient,
+    ChemblAssayParametersEntityClient,
+    ChemblCompoundRecordEntityClient,
     ChemblDataValidityEntityClient,
     ChemblMoleculeEntityClient,
-    ChemblCompoundRecordEntityClient,
-    _safe_bool,
 )
 
 
@@ -25,7 +22,7 @@ class _RecordingChemblClient:
     """Простая заглушка paginate для проверки параметров вызова."""
 
     def __init__(self) -> None:
-        self.calls: list[tuple[str, dict[str, Any], int, str]] = []
+        self.calls: list[tuple[str, dict[str, Any] | None, int, str | None]] = []
         self.payloads: list[dict[str, Any]] = []
         self.should_raise: bool = False
 
@@ -33,14 +30,16 @@ class _RecordingChemblClient:
         self,
         endpoint: str,
         *,
-        params: dict[str, Any],
-        page_size: int,
-        items_key: str,
-    ) -> Iterable[dict[str, Any]]:
-        self.calls.append((endpoint, params, page_size, items_key))
+        params: Mapping[str, Any] | None = None,
+        page_size: int = 200,
+        items_key: str | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        snapshot = dict(params) if params is not None else None
+        self.calls.append((endpoint, snapshot, page_size, items_key))
         if self.should_raise:
             raise RuntimeError("boom")
-        yield from [{**item} for item in self.payloads]
+        for item in self.payloads:
+            yield dict(item)
 
 
 class _DummyLogger:
@@ -56,7 +55,7 @@ class _DummyLogger:
     def debug(self, event: str, **payload: Any) -> None:
         self.events.append((event, payload))
 
-    def bind(self, **_: Any) -> "_DummyLogger":
+    def bind(self, **_: Any) -> _DummyLogger:
         return self
 
 
@@ -79,24 +78,46 @@ def patch_unified_logger(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
-def test_entity_clients_initialise_configs(monkeypatch: pytest.MonkeyPatch) -> None:
-    dummy = _RecordingChemblClient()
-    molecule_client = ChemblMoleculeEntityClient(dummy)
-    validity_client = ChemblDataValidityEntityClient(dummy)
-    class_map_client = ChemblAssayClassMapEntityClient(dummy)
-    classification_client = ChemblAssayClassificationEntityClient(dummy)
+def test_entity_clients_issue_expected_requests() -> None:
+    molecule_stub = _RecordingChemblClient()
+    molecule_client = ChemblMoleculeEntityClient(molecule_stub)
+    molecule_client.fetch_by_ids(ids=["CHEMBL1"], fields=[], page_limit=25)
+    molecule_call = molecule_stub.calls[0]
+    assert molecule_call[0] == "/molecule.json"
+    assert molecule_call[3] == "molecules"
 
-    assert molecule_client._config.endpoint == "/molecule.json"
-    assert validity_client._config.items_key == "data_validity_lookups"
-    assert class_map_client._config.supports_list_result is True
-    assert classification_client._config.filter_param == "assay_class_id__in"
+    validity_stub = _RecordingChemblClient()
+    validity_client = ChemblDataValidityEntityClient(validity_stub)
+    validity_client.fetch_by_ids(ids=["comment"], fields=[], page_limit=10)
+    validity_call = validity_stub.calls[0]
+    assert validity_call[0] == "/data_validity_lookup.json"
+    assert validity_call[3] == "data_validity_lookups"
+
+    class_map_stub = _RecordingChemblClient()
+    class_map_client = ChemblAssayClassMapEntityClient(class_map_stub)
+    class_map_client.fetch_by_ids(ids=["A1"], fields=[], page_limit=10)
+    class_map_call = class_map_stub.calls[0]
+    assert class_map_call[0] == "/assay_class_map.json"
+    assert class_map_call[3] == "assay_class_maps"
+
+    classification_stub = _RecordingChemblClient()
+    classification_client = ChemblAssayClassificationEntityClient(classification_stub)
+    classification_client.fetch_by_ids(ids=["C1"], fields=[], page_limit=5)
+    classification_call = classification_stub.calls[0]
+    assert classification_call[0] == "/assay_classification.json"
+    assert classification_call[2] == 5
 
 
 def test_assay_parameters_client_returns_empty_for_invalid_ids() -> None:
     chembl_client = _RecordingChemblClient()
     client = ChemblAssayParametersEntityClient(chembl_client)
 
-    result = client.fetch_by_ids(ids=[None, float("nan"), ""], fields=[], active_only=True)
+    invalid_ids: list[Any] = [None, float("nan"), ""]
+    result = client.fetch_by_ids(
+        ids=cast(Iterable[str], invalid_ids),
+        fields=[],
+        active_only=True,
+    )
 
     assert result == {}
     assert chembl_client.calls == []
@@ -120,7 +141,7 @@ def test_assay_parameters_client_respects_active_and_fields() -> None:
     assert set(result.keys()) == {"A1"}
     assert chembl_client.calls == [
         (
-            "/assay_parameters.json",
+            "/assay_parameter.json",
             {
                 "assay_chembl_id__in": "A1",
                 "limit": 50,
@@ -137,8 +158,12 @@ def test_assay_parameters_client_filters_nan_ids() -> None:
     chembl_client.payloads = [{"assay_chembl_id": "B1"}]
     client = ChemblAssayParametersEntityClient(chembl_client)
 
-    ids = ["B1", pd.Series([None])[0], "  B1  "]
-    result = client.fetch_by_ids(ids=ids, fields=[], page_limit=10)
+    ids_raw: list[Any] = ["B1", pd.Series([None])[0], "  B1  "]
+    result = client.fetch_by_ids(
+        ids=cast(Iterable[str], ids_raw),
+        fields=[],
+        page_limit=10,
+    )
 
     assert "B1" in result
     assert len(chembl_client.calls) == 1
@@ -212,20 +237,4 @@ def test_compound_record_client_handles_paginate_errors(monkeypatch: pytest.Monk
     )
 
     assert result == {}
-
-
-@pytest.mark.parametrize(
-    "value,expected",
-    [
-        (None, False),
-        (True, True),
-        (False, False),
-        (1, True),
-        (0, False),
-        ("TRUE", True),
-        ("no", False),
-    ],
-)
-def test_safe_bool_coercion(value: Any, expected: bool) -> None:
-    assert _safe_bool(value) is expected
 

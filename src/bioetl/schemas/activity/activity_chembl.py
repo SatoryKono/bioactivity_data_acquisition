@@ -8,8 +8,8 @@ from numbers import Number
 from typing import cast
 
 import pandas as pd
-import pandera as pa
-from pandera import Check, Column
+import pandera.pandas as pa
+from pandera.pandas import Check, Column
 
 from bioetl.schemas.base import create_schema
 from bioetl.schemas.common import (

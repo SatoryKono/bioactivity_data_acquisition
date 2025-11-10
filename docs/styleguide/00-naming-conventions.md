@@ -1,6 +1,6 @@
 # Documentation Naming Conventions
 
-This document outlines the standard naming conventions for documentation files within the `bioetl` project. Following these conventions ensures consistency and predictability in the documentation structure. For repository-wide module and object naming rules, see [11 Naming Policy](11-naming-policy.md).
+This document outlines the standard naming conventions for documentation files within the `bioetl` project. Following these conventions ensures consistency and predictability in the documentation structure. For repository-wide module and object naming rules, see [11 Naming Policy](11-naming-policy.md). Roadmap and remediation steps are maintained in [12 Naming Normalization Plan](12-naming-normalization-plan.md).
 
 ## 1. General Principles
 
@@ -83,7 +83,8 @@ Primary index files or landing pages for a directory **SHOULD** be named `INDEX.
 
 ## 4. Исключения и контроль соблюдения
 
-- **Допустимые исключения**: dunder-хуки (`__init__`, `__iter__`, `__call__` и т.п.) и защищённые вспомогательные функции/классы с префиксом `_` (например, `_normalize_payload`, `_RetryState`). Они перечислены в конфигурации `ruff` и `flake8` через `ignore-names`/`ignore-class-names`.
-- **Реестр исключений**: файл `docs/styleguide/VIOLATIONS_TABLE.md` содержит фактические нарушения. Таблица должна быть пустой; любая строка требует обоснования и отдельного плана устранения.
-- **CI-проверка**: команда `bioetl-validate-naming-violations` (также доступна через pre-commit) блокирует пайплайн, если таблица нарушений не пуста.
-- **Документирование**: при добавлении временного исключения необходимо обновить эту таблицу и план нормализации имён с указанием сроков устранения.
+- **Допустимые исключения**: dunder-хуки (`__init__`, `__iter__`, `__call__` и др.) и защищённые вспомогательные функции/классы с префиксом `_` (например, `_normalize_payload`, `_RetryState`). Они whitelisted через `ignore-names`/`ignore-class-names` в `ruff` и `flake8-naming`; список поддерживается в `pyproject.toml`.
+- **Категории контроля**: нарушения классифицируются по модулям, функциям, классам и константам согласно [12 Naming Normalization Plan](12-naming-normalization-plan.md#категории-нарушений). Каждое отклонение должно иметь явное обоснование и дедлайн устранения.
+- **Реестр исключений**: `docs/styleguide/VIOLATIONS_TABLE.md` хранит факт текущих исключений. Таблица должна оставаться пустой; любая запись означает блокирующее нарушение и требует утверждённого плана ликвидации.
+- **CI-проверка**: команда `bioetl-validate-naming-violations` (pre-commit и CI) сравнивает фактический отчёт инструмента с таблицей нарушений и отклоняет пайплайн при расхождениях.
+- **Документирование**: при добавлении временного исключения необходимо синхронно обновить `VIOLATIONS_TABLE.md`, указать дедлайн в плане нормализации имён и уведомить команду через PR/issue.

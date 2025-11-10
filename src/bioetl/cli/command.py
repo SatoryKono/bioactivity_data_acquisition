@@ -13,16 +13,12 @@ from zoneinfo import ZoneInfo
 import typer
 
 from bioetl.config.environment import apply_runtime_overrides, read_environment_settings
-from bioetl.config.models import (
-    CLIConfig,
-    DeterminismConfig,
-    DeterminismEnvironmentConfig,
-    PipelineConfig,
-)
+from bioetl.config.models.models import CLIConfig, PipelineConfig
+from bioetl.config.models.policies import DeterminismConfig, DeterminismEnvironmentConfig
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
-__all__ = ["create_pipeline_command", "CommonOptions"]
+__all__ = ["create_pipeline_command", "CommonOptions", "read_pipeline_config"]
 
 if TYPE_CHECKING:
     def read_pipeline_config_impl(
@@ -120,6 +116,7 @@ def _update_pipeline_config_from_cli(
     fail_on_schema_drift: bool,
     validate_columns: bool,
     output_dir: Path,
+    preflight_handshake: bool | None,
 ) -> None:
     """Apply CLI flag values to the mutable pipeline configuration."""
 
@@ -143,27 +140,16 @@ def _update_pipeline_config_from_cli(
     if not validate_columns:
         pipeline_config.validation.strict = False
 
+    if preflight_handshake is not None:
+        pipeline_config.clients.chembl.preflight.enabled = bool(preflight_handshake)
+
     pipeline_config.materialization.root = str(output_dir)
 
-def _read_pipeline_config(
-    *,
-    config_path: str | Path,
-    profiles: Sequence[str | Path] | None = None,
-    cli_overrides: Mapping[str, Any] | None = None,
-    env: Mapping[str, str] | None = None,
-    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
-    include_default_profiles: bool = False,
-) -> PipelineConfig:
-    """Typed wrapper вокруг загрузчика конфигурации."""
-
-    return read_pipeline_config_impl(
-        config_path=config_path,
-        profiles=profiles,
-        cli_overrides=cli_overrides,
-        env=env,
-        env_prefixes=env_prefixes,
-        include_default_profiles=include_default_profiles,
-    )
+# ``bioetl.cli.command.read_pipeline_config`` historically served as the public
+# entry point for loading pipeline configuration from the CLI module. Preserve
+# the same reference for backwards compatibility while delegating to the shared
+# loader implementation.
+read_pipeline_config = read_pipeline_config_impl
 
 
 def create_pipeline_command(
@@ -253,6 +239,11 @@ def create_pipeline_command(
             "--validate-columns/--no-validate-columns",
             help="Enforce strict column validation (disable to ignore column drift)",
         ),
+        preflight_handshake: bool | None = typer.Option(
+            None,
+            "--preflight-handshake/--no-preflight-handshake",
+            help="Enable or disable the ChEMBL preflight handshake before extraction.",
+        ),
         golden: Path | None = typer.Option(
             None,
             "--golden",
@@ -287,7 +278,7 @@ def create_pipeline_command(
             cli_overrides = _parse_set_overrides(set_overrides)
 
         try:
-            pipeline_config = _read_pipeline_config(
+            pipeline_config = read_pipeline_config(
                 config_path=config,
                 cli_overrides=cli_overrides,
                 include_default_profiles=True,
@@ -317,6 +308,7 @@ def create_pipeline_command(
             fail_on_schema_drift=fail_on_schema_drift,
             validate_columns=validate_columns,
             output_dir=output_dir,
+            preflight_handshake=preflight_handshake,
         )
 
         # Configure logging
