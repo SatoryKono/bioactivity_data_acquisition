@@ -14,13 +14,17 @@ from pandas import Series
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.types import EntityClient
-from bioetl.config import AssaySourceConfig
+from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
     normalize_identifier_columns,
     normalize_string_columns,
+)
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
 )
 from bioetl.pipelines.assay.assay_enrichment import (
     enrich_with_assay_classifications,
@@ -31,6 +35,7 @@ from bioetl.pipelines.assay.assay_transform import (
     validate_assay_parameters_truv,
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
+from structlog.stdlib import BoundLogger
 
 from ..chembl_base import ChemblPipelineBase
 
@@ -122,6 +127,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
     ACTOR: ClassVar[str] = "assay_chembl"
+
+    def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        super().__init__(config, run_id)
+        self._chembl_enrichment_client: ChemblClient | None = None
+        self._enrichment_strategy: EnrichmentStrategy | None = None
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -423,7 +433,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_string_fields(df, log)
-        df = self._enrich_with_related_data(df, log)
+        df = self._apply_enrichment(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._serialize_array_fields(df, log)
         df = self._add_row_metadata(df, log)
@@ -437,6 +447,106 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    def _apply_enrichment(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        strategy = self._ensure_enrichment_strategy(log)
+        return strategy.execute(df)
+
+    def _ensure_enrichment_strategy(self, log: BoundLogger) -> EnrichmentStrategy:
+        if self._enrichment_strategy is not None:
+            return self._enrichment_strategy
+
+        def classifications_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            log.info("enrichment_classifications_started")
+            result = enrich_with_assay_classifications(frame, client, cfg)
+            log.info("enrichment_classifications_completed")
+            if "assay_class_id" in result.columns:
+                filled_count = int(result["assay_class_id"].notna().sum())
+                total_count = len(result)
+                if filled_count == 0:
+                    log.warning(
+                        "assay_class_id_empty_after_enrichment",
+                        total_assays=total_count,
+                        filled_count=0,
+                        message=(
+                            "assay_class_id is empty after enrichment. Check if ASSAY_CLASS_MAP contains data for these assays."
+                        ),
+                    )
+                else:
+                    log.debug(
+                        "assay_class_id_enrichment_stats",
+                        total_assays=total_count,
+                        filled_count=filled_count,
+                        empty_count=total_count - filled_count,
+                    )
+            else:
+                log.warning(
+                    "assay_class_id_column_missing_after_enrichment",
+                    message="assay_class_id column is missing after enrichment",
+                )
+            return result
+
+        def parameters_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            log.info("enrichment_parameters_started")
+            result = enrich_with_assay_parameters(frame, client, cfg)
+            log.info("enrichment_parameters_completed")
+            return result
+
+        def missing_classifications(logger: BoundLogger) -> None:
+            logger.warning(
+                "enrichment_classifications_disabled",
+                message=(
+                    "Enrichment for classifications is not configured. assay_class_id will remain NULL."
+                ),
+            )
+
+        self._enrichment_strategy = EnrichmentStrategy(
+            config_root=self.config.chembl,
+            base_path=("assay", "enrich"),
+            rules=[
+                FunctionEnrichmentRule(
+                    name="assay_classifications",
+                    config_path=("classifications",),
+                    function=classifications_rule,
+                    on_missing_config=missing_classifications,
+                ),
+                FunctionEnrichmentRule(
+                    name="assay_parameters",
+                    config_path=("parameters",),
+                    function=parameters_rule,
+                ),
+            ],
+            logger=log,
+            client_provider=self._get_chembl_enrichment_client,
+        )
+        return self._enrichment_strategy
+
+    def _get_chembl_enrichment_client(self) -> ChemblClient:
+        if self._chembl_enrichment_client is not None:
+            return self._chembl_enrichment_client
+
+        source_raw = self._resolve_source_config("chembl")
+        source_config = AssaySourceConfig.from_source(source_raw)
+        parameters = self._normalize_parameters(source_config.parameters)
+        base_url = self._resolve_base_url(parameters)
+        api_client = self._client_factory.for_source("chembl", base_url=base_url)
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
+        self._chembl_enrichment_client = ChemblClient(
+            api_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        return self._chembl_enrichment_client
 
     def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Serialize array-of-object fields to header+rows format."""
@@ -771,23 +881,6 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         return df
 
-    def _enrich_with_related_data(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Обогатить DataFrame данными из связанных таблиц (ASSAY_CLASS_MAP, ASSAY_PARAMETERS).
-
-        Parameters
-        ----------
-        df:
-            DataFrame с данными assay.
-        log:
-            UnifiedLogger для логирования.
-
-        Returns
-        -------
-        pd.DataFrame:
-            Обогащенный DataFrame с данными из связанных таблиц.
-        """
-        if df.empty:
-            return df
 
         # Создать HTTP клиент для запросов к API
         # Используем тот же источник что и в extract

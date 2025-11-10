@@ -26,6 +26,10 @@ from bioetl.core.normalizers import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
+)
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas.activity import (
@@ -36,6 +40,7 @@ from bioetl.schemas.activity import (
     ActivitySchema,
 )
 from bioetl.schemas.vocab import required_vocab_ids
+from structlog.stdlib import BoundLogger
 
 from ..base import RunResult
 from ..chembl_base import ChemblPipelineBase
@@ -130,6 +135,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         super().__init__(config, run_id)
         self._last_batch_extract_stats: dict[str, int | float] | None = None
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
+        self._chembl_enrichment_client: ChemblClient | None = None
+        self._enrichment_strategy: EnrichmentStrategy | None = None
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch activity payloads from ChEMBL using the unified HTTP client.
@@ -387,21 +394,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._validate_foreign_keys(df, log)
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
-        # Enrichment: compound_record fields
-        if self._should_enrich_compound_record():
-            df = self._enrich_compound_record(df)
-
-        # Enrichment: assay fields
-        if self._should_enrich_assay():
-            df = self._enrich_assay(df)
-
-        # Enrichment: molecule fields
-        if self._should_enrich_molecule():
-            df = self._enrich_molecule(df)
-
-        # Enrichment: data_validity fields
-        if self._should_enrich_data_validity():
-            df = self._enrich_data_validity(df)
+        df = self._apply_enrichment(df)
 
         # Finalize identifier columns BEFORE ordering to ensure all required columns exist
         df = self._finalize_identifier_columns(df, log)
@@ -509,308 +502,112 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _should_enrich_compound_record(self) -> bool:
-        """Проверить, включено ли обогащение compound_record в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            compound_record_section: Any = enrich_section.get("compound_record")
-            if not isinstance(compound_record_section, Mapping):
-                return False
-            compound_record_section = cast(Mapping[str, Any], compound_record_section)
-            enabled: Any = compound_record_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+    def _apply_enrichment(self, df: pd.DataFrame) -> pd.DataFrame:
+        strategy = self._ensure_enrichment_strategy()
+        return strategy.execute(df)
 
-    def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из compound_record."""
+    def _ensure_enrichment_strategy(self) -> EnrichmentStrategy:
+        if self._enrichment_strategy is not None:
+            return self._enrichment_strategy
+
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        compound_record_section: Any = enrich_section.get("compound_record")
-                        if isinstance(compound_record_section, Mapping):
-                            compound_record_section = cast(
-                                Mapping[str, Any], compound_record_section
-                            )
-                            enrich_cfg = dict(compound_record_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        def molecule_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            return self._enrich_molecule_with_client(frame, client, cfg, log)
 
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию обогащения
-        return enrich_with_compound_record(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_assay(self) -> bool:
-        """Проверить, включено ли обогащение assay в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            assay_section: Any = enrich_section.get("assay")
-            if not isinstance(assay_section, Mapping):
-                return False
-            assay_section = cast(Mapping[str, Any], assay_section)
-            enabled: Any = assay_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из assay."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        assay_section: Any = enrich_section.get("assay")
-                        if isinstance(assay_section, Mapping):
-                            assay_section = cast(Mapping[str, Any], assay_section)
-                            enrich_cfg = dict(assay_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию обогащения
-        return enrich_with_assay(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_data_validity(self) -> bool:
-        """Проверить, включено ли обогащение data_validity в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            data_validity_section: Any = enrich_section.get("data_validity")
-            if not isinstance(data_validity_section, Mapping):
-                return False
-            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-            enabled: Any = data_validity_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из data_validity_lookup."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        data_validity_section: Any = enrich_section.get("data_validity")
-                        if isinstance(data_validity_section, Mapping):
-                            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-                            enrich_cfg = dict(data_validity_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Проверка: если data_validity_description уже заполнено (не все NA), логировать информационное сообщение
-        if "data_validity_description" in df.columns:
-            non_na_count = int(df["data_validity_description"].notna().sum())
-            if non_na_count > 0:
+        def data_validity_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            if "data_validity_description" in frame.columns and frame[
+                "data_validity_description"
+            ].notna().any():
                 log.info(
                     "enrichment_data_validity_description_already_filled",
-                    non_na_count=non_na_count,
-                    total_count=len(df),
-                    message="data_validity_description already populated from extract, enrichment will update/overwrite",
+                    message=(
+                        "data_validity_description already populated from extract, enrichment will update/overwrite"
+                    ),
                 )
+            return enrich_with_data_validity(frame, client, cfg)
 
-        # Создать или переиспользовать клиент ChEMBL
+        rules: list[FunctionEnrichmentRule] = [
+            FunctionEnrichmentRule(
+                name="activity_compound_record",
+                config_path=("compound_record",),
+                function=enrich_with_compound_record,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_assay",
+                config_path=("assay",),
+                function=enrich_with_assay,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_molecule",
+                config_path=("molecule",),
+                function=molecule_rule,
+            ),
+            FunctionEnrichmentRule(
+                name="activity_data_validity",
+                config_path=("data_validity",),
+                function=data_validity_rule,
+            ),
+        ]
+
+        self._enrichment_strategy = EnrichmentStrategy(
+            config_root=self.config.chembl,
+            base_path=("activity", "enrich"),
+            rules=rules,
+            logger=log,
+            client_provider=self._get_chembl_enrichment_client,
+        )
+        return self._enrichment_strategy
+
+    def _get_chembl_enrichment_client(self) -> ChemblClient:
+        if self._chembl_enrichment_client is not None:
+            return self._chembl_enrichment_client
+
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
+        self._chembl_enrichment_client = ChemblClient(
             api_client,
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
+        return self._chembl_enrichment_client
 
-        # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
-        return enrich_with_data_validity(df, chembl_client, enrich_cfg)
+    def _enrich_molecule_with_client(
+        self,
+        df: pd.DataFrame,
+        client: ChemblClient,
+        cfg: Mapping[str, Any],
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        df_join = join_activity_with_molecule(df, client, cfg)
 
-    def _should_enrich_molecule(self) -> bool:
-        """Проверить, включено ли обогащение molecule в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            molecule_section: Any = enrich_section.get("molecule")
-            if not isinstance(molecule_section, Mapping):
-                return False
-            molecule_section = cast(Mapping[str, Any], molecule_section)
-            enabled: Any = molecule_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
-
-    def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из molecule через join."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        molecule_section: Any = enrich_section.get("molecule")
-                        if isinstance(molecule_section, Mapping):
-                            molecule_section = cast(Mapping[str, Any], molecule_section)
-                            enrich_cfg = dict(molecule_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
-
-        # Создать или переиспользовать клиент ChEMBL
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
-        # Вызвать функцию join для получения molecule_name
-        df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
-
-        # Коалесцировать molecule_name из join в molecule_pref_name если оно пусто
         if "molecule_name" in df_join.columns:
             if "molecule_pref_name" not in df.columns:
                 df["molecule_pref_name"] = pd.NA
-            # Заполнить molecule_pref_name из molecule_name где оно пусто
             mask = df["molecule_pref_name"].isna() | (
                 df["molecule_pref_name"].astype("string").str.strip() == ""
             )
             if mask.any():
-                # Merge по activity_id для получения molecule_name
                 df_merged = df.merge(
                     df_join[["activity_id", "molecule_name"]],
                     on="activity_id",
                     how="left",
                     suffixes=("", "_join"),
                 )
-                # Заполнить molecule_pref_name из molecule_name где оно пусто
                 df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
                 log.info(
                     "molecule_pref_name_enriched",
