@@ -183,9 +183,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(
+        self._fetch_chembl_release(
             client,
-            log,
+            log=log,
             timeout=source_config.handshake_timeout_sec,
         )
 
@@ -321,9 +321,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(
+        self._fetch_chembl_release(
             client,
-            log,
+            log=log,
             timeout=source_config.handshake_timeout_sec,
         )
 

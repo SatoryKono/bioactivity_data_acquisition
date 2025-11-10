@@ -399,9 +399,26 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         *,
         timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
-        """Backward compatible wrapper for tests expecting private method."""
+        """Backward compatible wrapper handling legacy fetch signatures."""
 
-        return self.fetch_chembl_release(client, log, timeout=timeout)
+        bound_log = (
+            log
+            if log is not None
+            else UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        )
+
+        try:
+            return self.fetch_chembl_release(client, bound_log, timeout=timeout)
+        except TypeError as exc:
+            timeout_is_unexpected = timeout is not None and "timeout" in str(exc)
+            if not timeout_is_unexpected:
+                raise
+            bound_log.warning(
+                f"{self.pipeline_code}.release_timeout_unsupported",
+                error=str(exc),
+                timeout=timeout,
+            )
+            return self.fetch_chembl_release(client, bound_log)
 
     def perform_source_handshake(
         self,

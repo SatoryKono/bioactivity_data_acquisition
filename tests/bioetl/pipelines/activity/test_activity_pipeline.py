@@ -10,6 +10,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 from requests.exceptions import HTTPError, RequestException
+from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -68,6 +69,41 @@ class TestChemblActivityPipelineTransformations:
         assert second_call_endpoint == "/status.json"
         assert mock_client.get.call_args_list[0].kwargs["timeout"] is None
         assert mock_client.get.call_args_list[1].kwargs["timeout"] is None
+
+    def test_fetch_release_timeout_keyword_backward_compatibility(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Ensure `_fetch_chembl_release` tolerates legacy fetch implementations."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        mock_client = MagicMock()
+        log = MagicMock(spec=BoundLogger)
+
+        def side_effect(*args: Any, **kwargs: Any) -> str:
+            if "timeout" in kwargs:
+                raise TypeError(
+                    "fetch_chembl_release() got an unexpected keyword argument 'timeout'"
+                )
+            return "33"
+
+        pipeline.fetch_chembl_release = MagicMock(side_effect=side_effect)  # type: ignore[assignment]
+
+        result = pipeline._fetch_chembl_release(  # noqa: SLF001
+            mock_client,
+            log=log,
+            timeout=5.0,
+        )
+
+        assert result == "33"
+        assert pipeline.fetch_chembl_release.call_count == 2
+
+        first_call_kwargs = pipeline.fetch_chembl_release.call_args_list[0].kwargs
+        assert first_call_kwargs["timeout"] == 5.0
+
+        warning_args, warning_kwargs = log.warning.call_args
+        assert warning_args[0] == f"{pipeline.pipeline_code}.release_timeout_unsupported"
+        assert warning_kwargs["timeout"] == 5.0
 
     def test_normalize_identifiers_invalid(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
