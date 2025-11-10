@@ -36,6 +36,13 @@ class ProcessItemFn(Protocol):
     def __call__(self, __item: dict[str, Any]) -> dict[str, Any]: ...
 
 
+class ChemblSourceConfig(Protocol):
+    """Минимальный контракт конфигурации источника ChEMBL."""
+
+    page_size: int
+    max_url_length: int
+
+
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
@@ -58,6 +65,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+        self._last_batch_extract_stats: dict[str, int | float] | None = None
 
     @property
     def actor(self) -> str:
@@ -536,7 +544,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         source_config_raw = self._resolve_source_config("chembl")
         chembl_source_config = cast(
-            ChemblPipelineSourceConfig[Any],
+            ChemblSourceConfig,
             ChemblPipelineSourceConfig.from_source_config(source_config_raw),
         )
 
@@ -549,10 +557,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             limit,
             hard_cap=defaults.page_size_cap,
         )
-        max_url_length_candidate: Any = getattr(chembl_source_config, "max_url_length", None)
-        config_max_url_length = (
-            int(max_url_length_candidate) if isinstance(max_url_length_candidate, int) else None
-        )
+        config_max_url_length = int(chembl_source_config.max_url_length)
         effective_max_url_length = (
             max_url_length if max_url_length is not None else config_max_url_length
         )
@@ -572,8 +577,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         def _should_flush(candidate: Sequence[str]) -> bool:
             if len(candidate) > effective_size:
                 return True
-            if effective_max_url_length is None:
-                return False
             query_params: dict[str, str] = {id_param_name: ",".join(candidate)}
             if select_fields:
                 query_params["only"] = ",".join(select_fields)
@@ -654,9 +657,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     error=str(exc),
                     exc_info=True,
                 )
-        dataframe = pd.DataFrame.from_records(
-            all_records
-        )  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(all_records)
         if dataframe.empty:
             dataframe = pd.DataFrame({id_column: pd.Series(dtype="string")})
         elif id_column in dataframe.columns:

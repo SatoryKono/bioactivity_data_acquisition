@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar, cast, no_type_check
 
 import pandas as pd
+from pandas import Series
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
@@ -41,6 +42,40 @@ MUST_HAVE_FIELDS = {
     "molecule_structures",
     "molecule_hierarchy",
 }
+
+
+@no_type_check
+def _coerce_numeric_series(series: pd.Series) -> Series[float]:
+    """Convert arbitrary series to float series with NaNs on errors."""
+
+    return cast(Series[float], pd.to_numeric(series, errors="coerce"))
+
+
+def _augment_select_fields(existing: tuple[str, ...] | None) -> tuple[str, ...] | None:
+    """Ensure mandatory select fields are always included while preserving order."""
+
+    if existing is None:
+        return None
+    merged = dict.fromkeys((*existing, *MUST_HAVE_FIELDS))
+    return tuple(merged)
+
+
+@no_type_check
+def _ensure_iterable_records(
+    fetched: Mapping[str, object] | Iterable[Mapping[str, object]]
+) -> Iterable[Mapping[str, object]]:
+    """Normalize fetch() result to an iterable of records."""
+
+    if isinstance(fetched, Mapping):
+        return (fetched,)
+    return fetched
+
+
+@no_type_check
+def _series_isin(series: Series, values: Iterable[object]) -> Series[bool]:
+    """Wrapper over Series.isin for static type checkers."""
+
+    return cast(Series[bool], series.isin(values))
 
 
 class TestItemChemblPipeline(ChemblPipelineBase):
@@ -114,9 +149,6 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         return release_value
 
-    # ------------------------------------------------------------------
-    # Pipeline stages
-    # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch molecule payloads from ChEMBL using the unified HTTP client.
@@ -179,11 +211,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(source_config.page_size, limit)
-        select_fields = source_config.parameters.select_fields
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields = _augment_select_fields(source_config.parameters.select_fields)
         log.debug("chembl_testitem.select_fields", fields=select_fields)
-        records: list[Mapping[str, Any]] = []
+        records: list[Mapping[str, object]] = []
 
         filters_payload: dict[str, Any] = {
             "mode": "all",
@@ -279,9 +309,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         page_size = source_config.page_size
         limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        select_fields = _augment_select_fields(source_config.parameters.select_fields)
         log.debug("chembl_testitem.select_fields", fields=select_fields)
 
         filters_payload = {
@@ -301,16 +329,17 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        records: list[Mapping[str, Any]] = []
+        records: list[Mapping[str, object]] = []
         testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
             chembl_client,
             batch_size=page_size,
             max_url_length=source_config.max_url_length,
         )
-        for item in testitem_client.fetch(ids, select_fields=select_fields):
+        fetched_records = testitem_client.fetch(ids, select_fields=select_fields)
+        record_iterable = _ensure_iterable_records(fetched_records)
+        for item in record_iterable:
             records.append(item)
             if limit is not None and len(records) >= limit:
-                records = records[: int(limit)]
                 break
 
         dataframe = pd.DataFrame(records)
@@ -595,10 +624,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         for col in int_ge_zero_columns + int_columns + boolean_columns:
             if col in df.columns:
                 # Convert to numeric, coercing errors and None to NaN
-                numeric_series = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
-                    df[col],
-                    errors="coerce",
-                )
+                numeric_series = _coerce_numeric_series(df[col])
                 # For columns that should be >= 0, replace negative values with NaN
                 if col in int_ge_zero_columns:
                     # Replace negative values with NaN
@@ -624,25 +650,24 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     mask = df[col].notna()
                     if mask.any():
                         # Convert to string and uppercase for comparison
-                        col_str = df.loc[mask, col].astype(str).str.upper().str.strip()
+                        col_str_series = df.loc[mask, col].astype(str)
+                        col_str: Series[str] = col_str_series.str.upper().str.strip()
                         # Create new series with converted values
                         converted = df[col].copy()
                         # Map Y to 1, N to 0
                         converted.loc[mask & (col_str == "Y")] = 1
                         converted.loc[mask & (col_str == "N")] = 0
                         # For values that are not Y/N, try numeric conversion
-                        other_mask = mask & ~col_str.isin(
-                            ["Y", "N"]
-                        )  # pyright: ignore[reportUnknownMemberType]
+                        other_mask = mask & ~_series_isin(col_str, ["Y", "N"])
                         if other_mask.any():
                             # Try to convert existing numeric values
-                            numeric_vals = pd.to_numeric(
-                                df.loc[other_mask, col], errors="coerce"
-                            )  # pyright: ignore[reportUnknownMemberType]
+                            numeric_vals: Series[float] = _coerce_numeric_series(
+                                df.loc[other_mask, col]
+                            )
                             # Keep only valid numeric values (0 or 1)
-                            valid_numeric = numeric_vals.notna() & numeric_vals.isin(
-                                [0, 1]
-                            )  # pyright: ignore[reportUnknownMemberType]
+                            valid_numeric: Series[bool] = numeric_vals.notna() & _series_isin(
+                                numeric_vals, [0, 1]
+                            )
                             # Set all other_mask values to NA first
                             converted.loc[other_mask] = pd.NA
                             # Then restore valid numeric values
@@ -651,9 +676,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                                 converted.loc[valid_indices] = numeric_vals.loc[valid_indices]
                         df[col] = converted
                     # Convert to Int64, ensuring only 0 or 1
-                    numeric_series = pd.to_numeric(
-                        df[col], errors="coerce"
-                    )  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = _coerce_numeric_series(df[col])
                     numeric_series = numeric_series.where(
                         (numeric_series == 0) | (numeric_series == 1) | numeric_series.isna()
                     )
@@ -670,9 +693,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     "num_ro5_violations",
                     "rtb",
                 ]:
-                    numeric_series = pd.to_numeric(
-                        df[col], errors="coerce"
-                    )  # pyright: ignore[reportUnknownMemberType]
+                    numeric_series = _coerce_numeric_series(df[col])
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     df[col] = numeric_series.astype("Int64")
 

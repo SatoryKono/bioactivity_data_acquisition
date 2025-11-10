@@ -195,7 +195,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
         page_size = source_config.batch_size
         select_fields_tuple = source_config.parameters.select_fields
@@ -230,11 +230,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         )
 
         for item in assay_client.iter(
-            limit=limit, page_size=page_size, select_fields=select_fields
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
         ):
-            records.append(item)
+            record_dict: dict[str, Any] = dict(cast(Mapping[str, Any], item))
+            records.append(record_dict)
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(records)
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 
@@ -329,7 +332,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        records: list[Mapping[str, Any]] = []
+        records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
         select_fields_tuple = source_config.parameters.select_fields
         if select_fields_tuple:
@@ -357,12 +360,20 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        for item in assay_client.fetch(ids, select_fields=select_fields):
-            records.append(item)
+        fetched_records = assay_client.fetch(ids, select_fields=select_fields)
+        fetch_iterable: Iterable[Mapping[str, object]]
+        if isinstance(fetched_records, Mapping):
+            fetch_iterable = (cast(Mapping[str, object], fetched_records),)
+        else:
+            fetch_iterable = fetched_records
+
+        for item in fetch_iterable:
+            record_dict: dict[str, Any] = dict(cast(Mapping[str, Any], item))
+            records.append(record_dict)
             if limit is not None and len(records) >= limit:
                 break
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        dataframe = pd.DataFrame(records)
         if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
 

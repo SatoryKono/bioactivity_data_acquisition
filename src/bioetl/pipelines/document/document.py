@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 import time
 from collections.abc import Mapping, Sequence
@@ -49,7 +50,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._last_batch_extract_stats: dict[str, Any] | None = None
+        self._last_batch_extract_stats: dict[str, int | float] | None = None
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch document payloads from ChEMBL using the unified HTTP client.
@@ -178,9 +179,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             next_endpoint = next_link
             params = None
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(
-            records
-        )  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        dataframe: pd.DataFrame = pd.DataFrame(records)
         if dataframe.empty:
             dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
         elif "document_chembl_id" in dataframe.columns:
@@ -384,15 +383,15 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Normalize DOI
         if "doi" in df.columns:
-            df["doi_clean"] = df["doi"].apply(
-                self._normalize_doi
-            )  # pyright: ignore[reportUnknownMemberType]
+            df["doi_clean"] = df["doi"].map(self._normalize_doi)
 
         # Normalize PMID
         if "pubmed_id" in df.columns:
-            df["pubmed_id"] = pd.to_numeric(df["pubmed_id"], errors="coerce").astype(
-                "Int64"
-            )  # pyright: ignore[reportUnknownMemberType]
+            pubmed_series: pd.Series[Any] = df["pubmed_id"]
+            pubmed_values = [
+                self._normalize_pubmed_identifier(value) for value in pubmed_series.tolist()
+            ]
+            df["pubmed_id"] = pd.Series(pubmed_values, index=df.index, dtype="Int64")
 
         return df
 
@@ -414,6 +413,32 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         if doi_pattern.match(doi):
             return doi
         return ""
+
+    @staticmethod
+    def _normalize_pubmed_identifier(value: object) -> int | None:
+        """Normalize PubMed identifier to an optional non-negative integer."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return None
+        if isinstance(value, Integral):
+            integer_value = int(value)
+            return integer_value if integer_value >= 0 else None
+        if isinstance(value, Real):
+            float_value = float(value)
+            if math.isnan(float_value) or float_value < 0:
+                return None
+            return int(float_value)
+        if isinstance(value, str):
+            candidate = value.strip()
+            if not candidate:
+                return None
+            if not candidate.isdecimal():
+                return None
+            return int(candidate)
+        if value is pd.NA:
+            return None
+        return None
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields (title, abstract, journal, authors)."""
