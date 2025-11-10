@@ -17,6 +17,8 @@
   | `_normalise_base_url`    | `_normalize_base_url`   |
 
   Алиасы со старым API сохраняются на один релиз и выбрасывают `DeprecationWarning`.
+- Обновлены гайды по нормализации имён (`docs/styleguide/00-naming-conventions.md`, `docs/styleguide/VIOLATIONS_TABLE.md`, `docs/INDEX.md`) и добавлен onboarding-чеклист с ссылками на план.
+- В `pyproject.toml` расширены whitelist-правила `ruff`/`flake8-naming` для защищённых идентификаторов и вынесен набор `STANDARD_RELATIONS` в `assay_transform` на модульный уровень для корректного контроля нейминга.
 
 ### Инструменты
 - `scripts/schema_guard.py` валидирует реестр схем (версии, дубликаты, hash-поля) и пишет отчёт `artifacts/SCHEMA_GUARD_REPORT.md`.
