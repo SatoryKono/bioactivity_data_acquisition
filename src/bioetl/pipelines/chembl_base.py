@@ -354,22 +354,36 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
             requested_at = datetime.now(timezone.utc)
-            try:
-                response = client_get("/status.json")
-                json_candidate = getattr(response, "json", None)
-                if callable(json_candidate):
-                    status_payload_raw = json_candidate()
-                    status_payload = self._coerce_mapping(status_payload_raw)
-                    release_value = self._extract_chembl_release(status_payload)
-                    log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
-            except Exception as exc:
-                log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
-            finally:
-                self._update_release(release_value)
-                self.record_extract_metadata(
-                    chembl_release=release_value,
-                    requested_at_utc=requested_at,
-                )
+            endpoints_to_try: tuple[str, ...] = ("/status", "/status.json")
+
+            for endpoint in endpoints_to_try:
+                try:
+                    response = client_get(endpoint)
+                    json_candidate = getattr(response, "json", None)
+                    if callable(json_candidate):
+                        status_payload_raw = json_candidate()
+                        status_payload = self._coerce_mapping(status_payload_raw)
+                        release_value = self._extract_chembl_release(status_payload)
+                        log.info(
+                            f"{self.pipeline_code}.status",
+                            chembl_release=release_value,
+                            status_endpoint=endpoint,
+                        )
+                        break
+                except Exception as exc:
+                    log.warning(
+                        f"{self.pipeline_code}.status_failed",
+                        error=str(exc),
+                        status_endpoint=endpoint,
+                    )
+            else:
+                release_value = None
+
+            self._update_release(release_value)
+            self.record_extract_metadata(
+                chembl_release=release_value,
+                requested_at_utc=requested_at,
+            )
             return release_value
         self._update_release(None)
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))

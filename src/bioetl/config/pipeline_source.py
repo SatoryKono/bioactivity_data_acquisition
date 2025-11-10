@@ -29,7 +29,7 @@ class SourceConfigDefaults:
     page_size_cap: int = 25
     max_url_length: int = 2000
     max_url_length_cap: int = 2000
-    handshake_endpoint: str = "/status.json"
+    handshake_endpoint: str = "/status"
     handshake_enabled: bool = True
 
 
@@ -86,7 +86,7 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         description="Максимальная допустимая длина URL для батчевых операций.",
     )
     handshake_endpoint: str = Field(
-        default="/status.json",
+        default="/status",
         description="Endpoint для handshake перед экстракцией.",
     )
     handshake_enabled: bool = Field(

@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from requests.exceptions import RequestException
+from requests.exceptions import HTTPError, RequestException
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -40,6 +40,32 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["molecule_chembl_id"].iloc[0] == "CHEMBL1"
         assert normalized["molecule_chembl_id"].iloc[1] == "CHEMBL2"
         assert normalized["molecule_chembl_id"].iloc[2] == "CHEMBL3"
+
+    def test_fetch_release_falls_back_to_status_json(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Ensure `/status` failure falls back to the legacy `/status.json` endpoint."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        mock_client = MagicMock()
+        mock_client.handshake = None
+
+        http_error = HTTPError("boom")
+        success_response = MagicMock()
+        success_response.json.return_value = {"chembl_release": "33"}
+
+        mock_client.get.side_effect = [http_error, success_response]
+
+        result = pipeline.fetch_chembl_release(mock_client)
+
+        assert result == "33"
+        assert pipeline.chembl_release == "33"
+        assert mock_client.get.call_count == 2
+        first_call_endpoint = mock_client.get.call_args_list[0].args[0]
+        second_call_endpoint = mock_client.get.call_args_list[1].args[0]
+        assert first_call_endpoint == "/status"
+        assert second_call_endpoint == "/status.json"
 
     def test_normalize_identifiers_invalid(
         self, pipeline_config_fixture: PipelineConfig, run_id: str

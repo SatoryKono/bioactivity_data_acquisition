@@ -24,7 +24,7 @@ class AssaySourceConfig(ChemblPipelineSourceConfig[AssaySourceParameters]):
         page_size_cap=25,
         max_url_length=2000,
         max_url_length_cap=2000,
-        handshake_endpoint="/status.json",
+        handshake_endpoint="/status",
         handshake_enabled=True,
     )
 
