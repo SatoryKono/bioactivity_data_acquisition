@@ -15,8 +15,13 @@ import pandas as pd
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
+)
 from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
+from structlog.stdlib import BoundLogger
 
 from ..chembl_base import ChemblPipelineBase
 from .document_enrich import enrich_with_document_terms
@@ -51,6 +56,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._last_batch_extract_stats: dict[str, int | float] | None = None
+        self._chembl_enrichment_client: ChemblClient | None = None
+        self._enrichment_strategy: EnrichmentStrategy | None = None
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch document payloads from ChEMBL using the unified HTTP client.
@@ -297,8 +304,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         df = self._normalize_numeric_fields(df, log)
 
         # Enrichment: document_term fields
-        if self._should_enrich_document_terms():
-            df = self._enrich_document_terms(df)
+        df = self._apply_enrichment(df, log)
 
         # Add system fields
         df = self._add_system_fields(df, log)
@@ -598,74 +604,57 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 duplicate_ids=duplicate_ids[:10],  # Limit to first 10
             )
 
-    def _should_enrich_document_terms(self) -> bool:
-        """Проверить, включено ли обогащение document_term в конфиге."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            document_section: Any = chembl_section.get("document")
-            if not isinstance(document_section, Mapping):
-                return False
-            document_section = cast(Mapping[str, Any], document_section)
-            enrich_section: Any = document_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            document_term_section: Any = enrich_section.get("document_term")
-            if not isinstance(document_term_section, Mapping):
-                return False
-            document_term_section = cast(Mapping[str, Any], document_term_section)
-            enabled: Any = document_term_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+    def _apply_enrichment(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        strategy = self._ensure_enrichment_strategy(log)
+        return strategy.execute(df)
 
-    def _enrich_document_terms(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из document_term."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+    def _ensure_enrichment_strategy(self, log: BoundLogger) -> EnrichmentStrategy:
+        if self._enrichment_strategy is not None:
+            return self._enrichment_strategy
 
-        # Получить конфигурацию обогащения
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                document_section: Any = chembl_section.get("document")
-                if isinstance(document_section, Mapping):
-                    document_section = cast(Mapping[str, Any], document_section)
-                    enrich_section: Any = document_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        document_term_section: Any = enrich_section.get("document_term")
-                        if isinstance(document_term_section, Mapping):
-                            document_term_section = cast(Mapping[str, Any], document_term_section)
-                            enrich_cfg = dict(document_term_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        def document_terms_rule(
+            frame: pd.DataFrame,
+            client: ChemblClient,
+            cfg: Mapping[str, Any],
+        ) -> pd.DataFrame:
+            return enrich_with_document_terms(frame, client, cfg)
 
-        # Создать или переиспользовать клиент ChEMBL
+        self._enrichment_strategy = EnrichmentStrategy(
+            config_root=self.config.chembl,
+            base_path=("document", "enrich"),
+            rules=[
+                FunctionEnrichmentRule(
+                    name="document_terms",
+                    config_path=("document_term",),
+                    function=document_terms_rule,
+                )
+            ],
+            logger=log,
+            client_provider=self._get_chembl_enrichment_client,
+        )
+        return self._enrichment_strategy
+
+    def _get_chembl_enrichment_client(self) -> ChemblClient:
+        if self._chembl_enrichment_client is not None:
+            return self._chembl_enrichment_client
+
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source(source_raw)
+        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         api_client, _ = self.prepare_chembl_client(
             "chembl",
-            base_url=self._resolve_base_url(
-                cast(Mapping[str, Any], dict(source_config.parameters))
-            ),
+            base_url=base_url,
             client_name="chembl_enrichment_client",
         )
-        chembl_client = ChemblClient(
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", api_client)
+        self._chembl_enrichment_client = ChemblClient(
             api_client,
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-
-        # Вызвать функцию обогащения
-        return enrich_with_document_terms(df, chembl_client, enrich_cfg)
+        return self._chembl_enrichment_client
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:
         """Extract fields from nested objects in document records."""
