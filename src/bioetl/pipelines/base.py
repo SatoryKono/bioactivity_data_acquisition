@@ -357,6 +357,69 @@ class PipelineBase(ABC):
             DataFrame containing extracted records.
         """
 
+    def _extract_with_optional_ids(
+        self,
+        *,
+        log: BoundLogger,
+        event_name: str,
+        extract_all: Callable[[], pd.DataFrame],
+        extract_by_ids: Callable[[Sequence[str]], pd.DataFrame],
+        id_column_name: str | None = None,
+        limit: int | None = None,
+        sample: int | None = None,
+        override_ids: Sequence[str] | None = None,
+        override_log_fields: Mapping[str, object] | None = None,
+    ) -> pd.DataFrame:
+        """Execute extraction with optional ID filtering.
+
+        The helper inspects the ``input_file`` CLI option and, when provided,
+        routes the pipeline through ``extract_by_ids`` with deterministically
+        ordered identifiers. When no input file is configured the helper falls
+        back to ``extract_all`` or, if ``override_ids`` are supplied, executes a
+        batched extraction using those identifiers instead. Structured log
+        events are emitted to keep observability consistent across pipelines.
+        """
+
+        resolved_limit = limit if limit is not None else self.config.cli.limit
+        resolved_sample = sample if sample is not None else self.config.cli.sample
+        resolved_id_column = id_column_name or self._get_id_column_name()
+
+        ids_from_input: list[str] | None = None
+        if self.config.cli.input_file:
+            ids_from_input = self._read_input_ids(
+                id_column_name=resolved_id_column,
+                limit=resolved_limit,
+                sample=resolved_sample,
+            )
+
+        if ids_from_input:
+            log.info(
+                event_name,
+                mode="batch",
+                ids_count=len(ids_from_input),
+            )
+            return extract_by_ids(ids_from_input)
+
+        override_list: list[str] | None = None
+        if override_ids is not None:
+            if isinstance(override_ids, Sequence) and not isinstance(override_ids, (str, bytes)):
+                override_list = [str(identifier) for identifier in override_ids]
+            else:
+                override_list = [str(override_ids)]
+
+        if override_list:
+            log_payload: dict[str, object] = {
+                "mode": "batch",
+                "ids_count": len(override_list),
+            }
+            if override_log_fields:
+                log_payload.update(dict(override_log_fields))
+            log.info(event_name, **log_payload)
+            return extract_by_ids(override_list)
+
+        log.info(event_name, mode="full")
+        return extract_all()
+
     @abstractmethod
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Subclasses transform raw payloads into normalized tabular data."""
@@ -994,7 +1057,7 @@ class PipelineBase(ABC):
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         """Default column factories and dtypes for schema-required columns."""
 
-        def _row_index_factory(count: int) -> pd.Series[Any]:
+        def _row_index_factory(count: int) -> Series:
             return pd.Series(range(count), dtype="Int64")
 
         return {
@@ -1157,7 +1220,7 @@ class PipelineBase(ABC):
                 return df
             schema = schema_entry.schema
 
-        def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
+        def _to_numeric_series(series: Series) -> Series:
             to_numeric_series = cast(Callable[..., Series], pd.to_numeric)
             return to_numeric_series(series, errors="coerce")
 

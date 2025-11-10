@@ -139,17 +139,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_activity.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
+        override_ids: Sequence[str] | None = None
 
         # Legacy support: check kwargs for activity_ids (deprecated)
         payload_activity_ids = kwargs.get("activity_ids")
@@ -160,13 +150,17 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             if isinstance(payload_activity_ids, Sequence):
                 sequence_ids: Sequence[str | int] = cast(Sequence[str | int], payload_activity_ids)
-                ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
+                override_ids = [str(id_val) for id_val in sequence_ids]
             else:
-                ids_list = [str(payload_activity_ids)]
-            return self.extract_by_ids(ids_list)
+                override_ids = [str(payload_activity_ids)]
 
-        log.info("chembl_activity.extract_mode", mode="full")
-        return self.extract_all()
+        return self._extract_with_optional_ids(
+            log=log,
+            event_name="chembl_activity.extract_mode",
+            extract_all=self.extract_all,
+            extract_by_ids=self.extract_by_ids,
+            override_ids=override_ids,
+        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all activity records from ChEMBL using pagination."""

@@ -135,20 +135,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_assay.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
-
-        log.info("chembl_assay.extract_mode", mode="full")
-        return self.extract_all()
+        return self._extract_with_optional_ids(
+            log=log,
+            event_name="chembl_assay.extract_mode",
+            extract_all=self.extract_all,
+            extract_by_ids=self.extract_by_ids,
+        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all assay records from ChEMBL using pagination."""
