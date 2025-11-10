@@ -113,13 +113,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             resolved_source_config = TestItemSourceConfig.from_source(source_raw)
         elif isinstance(source_config, TestItemSourceConfig):
             resolved_source_config = source_config
-        elif isinstance(source_config, ChemblPipelineSourceConfig):
+        elif isinstance(source_config, SourceConfig):
+            resolved_source_config = TestItemSourceConfig.from_source(source_config)
+        else:
             resolved_source_config = cast(
                 ChemblPipelineSourceConfig[TestItemSourceParameters],
                 source_config,
             )
-        else:
-            resolved_source_config = TestItemSourceConfig.from_source(source_config)
 
         handshake_result = self.perform_source_handshake(
             client,
