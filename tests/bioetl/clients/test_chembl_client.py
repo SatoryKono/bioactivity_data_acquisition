@@ -6,6 +6,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from requests import HTTPError
+
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
 
@@ -68,6 +70,41 @@ class TestChemblClient:
         assert mock_api_client.get.call_count == 2
         assert "/status" in client._status_cache
         assert "/version" in client._status_cache
+
+    def test_handshake_falls_back_to_json_endpoint(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure handshake retries with ``.json`` suffix when the plain endpoint fails."""
+
+        success_response = MagicMock()
+        success_response.json.return_value = {"chembl_db_version": "34", "api_version": "2"}
+
+        mock_api_client.get.side_effect = [HTTPError("boom"), success_response]
+
+        client = ChemblClient(mock_api_client)
+        payload = client.handshake("/status")
+
+        assert payload["chembl_db_version"] == "34"
+        assert client._chembl_release == "34"
+        assert mock_api_client.get.call_count == 2
+        assert mock_api_client.get.call_args_list[0].args[0] == "/status"
+        assert mock_api_client.get.call_args_list[1].args[0] == "/status.json"
+        assert "/status" in client._status_cache
+        assert "/status.json" in client._status_cache
+
+    def test_handshake_returns_empty_payload_when_all_endpoints_fail(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Handshake should degrade gracefully when all candidate endpoints fail."""
+
+        mock_api_client.get.side_effect = [HTTPError("boom"), HTTPError("boom")]
+
+        client = ChemblClient(mock_api_client)
+        payload = client.handshake("/status")
+
+        assert payload == {}
+        assert mock_api_client.get.call_count == 2
+        assert "/status" in client._status_cache
 
     def test_paginate_single_page(
         self, mock_api_client: MagicMock, mock_response: MagicMock

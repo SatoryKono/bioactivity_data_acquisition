@@ -6,6 +6,8 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from functools import partial
 from typing import Any, Callable, cast
 
+from requests import RequestException
+
 from bioetl.clients.assay.chembl_assay_entity import ChemblAssayEntityClient
 from bioetl.clients.chembl_entities import (
     ChemblAssayClassificationEntityClient,
@@ -72,22 +74,78 @@ class ChemblClient:
             )
             return self._status_cache.get(endpoint, {})
 
-        if endpoint not in self._status_cache:
-            payload = self._client.get(endpoint).json()
-            self._status_cache[endpoint] = payload
+        cached = self._status_cache.get(endpoint)
+        if cached is not None:
+            return cached
+
+        endpoints_to_try = self._expand_handshake_endpoints(endpoint)
+        last_error: Exception | None = None
+
+        for candidate in endpoints_to_try:
+            cached_candidate = self._status_cache.get(candidate)
+            if cached_candidate is not None:
+                self._status_cache.setdefault(endpoint, cached_candidate)
+                return cached_candidate
+
+            try:
+                response = self._client.get(candidate)
+                payload = response.json()
+            except RequestException as exc:
+                last_error = exc
+                self._log.warning(
+                    "chembl.handshake.failed",
+                    endpoint=candidate,
+                    error=str(exc),
+                )
+                continue
+            except Exception as exc:  # pragma: no cover - defensive
+                last_error = exc
+                self._log.warning(
+                    "chembl.handshake.failed",
+                    endpoint=candidate,
+                    error=str(exc),
+                )
+                continue
+
             release = payload.get("chembl_db_version")
             api_version = payload.get("api_version")
             if isinstance(release, str):
                 self._chembl_release = release
             if isinstance(api_version, str):
                 self._api_version = api_version
+
+            self._status_cache[candidate] = payload
+            self._status_cache.setdefault(endpoint, payload)
             self._log.info(
                 "chembl.handshake",
-                endpoint=endpoint,
+                endpoint=candidate,
                 chembl_release=self._chembl_release,
                 api_version=self._api_version,
             )
+            return payload
+
+        self._status_cache.setdefault(endpoint, {})
+        if last_error is not None:
+            self._log.error(
+                "chembl.handshake.unavailable",
+                endpoints=endpoints_to_try,
+                error=str(last_error),
+            )
         return self._status_cache[endpoint]
+
+    @staticmethod
+    def _expand_handshake_endpoints(endpoint: str) -> tuple[str, ...]:
+        """Return a deterministic list of handshake endpoints to try."""
+
+        normalized = endpoint or "/status"
+        normalized = normalized if normalized.startswith("/") else f"/{normalized}"
+
+        if normalized.endswith(".json"):
+            fallback = normalized[: -len(".json")]
+            return (normalized, fallback)
+
+        fallback_json = f"{normalized}.json"
+        return (normalized, fallback_json)
 
     # ------------------------------------------------------------------
     # Pagination helpers
