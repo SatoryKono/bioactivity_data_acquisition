@@ -145,51 +145,11 @@ def _update_pipeline_config_from_cli(
 
     pipeline_config.materialization.root = str(output_dir)
 
-def _read_pipeline_config(
-    *,
-    config_path: str | Path,
-    profiles: Sequence[str | Path] | None = None,
-    cli_overrides: Mapping[str, Any] | None = None,
-    env: Mapping[str, str] | None = None,
-    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
-    include_default_profiles: bool = False,
-) -> PipelineConfig:
-    """Typed wrapper вокруг загрузчика конфигурации."""
-
-    return read_pipeline_config_impl(
-        config_path=config_path,
-        profiles=profiles,
-        cli_overrides=cli_overrides,
-        env=env,
-        env_prefixes=env_prefixes,
-        include_default_profiles=include_default_profiles,
-    )
-
-
-def read_pipeline_config(
-    *,
-    config_path: str | Path,
-    profiles: Sequence[str | Path] | None = None,
-    cli_overrides: Mapping[str, Any] | None = None,
-    env: Mapping[str, str] | None = None,
-    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
-    include_default_profiles: bool = False,
-) -> PipelineConfig:
-    """Совместимый алиас вокруг загрузчика конфигурации.
-
-    Исторически ``bioetl.cli.command.read_pipeline_config`` использовался в
-    тестах и документации, поэтому сохраняем доступ к функции с тем же
-    контрактом.
-    """
-
-    return _read_pipeline_config(
-        config_path=config_path,
-        profiles=profiles,
-        cli_overrides=cli_overrides,
-        env=env,
-        env_prefixes=env_prefixes,
-        include_default_profiles=include_default_profiles,
-    )
+# ``bioetl.cli.command.read_pipeline_config`` historically served as the public
+# entry point for loading pipeline configuration from the CLI module. Preserve
+# the same reference for backwards compatibility while delegating to the shared
+# loader implementation.
+read_pipeline_config = read_pipeline_config_impl
 
 
 def create_pipeline_command(
@@ -313,7 +273,7 @@ def create_pipeline_command(
             cli_overrides = _parse_set_overrides(set_overrides)
 
         try:
-            pipeline_config = _read_pipeline_config(
+            pipeline_config = read_pipeline_config(
                 config_path=config,
                 cli_overrides=cli_overrides,
                 include_default_profiles=True,
