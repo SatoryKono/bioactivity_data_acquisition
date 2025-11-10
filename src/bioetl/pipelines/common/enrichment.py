@@ -155,24 +155,33 @@ class FunctionEnrichmentRule(EnrichmentRule):
     def requires_client(self) -> bool:
         return self._requires_client
 
-    def handle_missing_config(self, logger: BoundLogger) -> None:
-        if self.on_missing_config is not None:
-            self.on_missing_config(logger)
+    def _handle_event(
+        self,
+        logger: BoundLogger,
+        hook: LoggerCallback | None,
+        event_name: str,
+    ) -> None:
+        if hook is not None:
+            hook(logger)
             return
         logger.debug(
-            "enrichment_rule_skipped_missing_config",
+            event_name,
             rule=self.name,
             config_path=self.config_path,
         )
 
+    def handle_missing_config(self, logger: BoundLogger) -> None:
+        self._handle_event(
+            logger,
+            self.on_missing_config,
+            "enrichment_rule_skipped_missing_config",
+        )
+
     def handle_disabled(self, logger: BoundLogger) -> None:
-        if self.on_disabled is not None:
-            self.on_disabled(logger)
-            return
-        logger.debug(
+        self._handle_event(
+            logger,
+            self.on_disabled,
             "enrichment_rule_disabled",
-            rule=self.name,
-            config_path=self.config_path,
         )
 
     def is_enabled(self, config_section: Mapping[str, Any]) -> bool:

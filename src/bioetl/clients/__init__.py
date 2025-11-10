@@ -7,7 +7,6 @@ from .activity.chembl_activity import ChemblActivityClient
 from .assay.chembl_assay import ChemblAssayClient
 from .assay.chembl_assay_entity import ChemblAssayEntityClient
 from .chembl_base import ChemblEntityFetcher, EntityConfig
-from .chembl_entity_client import ChemblEntityClientBase
 from .chembl_entities import (
     ChemblAssayClassificationEntityClient,
     ChemblAssayClassMapEntityClient,
@@ -16,6 +15,7 @@ from .chembl_entities import (
     ChemblDataValidityEntityClient,
     ChemblMoleculeEntityClient,
 )
+from .chembl_entity_client import ChemblEntityClientBase
 from .chembl_iterator import ChemblEntityIterator
 from .document.chembl_document import ChemblDocumentClient
 from .document.chembl_document_entity import ChemblDocumentTermEntityClient

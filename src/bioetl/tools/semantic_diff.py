@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import importlib
 import inspect
 import json
 import re
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from bioetl.core.logger import UnifiedLogger
 from bioetl.tools import get_project_root
@@ -92,26 +94,53 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
     return methods
 
 
+def _load_pipeline_config_type() -> type[Any] | None:
+    module_candidates: Iterable[str] = (
+        "bioetl.config.models.base",
+        "bioetl.config.models.models",
+    )
+    for module_name in module_candidates:
+        try:
+            module = importlib.import_module(module_name)
+        except Exception:  # noqa: BLE001 - пробуем следующий модуль
+            continue
+        pipeline_config = getattr(module, "PipelineConfig", None)
+        if pipeline_config is not None:
+            return pipeline_config
+    return None
+
+
 def extract_config_fields_from_code() -> dict[str, Any]:
-    try:
-        from bioetl.config.models.models import PipelineConfig
-    except Exception as exc:  # noqa: BLE001
-        return {"error": str(exc)}
+    pipeline_config = _load_pipeline_config_type()
+    if pipeline_config is None:
+        return {"error": "PipelineConfig is not available"}
+
+    model_fields_obj = getattr(pipeline_config, "model_fields", None)
+    if not isinstance(model_fields_obj, Mapping):
+        return {}
 
     fields: dict[str, Any] = {}
-    if hasattr(PipelineConfig, "model_fields"):
-        for field_name, field_info in PipelineConfig.model_fields.items():
-            fields[field_name] = {
-                "type": str(getattr(field_info, "annotation", None)),
-                "required": field_info.is_required()
-                if hasattr(field_info, "is_required")
-                else None,
-                "default": (
-                    str(field_info.default)
-                    if getattr(field_info, "default", None) is not None
-                    else None
-                ),
-            }
+    model_fields = cast(Mapping[str, Any], model_fields_obj)
+    for field_name, field_info in model_fields.items():
+        annotation = getattr(field_info, "annotation", None)
+        required = field_info.is_required() if hasattr(field_info, "is_required") else None
+        default = getattr(field_info, "default", None)
+        default_factory = getattr(field_info, "default_factory", None)
+
+        if required is True:
+            default_value: str | None = None
+        elif callable(default_factory):
+            default_value = "<factory>"
+        elif default is None:
+            default_value = None
+        else:
+            default_value = str(default)
+
+        fields[field_name] = {
+            "type": str(annotation) if annotation is not None else None,
+            "required": required,
+            "default": default_value,
+        }
     return fields
 
 

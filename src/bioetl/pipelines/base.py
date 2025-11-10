@@ -1118,7 +1118,7 @@ class PipelineBase(ABC):
                     if isinstance(produced, pd.Series):
                         produced_series = cast(Series, produced)
                         if len(produced_series) == row_count:
-                            df[column] = produced
+                            df[column] = produced_series
                             continue
                     if isinstance(produced, Sequence) and not isinstance(
                         produced, (str, bytes, bytearray)

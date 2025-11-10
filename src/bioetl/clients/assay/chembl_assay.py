@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import ClassVar
 
 from bioetl.clients.assay.chembl_assay_entity import ChemblAssayEntityClient
-from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
+from bioetl.clients.chembl_base import ChemblClientProtocol
 from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 # Import ChemblClient directly from the module to avoid conflict with chembl/ package
@@ -26,6 +27,8 @@ else:
 
 class ChemblAssayClient(ChemblEntityClientBase):
     """High level helper focused on retrieving assay payloads."""
+
+    ENTITY_KEY: ClassVar[str] = "assay"
 
     def __init__(
         self,
@@ -54,17 +57,3 @@ class ChemblAssayClient(ChemblEntityClientBase):
         # Используем унифицированный entity client для получения по ID
         self._entity_client = ChemblAssayEntityClient(chembl_client)
 
-    @classmethod
-    def _create_config(cls, max_url_length: int | None) -> EntityConfig:
-        enable_url_length_check = max_url_length is not None
-        return EntityConfig(
-            endpoint="/assay.json",
-            filter_param="assay_chembl_id__in",
-            id_key="assay_chembl_id",
-            items_key="assays",
-            log_prefix="assay",
-            chunk_size=100,
-            supports_list_result=False,
-            base_endpoint_length=len("/assay.json?"),
-            enable_url_length_check=enable_url_length_check,
-        )

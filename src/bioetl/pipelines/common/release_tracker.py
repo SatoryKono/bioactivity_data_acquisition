@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from inspect import Parameter, signature
 from typing import Any, ClassVar, Protocol, cast, runtime_checkable
 
 from structlog.stdlib import BoundLogger
@@ -196,7 +197,31 @@ class ChemblReleaseMixin:
         return None
 
     @staticmethod
+    def _supports_keyword_argument(
+        callable_obj: Callable[..., Any],
+        keyword: str,
+    ) -> bool:
+        """Проверить, принимает ли вызываемый объект указанный keyword-аргумент."""
+
+        try:
+            sig = signature(callable_obj)
+        except (TypeError, ValueError):
+            # Невозможно определить сигнатуру — считаем, что аргумент поддерживается.
+            return True
+
+        for parameter in sig.parameters.values():
+            if parameter.kind is Parameter.VAR_KEYWORD:
+                return True
+            if (
+                parameter.name == keyword
+                and parameter.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY)
+            ):
+                return True
+        return False
+
+    @classmethod
     def _invoke_handshake(
+        cls,
         handshake_callable: Callable[..., Any],
         *,
         endpoint: str,
@@ -204,10 +229,16 @@ class ChemblReleaseMixin:
     ) -> Mapping[str, Any]:
         """Безопасно вызвать handshake с поддержкой исторических сигнатур."""
 
-        try:
-            result = handshake_callable(endpoint=endpoint, enabled=enabled)
-        except TypeError:
-            result = handshake_callable(endpoint=endpoint)
+        supports_enabled = cls._supports_keyword_argument(handshake_callable, "enabled")
+        if supports_enabled:
+            try:
+                result = handshake_callable(endpoint=endpoint, enabled=enabled)
+            except TypeError:
+                supports_enabled = False
+            else:
+                return cast(Mapping[str, Any], result)
+
+        result = handshake_callable(endpoint=endpoint)
         return cast(Mapping[str, Any], result)
 
     def _extract_fallback_release(

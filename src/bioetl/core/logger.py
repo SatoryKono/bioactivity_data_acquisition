@@ -14,7 +14,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, cast
+from typing import Any, Final, cast
 
 import structlog
 from structlog.contextvars import (
@@ -23,6 +23,7 @@ from structlog.contextvars import (
     get_contextvars,
     unbind_contextvars,
 )
+from structlog.exceptions import DropEvent
 from structlog.stdlib import BoundLogger
 
 __all__ = [
@@ -59,6 +60,18 @@ MANDATORY_FIELDS: Sequence[str] = (
     "span_id",
 )
 """Fields that must always be present in the structured event dictionary."""
+
+_DEFAULT_LOGGER_NAME: Final[str] = "bioetl"
+_LOG_METHOD_TO_LEVEL: Mapping[str, int] = {
+    "critical": logging.CRITICAL,
+    "error": logging.ERROR,
+    "warning": logging.WARNING,
+    "warn": logging.WARNING,
+    "info": logging.INFO,
+    "debug": logging.DEBUG,
+    "exception": logging.ERROR,
+    "fatal": logging.CRITICAL,
+}
 
 _KEY_ORDER: Sequence[str] = (
     "timestamp",
@@ -171,6 +184,20 @@ def _renderer_for(format: LogFormat) -> Any:
     return structlog.processors.JSONRenderer(sort_keys=True, ensure_ascii=False)
 
 
+def _safe_filter_by_level(
+    logger: logging.Logger | None,
+    method_name: str,
+    event_dict: MutableMapping[str, Any],
+) -> MutableMapping[str, Any]:
+    """Drop events that do not satisfy the active logging level."""
+
+    effective_logger = logger or logging.getLogger(_DEFAULT_LOGGER_NAME)
+    level = _LOG_METHOD_TO_LEVEL.get(method_name.lower(), logging.INFO)
+    if effective_logger.isEnabledFor(level):
+        return event_dict
+    raise DropEvent
+
+
 def configure_logging(
     config: LogConfig | None = None,
     *,
@@ -185,7 +212,7 @@ def configure_logging(
     renderer = _renderer_for(cfg.format)
 
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=[*shared_processors, structlog.stdlib.filter_by_level],
+        foreign_pre_chain=[*shared_processors, _safe_filter_by_level],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
@@ -200,7 +227,7 @@ def configure_logging(
     structlog.configure(
         processors=[
             *shared_processors,
-            structlog.stdlib.filter_by_level,
+            _safe_filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         context_class=dict,
@@ -255,7 +282,7 @@ def _restore_previous_context(previous: dict[str, Any]) -> None:
 class UnifiedLogger:
     """Facade that exposes a minimal, documented logging API."""
 
-    _default_logger_name = "bioetl"
+    _default_logger_name = _DEFAULT_LOGGER_NAME
 
     @staticmethod
     def configure(

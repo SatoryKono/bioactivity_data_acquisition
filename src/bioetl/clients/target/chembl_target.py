@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
+from typing import ClassVar
+
+from bioetl.clients.chembl_base import ChemblClientProtocol
 from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 __all__ = ["ChemblTargetClient"]
@@ -10,6 +12,8 @@ __all__ = ["ChemblTargetClient"]
 
 class ChemblTargetClient(ChemblEntityClientBase):
     """High level helper focused on retrieving target payloads."""
+
+    ENTITY_KEY: ClassVar[str] = "target"
 
     def __init__(
         self,
@@ -33,18 +37,4 @@ class ChemblTargetClient(ChemblEntityClientBase):
             chembl_client=chembl_client,
             batch_size=batch_size,
             max_url_length=max_url_length,
-        )
-
-    @classmethod
-    def _create_config(cls, max_url_length: int | None) -> EntityConfig:
-        return EntityConfig(
-            endpoint="/target.json",
-            filter_param="target_chembl_id__in",
-            id_key="target_chembl_id",
-            items_key="targets",
-            log_prefix="target",
-            chunk_size=100,
-            supports_list_result=False,
-            base_endpoint_length=len("/target.json?"),
-            enable_url_length_check=False,
         )

@@ -56,8 +56,21 @@ class ChemblClient:
     # Discovery / handshake
     # ------------------------------------------------------------------
 
-    def handshake(self, endpoint: str = "/status") -> Mapping[str, Any]:
+    def handshake(
+        self,
+        endpoint: str = "/status",
+        *,
+        enabled: bool = True,
+    ) -> Mapping[str, Any]:
         """Perform the handshake for ``endpoint`` once and cache the payload."""
+
+        if not enabled:
+            self._log.info(
+                "chembl.handshake.skipped",
+                endpoint=endpoint,
+                handshake_enabled=enabled,
+            )
+            return self._status_cache.get(endpoint, {})
 
         if endpoint not in self._status_cache:
             payload = self._client.get(endpoint).json()
