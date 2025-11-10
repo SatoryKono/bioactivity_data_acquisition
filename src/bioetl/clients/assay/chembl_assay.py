@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bioetl.clients.assay.chembl_assay_entity import ChemblAssayEntityClient
 from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
-from bioetl.clients.chembl_iterator import ChemblEntityIterator
+from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 # Import ChemblClient directly from the module to avoid conflict with chembl/ package
 # Use importlib to load from chembl.py file, not from chembl/ package
@@ -24,7 +24,7 @@ else:
     raise ImportError("Failed to load chembl.py module")
 
 
-class ChemblAssayClient(ChemblEntityIterator):
+class ChemblAssayClient(ChemblEntityClientBase):
     """High level helper focused on retrieving assay payloads."""
 
     def __init__(
@@ -45,10 +45,19 @@ class ChemblAssayClient(ChemblEntityIterator):
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
-        # Конфигурация для assay с включенной проверкой длины URL
-        enable_url_length_check = max_url_length is not None
+        super().__init__(
+            chembl_client=chembl_client,
+            batch_size=batch_size,
+            max_url_length=max_url_length,
+        )
 
-        config = EntityConfig(
+        # Используем унифицированный entity client для получения по ID
+        self._entity_client = ChemblAssayEntityClient(chembl_client)
+
+    @classmethod
+    def _create_config(cls, max_url_length: int | None) -> EntityConfig:
+        enable_url_length_check = max_url_length is not None
+        return EntityConfig(
             endpoint="/assay.json",
             filter_param="assay_chembl_id__in",
             id_key="assay_chembl_id",
@@ -59,13 +68,3 @@ class ChemblAssayClient(ChemblEntityIterator):
             base_endpoint_length=len("/assay.json?"),
             enable_url_length_check=enable_url_length_check,
         )
-
-        super().__init__(
-            chembl_client=chembl_client,
-            config=config,
-            batch_size=batch_size,
-            max_url_length=max_url_length,
-        )
-
-        # Используем унифицированный entity client для получения по ID
-        self._entity_client = ChemblAssayEntityClient(chembl_client)

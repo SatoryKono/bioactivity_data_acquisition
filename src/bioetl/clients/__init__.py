@@ -7,6 +7,7 @@ from .activity.chembl_activity import ChemblActivityClient
 from .assay.chembl_assay import ChemblAssayClient
 from .assay.chembl_assay_entity import ChemblAssayEntityClient
 from .chembl_base import ChemblEntityFetcher, EntityConfig
+from .chembl_entity_client import ChemblEntityClientBase
 from .chembl_entities import (
     ChemblAssayClassificationEntityClient,
     ChemblAssayClassMapEntityClient,
@@ -47,6 +48,7 @@ __all__ = [
     "EntityClient",
     "ChemblEntityFetcher",
     "ChemblEntityIterator",
+    "ChemblEntityClientBase",
     "EntityConfig",
     "ChemblAssayEntityClient",
     "ChemblMoleculeEntityClient",
