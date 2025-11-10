@@ -11,17 +11,17 @@ from numbers import Integral, Real
 from typing import Any, ClassVar, cast
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.pipelines.common.enrichment import (
     EnrichmentStrategy,
     FunctionEnrichmentRule,
 )
-from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
-from structlog.stdlib import BoundLogger
 
 from ..chembl_base import ChemblPipelineBase
 from .document_enrich import enrich_with_document_terms
@@ -45,7 +45,7 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
 )
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {"document_chembl_id", "doi", "issue"}
+MUST_HAVE_FIELDS: tuple[str, ...] = ("document_chembl_id", "doi", "issue")
 
 
 class ChemblDocumentPipeline(ChemblPipelineBase):

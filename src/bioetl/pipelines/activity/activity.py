@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import pandas as pd
 from pandera import errors as pandera_errors
 from requests.exceptions import RequestException
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
@@ -27,6 +28,7 @@ from bioetl.core.normalizers import (
     normalize_string_columns,
 )
 from bioetl.pipelines.common.enrichment import (
+    EnrichmentRule,
     EnrichmentStrategy,
     FunctionEnrichmentRule,
 )
@@ -40,7 +42,6 @@ from bioetl.schemas.activity import (
     ActivitySchema,
 )
 from bioetl.schemas.vocab import required_vocab_ids
-from structlog.stdlib import BoundLogger
 
 from ..base import RunResult
 from ..chembl_base import ChemblPipelineBase
@@ -535,7 +536,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
             return enrich_with_data_validity(frame, client, cfg)
 
-        rules: list[FunctionEnrichmentRule] = [
+        rules: tuple[FunctionEnrichmentRule, ...] = (
             FunctionEnrichmentRule(
                 name="activity_compound_record",
                 config_path=("compound_record",),
@@ -556,12 +557,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 config_path=("data_validity",),
                 function=data_validity_rule,
             ),
-        ]
+        )
 
         self._enrichment_strategy = EnrichmentStrategy(
             config_root=self.config.chembl,
             base_path=("activity", "enrich"),
-            rules=rules,
+            rules=cast(Sequence[EnrichmentRule], rules),
             logger=log,
             client_provider=self._get_chembl_enrichment_client,
         )

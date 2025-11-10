@@ -26,7 +26,7 @@ from ..chembl_base import ChemblPipelineBase
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     # Скаляры
     "molecule_chembl_id",
     "pref_name",
@@ -41,7 +41,7 @@ MUST_HAVE_FIELDS = {
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
-}
+)
 
 
 @no_type_check

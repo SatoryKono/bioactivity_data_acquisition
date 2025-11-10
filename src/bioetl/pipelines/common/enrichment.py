@@ -10,9 +10,9 @@ appropriate configuration blocks and executes enabled rules sequentially.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping, Sequence
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, Protocol, Sequence, runtime_checkable
+from typing import Any, Protocol, cast, runtime_checkable
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -22,26 +22,42 @@ EnrichmentFn = Callable[[pd.DataFrame, Any, Mapping[str, Any]], pd.DataFrame]
 LoggerCallback = Callable[[BoundLogger], None]
 
 
+def _as_str_mapping(candidate: Any) -> Mapping[str, Any] | None:
+    """Return a mapping when ``candidate`` provides string keys."""
+
+    if not isinstance(candidate, Mapping):
+        return None
+
+    if any(not isinstance(key, str) for key in candidate.keys()):
+        return None
+
+    mapping_candidate = cast(Mapping[str, Any], candidate)
+    return dict(mapping_candidate.items())
+
+
 def _normalize_mapping(candidate: Any) -> Mapping[str, Any] | None:
     """Return candidate as an immutable mapping when possible."""
+
+    direct_mapping = _as_str_mapping(candidate)
+    if direct_mapping is not None:
+        return MappingProxyType(dict(direct_mapping))
 
     if candidate is None:
         return None
 
-    if isinstance(candidate, Mapping):
-        return MappingProxyType(dict(candidate))
-
     model_dump = getattr(candidate, "model_dump", None)
     if callable(model_dump):
         dumped = model_dump()
-        if isinstance(dumped, Mapping):
-            return MappingProxyType(dict(dumped))
+        dumped_mapping = _as_str_mapping(dumped)
+        if dumped_mapping is not None:
+            return MappingProxyType(dict(dumped_mapping))
 
     as_dict = getattr(candidate, "dict", None)
     if callable(as_dict):
         dumped = as_dict()
-        if isinstance(dumped, Mapping):
-            return MappingProxyType(dict(dumped))
+        dumped_mapping = _as_str_mapping(dumped)
+        if dumped_mapping is not None:
+            return MappingProxyType(dict(dumped_mapping))
 
     return None
 
@@ -50,18 +66,32 @@ def _normalize_mapping(candidate: Any) -> Mapping[str, Any] | None:
 class EnrichmentRule(Protocol):
     """Minimal interface implemented by enrichment rules."""
 
-    name: str
-    config_path: ConfigPath
-    requires_client: bool
+    @property
+    def name(self) -> str:
+        """Return the unique name of the rule."""
+        ...
+
+    @property
+    def config_path(self) -> ConfigPath:
+        """Return the path inside configuration that controls the rule."""
+        ...
+
+    @property
+    def requires_client(self) -> bool:
+        """Return ``True`` when the rule expects an API client to be available."""
+        ...
 
     def handle_missing_config(self, logger: BoundLogger) -> None:
         """Emit diagnostic log when configuration for the rule is absent."""
+        ...
 
     def handle_disabled(self, logger: BoundLogger) -> None:
         """Emit diagnostic log when the rule is explicitly disabled."""
+        ...
 
     def is_enabled(self, config_section: Mapping[str, Any]) -> bool:
         """Return ``True`` when the rule should run for the provided config."""
+        ...
 
     def apply(
         self,
@@ -71,19 +101,52 @@ class EnrichmentRule(Protocol):
         config: Mapping[str, Any],
     ) -> pd.DataFrame:
         """Execute the enrichment logic and return an updated DataFrame."""
+        ...
 
 
-@dataclass(frozen=True)
-class FunctionEnrichmentRule:
+class FunctionEnrichmentRule(EnrichmentRule):
     """Adapter turning a callable into an :class:`EnrichmentRule` instance."""
 
-    name: str
-    config_path: ConfigPath
-    function: EnrichmentFn
-    requires_client: bool = True
-    default_enabled: bool = True
-    on_missing_config: LoggerCallback | None = None
-    on_disabled: LoggerCallback | None = None
+    __slots__ = (
+        "_name",
+        "_config_path",
+        "_function",
+        "_requires_client",
+        "default_enabled",
+        "on_missing_config",
+        "on_disabled",
+    )
+
+    def __init__(
+        self,
+        *,
+        name: str,
+        config_path: ConfigPath,
+        function: EnrichmentFn,
+        requires_client: bool = True,
+        default_enabled: bool = True,
+        on_missing_config: LoggerCallback | None = None,
+        on_disabled: LoggerCallback | None = None,
+    ) -> None:
+        self._name: str = name
+        self._config_path: ConfigPath = config_path
+        self._function: EnrichmentFn = function
+        self._requires_client: bool = requires_client
+        self.default_enabled = default_enabled
+        self.on_missing_config = on_missing_config
+        self.on_disabled = on_disabled
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def config_path(self) -> ConfigPath:
+        return self._config_path
+
+    @property
+    def requires_client(self) -> bool:
+        return self._requires_client
 
     def handle_missing_config(self, logger: BoundLogger) -> None:
         if self.on_missing_config is not None:
@@ -121,7 +184,7 @@ class FunctionEnrichmentRule:
         if self.requires_client and client is None:
             msg = f"Enrichment rule '{self.name}' requires a client provider"
             raise RuntimeError(msg)
-        return self.function(df, client, config)
+        return self._function(df, client, config)
 
 
 class EnrichmentStrategy:

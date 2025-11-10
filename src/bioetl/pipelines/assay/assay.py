@@ -10,6 +10,7 @@ from typing import Any, ClassVar, cast
 
 import pandas as pd
 from pandas import Series
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
@@ -22,10 +23,6 @@ from bioetl.core.normalizers import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from bioetl.pipelines.common.enrichment import (
-    EnrichmentStrategy,
-    FunctionEnrichmentRule,
-)
 from bioetl.pipelines.assay.assay_enrichment import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
@@ -34,8 +31,11 @@ from bioetl.pipelines.assay.assay_transform import (
     serialize_array_fields,
     validate_assay_parameters_truv,
 )
+from bioetl.pipelines.common.enrichment import (
+    EnrichmentStrategy,
+    FunctionEnrichmentRule,
+)
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
-from structlog.stdlib import BoundLogger
 
 from ..chembl_base import ChemblPipelineBase
 
@@ -114,13 +114,13 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     "assay_chembl_id",
-    #   "assay_category",
-    #   "assay_group",
-    #   "src_assay_id",
-    #   "curation_level",
-}
+    # "assay_category",
+    # "assay_group",
+    # "src_assay_id",
+    # "curation_level",
+)
 
 
 class ChemblAssayPipeline(ChemblPipelineBase):

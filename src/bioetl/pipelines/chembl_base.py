@@ -207,7 +207,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
 
     def _resolve_select_fields(
         self,
-        source_config: SourceConfig,
+        source_config: SourceConfig | ChemblPipelineSourceConfig[Any],
         default_fields: Sequence[str] | None = None,
         *,
         required_fields: Sequence[str] | None = None,
@@ -245,7 +245,9 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                 and isinstance(select_fields_raw, Sequence)
                 and not isinstance(select_fields_raw, (str, bytes))
             ):
-                configured = tuple(str(field) for field in select_fields_raw)
+                configured = tuple(
+                    str(field) for field in cast(Sequence[Any], select_fields_raw)
+                )
 
         normalized = self.normalize_select_fields(
             configured,
