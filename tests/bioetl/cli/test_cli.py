@@ -16,6 +16,7 @@ from bioetl.cli.command import (
     _validate_output_dir,  # type: ignore[reportPrivateUsage]
 )
 from bioetl.cli.main import app
+from bioetl.cli.registry import COMMAND_REGISTRY
 
 CLI_APP = get_command(app)
 
@@ -76,6 +77,15 @@ class TestCLIParsing:
 
         # Should not raise
         _validate_output_dir(output_dir)
+
+    def test_all_commands_are_registered(self) -> None:
+        """Ensure every registry command is exposed via the Typer application."""
+
+        registered_commands = set(CLI_APP.commands)
+
+        missing = sorted(set(COMMAND_REGISTRY) - registered_commands)
+
+        assert not missing, f"Missing CLI commands: {', '.join(missing)}"
 
 
 @pytest.mark.unit
