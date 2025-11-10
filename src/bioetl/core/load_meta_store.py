@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 
 from bioetl.core.hashing import hash_from_mapping
 from bioetl.schemas.load_meta import (

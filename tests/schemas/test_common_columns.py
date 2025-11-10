@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 import pytest
-from pandera import Column
+from pandera.pandas import Column
 from pandera.errors import SchemaError, SchemaErrors
 from src.bioetl.schemas.common import (
     bao_id_column,

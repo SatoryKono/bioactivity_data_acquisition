@@ -6,7 +6,7 @@ from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from importlib import import_module
 
-import pandera as pa
+import pandera.pandas as pa
 
 __all__ = ["SchemaRegistryEntry", "SchemaRegistry", "SCHEMA_REGISTRY", "get_schema"]
 

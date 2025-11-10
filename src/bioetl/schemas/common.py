@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import pandas as pd
-import pandera as pa
-from pandera import Check, Column
+import pandera.pandas as pa
+from pandera.pandas import Check, Column
 
 # ChEMBL ID pattern
 CHEMBL_ID_PATTERN = r"^CHEMBL\d+$"
