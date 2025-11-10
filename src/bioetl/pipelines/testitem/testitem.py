@@ -15,6 +15,7 @@ from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
 from bioetl.clients.types import EntityClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
+from bioetl.config.models.models import SourceConfig
 from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
 from bioetl.config.testitem import TestItemSourceParameters
 from bioetl.core import UnifiedLogger
@@ -94,9 +95,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
         *,
-        source_config: (
-            ChemblPipelineSourceConfig[TestItemSourceParameters] | TestItemSourceConfig | None
-        ) = None,
+        source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
     ) -> str | None:
         """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
 
@@ -107,10 +106,20 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         else:
             bound_log = log
 
-        resolved_source_config = source_config
-        if resolved_source_config is None:
+        resolved_source_config: ChemblPipelineSourceConfig[TestItemSourceParameters]
+
+        if source_config is None:
             source_raw = self._resolve_source_config("chembl")
             resolved_source_config = TestItemSourceConfig.from_source(source_raw)
+        elif isinstance(source_config, TestItemSourceConfig):
+            resolved_source_config = source_config
+        elif isinstance(source_config, ChemblPipelineSourceConfig):
+            resolved_source_config = cast(
+                ChemblPipelineSourceConfig[TestItemSourceParameters],
+                source_config,
+            )
+        else:
+            resolved_source_config = TestItemSourceConfig.from_source(source_config)
 
         handshake_result = self.perform_source_handshake(
             client,
