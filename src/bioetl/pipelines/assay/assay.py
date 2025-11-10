@@ -170,6 +170,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -307,6 +308,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -545,6 +547,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 
@@ -906,6 +909,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
 
         # Получить конфигурацию enrichment из config.chembl.assay.enrich

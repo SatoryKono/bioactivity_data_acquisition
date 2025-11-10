@@ -302,6 +302,8 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
         """Fetch ChEMBL release version from status endpoint.
 
@@ -336,6 +338,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     event=f"{self.pipeline_code}.status",
                     endpoint="/status",
                     enabled=True,
+                    timeout=timeout,
                 )
                 release_value = handshake_result.release
                 requested_at = handshake_result.requested_at_utc
@@ -358,7 +361,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
 
             for endpoint in endpoints_to_try:
                 try:
-                    response = client_get(endpoint)
+                    response = client_get(endpoint, timeout=timeout)
                     json_candidate = getattr(response, "json", None)
                     if callable(json_candidate):
                         status_payload_raw = json_candidate()
@@ -393,10 +396,12 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         self,
         client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
         log: BoundLogger | None = None,
+        *,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
         """Backward compatible wrapper for tests expecting private method."""
 
-        return self.fetch_chembl_release(client, log)
+        return self.fetch_chembl_release(client, log, timeout=timeout)
 
     def perform_source_handshake(
         self,
@@ -414,6 +419,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
             event=event,
             endpoint=source_config.handshake_endpoint,
             enabled=source_config.handshake_enabled,
+            timeout=source_config.handshake_timeout_sec,
         )
         return handshake_result
 

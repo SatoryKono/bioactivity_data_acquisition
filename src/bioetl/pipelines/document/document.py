@@ -92,6 +92,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self.perform_source_handshake(
             chembl_client,
@@ -220,6 +221,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self.perform_source_handshake(
             chembl_client,
@@ -651,6 +653,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 

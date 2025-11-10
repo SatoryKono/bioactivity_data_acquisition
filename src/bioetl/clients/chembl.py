@@ -35,6 +35,7 @@ class ChemblClient:
         load_meta_store: LoadMetaStore | None = None,
         job_id: str | None = None,
         operator: str | None = None,
+        handshake_timeout: float | tuple[float, float] | None = 10.0,
     ) -> None:
         self._client = client
         self._log = UnifiedLogger.get(__name__).bind(component="chembl_client")
@@ -44,6 +45,7 @@ class ChemblClient:
         self._operator = operator
         self._chembl_release: str | None = None
         self._api_version: str | None = None
+        self._handshake_timeout = self._normalize_timeout(handshake_timeout)
         # Инициализация специализированных клиентов для сущностей
         self._assay_entity = ChemblAssayEntityClient(self)
         self._molecule_entity = ChemblMoleculeEntityClient(self)
@@ -63,6 +65,7 @@ class ChemblClient:
         endpoint: str = "/status",
         *,
         enabled: bool = True,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Mapping[str, Any]:
         """Perform the handshake for ``endpoint`` once and cache the payload."""
 
@@ -81,6 +84,12 @@ class ChemblClient:
         endpoints_to_try = self._expand_handshake_endpoints(endpoint)
         last_error: Exception | None = None
 
+        effective_timeout = (
+            self._handshake_timeout
+            if timeout is None
+            else self._normalize_timeout(timeout)
+        )
+
         for candidate in endpoints_to_try:
             cached_candidate = self._status_cache.get(candidate)
             if cached_candidate is not None:
@@ -88,7 +97,7 @@ class ChemblClient:
                 return cached_candidate
 
             try:
-                response = self._client.get(candidate)
+                response = self._client.get(candidate, timeout=effective_timeout)
                 payload = response.json()
             except RequestException as exc:
                 last_error = exc
@@ -132,6 +141,35 @@ class ChemblClient:
                 error=str(last_error),
             )
         return self._status_cache[endpoint]
+
+    @staticmethod
+    def _normalize_timeout(
+        timeout: float | tuple[float, float] | None,
+    ) -> tuple[float, float] | None:
+        """Coerce timeout to the shape expected by ``requests``."""
+
+        if timeout is None:
+            return None
+        if isinstance(timeout, (int, float)):
+            value = float(timeout)
+            if value <= 0:
+                msg = "handshake_timeout must be positive"
+                raise ValueError(msg)
+            connect = min(value, 3.05)
+            return (connect, value)
+        if (
+            isinstance(timeout, tuple)
+            and len(timeout) == 2
+            and all(isinstance(part, (int, float)) for part in timeout)
+        ):
+            connect = float(timeout[0])
+            read = float(timeout[1])
+            if connect <= 0 or read <= 0:
+                msg = "handshake_timeout components must be positive"
+                raise ValueError(msg)
+            return (connect, read)
+        msg = "handshake_timeout must be a positive float or a (connect, read) tuple"
+        raise ValueError(msg)
 
     @staticmethod
     def _expand_handshake_endpoints(endpoint: str) -> tuple[str, ...]:

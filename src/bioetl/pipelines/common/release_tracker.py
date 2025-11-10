@@ -77,6 +77,7 @@ class ChemblReleaseMixin:
         endpoint: str,
         enabled: bool,
         release_attr_fallback: str = "chembl_release",
+        timeout: float | tuple[float, float] | None = None,
     ) -> ChemblHandshakeResult:
         """Выполнить handshake с клиентом ChEMBL и обновить кеш релиза.
 
@@ -95,6 +96,10 @@ class ChemblReleaseMixin:
         release_attr_fallback:
             Имя атрибута handshake_target, из которого можно взять релиз,
             если payload его не содержит.
+        timeout:
+            Таймаут (сек) для запроса handshake. Может быть float или кортеж
+            (connect, read). Если None, используется значение по умолчанию
+            в клиенте.
 
         Returns
         -------
@@ -139,6 +144,7 @@ class ChemblReleaseMixin:
             handshake_method,
             endpoint=endpoint,
             enabled=enabled,
+            timeout=timeout,
         )
         payload = self._coerce_mapping(raw_payload)
         release = self._extract_chembl_release(payload)
@@ -226,15 +232,44 @@ class ChemblReleaseMixin:
         *,
         endpoint: str,
         enabled: bool,
+        timeout: float | tuple[float, float] | None,
     ) -> Mapping[str, Any]:
         """Безопасно вызвать handshake с поддержкой исторических сигнатур."""
 
         supports_enabled = cls._supports_keyword_argument(handshake_callable, "enabled")
+        supports_timeout = cls._supports_keyword_argument(handshake_callable, "timeout")
+
+        base_kwargs: dict[str, Any] = {"endpoint": endpoint}
         if supports_enabled:
+            base_kwargs["enabled"] = enabled
+        if timeout is not None and supports_timeout:
+            base_kwargs["timeout"] = timeout
+
+        attempt_kwargs: list[dict[str, Any]] = [base_kwargs]
+
+        if "timeout" in base_kwargs:
+            without_timeout = dict(base_kwargs)
+            without_timeout.pop("timeout", None)
+            attempt_kwargs.append(without_timeout)
+
+        if "enabled" in base_kwargs:
+            without_enabled = dict(base_kwargs)
+            without_enabled.pop("enabled", None)
+            attempt_kwargs.append(without_enabled)
+
+        attempt_kwargs.append({"endpoint": endpoint})
+
+        seen: set[tuple[tuple[str, Any], ...]] = set()
+        for candidate in attempt_kwargs:
+            candidate.setdefault("endpoint", endpoint)
+            key = tuple(sorted(candidate.items(), key=lambda item: item[0]))
+            if key in seen:
+                continue
+            seen.add(key)
             try:
-                result = handshake_callable(endpoint=endpoint, enabled=enabled)
+                result = handshake_callable(**candidate)
             except TypeError:
-                supports_enabled = False
+                continue
             else:
                 return cast(Mapping[str, Any], result)
 

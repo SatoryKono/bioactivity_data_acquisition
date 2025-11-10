@@ -31,6 +31,7 @@ class SourceConfigDefaults:
     max_url_length_cap: int = 2000
     handshake_endpoint: str = "/status"
     handshake_enabled: bool = True
+    handshake_timeout_sec: float = 10.0
 
 
 class BaseSourceParameters(BaseModel):
@@ -93,6 +94,11 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         default=True,
         description="Флаг выполнения handshake перед экстракцией.",
     )
+    handshake_timeout_sec: float = Field(
+        default=10.0,
+        gt=0,
+        description="Максимальный таймаут (сек) для handshake-запроса.",
+    )
     parameters: ParamsT
 
     defaults: ClassVar[SourceConfigDefaults] = SourceConfigDefaults()
@@ -128,6 +134,9 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         handshake_enabled = cls._resolve_handshake_enabled(
             params_mapping.pop("handshake_enabled", None),
         )
+        handshake_timeout_sec = cls._resolve_handshake_timeout(
+            params_mapping.pop("handshake_timeout_sec", None),
+        )
         max_url_length = cls._resolve_max_url_length(
             params_mapping.pop("max_url_length", None),
         )
@@ -151,6 +160,7 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
             max_url_length=max_url_length,
             handshake_endpoint=handshake_endpoint,
             handshake_enabled=handshake_enabled,
+            handshake_timeout_sec=handshake_timeout_sec,
             parameters=parameters,
         )
 
@@ -222,6 +232,21 @@ class ChemblPipelineSourceConfig(BaseModel, Generic[ParamsT]):
         if raw is None:
             return cls.defaults.handshake_enabled
         return coerce_bool(raw)
+
+    @classmethod
+    def _resolve_handshake_timeout(cls, raw: Any) -> float:
+        default_timeout = cls.defaults.handshake_timeout_sec
+        if raw is None:
+            return default_timeout
+        try:
+            value = float(raw)
+        except (TypeError, ValueError) as exc:
+            msg = "handshake_timeout_sec должен быть положительным числом"
+            raise ValueError(msg) from exc
+        if value <= 0:
+            msg = "handshake_timeout_sec должен быть положительным числом"
+            raise ValueError(msg)
+        return value
 
 
 __all__ = [

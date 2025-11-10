@@ -183,7 +183,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.fetch_chembl_release(
+            client,
+            log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -277,6 +281,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
@@ -316,7 +321,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log)
+        self.fetch_chembl_release(
+            client,
+            log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -584,6 +593,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 
@@ -844,6 +854,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=activity_source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 

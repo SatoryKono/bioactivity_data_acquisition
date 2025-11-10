@@ -304,6 +304,7 @@ class UnifiedAPIClient:
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Response:
         params_dict: dict[str, Any] = dict(params or {})
         full_url: str | None = None
@@ -324,8 +325,15 @@ class UnifiedAPIClient:
                     endpoint,
                     data=params_dict,
                     headers=override_headers,
+                    timeout=timeout,
                 )
-        return self.request("GET", endpoint, params=params_dict or None, headers=headers)
+        return self.request(
+            "GET",
+            endpoint,
+            params=params_dict or None,
+            headers=headers,
+            timeout=timeout,
+        )
 
     def request(
         self,
@@ -336,6 +344,7 @@ class UnifiedAPIClient:
         json: Any | None = None,
         data: Any | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Response:
         url = self._resolve_url(endpoint)
         request_id = str(uuid4())
@@ -358,7 +367,7 @@ class UnifiedAPIClient:
                 json=json,
                 data=data,
                 headers=self._apply_headers(headers),
-                timeout=self._timeout,
+                timeout=timeout if timeout is not None else self._timeout,
             )
             duration_ms = (time.perf_counter() - start) * 1000
             status_code = response.status_code
@@ -403,6 +412,7 @@ class UnifiedAPIClient:
         json: Any | None = None,
         data: Any | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Any:
         response = self.request(
             method,
@@ -411,6 +421,7 @@ class UnifiedAPIClient:
             json=json,
             data=data,
             headers=headers,
+            timeout=timeout,
         )
         return response.json()
 

@@ -66,6 +66,8 @@ class TestChemblActivityPipelineTransformations:
         second_call_endpoint = mock_client.get.call_args_list[1].args[0]
         assert first_call_endpoint == "/status"
         assert second_call_endpoint == "/status.json"
+        assert mock_client.get.call_args_list[0].kwargs["timeout"] is None
+        assert mock_client.get.call_args_list[1].kwargs["timeout"] is None
 
     def test_normalize_identifiers_invalid(
         self, pipeline_config_fixture: PipelineConfig, run_id: str

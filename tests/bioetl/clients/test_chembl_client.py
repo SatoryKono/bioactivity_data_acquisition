@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
@@ -51,6 +51,7 @@ class TestChemblClient:
 
         # Should only call API once
         assert mock_api_client.get.call_count == 1
+        assert mock_api_client.get.call_args.kwargs["timeout"] == client._handshake_timeout
         assert result1 == result2
         assert result1["chembl_db_version"] == "33"
         assert "/status" in client._status_cache
@@ -68,6 +69,8 @@ class TestChemblClient:
 
         # Should call API twice for different endpoints
         assert mock_api_client.get.call_count == 2
+        for call_args in mock_api_client.get.call_args_list:
+            assert call_args.kwargs["timeout"] == client._handshake_timeout
         assert "/status" in client._status_cache
         assert "/version" in client._status_cache
 
@@ -89,6 +92,8 @@ class TestChemblClient:
         assert mock_api_client.get.call_count == 2
         assert mock_api_client.get.call_args_list[0].args[0] == "/status"
         assert mock_api_client.get.call_args_list[1].args[0] == "/status.json"
+        assert mock_api_client.get.call_args_list[0].kwargs["timeout"] == client._handshake_timeout
+        assert mock_api_client.get.call_args_list[1].kwargs["timeout"] == client._handshake_timeout
         assert "/status" in client._status_cache
         assert "/status.json" in client._status_cache
 
@@ -105,6 +110,24 @@ class TestChemblClient:
         assert payload == {}
         assert mock_api_client.get.call_count == 2
         assert "/status" in client._status_cache
+        for call_args in mock_api_client.get.call_args_list:
+            assert call_args.kwargs["timeout"] == client._handshake_timeout
+
+    def test_handshake_custom_timeout(
+        self, mock_api_client: MagicMock, mock_response: MagicMock
+    ) -> None:
+        """Explicit timeout overrides should be honoured per invocation."""
+
+        mock_response.json.return_value = {"chembl_db_version": "35"}
+        mock_api_client.get.return_value = mock_response
+
+        client = ChemblClient(mock_api_client, handshake_timeout=5.0)
+        payload = client.handshake("/status", timeout=1.5)
+
+        assert payload["chembl_db_version"] == "35"
+        assert mock_api_client.get.call_count == 1
+        assert mock_api_client.get.call_args.kwargs["timeout"] == (1.5, 1.5)
+        assert client._handshake_timeout == (3.05, 5.0)
 
     def test_paginate_single_page(
         self, mock_api_client: MagicMock, mock_response: MagicMock

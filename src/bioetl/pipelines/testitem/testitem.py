@@ -182,6 +182,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,
@@ -284,6 +285,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,
