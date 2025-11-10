@@ -52,6 +52,7 @@ class TestChemblClient:
         # Should only call API once
         assert mock_api_client.get.call_count == 1
         assert mock_api_client.get.call_args.kwargs["timeout"] == client._handshake_timeout
+        assert mock_api_client.get.call_args.kwargs["retry_strategy"] == "none"
         assert result1 == result2
         assert result1["chembl_db_version"] == "33"
         assert "/status" in client._status_cache
@@ -71,6 +72,7 @@ class TestChemblClient:
         assert mock_api_client.get.call_count == 2
         for call_args in mock_api_client.get.call_args_list:
             assert call_args.kwargs["timeout"] == client._handshake_timeout
+            assert call_args.kwargs["retry_strategy"] == "none"
         assert "/status" in client._status_cache
         assert "/version" in client._status_cache
 
@@ -94,6 +96,8 @@ class TestChemblClient:
         assert mock_api_client.get.call_args_list[1].args[0] == "/status.json"
         assert mock_api_client.get.call_args_list[0].kwargs["timeout"] == client._handshake_timeout
         assert mock_api_client.get.call_args_list[1].kwargs["timeout"] == client._handshake_timeout
+        assert mock_api_client.get.call_args_list[0].kwargs["retry_strategy"] == "none"
+        assert mock_api_client.get.call_args_list[1].kwargs["retry_strategy"] == "none"
         assert "/status" in client._status_cache
         assert "/status.json" in client._status_cache
 
@@ -112,6 +116,7 @@ class TestChemblClient:
         assert "/status" in client._status_cache
         for call_args in mock_api_client.get.call_args_list:
             assert call_args.kwargs["timeout"] == client._handshake_timeout
+            assert call_args.kwargs["retry_strategy"] == "none"
 
     def test_handshake_custom_timeout(
         self, mock_api_client: MagicMock, mock_response: MagicMock
@@ -127,6 +132,7 @@ class TestChemblClient:
         assert payload["chembl_db_version"] == "35"
         assert mock_api_client.get.call_count == 1
         assert mock_api_client.get.call_args.kwargs["timeout"] == (1.5, 1.5)
+        assert mock_api_client.get.call_args.kwargs["retry_strategy"] == "none"
         assert client._handshake_timeout == (3.05, 5.0)
 
     def test_paginate_single_page(

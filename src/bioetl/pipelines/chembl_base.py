@@ -361,7 +361,11 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
 
             for endpoint in endpoints_to_try:
                 try:
-                    response = client_get(endpoint, timeout=timeout)
+                    response = client_get(
+                        endpoint,
+                        timeout=timeout,
+                        retry_strategy="none",
+                    )
                     json_candidate = getattr(response, "json", None)
                     if callable(json_candidate):
                         status_payload_raw = json_candidate()

@@ -97,7 +97,11 @@ class ChemblClient:
                 return cached_candidate
 
             try:
-                response = self._client.get(candidate, timeout=effective_timeout)
+                response = self._client.get(
+                    candidate,
+                    timeout=effective_timeout,
+                    retry_strategy="none",
+                )
                 payload = response.json()
             except RequestException as exc:
                 last_error = exc

@@ -69,6 +69,8 @@ class TestChemblActivityPipelineTransformations:
         assert second_call_endpoint == "/status.json"
         assert mock_client.get.call_args_list[0].kwargs["timeout"] is None
         assert mock_client.get.call_args_list[1].kwargs["timeout"] is None
+        assert mock_client.get.call_args_list[0].kwargs["retry_strategy"] == "none"
+        assert mock_client.get.call_args_list[1].kwargs["retry_strategy"] == "none"
 
     def test_fetch_release_timeout_keyword_backward_compatibility(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
