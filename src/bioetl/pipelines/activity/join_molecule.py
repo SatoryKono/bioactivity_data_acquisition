@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import math
 import numbers
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
 
 import pandas as pd
 
 from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
-from bioetl.clients.types import EntityClient
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
@@ -170,15 +169,24 @@ def _fetch_activity_by_ids(
         return pd.DataFrame(columns=fields)
 
     # Используем специализированный клиент для activity
-    activity_client: EntityClient[Mapping[str, object]] = ChemblActivityClient(
+    activity_client = ChemblActivityClient(
         client,
         batch_size=batch_size,
     )
-    all_records: list[dict[str, Any]] = []
+    all_records: list[dict[str, object]] = []
 
     try:
-        for record in activity_client.fetch(unique_ids, select_fields=fields):
-            all_records.append(dict(record))
+        records_iter = cast(Iterable[Any], activity_client.fetch(unique_ids, select_fields=fields))
+        for record in records_iter:
+            if not isinstance(record, Mapping):
+                log.warning(
+                    "activity.fetch_unexpected_entry_type",
+                    entry_type=type(record).__name__,
+                    ids_count=len(unique_ids),
+                )
+                continue
+            mapping_record: Mapping[str, object] = cast(Mapping[str, object], record)
+            all_records.append(dict(mapping_record))
     except Exception as exc:
         log.warning(
             "activity.fetch_error",

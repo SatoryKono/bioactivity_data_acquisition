@@ -77,6 +77,8 @@ class ChemblReleaseMixin:
         endpoint: str,
         enabled: bool,
         release_attr_fallback: str = "chembl_release",
+        timeout: float | tuple[float, float] | None = None,
+        budget_seconds: float | None = None,
     ) -> ChemblHandshakeResult:
         """Выполнить handshake с клиентом ChEMBL и обновить кеш релиза.
 
@@ -95,6 +97,13 @@ class ChemblReleaseMixin:
         release_attr_fallback:
             Имя атрибута handshake_target, из которого можно взять релиз,
             если payload его не содержит.
+        timeout:
+            Таймаут (сек) для запроса handshake. Может быть float или кортеж
+            (connect, read). Если None, используется значение по умолчанию
+            в клиенте.
+        budget_seconds:
+            Максимальный временной бюджет на выполнение handshake. None означает,
+            что используется значение по умолчанию на стороне клиента.
 
         Returns
         -------
@@ -139,6 +148,8 @@ class ChemblReleaseMixin:
             handshake_method,
             endpoint=endpoint,
             enabled=enabled,
+            timeout=timeout,
+            budget_seconds=budget_seconds,
         )
         payload = self._coerce_mapping(raw_payload)
         release = self._extract_chembl_release(payload)
@@ -226,15 +237,53 @@ class ChemblReleaseMixin:
         *,
         endpoint: str,
         enabled: bool,
+        timeout: float | tuple[float, float] | None,
+        budget_seconds: float | None,
     ) -> Mapping[str, Any]:
         """Безопасно вызвать handshake с поддержкой исторических сигнатур."""
 
         supports_enabled = cls._supports_keyword_argument(handshake_callable, "enabled")
+        supports_timeout = cls._supports_keyword_argument(handshake_callable, "timeout")
+        supports_budget = cls._supports_keyword_argument(handshake_callable, "budget_seconds")
+
+        base_kwargs: dict[str, Any] = {"endpoint": endpoint}
         if supports_enabled:
+            base_kwargs["enabled"] = enabled
+        if timeout is not None and supports_timeout:
+            base_kwargs["timeout"] = timeout
+        if budget_seconds is not None and supports_budget:
+            base_kwargs["budget_seconds"] = budget_seconds
+
+        attempt_kwargs: list[dict[str, Any]] = [base_kwargs]
+
+        if "timeout" in base_kwargs:
+            without_timeout = dict(base_kwargs)
+            without_timeout.pop("timeout", None)
+            attempt_kwargs.append(without_timeout)
+
+        if "enabled" in base_kwargs:
+            without_enabled = dict(base_kwargs)
+            without_enabled.pop("enabled", None)
+            attempt_kwargs.append(without_enabled)
+
+        if "budget_seconds" in base_kwargs:
+            without_budget = dict(base_kwargs)
+            without_budget.pop("budget_seconds", None)
+            attempt_kwargs.append(without_budget)
+
+        attempt_kwargs.append({"endpoint": endpoint})
+
+        seen: set[tuple[tuple[str, Any], ...]] = set()
+        for candidate in attempt_kwargs:
+            candidate.setdefault("endpoint", endpoint)
+            key = tuple(sorted(candidate.items(), key=lambda item: item[0]))
+            if key in seen:
+                continue
+            seen.add(key)
             try:
-                result = handshake_callable(endpoint=endpoint, enabled=enabled)
+                result = handshake_callable(**candidate)
             except TypeError:
-                supports_enabled = False
+                continue
             else:
                 return cast(Mapping[str, Any], result)
 
@@ -252,5 +301,12 @@ class ChemblReleaseMixin:
         if not release_attr_fallback:
             return None
         candidate = getattr(handshake_target, release_attr_fallback, None)
+        if candidate is None:
+            return None
+        # Игнорируем объекты unittest.mock, чтобы не писать их строковое представление
+        module_name = getattr(candidate, "__module__", "") or ""
+        is_mock_object = module_name.startswith("unittest.mock") or hasattr(candidate, "_mock_children")
+        if is_mock_object:
+            return None
         return self._normalize_release(candidate)
 

@@ -359,6 +359,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         log: BoundLogger | None = None,
         *,
         source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
         """Fetch ChEMBL release version from status endpoint.
 
@@ -395,6 +396,8 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     event=f"{self.pipeline_code}.status",
                     endpoint=normalized_endpoint,
                     enabled=handshake_enabled,
+                    timeout=timeout,
+                    budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
                 )
                 release_value = handshake_result.release
                 requested_at = handshake_result.requested_at_utc
@@ -424,22 +427,58 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
                     requested_at_utc=requested_at,
                 )
                 return self.chembl_release
+
             try:
-                response = client_get(normalized_endpoint)
-                json_candidate = getattr(response, "json", None)
-                if callable(json_candidate):
-                    status_payload_raw = json_candidate()
-                    status_payload = self._coerce_mapping(status_payload_raw)
-                    release_value = self._extract_chembl_release(status_payload)
-                    log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
-            except Exception as exc:
-                log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
-            finally:
-                self._update_release(release_value)
-                self.record_extract_metadata(
-                    chembl_release=release_value,
-                    requested_at_utc=requested_at,
+                fallback_attr = cast(
+                    Sequence[str] | None,
+                    getattr(
+                        self.config.clients.chembl.preflight,
+                        "fallback_urls",
+                        (),
+                    ),
                 )
+                fallback_urls = tuple(fallback_attr) if fallback_attr else ()
+            except AttributeError:
+                fallback_urls = ()
+
+            endpoints_to_try = tuple(
+                dict.fromkeys(
+                    (
+                        normalized_endpoint,
+                        *fallback_urls,
+                        "/status",
+                        "/status.json",
+                    )
+                )
+            )
+
+            for endpoint in endpoints_to_try:
+                if not endpoint:
+                    continue
+                try:
+                    response = client_get(endpoint, timeout=timeout)
+                    json_candidate = getattr(response, "json", None)
+                    if callable(json_candidate):
+                        status_payload_raw = json_candidate()
+                        status_payload = self._coerce_mapping(status_payload_raw)
+                        release_value = self._extract_chembl_release(status_payload)
+                        log.info(
+                            f"{self.pipeline_code}.status",
+                            chembl_release=release_value,
+                            status_endpoint=endpoint,
+                        )
+                        break
+                except Exception as exc:
+                    log.warning(
+                        f"{self.pipeline_code}.status_failed",
+                        error=str(exc),
+                        status_endpoint=endpoint,
+                    )
+            self._update_release(release_value)
+            self.record_extract_metadata(
+                chembl_release=release_value,
+                requested_at_utc=requested_at,
+            )
             return release_value
         self._update_release(None)
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
@@ -451,10 +490,33 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         log: BoundLogger | None = None,
         *,
         source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> str | None:
-        """Backward compatible wrapper for tests expecting private method."""
+        """Backward compatible wrapper handling legacy fetch signatures."""
 
-        return self.fetch_chembl_release(client, log, source_config=source_config)
+        bound_log = (
+            log
+            if log is not None
+            else UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        )
+
+        try:
+            return self.fetch_chembl_release(
+                client,
+                bound_log,
+                source_config=source_config,
+                timeout=timeout,
+            )
+        except TypeError as exc:
+            timeout_is_unexpected = timeout is not None and "timeout" in str(exc)
+            if not timeout_is_unexpected:
+                raise
+            bound_log.warning(
+                f"{self.pipeline_code}.release_timeout_unsupported",
+                error=str(exc),
+                timeout=timeout,
+            )
+            return self.fetch_chembl_release(client, bound_log, source_config=source_config)
 
     def perform_source_handshake(
         self,
@@ -472,8 +534,44 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
             event=event,
             endpoint=source_config.handshake_endpoint,
             enabled=source_config.handshake_enabled,
+            timeout=source_config.handshake_timeout_sec,
+            budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
         )
         return handshake_result
+
+    def ensure_chembl_release(
+        self,
+        client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
+        *,
+        log: BoundLogger,
+        timeout: float | tuple[float, float] | None = None,
+    ) -> str | None:
+        """Гарантировать наличие нормализованного номера релиза ChEMBL.
+
+        Если release уже известен и является непустой строкой, возвращает его.
+        В противном случае выполняет fetch через статус-эндпоинт.
+        """
+
+        cached = self.chembl_release
+        if isinstance(cached, str):
+            normalized = cached.strip()
+            if normalized:
+                if normalized != cached:
+                    self._update_release(normalized)
+                return normalized
+
+        fetched = self.fetch_chembl_release(
+            client,
+            log,
+            timeout=timeout,
+        )
+        if isinstance(fetched, str):
+            normalized_fetched = fetched.strip()
+            if normalized_fetched:
+                if normalized_fetched != fetched:
+                    self._update_release(normalized_fetched)
+                return normalized_fetched
+        return None
 
     @staticmethod
     def _extract_page_items(
@@ -638,7 +736,10 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
         source_config_raw = self._resolve_source_config("chembl")
         chembl_source_config = cast(
             ChemblSourceConfig,
-            ChemblPipelineSourceConfig.from_source_config(source_config_raw),
+            ChemblPipelineSourceConfig.from_source_config(
+                source_config_raw,
+                client_config=self.config.clients.chembl,
+            ),
         )
 
         defaults = ChemblPipelineSourceConfig.defaults

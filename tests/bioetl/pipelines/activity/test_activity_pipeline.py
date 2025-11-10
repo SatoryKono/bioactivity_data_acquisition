@@ -9,7 +9,8 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from requests.exceptions import RequestException
+from requests.exceptions import HTTPError, RequestException
+from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -40,6 +41,71 @@ class TestChemblActivityPipelineTransformations:
         assert normalized["molecule_chembl_id"].iloc[0] == "CHEMBL1"
         assert normalized["molecule_chembl_id"].iloc[1] == "CHEMBL2"
         assert normalized["molecule_chembl_id"].iloc[2] == "CHEMBL3"
+
+    def test_fetch_release_falls_back_to_status_json(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Ensure `/status` failure falls back to the legacy `/status.json` endpoint."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        mock_client = MagicMock()
+        mock_client.handshake = None
+
+        http_error = HTTPError("boom")
+        success_response = MagicMock()
+        success_response.json.return_value = {"chembl_release": "33"}
+
+        mock_client.get.side_effect = [http_error, success_response]
+
+        result = pipeline.fetch_chembl_release(mock_client)
+
+        assert result == "33"
+        assert pipeline.chembl_release == "33"
+        assert mock_client.get.call_count == 2
+        first_call_endpoint = mock_client.get.call_args_list[0].args[0]
+        second_call_endpoint = mock_client.get.call_args_list[1].args[0]
+        assert first_call_endpoint == "/status"
+        assert second_call_endpoint == "/status.json"
+        assert mock_client.get.call_args_list[0].kwargs["timeout"] is None
+        assert mock_client.get.call_args_list[1].kwargs["timeout"] is None
+        assert "retry_strategy" not in mock_client.get.call_args_list[0].kwargs
+        assert "retry_strategy" not in mock_client.get.call_args_list[1].kwargs
+
+    def test_fetch_release_timeout_keyword_backward_compatibility(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Ensure `_fetch_chembl_release` tolerates legacy fetch implementations."""
+
+        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+        mock_client = MagicMock()
+        log = MagicMock(spec=BoundLogger)
+
+        def side_effect(*args: Any, **kwargs: Any) -> str:
+            if "timeout" in kwargs:
+                raise TypeError(
+                    "fetch_chembl_release() got an unexpected keyword argument 'timeout'"
+                )
+            return "33"
+
+        pipeline.fetch_chembl_release = MagicMock(side_effect=side_effect)  # type: ignore[assignment]
+
+        result = pipeline._fetch_chembl_release(  # noqa: SLF001  # type: ignore[reportPrivateUsage]
+            mock_client,
+            log=log,
+            timeout=5.0,
+        )
+
+        assert result == "33"
+        assert pipeline.fetch_chembl_release.call_count == 2
+
+        first_call_kwargs = pipeline.fetch_chembl_release.call_args_list[0].kwargs
+        assert first_call_kwargs["timeout"] == 5.0
+
+        warning_args, warning_kwargs = log.warning.call_args
+        assert warning_args[0] == f"{pipeline.pipeline_code}.release_timeout_unsupported"
+        assert warning_kwargs["timeout"] == 5.0
 
     def test_normalize_identifiers_invalid(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -1123,7 +1189,7 @@ class TestChemblActivityPipelineTransformations:
         assert stats["invalid_count"] == 2  # 2 invalid properties
         assert stats["valid_count"] == len(validated)
 
-    def test_extract_activity_properties_missing_chEMBL_v24(
+    def test_extract_activity_properties_missing_chembl_v24(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of missing activity_properties (ChEMBL < v24 compatibility)."""
@@ -1142,7 +1208,7 @@ class TestChemblActivityPipelineTransformations:
         assert "activity_properties" in result
         assert result["activity_properties"] is None
 
-    def test_extract_activity_properties_null_chEMBL_v24(
+    def test_extract_activity_properties_null_chembl_v24(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of null activity_properties (ChEMBL < v24 compatibility)."""

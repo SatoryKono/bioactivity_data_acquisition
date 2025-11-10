@@ -81,7 +81,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source(source_raw)
+        source_config = DocumentSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
@@ -92,6 +95,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self.perform_source_handshake(
             chembl_client,
@@ -209,7 +214,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source(source_raw)
+        source_config = DocumentSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
@@ -220,6 +228,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self.perform_source_handshake(
             chembl_client,
@@ -229,7 +239,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         )
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source(source_raw)
+        source_config = DocumentSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         select_fields = self._resolve_select_fields(
             source_raw,
             default_fields=API_DOCUMENT_FIELDS,
@@ -637,7 +650,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return self._chembl_enrichment_client
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source(source_raw)
+        source_config = DocumentSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         api_client, _ = self.prepare_chembl_client(
             "chembl",
@@ -651,6 +667,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 

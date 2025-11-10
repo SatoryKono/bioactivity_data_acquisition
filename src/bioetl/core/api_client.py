@@ -6,19 +6,23 @@ import random
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Mapping, MutableMapping
-from dataclasses import dataclass
+from collections.abc import Callable, Generator, Mapping, MutableMapping
+from contextlib import contextmanager
 from typing import Any, Literal, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 
 import requests
 from requests import Response
-from requests.exceptions import HTTPError, RequestException
+from requests.adapters import HTTPAdapter
+from requests.exceptions import RequestException
+from urllib3.util.retry import Retry
 
 from bioetl.config.models.policies import CircuitBreakerConfig, HTTPClientConfig
 from bioetl.core.api import ApiProfile, get_api_client, profile_from_http_config
 from bioetl.core.logger import UnifiedLogger
+
+RetryStrategy = Literal["default", "none"] | Retry | None
 
 __all__ = [
     "TokenBucketLimiter",
@@ -26,6 +30,7 @@ __all__ = [
     "CircuitBreakerOpenError",
     "UnifiedAPIClient",
     "merge_http_configs",
+    "RetryStrategy",
 ]
 
 
@@ -304,6 +309,8 @@ class UnifiedAPIClient:
         *,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
+        retry_strategy: RetryStrategy | None = None,
     ) -> Response:
         params_dict: dict[str, Any] = dict(params or {})
         full_url: str | None = None
@@ -324,8 +331,17 @@ class UnifiedAPIClient:
                     endpoint,
                     data=params_dict,
                     headers=override_headers,
+                    timeout=timeout,
+                    retry_strategy=retry_strategy,
                 )
-        return self.request("GET", endpoint, params=params_dict or None, headers=headers)
+        return self.request(
+            "GET",
+            endpoint,
+            params=params_dict or None,
+            headers=headers,
+            timeout=timeout,
+            retry_strategy=retry_strategy,
+        )
 
     def request(
         self,
@@ -336,6 +352,8 @@ class UnifiedAPIClient:
         json: Any | None = None,
         data: Any | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
+        retry_strategy: RetryStrategy | None = None,
     ) -> Response:
         url = self._resolve_url(endpoint)
         request_id = str(uuid4())
@@ -351,15 +369,16 @@ class UnifiedAPIClient:
                     request_id=request_id,
                 )
             start = time.perf_counter()
-            response = self._session.request(
-                method,
-                url,
-                params=params,
-                json=json,
-                data=data,
-                headers=self._apply_headers(headers),
-                timeout=self._timeout,
-            )
+            with self._retry_override(retry_strategy):
+                response = self._session.request(
+                    method,
+                    url,
+                    params=params,
+                    json=json,
+                    data=data,
+                    headers=self._apply_headers(headers),
+                    timeout=timeout if timeout is not None else self._timeout,
+                )
             duration_ms = (time.perf_counter() - start) * 1000
             status_code = response.status_code
             if status_code >= 400:
@@ -384,7 +403,7 @@ class UnifiedAPIClient:
             return response
 
         try:
-            return self._circuit_breaker.call(_execute)
+            return cast(Response, self._circuit_breaker.call(_execute))
         except RequestException as exc:
             self._logger.warning(
                 "http.request.exception",
@@ -393,6 +412,35 @@ class UnifiedAPIClient:
                 error=str(exc),
             )
             raise
+
+    @contextmanager
+    def _retry_override(self, strategy: RetryStrategy) -> Generator[None, None, None]:
+        """Temporarily override adapter retry configuration."""
+
+        if strategy is None or strategy == "default":
+            yield
+            return
+
+        if isinstance(strategy, Retry):
+            override = strategy
+        elif strategy == "none":
+            override = Retry(total=0, connect=0, read=0, other=0, status=0)
+        else:
+            msg = f"Unsupported retry strategy: {strategy!r}"
+            raise ValueError(msg)
+
+        adapters: list[tuple[HTTPAdapter, Retry]] = []
+        try:
+            for adapter in self._session.adapters.values():
+                if not isinstance(adapter, HTTPAdapter):
+                    continue
+                current = adapter.max_retries
+                adapters.append((adapter, current))
+                adapter.max_retries = override
+            yield
+        finally:
+            for adapter, previous in adapters:
+                adapter.max_retries = previous
 
     def request_json(
         self,
@@ -403,6 +451,7 @@ class UnifiedAPIClient:
         json: Any | None = None,
         data: Any | None = None,
         headers: Mapping[str, str] | None = None,
+        timeout: float | tuple[float, float] | None = None,
     ) -> Any:
         response = self.request(
             method,
@@ -411,6 +460,7 @@ class UnifiedAPIClient:
             json=json,
             data=data,
             headers=headers,
+            timeout=timeout,
         )
         return response.json()
 

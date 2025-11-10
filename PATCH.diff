@@ -1,0 +1,147 @@
+diff --git a/src/bioetl/clients/chembl.py b/src/bioetl/clients/chembl.py
+--- a/src/bioetl/clients/chembl.py
++++ b/src/bioetl/clients/chembl.py
+@@
+-class ChemblClient:
+-    """High level client for interacting with the ChEMBL REST API."""
+-
+-    def __init__(..., handshake_timeout: float | tuple[float, float] | None = 10.0) -> None:
+-        self._status_cache: dict[str, Mapping[str, Any]] = {}
+-        self._handshake_timeout = self._normalize_timeout(handshake_timeout)
+-
+-    def handshake(..., enabled: bool = True, timeout: float | tuple[float, float] | None = None):
+-        ...
+-        self._client.get(candidate, timeout=effective_timeout)
+-        ...
+-        self._status_cache[candidate] = payload
+-        self._log.info("chembl.handshake", endpoint=candidate, ...)
++@dataclass(slots=True)
++class _HandshakeCacheEntry:
++    payload: dict[str, Any]
++    expires_at: float
++    requested_at_utc: datetime
++    success: bool
++    status_code: int | None
++
++class ChemblClient:
++    """High level client for interacting with the ChEMBL REST API."""
++
++    def __init__(..., settings: ChemblClientConfig | None = None, handshake_timeout: float | tuple[float, float] | None = None):
++        self._settings = settings or ChemblClientConfig()
++        self._preflight_config = self._settings.preflight
++        self._timeout_config = self._settings.timeout
++        self._circuit_breaker_config = self._settings.circuit_breaker
++        self._default_timeout = self._coerce_timeout(handshake_timeout) if handshake_timeout is not None else self._timeout_from_config()
++        self._handshake_budget = max(float(self._preflight_config.budget_seconds), 0.0)
++        self._handshake_cache_ttl = max(float(self._preflight_config.cache_ttl_seconds), 0.0)
++        self._failure_cache_ttl = max(float(self._circuit_breaker_config.open_seconds), 0.0)
++        self._status_cache: dict[str, _HandshakeCacheEntry] = {}
++
++    def handshake(
++        self,
++        endpoint: str | None = None,
++        *,
++        enabled: bool | None = None,
++        timeout: float | tuple[float, float] | None = None,
++        budget_seconds: float | None = None,
++    ) -> Mapping[str, Any]:
++        ...
++        response = self._client.get(candidate, timeout=effective_timeout, retry_strategy="none")
++        ...
++        self._log.info(
++            "chembl.handshake.success",
++            endpoint=candidate,
++            attempt=overall_attempt,
++            status_code=response.status_code,
++            duration_ms=duration_ms,
++            ttfb_ms=elapsed_ms,
++            timeout_connect_ms=effective_timeout[0] * 1000.0,
++            timeout_read_ms=effective_timeout[1] * 1000.0,
++            phase="success",
++        )
++    def _collect_handshake_endpoints(...): ...
++    def _store_handshake_result(...): ...
++    def _timeout_from_config(...): ...
++    def _calculate_backoff_delay(...): ...
+
+diff --git a/src/bioetl/cli/command.py b/src/bioetl/cli/command.py
+--- a/src/bioetl/cli/command.py
++++ b/src/bioetl/cli/command.py
+@@
+-        validate_columns: bool = typer.Option(...),
+-        golden: Path | None = typer.Option(...),
++        validate_columns: bool = typer.Option(...),
++        preflight_handshake: bool | None = typer.Option(
++            None,
++            "--preflight-handshake/--no-preflight-handshake",
++            help="Enable or disable the ChEMBL preflight handshake before extraction.",
++        ),
++        golden: Path | None = typer.Option(...),
+@@
+-    _update_pipeline_config_from_cli(..., validate_columns=validate_columns, output_dir=output_dir)
++    _update_pipeline_config_from_cli(
++        ...,
++        validate_columns=validate_columns,
++        output_dir=output_dir,
++        preflight_handshake=preflight_handshake,
++    )
+
+diff --git a/docs/cli/01-cli-commands.md b/docs/cli/01-cli-commands.md
+--- a/docs/cli/01-cli-commands.md
++++ b/docs/cli/01-cli-commands.md
+@@
+-| `--validate-columns / --no-validate-columns` | | No | Control column validation hooks... |
++| `--validate-columns / --no-validate-columns` | | No | Control column validation hooks... |
++| `--preflight-handshake / --no-preflight-handshake` | | No | Force-enable or disable the ChEMBL preflight handshake guard before extract stages. | Falls back to config |
+
+diff --git a/tests/bioetl/clients/test_chembl_client.py b/tests/bioetl/clients/test_chembl_client.py
+--- a/tests/bioetl/clients/test_chembl_client.py
++++ b/tests/bioetl/clients/test_chembl_client.py
+@@
+-        client = ChemblClient(mock_api_client)
++        client = ChemblClient(mock_api_client, settings=chembl_client_settings)
+@@
+-        mock_api_client.get.side_effect = [HTTPError("boom"), success_response]
++        mock_api_client.get.side_effect = [
++            HTTPError("boom"),
++            HTTPError("boom"),
++            success_response,
++        ]
+@@
++    def test_handshake_failure_cached(...):
++        client = ChemblClient(mock_api_client, settings=ChemblClientConfig(...))
++        mock_api_client.get.side_effect = HTTPError("boom")
++        assert client.handshake("/status") == {}
++        mock_api_client.get.reset_mock()
++        assert client.handshake("/status") == {}
++        assert mock_api_client.get.call_count == 0
+
+diff --git a/configs/defaults/chembl.yaml b/configs/defaults/chembl.yaml
+--- a/configs/defaults/chembl.yaml
++++ b/configs/defaults/chembl.yaml
+@@
+ clients:
+   chembl:
+     base_url: "https://www.ebi.ac.uk/chembl/api"
+     preflight:
+       enabled: false
+       url: "/status"
+       fallback_urls:
+         - "/status.json"
+         - "/data/version"
+         - "/data"
+       retry:
+         total: 3
+         backoff_factor: 0.5
+         status_forcelist: [429, 500, 502, 503, 504]
+         allowed_methods: ["GET", "HEAD"]
+       budget_seconds: 10.0
+       cache_ttl_seconds: 600.0
+     timeout:
+       connect_seconds: 2.0
+       read_seconds: 5.0
+       total_seconds: 10.0
+     circuit_breaker:
+       error_threshold: 3
+       open_seconds: 60.0
+

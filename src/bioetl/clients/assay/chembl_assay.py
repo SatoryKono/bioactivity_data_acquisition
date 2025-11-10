@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from typing import ClassVar
 
@@ -19,6 +20,7 @@ _CHEMBL_SPEC = importlib.util.spec_from_file_location(
 )
 if _CHEMBL_SPEC is not None and _CHEMBL_SPEC.loader is not None:
     _CHEMBL_MODULE = importlib.util.module_from_spec(_CHEMBL_SPEC)
+    sys.modules[_CHEMBL_SPEC.name] = _CHEMBL_MODULE
     _CHEMBL_SPEC.loader.exec_module(_CHEMBL_MODULE)
     ChemblClient = _CHEMBL_MODULE.ChemblClient
 else:

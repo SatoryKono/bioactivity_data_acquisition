@@ -11,3 +11,28 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
       max_url_length: 2000  # Used for predictive throttling of batch requests
+
+clients:
+  chembl:
+    base_url: "https://www.ebi.ac.uk/chembl/api"
+    preflight:
+      enabled: false
+      url: "/status"
+      fallback_urls:
+        - "/status.json"
+        - "/data/version"
+        - "/data"
+      retry:
+        total: 3
+        backoff_factor: 0.5
+        status_forcelist: [429, 500, 502, 503, 504]
+        allowed_methods: ["GET", "HEAD"]
+      budget_seconds: 10.0
+      cache_ttl_seconds: 600.0
+    timeout:
+      connect_seconds: 2.0
+      read_seconds: 5.0
+      total_seconds: 10.0
+    circuit_breaker:
+      error_threshold: 3
+      open_seconds: 60.0

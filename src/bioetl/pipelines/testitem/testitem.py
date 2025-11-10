@@ -95,6 +95,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
         *,
+        timeout: float | tuple[float, float] | None = None,
         source_config: ChemblPipelineSourceConfig[Any] | SourceConfig | None = None,
     ) -> str | None:
         """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
@@ -110,15 +111,29 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         if source_config is None:
             source_raw = self._resolve_source_config("chembl")
-            resolved_source_config = TestItemSourceConfig.from_source(source_raw)
+            resolved_source_config = TestItemSourceConfig.from_source(
+                source_raw,
+                client_config=self.config.clients.chembl,
+            )
+
         elif isinstance(source_config, TestItemSourceConfig):
             resolved_source_config = source_config
         elif isinstance(source_config, SourceConfig):
-            resolved_source_config = TestItemSourceConfig.from_source(source_config)
+            resolved_source_config = TestItemSourceConfig.from_source(
+                source_config,
+                client_config=self.config.clients.chembl,
+            )
         else:
             resolved_source_config = cast(
                 ChemblPipelineSourceConfig[TestItemSourceParameters],
                 source_config,
+            )
+
+        if timeout is not None:
+            bound_log.warning(
+                "chembl_testitem.release_timeout_ignored",
+                timeout=timeout,
+                hint="TestItem handshake не поддерживает таймаут; передайте None.",
             )
 
         handshake_result = self.perform_source_handshake(
@@ -128,6 +143,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             event="chembl_testitem.handshake",
         )
         payload: Mapping[str, Any] = handshake_result.payload
+        metadata_requested_at = handshake_result.requested_at_utc
 
         release_value = handshake_result.release
         api_version: str | None = None
@@ -140,11 +156,38 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 release_value = extracted_release
                 self._update_release(extracted_release)
 
+        if release_value is None or api_version is None:
+            forced_handshake = self.perform_chembl_handshake(
+                client,
+                log=bound_log,
+                event="chembl_testitem.status_refresh",
+                endpoint=resolved_source_config.handshake_endpoint,
+                enabled=True,
+                timeout=resolved_source_config.handshake_timeout_sec,
+                budget_seconds=self.config.clients.chembl.preflight.budget_seconds,
+            )
+            payload = forced_handshake.payload or payload
+            metadata_requested_at = forced_handshake.requested_at_utc
+            if release_value is None:
+                release_value = forced_handshake.release
+            if api_version is None:
+                refreshed_api = payload.get("api_version")
+                if isinstance(refreshed_api, str) and refreshed_api.strip():
+                    api_version = refreshed_api
+
+        if release_value is None:
+            release_value = self.fetch_chembl_release(
+                client,
+                bound_log,
+                timeout=resolved_source_config.handshake_timeout_sec,
+            )
+            metadata_requested_at = datetime.now(timezone.utc)
+
         self._chembl_db_version = release_value
         self._api_version = api_version
         self.record_extract_metadata(
             chembl_release=release_value,
-            requested_at_utc=handshake_result.requested_at_utc,
+            requested_at_utc=metadata_requested_at,
         )
 
         return release_value
@@ -180,7 +223,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source(source_raw)
+        source_config = TestItemSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -191,6 +237,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,
@@ -282,7 +330,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source(source_raw)
+        source_config = TestItemSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -293,6 +344,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         self._fetch_chembl_release(
             chembl_client,

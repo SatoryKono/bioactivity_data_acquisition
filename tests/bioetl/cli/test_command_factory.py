@@ -3,15 +3,42 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 import pytest
 import typer
 from requests import RequestException
 
 import bioetl.cli.command as cli_command
+
+VALIDATE_OUTPUT_DIR = cast(
+    Callable[[Path], None],
+    cast(Any, cli_command)._validate_output_dir,  # noqa: SLF001
+)
+UPDATE_PIPELINE_CONFIG_FROM_CLI = cast(
+    Callable[..., None],
+    cast(Any, cli_command)._update_pipeline_config_from_cli,  # noqa: SLF001
+)
+
+
+def _stub_read_environment_settings() -> SimpleNamespace:
+    return SimpleNamespace()
+
+
+def _noop_apply_runtime_overrides(_: Any) -> None:
+    return None
+
+
+def _make_stub_read_pipeline_config(
+    stub_config: SimpleNamespace,
+) -> Callable[..., SimpleNamespace]:
+    def _stub_read_pipeline_config(**_: Any) -> SimpleNamespace:
+        return stub_config
+
+    return _stub_read_pipeline_config
 
 
 def _register_dummy_pipeline(monkeypatch: pytest.MonkeyPatch) -> type:
@@ -36,7 +63,8 @@ def _register_dummy_pipeline(monkeypatch: pytest.MonkeyPatch) -> type:
             )
 
     DummyPipeline.__module__ = module_name
-    module.DummyPipeline = DummyPipeline
+    module_alias = cast(Any, module)
+    module_alias.DummyPipeline = DummyPipeline
     monkeypatch.setitem(sys.modules, module_name, module)
     return DummyPipeline
 
@@ -61,6 +89,9 @@ def _build_stub_config(tmp_path: Path) -> SimpleNamespace:
         materialization=SimpleNamespace(root=str(tmp_path / "materialized")),
         determinism=SimpleNamespace(environment=SimpleNamespace(timezone="UTC")),
         postprocess=SimpleNamespace(correlation=SimpleNamespace(enabled=False)),
+        clients=SimpleNamespace(
+            chembl=SimpleNamespace(preflight=SimpleNamespace(enabled=True))
+        ),
     )
 
 
@@ -76,7 +107,7 @@ def test_validate_output_dir_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     monkeypatch.setattr(Path, "mkdir", raise_os_error, raising=False)
 
     with pytest.raises(typer.Exit) as exit_info:
-        cli_command._validate_output_dir(path)  # noqa: SLF001
+        VALIDATE_OUTPUT_DIR(path)
 
     assert exit_info.value.exit_code == 2
 
@@ -103,7 +134,7 @@ def test_create_pipeline_command_mutually_exclusive_limit_sample(
 @pytest.mark.unit
 def test_create_pipeline_command_environment_failure(
     monkeypatch: pytest.MonkeyPatch,
-    patch_unified_logger,
+    patch_unified_logger: Callable[[Any], Any],
 ) -> None:
     """Ошибка валидации окружения приводит к коду выхода 2 и сообщению об ошибке."""
 
@@ -115,7 +146,7 @@ def test_create_pipeline_command_environment_failure(
         raise ValueError("invalid env")
 
     monkeypatch.setattr(cli_command, "read_environment_settings", raise_env_error)
-    monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
+    monkeypatch.setattr(cli_command, "apply_runtime_overrides", _noop_apply_runtime_overrides)
     patch_unified_logger(cli_command)
 
     config_path = Path("config.yaml")
@@ -144,7 +175,7 @@ def test_create_pipeline_command_environment_failure(
 def test_create_pipeline_command_success(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    patch_unified_logger,
+    patch_unified_logger: Callable[[Any], Any],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     """Успешный запуск команды переходит по happy-path до выхода с кодом 0."""
@@ -159,9 +190,13 @@ def test_create_pipeline_command_success(
 
     stub_config = _build_stub_config(tmp_path)
 
-    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
-    monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
-    monkeypatch.setattr(cli_command, "read_pipeline_config", lambda **_: stub_config)
+    monkeypatch.setattr(cli_command, "read_environment_settings", _stub_read_environment_settings)
+    monkeypatch.setattr(cli_command, "apply_runtime_overrides", _noop_apply_runtime_overrides)
+    monkeypatch.setattr(
+        cli_command,
+        "read_pipeline_config",
+        _make_stub_read_pipeline_config(stub_config),
+    )
     patch_unified_logger(cli_command)
 
     with pytest.raises(typer.Exit) as exit_info:
@@ -178,19 +213,20 @@ def test_create_pipeline_command_success(
             validate_columns=True,
             golden=None,
             input_file=None,
+            preflight_handshake=False,
         )
 
     assert exit_info.value.exit_code == 0
-
     captured = capsys.readouterr()
     assert "Pipeline completed successfully" in captured.out
+    assert stub_config.clients.chembl.preflight.enabled is False
 
 
 @pytest.mark.unit
 def test_create_pipeline_command_api_failure(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    patch_unified_logger,
+    patch_unified_logger: Callable[[Any], Any],
 ) -> None:
     """Исключения RequestException приводят к коду выхода 3 и сообщению об API ошибке."""
 
@@ -207,11 +243,27 @@ def test_create_pipeline_command_api_failure(
     def failing_run(self: Any, *_: Any, **__: Any) -> None:  # noqa: ANN001
         raise RequestException("boom")
 
-    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
-    monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
-    monkeypatch.setattr(cli_command, "read_pipeline_config", lambda **_: stub_config)
+    monkeypatch.setattr(cli_command, "read_environment_settings", _stub_read_environment_settings)
+    monkeypatch.setattr(cli_command, "apply_runtime_overrides", _noop_apply_runtime_overrides)
+    monkeypatch.setattr(
+        cli_command,
+        "read_pipeline_config",
+        _make_stub_read_pipeline_config(stub_config),
+    )
+    def stub_read_environment_settings() -> SimpleNamespace:
+        return SimpleNamespace()
+
+    def noop_apply_runtime_overrides(_: Any) -> None:
+        return None
+
+    def stub_read_pipeline_config(**_: Any) -> SimpleNamespace:
+        return stub_config
+
+    monkeypatch.setattr(cli_command, "read_environment_settings", stub_read_environment_settings)
+    monkeypatch.setattr(cli_command, "apply_runtime_overrides", noop_apply_runtime_overrides)
+    monkeypatch.setattr(cli_command, "read_pipeline_config", stub_read_pipeline_config)
     patch_unified_logger(cli_command)
-    monkeypatch.setattr(sys.modules[pipeline_class.__module__].DummyPipeline, "run", failing_run)
+    monkeypatch.setattr(pipeline_class, "run", failing_run)
 
     with pytest.raises(typer.Exit) as exit_info:
         command(
@@ -236,7 +288,7 @@ def test_create_pipeline_command_api_failure(
 def test_create_pipeline_command_missing_config(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
-    patch_unified_logger,
+    patch_unified_logger: Callable[[Any], Any],
 ) -> None:
     """Отсутствующие профили/конфиги переводятся в код выхода 2."""
 
@@ -251,8 +303,8 @@ def test_create_pipeline_command_missing_config(
     def raise_missing_config(**_: Any) -> None:
         raise FileNotFoundError("profile.yaml")
 
-    monkeypatch.setattr(cli_command, "read_environment_settings", lambda: SimpleNamespace())
-    monkeypatch.setattr(cli_command, "apply_runtime_overrides", lambda _: None)
+    monkeypatch.setattr(cli_command, "read_environment_settings", _stub_read_environment_settings)
+    monkeypatch.setattr(cli_command, "apply_runtime_overrides", _noop_apply_runtime_overrides)
     monkeypatch.setattr(cli_command, "read_pipeline_config", raise_missing_config)
     patch_unified_logger(cli_command)
 
@@ -294,9 +346,14 @@ def test_update_pipeline_config_from_cli(tmp_path: Path) -> None:
         ),
         validation=SimpleNamespace(strict=True),
         materialization=SimpleNamespace(root="data/output"),
+        clients=SimpleNamespace(
+            chembl=SimpleNamespace(
+                preflight=SimpleNamespace(enabled=True),
+            )
+        ),
     )
 
-    cli_command._update_pipeline_config_from_cli(
+    UPDATE_PIPELINE_CONFIG_FROM_CLI(
         config,
         dry_run=True,
         limit=5,
@@ -308,6 +365,7 @@ def test_update_pipeline_config_from_cli(tmp_path: Path) -> None:
         fail_on_schema_drift=False,
         validate_columns=False,
         output_dir=tmp_path / "out",
+        preflight_handshake=False,
     )
 
     assert config.cli.dry_run is True
@@ -319,4 +377,5 @@ def test_update_pipeline_config_from_cli(tmp_path: Path) -> None:
     assert config.cli.validate_columns is False
     assert config.validation.strict is False
     assert config.materialization.root == str(tmp_path / "out")
+    assert config.clients.chembl.preflight.enabled is False
 

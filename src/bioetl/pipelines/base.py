@@ -1080,8 +1080,6 @@ class PipelineBase(ABC):
             DataFrame with all schema columns present (missing ones filled with NA).
         """
         df = df.copy()
-        if df.empty:
-            return df
 
         effective_log: BoundLogger | None = None
         if log is None:

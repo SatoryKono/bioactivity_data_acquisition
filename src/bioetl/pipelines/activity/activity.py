@@ -177,13 +177,27 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         client, base_url = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log, source_config=source_config)
+        self.perform_source_handshake(
+            client,
+            source_config=source_config,
+            log=log,
+            event="chembl_activity.handshake",
+        )
+
+        release_value = self.ensure_chembl_release(
+            client,
+            log=log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -214,7 +228,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             key: value for key, value in filters_payload.items() if value is not None
         }
         self.record_extract_metadata(
-            chembl_release=self.chembl_release,
+            chembl_release=release_value,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -277,6 +291,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 
@@ -288,7 +304,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             "chembl_activity.extract_summary",
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
+            chembl_release=release_value or self.chembl_release,
             pages=pages,
         )
         return dataframe
@@ -310,13 +326,27 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_activity_client",
         )
 
-        self.fetch_chembl_release(client, log, source_config=source_config)
+        self.perform_source_handshake(
+            client,
+            source_config=source_config,
+            log=log,
+            event="chembl_activity.handshake",
+        )
+
+        release_value = self.ensure_chembl_release(
+            client,
+            log=log,
+            timeout=source_config.handshake_timeout_sec,
+        )
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -332,7 +362,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
-            chembl_release=self.chembl_release,
+            chembl_release=release_value,
             filters=compact_id_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
@@ -351,7 +381,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             rows=int(batch_dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
+            chembl_release=release_value or self.chembl_release,
             batches=batch_stats.get("batches"),
             api_calls=batch_stats.get("api_calls"),
             cache_hits=batch_stats.get("cache_hits"),
@@ -573,7 +603,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return self._chembl_enrichment_client
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source(source_raw)
+        source_config = ActivitySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -584,6 +617,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 
@@ -632,7 +667,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
         source_config_raw = self._resolve_source_config("chembl")
-        activity_source_config = ActivitySourceConfig.from_source(source_config_raw)
+        activity_source_config = ActivitySourceConfig.from_source(
+            source_config_raw,
+            client_config=self.config.clients.chembl,
+        )
 
         if isinstance(dataset, pd.Series):
             input_frame = dataset.to_frame(name="activity_id")
@@ -844,6 +882,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=activity_source_config.handshake_timeout_sec,
         )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
 

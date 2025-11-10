@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, ClassVar, cast
 
@@ -159,7 +159,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -170,6 +173,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -296,7 +301,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         http_client, _ = self.prepare_chembl_client(
             "chembl",
             client_name="chembl_assay_http",
@@ -307,6 +315,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         assay_client: EntityClient[Mapping[str, object]] = ChemblAssayClient(
             chembl_client,
@@ -534,7 +544,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return self._chembl_enrichment_client
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
@@ -545,6 +558,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
         return self._chembl_enrichment_client
 
@@ -762,6 +777,15 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             df["row_index"] = range(len(df))
             log.debug("row_index_filled", count=len(df))
 
+        if "confidence_score" in df.columns:
+            to_numeric_series = cast(Callable[..., Series], pd.to_numeric)
+            numeric_confidence = to_numeric_series(df["confidence_score"], errors="coerce")
+            df["confidence_score"] = Series(numeric_confidence, dtype="Int64")
+            log.debug(
+                "confidence_score_normalized",
+                non_null_count=int(df["confidence_score"].notna().sum()),
+            )
+
         return df
 
     def _check_missing_columns(
@@ -894,7 +918,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 error=str(exc),
             )
             return df
-        source_config = AssaySourceConfig.from_source(source_raw)
+        source_config = AssaySourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
 
@@ -906,6 +933,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             load_meta_store=self.load_meta_store,
             job_id=self.run_id,
             operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
         )
 
         # Получить конфигурацию enrichment из config.chembl.assay.enrich

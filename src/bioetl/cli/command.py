@@ -116,6 +116,7 @@ def _update_pipeline_config_from_cli(
     fail_on_schema_drift: bool,
     validate_columns: bool,
     output_dir: Path,
+    preflight_handshake: bool | None,
 ) -> None:
     """Apply CLI flag values to the mutable pipeline configuration."""
 
@@ -138,6 +139,9 @@ def _update_pipeline_config_from_cli(
     cli_config.validate_columns = validate_columns
     if not validate_columns:
         pipeline_config.validation.strict = False
+
+    if preflight_handshake is not None:
+        pipeline_config.clients.chembl.preflight.enabled = bool(preflight_handshake)
 
     pipeline_config.materialization.root = str(output_dir)
 
@@ -235,6 +239,11 @@ def create_pipeline_command(
             "--validate-columns/--no-validate-columns",
             help="Enforce strict column validation (disable to ignore column drift)",
         ),
+        preflight_handshake: bool | None = typer.Option(
+            None,
+            "--preflight-handshake/--no-preflight-handshake",
+            help="Enable or disable the ChEMBL preflight handshake before extraction.",
+        ),
         golden: Path | None = typer.Option(
             None,
             "--golden",
@@ -299,6 +308,7 @@ def create_pipeline_command(
             fail_on_schema_drift=fail_on_schema_drift,
             validate_columns=validate_columns,
             output_dir=output_dir,
+            preflight_handshake=preflight_handshake,
         )
 
         # Configure logging
