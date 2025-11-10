@@ -15,7 +15,7 @@ import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.target.chembl_target import ChemblTargetClient
-from bioetl.config import PipelineConfig, TargetSourceConfig
+from bioetl.config import TargetSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
@@ -33,9 +33,6 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
     ACTOR: ClassVar[str] = "target_chembl"
-
-    def __init__(self, config: PipelineConfig, run_id: str) -> None:
-        super().__init__(config, run_id)
 
     # ------------------------------------------------------------------
     # Pipeline stages
