@@ -14,7 +14,7 @@ from pandas import Series
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.types import EntityClient
-from bioetl.config import AssaySourceConfig, PipelineConfig
+from bioetl.config import AssaySourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
@@ -122,9 +122,6 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
     ACTOR: ClassVar[str] = "assay_chembl"
-
-    def __init__(self, config: PipelineConfig, run_id: str) -> None:
-        super().__init__(config, run_id)
 
     # ------------------------------------------------------------------
     # Pipeline stages
