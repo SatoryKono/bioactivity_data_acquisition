@@ -1302,7 +1302,7 @@ Assay pipeline использует Pandera для строгой валидац
 ```python
 # src/bioetl/schemas/chembl/assay/assay_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

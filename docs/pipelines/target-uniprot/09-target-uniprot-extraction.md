@@ -307,7 +307,7 @@ Target-UniProt pipeline использует Pandera для строгой ва�
 ```python
 # src/bioetl/schemas/uniprot/target/uniprot_target_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

@@ -1077,8 +1077,8 @@ ChEMBL применяет стандартизацию и проверки ва�
 
 ```python
 
-from pandera import DataFrameSchema, Column, Check
-import pandera as pa
+from pandera.pandas import DataFrameSchema, Column, Check
+import pandera.pandas as pa
 
 SCHEMA_VERSION = "1.0.0"
 COLUMN_ORDER = [

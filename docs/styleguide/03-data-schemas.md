@@ -17,7 +17,7 @@ This document defines the standards for data schema definitions and validation u
 All schemas **MUST** be defined in the schema registry (typically `src/bioetl/schemas/`) using Pandera's `DataFrameSchema` or `SchemaModel`:
 
 ```python
-from pandera import DataFrameSchema, Column, Check, Index
+from pandera.pandas import DataFrameSchema, Column, Check, Index
 
 ActivitySchema = DataFrameSchema(
     columns={
@@ -47,7 +47,7 @@ Column order **MUST** match the order in the pipeline's `column_order` configura
 ### Valid Examples
 
 ```python
-from pandera import DataFrameSchema, Column, Check
+from pandera.pandas import DataFrameSchema, Column, Check
 from pandera.typing import DataFrame
 
 ActivitySchema = DataFrameSchema(

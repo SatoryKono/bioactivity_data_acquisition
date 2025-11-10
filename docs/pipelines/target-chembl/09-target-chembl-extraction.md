@@ -290,7 +290,7 @@ Target pipeline использует Pandera для строгой валида�
 ```python
 # src/bioetl/schemas/chembl/target/target_output_schema.py
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera.typing import Series, DateTime, String, Int64, Float64
 from typing import Optional
 

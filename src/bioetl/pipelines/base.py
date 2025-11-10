@@ -21,7 +21,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 import pandera.errors
 from pandas import Series
-from pandera import DataFrameSchema
+from pandera.pandas import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
