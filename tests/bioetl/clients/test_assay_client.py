@@ -9,6 +9,7 @@ import pytest
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 from bioetl.core.api_client import UnifiedAPIClient
 
 
@@ -28,9 +29,27 @@ def mock_chembl_client(mock_unified_client: MagicMock) -> MagicMock:
     return mock_client
 
 
+@pytest.fixture
+def chembl_assay_client(mock_chembl_client: MagicMock) -> ChemblAssayClient:
+    """Fixture providing ChemblAssayClient with default options."""
+
+    return ChemblAssayClient(mock_chembl_client)  # type: ignore[arg-type]
+
+
 @pytest.mark.unit
 class TestChemblAssayClient:
     """Test suite for ChemblAssayClient."""
+
+    def test_defaults_from_base(
+        self, chembl_assay_client: ChemblAssayClient
+    ) -> None:
+        """Ensure defaults are propagated from the shared base class."""
+
+        assert (
+            chembl_assay_client.batch_size
+            == ChemblEntityClientBase.DEFAULT_BATCH_SIZE
+        )
+        assert chembl_assay_client.max_url_length is None
 
     def test_init_valid(self, mock_chembl_client: MagicMock) -> None:
         """Test ChemblAssayClient initialization with valid parameters."""

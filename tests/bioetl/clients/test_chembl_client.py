@@ -207,3 +207,144 @@ class TestChemblClient:
 
         # Should call handshake (which calls get) and then paginate
         assert mock_api_client.get.call_count >= 1
+
+    def test_fetch_assays_routes_to_entity(self, mock_api_client: MagicMock) -> None:
+        """Ensure fetch_assays_by_ids delegates to the assay entity."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"A": {"id": "A"}}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._assay_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["A"]
+        fields = ["field1"]
+        result = client.fetch_assays_by_ids(ids, fields, page_limit=25)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 25)
+        assert result == expected
+
+    def test_fetch_molecules_routes_to_entity(self, mock_api_client: MagicMock) -> None:
+        """Ensure fetch_molecules_by_ids delegates to the molecule entity."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"M1": {"id": "M1"}}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._molecule_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["M1"]
+        fields = ["field1"]
+        result = client.fetch_molecules_by_ids(ids, fields, page_limit=50)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 50)
+        assert result == expected
+
+    def test_fetch_data_validity_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_data_validity_lookup delegates to the entity client."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"comment": {"id": 1}}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._data_validity_entity = mock_entity  # type: ignore[assignment]
+
+        comments = ["comment"]
+        fields = ["field"]
+        result = client.fetch_data_validity_lookup(comments, fields, page_limit=10)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(comments, fields, 10)
+        assert result == expected
+
+    def test_fetch_compound_records_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_compound_records_by_pairs delegates to compound entity."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {("M", "D"): {"id": 1}}
+        mock_entity.fetch_by_pairs.return_value = expected
+        client._compound_record_entity = mock_entity  # type: ignore[assignment]
+
+        pairs = [("M", "D")]
+        fields = ["field"]
+        result = client.fetch_compound_records_by_pairs(pairs, fields, page_limit=5)
+
+        mock_entity.fetch_by_pairs.assert_called_once_with(pairs, fields, 5)
+        assert result == expected
+
+    def test_fetch_document_terms_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_document_terms_by_ids delegates to document term entity."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"DOC": [{"id": 1}]}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._document_term_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["DOC"]
+        fields = ["field"]
+        result = client.fetch_document_terms_by_ids(ids, fields, page_limit=15)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 15)
+        assert result == expected
+
+    def test_fetch_assay_class_map_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_assay_class_map_by_assay_ids delegates correctly."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"ASSAY": [{"id": 1}]}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._assay_class_map_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["ASSAY"]
+        fields = ["field"]
+        result = client.fetch_assay_class_map_by_assay_ids(ids, fields, page_limit=30)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 30)
+        assert result == expected
+
+    def test_fetch_assay_parameters_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_assay_parameters_by_assay_ids passes active_only flag."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"ASSAY": [{"id": 1}]}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._assay_parameters_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["ASSAY"]
+        fields = ["field"]
+        result = client.fetch_assay_parameters_by_assay_ids(
+            ids, fields, page_limit=40, active_only=False
+        )
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 40, active_only=False)
+        assert result == expected
+
+    def test_fetch_assay_classifications_routes_to_entity(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Ensure fetch_assay_classifications_by_class_ids delegates correctly."""
+        client = ChemblClient(mock_api_client)
+        mock_entity = MagicMock()
+        expected = {"CLS": {"id": 1}}
+        mock_entity.fetch_by_ids.return_value = expected
+        client._assay_classification_entity = mock_entity  # type: ignore[assignment]
+
+        ids = ["CLS"]
+        fields = ["field"]
+        result = client.fetch_assay_classifications_by_class_ids(ids, fields, page_limit=60)
+
+        mock_entity.fetch_by_ids.assert_called_once_with(ids, fields, 60)
+        assert result == expected
+
+    def test_fetch_entity_requires_fetch_by_ids(self, mock_api_client: MagicMock) -> None:
+        """Helper should raise when entity lacks fetch_by_ids attribute."""
+        client = ChemblClient(mock_api_client)
+
+        with pytest.raises(AttributeError):
+            client._fetch_entity(object(), [], [], 10)

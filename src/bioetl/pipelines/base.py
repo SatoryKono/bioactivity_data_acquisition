@@ -37,6 +37,7 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
+from bioetl.pipelines.common.metadata import normalise_metadata_value
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
@@ -480,47 +481,18 @@ class PipelineBase(ABC):
     ) -> None:
         """Record metadata produced during ``extract`` for inclusion in ``meta.yaml``."""
 
-        def _normalise_timestamp(value: datetime | str) -> str:
-            if isinstance(value, datetime):
-                if value.tzinfo is None:
-                    value = value.replace(tzinfo=timezone.utc)
-                else:
-                    value = value.astimezone(timezone.utc)
-                return value.isoformat().replace("+00:00", "Z")
-            return value
-
-        def _normalise_value(candidate: Any) -> Any:
-            if isinstance(candidate, Mapping):
-                mapping_items = cast(Mapping[object, Any], candidate)
-                normalised_items: list[tuple[str, Any]] = []
-                for key, value in mapping_items.items():
-                    key_as_str = str(key)
-                    normalised_value = _normalise_value(value)
-                    normalised_items.append((key_as_str, normalised_value))
-                normalised_items.sort(key=lambda item: item[0])
-                return dict(normalised_items)
-            if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-                normalised_sequence: list[Any] = []
-                sequence_items = cast(Sequence[object], candidate)
-                for item in sequence_items:
-                    normalised_sequence.append(_normalise_value(item))
-                return normalised_sequence
-            if isinstance(candidate, datetime):
-                return _normalise_timestamp(candidate)
-            return candidate
-
         metadata = dict(self._extract_metadata)
         if chembl_release is not None:
             metadata["chembl_release"] = chembl_release
         if filters is not None:
             filters_mapping = dict(filters) if not isinstance(filters, Mapping) else filters
-            metadata["filters"] = _normalise_value(filters_mapping)
+            metadata["filters"] = normalise_metadata_value(filters_mapping)
         if requested_at_utc is not None:
-            metadata["requested_at_utc"] = _normalise_timestamp(requested_at_utc)
+            metadata["requested_at_utc"] = normalise_metadata_value(requested_at_utc)
         for key, value in extra.items():
             if value is None:
                 continue
-            metadata[key] = _normalise_value(value)
+            metadata[key] = normalise_metadata_value(value)
         self._extract_metadata = metadata
 
     def close_resources(self) -> None:

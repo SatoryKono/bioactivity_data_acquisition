@@ -86,6 +86,7 @@ class TestGoldenDeterminism:
         assert "pipeline" in meta_content
         assert "row_count" in meta_content
         assert "generated_at_utc" in meta_content
+        assert str(meta_content["generated_at_utc"]).endswith("Z")
         assert "columns" in meta_content
         assert "sorting" in meta_content
         assert "hashing" in meta_content

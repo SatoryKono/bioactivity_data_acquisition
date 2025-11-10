@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
-from bioetl.clients.chembl_iterator import ChemblEntityIterator
+from bioetl.clients.chembl_entity_client import ChemblEntityClientBase
 
 __all__ = ["ChemblTargetClient"]
 
 
-class ChemblTargetClient(ChemblEntityIterator):
+class ChemblTargetClient(ChemblEntityClientBase):
     """High level helper focused on retrieving target payloads."""
 
     def __init__(
@@ -29,7 +29,15 @@ class ChemblTargetClient(ChemblEntityIterator):
         max_url_length:
             Максимальная длина URL для проверки. Если None, проверка отключена.
         """
-        config = EntityConfig(
+        super().__init__(
+            chembl_client=chembl_client,
+            batch_size=batch_size,
+            max_url_length=max_url_length,
+        )
+
+    @classmethod
+    def _create_config(cls, max_url_length: int | None) -> EntityConfig:
+        return EntityConfig(
             endpoint="/target.json",
             filter_param="target_chembl_id__in",
             id_key="target_chembl_id",
@@ -39,11 +47,4 @@ class ChemblTargetClient(ChemblEntityIterator):
             supports_list_result=False,
             base_endpoint_length=len("/target.json?"),
             enable_url_length_check=False,
-        )
-
-        super().__init__(
-            chembl_client=chembl_client,
-            config=config,
-            batch_size=batch_size,
-            max_url_length=max_url_length,
         )
