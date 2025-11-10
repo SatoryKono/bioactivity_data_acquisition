@@ -367,7 +367,7 @@ class PipelineBase(ABC):
         id_column_name: str | None = None,
         limit: int | None = None,
         sample: int | None = None,
-        override_ids: Sequence[str] | None = None,
+        override_ids: Iterable[str] | str | None = None,
         override_log_fields: Mapping[str, object] | None = None,
     ) -> pd.DataFrame:
         """Execute extraction with optional ID filtering.
@@ -402,10 +402,10 @@ class PipelineBase(ABC):
 
         override_list: list[str] | None = None
         if override_ids is not None:
-            if isinstance(override_ids, Sequence) and not isinstance(override_ids, (str, bytes)):
-                override_list = [str(identifier) for identifier in override_ids]
-            else:
+            if isinstance(override_ids, (str, bytes)):
                 override_list = [str(override_ids)]
+            else:
+                override_list = [str(identifier) for identifier in override_ids]
 
         if override_list:
             log_payload: dict[str, object] = {
