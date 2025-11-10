@@ -125,6 +125,7 @@ known-first-party = [
 [tool.ruff.lint.pep8-naming]
 ignore-names = [
     "__.*__",  # dunder-хуки и специальные методы Python
+    "_*",      # защищённые вспомогательные функции/классы
 ]
 
 [tool.mypy]
@@ -242,6 +243,7 @@ extend-ignore = ["E203", "W503", "B008", "C901"]
 extend-select = ["B", "C4", "N"]
 ignore-names = [
     "__.*__",  # разрешённые dunder-методы
+    "_.*",     # защищённые функции/константы из naming policy
 ]
 ignore-class-names = [
     "_.*",  # защищённые структуры, описанные в naming policy
