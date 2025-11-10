@@ -28,6 +28,8 @@ from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 from ..chembl_base import ChemblPipelineBase
 from .target_transform import serialize_target_arrays
 
+MUST_HAVE_FIELDS: tuple[str, ...] = ("target_chembl_id",)
+
 
 class ChemblTargetPipeline(ChemblPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
@@ -68,14 +70,28 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source(source_raw)
+        source_config = TargetSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_target_http"
         )
 
-        chembl_client = ChemblClient(http_client)
-        self.fetch_chembl_release(chembl_client, log)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
+        )
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -87,21 +103,21 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        batch_size = source_config.batch_size
         limit = self.config.cli.limit
-        page_size = min(batch_size, 25)
-        if limit is not None:
-            page_size = min(page_size, limit)
-        page_size = max(page_size, 1)
-
-        select_fields = source_config.parameters.select_fields
-        records: list[Mapping[str, Any]] = []
+        page_size = self._resolve_page_size(source_config.page_size, limit)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
+        log.debug("chembl_target.select_fields", fields=select_fields)
+        records: list[dict[str, Any]] = []
 
         filters_payload = {
             "mode": "all",
             "limit": int(limit) if limit is not None else None,
             "page_size": page_size,
-            "batch_size": batch_size,
+            "max_url_length": source_config.max_url_length,
             "select_fields": list(select_fields) if select_fields else None,
         }
         compact_filters = {
@@ -114,16 +130,23 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         # Используем специализированный клиент для target
-        target_client = ChemblTargetClient(chembl_client, batch_size=min(page_size, 25))
+        target_client = ChemblTargetClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
         for item in target_client.iterate_all(
             limit=limit,
             page_size=page_size,
             select_fields=select_fields,
         ):
-            records.append(item)
+            records.append(cast(dict[str, Any], dict(item)))
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
+        records_for_frame = cast(Sequence[Mapping[str, Any]], records)
+        dataframe = pd.DataFrame.from_records(records_for_frame)  # pyright: ignore[reportUnknownMemberType]
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
+        elif "target_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -153,14 +176,28 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source(source_raw)
+        source_config = TargetSourceConfig.from_source(
+            source_raw,
+            client_config=self.config.clients.chembl,
+        )
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_target_http"
         )
 
-        chembl_client = ChemblClient(http_client)
-        self.fetch_chembl_release(chembl_client, log)
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+            settings=self.config.clients.chembl,
+            handshake_timeout=source_config.handshake_timeout_sec,
+        )
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -172,15 +209,21 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        batch_size = source_config.batch_size
         limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
+        page_size = self._resolve_page_size(source_config.page_size, limit)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            required_fields=MUST_HAVE_FIELDS,
+            preserve_none=True,
+        )
+        log.debug("chembl_target.select_fields", fields=select_fields)
 
         id_filters = {
             "mode": "ids",
             "requested_ids": [str(value) for value in ids],
             "limit": int(limit) if limit is not None else None,
-            "batch_size": batch_size,
+            "page_size": page_size,
+            "max_url_length": source_config.max_url_length,
             "select_fields": list(select_fields) if select_fields else None,
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
@@ -190,41 +233,22 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        # Process IDs in chunks to avoid URL length limits
-        chunk_size = min(batch_size, 100)  # Conservative limit for target_chembl_id__in
-        all_records: list[Mapping[str, Any]] = []
-        ids_list = list(ids)
-
-        for i in range(0, len(ids_list), chunk_size):
-            chunk = ids_list[i : i + chunk_size]
-            params: dict[str, Any] = {
-                "target_chembl_id__in": ",".join(chunk),
-                "limit": min(batch_size, 25),
-            }
-            if select_fields:
-                params["only"] = ",".join(select_fields)
-
-            try:
-                # Используем специализированный клиент для target
-                target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
-                for item in target_client.iterate_by_ids(chunk, select_fields=select_fields):
-                    all_records.append(item)
-                    if limit is not None and len(all_records) >= limit:
-                        break
-            except Exception as exc:
-                log.warning(
-                    "chembl_target.fetch_error",
-                    target_count=len(chunk),
-                    error=str(exc),
-                    exc_info=True,
-                )
-
-            if limit is not None and len(all_records) >= limit:
+        records: list[dict[str, Any]] = []
+        target_client = ChemblTargetClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
+        for item in target_client.fetch(ids, select_fields=select_fields):
+            records.append(cast(dict[str, Any], dict(item)))
+            if limit is not None and len(records) >= limit:
                 break
 
-        records_for_frame: list[dict[str, Any]] = [dict(record) for record in all_records]
-        dataframe = pd.DataFrame(records_for_frame)
-        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
+        records_for_frame = cast(Sequence[Mapping[str, Any]], records)
+        dataframe = pd.DataFrame.from_records(records_for_frame)  # pyright: ignore[reportUnknownMemberType]
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
+        elif "target_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0

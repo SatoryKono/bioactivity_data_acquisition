@@ -265,7 +265,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
     ) -> tuple[str, bool]:
         """Return handshake endpoint and enable flag derived from ``source_config``."""
 
-        default_endpoint = "/status.json"
+        default_endpoint = "/status"
         default_enabled = True
 
         if source_config is None:
@@ -307,7 +307,7 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
 
         candidate = endpoint.strip()
         if not candidate:
-            return "/status.json"
+            return "/status"
         if candidate.startswith(("http://", "https://")):
             return candidate
         if not candidate.startswith("/"):
@@ -441,22 +441,27 @@ class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
             except AttributeError:
                 fallback_urls = ()
 
+            built_in_fallbacks: tuple[str, ...] = ("/status", "/status.json")
             endpoints_to_try = tuple(
-                dict.fromkeys(
+                endpoint
+                for endpoint in dict.fromkeys(
                     (
                         normalized_endpoint,
+                        *built_in_fallbacks,
                         *fallback_urls,
-                        "/status",
-                        "/status.json",
                     )
                 )
+                if endpoint
             )
 
             for endpoint in endpoints_to_try:
                 if not endpoint:
                     continue
+                request_kwargs: dict[str, Any] = {}
+                if timeout is not None:
+                    request_kwargs["timeout"] = timeout
                 try:
-                    response = client_get(endpoint, timeout=timeout)
+                    response = client_get(endpoint, **request_kwargs)
                     json_candidate = getattr(response, "json", None)
                     if callable(json_candidate):
                         status_payload_raw = json_candidate()
