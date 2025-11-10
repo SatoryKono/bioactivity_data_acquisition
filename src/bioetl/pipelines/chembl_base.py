@@ -25,6 +25,7 @@ from bioetl.core.mapping_utils import stringify_mapping
 
 from .base import PipelineBase
 from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
+from .common.select_fields import SelectFieldsMixin
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
@@ -43,7 +44,7 @@ class ChemblSourceConfig(Protocol):
     max_url_length: int
 
 
-class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
+class ChemblPipelineBase(SelectFieldsMixin, ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
     This class provides common functionality for all ChEMBL pipelines,
@@ -208,6 +209,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self,
         source_config: SourceConfig,
         default_fields: Sequence[str] | None = None,
+        *,
+        required_fields: Sequence[str] | None = None,
+        preserve_none: bool = False,
     ) -> list[str]:
         """Resolve select_fields from config or use default.
 
@@ -217,6 +221,14 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Source configuration object.
         default_fields
             Optional default field list to use if not configured.
+        required_fields
+            Optional iterable of mandatory fields that should always be
+            present in the resulting list.
+        preserve_none
+            When ``True`` return an empty list if neither configured nor
+            default fields are supplied. This mirrors
+            :func:`normalize_select_fields` semantics where ``None`` would be
+            returned.
 
         Returns
         -------
@@ -224,6 +236,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             List of field names to select from the API.
         """
         parameters_raw = getattr(source_config, "parameters", {})
+        configured: Sequence[str] | None = None
         if isinstance(parameters_raw, Mapping):
             parameters = cast(Mapping[str, Any], parameters_raw)
             select_fields_raw = parameters.get("select_fields")
@@ -232,11 +245,17 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 and isinstance(select_fields_raw, Sequence)
                 and not isinstance(select_fields_raw, (str, bytes))
             ):
-                select_fields = cast(Sequence[Any], select_fields_raw)
-                return [str(field) for field in select_fields]
-        if default_fields:
-            return list(default_fields)
-        return []
+                configured = tuple(str(field) for field in select_fields_raw)
+
+        normalized = self.normalize_select_fields(
+            configured,
+            default=default_fields,
+            required=required_fields or (),
+            preserve_none=preserve_none,
+        )
+        if normalized is None:
+            return []
+        return list(normalized)
 
     # ------------------------------------------------------------------
     # API client management

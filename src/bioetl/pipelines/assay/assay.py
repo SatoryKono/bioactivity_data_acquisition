@@ -187,11 +187,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
         page_size = source_config.batch_size
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            default_fields=MUST_HAVE_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
+        )
 
         log.debug(
             "chembl_assay.select_fields",
@@ -323,11 +323,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         records: list[dict[str, Any]] = []
         limit = self.config.cli.limit
-        select_fields_tuple = source_config.parameters.select_fields
-        if select_fields_tuple:
-            select_fields = list(dict.fromkeys([*select_fields_tuple, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+        select_fields = self._resolve_select_fields(
+            source_config,
+            default_fields=MUST_HAVE_FIELDS,
+            required_fields=MUST_HAVE_FIELDS,
+        )
 
         log.debug(
             "chembl_assay.select_fields",
