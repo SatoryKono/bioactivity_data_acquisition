@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
+from functools import partial
+
 import pandas as pd
 import pandera.pandas as pa
 from pandera.pandas import Check, Column
@@ -19,16 +22,24 @@ DOI_PATTERN = r"^10\.\d{4,9}/\S+$"
 UUID_PATTERN = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
 
 
-def _build_string_column(
+def make_string_column(
     *,
-    nullable: bool,
-    unique: bool,
-    checks: list[Check],
+    nullable: bool = True,
+    pattern: str | None = None,
+    unique: bool = False,
+    checks: Iterable[Check] | None = None,
 ) -> Column:
-    """Internal helper for constructing string columns."""
+    """Create a string column with optional pattern and custom checks."""
+
+    computed_checks: list[Check] = []
+    if checks is not None:
+        computed_checks.extend(checks)
+    if pattern is not None:
+        computed_checks.append(Check.str_matches(pattern))  # type: ignore[arg-type]
+
     return Column(
         pa.String,
-        checks=checks or None,  # type: ignore[arg-type,assignment]
+        checks=computed_checks or None,  # type: ignore[arg-type,assignment]
         nullable=nullable,
         unique=unique,
     )
@@ -56,10 +67,7 @@ def string_column(
     Column
         A Pandera Column definition for strings.
     """
-    checks: list[Check] = []
-    if pattern is not None:
-        checks.append(Check.str_matches(pattern))  # type: ignore[arg-type]
-    return _build_string_column(nullable=nullable, unique=unique, checks=checks)
+    return make_string_column(nullable=nullable, pattern=pattern, unique=unique)
 
 
 def object_column(*, nullable: bool) -> Column:
@@ -68,32 +76,16 @@ def object_column(*, nullable: bool) -> Column:
     return Column(pa.Object, nullable=nullable)  # type: ignore[assignment]
 
 
-def chembl_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
-    """Create a ChEMBL ID column with validation."""
-
-    return string_column(nullable=nullable, unique=unique, pattern=CHEMBL_ID_PATTERN)
+chembl_id_column = partial(make_string_column, pattern=CHEMBL_ID_PATTERN)
+chembl_id_column.__doc__ = "Create a ChEMBL ID column with validation."
 
 
-def nullable_string_column() -> Column:
-    """Create a nullable string column.
-
-    Returns
-    -------
-    Column
-        A Pandera Column definition for nullable strings.
-    """
-    return string_column(nullable=True)
+nullable_string_column = partial(make_string_column, nullable=True)
+nullable_string_column.__doc__ = "Create a nullable string column."
 
 
-def non_nullable_string_column() -> Column:
-    """Create a non-nullable string column.
-
-    Returns
-    -------
-    Column
-        A Pandera Column definition for non-nullable strings.
-    """
-    return string_column(nullable=False)
+non_nullable_string_column = partial(make_string_column, nullable=False)
+non_nullable_string_column.__doc__ = "Create a non-nullable string column."
 
 
 def nullable_int64_column(
@@ -276,7 +268,11 @@ def string_column_with_check(
     Column
         A Pandera Column definition for strings with checks.
     """
-    base_column = string_column(nullable=nullable, pattern=pattern, unique=unique)
+    base_column = make_string_column(
+        nullable=nullable,
+        pattern=pattern,
+        unique=unique,
+    )
     initial_checks: list[Check] = list(base_column.checks or [])
     checks: list[Check] = list(initial_checks)
     if isin is not None:
@@ -286,7 +282,7 @@ def string_column_with_check(
 
     if checks == initial_checks:
         return base_column
-    return _build_string_column(nullable=nullable, unique=unique, checks=checks)
+    return make_string_column(nullable=nullable, unique=unique, checks=checks)
 
 
 def row_metadata_columns() -> dict[str, Column]:
@@ -303,36 +299,12 @@ def row_metadata_columns() -> dict[str, Column]:
     }
 
 
-def bao_id_column(*, nullable: bool = True) -> Column:
-    """Create a BAO ID column with validation.
-
-    Parameters
-    ----------
-    nullable
-        Whether the column can contain null values.
-
-    Returns
-    -------
-    Column
-        A Pandera Column definition for BAO IDs.
-    """
-    return string_column(nullable=nullable, pattern=BAO_ID_PATTERN)
+bao_id_column = partial(make_string_column, pattern=BAO_ID_PATTERN)
+bao_id_column.__doc__ = "Create a BAO ID column with validation."
 
 
-def doi_column(*, nullable: bool = True) -> Column:
-    """Create a DOI column with validation.
-
-    Parameters
-    ----------
-    nullable
-        Whether the column can contain null values.
-
-    Returns
-    -------
-    Column
-        A Pandera Column definition for DOIs.
-    """
-    return string_column(nullable=nullable, pattern=DOI_PATTERN)
+doi_column = partial(make_string_column, pattern=DOI_PATTERN)
+doi_column.__doc__ = "Create a DOI column with validation."
 
 
 def nullable_object_column() -> Column:
@@ -346,10 +318,8 @@ def nullable_object_column() -> Column:
     return object_column(nullable=True)
 
 
-def uuid_column(*, nullable: bool = False, unique: bool = False) -> Column:
-    """Create a UUID column enforcing canonical hyphenated format."""
-
-    return string_column(nullable=nullable, unique=unique, pattern=UUID_PATTERN)
+uuid_column = partial(make_string_column, pattern=UUID_PATTERN)
+uuid_column.__doc__ = "Create a UUID column enforcing canonical hyphenated format."
 
 
 __all__ = [
@@ -357,6 +327,7 @@ __all__ = [
     "BAO_ID_PATTERN",
     "DOI_PATTERN",
     "UUID_PATTERN",
+    "make_string_column",
     "chembl_id_column",
     "nullable_string_column",
     "non_nullable_string_column",
