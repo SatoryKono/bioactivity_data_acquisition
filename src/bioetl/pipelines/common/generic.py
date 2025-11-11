@@ -7,16 +7,16 @@ from typing import ClassVar
 import pandas as pd
 
 from ..chembl_base import ChemblExtractionDescriptor, ChemblPipelineBase
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 
 
 class GenericChemblEntityPipeline(ChemblPipelineBase):
     """Pipeline base building extraction descriptors from entity specifications."""
 
-    entity_spec: ClassVar[ChemblEntitySpec]
+    entity_spec: ClassVar[ChemblEntitySpecification]
 
     @classmethod
-    def get_entity_spec(cls) -> ChemblEntitySpec:
+    def get_entity_spec(cls) -> ChemblEntitySpecification:
         """Return the entity specification associated with the pipeline class."""
 
         spec = getattr(cls, "entity_spec", None)

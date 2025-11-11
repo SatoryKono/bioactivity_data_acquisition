@@ -20,7 +20,7 @@ from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ..chembl_base import BatchExtractionContext, ChemblExtractionContext
 from ..common.generic import GenericChemblEntityPipeline
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
@@ -115,7 +115,7 @@ def testitem_summary_extra(
     }
 
 
-TESTITEM_ENTITY_SPEC = ChemblEntitySpec(
+TESTITEM_ENTITY_SPEC = ChemblEntitySpecification(
     name="chembl_testitem",
     source_name="chembl",
     source_config_factory=TestItemSourceConfig.from_source_config,

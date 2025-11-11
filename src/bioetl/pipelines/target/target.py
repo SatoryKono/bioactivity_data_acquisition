@@ -28,7 +28,7 @@ from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 from ..chembl_base import BatchExtractionContext, ChemblExtractionContext, ChemblPipelineBase
 from ..common.generic import GenericChemblEntityPipeline
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 from .target_transform import serialize_target_arrays
 
 
@@ -92,7 +92,7 @@ def target_summary_extra(
     return {"limit": pipeline.config.cli.limit}
 
 
-TARGET_ENTITY_SPEC = ChemblEntitySpec(
+TARGET_ENTITY_SPEC = ChemblEntitySpecification(
     name="chembl_target",
     source_name="chembl",
     source_config_factory=TargetSourceConfig.from_source_config,

@@ -21,7 +21,7 @@ from bioetl.schemas.document import COLUMN_ORDER
 
 from ..chembl_base import BatchExtractionContext, ChemblExtractionContext
 from ..common.generic import GenericChemblEntityPipeline
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 from .document_enrich import enrich_with_document_terms
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (
@@ -102,7 +102,7 @@ def document_summary_extra(
     return {"pages": pages}
 
 
-DOCUMENT_ENTITY_SPEC = ChemblEntitySpec(
+DOCUMENT_ENTITY_SPEC = ChemblEntitySpecification(
     name="chembl_document",
     source_name="chembl",
     source_config_factory=DocumentSourceConfig.from_source_config,

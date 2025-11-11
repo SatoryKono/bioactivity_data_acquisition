@@ -42,7 +42,7 @@ from bioetl.schemas.vocab import required_vocab_ids
 from ..base import RunResult
 from ..chembl_base import BatchExtractionContext, ChemblExtractionContext, ChemblPipelineBase
 from ..common.generic import GenericChemblEntityPipeline
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 from .activity_enrichment import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -161,7 +161,7 @@ def activity_post_process(
     return df
 
 
-ACTIVITY_ENTITY_SPEC = ChemblEntitySpec(
+ACTIVITY_ENTITY_SPEC = ChemblEntitySpecification(
     name="chembl_activity",
     source_name="chembl",
     source_config_factory=ActivitySourceConfig.from_source_config,

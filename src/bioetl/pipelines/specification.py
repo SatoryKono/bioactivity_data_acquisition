@@ -23,7 +23,7 @@ SummaryExtraFactory = Callable[[ChemblPipelineBase, pd.DataFrame, ChemblExtracti
 
 
 @dataclass(slots=True)
-class ChemblEntitySpec:
+class ChemblEntitySpecification:
     """Declarative specification describing a ChEMBL entity extraction."""
 
     name: str

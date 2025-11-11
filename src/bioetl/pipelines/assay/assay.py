@@ -34,7 +34,7 @@ from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
 from ..chembl_base import BatchExtractionContext, ChemblExtractionContext, ChemblPipelineBase
 from ..common.generic import GenericChemblEntityPipeline
-from ..specs import ChemblEntitySpec
+from ..specification import ChemblEntitySpecification
 
 _CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
     "assay_class_id",
@@ -251,7 +251,7 @@ def assay_summary_extra(
     }
 
 
-ASSAY_ENTITY_SPEC = ChemblEntitySpec(
+ASSAY_ENTITY_SPEC = ChemblEntitySpecification(
     name="chembl_assay",
     source_name="chembl",
     source_config_factory=AssaySourceConfig.from_source_config,
