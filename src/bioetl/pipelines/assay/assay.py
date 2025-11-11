@@ -31,7 +31,7 @@ from bioetl.pipelines.assay.assay_transform import (
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import BatchExtractionContext, ChemblPipelineBase
 
 _CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
     "assay_class_id",
@@ -342,46 +342,33 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        records: list[Mapping[str, Any]] = []
         limit = self.config.cli.limit
-        select_fields = self._resolve_select_fields(source_raw)
-        # Защита: добавить обязательные поля, если их нет
-        if select_fields:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+        resolved_select_fields = self._resolve_select_fields(source_raw)
+        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
 
         log.debug(
             "chembl_assay.select_fields",
-            fields=select_fields,
-            fields_count=len(select_fields) if select_fields else 0,
+            fields=merged_select_fields,
+            fields_count=len(merged_select_fields) if merged_select_fields else 0,
         )
 
-        id_filters = {
-            "mode": "ids",
-            "requested_ids": [str(value) for value in ids],
-            "limit": int(limit) if limit is not None else None,
-            "batch_size": source_config.batch_size,
-            "max_url_length": source_config.max_url_length,
-        }
-        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_id_filters,
-            requested_at_utc=datetime.now(timezone.utc),
-        )
+        def fetch_assays(
+            batch_ids: Sequence[str],
+            context: BatchExtractionContext,
+        ) -> Iterable[Mapping[str, Any]]:
+            iterator = assay_client.iterate_by_ids(
+                batch_ids,
+                select_fields=context.select_fields or None,
+            )
+            for item in iterator:
+                yield dict(item)
 
-        for item in assay_client.iterate_by_ids(ids, select_fields=select_fields):
-            records.append(item)
-            if limit is not None and len(records) >= limit:
-                break
+        def finalize_dataframe(
+            dataframe: pd.DataFrame, context: BatchExtractionContext
+        ) -> pd.DataFrame:
+            if dataframe.empty:
+                return dataframe
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-        if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
-
-        # Проверка обязательных полей после экстракции
-        if not dataframe.empty:
             for must_field in ("assay_category", "assay_group", "src_assay_id"):
                 if must_field not in dataframe.columns or dataframe[must_field].isna().all():
                     log.warning(
@@ -390,23 +377,45 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                         note="Field not returned by API; check select_fields/only",
                     )
 
-        # Диагностическая проверка отсутствующих полей в ответе API
-        if not dataframe.empty and select_fields:
-            expected_fields = set(select_fields)
-            actual_fields = set(dataframe.columns)
-            missing_in_response = sorted(expected_fields - actual_fields)
-            if missing_in_response:
-                log.warning(
-                    "assay_missing_fields_in_api_response",
-                    missing_fields=missing_in_response,
-                    requested_fields_count=len(select_fields),
-                    received_fields_count=len(actual_fields),
-                    chembl_release=self._chembl_release,
-                    message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
-                )
+            if context.select_fields:
+                expected_fields = set(context.select_fields)
+                actual_fields = set(dataframe.columns)
+                missing_in_response = sorted(expected_fields - actual_fields)
+                if missing_in_response:
+                    log.warning(
+                        "assay_missing_fields_in_api_response",
+                        missing_fields=missing_in_response,
+                        requested_fields_count=len(context.select_fields),
+                        received_fields_count=len(actual_fields),
+                        chembl_release=self._chembl_release,
+                        message=(
+                            "Fields requested in select_fields but missing in API response: "
+                            f"{missing_in_response}"
+                        ),
+                    )
 
-        # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
-        dataframe = self._check_missing_columns(dataframe, log, select_fields=select_fields)
+            dataframe = self._check_missing_columns(
+                dataframe,
+                log,
+                select_fields=list(context.select_fields) if context.select_fields else None,
+            )
+            return dataframe
+
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column="assay_chembl_id",
+            fetcher=fetch_assays,
+            select_fields=merged_select_fields or None,
+            batch_size=assay_client.batch_size,
+            max_batch_size=25,
+            limit=limit,
+            metadata_filters={
+                "select_fields": list(merged_select_fields) if merged_select_fields else None,
+                "max_url_length": source_config.max_url_length,
+            },
+            chembl_release=self._chembl_release,
+            finalize=finalize_dataframe,
+        )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -416,6 +425,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             duration_ms=duration_ms,
             chembl_release=self._chembl_release,
             limit=limit,
+            batches=stats.batches,
+            api_calls=stats.api_calls,
         )
         return dataframe
 

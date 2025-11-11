@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from numbers import Integral, Real
 from typing import Any, cast
@@ -18,7 +18,7 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import BatchExtractionContext, ChemblPipelineBase
 from .document_enrich import enrich_with_document_terms
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (
@@ -184,107 +184,73 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
-        select_fields = self._resolve_select_fields(
+        resolved_select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
         )
-        # Защита: добавить обязательные поля, если их нет
-        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
-
-        id_filters = {
-            "mode": "ids",
-            "requested_ids": [str(value) for value in ids],
-            "limit": int(self.config.cli.limit) if self.config.cli.limit is not None else None,
-            "batch_size": source_config.batch_size,
-            "select_fields": list(select_fields),
-        }
-        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_id_filters,
-            requested_at_utc=datetime.now(timezone.utc),
-        )
-
-        batch_size = document_client.batch_size
-        unique_ids = sorted({str(id_val) for id_val in ids if id_val and str(id_val).strip()})
-
-        if not unique_ids:
-            empty_df = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
-            self._last_batch_extract_stats = {
-                "batches": 0,
-                "api_calls": 0,
-                "cache_hits": None,
-            }
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_document.extract_by_ids_summary",
-                rows=0,
-                requested=0,
-                duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
-                batches=0,
-                api_calls=0,
-                cache_hits=None,
-            )
-            return empty_df
+        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
 
         limit = self.config.cli.limit
-        records_raw: list[dict[str, Any]] = []
-        api_calls = 0
 
-        original_paginate = chembl_client.paginate
+        def fetch_documents(
+            batch_ids: Sequence[str],
+            context: BatchExtractionContext,
+        ) -> Iterable[Mapping[str, Any]]:
+            if "original_paginate" not in context.extra:
+                original_paginate = chembl_client.paginate
 
-        def counted_paginate(*args: Any, **kwargs: Any) -> Any:
-            nonlocal api_calls
-            api_calls += 1
-            return original_paginate(*args, **kwargs)
+                def counted_paginate(*args: Any, **kwargs: Any) -> Any:
+                    context.increment_api_calls()
+                    return original_paginate(*args, **kwargs)
 
-        chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
+                chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
+                context.extra["original_paginate"] = original_paginate
 
-        try:
-            for item in document_client.iterate_by_ids(
-                unique_ids,
-                select_fields=select_fields,
-            ):
-                records_raw.append(dict(item))
-                if limit is not None and len(records_raw) >= limit:
-                    break
-        finally:
-            chembl_client.paginate = original_paginate  # type: ignore[method-assign]
-
-        if limit is not None and len(records_raw) > limit:
-            records_raw = records_raw[:limit]
-
-        records = [self._extract_nested_fields(record) for record in records_raw]
-
-        batch_dataframe = pd.DataFrame.from_records(records)
-        if batch_dataframe.empty:
-            batch_dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
-        elif "document_chembl_id" in batch_dataframe.columns:
-            batch_dataframe = batch_dataframe.sort_values("document_chembl_id").reset_index(
-                drop=True
+            iterator = document_client.iterate_by_ids(
+                batch_ids,
+                select_fields=context.select_fields or None,
             )
+            for item in iterator:
+                yield self._extract_nested_fields(dict(item))
 
-        chunk_size = max(batch_size, 1)
-        batches = api_calls if api_calls else (len(unique_ids) + chunk_size - 1) // chunk_size
-        self._last_batch_extract_stats = {
-            "batches": batches,
-            "api_calls": api_calls,
-            "cache_hits": None,
-        }
+        def finalize_context(context: BatchExtractionContext) -> None:
+            original = context.extra.pop("original_paginate", None)
+            if original is not None:
+                chembl_client.paginate = original  # type: ignore[method-assign]
+
+            api_calls_value = context.stats.api_calls if context.stats.api_calls is not None else 0
+            override = {
+                "batches": context.stats.batches,
+                "api_calls": api_calls_value,
+                "cache_hits": context.stats.cache_hits,
+            }
+            context.extra["stats_attribute_override"] = override
+
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column="document_chembl_id",
+            fetcher=fetch_documents,
+            select_fields=merged_select_fields or None,
+            batch_size=document_client.batch_size,
+            max_batch_size=25,
+            limit=limit,
+            metadata_filters={"select_fields": merged_select_fields} if merged_select_fields else None,
+            chembl_release=self._chembl_release,
+            finalize_context=finalize_context,
+            stats_attribute="_last_batch_extract_stats",
+        )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        batch_stats = self._last_batch_extract_stats or {}
         log.info(
             "chembl_document.extract_by_ids_summary",
-            rows=int(batch_dataframe.shape[0]),
+            rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
             chembl_release=self._chembl_release,
-            batches=batch_stats.get("batches"),
-            api_calls=batch_stats.get("api_calls"),
-            cache_hits=batch_stats.get("cache_hits"),
+            batches=stats.batches,
+            api_calls=stats.api_calls,
+            cache_hits=stats.cache_hits,
         )
-        return batch_dataframe
+        return dataframe
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw document data by normalizing fields and identifiers."""
