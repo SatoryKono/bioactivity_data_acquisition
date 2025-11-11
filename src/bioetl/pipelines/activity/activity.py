@@ -40,12 +40,9 @@ from bioetl.schemas.activity import (
 from bioetl.schemas.vocab import required_vocab_ids
 
 from ..base import RunResult
-from ..chembl_base import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
+from ..chembl_base import BatchExtractionContext, ChemblExtractionContext, ChemblPipelineBase
+from ..common.generic import GenericChemblEntityPipeline
+from ..specs import ChemblEntitySpec
 from .activity_enrichment import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -103,10 +100,94 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
 )
 
 
-class ChemblActivityPipeline(ChemblPipelineBase):
+def build_activity_context(
+    pipeline: "ChemblActivityPipeline",
+    source_config: ActivitySourceConfig,
+    log: BoundLogger,
+) -> ChemblExtractionContext:
+    http_client, _ = pipeline.prepare_chembl_client(
+        "chembl",
+        client_name="chembl_activity_client",
+    )
+    chembl_client = ChemblClient(
+        http_client,
+        load_meta_store=pipeline.load_meta_store,
+        job_id=pipeline.run_id,
+        operator=pipeline.pipeline_code,
+    )
+    pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
+    activity_iterator = ChemblActivityClient(
+        chembl_client,
+        batch_size=source_config.batch_size,
+    )
+    select_fields = source_config.parameters.select_fields
+    return ChemblExtractionContext(
+        source_config=source_config,
+        iterator=activity_iterator,
+        chembl_client=chembl_client,
+        select_fields=list(select_fields) if select_fields else None,
+        chembl_release=pipeline._chembl_release,
+    )
+
+
+def activity_empty_frame(
+    _: "ChemblActivityPipeline",
+    __: ChemblExtractionContext,
+) -> pd.DataFrame:
+    return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+
+
+def activity_record_transform(
+    pipeline: "ChemblPipelineBase",
+    payload: Mapping[str, Any],
+    _: ChemblExtractionContext,
+) -> Mapping[str, Any]:
+    activity_pipeline = cast("ChemblActivityPipeline", pipeline)
+    return activity_pipeline._materialize_activity_record(payload)
+
+
+def activity_post_process(
+    pipeline: "ChemblPipelineBase",
+    df: pd.DataFrame,
+    context: ChemblExtractionContext,
+    log: BoundLogger,
+) -> pd.DataFrame:
+    activity_pipeline = cast("ChemblActivityPipeline", pipeline)
+    df = activity_pipeline._ensure_comment_fields(df, log)
+    chembl_client = cast(ChemblClient | None, context.chembl_client)
+    if chembl_client is not None:
+        df = activity_pipeline._extract_data_validity_descriptions(df, chembl_client, log)
+    activity_pipeline._log_validity_comments_metrics(df, log)
+    return df
+
+
+ACTIVITY_ENTITY_SPEC = ChemblEntitySpec(
+    name="chembl_activity",
+    source_name="chembl",
+    source_config_factory=ActivitySourceConfig.from_source_config,
+    build_context=build_activity_context,
+    id_column="activity_id",
+    summary_event="chembl_activity.extract_summary",
+    must_have_fields=("activity_id",),
+    default_select_fields=API_ACTIVITY_FIELDS,
+    record_transform=activity_record_transform,
+    post_processors=(activity_post_process,),
+    sort_by=("activity_id",),
+    empty_frame_factory=activity_empty_frame,
+    required_enrichers=(
+        "compound_record",
+        "assay",
+        "molecule",
+        "data_validity",
+    ),
+)
+
+
+class ChemblActivityPipeline(GenericChemblEntityPipeline):
     """ETL pipeline extracting activity records from the ChEMBL API."""
 
     actor = "activity_chembl"
+    entity_spec = ACTIVITY_ENTITY_SPEC
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -160,7 +241,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all activity records from ChEMBL using the shared iterator."""
 
-        return self.run_extract_all(self._build_activity_descriptor())
+        return super().extract_all()
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract activity records by a specific list of IDs using batch extraction.
@@ -340,73 +421,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return source_config, chembl_client, activity_iterator, select_fields
 
-    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor:
-        """Construct the descriptor driving the shared extraction template."""
-
-        def build_context(
-            pipeline: "ChemblActivityPipeline",
-            source_config: ActivitySourceConfig,
-            log: Any,
-        ) -> ChemblExtractionContext:
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                client_name="chembl_activity_client",
-            )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
-            )
-            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
-            activity_iterator = ChemblActivityClient(
-                chembl_client,
-                batch_size=source_config.batch_size,
-            )
-            select_fields = source_config.parameters.select_fields
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=activity_iterator,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
-            )
-
-        def empty_frame(
-            pipeline: "ChemblActivityPipeline",
-            _: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
-
-        def post_process(
-            pipeline: "ChemblActivityPipeline",
-            df: pd.DataFrame,
-            context: ChemblExtractionContext,
-            log: Any,
-        ) -> pd.DataFrame:
-            df = pipeline._ensure_comment_fields(df, log)
-            chembl_client = cast(ChemblClient, context.chembl_client)
-            if chembl_client is not None:
-                df = pipeline._extract_data_validity_descriptions(df, chembl_client, log)
-            pipeline._log_validity_comments_metrics(df, log)
-            return df
-
-        return ChemblExtractionDescriptor(
-            name="chembl_activity",
-            source_name="chembl",
-            source_config_factory=ActivitySourceConfig.from_source_config,
-            build_context=build_context,
-            id_column="activity_id",
-            summary_event="chembl_activity.extract_summary",
-            must_have_fields=("activity_id",),
-            default_select_fields=API_ACTIVITY_FIELDS,
-            record_transform=lambda pipeline, payload, context: cast(
-                "ChemblActivityPipeline", pipeline
-            )._materialize_activity_record(payload),
-            post_processors=(post_process,),
-            sort_by=("activity_id",),
-            empty_frame_factory=empty_frame,
-        )
+    entity_spec = ACTIVITY_ENTITY_SPEC
 
     def _materialize_activity_record(
         self,

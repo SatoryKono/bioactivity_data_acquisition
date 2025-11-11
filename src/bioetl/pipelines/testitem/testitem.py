@@ -18,12 +18,9 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.testitem import COLUMN_ORDER
 
-from ..chembl_base import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
+from ..chembl_base import BatchExtractionContext, ChemblExtractionContext
+from ..common.generic import GenericChemblEntityPipeline
+from ..specs import ChemblEntitySpec
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
@@ -45,10 +42,101 @@ MUST_HAVE_FIELDS = {
 }
 
 
-class TestItemChemblPipeline(ChemblPipelineBase):
+def build_testitem_context(
+    pipeline: "TestItemChemblPipeline",
+    source_config: TestItemSourceConfig,
+    log: BoundLogger,
+) -> ChemblExtractionContext:
+    base_url = pipeline._resolve_base_url(source_config.parameters)
+    http_client, _ = pipeline.prepare_chembl_client(
+        "chembl",
+        base_url=base_url,
+        client_name="chembl_testitem_http",
+    )
+    chembl_client = ChemblClient(
+        http_client,
+        load_meta_store=pipeline.load_meta_store,
+        job_id=pipeline.run_id,
+        operator=pipeline.pipeline_code,
+    )
+    pipeline._fetch_chembl_release(chembl_client, log)
+    select_fields = source_config.parameters.select_fields
+    log.debug("chembl_testitem.select_fields", fields=select_fields)
+    testitem_client = ChemblTestitemClient(
+        chembl_client,
+        batch_size=min(source_config.page_size, 25),
+    )
+    return ChemblExtractionContext(
+        source_config=source_config,
+        iterator=testitem_client,
+        chembl_client=chembl_client,
+        select_fields=list(select_fields) if select_fields else None,
+        page_size=source_config.page_size,
+        chembl_release=pipeline._chembl_db_version,
+        metadata={"api_version": pipeline._api_version},
+    )
+
+
+def testitem_empty_frame(
+    _: "TestItemChemblPipeline",
+    __: ChemblExtractionContext,
+) -> pd.DataFrame:
+    return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+
+
+def testitem_dry_run_handler(
+    pipeline: "ChemblPipelineBase",
+    _: ChemblExtractionContext,
+    log: BoundLogger,
+    stage_start: float,
+) -> pd.DataFrame:
+    duration_ms = (time.perf_counter() - stage_start) * 1000.0
+    testitem_pipeline = cast("TestItemChemblPipeline", pipeline)
+    log.info(
+        "chembl_testitem.extract_skipped",
+        dry_run=True,
+        duration_ms=duration_ms,
+        chembl_db_version=testitem_pipeline._chembl_db_version,
+        api_version=testitem_pipeline._api_version,
+    )
+    return pd.DataFrame()
+
+
+def testitem_summary_extra(
+    pipeline: "ChemblPipelineBase",
+    _: pd.DataFrame,
+    __: ChemblExtractionContext,
+) -> Mapping[str, Any]:
+    testitem_pipeline = cast("TestItemChemblPipeline", pipeline)
+    return {
+        "chembl_db_version": testitem_pipeline._chembl_db_version,
+        "api_version": testitem_pipeline._api_version,
+        "limit": testitem_pipeline.config.cli.limit,
+    }
+
+
+TESTITEM_ENTITY_SPEC = ChemblEntitySpec(
+    name="chembl_testitem",
+    source_name="chembl",
+    source_config_factory=TestItemSourceConfig.from_source_config,
+    build_context=build_testitem_context,
+    id_column="molecule_chembl_id",
+    summary_event="chembl_testitem.extract_summary",
+    must_have_fields=tuple(MUST_HAVE_FIELDS),
+    default_select_fields=MUST_HAVE_FIELDS,
+    sort_by=("molecule_chembl_id",),
+    empty_frame_factory=testitem_empty_frame,
+    dry_run_handler=testitem_dry_run_handler,
+    summary_extra=testitem_summary_extra,
+    hard_page_size_cap=None,
+)
+
+
+class TestItemChemblPipeline(GenericChemblEntityPipeline):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
 
     actor = "testitem_chembl"
+    entity_spec = TESTITEM_ENTITY_SPEC
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -141,94 +229,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all molecule records from ChEMBL using pagination."""
 
-        descriptor = self._build_testitem_descriptor()
-        return self.run_extract_all(descriptor)
+        return super().extract_all()
 
-    def _build_testitem_descriptor(self) -> ChemblExtractionDescriptor:
-        """Return the descriptor powering testitem extraction."""
-
-        def build_context(
-            pipeline: "TestItemChemblPipeline",
-            source_config: TestItemSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_testitem_http",
-            )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
-            )
-            pipeline._fetch_chembl_release(chembl_client, log)
-            select_fields = source_config.parameters.select_fields
-            log.debug("chembl_testitem.select_fields", fields=select_fields)
-            testitem_client = ChemblTestitemClient(
-                chembl_client,
-                batch_size=min(source_config.page_size, 25),
-            )
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=testitem_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                page_size=source_config.page_size,
-                chembl_release=pipeline._chembl_db_version,
-                metadata={"api_version": pipeline._api_version},
-            )
-
-        def empty_frame(
-            _: "TestItemChemblPipeline",
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
-
-        def dry_run_handler(
-            pipeline: "TestItemChemblPipeline",
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_testitem.extract_skipped",
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_db_version=pipeline._chembl_db_version,
-                api_version=pipeline._api_version,
-            )
-            return pd.DataFrame()
-
-        def summary_extra(
-            pipeline: "TestItemChemblPipeline",
-            _: pd.DataFrame,
-            __: ChemblExtractionContext,
-        ) -> Mapping[str, Any]:
-            return {
-                "chembl_db_version": pipeline._chembl_db_version,
-                "api_version": pipeline._api_version,
-                "limit": pipeline.config.cli.limit,
-            }
-
-        return ChemblExtractionDescriptor(
-            name="chembl_testitem",
-            source_name="chembl",
-            source_config_factory=TestItemSourceConfig.from_source_config,
-            build_context=build_context,
-            id_column="molecule_chembl_id",
-            summary_event="chembl_testitem.extract_summary",
-            must_have_fields=tuple(MUST_HAVE_FIELDS),
-            default_select_fields=MUST_HAVE_FIELDS,
-            sort_by=("molecule_chembl_id",),
-            empty_frame_factory=empty_frame,
-            dry_run_handler=dry_run_handler,
-            summary_extra=summary_extra,
-            hard_page_size_cap=None,
-        )
+    entity_spec = TESTITEM_ENTITY_SPEC
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract molecule records by a specific list of IDs using batch extraction.
