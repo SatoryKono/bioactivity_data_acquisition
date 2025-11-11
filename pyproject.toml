@@ -272,3 +272,8 @@ reportUntypedFunctionDecorator = false
 include = ["src/bioetl/pipelines/assay/**"]
 reportMissingImports = false
 reportUnknownVariableType = false
+
+[[tool.pyright.overrides]]
+include = ["src/bioetl/clients/chembl_iterator.py"]
+reportMissingImports = false
+reportUnknownVariableType = false
