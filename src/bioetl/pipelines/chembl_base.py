@@ -10,6 +10,7 @@ from __future__ import annotations
 import time
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timezone
+from dataclasses import dataclass, field
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -22,6 +23,45 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
+
+
+@dataclass(slots=True)
+class ChemblExtractionContext:
+    """Holds runtime state for a descriptor-driven extraction run."""
+
+    source_config: Any
+    iterator: Any
+    chembl_client: Any | None = None
+    select_fields: Sequence[str] | None = None
+    page_size: int | None = None
+    chembl_release: str | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
+    extra_filters: dict[str, Any] = field(default_factory=dict)
+    iterate_all_kwargs: dict[str, Any] = field(default_factory=dict)
+    stats: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class ChemblExtractionDescriptor:
+    """Descriptor describing how to execute a ``run_extract_all`` operation."""
+
+    name: str
+    source_name: str
+    source_config_factory: Callable[[SourceConfig], Any]
+    build_context: Callable[["ChemblPipelineBase", Any, BoundLogger], ChemblExtractionContext]
+    id_column: str
+    summary_event: str
+    must_have_fields: Sequence[str] = ()
+    default_select_fields: Sequence[str] | None = None
+    record_transform: Callable[["ChemblPipelineBase", Mapping[str, Any], ChemblExtractionContext], Mapping[str, Any]] | None = None
+    post_processors: Sequence[
+        Callable[["ChemblPipelineBase", pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+    ] = ()
+    sort_by: Sequence[str] | str | None = None
+    empty_frame_factory: Callable[["ChemblPipelineBase", ChemblExtractionContext], pd.DataFrame] | None = None
+    dry_run_handler: Callable[["ChemblPipelineBase", ChemblExtractionContext, BoundLogger, float], pd.DataFrame] | None = None
+    hard_page_size_cap: int | None = 25
+    summary_extra: Callable[["ChemblPipelineBase", pd.DataFrame, ChemblExtractionContext], Mapping[str, Any]] | None = None
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
@@ -303,6 +343,149 @@ class ChemblPipelineBase(PipelineBase):
 
         log.info(event_name, mode="full")
         return full_callback()
+
+    def run_extract_all(self, descriptor: ChemblExtractionDescriptor) -> pd.DataFrame:
+        """Execute a descriptor-driven extraction loop with uniform metadata."""
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        stage_start = time.perf_counter()
+
+        source_raw = self._resolve_source_config(descriptor.source_name)
+        source_config = descriptor.source_config_factory(source_raw)
+
+        context = descriptor.build_context(self, source_config, log)
+        context.source_config = source_config
+
+        limit = self.config.cli.limit
+
+        select_fields_list: list[str] | None = None
+        if context.select_fields is not None:
+            select_fields_list = list(context.select_fields)
+        elif descriptor.default_select_fields is not None:
+            select_fields_list = list(descriptor.default_select_fields)
+
+        if descriptor.must_have_fields:
+            must_fields = list(descriptor.must_have_fields)
+            if select_fields_list is None:
+                select_fields_list = must_fields
+            else:
+                select_fields_list = list(dict.fromkeys([*select_fields_list, *must_fields]))
+
+        context.select_fields = select_fields_list
+
+        batch_size_candidate: int | None = getattr(source_config, "batch_size", None)
+        if batch_size_candidate is None:
+            batch_size_candidate = getattr(source_config, "page_size", None)
+        if batch_size_candidate is None:
+            batch_size_candidate = self._resolve_batch_size(source_raw)
+
+        hard_cap = descriptor.hard_page_size_cap
+        if hard_cap is None and batch_size_candidate is not None:
+            hard_cap = max(int(batch_size_candidate), 1)
+
+        page_size = context.page_size
+        if page_size is None:
+            base_size = batch_size_candidate if batch_size_candidate is not None else 25
+            cap = hard_cap if hard_cap is not None else base_size
+            page_size = self._resolve_page_size(base_size, limit, hard_cap=cap)
+        context.page_size = page_size
+
+        parameters = getattr(source_config, "parameters", {})
+        normalised_parameters = self._normalize_parameters(parameters)
+
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields_list) if select_fields_list else None,
+        }
+        if context.extra_filters:
+            filters_payload.update(context.extra_filters)
+        if normalised_parameters:
+            filters_payload["parameters"] = normalised_parameters
+
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+
+        metadata_kwargs = dict(context.metadata)
+        self.record_extract_metadata(
+            chembl_release=context.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+            **metadata_kwargs,
+        )
+
+        if self.config.cli.dry_run:
+            if descriptor.dry_run_handler is not None:
+                return descriptor.dry_run_handler(self, context, log, stage_start)
+
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            if descriptor.empty_frame_factory is not None:
+                dataframe = descriptor.empty_frame_factory(self, context)
+            else:
+                dataframe = pd.DataFrame()
+
+            summary_payload: dict[str, Any] = {
+                "rows": int(dataframe.shape[0]),
+                "duration_ms": duration_ms,
+                "dry_run": True,
+            }
+            if context.chembl_release is not None:
+                summary_payload["chembl_release"] = context.chembl_release
+            if descriptor.summary_extra is not None:
+                summary_payload.update(descriptor.summary_extra(self, dataframe, context))
+            if context.stats:
+                summary_payload.update(context.stats)
+            log.info(descriptor.summary_event, **summary_payload)
+            return dataframe
+
+        iterator_kwargs = dict(context.iterate_all_kwargs)
+        records: list[dict[str, Any]] = []
+
+        for payload in context.iterator.iterate_all(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields_list,
+            **iterator_kwargs,
+        ):
+            if descriptor.record_transform is not None:
+                record_mapping = descriptor.record_transform(self, payload, context)
+            else:
+                record_mapping = self._coerce_mapping(payload)
+            records.append(dict(record_mapping))
+
+        if records:
+            dataframe = pd.DataFrame.from_records(records)
+        elif descriptor.empty_frame_factory is not None:
+            dataframe = descriptor.empty_frame_factory(self, context)
+        else:
+            dataframe = pd.DataFrame({descriptor.id_column: pd.Series(dtype="object")})
+
+        if descriptor.sort_by and not dataframe.empty:
+            sort_columns = (
+                list(descriptor.sort_by)
+                if isinstance(descriptor.sort_by, Sequence) and not isinstance(descriptor.sort_by, (str, bytes))
+                else [cast(str, descriptor.sort_by)]
+            )
+            dataframe = dataframe.sort_values(sort_columns).reset_index(drop=True)
+
+        for processor in descriptor.post_processors:
+            dataframe = processor(self, dataframe, context, log)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+
+        summary_payload: dict[str, Any] = {
+            "rows": int(dataframe.shape[0]),
+            "duration_ms": duration_ms,
+        }
+        if context.chembl_release is not None:
+            summary_payload["chembl_release"] = context.chembl_release
+        if context.stats:
+            summary_payload.update(context.stats)
+        if descriptor.summary_extra is not None:
+            summary_payload.update(descriptor.summary_extra(self, dataframe, context))
+
+        log.info(descriptor.summary_event, **summary_payload)
+        return dataframe
 
     # ------------------------------------------------------------------
     # API client management
