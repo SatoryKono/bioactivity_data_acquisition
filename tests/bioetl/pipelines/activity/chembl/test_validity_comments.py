@@ -9,7 +9,7 @@ import pandas as pd
 import pytest  # type: ignore[import-not-found]
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.schemas.activity import ActivitySchema
 
 
@@ -26,9 +26,9 @@ class TestValidityCommentsSchema:
             "data_validity_description",
         }
 
-        assert required_columns.issubset(
-            schema_columns
-        ), f"Missing columns: {required_columns - schema_columns}"
+        assert required_columns.issubset(schema_columns), (
+            f"Missing columns: {required_columns - schema_columns}"
+        )
 
     def test_schema_column_types(self) -> None:
         """Test that comment columns have correct types (nullable string)."""
@@ -172,7 +172,7 @@ class TestValidityCommentsMetrics:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -210,7 +210,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -244,7 +244,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             side_effect=RuntimeError("dictionary missing"),
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -267,7 +267,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -365,8 +365,13 @@ class TestValidityCommentsOnlyFields:
                 "prepare_chembl_client",
                 return_value=(http_client_stub, "https://mock.chembl.api/data"),
             ),
-            patch("bioetl.pipelines.activity.activity.ChemblClient", return_value=chembl_client_stub),
-            patch("bioetl.pipelines.activity.activity.ChemblActivityClient", return_value=iterator_stub),
+            patch(
+                "bioetl.pipelines.chembl.activity.run.ChemblClient", return_value=chembl_client_stub
+            ),
+            patch(
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityClient",
+                return_value=iterator_stub,
+            ),
             patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
             patch.object(pipeline, "_log_validity_comments_metrics"),
         ):

@@ -113,7 +113,7 @@ determinism:
                         ),
                     ),
                     validation=ValidationConfig(
-        schema_out="bioetl.schemas.activity.activity_chembl:ActivitySchema",
+                        schema_out="bioetl.schemas.activity.activity_chembl:ActivitySchema",
                         strict=True,
                         coerce=True,
                     ),
@@ -183,7 +183,7 @@ http:
         # Mock load_config to avoid profile resolution issues in tests
         with (
             patch("bioetl.config.load_config") as mock_load_config,
-            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.run") as mock_run,
+            patch("bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.run") as mock_run,
         ):
             from bioetl.config.loader import load_config as real_load_config
 

@@ -68,7 +68,7 @@ This section defines the project contract for each layer of the source component
 ## 3. Interface and Implementation Matrix
 
 A detailed matrix mapping each pipeline to its specific component implementations is available in a separate document:
-- **[Interface Matrix](./INTERFACE_MATRIX.md)**
+- **[Interface Matrix](./01-interface-matrix.md)**
 
 ## 4. Interaction with Schemas and Determinism Policy
 

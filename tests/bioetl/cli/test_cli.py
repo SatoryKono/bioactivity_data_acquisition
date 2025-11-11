@@ -188,7 +188,7 @@ sources:
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -214,7 +214,9 @@ sources:
 
             assert (
                 result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-            ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]
+            ), (
+                f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
+            )  # type: ignore[reportUnknownMemberType]
             # Check that limit was passed to config
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)
@@ -251,7 +253,7 @@ sources:
         output_dir = tmp_path / "output"
 
         with patch(
-            "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
         ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -345,7 +347,9 @@ http:
         # Test that --set overrides are parsed and passed correctly
         # We'll verify by checking that the command completes successfully
         # and that the overrides are applied (if config loading succeeds)
-        with patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline") as mock_pipeline_class:
+        with patch(
+            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+        ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -370,7 +374,9 @@ http:
             )
 
             # In dry-run mode, command should succeed
-            assert result.exit_code == 0, f"Command failed with exit code {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]
+            assert result.exit_code == 0, (
+                f"Command failed with exit code {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
+            )  # type: ignore[reportUnknownMemberType]
             # Verify that --set parsing doesn't cause errors
             assert "Configuration validated successfully" in result.stdout or result.exit_code == 0  # type: ignore[reportUnknownMemberType]
 
@@ -404,7 +410,7 @@ validation:
 
         with (
             patch(
-                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
             patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
         ):
@@ -471,7 +477,7 @@ http:
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -569,7 +575,7 @@ http:
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config
@@ -623,7 +629,7 @@ http:
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
-                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
             mock_load_config.return_value = real_config

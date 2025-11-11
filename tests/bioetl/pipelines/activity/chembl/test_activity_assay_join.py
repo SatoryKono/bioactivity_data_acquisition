@@ -16,7 +16,7 @@ from bioetl.config.models.paths import PathsConfig
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.fixture

@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.assay.assay_transform import header_rows_serialize, serialize_array_fields
+from bioetl.pipelines.chembl.assay.transform import header_rows_serialize, serialize_array_fields
 
 
 @pytest.mark.unit

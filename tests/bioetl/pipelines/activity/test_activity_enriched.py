@@ -97,7 +97,7 @@ cli:
         }
 
         with patch(
-            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
+            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
         ) as mock_extract:
             mock_extract.return_value = sample_data
             with patch(
@@ -109,7 +109,7 @@ cli:
                 config = load_config(config_path)
 
                 # Run pipeline (this will call transform which includes enrichment)
-                from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+                from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
                 pipeline = ChemblActivityPipeline(config, run_id="test_run")
                 df_extracted = pipeline.extract()
@@ -190,12 +190,12 @@ cli:
         )
 
         with patch(
-            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
+            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
         ) as mock_extract:
             mock_extract.return_value = sample_data
 
             config = load_config(config_path)
-            from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+            from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
             pipeline = ChemblActivityPipeline(config, run_id="test_run")
             df_extracted = pipeline.extract()

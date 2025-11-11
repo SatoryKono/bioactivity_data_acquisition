@@ -11,7 +11,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.target.target import ChemblTargetPipeline
+from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 

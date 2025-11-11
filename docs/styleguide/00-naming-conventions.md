@@ -64,7 +64,7 @@ Primary index files or landing pages for a directory **SHOULD** be named `INDEX.
 - **Format**: `INDEX.md` or `OVERVIEW.md`
 - **Examples**:
   - `docs/INDEX.md`
-  - `docs/sources/INTERFACE_MATRIX.md`
+  - `docs/sources/01-interface-matrix.md`
 
 ### 2.3. README Files
 

@@ -22,7 +22,7 @@ Documents that are part of a sequence **SHOULD** use numbered prefixes:
 - Examples:
   - `00-cli-overview.md`
   - `01-cli-commands.md`
-  - `02-cli-exit_codes.md`
+  - `02-cli-exit-codes.md`
 
 ### Index Files
 
@@ -39,7 +39,7 @@ docs/
 ├── cli/
 │   ├── 00-cli-overview.md
 │   ├── 01-cli-commands.md
-│   └── 02-cli-exit_codes.md
+│   └── 02-cli-exit-codes.md
 └── pipelines/
     ├── 00-pipeline-base.md
     └── 03-data-extraction.md

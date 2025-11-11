@@ -672,8 +672,8 @@ The `target-iuphar` pipeline follows the standard source architecture, utilizing
 
 **Public API:**
 
-- `bioetl.sources.iuphar.pipeline.GtpIupharPipeline` — полнофункциональный ETL для Guide to Pharmacology
-- `bioetl.sources.iuphar.service.IupharService` (`IupharServiceConfig`) — сервис для сопоставления IUPHAR-идентификаторов
+- `bioetl.integrations.iuphar.pipeline.GtpIupharPipeline` — полнофункциональный ETL для Guide to Pharmacology (планируется к внедрению)
+- `bioetl.integrations.iuphar.service.IupharService` (`IupharServiceConfig`) — сервис для сопоставления IUPHAR-идентификаторов (планируется к внедрению)
 
 **Module layout:**
 

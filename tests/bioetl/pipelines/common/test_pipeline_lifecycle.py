@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.integration

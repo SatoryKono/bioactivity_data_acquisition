@@ -1,6 +1,6 @@
 # ChEMBL Source Architecture
 
-This brief consolidates the planned component stack for every ChEMBL-facing pipeline so that pagination, parsing, normalisation and schema contracts stay aligned across clients.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 Core behaviours inherit the generic source rules for paginators, parsers and HTTP clients, including deterministic stop conditions on empty responses and pure parsing logic.【F:docs/sources/00-sources-architecture.md†L31-L44】
+This brief consolidates the planned component stack for every ChEMBL-facing pipeline so that pagination, parsing, normalisation and schema contracts stay aligned across clients.【F:docs/sources/01-interface-matrix.md†L7-L13】 Core behaviours inherit the generic source rules for paginators, parsers and HTTP clients, including deterministic stop conditions on empty responses and pure parsing logic.【F:docs/sources/00-sources-architecture.md†L31-L44】
 
 ## 1. Component matrix
 
@@ -12,7 +12,7 @@ This brief consolidates the planned component stack for every ChEMBL-facing pipe
 | Target | `src/bioetl/sources/chembl/target/client/target_client.py` | ID batching (`target_chembl_id__in`) | `src/bioetl/sources/chembl/target/parser/target_parser.py::TargetParser` | `src/bioetl/sources/chembl/target/normalizer/target_normalizer.py::TargetNormalizer` | `src/bioetl/schemas/chembl_target.py::TargetSchema` |
 | TestItem | `src/bioetl/sources/chembl/testitem/client/testitem_client.py` | ID batching (`molecule_chembl_id__in`) | `src/bioetl/sources/chembl/testitem/parser/testitem_parser.py::TestItemParser` | `src/bioetl/sources/chembl/testitem/normalizer/testitem_normalizer.py::TestItemNormalizer` | `src/bioetl/schemas/chembl_testitem.py::TestItemSchema` |
 
-_Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】_
+_Source: `docs/sources/01-interface-matrix.md` (implementation status planned).【F:docs/sources/01-interface-matrix.md†L7-L13】_
 
 ## 2. Pagination and end-of-feed handling
 
@@ -33,7 +33,7 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 
 ### Target
 
-- Targets use the same client/ID batching stack enumerated in the component matrix while exposing `target_chembl_id` as the pagination and business key, so empty pages trigger the shared paginator stop condition.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】【F:docs/pipelines/08-target-data-extraction.md†L31-L48】
+- Targets use the same client/ID batching stack enumerated in the component matrix while exposing `target_chembl_id` as the pagination and business key, so empty pages trigger the shared paginator stop condition.【F:docs/sources/01-interface-matrix.md†L7-L13】【F:docs/pipelines/08-target-data-extraction.md†L31-L48】
 
 ### TestItem
 
@@ -64,7 +64,7 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 ### TestItem (parsing)
 
 - Parsers flatten `molecule_hierarchy`, `molecule_properties`, structural fingerprints and synonym lists into ~80 flat columns, with the normaliser wiring optional PubChem-derived attributes into the same schema.【F:docs/pipelines/07-testitem-extraction.md†L32-L69】
-- Component bindings guarantee that the schema and normaliser come from the ChemBL test item modules listed in the matrix.【F:docs/pipelines/07-testitem-extraction.md†L71-L78】【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】
+- Component bindings guarantee that the schema and normaliser come from the ChemBL test item modules listed in the matrix.【F:docs/pipelines/07-testitem-extraction.md†L71-L78】【F:docs/sources/01-interface-matrix.md†L7-L13】
 
 ## 4. I/O contracts and validation hooks
 
@@ -73,4 +73,4 @@ _Source: `docs/sources/INTERFACE_MATRIX.md` (implementation status planned).【F
 - Activity outputs comply with the explicit Pandera schema and column order, providing deterministic ordering for downstream materialisation and hashing.【F:docs/pipelines/06-activity-data-extraction.md†L575-L609】
 - Repository-wide HTTP defaults (timeouts, retries, rate limiting and headers) and materialisation paths are anchored by the base profile, so every client inherits consistent network/backoff and storage expectations.【F:configs/defaults/base.yaml†L4-L31】
 - Deterministic hashing rules, float precision and column-order enforcement for final CSV/Parquet artefacts come from the determinism profile applied on top of pipeline configs.【F:configs/defaults/determinism.yaml†L2-L15】
-- The interface matrix ties each parser to a parser unit test entry, documenting the expectation that parsing contracts are backed by automated tests before pipelines are promoted.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】
+- The interface matrix ties each parser to a parser unit test entry, documenting the expectation that parsing contracts are backed by automated tests before pipelines are promoted.【F:docs/sources/01-interface-matrix.md†L7-L13】

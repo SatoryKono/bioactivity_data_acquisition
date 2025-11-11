@@ -16,7 +16,7 @@
 ## Топология репозитория
 
 Слои кода, тестов, конфигураций и артефактов описаны в разделе
-[Repository Topology](docs/repository_topology.md). Используйте его как точку
+[Repository Topology](docs/00-repository-topology.md). Используйте его как точку
 старта для навигации по проекту и проверки правил размещения артефактов.
 
 ## Каталоги данных и образцы
@@ -185,7 +185,7 @@ detect-secrets scan src tests configs scripts docs README.md --baseline .secrets
 
 Мы ведём ADR в каталоге [`docs/adr/`](docs/adr/). Чтобы задокументировать архитектурные изменения:
 
-1. Скопируйте шаблон [`docs/adr/template.md`](docs/adr/template.md) в файл `docs/adr/<следующий-номер>-<краткое-имя>.md`.
+1. Скопируйте шаблон [`docs/adr/00-template.md`](docs/adr/00-template.md) в файл `docs/adr/<следующий-номер>-<краткое-имя>.md` (номер — две цифры с ведущим нулём).
 2. Заполните разделы «Context», «Decision», «Consequences» и добавьте ссылки на код/документацию.
 3. Обновите [`docs/INDEX.md`](docs/INDEX.md) — добавьте ссылку на новый ADR в раздел «Architecture Decision Records».
 4. Укажите номер ADR в описании PR и отметьте чекбокс ADR в шаблоне PR.

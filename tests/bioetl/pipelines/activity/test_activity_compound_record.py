@@ -10,7 +10,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.activity.activity_enrichment import enrich_with_compound_record
+from bioetl.pipelines.chembl.activity.normalize import enrich_with_compound_record
 
 
 @pytest.fixture

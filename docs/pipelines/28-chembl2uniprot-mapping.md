@@ -567,31 +567,31 @@ The `chembl2uniprot-mapping` pipeline follows the standard source architecture, 
 
 | Component | Implementation |
 |---|---|
-| **Client** | `src/bioetl/sources/uniprot/client/uniprot_idmapping_client.py` — HTTP client for UniProt ID Mapping API |
-| **Parser** | `src/bioetl/sources/uniprot/parser/idmapping_parser.py` — parsing helpers for ID mapping results |
-| **Normalizer** | `src/bioetl/sources/uniprot/normalizer/idmapping_normalizer.py` — dataframe normalisation and one-to-many handling |
-| **JobManager** | `src/bioetl/sources/uniprot/job/idmapping_job_manager.py` — управление асинхронными job (create, poll, stream) |
+| **Client** | `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP client for UniProt ID Mapping API |
+| **Parser** | `src/bioetl/integrations/uniprot/parser/idmapping_parser.py` — parsing helpers for ID mapping results |
+| **Normalizer** | `src/bioetl/integrations/uniprot/normalizer/idmapping_normalizer.py` — dataframe normalisation and one-to-many handling |
+| **JobManager** | `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление асинхронными job (create, poll, stream) |
 | **Schema** | `src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py` — Pandera schema для валидации |
 
 **Public API:**
 
-- `from bioetl.sources.uniprot.idmapping import UniProtIDMappingClient`
-- `from bioetl.sources.uniprot.idmapping import IDMappingJobManager`
+- `from bioetl.integrations.uniprot.idmapping import UniProtIDMappingClient`
+- `from bioetl.integrations.uniprot.idmapping import IDMappingJobManager`
 - `from bioetl.pipelines.uniprot import ChEMBL2UniProtMappingPipeline`
 
 **Module layout:**
 
-- `src/bioetl/sources/uniprot/client/uniprot_idmapping_client.py` — HTTP client для ID Mapping API
-- `src/bioetl/sources/uniprot/job/idmapping_job_manager.py` — управление async job (create, poll, stream)
+- `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP client для ID Mapping API
+- `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление async job (create, poll, stream)
 - `src/bioetl/pipelines/uniprot/chembl2uniprot.py` — standalone CLI pipeline wrapper
 
 **Tests:**
 
-- `tests/sources/uniprot/test_idmapping_client.py` — HTTP client adapters для ID Mapping API
-- `tests/sources/uniprot/test_idmapping_job_manager.py` — job management tests
-- `tests/sources/uniprot/test_idmapping_parser.py` — parsing helpers tests
-- `tests/sources/uniprot/test_idmapping_normalizer.py` — normalization tests
-- `tests/sources/uniprot/test_chembl2uniprot_pipeline_e2e.py` — pipeline orchestration happy path
+- `tests/integrations/uniprot/test_idmapping_client.py` — HTTP client adapters для ID Mapping API
+- `tests/integrations/uniprot/test_idmapping_job_manager.py` — job management tests
+- `tests/integrations/uniprot/test_idmapping_parser.py` — parsing helpers tests
+- `tests/integrations/uniprot/test_idmapping_normalizer.py` — normalization tests
+- `tests/integrations/uniprot/test_chembl2uniprot_pipeline_e2e.py` — pipeline orchestration happy path
 
 ## 7. Key Identifiers
 

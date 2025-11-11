@@ -125,7 +125,7 @@ The following QC metrics would be collected and reported in the pipeline's logs 
 ## Tests
 
 - `tests/unit/test_pubchem_pipeline.py` покрывает полный цикл `extract → transform → validate → export`, используя мок-адаптер PubChem.【F:tests/unit/test_pubchem_pipeline.py†L1-L60】
-- Модульные тесты в `tests/sources/pubchem/` проверяют клиент и нормализацию адаптера, что поддерживает слои, требуемые `MODULE_RULES.md`.【F:tests/sources/pubchem/test_client.py†L1-L40】【F:tests/sources/pubchem/test_normalizer.py†L1-L40】
+- Модульные тесты будут размещены в `tests/clients/pubchem/` и покроют клиент и нормализацию адаптера, что поддерживает слои, требуемые `MODULE_RULES.md`.
 
 ## 8. Errors and Exit Codes
 

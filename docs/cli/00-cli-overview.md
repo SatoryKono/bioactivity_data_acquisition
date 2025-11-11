@@ -45,7 +45,7 @@ This layered approach provides a powerful and flexible system for managing confi
 - **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
 - **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
 
-A full list of commands and their specific flags can be found in the `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed reference on exit codes, see `[ref: repo:docs/cli/02-cli-exit_codes.md@refactoring_001]`.
+A full list of commands and their specific flags can be found in the `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed reference on exit codes, see `[ref: repo:docs/cli/02-cli-exit-codes.md@refactoring_001]`.
 
 ## 5. Command Catalog
 
@@ -87,7 +87,7 @@ Every pipeline command shares a common set of options implemented in `[ref: repo
 
 ## 7. Exit Codes at a Glance
 
-Error handling for every pipeline run is centralized in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`, which maps exceptions to exit codes documented in `[ref: repo:docs/cli/02-cli-exit_codes.md@refactoring_001]`. The following table summarizes the outcomes.
+Error handling for every pipeline run is centralized in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`, which maps exceptions to exit codes documented in `[ref: repo:docs/cli/02-cli-exit-codes.md@refactoring_001]`. The following table summarizes the outcomes.
 
 | Exit Code | Meaning | Typical Triggers |
 | --- | --- | --- |

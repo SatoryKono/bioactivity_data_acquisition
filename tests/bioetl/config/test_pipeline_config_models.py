@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from bioetl.config.models import (
@@ -16,8 +18,8 @@ from bioetl.config.models import (
 from bioetl.config.models.source import SourceConfig
 
 
-def _make_pipeline_config(**overrides: object) -> PipelineConfig:
-    base_kwargs: dict[str, object] = {
+def _make_pipeline_config(**overrides: Any) -> PipelineConfig:
+    base_kwargs: dict[str, Any] = {
         "version": 1,
         "pipeline": PipelineMetadata(name="activity", version="1.2.3"),
         "http": HTTPConfig(default=HTTPClientConfig()),

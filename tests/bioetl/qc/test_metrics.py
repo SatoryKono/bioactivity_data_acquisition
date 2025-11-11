@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
 
 

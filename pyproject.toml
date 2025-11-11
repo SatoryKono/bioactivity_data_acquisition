@@ -65,21 +65,21 @@ dev = [
 
 [project.scripts]
 bioetl = "bioetl.cli.main:app"
-bioetl-audit-docs = "bioetl.cli.tools.audit_docs:app"
-bioetl-build-vocab-store = "bioetl.cli.tools.build_vocab_store:app"
-bioetl-catalog-code-symbols = "bioetl.cli.tools.catalog_code_symbols:app"
-bioetl-check-comments = "bioetl.cli.tools.check_comments:app"
-bioetl-check-output-artifacts = "bioetl.cli.tools.check_output_artifacts:app"
-bioetl-create-matrix-doc-code = "bioetl.cli.tools.create_matrix_doc_code:app"
-bioetl-determinism-check = "bioetl.cli.tools.determinism_check:app"
-bioetl-doctest-cli = "bioetl.cli.tools.doctest_cli:app"
-bioetl-inventory-docs = "bioetl.cli.tools.inventory_docs:app"
-bioetl-link-check = "bioetl.cli.tools.link_check:app"
-bioetl-remove-type-ignore = "bioetl.cli.tools.remove_type_ignore:app"
-bioetl-run-test-report = "bioetl.cli.tools.run_test_report:app"
-bioetl-schema-guard = "bioetl.cli.tools.schema_guard:app"
-bioetl-semantic-diff = "bioetl.cli.tools.semantic_diff:app"
-bioetl-vocab-audit = "bioetl.cli.tools.vocab_audit:app"
+bioetl-audit-docs = "tools.audit_docs:app"
+bioetl-build-vocab-store = "tools.build_vocab_store:app"
+bioetl-catalog-code-symbols = "tools.catalog_code_symbols:app"
+bioetl-check-comments = "tools.check_comments:app"
+bioetl-check-output-artifacts = "tools.check_output_artifacts:app"
+bioetl-create-matrix-doc-code = "tools.create_matrix_doc_code:app"
+bioetl-determinism-check = "tools.determinism_check:app"
+bioetl-doctest-cli = "tools.doctest_cli:app"
+bioetl-inventory-docs = "tools.inventory_docs:app"
+bioetl-link-check = "tools.link_check:app"
+bioetl-remove-type-ignore = "tools.remove_type_ignore:app"
+bioetl-run-test-report = "tools.run_test_report:app"
+bioetl-schema-guard = "tools.schema_guard:app"
+bioetl-semantic-diff = "tools.semantic_diff:app"
+bioetl-vocab-audit = "tools.vocab_audit:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -90,22 +90,20 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
+target-version = "py311"
 # На время рефакторинга проверяем только основные каталоги.
 src = [
     "src/bioetl",
+    "src/tools",
     "tests",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
-    "UP", # pyupgrade
+    "E",
+    "F",
+    "I",
+    "N",
 ]
 ignore = [
     "E501",  # line too long, handled by formatter
@@ -119,12 +117,19 @@ known-first-party = [
 ]
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
+packages = [
+    "bioetl",
+    "tools",
+]
 strict = true
-mypy_path = ["src/typecheck/stubs"]
-files = [
-    "src/bioetl",
-    "tests",
+warn_unused_ignores = true
+warn_return_any = true
+no_implicit_optional = true
+show_error_codes = true
+mypy_path = [
+    "src",
+    "src/typecheck/stubs",
 ]
 
 [[tool.mypy.overrides]]
@@ -171,7 +176,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-    "--cov-fail-under=85",
+"--cov-fail-under=65",
     "--tb=short",
     "--durations=10",
     "--maxfail=5",

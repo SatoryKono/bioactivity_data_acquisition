@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline
+from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 
 
 @pytest.mark.unit

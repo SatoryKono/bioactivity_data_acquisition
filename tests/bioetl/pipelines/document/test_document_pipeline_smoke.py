@@ -9,8 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.document.document import ChemblDocumentPipeline
-
+from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 
 EXPECTED_SELECT_FIELDS = [
     "document_chembl_id",
@@ -197,7 +196,9 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
-            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+            patch(
+                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
+            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
@@ -269,7 +270,9 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
-            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+            patch(
+                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
+            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(
                 mock_documents, mock_document_terms=mock_document_terms
@@ -321,12 +324,12 @@ class TestDocumentPipelineSmoke:
                 # term and weight should be empty string or nan for documents without terms
                 term_value = row_1002["term"]
                 weight_value = row_1002["weight"]
-                assert term_value == "" or pd.isna(
-                    term_value
-                ), f"Expected empty string or nan, got {term_value}"
-                assert weight_value == "" or pd.isna(
-                    weight_value
-                ), f"Expected empty string or nan, got {weight_value}"
+                assert term_value == "" or pd.isna(term_value), (
+                    f"Expected empty string or nan, got {term_value}"
+                )
+                assert weight_value == "" or pd.isna(weight_value), (
+                    f"Expected empty string or nan, got {weight_value}"
+                )
 
     def test_document_pipeline_columns_order(self, tmp_path: Path) -> None:
         """Test that document pipeline maintains correct column order."""
@@ -344,7 +347,9 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
-            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+            patch(
+                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
+            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client

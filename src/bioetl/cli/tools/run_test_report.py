@@ -1,35 +1,18 @@
-"""CLI для генерации отчёта pytest/coverage."""
+"""Shim для совместимости с `bioetl-run-test-report`."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import typer
-
-from bioetl.cli.tools import create_app
-from bioetl.tools.run_test_report import TEST_REPORTS_ROOT, generate_test_report
-
-app = create_app(
-    name="bioetl-run-test-report",
-    help_text="Генерирует отчёты pytest и coverage c meta.yaml",
+from tools.run_test_report import (
+    TEST_REPORTS_ROOT,
+    app,
+    generate_test_report,
+    main,
+    run,
 )
 
-
-@app.command()
-def main(
-    output_root: Path = typer.Option(
-        TEST_REPORTS_ROOT,
-        help="Каталог для сохранения артефактов",
-        file_okay=False,
-        dir_okay=True,
-        writable=True,
-    ),
-) -> None:
-    """Запустить pytest и сформировать отчёты."""
-
-    exit_code = generate_test_report(output_root=output_root.resolve())
-    raise typer.Exit(code=exit_code)
+__all__ = ["app", "main", "run", "generate_test_report", "TEST_REPORTS_ROOT"]
 
 
-def run() -> None:
-    app()
+if __name__ == "__main__":
+    run()
+

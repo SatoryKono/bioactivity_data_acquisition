@@ -37,7 +37,7 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
-from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
+from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,
 )

@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import pytest
+from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.fixture
-def activity_pipeline(pipeline_config_fixture: PipelineConfig, run_id: str) -> ChemblActivityPipeline:
+def activity_pipeline(
+    pipeline_config_fixture: PipelineConfig, run_id: str
+) -> ChemblActivityPipeline:
     return ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
 
@@ -32,7 +35,9 @@ def test_normalize_activity_properties_sequence(activity_pipeline: ChemblActivit
 
 
 @pytest.mark.unit
-def test_normalize_activity_properties_from_string(activity_pipeline: ChemblActivityPipeline) -> None:
+def test_normalize_activity_properties_from_string(
+    activity_pipeline: ChemblActivityPipeline,
+) -> None:
     payload = '{"type": "Ki", "value": 5.0, "result_flag": 0}'
 
     normalized = activity_pipeline._normalize_activity_properties_items(payload)  # noqa: SLF001
@@ -43,7 +48,9 @@ def test_normalize_activity_properties_from_string(activity_pipeline: ChemblActi
 
 
 @pytest.mark.unit
-def test_normalize_activity_properties_invalid_json(activity_pipeline: ChemblActivityPipeline, caplog: pytest.LogCaptureFixture) -> None:
+def test_normalize_activity_properties_invalid_json(
+    activity_pipeline: ChemblActivityPipeline, caplog: pytest.LogCaptureFixture
+) -> None:
     payload = "free text value"
 
     with caplog.at_level("WARNING"):
@@ -54,7 +61,9 @@ def test_normalize_activity_properties_invalid_json(activity_pipeline: ChemblAct
 
 
 @pytest.mark.unit
-def test_normalize_activity_properties_unhandled_type(activity_pipeline: ChemblActivityPipeline) -> None:
+def test_normalize_activity_properties_unhandled_type(
+    activity_pipeline: ChemblActivityPipeline,
+) -> None:
     class CaptureLog:
         def __init__(self) -> None:
             self.events: list[dict[str, Any]] = []
@@ -63,7 +72,10 @@ def test_normalize_activity_properties_unhandled_type(activity_pipeline: ChemblA
             self.events.append({"event": event, **fields})
 
     capture_log = CaptureLog()
-    normalized = activity_pipeline._normalize_activity_properties_items(42, capture_log)  # noqa: SLF001
+    normalized = activity_pipeline._normalize_activity_properties_items(  # noqa: SLF001
+        42,
+        cast(BoundLogger, capture_log),
+    )
 
     assert normalized is None
     assert capture_log.events
@@ -80,4 +92,3 @@ def test_serialize_activity_properties(activity_pipeline: ChemblActivityPipeline
     decoded = json.loads(serialized)
     assert isinstance(decoded, list)
     assert decoded[0]["type"] == "IC50"
-

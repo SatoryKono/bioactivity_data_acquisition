@@ -4,7 +4,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 ## Core Concepts
 
-- **[Repository Topology](repository_topology.md)**: Overview of directory layers, sources of truth, and artifact placement.
+- **[Repository Topology](00-repository-topology.md)**: Overview of directory layers, sources of truth, and artifact placement.
 - **[ETL Contract](etl_contract/00-etl-overview.md)**: An overview of the fundamental principles and architecture of the `bioetl` framework, including the `PipelineBase` contract.
 - **[Source Architecture](sources/00-sources-architecture.md)**: Describes the layered component stack for data sources (Client, Parser, Normalizer) and the flow of data.
 - **[Determinism Policy](determinism/00-determinism-policy.md)**: The specification for ensuring byte-for-byte reproducible outputs.
@@ -17,25 +17,25 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **[HTTP Clients](http/00-http-clients-and-retries.md)**: The specification for the unified HTTP client, including retries, backoff, and rate limiting.
 - **[Structured Logging](logging/00-overview.md)**: An overview of the `structlog`-based logging system and its features.
 - **[Quality Assurance](qc/00-qc-overview.md)**: The framework for data quality control, including metrics and Golden Tests.
-- **[Architecture Decision Records](adr/)**: Accepted and proposed architectural decisions. Start new records from `docs/adr/template.md` and commit them as `NNN-title.md` alongside updates to this index.
+- **[Architecture Decision Records](adr/)**: Accepted and proposed architectural decisions. Start new records from `docs/adr/00-template.md` and commit them as `NN-title.md` alongside updates to this index.
 
 ### Adding a New ADR
 
-1. Copy `docs/adr/template.md` into `docs/adr/<next-number>-<short-title>.md` (numbers are zero-padded and incremental).
+1. Copy `docs/adr/00-template.md` into `docs/adr/<next-number>-<short-title>.md` (numbers are two-digit, zero-padded, and incremental).
 2. Fill in the context, decision, consequences, and references. Include links to code and documentation touched by the change.
 3. Update this index with a link to the new ADR so reviewers can navigate easily.
 4. Reference the ADR number in your pull request description and check the ADR box in the PR template.
 
 ### Current ADRs
 
-- [ADR 001: Layered ETL Architecture Boundaries](adr/001-layered-etl-architecture.md)
-- [ADR 002: Typed Configuration Profiles via Pydantic](adr/002-typed-config-profiles.md)
-- [ADR 003: Canonical Data Contract and Storage Layout](adr/003-data-contract-and-storage.md)
+- [ADR 01: Layered ETL Architecture Boundaries](adr/01-layered-etl-architecture.md)
+- [ADR 02: Typed Configuration Profiles via Pydantic](adr/02-typed-config-profiles.md)
+- [ADR 03: Canonical Data Contract and Storage Layout](adr/03-data-contract-and-storage.md)
 
 ## Pipeline Documentation
 
 - **[Pipelines Catalog](pipelines/10-pipelines-catalog.md)**: A detailed catalog of all data extraction pipelines.
-- **[Source Interface Matrix](sources/INTERFACE_MATRIX.md)**: A matrix mapping each pipeline to its specific component implementations.
+- **[Source Interface Matrix](sources/01-interface-matrix.md)**: A matrix mapping each pipeline to its specific component implementations.
 
 ## Style Guides
 
@@ -75,7 +75,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 - [00-cli-overview.md](cli/00-cli-overview.md) - CLI overview and principles
 - [01-cli-commands.md](cli/01-cli-commands.md) - CLI commands reference
-- [02-cli-exit_codes.md](cli/02-cli-exit_codes.md) - Exit codes specification
+- [02-cli-exit-codes.md](cli/02-cli-exit-codes.md) - Exit codes specification
 - [03-cli-utilities.md](cli/03-cli-utilities.md) - Repository CLI utilities inventory
 
 ### Configurations (`configs/`)
@@ -162,7 +162,7 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 ### Sources (`sources/`)
 
 - [00-sources-architecture.md](sources/00-sources-architecture.md) - Sources architecture overview
-- [INTERFACE_MATRIX.md](sources/INTERFACE_MATRIX.md) - Interface matrix mapping
+- [01-interface-matrix.md](sources/01-interface-matrix.md) - Interface matrix mapping
 - [chembl/00-architecture.md](sources/chembl/00-architecture.md) - ChEMBL source architecture
 
 ### Style Guide (`styleguide/`)
@@ -186,4 +186,4 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 
 1. When changing code, update the corresponding documentation sections and ensure all `[ref]` links are accurate.
 2. Before committing, run the project's QA scripts (e.g., `npx markdownlint-cli2 "**/*.md"`).
-3. If adding a new source, expand the tables in the `[ref: repo:docs/sources/INTERFACE_MATRIX.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-pipelines-catalog.md@refactoring_001]`.
+3. If adding a new source, expand the tables in the `[ref: repo:docs/sources/01-interface-matrix.md@refactoring_001]` and the `[ref: repo:docs/pipelines/10-pipelines-catalog.md@refactoring_001]`.

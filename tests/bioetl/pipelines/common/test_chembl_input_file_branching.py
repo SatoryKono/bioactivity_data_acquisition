@@ -9,12 +9,12 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
-from bioetl.pipelines.assay.assay import ChemblAssayPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline as ChemblTestItemPipeline
 from bioetl.pipelines.chembl_base import ChemblPipelineBase
-from bioetl.pipelines.document.document import ChemblDocumentPipeline
-from bioetl.pipelines.target.target import ChemblTargetPipeline
-from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline as ChemblTestItemPipeline
 
 
 @pytest.mark.unit

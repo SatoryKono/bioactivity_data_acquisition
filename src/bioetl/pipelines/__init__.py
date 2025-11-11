@@ -1,6 +1,6 @@
 """Pipeline orchestration primitives."""
 
-from .activity.activity import ChemblActivityPipeline
+from .chembl.activity.run import ChemblActivityPipeline
 from .base import PipelineBase, RunArtifacts, RunResult, WriteArtifacts, WriteResult
 
 __all__ = [

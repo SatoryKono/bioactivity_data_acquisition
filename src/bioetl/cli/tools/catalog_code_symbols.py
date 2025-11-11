@@ -1,38 +1,18 @@
-"""CLI для каталогизации сигнатур ключевых сущностей."""
+"""Shim для совместимости с `bioetl-catalog-code-symbols`."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import typer
-
-from bioetl.cli.tools import create_app
-from bioetl.tools.catalog_code_symbols import catalog_code_symbols
-
-app = create_app(
-    name="bioetl-catalog-code-symbols",
-    help_text="Сбор сигнатур PipelineBase, конфигов и CLI-команд",
+from tools.catalog_code_symbols import (
+    CodeCatalog,
+    app,
+    catalog_code_symbols,
+    main,
+    run,
 )
 
-
-@app.command()
-def main(
-    artifacts: Path = typer.Option(
-        Path("artifacts"),
-        help="Каталог для сохранения отчётов",
-    ),
-) -> None:
-    """Собрать каталог кодовых сущностей и записать артефакты."""
-
-    result = catalog_code_symbols(artifacts_dir=artifacts.resolve())
-    typer.echo(
-        "Сигнатуры сохранены: "
-        f"pipeline методы={len(result.pipeline_signatures)}, "
-        f"CLI команды={len(result.cli_commands)}"
-    )
+__all__ = ["app", "main", "run", "catalog_code_symbols", "CodeCatalog"]
 
 
-def run() -> None:
-    """Запуск Typer-приложения."""
+if __name__ == "__main__":
+    run()
 
-    app()

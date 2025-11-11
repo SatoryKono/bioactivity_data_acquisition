@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any, Protocol, TypeVar, overload
+from typing import Any, ContextManager, Protocol, TypeVar, overload
 
 _T = TypeVar("_T")
 _F = TypeVar("_F", bound=Callable[..., Any])
@@ -27,6 +27,28 @@ class _Markers(Protocol):
 
 
 mark: _Markers
+
+
+class MonkeyPatch:
+    def setattr(
+        self,
+        target: Any,
+        name: str | None = ...,
+        value: Any = ...,
+        *,
+        raising: bool = ...,
+    ) -> None: ...
+
+    def setitem(
+        self,
+        dictionary: dict[Any, Any],
+        name: Any,
+        value: Any,
+    ) -> None: ...
+
+    def setenv(self, name: str, value: str, *, prepend: bool = ...) -> None: ...
+
+    def undo(self) -> None: ...
 
 
 @overload
@@ -87,4 +109,17 @@ def param(*values: Any, **kwargs: Any) -> Any: ...
 
 def approx(actual: Any, *, rel: float | None = ..., abs: float | None = ...) -> Any: ...
 
+
+class LogCaptureFixture(Protocol):
+    records: list[Any]
+    text: str
+
+    def at_level(
+        self,
+        level: int | str,
+        *,
+        logger: str | None = ...,
+    ) -> ContextManager[Any]: ...
+
+    def clear(self) -> None: ...
 

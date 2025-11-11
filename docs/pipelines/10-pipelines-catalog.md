@@ -17,7 +17,7 @@ The pipelines expose the following public APIs:
 - `bioetl.pipelines.activity.ChemblActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/activity/activity.py†L106-L460】
 - `bioetl.pipelines.assay.ChemblAssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/assay/assay.py†L126-L490】
 - `bioetl.pipelines.document.ChemblDocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/pipelines/document/document.py†L60-L520】
-- `bioetl.pipelines.target.ChemblTargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.【F:src/bioetl/pipelines/target/target.py†L38-L560】
+- `bioetl.pipelines.chembl.target.run.ChemblTargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.【F:src/bioetl/pipelines/chembl/target/run.py†L1-L585】
 - `bioetl.pipelines.testitem.TestItemChemblPipeline` — загрузка молекул (test items) с полями из `/molecule` и поддержкой PubChem-обогащения.【F:src/bioetl/pipelines/testitem/testitem.py†L52-L620】
 
 ### Document Pipelines
@@ -167,7 +167,7 @@ python -m bioetl.cli.main assay \
 | `sources.uniprot.enabled` / `sources.uniprot.batch_size` | Toggle UniProt enrichment and tune paging for ID-mapping/ortholog services. See [UniProt Target Pipeline](target-uniprot/09-target-uniprot-extraction.md) and [ChEMBL to UniProt Mapping Pipeline](28-chembl2uniprot-mapping.md). | |
 | `sources.iuphar.*` | Configure API key, caching, and minimum enrichment ratios for Guide to Pharmacology augmentations. See [IUPHAR Target Pipeline](target-iuphar/09-target-iuphar-extraction.md). | |
 
-**Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/target-chembl/09-target-chembl-extraction.md†L31-L43】【F:docs/sources/INTERFACE_MATRIX.md†L7-L12】
+**Inputs.** Core extraction hits `/target.json` while enrichment layers fan out to UniProt and IUPHAR clients defined in the source stack matrix.【F:docs/pipelines/target-chembl/09-target-chembl-extraction.md†L31-L43】【F:docs/sources/01-interface-matrix.md†L7-L12】
 
 **Outputs.** Emits the unified target dataset and standard determinism metadata/hashes described in the global `meta.yaml` contract, allowing downstream reproducibility checks.【F:docs/determinism/00-determinism-policy.md†L73-L118】
 
@@ -691,11 +691,11 @@ python -m bioetl.cli.main chembl2uniprot-mapping \
 
 | Pipeline | Sort keys | Hashing invariants | Schema reference |
 | --- | --- | --- | --- |
-| Activity | `['assay_id', 'testitem_id', 'activity_id']` | Row/business hashes generated with canonicalized values under the SHA256 policy (`hash_row`, `hash_business_key`).【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_activity` schema module in the source interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Assay | `['assay_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_assay` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Target (ChEMBL) | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| Document (ChEMBL) | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
-| TestItem (ChEMBL) | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/INTERFACE_MATRIX.md†L7-L13】 |
+| Activity | `['assay_id', 'testitem_id', 'activity_id']` | Row/business hashes generated with canonicalized values under the SHA256 policy (`hash_row`, `hash_business_key`).【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_activity` schema module in the source interface matrix.【F:docs/sources/01-interface-matrix.md†L7-L13】 |
+| Assay | `['assay_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_assay` schema per interface matrix.【F:docs/sources/01-interface-matrix.md†L7-L13】 |
+| Target (ChEMBL) | `['target_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_target` schema per interface matrix.【F:docs/sources/01-interface-matrix.md†L7-L13】 |
+| Document (ChEMBL) | `['year', 'document_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_document` schema per interface matrix.【F:docs/sources/01-interface-matrix.md†L7-L13】 |
+| TestItem (ChEMBL) | `['testitem_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `chembl_testitem` schema per interface matrix.【F:docs/sources/01-interface-matrix.md†L7-L13】 |
 | Document PubMed | `['pmid']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_pubmed` schema per interface matrix. |
 | Document Crossref | `['doi']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_crossref` schema per interface matrix. |
 | Document OpenAlex | `['openalex_id']` | Same SHA256-based row/business hashes per determinism policy.【F:docs/determinism/00-determinism-policy.md†L28-L70】 | `document_openalex` schema per interface matrix. |

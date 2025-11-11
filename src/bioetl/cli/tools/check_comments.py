@@ -1,32 +1,12 @@
-"""CLI-заглушка для проверки комментариев."""
+"""Shim для совместимости с `bioetl-check-comments`."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from tools.check_comments import app, main, run, run_comment_check
 
-import typer
-
-from bioetl.cli.tools import create_app
-from bioetl.tools.check_comments import run_comment_check
-
-app = create_app(
-    name="bioetl-check-comments",
-    help_text="Проверка комментариев и TODO (пока в разработке)",
-)
+__all__ = ["app", "main", "run", "run_comment_check"]
 
 
-@app.command()
-def main(
-    root: Path = typer.Option(Path("."), help="Корень репозитория для проверки"),
-) -> None:
-    """Попытаться выполнить проверку комментариев."""
+if __name__ == "__main__":
+    run()
 
-    try:
-        run_comment_check(root=root.resolve())
-    except NotImplementedError as exc:  # pragma: no cover - статус ожидаемо неуспешный
-        typer.secho(str(exc), fg=typer.colors.YELLOW)
-        raise typer.Exit(code=1) from exc
-
-
-def run() -> None:
-    app()

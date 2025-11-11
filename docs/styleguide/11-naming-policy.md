@@ -6,7 +6,7 @@ This document codifies the canonical naming policy for the `bioetl` repository. 
 
 The source tree **MUST** follow the `src/<package>/` structure with the expected domain partitions:
 
-- `api/`, `cli/`, `clients/`, `core/`, `pipelines/`, `schemas/`, `utils/`, `tests/`, `config/`, `docs/`.
+- `api/`, `cli/`, `clients/`, `core/`, `pipelines/`, `schemas/`, `utils/`, `tools/`, `config/`, `qc/`.
 
 Inside `pipelines/`, the hierarchy **MUST** remain three levels deep using `<provider>/<entity>/<stage>.py`, where:
 

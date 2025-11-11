@@ -26,7 +26,7 @@ class CommandConfig:
 
 def build_command_config_activity() -> CommandConfig:
     """Build command configuration for activity pipeline."""
-    from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+    from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
     return CommandConfig(
         name="activity_chembl",
@@ -38,7 +38,7 @@ def build_command_config_activity() -> CommandConfig:
 
 def build_command_config_assay() -> CommandConfig:
     """Build command configuration for assay pipeline."""
-    from bioetl.pipelines.assay.assay import ChemblAssayPipeline
+    from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
 
     return CommandConfig(
         name="assay_chembl",
@@ -50,7 +50,7 @@ def build_command_config_assay() -> CommandConfig:
 
 def build_command_config_target() -> CommandConfig:
     """Build command configuration for target pipeline."""
-    from bioetl.pipelines.target.target import ChemblTargetPipeline
+    from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 
     return CommandConfig(
         name="target",
@@ -62,7 +62,7 @@ def build_command_config_target() -> CommandConfig:
 
 def build_command_config_document() -> CommandConfig:
     """Build command configuration for document pipeline."""
-    from bioetl.pipelines.document.document import ChemblDocumentPipeline
+    from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 
     return CommandConfig(
         name="document",
@@ -74,7 +74,7 @@ def build_command_config_document() -> CommandConfig:
 
 def build_command_config_testitem() -> CommandConfig:
     """Build command configuration for testitem pipeline."""
-    from bioetl.pipelines.testitem.testitem import TestItemChemblPipeline
+    from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 
     return CommandConfig(
         name="testitem_chembl",

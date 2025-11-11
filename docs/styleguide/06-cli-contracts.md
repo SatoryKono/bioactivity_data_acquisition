@@ -259,4 +259,4 @@ if __name__ == "__main__":
 
 - CLI documentation: [`docs/cli/`](../cli/)
 - Typer documentation: https://typer.tiangolo.com/
-- Exit codes: [`docs/cli/02-cli-exit_codes.md`](../cli/02-cli-exit_codes.md)
+- Exit codes: [`docs/cli/02-cli-exit-codes.md`](../cli/02-cli-exit-codes.md)

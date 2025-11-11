@@ -10,7 +10,7 @@ import pytest
 from structlog.stdlib import BoundLogger
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.unit

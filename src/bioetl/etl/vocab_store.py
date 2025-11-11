@@ -16,11 +16,13 @@ from typing import Any, Final, TypeGuard, cast
 
 import yaml
 
+from bioetl.core.errors import BioETLError
+
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}
 
 
-class VocabStoreError(RuntimeError):
+class VocabStoreError(BioETLError):
     """Raised when the vocabulary store or a dictionary block fails validation."""
 
 

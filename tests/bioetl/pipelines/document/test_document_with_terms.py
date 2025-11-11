@@ -10,7 +10,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.document.document_enrich import (
+from bioetl.pipelines.chembl.document.normalize import (
     _escape_pipe,  # type: ignore[reportPrivateUsage]
     aggregate_terms,
     enrich_with_document_terms,

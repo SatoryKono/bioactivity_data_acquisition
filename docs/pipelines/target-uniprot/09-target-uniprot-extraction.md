@@ -599,8 +599,8 @@ The `target-uniprot` pipeline follows the standard source architecture, utilizin
 
 **Public API:**
 
-- `from bioetl.sources.uniprot import UniProtService`
-- `from bioetl.sources.uniprot import UniProtEnrichmentResult`
+- `from bioetl.integrations.uniprot import UniProtService` *(планируется к внедрению)*
+- `from bioetl.integrations.uniprot import UniProtEnrichmentResult` *(планируется к внедрению)*
 - `from bioetl.pipelines.uniprot import UniProtPipeline`
 
 **Module layout:**

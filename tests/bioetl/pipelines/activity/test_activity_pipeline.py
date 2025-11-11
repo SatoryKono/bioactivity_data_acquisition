@@ -14,7 +14,7 @@ from requests.exceptions import RequestException
 from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.schemas.activity import ActivitySchema
 
 
@@ -536,7 +536,9 @@ class TestChemblActivityPipelineTransformations:
 
         iterator_client = MagicMock()
 
-        def paginate(endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None) -> Any:
+        def paginate(
+            endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None
+        ) -> Any:
             values = params["activity_id__in"].split(",")
             payload = [{"activity_id": int(value), "standard_type": "IC50"} for value in values]
             return iter(payload)
@@ -567,7 +569,9 @@ class TestChemblActivityPipelineTransformations:
         assert stats["cache_hits"] == 0
 
         cached_iterator_client = MagicMock()
-        cached_iterator_client.paginate.side_effect = AssertionError("paginate should not be called when cache is warm")
+        cached_iterator_client.paginate.side_effect = AssertionError(
+            "paginate should not be called when cache is warm"
+        )
         cached_activity_iterator = ChemblActivityClient(cached_iterator_client, batch_size=2)
 
         with (
@@ -1181,7 +1185,7 @@ class TestChemblActivityPipelineTransformations:
         assert stats["invalid_count"] == 2  # 2 invalid properties
         assert stats["valid_count"] == len(validated)
 
-    def test_extract_activity_properties_missing_chEMBL_v24(
+    def test_extract_activity_properties_missing_chEMBL_v24(  # noqa: N802
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of missing activity_properties (ChEMBL < v24 compatibility)."""
@@ -1200,7 +1204,7 @@ class TestChemblActivityPipelineTransformations:
         assert "activity_properties" in result
         assert result["activity_properties"] is None
 
-    def test_extract_activity_properties_null_chEMBL_v24(
+    def test_extract_activity_properties_null_chEMBL_v24(  # noqa: N802
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of null activity_properties (ChEMBL < v24 compatibility)."""

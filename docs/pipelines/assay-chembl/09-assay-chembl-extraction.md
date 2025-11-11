@@ -1690,7 +1690,7 @@ CLI использует стандартные коды завершения:
 - `3`: Ошибка валидации схемы (schema drift)
 - `4`: Ошибка QC (quality checks failed)
 
-Подробности см. в [CLI Exit Codes](../cli/02-cli-exit_codes.md).
+Подробности см. в [CLI Exit Codes](../cli/02-cli-exit-codes.md).
 
 ## 10. Критические исправления (To-Do)
 

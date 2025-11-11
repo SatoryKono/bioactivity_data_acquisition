@@ -1,46 +1,26 @@
-"""CLI-интерфейс для инвентаризации документации."""
+"""Shim для совместимости с `bioetl-inventory-docs`."""
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import typer
-
-from bioetl.cli.tools import create_app
-from bioetl.tools.inventory_docs import collect_markdown_files, write_inventory
-
-app = create_app(
-    name="bioetl-inventory-docs",
-    help_text="Инвентаризация markdown-файлов и расчёт хешей",
+from tools.inventory_docs import (
+    InventoryResult,
+    app,
+    collect_markdown_files,
+    main,
+    run,
+    write_inventory,
 )
 
-
-@app.command()
-def main(
-    inventory: Path = typer.Option(
-        Path("artifacts/docs_inventory.txt"),
-        help="Путь к итоговому списку файлов",
-    ),
-    hashes: Path = typer.Option(
-        Path("artifacts/docs_hashes.txt"),
-        help="Путь к файлу с SHA256 хешами",
-    ),
-    docs_root: Path | None = typer.Option(
-        None,
-        help="Необязательный корень документации (по умолчанию docs/)",
-    ),
-) -> None:
-    """Собрать список markdown-файлов и записать их хеши."""
-
-    files = collect_markdown_files(docs_root=docs_root)
-    result = write_inventory(inventory_path=inventory, hashes_path=hashes, files=files)
-    typer.echo(
-        f"Инвентаризация завершена: {len(result.files)} файлов. "
-        f"Список -> {result.inventory_path}, хеши -> {result.hashes_path}"
-    )
+__all__ = [
+    "app",
+    "main",
+    "run",
+    "write_inventory",
+    "collect_markdown_files",
+    "InventoryResult",
+]
 
 
-def run() -> None:
-    """Запуск Typer-приложения."""
+if __name__ == "__main__":
+    run()
 
-    app()

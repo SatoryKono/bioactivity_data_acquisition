@@ -1,37 +1,13 @@
-"""CLI для аудита документации."""
+"""Shim для совместимости с `bioetl-audit-docs`."""
 
 from __future__ import annotations
 
-from pathlib import Path
+from tools.audit_docs import app, main, run, run_audit
 
-import typer
-
-from bioetl.cli.tools import create_app
-from bioetl.tools.audit_docs import run_audit
-
-app = create_app(
-    name="bioetl-audit-docs",
-    help_text="Проводит аудит документации и генерирует отчёты",
-)
+__all__ = ["app", "main", "run", "run_audit"]
 
 
-@app.command()
-def main(
-    artifacts: Path = typer.Option(
-        Path("artifacts"),
-        help="Каталог для генерации отчётов аудита",
-        file_okay=False,
-        dir_okay=True,
-        writable=True,
-    ),
-) -> None:
-    """Запуск аудита документации."""
-
-    run_audit(artifacts_dir=artifacts.resolve())
-    typer.echo(f"Аудит завершён, отчёты находятся в {artifacts.resolve()}")
+if __name__ == "__main__":
+    run()
 
 
-def run() -> None:
-    """Запускает Typer-приложение."""
-
-    app()

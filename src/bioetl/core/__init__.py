@@ -2,6 +2,7 @@
 
 from .api_client import TokenBucketLimiter, UnifiedAPIClient, merge_http_configs
 from .client_factory import APIClientFactory
+from .errors import BioETLError
 from .logger import (
     DEFAULT_LOG_LEVEL,
     MANDATORY_FIELDS,
@@ -17,6 +18,7 @@ from .logger import (
 
 __all__ = [
     "APIClientFactory",
+    "BioETLError",
     "DEFAULT_LOG_LEVEL",
     "LogConfig",
     "LogFormat",
