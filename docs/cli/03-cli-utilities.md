@@ -1,31 +1,36 @@
 # CLI Utilities Inventory
 
-Это инвентаризация всех служебных утилит, поставляемых вместе с репозиторием. Каждая
-утилита оформлена как Typer-приложение в `tools.<name>` и публикуется как
-консольная команда с префиксом `bioetl-`. По умолчанию артефакты записываются в
-`artifacts/`, если не указано иное.
+Это инвентаризация всех служебных утилит, поставляемых вместе с репозиторием.
+Каждая утилита — Typer-приложение в модуле `tools.<name>` и экспортируется как
+консольная команда с префиксом `bioetl-`. Если не указано иное, артефакты
+записываются в `artifacts/`.
 
-| Command | Module | Назначение | Ключевые артефакты | Пример запуска |
+| Команда | Основные опции | Назначение | Ключевые артефакты | Пример запуска |
 | --- | --- | --- | --- | --- |
-| `bioetl-audit-docs` | `tools.audit_docs` | Аудит документации, поиск битых ссылок и пробелов по пайплайнам. | `artifacts/GAPS_TABLE.csv`, `artifacts/LINKCHECK.md`. | `bioetl-audit-docs --artifacts artifacts` |
-| `bioetl-build-vocab-store` | `tools.build_vocab_store` | Агрегирует справочники из `configs/dictionaries` в единый YAML. | `artifacts/chembl_dictionaries.yaml` (либо путь из `--output`). | `bioetl-build-vocab-store --src configs/dictionaries --output artifacts/chembl_vocab.yaml` |
-| `bioetl-catalog-code-symbols` | `tools.catalog_code_symbols` | Извлекает сигнатуры `PipelineBase`, модели конфигов и зарегистрированные CLI. | `artifacts/code_signatures.json`, `artifacts/cli_commands.txt`. | `bioetl-catalog-code-symbols` |
-| `bioetl-check-comments` | `tools.check_comments` | Заготовка проверки TODO/комментариев (возвращает предупреждение). | — | `bioetl-check-comments --root .` |
-| `bioetl-check-output-artifacts` | `tools.check_output_artifacts` | Быстрая проверка на наличие тяжёлых файлов в `data/output`. | Сообщения в STDERR, возврат кода 1 при нарушениях. | `bioetl-check-output-artifacts --max-bytes 2000000` |
-| `bioetl-create-matrix-doc-code` | `tools.create_matrix_doc_code` | Формирует матрицу трассировки документация ↔ код. | `artifacts/matrix-doc-code.csv`, `artifacts/matrix-doc-code.json`. | `bioetl-create-matrix-doc-code` |
-| `bioetl-determinism-check` | `tools.determinism_check` | Запускает пайплайны в `--dry-run` и сравнивает структурные логи. | `artifacts/DETERMINISM_CHECK_REPORT.md`. | `bioetl-determinism-check --pipeline activity_chembl` |
-| `bioetl-doctest-cli` | `tools.doctest_cli` | Исполняет CLI-примеры из документации с безопасным `--dry-run`. | `artifacts/CLI_DOCTEST_REPORT.md`. | `bioetl-doctest-cli` |
-| `bioetl-inventory-docs` | `tools.inventory_docs` | Создаёт список и SHA256-хеши markdown-документации. | `artifacts/docs_inventory.txt`, `artifacts/docs_hashes.txt`. | `bioetl-inventory-docs --docs-root docs` |
-| `bioetl-link-check` | `tools.link_check` | Запускает `lychee` со штатной конфигурацией, формирует отчёт или заглушку. | `artifacts/link-check-report.md`. | `bioetl-link-check` |
-| `bioetl-remove-type-ignore` | `tools.remove_type_ignore` | Удаляет директивы `type: ignore` из исходников. | — | `bioetl-remove-type-ignore --root src` |
-| `bioetl-run-test-report` | `tools.run_test_report` | Запускает `pytest`, собирает отчёты и выпускает `meta.yaml`. | Каталог внутри `TEST_REPORTS_ROOT`. | `bioetl-run-test-report --output-root artifacts/test-reports` |
-| `bioetl-schema-guard` | `tools.schema_guard` | Валидирует конфиги пайплайнов и контролирует целостность Pandera-схем. | `artifacts/SCHEMA_GUARD_REPORT.md`. | `bioetl-schema-guard` |
-| `bioetl-semantic-diff` | `tools.semantic_diff` | Сравнивает документацию и реализацию ключевых API. | `artifacts/semantic-diff-report.json`. | `bioetl-semantic-diff` |
-| `bioetl-vocab-audit` | `tools.vocab_audit` | Сравнивает значения из ChEMBL с локальными словарями. | `artifacts/vocab_audit.csv`, `artifacts/vocab_audit.meta.yaml`. | `bioetl-vocab-audit --pages 5 --page-size 500` |
+| `bioetl-audit-docs` | `--artifacts PATH` | Аудит документации, поиск пробелов по пайплайнам и битых ссылок. | `GAPS_TABLE.csv`, `LINKCHECK.md` в каталоге из `--artifacts`. | `bioetl-audit-docs --artifacts artifacts` |
+| `bioetl-build-vocab-store` | `--src PATH`, `--output PATH` | Сборка агрегированного словаря ChEMBL из YAML в `configs/dictionaries`. | Агрегированный YAML (путь из `--output`). | `bioetl-build-vocab-store --src configs/dictionaries --output artifacts/chembl_vocab.yaml` |
+| `bioetl-catalog-code-symbols` | `--artifacts PATH` | Каталогизация CLI, конфигов и сущностей пайплайнов. | `code_signatures.json`, `cli_commands.txt`. | `bioetl-catalog-code-symbols --artifacts artifacts/code-symbols` |
+| `bioetl-check-comments` | `--root PATH` | Проверка TODO/комментариев и статуса реализации. | Вывод в STDOUT, код возврата. | `bioetl-check-comments --root src` |
+| `bioetl-check-output-artifacts` | `--max-bytes INT` | Проверка крупных файлов в `data/output`. | Сообщения в STDERR/STDOUT, код возврата. | `bioetl-check-output-artifacts --max-bytes 2000000` |
+| `bioetl-create-matrix-doc-code` | `--artifacts PATH` | Формирование матрицы соответствия документации и кода. | `matrix-doc-code.csv`, `matrix-doc-code.json`. | `bioetl-create-matrix-doc-code --artifacts artifacts/matrix` |
+| `bioetl-determinism-check` | `--pipeline,-p NAME` (многоразовый) | Двойной прогон пайплайнов и сравнение структурных логов. | `DETERMINISM_CHECK_REPORT.md`. | `bioetl-determinism-check --pipeline activity_chembl` |
+| `bioetl-doctest-cli` | — | Запуск CLI-примеров из документации и отчёт по статусу. | `CLI_DOCTEST_REPORT.md`. | `bioetl-doctest-cli` |
+| `bioetl-inventory-docs` | `--inventory PATH`, `--hashes PATH` | Каталогизация Markdown-доков и расчёт SHA256. | `docs_inventory.txt`, `docs_hashes.txt`. | `bioetl-inventory-docs --inventory artifacts/docs_inventory.txt --hashes artifacts/docs_hashes.txt` |
+| `bioetl-link-check` | `--timeout INT` | Проверка ссылок документации через `lychee`. | `link-check-report.md`. | `bioetl-link-check --timeout 600` |
+| `bioetl-remove-type-ignore` | `--root PATH` | Удаление директив `type: ignore` в исходниках. | Вывод в STDOUT, код возврата. | `bioetl-remove-type-ignore --root src` |
+| `bioetl-run-test-report` | `--output-root PATH` | Запуск `pytest` и сбор артефактов (coverage, meta.yaml). | Каталог отчётов внутри `output-root`. | `bioetl-run-test-report --output-root artifacts/test-reports` |
+| `bioetl-schema-guard` | — | Проверка конфигов пайплайнов и Pandera-реестра. | `SCHEMA_GUARD_REPORT.md`. | `bioetl-schema-guard` |
+| `bioetl-semantic-diff` | — | Семантическое сравнение документации и кода. | `semantic-diff-report.json`. | `bioetl-semantic-diff` |
+| `bioetl-vocab-audit` | `--store PATH`, `--output PATH`, `--meta PATH`, `--pages INT`, `--page-size INT` | Аудит словарей ChEMBL с выгрузкой отчётов и метаданных. | CSV отчёт и `meta.yaml` (пути из опций). | `bioetl-vocab-audit --store data/cache/vocab.yaml --pages 5 --page-size 500` |
 
-`bioetl-run-test-report` использует общий модуль `bioetl.tools.test_report_artifacts`, чтобы формировать
-структуру артефактов тестирования и `meta.yaml`. Тесты обращаются к тем же определениям, что и CLI,
-поэтому импорт из `tests.bioetl` больше не требуется.
+`bioetl-run-test-report` использует `bioetl.tools.test_report_artifacts` для
+формирования каталога отчётов и `meta.yaml`. Тесты обращаются к тем же
+определениям, что и CLI, поэтому импорт из `tests.bioetl` не требуется.
 
-Все CLI команды доступны после `pip install -e .[dev]` и исполняются из корня репозитория,
-чтобы относительные пути разрешались корректно.
+Все CLI команды доступны после `pip install -e .[dev]` и запускаются из корня
+репозитория, чтобы относительные пути разрешались корректно.
+
+## Roadmap
+
+Следующие команды задокументированы как будущие работы и пока не реализованы:
+`bioetl-ci`, `bioetl-dev`, `bioetl-prod-admin`, `bioetl-validate-naming-violations`.

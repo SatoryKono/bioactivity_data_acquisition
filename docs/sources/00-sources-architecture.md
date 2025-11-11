@@ -9,8 +9,7 @@ This document defines the normative architecture for data source components with
 The standard component stack follows this sequence:
 **Client → Paginator → Parser → Normalizer → Pandera Schema**
 
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
-These components are invoked during the `extract` and `transform` stages of a pipeline, which is executed via the CLI with commands like `python -m bioetl.cli.app activity`.
+These components are invoked during the `extract` and `transform` stages of a pipeline, which is executed via the CLI with commands like `python -m bioetl.cli.app activity_chembl`.
 
 ## 2. Layer Interfaces and Invariants
 
