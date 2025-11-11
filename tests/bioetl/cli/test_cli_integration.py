@@ -180,7 +180,7 @@ http:
         # Mock load_config to avoid profile resolution issues in tests
         with (
             patch("bioetl.config.load_config") as mock_load_config,
-            patch("bioetl.cli.command.create_pipeline_command") as mock_create_command,
+            patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.run") as mock_run,
         ):
             from bioetl.config import load_config as real_load_config
 
@@ -191,11 +191,8 @@ http:
             )
             mock_load_config.return_value = real_config
 
-            # Create a mock command that raises an error
-            def mock_command(*args: Any, **kwargs: Any) -> None:
-                raise ValueError("Pipeline error")
-
-            mock_create_command.return_value = mock_command
+            # Mock pipeline.run() to raise an error
+            mock_run.side_effect = ValueError("Pipeline error")
 
             result: Any = runner.invoke(
                 CLI_APP,  # type: ignore[reportUnknownArgumentType]
@@ -208,8 +205,8 @@ http:
                 ],
             )
 
-            # Exit code 2 for typer validation errors, 1 for pipeline errors
-            assert result.exit_code in (1, 2)  # type: ignore[reportUnknownMemberType]
+            # Exit code 1 for pipeline errors (ValueError is not an API error)
+            assert result.exit_code == 1  # type: ignore[reportUnknownMemberType]
             # Check for error message in either stdout or stderr
             error_output = (result.stdout + result.stderr).lower()  # type: ignore[reportUnknownMemberType]
             assert "failed" in error_output or "error" in error_output  # type: ignore[reportUnknownMemberType]
