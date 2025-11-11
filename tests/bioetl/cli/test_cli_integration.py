@@ -55,7 +55,7 @@ determinism:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.config.load_config") as mock_load_config,
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             from pathlib import Path as PathType
@@ -179,7 +179,7 @@ http:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.config.load_config") as mock_load_config,
             patch("bioetl.cli.command.create_pipeline_command") as mock_create_command,
         ):
             from bioetl.config import load_config as real_load_config
