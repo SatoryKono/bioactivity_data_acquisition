@@ -12,7 +12,7 @@ from typer.main import get_command  # type: ignore[reportMissingImports]
 
 from bioetl.cli.main import app  # type: ignore[reportUnknownVariableType]
 
-CLI_APP = get_command(app)
+CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
 
 
 @pytest.mark.integration  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
@@ -140,8 +140,8 @@ determinism:
             mock_client.get.side_effect = [mock_status_response, mock_activity_response]
             mock_factory.return_value = mock_client
 
-            result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                CLI_APP,
+            result: Any = runner.invoke(
+                CLI_APP,  # type: ignore[reportUnknownArgumentType]
                 [
                     "activity_chembl",
                     "--config",
@@ -197,8 +197,8 @@ http:
 
             mock_create_command.return_value = mock_command
 
-            result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                CLI_APP,
+            result: Any = runner.invoke(
+                CLI_APP,  # type: ignore[reportUnknownArgumentType]
                 [
                     "activity_chembl",
                     "--config",
