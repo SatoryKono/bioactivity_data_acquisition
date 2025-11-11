@@ -42,11 +42,13 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from OpenAlex
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document.yaml \
   --output-dir data/output/document-openalex
 
 # With input file containing DOIs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document.yaml \
   --input-file data/input/dois.csv \

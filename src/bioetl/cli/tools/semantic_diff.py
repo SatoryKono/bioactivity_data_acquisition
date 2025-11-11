@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.semantic_diff import run_semantic_diff as run_semantic_diff_sync
 
 typer = cast(Any, importlib.import_module("typer"))
@@ -38,7 +38,7 @@ def main() -> None:
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.check_comments import run_comment_check as run_comment_check_sync
 
 typer = cast(Any, importlib.import_module("typer"))
@@ -51,7 +51,7 @@ def main(
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

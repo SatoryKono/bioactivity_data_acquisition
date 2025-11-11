@@ -33,6 +33,17 @@ _CLASSIFICATION_COLUMNS: tuple[tuple[str, str], ...] = (
 _PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (("assay_parameters", "string"),)
 
 
+def _should_nullify_string_value(value: Any) -> bool:
+    """Определить, нужно ли заменить значение на NA в строковой колонке."""
+    if value is None:
+        return False
+    if value is pd.NA:
+        return False
+    if isinstance(value, float) and pd.isna(value):
+        return False
+    return not isinstance(value, str)
+
+
 def enrich_with_assay_classifications(
     df_assay: pd.DataFrame,
     client: ChemblClient,
@@ -61,16 +72,7 @@ def enrich_with_assay_classifications(
     df_assay = _ensure_columns(df_assay, _CLASSIFICATION_COLUMNS)
 
     if "assay_classifications" in df_assay.columns:
-        def _should_nullify(value: Any) -> bool:
-            if value is None:
-                return False
-            if value is pd.NA:
-                return False
-            if isinstance(value, float) and pd.isna(value):
-                return False
-            return not isinstance(value, str)
-
-        invalid_mask = df_assay["assay_classifications"].map(_should_nullify)
+        invalid_mask = df_assay["assay_classifications"].map(_should_nullify_string_value)
         if bool(invalid_mask.any()):
             log.warning(
                 "assay_classifications_reset_non_string",
@@ -256,6 +258,16 @@ def enrich_with_assay_parameters(
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
     df_assay = _ensure_columns(df_assay, _PARAMETERS_COLUMNS)
+
+    if "assay_parameters" in df_assay.columns:
+        invalid_mask = df_assay["assay_parameters"].map(_should_nullify_string_value)
+        if bool(invalid_mask.any()):
+            log.warning(
+                "assay_parameters_reset_non_string",
+                rows=int(invalid_mask.sum()),
+            )
+            df_assay.loc[invalid_mask, "assay_parameters"] = pd.NA
+        df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("string")
 
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")

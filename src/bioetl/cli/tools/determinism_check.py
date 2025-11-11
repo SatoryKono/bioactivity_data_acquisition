@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.determinism_check import DeterminismRunResult
 from bioetl.tools.determinism_check import (
     run_determinism_check as run_determinism_check_sync,
@@ -70,7 +70,7 @@ def main(
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

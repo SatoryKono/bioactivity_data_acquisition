@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.check_output_artifacts import MAX_BYTES
 from bioetl.tools.check_output_artifacts import (
     check_output_artifacts as check_output_artifacts_sync,
@@ -51,7 +51,7 @@ def main(
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

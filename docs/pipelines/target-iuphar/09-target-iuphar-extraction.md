@@ -17,12 +17,14 @@ The pipeline is executed via the `target-iuphar` CLI command.
 **Usage:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-iuphar [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar
@@ -247,6 +249,7 @@ fallbacks:
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar \
@@ -276,6 +279,7 @@ CLI поддерживает следующие режимы выполнени�
 **Пример использования режима:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar \

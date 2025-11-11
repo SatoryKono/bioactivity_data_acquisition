@@ -87,7 +87,10 @@ class ActivitySourceConfig(BaseModel):
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> ActivitySourceConfig:
+    def from_source_config(
+        cls: type[ActivitySourceConfig],
+        config: SourceConfig,
+    ) -> ActivitySourceConfig:
         """Create an :class:`ActivitySourceConfig` from the generic :class:`SourceConfig`.
 
         Parameters

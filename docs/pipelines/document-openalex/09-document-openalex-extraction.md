@@ -11,6 +11,7 @@ This document describes the `document_openalex` pipeline, which is responsible f
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_openalex`                                                                                 | Not Implemented       |
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 | **CLI Command**   | `python -m bioetl.cli.app document_openalex`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/openalex/document_openalex.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
@@ -695,6 +696,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex
@@ -703,6 +705,7 @@ python -m bioetl.cli.app document_openalex \
 ### Dry Run
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
@@ -712,6 +715,7 @@ python -m bioetl.cli.app document_openalex \
 ### With Determinism Profile
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
@@ -721,6 +725,7 @@ python -m bioetl.cli.app document_openalex \
 ### Override Configuration
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \

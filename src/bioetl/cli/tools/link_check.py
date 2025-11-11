@@ -5,8 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.runner import run_app
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.link_check import run_link_check as run_link_check_sync
 
 typer = cast(Any, importlib.import_module("typer"))

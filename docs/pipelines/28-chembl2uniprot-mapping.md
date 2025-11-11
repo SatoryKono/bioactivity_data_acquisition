@@ -17,12 +17,14 @@ The pipeline is executed via the `chembl2uniprot-mapping` CLI command.
 **Usage:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app chembl2uniprot-mapping [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping
@@ -249,6 +251,7 @@ http.profiles.uniprot_idmapping.rate_limit.max_calls
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping \

@@ -11,6 +11,7 @@ This document describes the `testitem_pubchem` pipeline, which is responsible fo
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `testitem_pubchem`                                                                                 | Not Implemented       |
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 | **CLI Command**   | `python -m bioetl.cli.app testitem_pubchem`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
@@ -144,6 +145,7 @@ Diagnostic messages would be logged to the console and/or a log file, providing 
 ### Minimal Run
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem
@@ -152,6 +154,7 @@ python -m bioetl.cli.app testitem_pubchem \
 ### Dry Run
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem \
@@ -161,6 +164,7 @@ python -m bioetl.cli.app testitem_pubchem \
 ### With Determinism Profile
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem \

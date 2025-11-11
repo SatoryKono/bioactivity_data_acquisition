@@ -5,7 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.doctest_cli import (
     CLIExample,
     CLIExampleResult,
@@ -65,7 +65,7 @@ def main() -> None:
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

@@ -115,22 +115,35 @@ def _resolve_batch_field(cls: Type[Any]) -> str:
     return "batch_size"
 
 
+def _extract_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    return None
+
+
 def _default_batch_size(cls: Type[Any], field_name: str, fallback: int) -> int:
     if hasattr(cls, "model_fields"):
         field = getattr(cls, "model_fields").get(field_name)
         if field is not None:
             default = getattr(field, "default", None)
-            if isinstance(default, int):
-                return default
+            default_int = _extract_int(default)
+            if default_int is not None:
+                return default_int
     if is_dataclass(cls):
         for field in fields(cls):
             if field.name == field_name:
-                if field.default is not MISSING and isinstance(field.default, int):
-                    return field.default
-                if field.default_factory is not MISSING:  # type: ignore[truthy-function]
-                    candidate = field.default_factory()  # pyright: ignore[reportGeneralTypeIssues]
-                    if isinstance(candidate, int):
-                        return candidate
+                default_raw = field.default
+                if default_raw is not MISSING:
+                    default_int = _extract_int(default_raw)
+                    if default_int is not None:
+                        return default_int
+                if field.default_factory is not MISSING:
+                    candidate_raw = field.default_factory()
+                    candidate_int = _extract_int(candidate_raw)
+                    if candidate_int is not None:
+                        return candidate_int
     return fallback
 
 

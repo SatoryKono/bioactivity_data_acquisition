@@ -42,11 +42,13 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from Semantic Scholar
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
   --output-dir data/output/document-semantic-scholar
 
 # With input file containing PMIDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
   --input-file data/input/pmids.csv \

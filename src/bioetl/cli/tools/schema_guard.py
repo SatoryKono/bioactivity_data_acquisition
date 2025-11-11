@@ -5,8 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
-from bioetl.cli.runner import run_app
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.schema_guard import run_schema_guard as run_schema_guard_sync
 
 typer = cast(Any, importlib.import_module("typer"))

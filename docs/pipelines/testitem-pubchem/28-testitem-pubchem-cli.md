@@ -11,12 +11,14 @@ This document describes the pipeline-specific CLI configuration for the TestItem
 ## Pipeline-Specific Command Name
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem --source pubchem
 ```
 
 ## Examples
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem --source pubchem \
   --config configs/pipelines/pubchem/testitem.yaml \
   --output-dir data/output/testitem

@@ -8,7 +8,7 @@ from typing import Any, cast
 
 from requests.exceptions import HTTPError, Timeout
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.errors import BioETLError
 from bioetl.tools.create_matrix_doc_code import DocCodeMatrix, build_matrix
@@ -61,7 +61,7 @@ def main(
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

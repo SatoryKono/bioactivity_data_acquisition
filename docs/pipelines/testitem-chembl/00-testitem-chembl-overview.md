@@ -42,12 +42,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Base molecule export
-python -m bioetl.cli.app testitem \
+python -m bioetl.cli.app testitem_chembl \
   --config configs/pipelines/testitem/testitem_chembl.yaml \
   --output-dir data/output/testitem
 
 # Override batch size for smoke test
-python -m bioetl.cli.app testitem \
+python -m bioetl.cli.app testitem_chembl \
   --config configs/pipelines/testitem/testitem_chembl.yaml \
   --output-dir data/output/testitem \
   --set sources.chembl.batch_size=10 \

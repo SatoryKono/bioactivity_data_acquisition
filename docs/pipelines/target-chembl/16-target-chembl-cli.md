@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Target (
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.app target
+python -m bioetl.cli.app target_chembl
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.app target \
+python -m bioetl.cli.app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```

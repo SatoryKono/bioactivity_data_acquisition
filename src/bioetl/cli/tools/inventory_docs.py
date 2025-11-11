@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Any, cast
 
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.inventory_docs import InventoryResult, collect_markdown_files
 from bioetl.tools.inventory_docs import (
     write_inventory as write_inventory_sync,
@@ -74,7 +74,7 @@ def main(
 def run() -> None:
     """Запускает Typer-приложение."""
 
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

@@ -42,11 +42,13 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from PubMed
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --output-dir data/output/document-pubmed
 
 # With input file containing PMIDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --input-file data/input/pmids.csv \

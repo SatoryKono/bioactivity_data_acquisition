@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from bioetl.cli.tools._typer import TyperApp, run_app as _run_app
+
+__all__ = ["run_app"]
 
 
-def run_app(app: Callable[[], None]) -> None:
+def run_app(app: TyperApp) -> None:
     """Единая точка входа для Typer-приложений."""
-    app()
+    _run_app(app)
 
 

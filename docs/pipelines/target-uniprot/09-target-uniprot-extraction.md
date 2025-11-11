@@ -17,12 +17,14 @@ The pipeline is executed via the `target-uniprot` CLI command.
 **Usage:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-uniprot [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot
@@ -253,6 +255,7 @@ http.profiles.uniprot.rate_limit.max_calls
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot \

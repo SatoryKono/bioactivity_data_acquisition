@@ -13,6 +13,7 @@ import typer
 
 from bioetl.cli.command import create_pipeline_command
 from bioetl.cli.registry import COMMAND_REGISTRY
+from bioetl.cli.tools._typer import run_app
 
 __all__ = ["app", "create_app"]
 
@@ -68,7 +69,7 @@ app = create_app()
 
 def run() -> None:
     """Entry point for CLI application."""
-    app()
+    run_app(app)
 
 
 if __name__ == "__main__":

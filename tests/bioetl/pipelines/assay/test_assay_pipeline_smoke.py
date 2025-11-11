@@ -198,7 +198,7 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
             return mock_class_map_response
         elif "/assay_classification.json" in url:
             return mock_classification_response
-        elif "/assay_parameters.json" in url:
+        elif "/assay_parameter.json" in url:
             return mock_parameters_response
         # Default fallback
         return mock_assay_response

@@ -17,13 +17,13 @@ The pipeline is executed via the `target` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.app target [OPTIONS]
+python -m bioetl.cli.app target_chembl [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.app target \
+python -m bioetl.cli.app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```
@@ -237,7 +237,7 @@ sources.chembl.batch_size
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.app target \
+python -m bioetl.cli.app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.chembl.batch_size=20 \

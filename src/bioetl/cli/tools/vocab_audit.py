@@ -8,8 +8,7 @@ from typing import Any, cast
 
 from requests.exceptions import HTTPError, Timeout
 
-from bioetl.cli.runner import run_app
-from bioetl.cli.tools._typer import TyperApp, create_app
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.errors import BioETLError
 from bioetl.tools.vocab_audit import DEFAULT_META, DEFAULT_OUTPUT, VocabAuditResult

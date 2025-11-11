@@ -114,13 +114,13 @@ Activity pipeline запускается через команду `activity` CL
 **Базовая команда:**
 
 ```bash
-python -m bioetl.cli.app activity [OPTIONS]
+python -m bioetl.cli.app activity_chembl [OPTIONS]
 ```
 
 **Минимальный пример:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
@@ -153,7 +153,7 @@ python -m bioetl.cli.app activity \
 **Базовый запуск с каноническим конфигом:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
@@ -161,7 +161,7 @@ python -m bioetl.cli.app activity \
 **Dry-run для валидации конфигурации:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
@@ -170,7 +170,7 @@ python -m bioetl.cli.app activity \
 **Smoke-тест с переопределением batch_size:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \
@@ -180,7 +180,7 @@ python -m bioetl.cli.app activity \
 **Расширенный режим с QC-артефактами:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
@@ -189,7 +189,7 @@ python -m bioetl.cli.app activity \
 **С несколькими переопределениями через --set:**
 
 ```bash
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=20 \
@@ -201,7 +201,7 @@ python -m bioetl.cli.app activity \
 
 ```bash
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10  # будет переопределено env
@@ -276,18 +276,18 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 
 ```bash
 # Standard режим
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Extended режим
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
 
 # Dry-run режим
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run

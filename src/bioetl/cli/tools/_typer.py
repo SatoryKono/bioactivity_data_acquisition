@@ -6,7 +6,7 @@ import importlib
 from collections.abc import Callable
 from typing import Any, Protocol, TypeVar, cast
 
-__all__ = ["TyperApp", "TyperModule", "create_app"]
+__all__ = ["TyperApp", "TyperModule", "create_app", "run_app"]
 
 _F = TypeVar("_F", bound=Callable[..., Any])
 
@@ -43,4 +43,10 @@ def create_app(name: str, help_text: str) -> TyperApp:
 
     typer = _load_typer()
     return typer.Typer(name=name, help=help_text, add_completion=False)
+
+
+def run_app(app: TyperApp) -> None:
+    """Единая точка входа для CLI-утилит."""
+
+    app()
 

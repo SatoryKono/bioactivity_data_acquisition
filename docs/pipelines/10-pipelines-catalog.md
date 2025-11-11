@@ -77,13 +77,13 @@ The pipelines expose the following public APIs:
 
 ```bash
 # Deterministic run with the canonical config
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Override batch size for a smoke test (env > --set precedence)
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=50
-python -m bioetl.cli.app activity \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --set sources.chembl.batch_size=10
 ```
@@ -128,12 +128,12 @@ python -m bioetl.cli.app activity \
 
 ```bash
 # Standard production extraction
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 
 # Throttle the client for troubleshooting
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --set sources.chembl.batch_size=20
 ```
@@ -177,12 +177,12 @@ python -m bioetl.cli.app assay \
 
 ```bash
 # Full enrichment run
-python -m bioetl.cli.app target \
+python -m bioetl.cli.app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 
 # Disable UniProt enrichment for a connectivity check
-python -m bioetl.cli.app target \
+python -m bioetl.cli.app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --set sources.uniprot.enabled=false
 ```
@@ -228,12 +228,12 @@ python -m bioetl.cli.app target \
 
 ```bash
 # All-source enrichment run
-python -m bioetl.cli.app document \
+python -m bioetl.cli.app document_chembl \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document
 
 # ChEMBL + Crossref only (disable PubMed)
-python -m bioetl.cli.app document \
+python -m bioetl.cli.app document_chembl \
   --config configs/pipelines/document/document_chembl.yaml \
   --set sources.pubmed.enabled=false
 ```
@@ -282,12 +282,12 @@ python -m bioetl.cli.app document \
 
 ```bash
 # Base molecule export
-python -m bioetl.cli.app testitem \
+python -m bioetl.cli.app testitem_chembl \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem
 
 # Override batch size for smoke test
-python -m bioetl.cli.app testitem \
+python -m bioetl.cli.app testitem_chembl \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem \
   --set sources.chembl.batch_size=10 \
@@ -333,11 +333,13 @@ python -m bioetl.cli.app testitem \
 
 ```bash
 # Standard extraction from PubMed
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --output-dir data/output/document-pubmed
 
 # With input file containing PMIDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --input-file data/input/pmids.csv \
@@ -383,11 +385,13 @@ python -m bioetl.cli.app document --source pubmed \
 
 ```bash
 # Standard extraction from Crossref
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source crossref \
   --config configs/pipelines/crossref/document.yaml \
   --output-dir data/output/document-crossref
 
 # With input file containing DOIs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source crossref \
   --config configs/pipelines/crossref/document.yaml \
   --input-file data/input/dois.csv \
@@ -432,11 +436,13 @@ python -m bioetl.cli.app document --source crossref \
 
 ```bash
 # Standard extraction from OpenAlex
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source openalex \
   --config configs/pipelines/openalex/document.yaml \
   --output-dir data/output/document-openalex
 
 # With input file containing DOIs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source openalex \
   --config configs/pipelines/openalex/document.yaml \
   --input-file data/input/dois.csv \
@@ -482,11 +488,13 @@ python -m bioetl.cli.app document --source openalex \
 
 ```bash
 # Standard extraction from Semantic Scholar
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --output-dir data/output/document-semantic-scholar
 
 # With input file containing PMIDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --input-file data/input/pmids.csv \
@@ -532,11 +540,13 @@ python -m bioetl.cli.app document --source semantic-scholar \
 
 ```bash
 # Standard extraction from UniProt
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target --source uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot
 
 # With input file containing UniProt accessions
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target --source uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --input-file data/input/uniprot_accessions.csv \
@@ -582,11 +592,13 @@ python -m bioetl.cli.app target --source uniprot \
 
 ```bash
 # Standard extraction from IUPHAR
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target --source iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar
 
 # With input file containing various identifiers
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app target --source iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --input-file data/input/iuphar_targets.csv \
@@ -632,11 +644,13 @@ python -m bioetl.cli.app target --source iuphar \
 
 ```bash
 # Standard extraction from PubChem
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem --source pubchem \
   --config configs/pipelines/pubchem/testitem.yaml \
   --output-dir data/output/testitem-pubchem
 
 # With input file containing PubChem CIDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app testitem --source pubchem \
   --config configs/pipelines/pubchem/testitem.yaml \
   --input-file data/input/pubchem_cids.csv \
@@ -674,11 +688,13 @@ python -m bioetl.cli.app testitem --source pubchem \
 
 ```bash
 # Standard mapping run
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping
 
 # With input file containing ChEMBL target IDs
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --input-file data/input/chembl_targets.csv \

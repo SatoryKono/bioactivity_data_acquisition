@@ -1251,7 +1251,7 @@ sources.chembl.batch_size
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
@@ -1542,12 +1542,13 @@ Workflow для изменения схемы:
 
 ### 9.1 Обзор
 
+# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
 Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.app assay`. Подробности архитектуры CLI см. в [CLI Overview](../cli/00-cli-overview.md).
 
 **Инвокация:**
 
 ```bash
-python -m bioetl.cli.app assay [OPTIONS]
+python -m bioetl.cli.app assay_chembl [OPTIONS]
 ```
 
 **Назначение:** Извлечение и нормализация метаданных ассаев из ChEMBL `/assay.json` с детерминированным выводом и полной воспроизводимостью.
@@ -1585,7 +1586,7 @@ CLI загружает конфигурацию в следующем поряд
 
 ### 9.4 Команда `assay`
 
-**Сигнатура:** `python -m bioetl.cli.app assay [OPTIONS]`
+**Сигнатура:** `python -m bioetl.cli.app assay_chembl [OPTIONS]`
 
 **Обязательные опции:** `--config`, `--output-dir`
 
@@ -1600,7 +1601,7 @@ CLI загружает конфигурацию в следующем поряд
 **Базовый запуск:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 ```
@@ -1608,7 +1609,7 @@ python -m bioetl.cli.app assay \
 **Проверка конфигурации (dry-run):**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --dry-run
@@ -1617,7 +1618,7 @@ python -m bioetl.cli.app assay \
 **Ограничение количества записей (smoke test):**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --limit 100
@@ -1626,7 +1627,7 @@ python -m bioetl.cli.app assay \
 **Случайная выборка с детерминированным seed:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --sample 500 \
@@ -1636,7 +1637,7 @@ python -m bioetl.cli.app assay \
 **Сравнение с golden-файлом:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --golden tests/bioetl/golden/assay/assay_20250115.csv
@@ -1645,7 +1646,7 @@ python -m bioetl.cli.app assay \
 **Переопределение параметров ChEMBL:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
@@ -1655,7 +1656,7 @@ python -m bioetl.cli.app assay \
 **Строгая валидация схемы:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --fail-on-schema-drift \
@@ -1665,7 +1666,7 @@ python -m bioetl.cli.app assay \
 **С входным файлом:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --input-file data/input/assay_ids.csv
@@ -1674,7 +1675,7 @@ python -m bioetl.cli.app assay \
 **Детальное логирование:**
 
 ```bash
-python -m bioetl.cli.app assay \
+python -m bioetl.cli.app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --verbose
