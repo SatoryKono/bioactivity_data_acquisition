@@ -14,31 +14,31 @@ The pipelines expose the following public APIs:
 
 ### ChEMBL Pipelines
 
-- `bioetl.pipelines.chembl_activity.ActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/chembl_activity.py†L1-L210】
-- `bioetl.pipelines.chembl_assay.AssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/chembl_assay.py†L1-L210】
-- `bioetl.sources.chembl.document.pipeline.DocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/sources/chembl/document/pipeline.py†L66-L140】
-- `bioetl.sources.chembl.target.pipeline.TargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.【F:src/bioetl/sources/chembl/target/pipeline.py†L69-L160】
-- `bioetl.sources.chembl.testitem.pipeline.TestItemPipeline` — загрузка молекул (test items) с полями из `/molecule` и поддержкой PubChem-обогащения.【F:src/bioetl/sources/chembl/testitem/pipeline.py†L59-L139】
+- `bioetl.pipelines.activity.ChemblActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/activity/activity.py†L106-L460】
+- `bioetl.pipelines.assay.ChemblAssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/assay/assay.py†L126-L490】
+- `bioetl.pipelines.document.ChemblDocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/pipelines/document/document.py†L60-L520】
+- `bioetl.pipelines.target.ChemblTargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.【F:src/bioetl/pipelines/target/target.py†L38-L560】
+- `bioetl.pipelines.testitem.TestItemChemblPipeline` — загрузка молекул (test items) с полями из `/molecule` и поддержкой PubChem-обогащения.【F:src/bioetl/pipelines/testitem/testitem.py†L52-L620】
 
 ### Document Pipelines
 
-- `bioetl.sources.pubmed.document.pipeline.DocumentPipeline` — извлечение метаданных публикаций из PubMed E-utilities API.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L7-L11】
-- `bioetl.sources.crossref.document.pipeline.DocumentPipeline` — извлечение метаданных публикаций из Crossref REST API.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L9-L22】
-- `bioetl.sources.openalex.document.pipeline.DocumentPipeline` — извлечение метаданных публикаций из OpenAlex Works API.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L9-L32】
-- `bioetl.sources.semantic_scholar.document.pipeline.DocumentPipeline` — извлечение метаданных публикаций из Semantic Scholar Graph API.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L9-L32】
+- PubMed Document Pipeline — извлечение метаданных публикаций из PubMed E-utilities API.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L7-L11】
+- Crossref Document Pipeline — извлечение метаданных публикаций из Crossref REST API.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L9-L22】
+- OpenAlex Document Pipeline — извлечение метаданных публикаций из OpenAlex Works API.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L9-L32】
+- Semantic Scholar Document Pipeline — извлечение метаданных публикаций из Semantic Scholar Graph API.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L9-L32】
 
 ### Target Pipelines
 
-- `bioetl.sources.uniprot.target.pipeline.TargetPipeline` — извлечение и обработка данных о таргетах (белках) из UniProt REST API.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L9-L26】
-- `bioetl.sources.iuphar.target.pipeline.TargetPipeline` — извлечение и обработка данных о фармакологических таргетах из Guide to Pharmacology API.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L9-L26】
+- UniProt Target Pipeline — извлечение и обработка данных о таргетах (белках) из UniProt REST API.【F:docs/pipelines/target-uniprot/00-target-uniprot-overview.md†L9-L26】
+- Guide to Pharmacology Target Pipeline — извлечение и обработка данных о фармакологических таргетах из Guide to Pharmacology API.【F:docs/pipelines/target-iuphar/00-target-iuphar-overview.md†L9-L26】
 
 ### TestItem Pipelines
 
-- `bioetl.sources.pubchem.testitem.pipeline.TestItemPipeline` — извлечение данных о молекулах из PubChem PUG REST API.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L9-L24】
+- PubChem TestItem Pipeline — извлечение данных о молекулах из PubChem PUG REST API.【F:docs/pipelines/testitem-pubchem/00-testitem-pubchem-overview.md†L9-L24】
 
 ### Mapping Pipelines
 
-- `bioetl.sources.uniprot.mapping.Chembl2UniprotMappingPipeline` — маппинг ChEMBL target identifiers в UniProt accession numbers через UniProt ID Mapping API.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L9-L11】
+- ChEMBL → UniProt Mapping Pipeline — маппинг ChEMBL target identifiers в UniProt accession numbers через UniProt ID Mapping API.【F:docs/pipelines/28-chembl2uniprot-mapping.md†L9-L11】
 
 ## Pipeline Cards
 

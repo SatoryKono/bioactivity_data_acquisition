@@ -116,13 +116,12 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = [
     "bioetl",
-    "bioetl.sources",
 ]
 
 [tool.mypy]
 python_version = "3.10"
 strict = true
-mypy_path = ["tools/typecheck/stubs"]
+mypy_path = ["src/typecheck/stubs"]
 files = [
     "src/bioetl",
     "tests",
@@ -137,7 +136,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
-    "bioetl.sources.*",
     "bioetl.schemas.*",
 ]
 ignore_errors = true

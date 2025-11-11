@@ -23,12 +23,11 @@ This document describes the `testitem_pubchem` pipeline, which is responsible fo
 
 This pipeline is designed to extract `testitem` data from PubChem. It is a standalone pipeline that does not perform any joins or enrichment with other data sources.
 
-The pipeline utilizes the existing PubChem source components, which can be found at [ref: repo:src/bioetl/sources/pubchem/@refactoring_001].
+The pipeline will rely on dedicated PubChem client components planned under `src/bioetl/clients/pubchem/`.
 
 ## Public API
 
 - `bioetl.pipelines.pubchem.PubChemPipeline` — самостоятельный пайплайн, обогащающий список ChEMBL-молекул по `molecule_chembl_id` и `standard_inchi_key`, с подсчётом QC-метрик по покрытию и доле обогащений.【F:src/bioetl/pipelines/pubchem.py†L1-L170】
-- `bioetl.sources.pubchem.pipeline.PubChemPipeline` — совместимый shim, реэкспортирующий standalone-пайплайн под пространством `sources` для соответствия регистру источников.【F:src/bioetl/sources/pubchem/pipeline.py†L1-L5】
 
 ## 3. Inputs (CLI/Configs/Profiles)
 
@@ -73,9 +72,9 @@ The following table describes the expected keys in the `testitem_pubchem.yaml` c
 
 The extraction process would use the existing components from the PubChem source module.
 
-- **Client:** The `PubChemClient` ([ref: repo:src/bioetl/sources/pubchem/client/client.py@refactoring_001]) would be responsible for making HTTP requests to the PubChem API. It would handle timeouts, retries with backoff, and rate limiting as configured in the pipeline's YAML file. Log records would include fields such as `endpoint`, `attempt`, and `duration_ms`.
+- **Client:** The `PubChemClient` (planned at `src/bioetl/clients/pubchem/client.py`) would be responsible for making HTTP requests to the PubChem API. It would handle timeouts, retries with backoff, and rate limiting as configured in the pipeline's YAML file. Log records would include fields such as `endpoint`, `attempt`, and `duration_ms`.
 - **Paginator:** A paginator, likely based on an offset/limit strategy, would be used to iterate through the PubChem search results. The paginator would handle the details of fetching pages of data until the end of the result set is reached. It would also respect rate limits and introduce pauses if necessary.
-- **Parser:** A parser ([ref: repo:src/bioetl/sources/pubchem/parser/parser.py@refactoring_001]) would be responsible for parsing the JSON response from the PubChem API. It would extract the relevant fields for `testitem` data and raise errors if required fields are missing or invalid.
+- **Parser:** A parser module (planned at `src/bioetl/clients/pubchem/parser.py`) would be responsible for parsing the JSON response from the PubChem API. It would extract the relevant fields for `testitem` data and raise errors if required fields are missing or invalid.
 
 The specific PubChem endpoint and query parameters for `testitem` data would need to be determined and implemented in the pipeline's extraction logic.
 
@@ -85,8 +84,8 @@ The specific PubChem endpoint and query parameters for `testitem` data would nee
 
 ## 5. Normalization and Validation
 
-- **Normalizer:** The `PubChemNormalizer` ([ref: repo:src/bioetl/sources/pubchem/normalizer/normalizer.py@refactoring_001]) would be used to canonicalize identifiers and types, and to fill in any required fields that are not present in the raw extracted data.
-- **Pandera Schema:** A Pandera schema ([ref: repo:src/bioetl/sources/pubchem/schema/schema.py@refactoring_001]) would be used to validate the structure and types of the normalized data. The schema would be configured with `strict=True`, `ordered=True`, and `coerce=True` to ensure data quality. It would also define a business key and perform a uniqueness check on that key.
+- **Normalizer:** The `PubChemNormalizer` (to be created at `src/bioetl/clients/pubchem/normalizer.py`) would be used to canonicalize identifiers and types, and to fill in any required fields that are not present in the raw extracted data.
+- **Pandera Schema:** A Pandera schema (tracked in `src/bioetl/schemas/testitem/pubchem.py`) would be used to validate the structure and types of the normalized data. The schema would be configured with `strict=True`, `ordered=True`, and `coerce=True` to ensure data quality. It would also define a business key and perform a uniqueness check on that key.
 
 ## Merge Policy
 
