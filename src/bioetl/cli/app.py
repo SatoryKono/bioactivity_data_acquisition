@@ -1,5 +1,8 @@
 """Main Typer application for BioETL CLI.
 
+Console entry points should target :func:`bioetl.cli.app.run`.
+Legacy shim :mod:`bioetl.cli.main` is deprecated and kept for compatibility only.
+
 This module creates the Typer application and registers all pipeline commands
 from the static registry.
 """

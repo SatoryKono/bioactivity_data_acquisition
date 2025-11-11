@@ -130,10 +130,9 @@ def build_command_config_semantic_scholar() -> CommandConfig:
 COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
     "activity_chembl": build_command_config_activity,
     "assay_chembl": build_command_config_assay,
-    "testitem_chembl": build_command_config_testitem,  # Alias
-    "target": build_command_config_target,
-    "target_chembl": build_command_config_target,  # Alias
-    "document_chembl": build_command_config_document,  # Alias
+    "testitem_chembl": build_command_config_testitem,
+    "target_chembl": build_command_config_target,
+    "document_chembl": build_command_config_document,
     # "pubchem": build_command_config_pubchem,
     # "uniprot": build_command_config_uniprot,
     # "gtp_iuphar": build_command_config_iuphar,

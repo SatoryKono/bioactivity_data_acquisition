@@ -14,11 +14,11 @@ The pipelines expose the following public APIs:
 
 ### ChEMBL Pipelines
 
-- `bioetl.pipelines.activity.ChemblActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/activity/activity.py†L106-L460】
-- `bioetl.pipelines.assay.ChemblAssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/assay/assay.py†L126-L490】
-- `bioetl.pipelines.document.ChemblDocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/pipelines/document/document.py†L60-L520】
+- `bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline` — основной ETL по активности ChEMBL (загрузка `/activity`, управление fallback и валидацией по `ActivitySchema`).【F:src/bioetl/pipelines/chembl/activity/run.py†L1-L640】
+- `bioetl.pipelines.chembl.assay.run.ChemblAssayPipeline` — извлечение ассайев ChEMBL с учётом лимитов URL, кешей и статистики fallback.【F:src/bioetl/pipelines/chembl/assay/run.py†L1-L720】
+- `bioetl.pipelines.chembl.document.run.ChemblDocumentPipeline` — выгрузка документов ChEMBL и оркестрация обогащения PubMed/Crossref/OpenAlex/Semantic Scholar по режимам `chembl`/`all`.【F:src/bioetl/pipelines/chembl/document/run.py†L1-L620】
 - `bioetl.pipelines.chembl.target.run.ChemblTargetPipeline` — многостадийный таргет-пайплайн: ChEMBL → UniProt → IUPHAR + постобработка в `target_gold`.【F:src/bioetl/pipelines/chembl/target/run.py†L1-L585】
-- `bioetl.pipelines.testitem.TestItemChemblPipeline` — загрузка молекул (test items) с полями из `/molecule` и поддержкой PubChem-обогащения.【F:src/bioetl/pipelines/testitem/testitem.py†L52-L620】
+- `bioetl.pipelines.chembl.testitem.run.TestItemChemblPipeline` — загрузка молекул (test items) с полями из `/molecule` и поддержкой PubChem-обогащения.【F:src/bioetl/pipelines/chembl/testitem/run.py†L1-L640】
 
 ### Document Pipelines
 

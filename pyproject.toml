@@ -64,7 +64,7 @@ dev = [
 ]
 
 [project.scripts]
-bioetl = "bioetl.cli.main:app"
+bioetl = "bioetl.cli.app:run"
 bioetl-audit-docs = "tools.audit_docs:app"
 bioetl-build-vocab-store = "tools.build_vocab_store:app"
 bioetl-catalog-code-symbols = "tools.catalog_code_symbols:app"

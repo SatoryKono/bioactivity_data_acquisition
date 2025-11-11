@@ -355,7 +355,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
 **Пример валидации:**
 
 ```python
-from bioetl.pipelines.assay.assay_transform import validate_assay_parameters_truv
+from bioetl.pipelines.chembl.assay.transform import validate_assay_parameters_truv
 
 # Валидация выполняется автоматически в transform stage
 df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
@@ -417,7 +417,7 @@ df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=Tru
 Параметры извлекаются через функцию `enrich_with_assay_parameters()` на этапе enrichment:
 
 ```python
-from bioetl.pipelines.assay.assay_enrichment import enrich_with_assay_parameters
+from bioetl.pipelines.chembl.assay.normalize import enrich_with_assay_parameters
 
 # Конфигурация из configs/pipelines/assay/assay_chembl.yaml
 cfg = {

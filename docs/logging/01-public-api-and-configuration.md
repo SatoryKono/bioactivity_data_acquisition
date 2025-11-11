@@ -19,7 +19,7 @@ This method initializes the global logging system. It **must be called once** at
 
 This method returns a `structlog.BoundLogger` instance that is ready for use. It is the standard way to get a logger within any module.
 
-- **`name: str | None = None`**: The name of the logger. By convention, this should be `__name__`, which will associate the logger with the module's hierarchy (e.g., `bioetl.pipelines.activity.activity`).
+- **`name: str | None = None`**: The name of the logger. By convention, this should be `__name__`, which will associate the logger with the module's hierarchy (e.g., `bioetl.pipelines.chembl.activity.run`).
 
 ### `set_run_context(...)`
 

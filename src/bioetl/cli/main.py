@@ -1,4 +1,4 @@
-"""Main CLI entry point for BioETL pipelines.
+"""DEPRECATED: legacy CLI entry point for BioETL pipelines.
 
 This module provides backward compatibility by importing the app from app.py.
 New code should use app.py directly.
