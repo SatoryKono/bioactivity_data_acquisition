@@ -7,6 +7,8 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import urlencode
 
+from structlog.stdlib import BoundLogger  # type: ignore[reportMissingImports]
+
 from bioetl.clients.chembl_base import EntityConfig
 from bioetl.core.logger import UnifiedLogger
 
@@ -59,7 +61,7 @@ class ChemblEntityIterator:
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
         self._chembl_release: str | None = None
-        self._log = UnifiedLogger.get(__name__).bind(
+        self._log: BoundLogger = UnifiedLogger.get(__name__).bind(  # type: ignore[reportUnknownMemberType]
             component="chembl_iterator",
             entity=config.log_prefix,
         )
@@ -96,7 +98,7 @@ class ChemblEntityIterator:
     def handshake(
         self,
         *,
-        endpoint: str = "/status",
+        endpoint: str = "/status.json",
         enabled: bool = True,
     ) -> Mapping[str, object]:
         """Выполнить handshake и кэшировать идентификатор release.
@@ -104,7 +106,7 @@ class ChemblEntityIterator:
         Parameters
         ----------
         endpoint:
-            Endpoint для handshake. По умолчанию "/status".
+            Endpoint для handshake. По умолчанию "/status.json".
         enabled:
             Если False, handshake не выполняется. По умолчанию True.
 
@@ -114,12 +116,25 @@ class ChemblEntityIterator:
             Payload ответа от handshake или пустой словарь, если disabled.
         """
         if not enabled:
+            self._log.info(  # type: ignore[reportUnknownMemberType]
+                f"{self._config.log_prefix}.handshake.skipped",
+                handshake_endpoint=endpoint,
+                handshake_enabled=enabled,
+                phase="skip",
+            )
             return {}
 
         payload = self._chembl_client.handshake(endpoint)
         release = payload.get("chembl_db_version")
         if isinstance(release, str):
             self._chembl_release = release
+
+        self._log.info(  # type: ignore[reportUnknownMemberType]
+            f"{self._config.log_prefix}.handshake",
+            handshake_endpoint=endpoint,
+            handshake_enabled=enabled,
+            chembl_release=self._chembl_release,
+        )
 
         return cast(Mapping[str, object], payload)
 

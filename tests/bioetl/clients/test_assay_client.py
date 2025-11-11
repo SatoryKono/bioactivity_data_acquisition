@@ -5,20 +5,20 @@ from __future__ import annotations
 from typing import cast
 from unittest.mock import MagicMock
 
-import pytest
+import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
 def mock_unified_client() -> MagicMock:
     """Mock UnifiedAPIClient for testing."""
     return MagicMock(spec=UnifiedAPIClient)
 
 
-@pytest.fixture
+@pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
 def mock_chembl_client(mock_unified_client: MagicMock) -> MagicMock:
     """Mock ChemblClient for testing."""
     mock_client = MagicMock(spec=ChemblClient)
@@ -28,7 +28,7 @@ def mock_chembl_client(mock_unified_client: MagicMock) -> MagicMock:
     return mock_client
 
 
-@pytest.mark.unit
+@pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
 class TestChemblAssayClient:
     """Test suite for ChemblAssayClient."""
 
@@ -56,12 +56,12 @@ class TestChemblAssayClient:
 
     def test_init_invalid_batch_size(self, mock_chembl_client: ChemblClient) -> None:
         """Test initialization with invalid batch_size raises error."""
-        with pytest.raises(ValueError, match="batch_size must be a positive integer"):
+        with pytest.raises(ValueError, match="batch_size must be a positive integer"):  # type: ignore[reportUnknownMemberType]
             ChemblAssayClient(mock_chembl_client, batch_size=0, max_url_length=2000)
 
     def test_init_invalid_max_url_length(self, mock_chembl_client: ChemblClient) -> None:
         """Test initialization with invalid max_url_length raises error."""
-        with pytest.raises(ValueError, match="max_url_length must be a positive integer"):
+        with pytest.raises(ValueError, match="max_url_length must be a positive integer"):  # type: ignore[reportUnknownMemberType]
             ChemblAssayClient(mock_chembl_client, batch_size=25, max_url_length=0)
 
     def test_chembl_release_property(self, mock_chembl_client: ChemblClient) -> None:
@@ -92,7 +92,19 @@ class TestChemblAssayClient:
 
         result = client.handshake(enabled=True)
 
-        handshake_mock.assert_called_once_with("/status")
+        # handshake method uses keyword arguments, default endpoint is "/status"
+        # But ChemblAssayClient uses "/status.json" as default endpoint
+        # The actual call passes endpoint as positional argument to chembl_client.handshake
+        # Check that handshake was called with "/status.json" endpoint
+        assert handshake_mock.called
+        call_args = handshake_mock.call_args
+        assert call_args is not None
+        # handshake is called with endpoint as positional argument
+        # Check both args and kwargs
+        if call_args.args:
+            assert call_args.args[0] == "/status.json"
+        else:
+            assert call_args.kwargs.get("endpoint") == "/status.json"
         assert result["chembl_db_version"] == "33"
         assert client.chembl_release == "33"
 
@@ -125,7 +137,16 @@ class TestChemblAssayClient:
 
         client.handshake(endpoint="/custom", enabled=True)
 
-        handshake_mock.assert_called_with("/custom")
+        # Check that handshake was called with "/custom" endpoint
+        assert handshake_mock.called
+        call_args = handshake_mock.call_args
+        assert call_args is not None
+        # handshake is called with endpoint as positional argument
+        # Check both args and kwargs
+        if call_args.args:
+            assert call_args.args[0] == "/custom"
+        else:
+            assert call_args.kwargs.get("endpoint") == "/custom"
 
     def test_handshake_no_release_in_payload(self, mock_chembl_client: MagicMock) -> None:
         """Test handshake when payload has no release."""
