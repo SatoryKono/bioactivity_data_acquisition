@@ -11,7 +11,7 @@
 | `bioetl-build-vocab-store` | `--src PATH`, `--output PATH` | Сборка агрегированного словаря ChEMBL из YAML в `configs/dictionaries`. | Агрегированный YAML (путь из `--output`). | `bioetl-build-vocab-store --src configs/dictionaries --output artifacts/chembl_vocab.yaml` |
 | `bioetl-catalog-code-symbols` | `--artifacts PATH` | Каталогизация CLI, конфигов и сущностей пайплайнов. | `code_signatures.json`, `cli_commands.txt`. | `bioetl-catalog-code-symbols --artifacts artifacts/code-symbols` |
 | `bioetl-check-comments` | `--root PATH` | Проверка TODO/комментариев и статуса реализации. | Вывод в STDOUT, код возврата. | `bioetl-check-comments --root src` |
-| `bioetl-check-output-artifacts` | `--max-bytes INT` | Проверка крупных файлов в `data/output`. | Сообщения в STDERR/STDOUT, код возврата. | `bioetl-check-output-artifacts --max-bytes 2000000` |
+| [`bioetl-check-output-artifacts`](../qc/04-check-output-artifacts.md) | `--max-bytes INT` | Проверка крупных файлов в `data/output`. | Сообщения в STDERR/STDOUT, код возврата. | `bioetl-check-output-artifacts --max-bytes 2000000` |
 | `bioetl-create-matrix-doc-code` | `--artifacts PATH` | Формирование матрицы соответствия документации и кода. | `matrix-doc-code.csv`, `matrix-doc-code.json`. | `bioetl-create-matrix-doc-code --artifacts artifacts/matrix` |
 | `bioetl-determinism-check` | `--pipeline,-p NAME` (многоразовый) | Двойной прогон пайплайнов и сравнение структурных логов. | `DETERMINISM_CHECK_REPORT.md`. | `bioetl-determinism-check --pipeline activity_chembl` |
 | `bioetl-doctest-cli` | — | Запуск CLI-примеров из документации и отчёт по статусу. | `CLI_DOCTEST_REPORT.md`. | `bioetl-doctest-cli` |

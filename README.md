@@ -13,6 +13,19 @@
 - Политика управления секретами и доступом описана в
   [`docs/security/00-vault-policy.md`](docs/security/00-vault-policy.md).
 
+## Быстрый старт
+
+```bash
+pip install -e .
+
+python -m bioetl.cli.app activity_chembl \
+  --config /path/to/activity_chembl.yaml \
+  --output-dir ./data/output \
+  --sample 5
+```
+
+Обязательные флаги: `--config`/`-c`, `--output-dir`/`-o`. Полный перечень и описания доступны в `python -m bioetl.cli.app --help` и в документации [`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md).
+
 ## Топология репозитория
 
 Слои кода, тестов, конфигураций и артефактов описаны в разделе

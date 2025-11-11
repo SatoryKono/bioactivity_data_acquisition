@@ -38,6 +38,27 @@ These switches are available to every pipeline command. Flags marked as **requir
 
 Every command inherits the determinism policy enforced by `PipelineBase`: stable sorting, canonicalised values, SHA256 row and business-key hashes, and atomic writes. The shared `configs/defaults/determinism.yaml` profile captures these guarantees, while pipeline-specific configs define the concrete sort keys.
 
+## Determinism and `--golden`
+
+The `--golden` option attaches a reference dataset that the pipeline must match byte-for-byte. After the write stage completes, the resulting artifact is compared against the supplied golden file using the deterministic serialization rules defined in `configs/defaults/determinism.yaml`. Any drift in row order, column order, canonicalised values, or hash columns is treated as a determinism failure and surfaces as a non-zero exit code together with structured log records that describe the mismatch.
+
+Golden checks pair naturally with the `--extended` flag: enabling extended QC emits the full set of sidecar reports (`quality_report`, correlation metrics, and `meta.yaml`) that the determinism policy expects. When both flags are present, the CLI writes QC artefacts and then validates that every emitted file matches the golden snapshots tracked in source control.
+
+Reference: see `docs/determinism/00-determinism-policy.md` for the full contract that governs deterministic outputs and golden artefact maintenance.
+
+### Example
+
+```bash
+python -m bioetl.cli.app activity_chembl \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --output-dir data/output/activity \
+  --golden tests/bioetl/golden/activity/activity.parquet \
+  --extended
+# Exit code: 0 (outputs identical to the golden snapshot)
+```
+
+If the comparison detects any byte-level difference, the command exits with a non-zero status, leaving the produced artefacts in place for inspection and emitting structured diagnostics that pinpoint the drift.
+
 ## Command reference
 
 ### `activity_chembl`
@@ -53,8 +74,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
   ```bash
   python -m bioetl.cli.app activity_chembl \
     --config configs/pipelines/activity/activity_chembl.yaml \
-    --output-dir data/output/activity \
-    --set sources.chembl.batch_size=10
+    --output-dir ./data/output/activity \
+    --sample 5
   ```
 
 ### `assay_chembl`
@@ -70,7 +91,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
   ```bash
   python -m bioetl.cli.app assay_chembl \
     --config configs/pipelines/assay/assay_chembl.yaml \
-    --output-dir data/output/assay
+    --output-dir ./data/output/assay \
+    --sample 5
   ```
 
 ### `target_chembl`
@@ -86,7 +108,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
   ```bash
   python -m bioetl.cli.app target_chembl \
     --config configs/pipelines/target/target_chembl.yaml \
-    --output-dir data/output/target
+    --output-dir ./data/output/target \
+    --sample 5
   ```
 
 ### `document_chembl`
@@ -102,8 +125,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
   ```bash
   python -m bioetl.cli.app document_chembl \
     --config configs/pipelines/document/document_chembl.yaml \
-    --output-dir data/output/document \
-    --mode all
+    --output-dir ./data/output/document \
+    --sample 5
   ```
 
 ### `testitem_chembl`
@@ -119,7 +142,8 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
   ```bash
   python -m bioetl.cli.app testitem_chembl \
     --config configs/pipelines/testitem/testitem_chembl.yaml \
-    --output-dir data/output/testitem
+    --output-dir ./data/output/testitem \
+    --sample 5
   ```
 
 ### Не реализовано

@@ -5,12 +5,12 @@ import difflib
 import hashlib
 import io
 import itertools
-import os
 import json
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Iterator, Sequence
+from typing import Iterable, Sequence, cast
 
 PIPELINE_ENTITIES: Sequence[str] = ("activity", "assay", "document", "target", "testitem")
 MODULE_PRIORITY: Sequence[str] = ("run.py", "transform.py", "normalize.py")
@@ -46,7 +46,7 @@ def _normalize_quotes(source: str) -> str:
             updated_tokens.append((tok_type, tok_string.replace("\t", "    ")))
         else:
             updated_tokens.append((tok_type, tok_string))
-    return tokenize.untokenize(updated_tokens)
+    return cast(str, tokenize.untokenize(updated_tokens))
 
 
 def _format_import(node: ast.stmt) -> str:
@@ -189,6 +189,8 @@ def _return_annotation(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | No
 
 
 def _normalized_block(node: ast.AST) -> str:
+    if not isinstance(node, ast.stmt):
+        raise TypeError("Expected ast.stmt node for normalization")
     module = ast.Module(body=[node], type_ignores=[])
     ast.fix_missing_locations(module)
     source = ast.unparse(module)
@@ -418,12 +420,19 @@ def _diff_blocks(
     entries: list[DiffEntry] = []
     for index, hunk in enumerate(hunks, start=1):
         diff_text = "\n".join(hunk)
+        base_name = ""
+        if info_a is not None:
+            base_name = info_a.qualname
+        elif info_b is not None:
+            base_name = info_b.qualname
+        else:
+            base_name = module_name
         entries.append(
             DiffEntry(
                 entity_a=entity_a,
                 entity_b=entity_b,
                 module_name=module_name,
-                definition=(info_a.qualname if info_a else (info_b.qualname if info_b else "")) + f"#{index}",
+                definition=f"{base_name}#{index}",
                 path_a=path_a,
                 path_b=path_b,
                 range_a=range_a,
@@ -441,7 +450,7 @@ def compare_pipelines(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis
         module_a = pipeline_a.modules.get(module_name)
         module_b = pipeline_b.modules.get(module_name)
         entries: list[DiffEntry] = []
-        definitions = set()
+        definitions: set[str] = set()
         if module_a is not None:
             definitions.update(module_a.definitions.keys())
             definitions.update(info.qualname for info in module_a.module_level_blocks)
@@ -473,7 +482,7 @@ def compare_pipelines(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis
 def build_ast_table(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, module_name: str) -> list[list[str]]:
     module_a = pipeline_a.modules.get(module_name)
     module_b = pipeline_b.modules.get(module_name)
-    header = ["Определение", f"{pipeline_a.entity} сигнатура", f"{pipeline_b.entity} сигнатура", "Побочные эффекты", "Исключения", "Статус"]
+    header = ["Definition", f"{pipeline_a.entity} signature", f"{pipeline_b.entity} signature", "Side effects", "Exceptions", "Status"]
     rows: list[list[str]] = [header]
     qualnames: set[str] = set()
     if module_a:
@@ -506,11 +515,11 @@ def build_ast_table(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, 
             ]
         )
         if info_a and info_b:
-            status = "совпадает" if info_a.ast_hash == info_b.ast_hash else "отличается"
+            status = "identical" if info_a.ast_hash == info_b.ast_hash else "differs"
         elif info_a and not info_b:
-            status = f"только в {pipeline_a.entity}"
+            status = f"only in {pipeline_a.entity}"
         elif info_b and not info_a:
-            status = f"только в {pipeline_b.entity}"
+            status = f"only in {pipeline_b.entity}"
         else:
             status = "—"
         rows.append([qualname, signature_a or "—", signature_b or "—", side_effects_repr, exceptions_repr, status])
@@ -545,12 +554,28 @@ def _cluster_definitions(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnaly
         if info_b is None:
             continue
         if info_a.ast_hash == info_b.ast_hash:
-            clusters.append(f"{qualname}: точное AST совпадение")
+            clusters.append(f"{qualname}: exact AST match")
             continue
         similarity = _jaccard(info_a.token_set, info_b.token_set)
         if similarity >= 0.8:
             clusters.append(f"{qualname}: Jaccard={similarity:.2f}")
     return clusters
+
+
+def _format_side_effects_block(entity: str, side_effects: dict[str, list[str]]) -> str:
+    if not side_effects:
+        return f"{entity}: ∅"
+    parts: list[str] = []
+    for key in sorted(side_effects.keys()):
+        values = ", ".join(side_effects[key]) if side_effects[key] else "∅"
+        parts.append(f"{key}={values}")
+    return f"{entity}: " + "; ".join(parts)
+
+
+def _format_exceptions_block(entity: str, exceptions: Sequence[str]) -> str:
+    if not exceptions:
+        return f"{entity}: ∅"
+    return f"{entity}: {', '.join(exceptions)}"
 
 
 def _ensure_report_dir(report_path: Path) -> None:
@@ -565,21 +590,21 @@ def _write_atomic(path: Path, content: str) -> None:
 
 
 def generate_report(root: Path, output_path: Path) -> None:
-    repo_root = root.parents[4]
+    repo_root = root.parents[3]
     analyses = {entity: analyze_pipeline(root, entity) for entity in PIPELINE_ENTITIES}
     lines: list[str] = []
-    lines.append("# Сравнительный отчёт по пайплайнам ChEMBL\n")
+    lines.append("# Comparative report for ChEMBL pipelines\n")
     for entity_a, entity_b in itertools.combinations(PIPELINE_ENTITIES, 2):
         pipeline_a = analyses[entity_a]
         pipeline_b = analyses[entity_b]
-        lines.append(f"## Пара: {entity_a} ↔ {entity_b}\n")
+        lines.append(f"## Pair: {entity_a} ↔ {entity_b}\n")
         lines.append(f"- AST hash: {pipeline_a.pipeline_hash} ↔ {pipeline_b.pipeline_hash}\n")
         jaccard = _jaccard(pipeline_a.pipeline_tokens, pipeline_b.pipeline_tokens)
-        lines.append(f"- Jaccard по токенам: {jaccard:.3f}\n")
+        lines.append(f"- Jaccard over tokens: {jaccard:.3f}\n")
         diff_entries = compare_pipelines(pipeline_a, pipeline_b)
         total_entries = sum(len(items) for items in diff_entries.values())
         if total_entries == 0:
-            lines.append("Различия не обнаружены.\n")
+            lines.append("No differences detected.\n")
             continue
         hotspot_total = 0
         truncation_flag = total_entries > 20
@@ -587,13 +612,24 @@ def generate_report(root: Path, output_path: Path) -> None:
             remaining_budget = max(0, 20 - hotspot_total)
             if remaining_budget == 0:
                 break
-            lines.append(f"### Модуль {module_name}\n")
+            lines.append(f"### Module {module_name}\n")
+            module_a = pipeline_a.modules.get(module_name)
+            module_b = pipeline_b.modules.get(module_name)
+            status_a = "absent" if module_a is None else "present"
+            status_b = "absent" if module_b is None else "present"
+            lines.append(f"- File status: {pipeline_a.entity} — {status_a}, {pipeline_b.entity} — {status_b}")
+            hash_a = module_a.module_hash if module_a is not None else "absent"
+            hash_b = module_b.module_hash if module_b is not None else "absent"
+            lines.append(f"- AST hash: {hash_a} ↔ {hash_b}")
+            tokens_a = module_a.module_tokens if module_a is not None else set()
+            tokens_b = module_b.module_tokens if module_b is not None else set()
+            lines.append(f"- Jaccard over tokens: {_jaccard(tokens_a, tokens_b):.3f}\n")
             table = _format_table(build_ast_table(pipeline_a, pipeline_b, module_name))
             if table:
                 lines.append(table + "\n")
             clusters = _cluster_definitions(pipeline_a, pipeline_b, module_name)
             if clusters:
-                lines.append("Кластеры схожих определений:\n")
+                lines.append("Similar definition clusters:\n")
                 for item in clusters:
                     lines.append(f"- {item}")
                 lines.append("")
@@ -602,28 +638,29 @@ def generate_report(root: Path, output_path: Path) -> None:
             for idx, entry in enumerate(capped_entries, 1):
                 def format_ref(path: Path | None, span: tuple[int, int] | None) -> str:
                     if path is None or span is None:
-                        return "нет в ветке"
+                        return "absent"
                     try:
                         rel_path = path.relative_to(repo_root)
                     except ValueError:
                         rel_path = path
-                    return f"{rel_path}:{span[0]}-{span[1]}"
+                    rel_text = rel_path.as_posix()
+                    return f"{rel_text}:{span[0]}-{span[1]}"
 
                 ref_a = format_ref(entry.path_a, entry.range_a)
                 ref_b = format_ref(entry.path_b, entry.range_b)
-                lines.append(f"#### Горячий участок {idx}\n")
-                lines.append(f"- Определение: {entry.definition}")
+                lines.append(f"#### Hotspot {idx}\n")
+                lines.append(f"- Definition: {entry.definition}")
                 lines.append(f"- {pipeline_a.entity}: {ref_a}")
                 lines.append(f"- {pipeline_b.entity}: {ref_b}\n")
                 lines.append("```diff")
                 lines.append(entry.diff_text)
                 lines.append("```\n")
             if len(entries) > len(capped_entries):
-                lines.append(f"_Только первые {len(capped_entries)} горячих участков из {len(entries)} по модулю {module_name}._\n")
+                lines.append(f"_Only the first {len(capped_entries)} hotspots of {len(entries)} are shown for module {module_name}._\n")
         if truncation_flag:
-            lines.append(f"_Показаны первые {hotspot_total} горячих участков из {total_entries} для пары {entity_a} ↔ {entity_b}._\n")
+            lines.append(f"_First {hotspot_total} hotspots of {total_entries} are shown for pair {entity_a} ↔ {entity_b}._\n")
         if hotspot_total < 10:
-            lines.append(f"_Внимание: обнаружено лишь {hotspot_total} ключевых расхождений (<10)._ \n")
+            lines.append(f"_Warning: only {hotspot_total} key differences identified (<10)._")
         lines.append("---\n")
     report_content = "\n".join(lines)
     _write_atomic(output_path, report_content)
