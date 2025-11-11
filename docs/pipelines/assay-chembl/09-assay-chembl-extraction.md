@@ -1542,8 +1542,7 @@ Workflow для изменения схемы:
 
 ### 9.1 Обзор
 
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
-Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.app assay`. Подробности архитектуры CLI см. в [CLI Overview](../cli/00-cli-overview.md).
+Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.app assay_chembl`. Подробности архитектуры CLI см. в [CLI Overview](../cli/00-cli-overview.md).
 
 **Инвокация:**
 

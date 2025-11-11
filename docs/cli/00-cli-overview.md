@@ -55,18 +55,13 @@ The Typer application defined in `[ref: repo:src/bioetl/cli/app.py@refactoring_0
 | --- | --- | --- | --- |
 | Root | `python -m bioetl.cli.app` | Entry point that exposes all subcommands and global options. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
 | `list` | `python -m bioetl.cli.app list` | Prints the names of every registered pipeline so operators can discover available commands. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
-| `activity` | `python -m bioetl.cli.app activity` | Runs the ChEMBL activity ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `assay` | `python -m bioetl.cli.app assay` | Runs the ChEMBL assay ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `document` | `python -m bioetl.cli.app document` | Runs the ChEMBL document ETL pipeline with external enrichers. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `target` | `python -m bioetl.cli.app target` | Runs the ChEMBL target ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `testitem` | `python -m bioetl.cli.app testitem` | Runs the ChEMBL test item ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `pubchem` | `python -m bioetl.cli.app pubchem` | Runs the PubChem enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `gtp_iuphar` | `python -m bioetl.cli.app gtp_iuphar` | Runs the Guide to Pharmacology enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `uniprot` | `python -m bioetl.cli.app uniprot` | Runs the UniProt enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `openalex` | `python -m bioetl.cli.app openalex` | Runs the OpenAlex enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `crossref` | `python -m bioetl.cli.app crossref` | Runs the Crossref enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `pubmed` | `python -m bioetl.cli.app pubmed` | Runs the PubMed enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `semantic_scholar` | `python -m bioetl.cli.app semantic_scholar` | Runs the Semantic Scholar enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `activity_chembl` | `python -m bioetl.cli.app activity_chembl` | Runs the ChEMBL activity ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `assay_chembl` | `python -m bioetl.cli.app assay_chembl` | Runs the ChEMBL assay ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `document_chembl` | `python -m bioetl.cli.app document_chembl` | Runs the ChEMBL document ETL pipeline with optional enrichers. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `target_chembl` | `python -m bioetl.cli.app target_chembl` | Runs the ChEMBL target ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `testitem_chembl` | `python -m bioetl.cli.app testitem_chembl` | Runs the ChEMBL test item ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+
+Команды `pubchem`, `uniprot`, `gtp_iuphar`, `openalex`, `crossref`, `pubmed`, `semantic_scholar` **не реализованы** в текущей сборке и помечены как «(не реализовано)» в соответствующей документации.
 
 ## 6. Global Options
 
@@ -105,12 +100,12 @@ The snippets below demonstrate reproducible invocations that rely on the command
    python -m bioetl.cli.app list
    ```
 
-   *Expected output*: A plain-text list of command names such as `activity`, `assay`, and `document` sourced from the static registry.
+   *Expected output*: A plain-text list of command names such as `activity_chembl`, `assay_chembl`, and `document_chembl` sourced from the static registry.
 
 2. **Dry-run the ChEMBL activity pipeline**
 
    ```bash
-   python -m bioetl.cli.app activity \
+   python -m bioetl.cli.app activity_chembl \
      --config configs/pipelines/activity/activity_chembl.yaml \
      --output-dir data/output/activity/dry_run \
      --dry-run
