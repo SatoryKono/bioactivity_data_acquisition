@@ -12,6 +12,7 @@ from numbers import Integral, Real
 from typing import Any, cast
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.target.chembl_target import ChemblTargetClient
@@ -25,7 +26,11 @@ from bioetl.core.normalizers import (
 )
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import (
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
 from .target_transform import serialize_target_arrays
 
 
@@ -62,77 +67,79 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all target records from ChEMBL using pagination."""
 
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+        descriptor = self._build_target_descriptor()
+        return self.run_extract_all(descriptor)
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_target_http"
-        )
+    def _build_target_descriptor(self) -> ChemblExtractionDescriptor:
+        """Return the descriptor powering target extraction."""
 
-        chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        def build_context(
+            pipeline: "ChemblTargetPipeline",
+            source_config: TargetSourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            base_url = pipeline._resolve_base_url(source_config.parameters)
+            http_client, _ = pipeline.prepare_chembl_client(
+                "chembl",
+                base_url=base_url,
+                client_name="chembl_target_http",
+            )
+            chembl_client = ChemblClient(http_client)
+            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
+            target_client = ChemblTargetClient(
+                chembl_client,
+                batch_size=min(source_config.batch_size, 25),
+            )
+            select_fields = source_config.parameters.select_fields
+            return ChemblExtractionContext(
+                source_config=source_config,
+                iterator=target_client,
+                chembl_client=chembl_client,
+                select_fields=list(select_fields) if select_fields else None,
+                chembl_release=pipeline._chembl_release,
+                extra_filters={"batch_size": source_config.batch_size},
+            )
 
-        if self.config.cli.dry_run:
+        def empty_frame(
+            _: "ChemblTargetPipeline",
+            __: ChemblExtractionContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
+
+        def dry_run_handler(
+            pipeline: "ChemblTargetPipeline",
+            _: ChemblExtractionContext,
+            log: BoundLogger,
+            stage_start: float,
+        ) -> pd.DataFrame:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(
                 "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=pipeline._chembl_release,
             )
             return pd.DataFrame()
 
-        batch_size = source_config.batch_size
-        limit = self.config.cli.limit
-        page_size = min(batch_size, 25)
-        if limit is not None:
-            page_size = min(page_size, limit)
-        page_size = max(page_size, 1)
+        def summary_extra(
+            pipeline: "ChemblTargetPipeline",
+            _: pd.DataFrame,
+            __: ChemblExtractionContext,
+        ) -> Mapping[str, Any]:
+            return {"limit": pipeline.config.cli.limit}
 
-        select_fields = source_config.parameters.select_fields
-        records: list[Mapping[str, Any]] = []
-
-        filters_payload = {
-            "mode": "all",
-            "limit": int(limit) if limit is not None else None,
-            "page_size": page_size,
-            "batch_size": batch_size,
-            "select_fields": list(select_fields) if select_fields else None,
-        }
-        compact_filters = {
-            key: value for key, value in filters_payload.items() if value is not None
-        }
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_filters,
-            requested_at_utc=datetime.now(timezone.utc),
+        return ChemblExtractionDescriptor(
+            name="chembl_target",
+            source_name="chembl",
+            source_config_factory=TargetSourceConfig.from_source_config,
+            build_context=build_context,
+            id_column="target_chembl_id",
+            summary_event="chembl_target.extract_summary",
+            sort_by=("target_chembl_id",),
+            empty_frame_factory=empty_frame,
+            dry_run_handler=dry_run_handler,
+            summary_extra=summary_extra,
         )
-
-        # Используем специализированный клиент для target
-        target_client = ChemblTargetClient(chembl_client, batch_size=min(page_size, 25))
-        for item in target_client.iterate_all(
-            limit=limit,
-            page_size=page_size,
-            select_fields=select_fields,
-        ):
-            records.append(item)
-
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_target.extract_summary",
-            rows=int(dataframe.shape[0]),
-            duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            limit=limit,
-        )
-        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract target records by a specific list of IDs using batch extraction.
