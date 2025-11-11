@@ -67,3 +67,14 @@ export BIOETL__DETERMINISM__HASHING__ALGORITHM=blake2b
 | `CROSSREF_MAILTO` | `SOURCES__CROSSREF__IDENTIFY__MAILTO` | Полит pool Crossref |
 | `SEMANTIC_SCHOLAR_API_KEY` | `SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY` | Аутентификация Semantic Scholar |
 | `IUPHAR_API_KEY` | `SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY` | Доступ к IUPHAR API |
+
+## 7. Полный список переменных `BIOETL__...`
+
+| Переменная | Назначение | Используется |
+| --- | --- | --- |
+| `BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL` | Идентификация клиента PubMed | `src/bioetl/config/environment.py` |
+| `BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL` | Контактный email для PubMed | `src/bioetl/config/environment.py` |
+| `BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY` | API-ключ NCBI | `src/bioetl/config/environment.py` |
+| `BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO` | Контакт для Crossref | `src/bioetl/config/environment.py` |
+| `BIOETL__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY` | API-ключ Semantic Scholar | `src/bioetl/config/environment.py` |
+| `BIOETL__SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY` | API-ключ IUPHAR | `src/bioetl/config/environment.py` |
