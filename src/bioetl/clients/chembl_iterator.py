@@ -7,7 +7,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import urlencode
 
-from structlog.stdlib import BoundLogger  # type: ignore[reportMissingImports]
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl_base import EntityConfig
 from bioetl.core.logger import UnifiedLogger
@@ -61,7 +61,7 @@ class ChemblEntityIterator:
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
         self._chembl_release: str | None = None
-        self._log: BoundLogger = UnifiedLogger.get(__name__).bind(  # type: ignore[reportUnknownMemberType]
+        self._log: BoundLogger = UnifiedLogger.get(__name__).bind(
             component="chembl_iterator",
             entity=config.log_prefix,
         )
@@ -116,7 +116,7 @@ class ChemblEntityIterator:
             Payload ответа от handshake или пустой словарь, если disabled.
         """
         if not enabled:
-            self._log.info(  # type: ignore[reportUnknownMemberType]
+            self._log.info(
                 f"{self._config.log_prefix}.handshake.skipped",
                 handshake_endpoint=endpoint,
                 handshake_enabled=enabled,
@@ -129,7 +129,7 @@ class ChemblEntityIterator:
         if isinstance(release, str):
             self._chembl_release = release
 
-        self._log.info(  # type: ignore[reportUnknownMemberType]
+        self._log.info(
             f"{self._config.log_prefix}.handshake",
             handshake_endpoint=endpoint,
             handshake_enabled=enabled,
