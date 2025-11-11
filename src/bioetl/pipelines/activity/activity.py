@@ -41,6 +41,7 @@ from bioetl.schemas.vocab import required_vocab_ids
 
 from ..base import RunResult
 from ..chembl_base import (
+    BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
@@ -185,35 +186,114 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         ) = self._prepare_activity_iteration()
 
         limit = self.config.cli.limit
+        invalid_ids: list[Any] = []
 
-        id_filters = {
-            "mode": "ids",
-            "requested_ids": [str(id_value) for id_value in ids],
-            "limit": int(limit) if limit is not None else None,
-            "batch_size": source_config.batch_size,
-        }
-        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_id_filters,
-            requested_at_utc=datetime.now(timezone.utc),
-        )
+        def normalize_activity_id(raw: Any) -> tuple[str | None, Any]:
+            if pd.isna(raw):
+                return None, None
+            try:
+                if isinstance(raw, str):
+                    candidate = raw.strip()
+                    if not candidate:
+                        return None, None
+                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
+                elif isinstance(raw, (int, float)):
+                    numeric_id = int(raw)
+                else:
+                    numeric_id = int(raw)
+            except (TypeError, ValueError):
+                invalid_ids.append(raw)
+                return None, None
+            return str(numeric_id), int(numeric_id)
 
-        input_frame = pd.DataFrame({"activity_id": list(ids)})
+        def delegated_fetch(
+            canonical_ids: Sequence[str],
+            context: BatchExtractionContext,
+        ) -> tuple[Sequence[Mapping[str, Any]], Mapping[str, Any]]:
+            numeric_map = context.metadata
+            normalized_ids: list[tuple[int, str]] = []
+            for identifier in canonical_ids:
+                numeric_value = numeric_map.get(identifier)
+                if numeric_value is None:
+                    continue
+                normalized_ids.append((int(numeric_value), identifier))
+            if not normalized_ids:
+                summary = {
+                    "total_activities": 0,
+                    "success": 0,
+                    "fallback": 0,
+                    "errors": 0,
+                    "api_calls": 0,
+                    "cache_hits": 0,
+                    "batches": 0,
+                    "duration_ms": 0.0,
+                    "success_rate": 0.0,
+                }
+                context.extra["delegated_summary"] = summary
+                return [], summary
 
-        batch_dataframe = self._extract_from_chembl(
-            input_frame,
-            chembl_client,
-            activity_iterator,
-            limit=limit,
+            records, summary = self._collect_records_by_ids(
+                normalized_ids,
+                activity_iterator,
+                select_fields=context.select_fields or None,
+            )
+            context.extra["delegated_summary"] = summary
+            return records, summary
+
+        def finalize_dataframe(
+            dataframe: pd.DataFrame, context: BatchExtractionContext
+        ) -> pd.DataFrame:
+            dataframe = self._ensure_comment_fields(dataframe, log)
+            dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
+            dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
+            self._log_validity_comments_metrics(dataframe, log)
+            return dataframe
+
+        def empty_activity_frame() -> pd.DataFrame:
+            return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+
+        def finalize_context(context: BatchExtractionContext) -> None:
+            summary = context.extra.get("delegated_summary")
+            if isinstance(summary, Mapping):
+                summary_dict = dict(summary)
+                context.extra["stats_attribute_override"] = summary_dict
+                self._last_batch_extract_stats = summary_dict
+            else:
+                context.extra["stats_attribute_override"] = context.stats.as_dict()
+                self._last_batch_extract_stats = context.stats.as_dict()
+
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column="activity_id",
+            fetcher=delegated_fetch,
             select_fields=select_fields,
+            batch_size=source_config.batch_size,
+            max_batch_size=25,
+            limit=limit,
+            metadata_filters={
+                "select_fields": list(select_fields) if select_fields else None,
+            },
+            chembl_release=self._chembl_release,
+            id_normalizer=normalize_activity_id,
+            sort_key=lambda pair: int(pair[0]),
+            finalize=finalize_dataframe,
+            finalize_context=finalize_context,
+            stats_attribute="_last_batch_extract_stats",
+            fetch_mode="delegated",
+            empty_frame_factory=empty_activity_frame,
         )
+
+        if invalid_ids:
+            log.warning(
+                "chembl_activity.invalid_activity_ids",
+                invalid_count=len(invalid_ids),
+            )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         batch_stats = self._last_batch_extract_stats or {}
         log.info(
             "chembl_activity.extract_by_ids_summary",
-            rows=int(batch_dataframe.shape[0]),
+            rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
             chembl_release=self._chembl_release,
@@ -221,7 +301,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             api_calls=batch_stats.get("api_calls"),
             cache_hits=batch_stats.get("cache_hits"),
         )
-        return batch_dataframe
+        return dataframe
 
     def _prepare_activity_iteration(
         self,

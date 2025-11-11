@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
@@ -27,6 +27,7 @@ from bioetl.core.normalizers import (
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 from ..chembl_base import (
+    BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
@@ -179,56 +180,33 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
 
-        id_filters = {
-            "mode": "ids",
-            "requested_ids": [str(value) for value in ids],
-            "limit": int(limit) if limit is not None else None,
-            "batch_size": batch_size,
-            "select_fields": list(select_fields) if select_fields else None,
-        }
-        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
-        self.record_extract_metadata(
+        target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
+
+        def fetch_targets(
+            batch_ids: Sequence[str],
+            context: BatchExtractionContext,
+        ) -> Iterable[Mapping[str, Any]]:
+            iterator = target_client.iterate_by_ids(
+                batch_ids,
+                select_fields=context.select_fields or None,
+            )
+            for item in iterator:
+                yield dict(item)
+
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column="target_chembl_id",
+            fetcher=fetch_targets,
+            select_fields=select_fields,
+            batch_size=batch_size,
+            chunk_size=min(batch_size, 100),
+            max_batch_size=25,
+            limit=limit,
+            metadata_filters={
+                "select_fields": list(select_fields) if select_fields else None,
+            },
             chembl_release=self._chembl_release,
-            filters=compact_id_filters,
-            requested_at_utc=datetime.now(timezone.utc),
         )
-
-        # Process IDs in chunks to avoid URL length limits
-        chunk_size = min(batch_size, 100)  # Conservative limit for target_chembl_id__in
-        all_records: list[Mapping[str, Any]] = []
-        ids_list = list(ids)
-
-        for i in range(0, len(ids_list), chunk_size):
-            chunk = ids_list[i : i + chunk_size]
-            params: dict[str, Any] = {
-                "target_chembl_id__in": ",".join(chunk),
-                "limit": min(batch_size, 25),
-            }
-            if select_fields:
-                params["only"] = ",".join(select_fields)
-
-            try:
-                # Используем специализированный клиент для target
-                target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
-                for item in target_client.iterate_by_ids(chunk, select_fields=select_fields):
-                    all_records.append(item)
-                    if limit is not None and len(all_records) >= limit:
-                        break
-            except Exception as exc:
-                log.warning(
-                    "chembl_target.fetch_error",
-                    target_count=len(chunk),
-                    error=str(exc),
-                    exc_info=True,
-                )
-
-            if limit is not None and len(all_records) >= limit:
-                break
-
-        records_for_frame: list[dict[str, Any]] = [dict(record) for record in all_records]
-        dataframe = pd.DataFrame(records_for_frame)
-        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -238,6 +216,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             duration_ms=duration_ms,
             chembl_release=self._chembl_release,
             limit=limit,
+            batches=stats.batches,
+            api_calls=stats.api_calls,
         )
         return dataframe
 

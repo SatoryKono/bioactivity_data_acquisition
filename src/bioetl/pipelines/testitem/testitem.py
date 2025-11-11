@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
 
@@ -19,6 +19,7 @@ from bioetl.core.normalizers import StringRule, StringStats, normalize_string_co
 from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ..chembl_base import (
+    BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
@@ -271,52 +272,39 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        page_size = source_config.page_size
-        # Ensure page_size <= 25 for ChEMBL API URL length limit
-        page_size = min(page_size, 25)
+        page_size = min(source_config.page_size, 25)
         limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-        if select_fields is not None:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
-        log.debug("chembl_testitem.select_fields", fields=select_fields)
+        resolved_select_fields = source_config.parameters.select_fields
+        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
+        log.debug("chembl_testitem.select_fields", fields=merged_select_fields)
 
-        records: list[Mapping[str, Any]] = []
-        ids_list = list(ids)
+        testitem_client = ChemblTestitemClient(chembl_client, batch_size=page_size)
 
-        # Process IDs in chunks to avoid URL length limits
-        chunk_size = min(page_size, 25)  # Conservative limit for molecule_chembl_id__in
-        for i in range(0, len(ids_list), chunk_size):
-            chunk = ids_list[i : i + chunk_size]
-            params: dict[str, Any] = {
-                "molecule_chembl_id__in": ",".join(chunk),
-                "limit": min(page_size, 25),
-            }
-            if select_fields:
-                params["only"] = ",".join(select_fields)
+        def fetch_testitems(
+            batch_ids: Sequence[str],
+            context: BatchExtractionContext,
+        ) -> Iterable[Mapping[str, Any]]:
+            iterator = testitem_client.iterate_by_ids(
+                batch_ids,
+                select_fields=context.select_fields or None,
+            )
+            for item in iterator:
+                yield dict(item)
 
-            try:
-                # Используем специализированный клиент для testitem (molecule)
-                testitem_client = ChemblTestitemClient(chembl_client, batch_size=min(page_size, 25))
-                for item in testitem_client.iterate_by_ids(chunk, select_fields=select_fields):
-                    records.append(item)
-                    if limit is not None and len(records) >= limit:
-                        break
-            except Exception as exc:
-                log.warning(
-                    "chembl_testitem.fetch_error",
-                    molecule_count=len(chunk),
-                    error=str(exc),
-                    exc_info=True,
-                )
-
-            if limit is not None and len(records) >= limit:
-                break
-
-        dataframe = pd.DataFrame(records)
-        if dataframe.empty:
-            dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
-        elif "molecule_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("molecule_chembl_id").reset_index(drop=True)
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column="molecule_chembl_id",
+            fetcher=fetch_testitems,
+            select_fields=merged_select_fields or None,
+            batch_size=page_size,
+            chunk_size=min(page_size, 25),
+            max_batch_size=25,
+            limit=limit,
+            metadata_filters={
+                "select_fields": list(merged_select_fields) if merged_select_fields else None,
+            },
+            chembl_release=self._chembl_release,
+        )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -327,6 +315,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             chembl_db_version=self._chembl_db_version,
             api_version=self._api_version,
             limit=limit,
+            batches=stats.batches,
+            api_calls=stats.api_calls,
         )
         return dataframe
 
