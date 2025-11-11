@@ -11,7 +11,7 @@ import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Literal, cast
+from typing import Any, Generic, Literal, TypeVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -23,6 +23,9 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
+
+
+PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase")
 
 
 @dataclass(slots=True)
@@ -42,33 +45,33 @@ class ChemblExtractionContext:
 
 
 @dataclass(slots=True)
-class ChemblExtractionDescriptor:
+class ChemblExtractionDescriptor(Generic[PipelineT]):
     """Descriptor describing how to execute a ``run_extract_all`` operation."""
 
     name: str
     source_name: str
     source_config_factory: Callable[[SourceConfig], Any]
-    build_context: Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]
+    build_context: Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext]
     id_column: str
     summary_event: str
     must_have_fields: Sequence[str] = ()
     default_select_fields: Sequence[str] | None = None
     record_transform: Callable[
-        [ChemblPipelineBase, Mapping[str, Any], ChemblExtractionContext],
+        [PipelineT, Mapping[str, Any], ChemblExtractionContext],
         Mapping[str, Any],
     ] | None = None
     post_processors: Sequence[
-        Callable[[ChemblPipelineBase, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+        Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
     ] = ()
     sort_by: Sequence[str] | str | None = None
-    empty_frame_factory: Callable[[ChemblPipelineBase, ChemblExtractionContext], pd.DataFrame] | None = None
+    empty_frame_factory: Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None = None
     dry_run_handler: Callable[
-        [ChemblPipelineBase, ChemblExtractionContext, BoundLogger, float],
+        [PipelineT, ChemblExtractionContext, BoundLogger, float],
         pd.DataFrame,
     ] | None = None
     hard_page_size_cap: int | None = 25
     summary_extra: Callable[
-        [ChemblPipelineBase, pd.DataFrame, ChemblExtractionContext],
+        [PipelineT, pd.DataFrame, ChemblExtractionContext],
         Mapping[str, Any],
     ] | None = None
 
@@ -459,7 +462,9 @@ class ChemblPipelineBase(PipelineBase):
         log.info(event_name, mode="full")
         return full_callback()
 
-    def run_extract_all(self, descriptor: ChemblExtractionDescriptor) -> pd.DataFrame:
+    def run_extract_all(
+        self: PipelineT, descriptor: ChemblExtractionDescriptor[PipelineT]
+    ) -> pd.DataFrame:
         """Execute a descriptor-driven extraction loop with uniform metadata."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")

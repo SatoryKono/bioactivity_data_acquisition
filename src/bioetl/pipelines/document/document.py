@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Iterable, Mapping, Sequence
-from datetime import datetime, timezone
 from numbers import Integral, Real
 from typing import Any, cast
 
@@ -15,6 +14,7 @@ from structlog.stdlib import BoundLogger
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
+from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
@@ -46,7 +46,11 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
 )
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {"document_chembl_id", "doi", "issue"}
+MUST_HAVE_FIELDS: tuple[str, ...] = (
+    "document_chembl_id",
+    "doi",
+    "issue",
+)
 
 
 class ChemblDocumentPipeline(ChemblPipelineBase):
@@ -79,16 +83,29 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         return self.run_extract_all(self._build_document_descriptor())
 
-    def _build_document_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_document_descriptor(self) -> ChemblExtractionDescriptor["ChemblDocumentPipeline"]:
         """Return the descriptor powering the shared extraction routine."""
 
+        def _require_document_pipeline(pipeline: ChemblPipelineBase) -> ChemblDocumentPipeline:
+            if isinstance(pipeline, ChemblDocumentPipeline):
+                return pipeline
+            msg = "ChemblDocumentPipeline instance required"
+            raise TypeError(msg)
+
         def build_context(
-            pipeline: "ChemblDocumentPipeline",
-            source_config: DocumentSourceConfig,
+            pipeline: ChemblPipelineBase,
+            source_config: Any,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
+            document_pipeline = _require_document_pipeline(pipeline)
+            typed_source_config = (
+                source_config
+                if isinstance(source_config, DocumentSourceConfig)
+                else DocumentSourceConfig.from_source_config(cast(Any, source_config))
+            )
+
+            base_url = document_pipeline._resolve_base_url(typed_source_config.parameters)
+            http_client, _ = document_pipeline.prepare_chembl_client(
                 "chembl",
                 base_url=base_url,
                 client_name="chembl_document_client",
@@ -96,36 +113,40 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             chembl_client = ChemblClient(http_client)
             document_client = ChemblDocumentClient(
                 chembl_client,
-                batch_size=min(source_config.batch_size, 25),
+                batch_size=min(typed_source_config.batch_size, 25),
             )
-            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
-            select_fields = source_config.parameters.select_fields
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=document_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
+            document_pipeline._chembl_release = document_pipeline.fetch_chembl_release(chembl_client, log)
+            select_fields = document_pipeline._resolve_select_fields(
+                cast(SourceConfig, cast(Any, typed_source_config)),
+                default_fields=API_DOCUMENT_FIELDS,
             )
 
+            context = ChemblExtractionContext(typed_source_config, document_client)
+            context.chembl_client = chembl_client
+            context.select_fields = tuple(select_fields) if select_fields else None
+            context.chembl_release = document_pipeline._chembl_release
+            return context
+
         def empty_frame(
-            _: "ChemblDocumentPipeline",
+            _: ChemblPipelineBase,
             __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
 
         def record_transform(
-            pipeline: "ChemblDocumentPipeline",
+            pipeline: ChemblPipelineBase,
             payload: Mapping[str, Any],
             _: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
-            return pipeline._extract_nested_fields(dict(payload))
+            document_pipeline = _require_document_pipeline(pipeline)
+            return document_pipeline._extract_nested_fields(dict(payload))
 
         def summary_extra(
-            _: "ChemblDocumentPipeline",
+            pipeline: ChemblPipelineBase,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
+            _require_document_pipeline(pipeline)
             page_size = context.page_size or 0
             pages = 0
             if page_size > 0:
@@ -133,14 +154,14 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 pages = (total_rows + page_size - 1) // page_size
             return {"pages": pages}
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionDescriptor[ChemblDocumentPipeline](
             name="chembl_document",
             source_name="chembl",
             source_config_factory=DocumentSourceConfig.from_source_config,
             build_context=build_context,
             id_column="document_chembl_id",
             summary_event="chembl_document.extract_summary",
-            must_have_fields=tuple(MUST_HAVE_FIELDS),
+            must_have_fields=MUST_HAVE_FIELDS,
             default_select_fields=API_DOCUMENT_FIELDS,
             record_transform=record_transform,
             sort_by=("document_chembl_id",),
@@ -182,7 +203,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         resolved_select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
         )
-        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
+        merged_select_fields = self._merge_select_fields(
+            resolved_select_fields,
+            MUST_HAVE_FIELDS,
+        )
 
         limit = self.config.cli.limit
 
@@ -432,10 +456,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 return data[1] if data is not None else 0
 
             authors_series: pd.Series[Any] = normalized_df["authors"]
-            normalized_result = authors_series.map(self._normalize_authors)
-            normalized_tuples = normalized_result.map(_to_author_tuple)
-            normalized_df["authors"] = normalized_tuples.map(_author_name_from_tuple)
-            normalized_df["authors_count"] = normalized_tuples.map(_author_count_from_tuple)
+            normalized_result = authors_series.apply(self._normalize_authors)
+            normalized_tuples = normalized_result.apply(_to_author_tuple)
+            normalized_df["authors"] = normalized_tuples.apply(_author_name_from_tuple)
+            normalized_df["authors_count"] = normalized_tuples.apply(_author_count_from_tuple)
 
         return normalized_df
 
@@ -492,7 +516,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                     return year_int
                 return None
 
-            normalized_year = df["year"].map(_coerce_year)
+            normalized_year = df["year"].apply(_coerce_year)
             df["year"] = normalized_year.astype("Int64")
 
         return df

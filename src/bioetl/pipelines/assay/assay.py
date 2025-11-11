@@ -162,7 +162,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         descriptor = self._build_assay_descriptor()
         return self.run_extract_all(descriptor)
 
-    def _build_assay_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_assay_descriptor(self) -> ChemblExtractionDescriptor["ChemblAssayPipeline"]:
         """Return the descriptor powering the shared extraction template."""
 
         def build_context(
@@ -312,7 +312,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 "limit": assay_pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionDescriptor[ChemblAssayPipeline](
             name="chembl_assay",
             source_name="chembl",
             source_config_factory=AssaySourceConfig.from_source_config,

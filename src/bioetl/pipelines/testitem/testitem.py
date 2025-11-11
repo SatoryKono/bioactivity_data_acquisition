@@ -27,7 +27,7 @@ from ..chembl_base import (
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     # Скаляры
     "molecule_chembl_id",
     "pref_name",
@@ -42,7 +42,7 @@ MUST_HAVE_FIELDS = {
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
-}
+)
 
 
 class TestItemChemblPipeline(ChemblPipelineBase):
@@ -144,7 +144,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         descriptor = self._build_testitem_descriptor()
         return self.run_extract_all(descriptor)
 
-    def _build_testitem_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_testitem_descriptor(self) -> ChemblExtractionDescriptor["TestItemChemblPipeline"]:
         """Return the descriptor powering testitem extraction."""
 
         def build_context(
@@ -214,7 +214,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 "limit": pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionDescriptor[TestItemChemblPipeline](
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,

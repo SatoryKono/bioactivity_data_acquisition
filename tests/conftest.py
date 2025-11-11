@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
 from pathlib import Path
@@ -10,7 +11,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
+import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
@@ -26,6 +27,12 @@ from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.api_client import UnifiedAPIClient
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_DIR = PROJECT_ROOT / "src"
+
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
 
 DATA_DIR = Path(__file__).parent / "data"
 

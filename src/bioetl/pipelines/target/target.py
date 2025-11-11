@@ -69,7 +69,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         descriptor = self._build_target_descriptor()
         return self.run_extract_all(descriptor)
 
-    def _build_target_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_target_descriptor(self) -> ChemblExtractionDescriptor["ChemblTargetPipeline"]:
         """Return the descriptor powering target extraction."""
 
         def build_context(
@@ -127,7 +127,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         ) -> Mapping[str, Any]:
             return {"limit": pipeline.config.cli.limit}
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionDescriptor[ChemblTargetPipeline](
             name="chembl_target",
             source_name="chembl",
             source_config_factory=TargetSourceConfig.from_source_config,

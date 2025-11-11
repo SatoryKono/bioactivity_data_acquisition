@@ -6,11 +6,10 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
+import pytest  # type: ignore[import-not-found]
 
 from bioetl.config import PipelineConfig
-from bioetl.config.activity import ActivitySourceConfig
-from bioetl.pipelines.activity.activity import API_ACTIVITY_FIELDS, ChemblActivityPipeline
+from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 from bioetl.schemas.activity import ActivitySchema
 
 
@@ -345,14 +344,9 @@ class TestValidityCommentsOnlyFields:
         """Test that extract uses only= parameter to request specific fields."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        source_config_raw = pipeline._resolve_source_config("chembl")  # type: ignore[reportPrivateUsage]
-        source_config = ActivitySourceConfig.from_source_config(source_config_raw)
-        select_fields = pipeline._resolve_select_fields(  # type: ignore[reportPrivateUsage]
-            source_config_raw,
-            default_fields=API_ACTIVITY_FIELDS,
-        )
-
+        http_client_stub = MagicMock()
         chembl_client_stub = MagicMock()
+        chembl_client_stub.handshake.return_value = {"chembl_db_version": "test-release"}
         iterator_stub = MagicMock()
         iterator_stub.iterate_all.return_value = [
             {
@@ -368,9 +362,11 @@ class TestValidityCommentsOnlyFields:
         with (
             patch.object(
                 pipeline,
-                "_prepare_activity_iteration",
-                return_value=(source_config, chembl_client_stub, iterator_stub, select_fields),
+                "prepare_chembl_client",
+                return_value=(http_client_stub, "https://mock.chembl.api/data"),
             ),
+            patch("bioetl.pipelines.activity.activity.ChemblClient", return_value=chembl_client_stub),
+            patch("bioetl.pipelines.activity.activity.ChemblActivityClient", return_value=iterator_stub),
             patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
             patch.object(pipeline, "_log_validity_comments_metrics"),
         ):

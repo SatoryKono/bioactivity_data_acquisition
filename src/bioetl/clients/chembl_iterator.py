@@ -7,7 +7,9 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
 from urllib.parse import urlencode
 
-from structlog.stdlib import BoundLogger  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+from structlog.stdlib import (
+    BoundLogger,  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
+)
 
 from bioetl.clients.chembl_base import EntityConfig
 from bioetl.core.logger import UnifiedLogger
@@ -166,6 +168,7 @@ class ChemblEntityIterator:
 
         params: dict[str, object] = {}
         if limit is not None and limit > 0:
+            effective_page_size = min(effective_page_size, limit)
             params["limit"] = min(effective_page_size, limit)
         else:
             params["limit"] = effective_page_size

@@ -8,14 +8,18 @@ from unittest.mock import MagicMock, patch
 import pytest  # type: ignore[reportMissingImports]
 import typer  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
+from requests.exceptions import Timeout  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.command import (
-    _parse_set_overrides,  # type: ignore[reportPrivateUsage]
-    _validate_config_path,  # type: ignore[reportPrivateUsage]
-    _validate_output_dir,  # type: ignore[reportPrivateUsage]
+from bioetl.cli.command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
+    _parse_set_overrides,
+    _validate_config_path,
+    _validate_output_dir,
 )
 from bioetl.cli.main import app  # type: ignore[reportUnknownVariableType]
+from bioetl.config import (
+    load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
+)
 
 CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
 
@@ -176,18 +180,17 @@ sources:
 
         output_dir = tmp_path / "output"
 
+        real_config = load_config(
+            config_path=config_file,
+            include_default_profiles=True,
+        )
+
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
                 "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            from bioetl.config import load_config as real_load_config
-
-            real_config = real_load_config(
-                config_path=config_file,
-                include_default_profiles=True,
-            )
             mock_load_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -460,18 +463,17 @@ http:
 
         output_dir = tmp_path / "output"
 
+        real_config = load_config(
+            config_path=config_file,
+            include_default_profiles=False,
+        )
+
         with (
             patch("bioetl.config.load_config") as mock_load_config,
             patch(
                 "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            from bioetl.config import load_config as real_load_config
-
-            real_config = real_load_config(
-                config_path=config_file,
-                include_default_profiles=False,
-            )
             mock_load_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -498,3 +500,159 @@ http:
             call_kwargs = mock_pipeline.run.call_args[1]
             assert call_kwargs["include_correlation"] is True
             assert call_kwargs["include_qc_metrics"] is True
+
+    def test_activity_command_environment_settings_error(self, tmp_path: Path):
+        """Ensure environment validation errors surface as Typer exits."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+"""
+        )
+
+        output_dir = tmp_path / "output"
+
+        with patch("bioetl.cli.command.load_environment_settings") as mock_env_settings:
+            mock_env_settings.side_effect = ValueError("invalid environment")
+
+            result = runner.invoke(
+                CLI_APP,
+                [
+                    "activity_chembl",
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                ],
+            )
+
+        assert result.exit_code == 2  # type: ignore[reportUnknownMemberType]
+        combined_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
+        assert "Environment validation failed" in combined_output
+
+    def test_activity_command_external_api_error(self, tmp_path: Path):
+        """Ensure API exceptions exit with code 3."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+"""
+        )
+
+        output_dir = tmp_path / "output"
+
+        real_config = load_config(
+            config_path=config_file,
+            include_default_profiles=True,
+        )
+
+        with (
+            patch("bioetl.config.load_config") as mock_load_config,
+            patch(
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            ) as mock_pipeline_class,
+        ):
+            mock_load_config.return_value = real_config
+            mock_pipeline = MagicMock()
+            mock_pipeline.run.side_effect = Timeout("Request timeout")
+            mock_pipeline_class.return_value = mock_pipeline
+
+            result = runner.invoke(
+                CLI_APP,
+                [
+                    "activity_chembl",
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                ],
+            )
+
+        assert result.exit_code == 3  # type: ignore[reportUnknownMemberType]
+        combined_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
+        assert "External API failure" in combined_output
+
+    def test_activity_command_with_golden_and_input_file(self, tmp_path: Path):
+        """Ensure golden and input_file CLI flags propagate into config."""
+        runner = CliRunner()
+
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+"""
+        )
+
+        output_dir = tmp_path / "output"
+        golden_path = tmp_path / "golden.parquet"
+        input_file = tmp_path / "ids.csv"
+
+        real_config = load_config(
+            config_path=config_file,
+            include_default_profiles=True,
+        )
+
+        with (
+            patch("bioetl.config.load_config") as mock_load_config,
+            patch(
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
+            ) as mock_pipeline_class,
+        ):
+            mock_load_config.return_value = real_config
+            mock_pipeline = MagicMock()
+            mock_result = MagicMock()
+            mock_result.write_result.dataset = Path("test.csv")
+            mock_result.stage_durations_ms = {}
+            mock_pipeline.run.return_value = mock_result
+            mock_pipeline_class.return_value = mock_pipeline
+
+            result = runner.invoke(
+                CLI_APP,
+                [
+                    "activity_chembl",
+                    "--config",
+                    str(config_file),
+                    "--output-dir",
+                    str(output_dir),
+                    "--golden",
+                    str(golden_path),
+                    "--input-file",
+                    str(input_file),
+                ],
+            )
+
+            assert result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert mock_pipeline_class.called
+            call_args = mock_pipeline_class.call_args
+            call_config = call_args.args[0] if call_args.args else call_args.kwargs.get("config")
+            assert call_config is not None
+            assert call_config.cli.golden == str(golden_path)
+            assert call_config.cli.input_file == str(input_file)

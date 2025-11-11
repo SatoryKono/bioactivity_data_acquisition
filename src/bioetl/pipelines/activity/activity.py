@@ -340,7 +340,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return source_config, chembl_client, activity_iterator, select_fields
 
-    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor:
+    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor["ChemblActivityPipeline"]:
         """Construct the descriptor driving the shared extraction template."""
 
         def build_context(
@@ -393,7 +393,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             typed_pipeline._log_validity_comments_metrics(df, log)
             return df
 
-        return ChemblExtractionDescriptor(
+        return ChemblExtractionDescriptor[ChemblActivityPipeline](
             name="chembl_activity",
             source_name="chembl",
             source_config_factory=ActivitySourceConfig.from_source_config,

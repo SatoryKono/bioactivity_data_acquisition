@@ -60,7 +60,7 @@ determinism:
         ):
             from pathlib import Path as PathType
 
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             # Use absolute path to avoid resolution issues
@@ -72,17 +72,20 @@ determinism:
                 )
             except Exception:
                 # If config loading fails, create a minimal config manually
-                from bioetl.config.models.base import PipelineConfig, PipelineMetadata
-                from bioetl.config.models.cli import CLIConfig
-                from bioetl.config.models.determinism import (
+                from bioetl.config.models import (
+                    CLIConfig,
                     DeterminismConfig,
                     DeterminismHashingConfig,
                     DeterminismSortingConfig,
+                    HTTPClientConfig,
+                    HTTPConfig,
+                    MaterializationConfig,
+                    PipelineConfig,
+                    PipelineMetadata,
+                    RetryConfig,
+                    SourceConfig,
+                    ValidationConfig,
                 )
-                from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-                from bioetl.config.models.paths import MaterializationConfig
-                from bioetl.config.models.source import SourceConfig
-                from bioetl.config.models.validation import ValidationConfig
 
                 real_config = PipelineConfig(
                     version=1,
@@ -182,7 +185,7 @@ http:
             patch("bioetl.config.load_config") as mock_load_config,
             patch("bioetl.pipelines.activity.activity.ChemblActivityPipeline.run") as mock_run,
         ):
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             real_config = real_load_config(
