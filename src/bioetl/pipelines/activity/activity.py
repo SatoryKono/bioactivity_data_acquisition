@@ -340,7 +340,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return source_config, chembl_client, activity_iterator, select_fields
 
-    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor["ChemblActivityPipeline"]:
+    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor[ChemblActivityPipeline]:
         """Construct the descriptor driving the shared extraction template."""
 
         def build_context(
@@ -380,18 +380,24 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
         def post_process(
-            pipeline: ChemblPipelineBase,
+            pipeline: ChemblActivityPipeline,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
             log: BoundLogger,
         ) -> pd.DataFrame:
-            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
-            df = typed_pipeline._ensure_comment_fields(df, log)
+            df = pipeline._ensure_comment_fields(df, log)
             chembl_client = cast(ChemblClient, context.chembl_client)
             if chembl_client is not None:
-                df = typed_pipeline._extract_data_validity_descriptions(df, chembl_client, log)
-            typed_pipeline._log_validity_comments_metrics(df, log)
+                df = pipeline._extract_data_validity_descriptions(df, chembl_client, log)
+            pipeline._log_validity_comments_metrics(df, log)
             return df
+
+        def record_transform(
+            pipeline: ChemblActivityPipeline,
+            payload: Mapping[str, Any],
+            context: ChemblExtractionContext,  # noqa: ARG001
+        ) -> Mapping[str, Any]:
+            return pipeline._materialize_activity_record(payload)
 
         return ChemblExtractionDescriptor[ChemblActivityPipeline](
             name="chembl_activity",
@@ -402,9 +408,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             summary_event="chembl_activity.extract_summary",
             must_have_fields=("activity_id",),
             default_select_fields=API_ACTIVITY_FIELDS,
-            record_transform=lambda pipeline, payload, context: cast(
-                "ChemblActivityPipeline", pipeline
-            )._materialize_activity_record(payload),
+            record_transform=record_transform,
             post_processors=(post_process,),
             sort_by=("activity_id",),
             empty_frame_factory=empty_frame,

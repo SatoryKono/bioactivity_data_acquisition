@@ -6,7 +6,7 @@ import re
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from numbers import Integral, Real
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -26,6 +26,10 @@ from ..chembl_base import (
     ChemblPipelineBase,
 )
 from .document_enrich import enrich_with_document_terms
+
+SelfChemblDocumentPipeline = TypeVar(
+    "SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline"
+)
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "document_chembl_id",
@@ -83,17 +87,21 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         return self.run_extract_all(self._build_document_descriptor())
 
-    def _build_document_descriptor(self) -> ChemblExtractionDescriptor["ChemblDocumentPipeline"]:
+    def _build_document_descriptor(
+        self: SelfChemblDocumentPipeline,
+    ) -> ChemblExtractionDescriptor[SelfChemblDocumentPipeline]:
         """Return the descriptor powering the shared extraction routine."""
 
-        def _require_document_pipeline(pipeline: ChemblPipelineBase) -> ChemblDocumentPipeline:
+        def _require_document_pipeline(
+            pipeline: ChemblPipelineBase,
+        ) -> ChemblDocumentPipeline:
             if isinstance(pipeline, ChemblDocumentPipeline):
                 return pipeline
             msg = "ChemblDocumentPipeline instance required"
             raise TypeError(msg)
 
         def build_context(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblDocumentPipeline,
             source_config: Any,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
@@ -128,13 +136,13 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return context
 
         def empty_frame(
-            _: ChemblPipelineBase,
+            _: SelfChemblDocumentPipeline,
             __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
 
         def record_transform(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblDocumentPipeline,
             payload: Mapping[str, Any],
             _: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -142,7 +150,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return document_pipeline._extract_nested_fields(dict(payload))
 
         def summary_extra(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblDocumentPipeline,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -154,7 +162,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 pages = (total_rows + page_size - 1) // page_size
             return {"pages": pages}
 
-        return ChemblExtractionDescriptor[ChemblDocumentPipeline](
+        return ChemblExtractionDescriptor[SelfChemblDocumentPipeline](
             name="chembl_document",
             source_name="chembl",
             source_config_factory=DocumentSourceConfig.from_source_config,

@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -25,6 +25,10 @@ from ..chembl_base import (
     ChemblPipelineBase,
 )
 from .testitem_transform import transform as transform_testitem
+
+SelfTestitemChemblPipeline = TypeVar(
+    "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
+)
 
 # Обязательные поля, которые всегда должны быть в запросе к API
 MUST_HAVE_FIELDS: tuple[str, ...] = (
@@ -144,11 +148,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         descriptor = self._build_testitem_descriptor()
         return self.run_extract_all(descriptor)
 
-    def _build_testitem_descriptor(self) -> ChemblExtractionDescriptor["TestItemChemblPipeline"]:
+    def _build_testitem_descriptor(
+        self: SelfTestitemChemblPipeline,
+    ) -> ChemblExtractionDescriptor[SelfTestitemChemblPipeline]:
         """Return the descriptor powering testitem extraction."""
 
         def build_context(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: SelfTestitemChemblPipeline,
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
@@ -181,14 +187,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 metadata={"api_version": pipeline._api_version},
             )
 
-        def empty_frame(
-            _: "TestItemChemblPipeline",
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
+        def empty_frame(_: SelfTestitemChemblPipeline, __: ChemblExtractionContext) -> pd.DataFrame:
             return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
 
         def dry_run_handler(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: SelfTestitemChemblPipeline,
             _: ChemblExtractionContext,
             log: BoundLogger,
             stage_start: float,
@@ -204,7 +207,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             return pd.DataFrame()
 
         def summary_extra(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: SelfTestitemChemblPipeline,
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -214,7 +217,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 "limit": pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[TestItemChemblPipeline](
+        return ChemblExtractionDescriptor[SelfTestitemChemblPipeline](
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,

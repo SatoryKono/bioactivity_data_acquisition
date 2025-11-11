@@ -146,8 +146,6 @@ ignore_errors = true
 module = [
     "bioetl.normalizers.*",
     "bioetl.pandera_pandas",
-    "bioetl.utils.column_validator",
-    "bioetl.utils",
 ]
 ignore_errors = true
 

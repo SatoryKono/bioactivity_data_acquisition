@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 import pandas as pd
 from pandas import Series
@@ -37,6 +37,8 @@ from ..chembl_base import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+
+SelfChemblAssayPipeline = TypeVar("SelfChemblAssayPipeline", bound="ChemblAssayPipeline")
 
 _CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
     "assay_class_id",
@@ -162,19 +164,23 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         descriptor = self._build_assay_descriptor()
         return self.run_extract_all(descriptor)
 
-    def _build_assay_descriptor(self) -> ChemblExtractionDescriptor["ChemblAssayPipeline"]:
+    def _build_assay_descriptor(
+        self: SelfChemblAssayPipeline,
+    ) -> ChemblExtractionDescriptor[SelfChemblAssayPipeline]:
         """Return the descriptor powering the shared extraction template."""
 
+        def _require_assay_pipeline(pipeline: ChemblPipelineBase) -> ChemblAssayPipeline:
+            if isinstance(pipeline, ChemblAssayPipeline):
+                return pipeline
+            msg = "ChemblAssayPipeline instance required"
+            raise TypeError(msg)
+
         def build_context(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblAssayPipeline,
             source_config: AssaySourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            if not isinstance(pipeline, ChemblAssayPipeline):
-                msg = "ChemblAssayPipeline instance required"
-                raise TypeError(msg)
-
-            assay_pipeline = pipeline
+            assay_pipeline = _require_assay_pipeline(pipeline)
 
             http_client, _ = assay_pipeline.prepare_chembl_client(
                 "chembl",
@@ -222,22 +228,18 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return context
 
         def empty_frame(
-            _: ChemblPipelineBase,
+            _: SelfChemblAssayPipeline,
             __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"assay_chembl_id": pd.Series(dtype="string")})
 
         def post_process(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblAssayPipeline,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
             log: BoundLogger,
         ) -> pd.DataFrame:
-            if not isinstance(pipeline, ChemblAssayPipeline):
-                msg = "ChemblAssayPipeline instance required"
-                raise TypeError(msg)
-
-            assay_pipeline = pipeline
+            assay_pipeline = _require_assay_pipeline(pipeline)
 
             if df.empty:
                 return df
@@ -276,16 +278,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return df
 
         def dry_run_handler(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblAssayPipeline,
             _: ChemblExtractionContext,
             log: BoundLogger,
             stage_start: float,
         ) -> pd.DataFrame:
-            if not isinstance(pipeline, ChemblAssayPipeline):
-                msg = "ChemblAssayPipeline instance required"
-                raise TypeError(msg)
-
-            assay_pipeline = pipeline
+            assay_pipeline = _require_assay_pipeline(pipeline)
 
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(
@@ -297,22 +295,18 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return pd.DataFrame()
 
         def summary_extra(
-            pipeline: ChemblPipelineBase,
+            pipeline: SelfChemblAssayPipeline,
             _: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
-            if not isinstance(pipeline, ChemblAssayPipeline):
-                msg = "ChemblAssayPipeline instance required"
-                raise TypeError(msg)
-
-            assay_pipeline = pipeline
+            assay_pipeline = _require_assay_pipeline(pipeline)
 
             return {
                 "handshake_endpoint": context.source_config.parameters.handshake_endpoint,
                 "limit": assay_pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[ChemblAssayPipeline](
+        return ChemblExtractionDescriptor[SelfChemblAssayPipeline](
             name="chembl_assay",
             source_name="chembl",
             source_config_factory=AssaySourceConfig.from_source_config,

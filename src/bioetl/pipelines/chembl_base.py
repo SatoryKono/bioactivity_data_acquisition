@@ -24,8 +24,7 @@ from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
 
-
-PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase")
+PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase", contravariant=True)
 
 
 @dataclass(slots=True)

@@ -169,7 +169,7 @@ class ChemblEntityIterator:
         params: dict[str, object] = {}
         if limit is not None and limit > 0:
             effective_page_size = min(effective_page_size, limit)
-            params["limit"] = min(effective_page_size, limit)
+            params["limit"] = effective_page_size
         else:
             params["limit"] = effective_page_size
 
