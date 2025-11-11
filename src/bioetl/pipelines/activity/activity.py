@@ -21,7 +21,7 @@ from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
@@ -344,21 +344,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """Construct the descriptor driving the shared extraction template."""
 
         def build_context(
-            pipeline: "ChemblActivityPipeline",
+            pipeline: ChemblPipelineBase,
             source_config: ActivitySourceConfig,
-            log: Any,
+            log: BoundLogger,
         ) -> ChemblExtractionContext:
+            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
             http_client, _ = pipeline.prepare_chembl_client(
                 "chembl",
                 client_name="chembl_activity_client",
             )
             chembl_client = ChemblClient(
                 http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
+                load_meta_store=typed_pipeline.load_meta_store,
+                job_id=typed_pipeline.run_id,
+                operator=typed_pipeline.pipeline_code,
             )
-            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
+            typed_pipeline._chembl_release = typed_pipeline.fetch_chembl_release(chembl_client, log)
             activity_iterator = ChemblActivityClient(
                 chembl_client,
                 batch_size=source_config.batch_size,
@@ -369,26 +370,27 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 iterator=activity_iterator,
                 chembl_client=chembl_client,
                 select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
+                chembl_release=typed_pipeline._chembl_release,
             )
 
         def empty_frame(
-            pipeline: "ChemblActivityPipeline",
+            pipeline: ChemblPipelineBase,
             _: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
         def post_process(
-            pipeline: "ChemblActivityPipeline",
+            pipeline: ChemblPipelineBase,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
-            log: Any,
+            log: BoundLogger,
         ) -> pd.DataFrame:
-            df = pipeline._ensure_comment_fields(df, log)
+            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
+            df = typed_pipeline._ensure_comment_fields(df, log)
             chembl_client = cast(ChemblClient, context.chembl_client)
             if chembl_client is not None:
-                df = pipeline._extract_data_validity_descriptions(df, chembl_client, log)
-            pipeline._log_validity_comments_metrics(df, log)
+                df = typed_pipeline._extract_data_validity_descriptions(df, chembl_client, log)
+            typed_pipeline._log_validity_comments_metrics(df, log)
             return df
 
         return ChemblExtractionDescriptor(
@@ -448,7 +450,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         input_frame: pd.DataFrame,
         *,
         limit: int | None,
-        log: Any,
+        log: BoundLogger,
     ) -> list[tuple[int, str]]:
         """Normalize raw identifier values into deduplicated integer/string pairs."""
 
@@ -1141,8 +1143,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             }
             self._last_batch_extract_stats = summary
             log.info("chembl_activity.batch_summary", **summary)
-            dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
-            return self._ensure_comment_fields(dataframe, log)
+            empty_frame = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+            return self._ensure_comment_fields(empty_frame, log)
 
         records, summary = self._collect_records_by_ids(
             normalized_ids,
@@ -1154,18 +1156,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._last_batch_extract_stats = summary
         log.info("chembl_activity.batch_summary", **summary)
 
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
-        if dataframe.empty:
-            dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
-        elif "activity_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
+        result_df: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        if result_df.empty:
+            result_df = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+        elif "activity_id" in result_df.columns:
+            result_df = result_df.sort_values("activity_id").reset_index(drop=True)
 
-        dataframe = self._ensure_comment_fields(dataframe, log)
-        dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
-        dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
-        self._log_validity_comments_metrics(dataframe, log)
+        result_df = self._ensure_comment_fields(result_df, log)
+        result_df = self._extract_data_validity_descriptions(result_df, chembl_client, log)
+        result_df = self._extract_assay_fields(result_df, chembl_client, log)
+        self._log_validity_comments_metrics(result_df, log)
 
-        return dataframe
+        return result_df
 
     def _check_cache(
         self,
@@ -1316,7 +1318,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             "activity_properties": self._serialize_activity_properties(fallback_properties),
         }
 
-    def _ensure_comment_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _ensure_comment_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Гарантировать присутствие полей комментариев в DataFrame.
 
         Если поля отсутствуют, добавляет их с pd.NA (dtype="string").
@@ -1352,7 +1354,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return df
 
     def _extract_data_validity_descriptions(
-        self, df: pd.DataFrame, client: ChemblClient, log: Any
+        self, df: pd.DataFrame, client: ChemblClient, log: BoundLogger
     ) -> pd.DataFrame:
         """Извлечь data_validity_description из DATA_VALIDITY_LOOKUP через отдельный запрос.
 
@@ -1490,7 +1492,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return df_result
 
     def _extract_assay_fields(
-        self, df: pd.DataFrame, client: ChemblClient, log: Any
+        self, df: pd.DataFrame, client: ChemblClient, log: BoundLogger
     ) -> pd.DataFrame:
         """Извлечь assay_organism и assay_tax_id из ASSAYS через отдельный запрос.
 
@@ -1675,7 +1677,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df_result
 
-    def _log_validity_comments_metrics(self, df: pd.DataFrame, log: Any) -> None:
+    def _log_validity_comments_metrics(self, df: pd.DataFrame, log: BoundLogger) -> None:
         """Логировать метрики заполненности полей комментариев.
 
         Вычисляет:
@@ -2169,7 +2171,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     # Transformation helpers
     # ------------------------------------------------------------------
 
-    def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _harmonize_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Ensure canonical identifier columns are present before normalization."""
 
         df = df.copy()
@@ -2220,7 +2222,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             specs[column] = {"dtype": "boolean", "default": pd.NA}
         return specs
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Normalize ChEMBL and BAO identifiers with regex validation."""
 
         rules = [
@@ -2254,7 +2256,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return normalized_df
 
-    def _finalize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _finalize_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Align identifier columns after normalization and drop aliases."""
 
         df = df.copy()
@@ -2301,7 +2303,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _finalize_output_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _finalize_output_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Align final column order with schema and drop unexpected fields."""
 
         df = df.copy()
@@ -2327,7 +2329,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df[expected]
 
-    def _filter_invalid_required_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _filter_invalid_required_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Filter out rows with NULL values in required identifier fields.
 
         Removes rows where any of the required fields (assay_chembl_id,
@@ -2385,7 +2387,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _normalize_measurements(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_measurements(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Normalize standard_value, standard_units, standard_relation, and standard_type."""
 
         df = df.copy()
@@ -2556,7 +2558,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Normalize string fields: trim, empty string to null, title-case for organism."""
 
         working_df = df.copy()
@@ -2609,7 +2611,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return normalized_df
 
-    def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _normalize_nested_structures(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Serialize nested structures (ligand_efficiency, activity_properties) to JSON strings."""
 
         df = df.copy()
@@ -2663,7 +2665,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _serialize_activity_properties(self, value: Any, log: Any | None = None) -> str | None:
+    def _serialize_activity_properties(
+        self, value: Any, log: BoundLogger | None = None
+    ) -> str | None:
         """Return normalized JSON for activity_properties or None if not serializable."""
 
         normalized_items = self._normalize_activity_properties_items(value, log)
@@ -2677,7 +2681,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return None
 
     def _normalize_activity_properties_items(
-        self, value: Any, log: Any | None = None
+        self, value: Any, log: BoundLogger | None = None
     ) -> list[dict[str, Any]] | None:
         """Coerce activity_properties payloads into a list of constrained dictionaries."""
 
@@ -2741,7 +2745,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _validate_activity_properties_truv(
         self,
         properties: list[dict[str, Any]],
-        log: Any,
+        log: BoundLogger,
         activity_id: Any | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
         """Валидация TRUV-формата для activity_properties.
@@ -2818,7 +2822,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _deduplicate_activity_properties(
         self,
         properties: list[dict[str, Any]],
-        log: Any,
+        log: BoundLogger,
         activity_id: Any | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
         """Дедупликация точных дубликатов в activity_properties.
@@ -2873,7 +2877,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return deduplicated, stats
 
-    def _add_row_metadata(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _add_row_metadata(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Add required row metadata fields (row_subtype, row_index)."""
 
         df = df.copy()
@@ -2898,7 +2902,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
+    def _normalize_data_types(
+        self, df: pd.DataFrame, schema: Any, log: BoundLogger
+    ) -> pd.DataFrame:
         """Convert data types according to the Pandera schema."""
 
         df = df.copy()
@@ -3046,7 +3052,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _validate_foreign_keys(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+    def _validate_foreign_keys(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Validate foreign key integrity and format of ChEMBL IDs."""
 
         chembl_id_pattern = re.compile(r"^CHEMBL\d+$")
@@ -3078,7 +3084,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return df
 
-    def _check_activity_id_uniqueness(self, df: pd.DataFrame, log: Any) -> None:
+    def _check_activity_id_uniqueness(self, df: pd.DataFrame, log: BoundLogger) -> None:
         """Check uniqueness of activity_id before validation."""
 
         if "activity_id" not in df.columns:
@@ -3103,7 +3109,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         log.debug("activity_id_uniqueness_verified", unique_count=df["activity_id"].nunique())
 
-    def _validate_data_validity_comment_soft_enum(self, df: pd.DataFrame, log: Any) -> None:
+    def _validate_data_validity_comment_soft_enum(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> None:
         """Soft enum валидация для data_validity_comment.
 
         Проверяет значения против whitelist из конфига. Неизвестные значения
@@ -3153,7 +3161,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Unknown data_validity_comment values detected (soft enum: not blocking)",
             )
 
-    def _check_foreign_key_integrity(self, df: pd.DataFrame, log: Any) -> None:
+    def _check_foreign_key_integrity(self, df: pd.DataFrame, log: BoundLogger) -> None:
         """Check foreign key integrity for ChEMBL IDs (format validation for non-null values)."""
 
         reference_fields = [
@@ -3206,7 +3214,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self,
         failure_cases: pd.DataFrame,
         payload: pd.DataFrame,
-        log: Any,
+        log: BoundLogger,
     ) -> None:
         """Log individual validation errors with row index and activity_id."""
 

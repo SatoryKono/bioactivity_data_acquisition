@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from datetime import datetime, timezone
 from typing import Any, cast
 
 import pandas as pd
@@ -113,13 +112,13 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
     return identifiers
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS = {
+MUST_HAVE_FIELDS: tuple[str, ...] = (
     "assay_chembl_id",
     #   "assay_category",
     #   "assay_group",
     #   "src_assay_id",
     #   "curation_level",
-}
+)
 
 
 class ChemblAssayPipeline(ChemblPipelineBase):
@@ -167,11 +166,17 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         """Return the descriptor powering the shared extraction template."""
 
         def build_context(
-            pipeline: "ChemblAssayPipeline",
+            pipeline: ChemblPipelineBase,
             source_config: AssaySourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            http_client, _ = pipeline.prepare_chembl_client(
+            if not isinstance(pipeline, ChemblAssayPipeline):
+                msg = "ChemblAssayPipeline instance required"
+                raise TypeError(msg)
+
+            assay_pipeline = pipeline
+
+            http_client, _ = assay_pipeline.prepare_chembl_client(
                 "chembl",
                 client_name="chembl_assay_http",
             )
@@ -191,44 +196,49 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 endpoint=source_config.parameters.handshake_endpoint,
                 enabled=source_config.parameters.handshake_enabled,
             )
-            pipeline._chembl_release = assay_client.chembl_release
+            assay_pipeline._chembl_release = assay_client.chembl_release
             log.info(
                 "chembl_assay.handshake",
-                chembl_release=pipeline._chembl_release,
+                chembl_release=assay_pipeline._chembl_release,
                 handshake_endpoint=source_config.parameters.handshake_endpoint,
                 handshake_enabled=source_config.parameters.handshake_enabled,
             )
 
-            raw_source = pipeline._resolve_source_config("chembl")
-            select_fields = pipeline._resolve_select_fields(raw_source)
+            raw_source = assay_pipeline._resolve_source_config("chembl")
+            select_fields = assay_pipeline._resolve_select_fields(raw_source)
             log.debug(
                 "chembl_assay.select_fields",
                 fields=select_fields,
                 fields_count=len(select_fields) if select_fields else 0,
             )
 
-            context = ChemblExtractionContext(
-                source_config=source_config,
-                iterator=assay_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
-                extra_filters={"max_url_length": source_config.max_url_length},
+            context = ChemblExtractionContext(source_config, assay_client)
+            context.chembl_client = chembl_client
+            context.select_fields = (
+                tuple(select_fields) if select_fields else None
             )
+            context.chembl_release = assay_pipeline._chembl_release
+            context.extra_filters = {"max_url_length": source_config.max_url_length}
             return context
 
         def empty_frame(
-            _: "ChemblAssayPipeline",
+            _: ChemblPipelineBase,
             __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"assay_chembl_id": pd.Series(dtype="string")})
 
         def post_process(
-            pipeline: "ChemblAssayPipeline",
+            pipeline: ChemblPipelineBase,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
             log: BoundLogger,
         ) -> pd.DataFrame:
+            if not isinstance(pipeline, ChemblAssayPipeline):
+                msg = "ChemblAssayPipeline instance required"
+                raise TypeError(msg)
+
+            assay_pipeline = pipeline
+
             if df.empty:
                 return df
 
@@ -251,14 +261,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                         missing_fields=missing_in_response,
                         requested_fields_count=len(select_fields),
                         received_fields_count=len(actual_fields),
-                        chembl_release=pipeline._chembl_release,
+                        chembl_release=assay_pipeline._chembl_release,
                         message=(
                             "Fields requested in select_fields but missing in API response: "
                             f"{missing_in_response}"
                         ),
                     )
 
-            df = pipeline._check_missing_columns(
+            df = assay_pipeline._check_missing_columns(
                 df,
                 log,
                 select_fields=list(select_fields) if select_fields else None,
@@ -266,28 +276,40 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             return df
 
         def dry_run_handler(
-            pipeline: "ChemblAssayPipeline",
+            pipeline: ChemblPipelineBase,
             _: ChemblExtractionContext,
             log: BoundLogger,
             stage_start: float,
         ) -> pd.DataFrame:
+            if not isinstance(pipeline, ChemblAssayPipeline):
+                msg = "ChemblAssayPipeline instance required"
+                raise TypeError(msg)
+
+            assay_pipeline = pipeline
+
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(
                 "chembl_assay.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=pipeline._chembl_release,
+                chembl_release=assay_pipeline._chembl_release,
             )
             return pd.DataFrame()
 
         def summary_extra(
-            pipeline: "ChemblAssayPipeline",
+            pipeline: ChemblPipelineBase,
             _: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
+            if not isinstance(pipeline, ChemblAssayPipeline):
+                msg = "ChemblAssayPipeline instance required"
+                raise TypeError(msg)
+
+            assay_pipeline = pipeline
+
             return {
                 "handshake_endpoint": context.source_config.parameters.handshake_endpoint,
-                "limit": pipeline.config.cli.limit,
+                "limit": assay_pipeline.config.cli.limit,
             }
 
         return ChemblExtractionDescriptor(
@@ -297,7 +319,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             build_context=build_context,
             id_column="assay_chembl_id",
             summary_event="chembl_assay.extract_summary",
-            must_have_fields=tuple(MUST_HAVE_FIELDS),
+            must_have_fields=MUST_HAVE_FIELDS,
             default_select_fields=MUST_HAVE_FIELDS,
             post_processors=(post_process,),
             sort_by=("assay_chembl_id",),

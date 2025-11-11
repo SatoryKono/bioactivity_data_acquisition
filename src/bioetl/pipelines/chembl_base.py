@@ -48,27 +48,27 @@ class ChemblExtractionDescriptor:
     name: str
     source_name: str
     source_config_factory: Callable[[SourceConfig], Any]
-    build_context: Callable[["ChemblPipelineBase", Any, BoundLogger], ChemblExtractionContext]
+    build_context: Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]
     id_column: str
     summary_event: str
     must_have_fields: Sequence[str] = ()
     default_select_fields: Sequence[str] | None = None
     record_transform: Callable[
-        ["ChemblPipelineBase", Mapping[str, Any], ChemblExtractionContext],
+        [ChemblPipelineBase, Mapping[str, Any], ChemblExtractionContext],
         Mapping[str, Any],
     ] | None = None
     post_processors: Sequence[
-        Callable[["ChemblPipelineBase", pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+        Callable[[ChemblPipelineBase, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
     ] = ()
     sort_by: Sequence[str] | str | None = None
-    empty_frame_factory: Callable[["ChemblPipelineBase", ChemblExtractionContext], pd.DataFrame] | None = None
+    empty_frame_factory: Callable[[ChemblPipelineBase, ChemblExtractionContext], pd.DataFrame] | None = None
     dry_run_handler: Callable[
-        ["ChemblPipelineBase", ChemblExtractionContext, BoundLogger, float],
+        [ChemblPipelineBase, ChemblExtractionContext, BoundLogger, float],
         pd.DataFrame,
     ] | None = None
     hard_page_size_cap: int | None = 25
     summary_extra: Callable[
-        ["ChemblPipelineBase", pd.DataFrame, ChemblExtractionContext],
+        [ChemblPipelineBase, pd.DataFrame, ChemblExtractionContext],
         Mapping[str, Any],
     ] | None = None
 
@@ -366,16 +366,16 @@ class ChemblPipelineBase(PipelineBase):
             return None
 
         merged: list[str] = []
-        for field in (select_fields or ()):  # type: ignore[assignment]
-            if field is None:
+        for raw_field in select_fields or ():
+            if raw_field is None:
                 continue
-            candidate = str(field)
+            candidate = str(raw_field)
             if candidate and candidate not in merged:
                 merged.append(candidate)
-        for field in (required_fields or ()):  # type: ignore[assignment]
-            if field is None:
+        for raw_field in required_fields or ():
+            if raw_field is None:
                 continue
-            candidate = str(field)
+            candidate = str(raw_field)
             if candidate and candidate not in merged:
                 merged.append(candidate)
         return merged
@@ -539,18 +539,18 @@ class ChemblPipelineBase(PipelineBase):
             else:
                 dataframe = pd.DataFrame()
 
-            summary_payload: dict[str, Any] = {
+            dry_run_summary: dict[str, Any] = {
                 "rows": int(dataframe.shape[0]),
                 "duration_ms": duration_ms,
                 "dry_run": True,
             }
             if context.chembl_release is not None:
-                summary_payload["chembl_release"] = context.chembl_release
+                dry_run_summary["chembl_release"] = context.chembl_release
             if descriptor.summary_extra is not None:
-                summary_payload.update(descriptor.summary_extra(self, dataframe, context))
+                dry_run_summary.update(descriptor.summary_extra(self, dataframe, context))
             if context.stats:
-                summary_payload.update(context.stats)
-            log.info(descriptor.summary_event, **summary_payload)
+                dry_run_summary.update(context.stats)
+            log.info(descriptor.summary_event, **dry_run_summary)
             return dataframe
 
         iterator_kwargs = dict(context.iterate_all_kwargs)
@@ -576,11 +576,10 @@ class ChemblPipelineBase(PipelineBase):
             dataframe = pd.DataFrame({descriptor.id_column: pd.Series(dtype="object")})
 
         if descriptor.sort_by and not dataframe.empty:
-            sort_columns = (
-                list(descriptor.sort_by)
-                if isinstance(descriptor.sort_by, Sequence) and not isinstance(descriptor.sort_by, (str, bytes))
-                else [cast(str, descriptor.sort_by)]
-            )
+            if isinstance(descriptor.sort_by, Sequence) and not isinstance(descriptor.sort_by, (str, bytes)):
+                sort_columns = list(descriptor.sort_by)
+            else:
+                sort_columns = [str(descriptor.sort_by)]
             dataframe = dataframe.sort_values(sort_columns).reset_index(drop=True)
 
         for processor in descriptor.post_processors:
@@ -939,7 +938,7 @@ class ChemblPipelineBase(PipelineBase):
             canonical_pairs = canonical_pairs[:effective_limit]
 
         unique_ids = [identifier for identifier, _ in canonical_pairs]
-        id_metadata_map = {identifier: metadata for identifier, metadata in canonical_pairs}
+        id_metadata_map = dict(canonical_pairs)
 
         stats = BatchExtractionStats(requested=len(unique_ids))
 
@@ -1012,15 +1011,15 @@ class ChemblPipelineBase(PipelineBase):
             if fetch_mode == "delegated":
                 fetch_result = fetcher(tuple(unique_ids), context)
                 delegated_payload: Any | None = None
-                iterable: Iterable[Mapping[str, Any]]
+                items_iter: Iterable[Mapping[str, Any]]
                 if isinstance(fetch_result, tuple) and fetch_result:
-                    iterable = cast(Iterable[Mapping[str, Any]], fetch_result[0])
+                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result[0])
                     if len(fetch_result) > 1:
                         delegated_payload = fetch_result[1]
                 else:
-                    iterable = cast(Iterable[Mapping[str, Any]], fetch_result)
+                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result)
 
-                for item in iterable:
+                for item in items_iter:
                     record = dict(item)
                     if transform_item is not None:
                         record = dict(transform_item(record, context))
@@ -1038,15 +1037,15 @@ class ChemblPipelineBase(PipelineBase):
                     batch_ids = tuple(unique_ids[start_idx : start_idx + effective_chunk_size])
                     context.increment_batches()
                     fetch_output = fetcher(batch_ids, context)
-                    iterable: Iterable[Mapping[str, Any]]
+                    batch_items_iter: Iterable[Mapping[str, Any]]
                     if isinstance(fetch_output, tuple) and fetch_output:
-                        iterable = cast(Iterable[Mapping[str, Any]], fetch_output[0])
+                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output[0])
                         if len(fetch_output) > 1 and isinstance(fetch_output[1], Mapping):
                             delegated_summary = cast(Mapping[str, Any], fetch_output[1])
                     else:
-                        iterable = cast(Iterable[Mapping[str, Any]], fetch_output)
+                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output)
 
-                    for item in iterable:
+                    for item in batch_items_iter:
                         record = dict(item)
                         if transform_item is not None:
                             record = dict(transform_item(record, context))
