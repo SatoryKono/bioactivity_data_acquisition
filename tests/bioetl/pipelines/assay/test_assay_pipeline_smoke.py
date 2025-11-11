@@ -219,6 +219,8 @@ class TestAssayPipelineSmoke:
             / "assay_chembl.yaml"
         )
         config = load_config(config_path)
+        # Ignore the default CLI input file to avoid dereferencing the LFS placeholder
+        config.cli.input_file = ""
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -274,6 +276,7 @@ class TestAssayPipelineSmoke:
             / "assay_chembl.yaml"
         )
         config = load_config(config_path)
+        config.cli.input_file = ""
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -327,6 +330,7 @@ class TestAssayPipelineSmoke:
             / "assay_chembl.yaml"
         )
         config = load_config(config_path)
+        config.cli.input_file = ""
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=10)

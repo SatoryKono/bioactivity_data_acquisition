@@ -153,6 +153,50 @@ class BatchExtractionContext:
         if kwargs:
             self.stats.extra.update(kwargs)
 
+
+@dataclass(slots=True)
+class ChemblEntityBatchConfig:
+    """Configuration payload used to invoke :meth:`run_batched_extraction`."""
+
+    fetcher: Callable[[Sequence[str], BatchExtractionContext], Any]
+    select_fields: Sequence[str] | None = None
+    limit: int | None = None
+    batch_size: int | None = None
+    chunk_size: int | None = None
+    max_batch_size: int | None = 25
+    metadata_filters: Mapping[str, Any] | None = None
+    id_normalizer: Callable[[Any], tuple[str | None, Any]] | None = None
+    sort_key: Callable[[tuple[str, Any]], Any] | None = None
+    transform_item: Callable[[Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]] | None = None
+    finalize: Callable[[pd.DataFrame, BatchExtractionContext], pd.DataFrame] | None = None
+    post_fetch_hooks: Sequence[Callable[[pd.DataFrame, BatchExtractionContext], pd.DataFrame]] = ()
+    finalize_context: Callable[[BatchExtractionContext], None] | None = None
+    empty_frame_factory: Callable[[], pd.DataFrame] | None = None
+    stats_attribute: str | None = None
+    fetch_mode: Literal["default", "delegated"] = "default"
+    summary_extra: (
+        Callable[[BatchExtractionStats, ChemblExtractionContext], Mapping[str, Any]]
+        | Mapping[str, Any]
+        | None
+    ) = None
+    context_metadata: Mapping[str, Any] | None = None
+
+
+@dataclass(slots=True)
+class ChemblEntitySpec:
+    """Descriptor bundling configuration for ID-based entity extraction."""
+
+    descriptor: ChemblExtractionDescriptor
+    summary_event: str
+    build_batch_config: Callable[
+        ["GenericChemblEntityPipeline", ChemblExtractionContext, BoundLogger],
+        ChemblEntityBatchConfig,
+    ]
+    dry_run_handler: Callable[
+        ["GenericChemblEntityPipeline", ChemblExtractionContext, BoundLogger, float],
+        pd.DataFrame,
+    ] | None = None
+
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
 
@@ -600,6 +644,165 @@ class ChemblPipelineBase(PipelineBase):
             summary_payload.update(descriptor.summary_extra(self, dataframe, context))
 
         log.info(descriptor.summary_event, **summary_payload)
+        return dataframe
+
+
+class GenericChemblEntityPipeline(ChemblPipelineBase):
+    """Base class orchestrating shared ``extract_by_ids`` flows for ChEMBL entities."""
+
+    def __init__(self, config: Any, run_id: str) -> None:  # noqa: ANN401
+        super().__init__(config, run_id)
+        self._entity_spec_cache: ChemblEntitySpec | None = None
+
+    # ------------------------------------------------------------------
+    # Specification resolution
+    # ------------------------------------------------------------------
+
+    def _build_entity_spec(self) -> ChemblEntitySpec:
+        """Return the entity specification powering ID-based extraction."""
+
+        raise NotImplementedError
+
+    def _get_entity_spec(self) -> ChemblEntitySpec:
+        if self._entity_spec_cache is None:
+            self._entity_spec_cache = self._build_entity_spec()
+        return self._entity_spec_cache
+
+    @property
+    def entity_spec(self) -> ChemblEntitySpec:
+        """Expose the cached :class:`ChemblEntitySpec` for subclasses."""
+
+        return self._get_entity_spec()
+
+    # ------------------------------------------------------------------
+    # Shared extraction implementations
+    # ------------------------------------------------------------------
+
+    def extract_all(self) -> pd.DataFrame:
+        """Delegate to :meth:`run_extract_all` using the configured descriptor."""
+
+        descriptor = self._get_entity_spec().descriptor
+        return self.run_extract_all(descriptor)
+
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Execute ``run_batched_extraction`` using spec-provided configuration."""
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        stage_start = time.perf_counter()
+
+        spec = self._get_entity_spec()
+        descriptor = spec.descriptor
+
+        source_raw = self._resolve_source_config(descriptor.source_name)
+        source_config = descriptor.source_config_factory(source_raw)
+        context = descriptor.build_context(self, source_config, log)
+
+        if context.chembl_release is not None:
+            self._chembl_release = context.chembl_release
+
+        if self.config.cli.dry_run and spec.dry_run_handler is not None:
+            return spec.dry_run_handler(self, context, log, stage_start)
+
+        batch_config = spec.build_batch_config(self, context, log)
+
+        if batch_config.context_metadata:
+            context.metadata.update(dict(batch_config.context_metadata))
+
+        select_fields: Sequence[str] | None = batch_config.select_fields
+        if select_fields is None:
+            select_fields = context.select_fields
+        merged_select_fields = self._merge_select_fields(
+            list(select_fields) if select_fields is not None else None,
+            descriptor.must_have_fields,
+        )
+
+        metadata_filters: dict[str, Any] = {}
+        if context.extra_filters:
+            metadata_filters.update(
+                {key: value for key, value in context.extra_filters.items() if value is not None}
+            )
+        if batch_config.metadata_filters:
+            metadata_filters.update(
+                {key: value for key, value in batch_config.metadata_filters.items() if value is not None}
+            )
+        if merged_select_fields and "select_fields" not in metadata_filters:
+            metadata_filters["select_fields"] = list(merged_select_fields)
+
+        batch_size = batch_config.batch_size
+        if batch_size is None:
+            if context.page_size is not None:
+                batch_size = int(context.page_size)
+            else:
+                iterator_candidate = getattr(context, "iterator", None)
+                iterator_batch_size = getattr(iterator_candidate, "batch_size", None)
+                if isinstance(iterator_batch_size, int):
+                    batch_size = iterator_batch_size
+
+        chunk_size = batch_config.chunk_size
+        limit = batch_config.limit if batch_config.limit is not None else self.config.cli.limit
+
+        empty_factory = batch_config.empty_frame_factory
+        if empty_factory is None and descriptor.empty_frame_factory is not None:
+            empty_factory = lambda: descriptor.empty_frame_factory(self, context)
+
+        finalize_callable = batch_config.finalize
+        if batch_config.post_fetch_hooks:
+            hooks = tuple(batch_config.post_fetch_hooks)
+
+            def _combined_finalize(
+                dataframe: pd.DataFrame, batch_context: BatchExtractionContext
+            ) -> pd.DataFrame:
+                result = dataframe
+                for hook in hooks:
+                    result = hook(result, batch_context)
+                if finalize_callable is not None:
+                    result = finalize_callable(result, batch_context)
+                return result
+
+            finalize_callable = _combined_finalize
+
+        dataframe, stats = self.run_batched_extraction(
+            ids,
+            id_column=descriptor.id_column,
+            fetcher=batch_config.fetcher,
+            select_fields=merged_select_fields,
+            required_fields=None,
+            limit=limit,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            max_batch_size=batch_config.max_batch_size,
+            metadata_filters=metadata_filters,
+            chembl_release=context.chembl_release or self._chembl_release,
+            id_normalizer=batch_config.id_normalizer,
+            sort_key=batch_config.sort_key,
+            transform_item=batch_config.transform_item,
+            finalize=finalize_callable,
+            finalize_context=batch_config.finalize_context,
+            empty_frame_factory=empty_factory,
+            stats_attribute=batch_config.stats_attribute,
+            fetch_mode=batch_config.fetch_mode,
+        )
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+
+        summary_payload: dict[str, Any] = {
+            "rows": int(dataframe.shape[0]),
+            "requested": len(ids),
+            "duration_ms": duration_ms,
+            "chembl_release": self._chembl_release,
+            "batches": stats.batches,
+            "api_calls": stats.api_calls,
+            "cache_hits": stats.cache_hits,
+        }
+        if batch_config.summary_extra is not None:
+            extra_payload: Mapping[str, Any]
+            if callable(batch_config.summary_extra):
+                extra_payload = batch_config.summary_extra(stats, context)
+            else:
+                extra_payload = batch_config.summary_extra
+            summary_payload.update(dict(extra_payload))
+
+        log.info(spec.summary_event, **summary_payload)
         return dataframe
 
     # ------------------------------------------------------------------

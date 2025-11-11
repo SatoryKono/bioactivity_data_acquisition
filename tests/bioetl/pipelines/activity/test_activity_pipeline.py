@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, Sequence
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -15,7 +15,59 @@ from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl_base import BatchExtractionStats
 from bioetl.schemas.activity import ActivitySchema
+
+
+def test_activity_extract_by_ids_configures_delegated_mode(
+    monkeypatch: pytest.MonkeyPatch,
+    pipeline_config_fixture: PipelineConfig,
+    run_id: str,
+) -> None:
+    """Ensure the shared extract_by_ids pathway uses delegated configuration."""
+
+    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+    captured: dict[str, Any] = {}
+
+    def fake_run(
+        self: ChemblActivityPipeline,
+        ids: Sequence[str],
+        *,
+        fetch_mode: str,
+        id_normalizer: Callable[[Any], tuple[str | None, Any]] | None,
+        stats_attribute: str | None,
+        **kwargs: Any,
+    ) -> tuple[pd.DataFrame, BatchExtractionStats]:
+        captured.update(
+            {
+                "ids": list(ids),
+                "fetch_mode": fetch_mode,
+                "id_normalizer": id_normalizer,
+                "stats_attribute": stats_attribute,
+            }
+        )
+        return pd.DataFrame(), BatchExtractionStats(requested=len(ids))
+
+    monkeypatch.setattr(ChemblActivityPipeline, "run_batched_extraction", fake_run, raising=False)
+    monkeypatch.setattr(
+        ChemblActivityPipeline,
+        "prepare_chembl_client",
+        lambda self, *args, **kwargs: (MagicMock(), MagicMock()),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        ChemblActivityPipeline,
+        "fetch_chembl_release",
+        lambda self, client, log: "test-release",
+        raising=False,
+    )
+
+    pipeline.extract_by_ids(["1", "2", "3"])
+
+    assert captured["ids"] == ["1", "2", "3"]
+    assert captured["fetch_mode"] == "delegated"
+    assert callable(captured["id_normalizer"])
+    assert captured["stats_attribute"] == "_last_batch_extract_stats"
 
 
 @pytest.mark.unit

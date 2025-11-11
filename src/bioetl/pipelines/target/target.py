@@ -28,14 +28,16 @@ from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 from ..chembl_base import (
     BatchExtractionContext,
+    ChemblEntityBatchConfig,
+    ChemblEntitySpec,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
-    ChemblPipelineBase,
+    GenericChemblEntityPipeline,
 )
 from .target_transform import serialize_target_arrays
 
 
-class ChemblTargetPipeline(ChemblPipelineBase):
+class ChemblTargetPipeline(GenericChemblEntityPipeline):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
     actor = "target_chembl"
@@ -62,12 +64,6 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             full_callback=self.extract_all,
             id_column_name="target_chembl_id",
         )
-
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all target records from ChEMBL using pagination."""
-
-        descriptor = self._build_target_descriptor()
-        return self.run_extract_all(descriptor)
 
     def _build_target_descriptor(self) -> ChemblExtractionDescriptor:
         """Return the descriptor powering target extraction."""
@@ -140,86 +136,62 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract target records by a specific list of IDs using batch extraction.
+    def _build_entity_spec(self) -> ChemblEntitySpec:
+        descriptor = self._build_target_descriptor()
 
-        Parameters
-        ----------
-        ids:
-            Sequence of target_chembl_id values to extract.
+        def build_batch_config(
+            pipeline: "ChemblTargetPipeline",
+            context: ChemblExtractionContext,
+            log: BoundLogger,
+        ) -> ChemblEntityBatchConfig:
+            target_client = cast(ChemblTargetClient, context.iterator)
+            resolved_select_fields = list(context.select_fields) if context.select_fields else None
 
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted target records.
-        """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+            def fetch_targets(
+                batch_ids: Sequence[str],
+                batch_context: BatchExtractionContext,
+            ) -> Iterable[Mapping[str, Any]]:
+                iterator = target_client.iterate_by_ids(
+                    batch_ids,
+                    select_fields=batch_context.select_fields or None,
+                )
+                for item in iterator:
+                    yield dict(item)
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_target_http"
-        )
+            metadata_filters: dict[str, Any] | None = None
+            if resolved_select_fields:
+                metadata_filters = {"select_fields": list(resolved_select_fields)}
 
-        chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+            return ChemblEntityBatchConfig(
+                fetcher=fetch_targets,
+                select_fields=resolved_select_fields,
+                batch_size=getattr(target_client, "batch_size", None),
+                max_batch_size=25,
+                metadata_filters=metadata_filters,
+                summary_extra=lambda _stats, _context: {"limit": pipeline.config.cli.limit},
+            )
 
-        if self.config.cli.dry_run:
+        def dry_run_handler(
+            pipeline: "ChemblTargetPipeline",
+            context: ChemblExtractionContext,
+            log: BoundLogger,
+            stage_start: float,
+        ) -> pd.DataFrame:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(
                 "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=pipeline._chembl_release,
             )
             return pd.DataFrame()
 
-        batch_size = source_config.batch_size
-        limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-
-        target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
-
-        def fetch_targets(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = target_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="target_chembl_id",
-            fetcher=fetch_targets,
-            select_fields=select_fields,
-            batch_size=batch_size,
-            chunk_size=min(batch_size, 100),
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(select_fields) if select_fields else None,
-            },
-            chembl_release=self._chembl_release,
+        return ChemblEntitySpec(
+            descriptor=descriptor,
+            summary_event="chembl_target.extract_by_ids_summary",
+            build_batch_config=build_batch_config,
+            dry_run_handler=dry_run_handler,
         )
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_target.extract_by_ids_summary",
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
-        return dataframe
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw target data by normalizing fields and enriching with component/classification data."""

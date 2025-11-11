@@ -20,9 +20,11 @@ from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ..chembl_base import (
     BatchExtractionContext,
+    ChemblEntityBatchConfig,
+    ChemblEntitySpec,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
-    ChemblPipelineBase,
+    GenericChemblEntityPipeline,
 )
 from .testitem_transform import transform as transform_testitem
 
@@ -45,7 +47,7 @@ MUST_HAVE_FIELDS = {
 }
 
 
-class TestItemChemblPipeline(ChemblPipelineBase):
+class TestItemChemblPipeline(GenericChemblEntityPipeline):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
 
     actor = "testitem_chembl"
@@ -138,12 +140,6 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             id_column_name="molecule_chembl_id",
         )
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all molecule records from ChEMBL using pagination."""
-
-        descriptor = self._build_testitem_descriptor()
-        return self.run_extract_all(descriptor)
-
     def _build_testitem_descriptor(self) -> ChemblExtractionDescriptor:
         """Return the descriptor powering testitem extraction."""
 
@@ -230,95 +226,77 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             hard_page_size_cap=None,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract molecule records by a specific list of IDs using batch extraction.
+    def _build_entity_spec(self) -> ChemblEntitySpec:
+        descriptor = self._build_testitem_descriptor()
 
-        Parameters
-        ----------
-        ids:
-            Sequence of molecule_chembl_id values to extract.
+        def build_batch_config(
+            pipeline: "TestItemChemblPipeline",
+            context: ChemblExtractionContext,
+            log: BoundLogger,
+        ) -> ChemblEntityBatchConfig:
+            testitem_client = cast(ChemblTestitemClient, context.iterator)
+            page_size = context.page_size
+            resolved_select_fields = pipeline._merge_select_fields(
+                list(context.select_fields) if context.select_fields else None,
+                MUST_HAVE_FIELDS,
+            )
 
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted molecule records.
-        """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+            def fetch_testitems(
+                batch_ids: Sequence[str],
+                batch_context: BatchExtractionContext,
+            ) -> Iterable[Mapping[str, Any]]:
+                iterator = testitem_client.iterate_by_ids(
+                    batch_ids,
+                    select_fields=batch_context.select_fields or None,
+                )
+                for item in iterator:
+                    yield dict(item)
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_testitem_http"
-        )
+            metadata_filters: dict[str, Any] | None = None
+            if resolved_select_fields:
+                metadata_filters = {"select_fields": list(resolved_select_fields)}
 
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-        self._fetch_chembl_release(chembl_client, log)
+            effective_page_size = int(page_size) if page_size is not None else None
+            chunk_size = None
+            if effective_page_size is not None:
+                chunk_size = min(effective_page_size, 25)
 
-        if self.config.cli.dry_run:
+            return ChemblEntityBatchConfig(
+                fetcher=fetch_testitems,
+                select_fields=resolved_select_fields,
+                batch_size=effective_page_size,
+                chunk_size=chunk_size,
+                max_batch_size=25,
+                metadata_filters=metadata_filters,
+                summary_extra=lambda _stats, _context: {
+                    "chembl_db_version": pipeline._chembl_db_version,
+                    "api_version": pipeline._api_version,
+                    "limit": pipeline.config.cli.limit,
+                },
+            )
+
+        def dry_run_handler(
+            pipeline: "TestItemChemblPipeline",
+            context: ChemblExtractionContext,
+            log: BoundLogger,
+            stage_start: float,
+        ) -> pd.DataFrame:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(
                 "chembl_testitem.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_db_version=self._chembl_db_version,
-                api_version=self._api_version,
+                chembl_db_version=pipeline._chembl_db_version,
+                api_version=pipeline._api_version,
             )
             return pd.DataFrame()
 
-        page_size = min(source_config.page_size, 25)
-        limit = self.config.cli.limit
-        resolved_select_fields = source_config.parameters.select_fields
-        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
-        log.debug("chembl_testitem.select_fields", fields=merged_select_fields)
-
-        testitem_client = ChemblTestitemClient(chembl_client, batch_size=page_size)
-
-        def fetch_testitems(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = testitem_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="molecule_chembl_id",
-            fetcher=fetch_testitems,
-            select_fields=merged_select_fields or None,
-            batch_size=page_size,
-            chunk_size=min(page_size, 25),
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(merged_select_fields) if merged_select_fields else None,
-            },
-            chembl_release=self._chembl_release,
+        return ChemblEntitySpec(
+            descriptor=descriptor,
+            summary_event="chembl_testitem.extract_by_ids_summary",
+            build_batch_config=build_batch_config,
+            dry_run_handler=dry_run_handler,
         )
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_testitem.extract_by_ids_summary",
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_db_version=self._chembl_db_version,
-            api_version=self._api_version,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
-        return dataframe
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw molecule data by normalizing fields and extracting nested properties."""
