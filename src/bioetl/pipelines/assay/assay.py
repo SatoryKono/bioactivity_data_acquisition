@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pandas as pd
 from pandas import Series
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.assay.chembl_assay import ChemblAssayClient
 from bioetl.clients.chembl import ChemblClient
@@ -31,7 +32,11 @@ from bioetl.pipelines.assay.assay_transform import (
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import (
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
 
 _CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
     "assay_class_id",
@@ -154,133 +159,151 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all assay records from ChEMBL using pagination."""
 
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+        descriptor = self._build_assay_descriptor()
+        return self.run_extract_all(descriptor)
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source_config(source_raw)
-        http_client, _ = self.prepare_chembl_client(
-            "chembl",
-            client_name="chembl_assay_http",
-        )
+    def _build_assay_descriptor(self) -> ChemblExtractionDescriptor:
+        """Return the descriptor powering the shared extraction template."""
 
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-        assay_client = ChemblAssayClient(
-            chembl_client,
-            batch_size=source_config.batch_size,
-            max_url_length=source_config.max_url_length,
-        )
-
-        assay_client.handshake(
-            endpoint=source_config.parameters.handshake_endpoint,
-            enabled=source_config.parameters.handshake_enabled,
-        )
-        self._chembl_release = assay_client.chembl_release
-
-        log.info(
-            "chembl_assay.handshake",
-            chembl_release=self._chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
-            handshake_enabled=source_config.parameters.handshake_enabled,
-        )
-
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_assay.extract_skipped",
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+        def build_context(
+            pipeline: "ChemblAssayPipeline",
+            source_config: AssaySourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            http_client, _ = pipeline.prepare_chembl_client(
+                "chembl",
+                client_name="chembl_assay_http",
             )
-            return pd.DataFrame()
+            chembl_client = ChemblClient(
+                http_client,
+                load_meta_store=pipeline.load_meta_store,
+                job_id=pipeline.run_id,
+                operator=pipeline.pipeline_code,
+            )
+            assay_client = ChemblAssayClient(
+                chembl_client,
+                batch_size=source_config.batch_size,
+                max_url_length=source_config.max_url_length,
+            )
 
-        records: list[Mapping[str, Any]] = []
-        limit = self.config.cli.limit
-        page_size = source_config.batch_size
-        select_fields = self._resolve_select_fields(source_raw)
-        # Защита: добавить обязательные поля, если их нет
-        if select_fields:
-            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
-        else:
-            select_fields = list(MUST_HAVE_FIELDS)
+            assay_client.handshake(
+                endpoint=source_config.parameters.handshake_endpoint,
+                enabled=source_config.parameters.handshake_enabled,
+            )
+            pipeline._chembl_release = assay_client.chembl_release
+            log.info(
+                "chembl_assay.handshake",
+                chembl_release=pipeline._chembl_release,
+                handshake_endpoint=source_config.parameters.handshake_endpoint,
+                handshake_enabled=source_config.parameters.handshake_enabled,
+            )
 
-        log.debug(
-            "chembl_assay.select_fields",
-            fields=select_fields,
-            fields_count=len(select_fields) if select_fields else 0,
-        )
+            raw_source = pipeline._resolve_source_config("chembl")
+            select_fields = pipeline._resolve_select_fields(raw_source)
+            log.debug(
+                "chembl_assay.select_fields",
+                fields=select_fields,
+                fields_count=len(select_fields) if select_fields else 0,
+            )
 
-        parameter_filters = source_config.parameters.model_dump()
-        filters_payload: dict[str, Any] = {
-            "mode": "all",
-            "limit": int(limit) if limit is not None else None,
-            "page_size": page_size,
-            "select_fields": list(select_fields) if select_fields else None,
-            "max_url_length": source_config.max_url_length,
-        }
-        if parameter_filters:
-            filters_payload["parameters"] = parameter_filters
-        compact_filters = {
-            key: value for key, value in filters_payload.items() if value is not None
-        }
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_filters,
-            requested_at_utc=datetime.now(timezone.utc),
-        )
+            context = ChemblExtractionContext(
+                source_config=source_config,
+                iterator=assay_client,
+                chembl_client=chembl_client,
+                select_fields=list(select_fields) if select_fields else None,
+                chembl_release=pipeline._chembl_release,
+                extra_filters={"max_url_length": source_config.max_url_length},
+            )
+            return context
 
-        for item in assay_client.iterate_all(
-            limit=limit, page_size=page_size, select_fields=select_fields
-        ):
-            records.append(item)
+        def empty_frame(
+            _: "ChemblAssayPipeline",
+            __: ChemblExtractionContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({"assay_chembl_id": pd.Series(dtype="string")})
 
-        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-        if not dataframe.empty and "assay_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("assay_chembl_id").reset_index(drop=True)
+        def post_process(
+            pipeline: "ChemblAssayPipeline",
+            df: pd.DataFrame,
+            context: ChemblExtractionContext,
+            log: BoundLogger,
+        ) -> pd.DataFrame:
+            if df.empty:
+                return df
 
-        # Проверка обязательных полей после экстракции
-        if not dataframe.empty:
             for must_field in ("assay_category", "assay_group", "src_assay_id"):
-                if must_field not in dataframe.columns or dataframe[must_field].isna().all():
+                if must_field not in df.columns or df[must_field].isna().all():
                     log.warning(
                         "chembl_assay.missing_required_field",
                         field=must_field,
                         note="Field not returned by API; check select_fields/only",
                     )
 
-        # Диагностическая проверка отсутствующих полей в ответе API
-        if not dataframe.empty and select_fields:
-            expected_fields = set(select_fields)
-            actual_fields = set(dataframe.columns)
-            missing_in_response = sorted(expected_fields - actual_fields)
-            if missing_in_response:
-                log.warning(
-                    "assay_missing_fields_in_api_response",
-                    missing_fields=missing_in_response,
-                    requested_fields_count=len(select_fields),
-                    received_fields_count=len(actual_fields),
-                    chembl_release=self._chembl_release,
-                    message=f"Fields requested in select_fields but missing in API response: {missing_in_response}",
-                )
+            select_fields = context.select_fields
+            if select_fields:
+                expected_fields = set(select_fields)
+                actual_fields = set(df.columns)
+                missing_in_response = sorted(expected_fields - actual_fields)
+                if missing_in_response:
+                    log.warning(
+                        "assay_missing_fields_in_api_response",
+                        missing_fields=missing_in_response,
+                        requested_fields_count=len(select_fields),
+                        received_fields_count=len(actual_fields),
+                        chembl_release=pipeline._chembl_release,
+                        message=(
+                            "Fields requested in select_fields but missing in API response: "
+                            f"{missing_in_response}"
+                        ),
+                    )
 
-        # Проверка отсутствующих колонок для версионности ChEMBL (v34/v35)
-        dataframe = self._check_missing_columns(dataframe, log, select_fields=select_fields)
+            df = pipeline._check_missing_columns(
+                df,
+                log,
+                select_fields=list(select_fields) if select_fields else None,
+            )
+            return df
 
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_assay.extract_summary",
-            rows=int(dataframe.shape[0]),
-            duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
-            limit=limit,
+        def dry_run_handler(
+            pipeline: "ChemblAssayPipeline",
+            _: ChemblExtractionContext,
+            log: BoundLogger,
+            stage_start: float,
+        ) -> pd.DataFrame:
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                "chembl_assay.extract_skipped",
+                dry_run=True,
+                duration_ms=duration_ms,
+                chembl_release=pipeline._chembl_release,
+            )
+            return pd.DataFrame()
+
+        def summary_extra(
+            pipeline: "ChemblAssayPipeline",
+            _: pd.DataFrame,
+            context: ChemblExtractionContext,
+        ) -> Mapping[str, Any]:
+            return {
+                "handshake_endpoint": context.source_config.parameters.handshake_endpoint,
+                "limit": pipeline.config.cli.limit,
+            }
+
+        return ChemblExtractionDescriptor(
+            name="chembl_assay",
+            source_name="chembl",
+            source_config_factory=AssaySourceConfig.from_source_config,
+            build_context=build_context,
+            id_column="assay_chembl_id",
+            summary_event="chembl_assay.extract_summary",
+            must_have_fields=tuple(MUST_HAVE_FIELDS),
+            default_select_fields=MUST_HAVE_FIELDS,
+            post_processors=(post_process,),
+            sort_by=("assay_chembl_id",),
+            empty_frame_factory=empty_frame,
+            dry_run_handler=dry_run_handler,
+            summary_extra=summary_extra,
         )
-        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract assay records by a specific list of IDs using batch extraction.

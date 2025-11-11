@@ -10,6 +10,7 @@ from numbers import Integral, Real
 from typing import Any, cast
 
 import pandas as pd
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.document import ChemblDocumentClient
@@ -18,7 +19,11 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.schemas.document import COLUMN_ORDER
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import (
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
 from .document_enrich import enrich_with_document_terms
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (
@@ -71,85 +76,76 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     def extract_all(self) -> pd.DataFrame:
         """Extract all document records from ChEMBL using pagination."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
-        stage_start = time.perf_counter()
+        return self.run_extract_all(self._build_document_descriptor())
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_document_client"
+    def _build_document_descriptor(self) -> ChemblExtractionDescriptor:
+        """Return the descriptor powering the shared extraction routine."""
+
+        def build_context(
+            pipeline: "ChemblDocumentPipeline",
+            source_config: DocumentSourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            base_url = pipeline._resolve_base_url(source_config.parameters)
+            http_client, _ = pipeline.prepare_chembl_client(
+                "chembl",
+                base_url=base_url,
+                client_name="chembl_document_client",
+            )
+            chembl_client = ChemblClient(http_client)
+            document_client = ChemblDocumentClient(
+                chembl_client,
+                batch_size=min(source_config.batch_size, 25),
+            )
+            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
+            select_fields = source_config.parameters.select_fields
+            return ChemblExtractionContext(
+                source_config=source_config,
+                iterator=document_client,
+                chembl_client=chembl_client,
+                select_fields=list(select_fields) if select_fields else None,
+                chembl_release=pipeline._chembl_release,
+            )
+
+        def empty_frame(
+            _: "ChemblDocumentPipeline",
+            __: ChemblExtractionContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
+
+        def record_transform(
+            pipeline: "ChemblDocumentPipeline",
+            payload: Mapping[str, Any],
+            _: ChemblExtractionContext,
+        ) -> Mapping[str, Any]:
+            return pipeline._extract_nested_fields(dict(payload))
+
+        def summary_extra(
+            _: "ChemblDocumentPipeline",
+            df: pd.DataFrame,
+            context: ChemblExtractionContext,
+        ) -> Mapping[str, Any]:
+            page_size = context.page_size or 0
+            pages = 0
+            if page_size > 0:
+                total_rows = int(df.shape[0])
+                pages = (total_rows + page_size - 1) // page_size
+            return {"pages": pages}
+
+        return ChemblExtractionDescriptor(
+            name="chembl_document",
+            source_name="chembl",
+            source_config_factory=DocumentSourceConfig.from_source_config,
+            build_context=build_context,
+            id_column="document_chembl_id",
+            summary_event="chembl_document.extract_summary",
+            must_have_fields=tuple(MUST_HAVE_FIELDS),
+            default_select_fields=API_DOCUMENT_FIELDS,
+            record_transform=record_transform,
+            sort_by=("document_chembl_id",),
+            empty_frame_factory=empty_frame,
+            summary_extra=summary_extra,
         )
-
-        chembl_client = ChemblClient(http_client)
-        document_client = ChemblDocumentClient(
-            chembl_client,
-            batch_size=min(source_config.batch_size, 25),
-        )
-
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
-
-        batch_size = source_config.batch_size
-        limit = self.config.cli.limit
-        page_size = min(batch_size, 25)
-        if limit is not None:
-            page_size = min(page_size, limit)
-        page_size = max(page_size, 1)
-
-        select_fields = self._resolve_select_fields(
-            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
-        )
-        # Защита: добавить обязательные поля, если их нет
-        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
-        records_raw: list[dict[str, Any]] = []
-        parameter_filters = source_config.parameters.model_dump()
-        filters_payload: dict[str, Any] = {
-            "mode": "all",
-            "limit": int(limit) if limit is not None else None,
-            "page_size": page_size,
-            "select_fields": list(select_fields),
-        }
-        if parameter_filters:
-            filters_payload["parameters"] = parameter_filters
-        compact_filters = {
-            key: value for key, value in filters_payload.items() if value is not None
-        }
-        self.record_extract_metadata(
-            chembl_release=self._chembl_release,
-            filters=compact_filters,
-            requested_at_utc=datetime.now(timezone.utc),
-        )
-        for item in document_client.iterate_all(
-            limit=limit,
-            page_size=page_size,
-            select_fields=select_fields,
-        ):
-            records_raw.append(dict(item))
-
-        if limit is not None and len(records_raw) > limit:
-            records_raw = records_raw[:limit]
-
-        records = [self._extract_nested_fields(record) for record in records_raw]
-
-        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
-        if dataframe.empty:
-            dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
-        elif "document_chembl_id" in dataframe.columns:
-            dataframe = dataframe.sort_values("document_chembl_id").reset_index(drop=True)
-
-        pages = 0
-        if records:
-            pages = (len(records) + page_size - 1) // page_size
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_document.extract_summary",
-            rows=int(dataframe.shape[0]),
-            duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            pages=pages,
-        )
-        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract document records by a specific list of IDs using batch extraction.
