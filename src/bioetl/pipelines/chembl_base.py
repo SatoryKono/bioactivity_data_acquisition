@@ -225,6 +225,29 @@ class ChemblPipelineBase(PipelineBase):
             return list(default_fields)
         return []
 
+    def _extract_from_input_file(
+        self,
+        log: BoundLogger,
+        *,
+        event_name: str,
+    ) -> pd.DataFrame | None:
+        """Extract records using IDs loaded from the configured input file."""
+
+        if not self.config.cli.input_file:
+            return None
+
+        id_column_name = self._get_id_column_name()
+        ids = self._read_input_ids(
+            id_column_name=id_column_name,
+            limit=self.config.cli.limit,
+            sample=self.config.cli.sample,
+        )
+        if not ids:
+            return None
+
+        log.info(event_name, mode="batch", ids_count=len(ids))
+        return self.extract_by_ids(ids)
+
     # ------------------------------------------------------------------
     # API client management
     # ------------------------------------------------------------------

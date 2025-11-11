@@ -12,6 +12,7 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
@@ -59,17 +60,12 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_document.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
+        batch_from_input = self._extract_from_input_file(
+            log,
+            event_name="chembl_document.extract_mode",
+        )
+        if batch_from_input is not None:
+            return batch_from_input
 
         log.info("chembl_document.extract_mode", mode="full")
         return self.extract_all()
@@ -83,11 +79,17 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client(
+        http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
         )
 
-        self._chembl_release = self.fetch_chembl_release(client, log)
+        chembl_client = ChemblClient(http_client)
+        document_client = ChemblDocumentClient(
+            chembl_client,
+            batch_size=min(source_config.batch_size, 25),
+        )
+
+        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
@@ -101,12 +103,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         )
         # Защита: добавить обязательные поля, если их нет
         select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
-        records: list[dict[str, Any]] = []
-        next_endpoint: str | None = "/document.json"
-        params: Mapping[str, Any] | None = {
-            "limit": page_size,
-            "only": ",".join(select_fields),
-        }
+        records_raw: list[dict[str, Any]] = []
         parameter_filters = source_config.parameters.model_dump()
         filters_payload: dict[str, Any] = {
             "mode": "all",
@@ -124,55 +121,27 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
-        pages = 0
+        for item in document_client.iterate_all(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
+        ):
+            records_raw.append(dict(item))
 
-        while next_endpoint:
-            page_start = time.perf_counter()
-            response = client.get(next_endpoint, params=params)
-            payload = self._coerce_mapping(response.json())
-            page_items = self._extract_page_items(
-                payload, items_keys=("documents", "data", "items", "results")
-            )
+        if limit is not None and len(records_raw) > limit:
+            records_raw = records_raw[:limit]
 
-            # Process nested fields for each item
-            processed_items: list[dict[str, Any]] = []
-            for item in page_items:
-                processed_item = self._extract_nested_fields(dict(item))
-                processed_items.append(processed_item)
-
-            if limit is not None:
-                remaining = max(limit - len(records), 0)
-                if remaining == 0:
-                    break
-                processed_items = processed_items[:remaining]
-
-            records.extend(processed_items)
-            pages += 1
-            page_duration_ms = (time.perf_counter() - page_start) * 1000.0
-            log.debug(
-                "chembl_document.page_fetched",
-                endpoint=next_endpoint,
-                batch_size=len(processed_items),
-                total_records=len(records),
-                duration_ms=page_duration_ms,
-            )
-
-            next_link = self._next_link(payload, base_url)
-            if not next_link or (limit is not None and len(records) >= limit):
-                break
-            log.info(
-                "chembl_document.next_link_resolved",
-                next_link=next_link,
-                base_url=base_url,
-            )
-            next_endpoint = next_link
-            params = None
+        records = [self._extract_nested_fields(record) for record in records_raw]
 
         dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if dataframe.empty:
             dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
         elif "document_chembl_id" in dataframe.columns:
             dataframe = dataframe.sort_values("document_chembl_id").reset_index(drop=True)
+
+        pages = 0
+        if records:
+            pages = (len(records) + page_size - 1) // page_size
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         log.info(
@@ -203,14 +172,18 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        client, _ = self.prepare_chembl_client(
+        http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
         )
 
-        self._chembl_release = self.fetch_chembl_release(client, log)
+        chembl_client = ChemblClient(http_client)
+        document_client = ChemblDocumentClient(
+            chembl_client,
+            batch_size=min(source_config.batch_size, 25),
+        )
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+
         select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
         )
@@ -231,18 +204,73 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        batch_dataframe = self.extract_ids_paginated(
-            ids,
-            endpoint="/document.json",
-            id_column="document_chembl_id",
-            id_param_name="document_chembl_id__in",
-            client=client,
-            batch_size=source_config.batch_size,
-            limit=self.config.cli.limit,
-            select_fields=select_fields,
-            items_keys=("documents", "data", "items", "results"),
-            process_item=self._extract_nested_fields,
-        )
+        batch_size = document_client.batch_size
+        unique_ids = sorted({str(id_val) for id_val in ids if id_val and str(id_val).strip()})
+
+        if not unique_ids:
+            empty_df = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
+            self._last_batch_extract_stats = {
+                "batches": 0,
+                "api_calls": 0,
+                "cache_hits": None,
+            }
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                "chembl_document.extract_by_ids_summary",
+                rows=0,
+                requested=0,
+                duration_ms=duration_ms,
+                chembl_release=self._chembl_release,
+                batches=0,
+                api_calls=0,
+                cache_hits=None,
+            )
+            return empty_df
+
+        limit = self.config.cli.limit
+        records_raw: list[dict[str, Any]] = []
+        api_calls = 0
+
+        original_paginate = chembl_client.paginate
+
+        def counted_paginate(*args: Any, **kwargs: Any) -> Any:
+            nonlocal api_calls
+            api_calls += 1
+            return original_paginate(*args, **kwargs)
+
+        chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
+
+        try:
+            for item in document_client.iterate_by_ids(
+                unique_ids,
+                select_fields=select_fields,
+            ):
+                records_raw.append(dict(item))
+                if limit is not None and len(records_raw) >= limit:
+                    break
+        finally:
+            chembl_client.paginate = original_paginate  # type: ignore[method-assign]
+
+        if limit is not None and len(records_raw) > limit:
+            records_raw = records_raw[:limit]
+
+        records = [self._extract_nested_fields(record) for record in records_raw]
+
+        batch_dataframe = pd.DataFrame.from_records(records)
+        if batch_dataframe.empty:
+            batch_dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
+        elif "document_chembl_id" in batch_dataframe.columns:
+            batch_dataframe = batch_dataframe.sort_values("document_chembl_id").reset_index(
+                drop=True
+            )
+
+        chunk_size = max(batch_size, 1)
+        batches = api_calls if api_calls else (len(unique_ids) + chunk_size - 1) // chunk_size
+        self._last_batch_extract_stats = {
+            "batches": batches,
+            "api_calls": api_calls,
+            "cache_hits": None,
+        }
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         batch_stats = self._last_batch_extract_stats or {}

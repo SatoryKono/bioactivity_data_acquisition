@@ -9,7 +9,8 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.config.activity import ActivitySourceConfig
+from bioetl.pipelines.activity.activity import API_ACTIVITY_FIELDS, ChemblActivityPipeline
 from bioetl.schemas.activity import ActivitySchema
 
 
@@ -338,58 +339,49 @@ class TestValidityCommentsInvariant:
 class TestValidityCommentsOnlyFields:
     """Test suite for only fields extraction."""
 
-    @patch("bioetl.pipelines.activity.activity.UnifiedAPIClient")
     def test_only_fields_extraction(
-        self, mock_client_class: MagicMock, pipeline_config_fixture: PipelineConfig, run_id: str
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that extract uses only= parameter to request specific fields."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # Mock API response
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "page_meta": {"next": None},
-            "activities": [
-                {
-                    "activity_id": 1,
-                    "activity_comment": "Test comment",
-                    "data_validity_comment": "Manually validated",
-                    "data_validity_description": "Test description",
-                }
-            ],
-        }
-        mock_client.get.return_value = mock_response
+        source_config_raw = pipeline._resolve_source_config("chembl")  # type: ignore[reportPrivateUsage]
+        source_config = ActivitySourceConfig.from_source_config(source_config_raw)
+        select_fields = pipeline._resolve_select_fields(  # type: ignore[reportPrivateUsage]
+            source_config_raw,
+            default_fields=API_ACTIVITY_FIELDS,
+        )
 
-        # Mock client factory using patch
-        mock_factory = MagicMock()
-        mock_factory.for_source.return_value = mock_client
+        chembl_client_stub = MagicMock()
+        iterator_stub = MagicMock()
+        iterator_stub.iterate_all.return_value = [
+            {
+                "activity_id": 1,
+                "activity_comment": "Test comment",
+                "data_validity_comment": "Manually validated",
+            }
+        ]
 
-        # Mock handshake
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
         with (
-            patch.object(pipeline, "_fetch_chembl_release", return_value="v33"),
-            patch.object(pipeline, "_client_factory", mock_factory),
+            patch.object(
+                pipeline,
+                "_prepare_activity_iteration",
+                return_value=(source_config, chembl_client_stub, iterator_stub, select_fields),
+            ),
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
         ):
             pipeline.extract_all()
 
-        # Проверка что запрос использовал only= параметр
-        get_calls = mock_client.get.call_args_list
-        assert len(get_calls) > 0
-
-        # Проверка что в параметрах есть only
-        first_call = get_calls[0]
-        call_kwargs: dict[str, Any] = first_call.kwargs if hasattr(first_call, "kwargs") else {}  # type: ignore[assignment]
-        call_args = first_call.args if hasattr(first_call, "args") else ()
-        params_raw: Any = call_kwargs.get("params") or (call_args[1] if len(call_args) > 1 else {})
-        params: dict[str, Any] = params_raw if isinstance(params_raw, dict) else {}  # type: ignore[assignment]
-
-        assert "only" in params
-        only_fields_str = str(params["only"])  # type: ignore[arg-type]
-        only_fields = only_fields_str.split(",")
-        assert "activity_comment" in only_fields
-        assert "data_validity_comment" in only_fields
-        # data_validity_description НЕ должен быть в only=, т.к. не существует в /activity endpoint
-        assert "data_validity_description" not in only_fields
+        assert iterator_stub.iterate_all.called
+        iterate_kwargs = iterator_stub.iterate_all.call_args.kwargs
+        returned_fields = list(iterate_kwargs.get("select_fields", []))
+        assert "activity_comment" in returned_fields
+        assert "data_validity_comment" in returned_fields
+        assert "data_validity_description" not in returned_fields
 
     def test_extract_data_validity_description(
         self, pipeline_config_fixture: PipelineConfig, run_id: str

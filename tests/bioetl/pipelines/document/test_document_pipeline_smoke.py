@@ -3,13 +3,32 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from bioetl.config import load_config
 from bioetl.pipelines.document.document import ChemblDocumentPipeline
+
+
+EXPECTED_SELECT_FIELDS = [
+    "document_chembl_id",
+    "doc_type",
+    "journal",
+    "journal_full_title",
+    "doi",
+    "src_id",
+    "title",
+    "abstract",
+    "year",
+    "volume",
+    "issue",
+    "first_page",
+    "last_page",
+    "pubmed_id",
+    "authors",
+]
 
 
 def create_mock_document_data(count: int = 3) -> list[dict[str, object]]:
@@ -112,6 +131,37 @@ def setup_mock_api_client(
     return mock_client
 
 
+def make_document_client_mock(
+    mock_documents: list[dict[str, object]],
+) -> MagicMock:
+    """Create a mock ChemblDocumentClient with predictable iterators."""
+
+    document_client = MagicMock()
+    document_client.batch_size = 20
+
+    def iterate_all_side_effect(
+        *,
+        limit: int | None = None,
+        page_size: int | None = None,
+        select_fields: list[str] | None = None,
+    ):
+        return (dict(doc) for doc in mock_documents)
+
+    def iterate_by_ids_side_effect(
+        ids: list[str] | tuple[str, ...],
+        *,
+        select_fields: list[str] | None = None,
+    ):
+        id_set = {str(value) for value in ids}
+        filtered = [doc for doc in mock_documents if doc.get("document_chembl_id") in id_set]
+        selected = filtered if filtered else mock_documents
+        return (dict(doc) for doc in selected)
+
+    document_client.iterate_all.side_effect = iterate_all_side_effect
+    document_client.iterate_by_ids.side_effect = iterate_by_ids_side_effect
+    return document_client
+
+
 @pytest.mark.integration
 class TestDocumentPipelineSmoke:
     """Integration smoke tests for document pipeline."""
@@ -126,6 +176,7 @@ class TestDocumentPipelineSmoke:
             / "document_chembl.yaml"
         )
         config = load_config(config_path)
+        config.cli.input_file = None
 
         # Ensure enrichment is disabled
         if config.chembl and config.chembl.get("document"):
@@ -144,12 +195,26 @@ class TestDocumentPipelineSmoke:
 
         mock_documents = create_mock_document_data(count=3)
 
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
+        with (
+            patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+        ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
 
+            mock_doc_client = make_document_client_mock(mock_documents)
+            mock_doc_client_cls.return_value = mock_doc_client
+
             pipeline = ChemblDocumentPipeline(config, run_id="test-run-001")
             result = pipeline.run(tmp_path)
+
+            mock_doc_client_cls.assert_called_once()
+            mock_doc_client.iterate_all.assert_called_once()
+            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
+            assert iterate_kwargs["limit"] is None
+            assert iterate_kwargs["page_size"] == 20
+            assert iterate_kwargs["select_fields"] == EXPECTED_SELECT_FIELDS
+            mock_doc_client_cls.assert_called_with(ANY, batch_size=20)
 
             # Check that files were created
             assert result.write_result.dataset.exists()
@@ -179,6 +244,7 @@ class TestDocumentPipelineSmoke:
             / "document_chembl.yaml"
         )
         config = load_config(config_path)
+        config.cli.input_file = None
 
         # Enable enrichment - convert to dict to allow modification
         chembl_dict = dict(config.chembl) if config.chembl else {}
@@ -201,14 +267,27 @@ class TestDocumentPipelineSmoke:
         mock_documents = create_mock_document_data(count=3)
         mock_document_terms = create_mock_document_term_data()
 
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
+        with (
+            patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+        ):
             mock_client = setup_mock_api_client(
                 mock_documents, mock_document_terms=mock_document_terms
             )
             mock_factory.return_value = mock_client
 
+            mock_doc_client = make_document_client_mock(mock_documents)
+            mock_doc_client_cls.return_value = mock_doc_client
+
             pipeline = ChemblDocumentPipeline(config, run_id="test-run-002")
             result = pipeline.run(tmp_path)
+
+            mock_doc_client_cls.assert_called_once()
+            mock_doc_client.iterate_all.assert_called_once()
+            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
+            assert iterate_kwargs["limit"] is None
+            assert iterate_kwargs["page_size"] == 20
+            assert iterate_kwargs["select_fields"] == EXPECTED_SELECT_FIELDS
 
             # Check that files were created
             assert result.write_result.dataset.exists()
@@ -259,15 +338,26 @@ class TestDocumentPipelineSmoke:
             / "document_chembl.yaml"
         )
         config = load_config(config_path)
+        config.cli.input_file = None
 
         mock_documents = create_mock_document_data(count=2)
 
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
+        with (
+            patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
+            patch("bioetl.pipelines.document.document.ChemblDocumentClient") as mock_doc_client_cls,
+        ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
 
+            mock_doc_client = make_document_client_mock(mock_documents)
+            mock_doc_client_cls.return_value = mock_doc_client
+
             pipeline = ChemblDocumentPipeline(config, run_id="test-run-003")
             result = pipeline.run(tmp_path)
+
+            mock_doc_client.iterate_all.assert_called_once()
+            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
+            assert iterate_kwargs["page_size"] == 20
 
             # Check that files were created
             assert result.write_result.dataset.exists()

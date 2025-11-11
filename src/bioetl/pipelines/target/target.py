@@ -49,17 +49,12 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_target.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
+        batch_from_input = self._extract_from_input_file(
+            log,
+            event_name="chembl_target.extract_mode",
+        )
+        if batch_from_input is not None:
+            return batch_from_input
 
         log.info("chembl_target.extract_mode", mode="full")
         return self.extract_all()
