@@ -47,7 +47,7 @@ def test_extract_uses_shared_input_file_helper(
     with (
         patch.object(
             ChemblPipelineBase,
-            "_extract_from_input_file",
+            "_dispatch_extract_mode",
             autospec=True,
             return_value=expected,
         ) as helper_mock,

@@ -225,28 +225,84 @@ class ChemblPipelineBase(PipelineBase):
             return list(default_fields)
         return []
 
-    def _extract_from_input_file(
+    def _dispatch_extract_mode(
         self,
         log: BoundLogger,
         *,
         event_name: str,
-    ) -> pd.DataFrame | None:
-        """Extract records using IDs loaded from the configured input file."""
+        batch_callback: Callable[[Sequence[str]], pd.DataFrame],
+        full_callback: Callable[[], pd.DataFrame],
+        id_column_name: str | None = None,
+        legacy_id_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None,
+        legacy_source: str = "legacy",
+    ) -> pd.DataFrame:
+        """Dispatch extraction mode between batch and full strategies.
 
-        if not self.config.cli.input_file:
-            return None
+        This helper centralises reading identifiers from the CLI configuration,
+        logging the selected execution mode, and invoking the provided
+        callbacks for batch (ID-based) or full extraction.
 
-        id_column_name = self._get_id_column_name()
-        ids = self._read_input_ids(
-            id_column_name=id_column_name,
-            limit=self.config.cli.limit,
-            sample=self.config.cli.sample,
-        )
-        if not ids:
-            return None
+        Parameters
+        ----------
+        log
+            Logger bound to the caller's execution context.
+        event_name
+            Structured logging event emitted whenever the extraction mode is
+            resolved.
+        batch_callback
+            Callback executed when identifiers are available. Receives the
+            resolved list of identifiers.
+        full_callback
+            Callback executed when no identifiers are supplied via CLI or
+            legacy hooks.
+        id_column_name
+            Optional override for the identifier column expected within the
+            CLI input file. Defaults to the pipeline-derived value.
+        legacy_id_resolver
+            Optional callable that can provide identifiers from legacy inputs
+            (for example deprecated keyword arguments). The callable receives
+            the same logger so it can emit warnings prior to returning
+            identifiers.
+        legacy_source
+            Source label used in structured logging when identifiers originate
+            from the legacy resolver.
+        """
 
-        log.info(event_name, mode="batch", ids_count=len(ids))
-        return self.extract_by_ids(ids)
+        column_name = id_column_name or self._get_id_column_name()
+
+        if self.config.cli.input_file:
+            ids = self._read_input_ids(
+                id_column_name=column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info(
+                    event_name,
+                    mode="batch",
+                    source="cli_input",
+                    ids_count=len(ids),
+                )
+                return batch_callback(ids)
+
+        if legacy_id_resolver is not None:
+            legacy_ids = legacy_id_resolver(log)
+            if legacy_ids:
+                if isinstance(legacy_ids, (str, bytes)):
+                    normalized_ids = [str(legacy_ids)]
+                else:
+                    normalized_ids = [str(item) for item in legacy_ids]
+                if normalized_ids:
+                    log.info(
+                        event_name,
+                        mode="batch",
+                        source=legacy_source,
+                        ids_count=len(normalized_ids),
+                    )
+                    return batch_callback(normalized_ids)
+
+        log.info(event_name, mode="full")
+        return full_callback()
 
     # ------------------------------------------------------------------
     # API client management
