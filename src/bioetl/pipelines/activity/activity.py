@@ -16,6 +16,7 @@ import pandas as pd
 import pandera.errors
 from requests.exceptions import RequestException
 
+from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
@@ -151,32 +152,23 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return self.extract_all()
 
     def extract_all(self) -> pd.DataFrame:
-        """Extract all activity records from ChEMBL using pagination."""
+        """Extract all activity records from ChEMBL using the shared iterator."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        client, base_url = self.prepare_chembl_client(
-            "chembl",
-            client_name="chembl_activity_client",
-        )
-
-        self._chembl_release = self.fetch_chembl_release(client, log)
+        (
+            source_config,
+            chembl_client,
+            activity_iterator,
+            select_fields,
+        ) = self._prepare_activity_iteration()
 
         batch_size = source_config.batch_size
         limit = self.config.cli.limit
         page_size = self._resolve_page_size(batch_size, limit)
 
         parameters = self._normalize_parameters(source_config.parameters)
-        select_fields = self._resolve_select_fields(source_raw, default_fields=API_ACTIVITY_FIELDS)
-        records: list[dict[str, Any]] = []
-        next_endpoint: str | None = "/activity.json"
-        params: Mapping[str, Any] | None = {
-            "limit": page_size,
-            "only": ",".join(select_fields),
-        }
         parameters_dict = dict(sorted(parameters.items()))
         filters_payload: dict[str, Any] = {
             "mode": "all",
@@ -194,49 +186,15 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
-        pages = 0
 
-        while next_endpoint:
-            page_start = time.perf_counter()
-            response = client.get(next_endpoint, params=params)
-            payload = self._coerce_mapping(response.json())
-            page_items = self._extract_page_items(payload)
-
-            # Process nested fields for each item
-            processed_items: list[dict[str, Any]] = []
-            for item in page_items:
-                processed_item = self._extract_nested_fields(dict(item))
-                processed_item = self._extract_activity_properties_fields(processed_item)
-                processed_items.append(processed_item)
-
-            if limit is not None:
-                remaining = max(limit - len(records), 0)
-                if remaining == 0:
-                    break
-                processed_items = processed_items[:remaining]
-
-            records.extend(processed_items)
-            pages += 1
-            page_duration_ms = (time.perf_counter() - page_start) * 1000.0
-            log.debug(
-                "chembl_activity.page_fetched",
-                endpoint=next_endpoint,
-                batch_size=len(processed_items),
-                total_records=len(records),
-                duration_ms=page_duration_ms,
-            )
-
-            next_link = self._next_link(payload, base_url=base_url)
-            if not next_link or (limit is not None and len(records) >= limit):
-                break
-            # Log the next_link before using it for debugging
-            log.info(
-                "chembl_activity.next_link_resolved",
-                next_link=next_link,
-                base_url=base_url,
-            )
-            next_endpoint = next_link
-            params = None
+        records: list[dict[str, Any]] = []
+        for payload in activity_iterator.iterate_all(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
+        ):
+            record = self._materialize_activity_record(payload)
+            records.append(record)
 
         dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if dataframe.empty:
@@ -244,19 +202,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         elif "activity_id" in dataframe.columns:
             dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
 
-        # Гарантия присутствия полей комментариев
         dataframe = self._ensure_comment_fields(dataframe, log)
-
-        # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
-        chembl_client = ChemblClient(
-            client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
-
-        # Логирование метрик заполненности
         self._log_validity_comments_metrics(dataframe, log)
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -265,7 +212,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             duration_ms=duration_ms,
             chembl_release=self._chembl_release,
-            pages=pages,
         )
         return dataframe
 
@@ -285,26 +231,20 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        client, _ = self.prepare_chembl_client(
-            "chembl",
-            client_name="chembl_activity_client",
-        )
+        (
+            source_config,
+            chembl_client,
+            activity_iterator,
+            select_fields,
+        ) = self._prepare_activity_iteration()
 
-        self._chembl_release = self.fetch_chembl_release(client, log)
-
-        batch_size = source_config.batch_size
         limit = self.config.cli.limit
-
-        # Convert list of IDs to DataFrame for compatibility with _extract_from_chembl
-        input_frame = pd.DataFrame({"activity_id": list(ids)})
 
         id_filters = {
             "mode": "ids",
             "requested_ids": [str(id_value) for id_value in ids],
             "limit": int(limit) if limit is not None else None,
-            "batch_size": batch_size,
+            "batch_size": source_config.batch_size,
         }
         compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
         self.record_extract_metadata(
@@ -313,11 +253,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
+        input_frame = pd.DataFrame({"activity_id": list(ids)})
+
         batch_dataframe = self._extract_from_chembl(
             input_frame,
-            client,
-            batch_size=batch_size,
+            chembl_client,
+            activity_iterator,
             limit=limit,
+            select_fields=select_fields,
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -333,6 +276,265 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             cache_hits=batch_stats.get("cache_hits"),
         )
         return batch_dataframe
+
+    def _prepare_activity_iteration(
+        self,
+        *,
+        client_name: str = "chembl_activity_client",
+    ) -> tuple[ActivitySourceConfig, ChemblClient, ChemblActivityClient, list[str]]:
+        """Construct reusable ChEMBL clients and iterator for activity extraction."""
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        http_client, _ = self.prepare_chembl_client(
+            "chembl",
+            client_name=client_name,
+        )
+
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+
+        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+
+        activity_iterator = ChemblActivityClient(
+            chembl_client,
+            batch_size=source_config.batch_size,
+        )
+
+        select_fields = self._resolve_select_fields(
+            source_raw,
+            default_fields=API_ACTIVITY_FIELDS,
+        )
+
+        return source_config, chembl_client, activity_iterator, select_fields
+
+    def _materialize_activity_record(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        activity_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Normalize nested fields within an activity payload."""
+
+        record = dict(payload)
+        record = self._extract_nested_fields(record)
+        record = self._extract_activity_properties_fields(record)
+        if activity_id is not None:
+            record.setdefault("activity_id", activity_id)
+        return record
+
+    def _coerce_activity_dataset(self, dataset: object) -> pd.DataFrame:
+        """Convert arbitrary dataset inputs to a DataFrame of activity identifiers."""
+
+        if isinstance(dataset, pd.Series):
+            return dataset.to_frame(name="activity_id")
+        if isinstance(dataset, pd.DataFrame):
+            return dataset
+        if isinstance(dataset, Mapping):
+            mapping = cast(Mapping[str, Any], dataset)
+            return pd.DataFrame([dict(mapping)])
+        if isinstance(dataset, Sequence) and not isinstance(dataset, (str, bytes)):
+            dataset_list: list[Any] = list(dataset)  # pyright: ignore[reportUnknownArgumentType]
+            return pd.DataFrame({"activity_id": dataset_list})
+
+        msg = (
+            "ChemblActivityPipeline._extract_from_chembl expects a DataFrame, Series, "
+            "mapping, or sequence of activity_id values"
+        )
+        raise TypeError(msg)
+
+    def _normalize_activity_ids(
+        self,
+        input_frame: pd.DataFrame,
+        *,
+        limit: int | None,
+        log: Any,
+    ) -> list[tuple[int, str]]:
+        """Normalize raw identifier values into deduplicated integer/string pairs."""
+
+        normalized_ids: list[tuple[int, str]] = []
+        invalid_ids: list[Any] = []
+        seen: set[str] = set()
+
+        for raw_id in input_frame["activity_id"].tolist():
+            if pd.isna(raw_id):
+                continue
+            try:
+                if isinstance(raw_id, str):
+                    candidate = raw_id.strip()
+                    if not candidate:
+                        continue
+                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
+                elif isinstance(raw_id, (int, float)):
+                    numeric_id = int(raw_id)
+                else:
+                    numeric_id = int(raw_id)
+            except (TypeError, ValueError):
+                invalid_ids.append(raw_id)
+                continue
+
+            key = str(numeric_id)
+            if key not in seen:
+                seen.add(key)
+                normalized_ids.append((numeric_id, key))
+
+        if invalid_ids:
+            log.warning(
+                "chembl_activity.invalid_activity_ids",
+                invalid_count=len(invalid_ids),
+            )
+
+        if limit is not None:
+            normalized_ids = normalized_ids[: max(int(limit), 0)]
+
+        return normalized_ids
+
+    def _collect_records_by_ids(
+        self,
+        normalized_ids: Sequence[tuple[int, str]],
+        activity_iterator: ChemblActivityClient,
+        *,
+        select_fields: Sequence[str] | None,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+        """Iterate over IDs using the shared iterator while preserving cache semantics."""
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        records: list[dict[str, Any]] = []
+        success_count = 0
+        fallback_count = 0
+        error_count = 0
+        cache_hits = 0
+        api_calls = 0
+        total_batches = 0
+
+        key_order = [key for _, key in normalized_ids]
+        key_to_numeric = {key: numeric_id for numeric_id, key in normalized_ids}
+
+        for chunk in activity_iterator._chunk_identifiers(
+            key_order,
+            select_fields=select_fields,
+        ):
+            total_batches += 1
+            batch_start = time.perf_counter()
+            from_cache = False
+            chunk_records: dict[str, dict[str, Any]] = {}
+
+            try:
+                cached_records = self._check_cache(chunk, self._chembl_release)
+                if cached_records is not None:
+                    from_cache = True
+                    cache_hits += len(chunk)
+                    chunk_records = cached_records
+                else:
+                    api_calls += 1
+                    fetched_items = list(
+                        activity_iterator.iterate_by_ids(
+                            chunk,
+                            select_fields=select_fields,
+                        )
+                    )
+                    for item in fetched_items:
+                        if not isinstance(item, Mapping):
+                            continue
+                        activity_value = item.get("activity_id")
+                        if activity_value is None:
+                            continue
+                        chunk_records[str(activity_value)] = dict(item)
+                    self._store_cache(chunk, chunk_records, self._chembl_release)
+
+                success_in_batch = 0
+                for key in chunk:
+                    numeric_id = key_to_numeric.get(key)
+                    if numeric_id is None:
+                        continue
+                    record = chunk_records.get(key)
+                    if record and not record.get("error"):
+                        materialized = self._materialize_activity_record(
+                            record,
+                            activity_id=numeric_id,
+                        )
+                        records.append(materialized)
+                        success_count += 1
+                        success_in_batch += 1
+                    else:
+                        fallback_record = self._create_fallback_record(numeric_id)
+                        records.append(fallback_record)
+                        fallback_count += 1
+                        error_count += 1
+
+                batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
+                log.debug(
+                    "chembl_activity.batch_processed",
+                    batch_size=len(chunk),
+                    from_cache=from_cache,
+                    success_in_batch=success_in_batch,
+                    fallback_in_batch=len(chunk) - success_in_batch,
+                    duration_ms=batch_duration_ms,
+                )
+            except CircuitBreakerOpenError as exc:
+                log.warning(
+                    "chembl_activity.batch_circuit_breaker",
+                    batch_size=len(chunk),
+                    error=str(exc),
+                )
+                for key in chunk:
+                    numeric_id = key_to_numeric.get(key)
+                    if numeric_id is None:
+                        continue
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+            except RequestException as exc:
+                log.error(
+                    "chembl_activity.batch_request_error",
+                    batch_size=len(chunk),
+                    error=str(exc),
+                )
+                for key in chunk:
+                    numeric_id = key_to_numeric.get(key)
+                    if numeric_id is None:
+                        continue
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+            except Exception as exc:  # pragma: no cover - defensive path
+                log.error(
+                    "chembl_activity.batch_unhandled_error",
+                    batch_size=len(chunk),
+                    error=str(exc),
+                    exc_info=True,
+                )
+                for key in chunk:
+                    numeric_id = key_to_numeric.get(key)
+                    if numeric_id is None:
+                        continue
+                    records.append(self._create_fallback_record(numeric_id, exc))
+                    fallback_count += 1
+                    error_count += 1
+
+        total_records = len(normalized_ids)
+        success_rate = (
+            float(success_count + fallback_count) / float(total_records) if total_records else 0.0
+        )
+        summary = {
+            "total_activities": total_records,
+            "success": success_count,
+            "fallback": fallback_count,
+            "errors": error_count,
+            "api_calls": api_calls,
+            "cache_hits": cache_hits,
+            "batches": total_batches,
+            "duration_ms": 0.0,
+            "success_rate": success_rate,
+        }
+
+        return records, summary
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw activity data by normalizing measurements, identifiers, and data types."""
@@ -808,71 +1010,28 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _extract_from_chembl(
         self,
         dataset: object,
-        client: UnifiedAPIClient,
+        chembl_client: ChemblClient | Any,
+        activity_iterator: ChemblActivityClient,
         *,
-        batch_size: int | None = None,
         limit: int | None = None,
+        select_fields: Sequence[str] | None = None,
     ) -> pd.DataFrame:
-        """Extract activity records by batching ``activity_id`` values."""
+        """Extract activity records by delegating batching to ``ChemblActivityClient``."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
-        source_config_raw = self._resolve_source_config("chembl")
-        activity_source_config = ActivitySourceConfig.from_source_config(source_config_raw)
 
-        if isinstance(dataset, pd.Series):
-            input_frame = dataset.to_frame(name="activity_id")
-        elif isinstance(dataset, pd.DataFrame):
-            input_frame = dataset
-        elif isinstance(dataset, Mapping):
-            input_frame = pd.DataFrame([cast(dict[str, Any], dataset)])
-        elif isinstance(dataset, Sequence) and not isinstance(dataset, (str, bytes)):
-            dataset_list: list[Any] = list(dataset)  # pyright: ignore[reportUnknownArgumentType]
-            input_frame = pd.DataFrame({"activity_id": dataset_list})
-        else:
-            msg = (
-                "ChemblActivityPipeline._extract_from_chembl expects a DataFrame, Series, "
-                "mapping, or sequence of activity_id values"
-            )
-            raise TypeError(msg)
-
+        input_frame = self._coerce_activity_dataset(dataset)
         if "activity_id" not in input_frame.columns:
             msg = "Input dataset must contain an 'activity_id' column"
             raise ValueError(msg)
 
-        normalized_ids: list[tuple[int, str]] = []
-        invalid_ids: list[Any] = []
-        seen: set[str] = set()
-        for raw_id in input_frame["activity_id"].tolist():
-            if pd.isna(raw_id):
-                continue
-            try:
-                if isinstance(raw_id, str):
-                    candidate = raw_id.strip()
-                    if not candidate:
-                        continue
-                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
-                elif isinstance(raw_id, (int, float)):
-                    numeric_id = int(raw_id)
-                else:
-                    numeric_id = int(raw_id)
-            except (TypeError, ValueError):
-                invalid_ids.append(raw_id)
-                continue
-            key = str(numeric_id)
-            if key not in seen:
-                seen.add(key)
-                normalized_ids.append((numeric_id, key))
-
-        if invalid_ids:
-            log.warning(
-                "chembl_activity.invalid_activity_ids",
-                invalid_count=len(invalid_ids),
-            )
-
-        if limit is not None:
-            normalized_ids = normalized_ids[: max(int(limit), 0)]
+        normalized_ids = self._normalize_activity_ids(
+            input_frame,
+            limit=limit,
+            log=log,
+        )
 
         if not normalized_ids:
             summary: dict[str, Any] = {
@@ -888,126 +1047,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             }
             self._last_batch_extract_stats = summary
             log.info("chembl_activity.batch_summary", **summary)
-            return pd.DataFrame()
+            dataframe = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
+            return self._ensure_comment_fields(dataframe, log)
 
-        effective_batch_size = batch_size or activity_source_config.batch_size
-        effective_batch_size = max(min(int(effective_batch_size), 25), 1)
-
-        records: list[dict[str, Any]] = []
-        success_count = 0
-        fallback_count = 0
-        error_count = 0
-        cache_hits = 0
-        api_calls = 0
-        total_batches = 0
-
-        for index in range(0, len(normalized_ids), effective_batch_size):
-            batch = normalized_ids[index : index + effective_batch_size]
-            batch_keys: list[str] = [key for _, key in batch]
-            batch_start = time.perf_counter()
-            try:
-                cached_records = self._check_cache(batch_keys, self._chembl_release)
-                from_cache = cached_records is not None
-                batch_records: dict[str, dict[str, Any]] = {}
-                if cached_records is not None:
-                    batch_records = cached_records
-                    cache_hits += len(batch_keys)
-                else:
-                    configured_fields = activity_source_config.parameters.select_fields
-                    select_fields = (
-                        list(configured_fields) if configured_fields else list(API_ACTIVITY_FIELDS)
-                    )
-                    params = {
-                        "activity_id__in": ",".join(batch_keys),
-                        "only": ",".join(select_fields),
-                    }
-                    response = client.get("/activity.json", params=params)
-                    api_calls += 1
-                    payload = self._coerce_mapping(response.json())
-                    for item in self._extract_page_items(payload):
-                        activity_value = item.get("activity_id")
-                        if activity_value is None:
-                            continue
-                        batch_records[str(activity_value)] = item
-                    self._store_cache(batch_keys, batch_records, self._chembl_release)
-
-                success_in_batch = 0
-                for numeric_id, key in batch:
-                    record = batch_records.get(key)
-                    if record and not record.get("error"):
-                        materialised = dict(record)
-                        materialised = self._extract_nested_fields(materialised)
-                        materialised = self._extract_activity_properties_fields(materialised)
-                        materialised.setdefault("activity_id", numeric_id)
-                        records.append(materialised)
-                        success_count += 1
-                        success_in_batch += 1
-                    else:
-                        fallback_record = self._create_fallback_record(numeric_id)
-                        records.append(fallback_record)
-                        fallback_count += 1
-                        error_count += 1
-                total_batches += 1
-                batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
-                log.debug(
-                    "chembl_activity.batch_processed",
-                    batch_size=len(batch_keys),
-                    from_cache=from_cache,
-                    success_in_batch=success_in_batch,
-                    fallback_in_batch=len(batch_keys) - success_in_batch,
-                    duration_ms=batch_duration_ms,
-                )
-            except CircuitBreakerOpenError as exc:
-                total_batches += 1
-                log.warning(
-                    "chembl_activity.batch_circuit_breaker",
-                    batch_size=len(batch_keys),
-                    error=str(exc),
-                )
-                for numeric_id, _ in batch:
-                    records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
-            except RequestException as exc:
-                total_batches += 1
-                log.error(
-                    "chembl_activity.batch_request_error",
-                    batch_size=len(batch_keys),
-                    error=str(exc),
-                )
-                for numeric_id, _ in batch:
-                    records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
-            except Exception as exc:  # pragma: no cover - defensive path
-                total_batches += 1
-                log.error(
-                    "chembl_activity.batch_unhandled_error",
-                    batch_size=len(batch_keys),
-                    error=str(exc),
-                    exc_info=True,
-                )
-                for numeric_id, _ in batch:
-                    records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
-
-        duration_ms = (time.perf_counter() - method_start) * 1000.0
-        total_records = len(normalized_ids)
-        success_rate = (
-            float(success_count + fallback_count) / float(total_records) if total_records else 0.0
+        records, summary = self._collect_records_by_ids(
+            normalized_ids,
+            activity_iterator,
+            select_fields=select_fields,
         )
-        summary = {
-            "total_activities": total_records,
-            "success": success_count,
-            "fallback": fallback_count,
-            "errors": error_count,
-            "api_calls": api_calls,
-            "cache_hits": cache_hits,
-            "batches": total_batches,
-            "duration_ms": duration_ms,
-            "success_rate": success_rate,
-        }
+        duration_ms = (time.perf_counter() - method_start) * 1000.0
+        summary["duration_ms"] = duration_ms
         self._last_batch_extract_stats = summary
         log.info("chembl_activity.batch_summary", **summary)
 
@@ -1017,26 +1066,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         elif "activity_id" in dataframe.columns:
             dataframe = dataframe.sort_values("activity_id").reset_index(drop=True)
 
-        # Гарантия присутствия полей комментариев
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         dataframe = self._ensure_comment_fields(dataframe, log)
-
-        # Извлечение data_validity_description из DATA_VALIDITY_LOOKUP
-        parameters = self._normalize_parameters(activity_source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        extract_client = self._client_factory.for_source("chembl", base_url=base_url)
-        chembl_client = ChemblClient(
-            extract_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
         dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
-
-        # Извлечение assay_organism и assay_tax_id из ASSAYS
         dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
-
-        # Логирование метрик заполненности
         self._log_validity_comments_metrics(dataframe, log)
 
         return dataframe

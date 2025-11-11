@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
+from typing import Any, Mapping
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 from requests.exceptions import RequestException
 
+from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.activity.activity import ChemblActivityPipeline
@@ -531,21 +532,33 @@ class TestChemblActivityPipelineTransformations:
 
         dataset = pd.DataFrame({"activity_id": [1, 2, 3]})
 
-        client = MagicMock()
-        response_batch_one = MagicMock()
-        response_batch_one.json.return_value = {
-            "activities": [
-                {"activity_id": 1, "standard_type": "IC50"},
-                {"activity_id": 2, "standard_type": "IC50"},
-            ]
-        }
-        response_batch_two = MagicMock()
-        response_batch_two.json.return_value = {
-            "activities": [{"activity_id": 3, "standard_type": "IC50"}]
-        }
-        client.get.side_effect = [response_batch_one, response_batch_two]
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+
+        def paginate(endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None) -> Any:
+            values = params["activity_id__in"].split(",")
+            payload = [{"activity_id": int(value), "standard_type": "IC50"} for value in values]
+            return iter(payload)
+
+        iterator_client.paginate.side_effect = paginate
+
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=2)
+
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id", "standard_type"],
+            )  # type: ignore[reportPrivateUsage]
 
         assert list(result["activity_id"]) == [1, 2, 3]
         stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
@@ -553,11 +566,24 @@ class TestChemblActivityPipelineTransformations:
         assert stats["api_calls"] == 2
         assert stats["cache_hits"] == 0
 
-        cached_client = MagicMock()
-        cached_result = pipeline._extract_from_chembl(dataset, cached_client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        cached_iterator_client = MagicMock()
+        cached_iterator_client.paginate.side_effect = AssertionError("paginate should not be called when cache is warm")
+        cached_activity_iterator = ChemblActivityClient(cached_iterator_client, batch_size=2)
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            cached_result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                cached_activity_iterator,
+                select_fields=["activity_id", "standard_type"],
+            )  # type: ignore[reportPrivateUsage]
 
         assert list(cached_result["activity_id"]) == [1, 2, 3]
-        assert cached_client.get.call_count == 0
+        cached_iterator_client.paginate.assert_not_called()
         cached_stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
         assert cached_stats is not None
         assert cached_stats["cache_hits"] == 3
@@ -575,12 +601,28 @@ class TestChemblActivityPipelineTransformations:
         pipeline._chembl_release = "33"  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [10, 11]})
-        client = MagicMock()
-        client.get.side_effect = RequestException("boom")
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+        iterator_client.paginate.side_effect = RequestException("boom")
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=2)
 
-        assert client.get.call_count == 1
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id"],
+            )  # type: ignore[reportPrivateUsage]
+
+        iterator_client.paginate.assert_called_once()
         assert list(result["activity_id"]) == [10, 11]
         assert all(result["data_validity_comment"].str.contains("Fallback"))  # type: ignore[reportUnknownMemberType]
         metadata = result["activity_properties"].apply(json.loads)  # type: ignore[reportUnknownMemberType]
@@ -611,12 +653,28 @@ class TestChemblActivityPipelineTransformations:
         pipeline._chembl_release = "34"  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [42]})
-        client = MagicMock()
-        client.get.side_effect = CircuitBreakerOpenError("open")
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=1)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+        iterator_client.paginate.side_effect = CircuitBreakerOpenError("open")
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=1)
 
-        assert client.get.call_count == 1
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id"],
+            )  # type: ignore[reportPrivateUsage]
+
+        iterator_client.paginate.assert_called_once()
         assert result.shape[0] == 1
         assert "Fallback" in result["data_validity_comment"].iloc[0]
         stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
