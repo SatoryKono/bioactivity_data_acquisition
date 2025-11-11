@@ -16,19 +16,12 @@ from uuid import uuid4
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-
-try:
-    from tests.bioetl.core.test_report_artifacts import (
-        TEST_REPORTS_ROOT,
-        TestReportMeta,
-        build_timestamp_directory_name,
-        resolve_artifact_paths,
-    )
-except ImportError as exc:  # pragma: no cover - defensive guard
-    raise RuntimeError(
-        "tests.bioetl.core.test_report_artifacts недоступен. "
-        "Убедитесь, что тестовый пакет находится в PYTHONPATH."
-    ) from exc
+from bioetl.tools.test_report_artifacts import (
+    TEST_REPORTS_ROOT,
+    TestReportMeta,
+    build_timestamp_directory_name,
+    resolve_artifact_paths,
+)
 
 __all__ = ["generate_test_report", "TEST_REPORTS_ROOT"]
 

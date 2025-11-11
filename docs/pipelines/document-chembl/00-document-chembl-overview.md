@@ -47,12 +47,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # All-source enrichment run
-python -m bioetl.cli.main document \
+python -m bioetl.cli.app document \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document
 
 # ChEMBL only mode
-python -m bioetl.cli.main document \
+python -m bioetl.cli.app document \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --set sources.pubmed.enabled=false \

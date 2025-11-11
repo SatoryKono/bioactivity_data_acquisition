@@ -18,7 +18,7 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.testitem import COLUMN_ORDER
 
-from ...chembl_base import (
+from ...chembl_descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,

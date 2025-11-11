@@ -44,12 +44,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from UniProt
-python -m bioetl.cli.main target-uniprot \
+python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot
 
 # With input file containing UniProt accessions
-python -m bioetl.cli.main target-uniprot \
+python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --input-file data/input/uniprot_accessions.csv \
   --output-dir data/output/target-uniprot

@@ -14,7 +14,7 @@ This approach is **not dynamic**. Adding a new pipeline requires explicitly addi
 
 ## Core Commands
 
-The CLI is invoked via `python -m bioetl.cli.main`.
+The CLI is invoked via `python -m bioetl.cli.app`.
 
 ### `list`
 
@@ -23,7 +23,7 @@ The `list` command displays all currently registered pipeline commands.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main list
+python -m bioetl.cli.app list
 ```
 
 ### `<pipeline-name>`
@@ -33,13 +33,13 @@ Each registered pipeline is available as a subcommand (e.g., `activity_chembl`, 
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main <pipeline-name> [OPTIONS]
+python -m bioetl.cli.app <pipeline-name> [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.main activity_chembl --config configs/pipelines/activity/activity_chembl.yaml --output-dir /data/output/activity
+python -m bioetl.cli.app activity_chembl --config configs/pipelines/activity/activity_chembl.yaml --output-dir /data/output/activity
 ```
 
 ## Standard Command-Line Arguments
@@ -62,7 +62,7 @@ Every pipeline command supports a standard set of command-line arguments.
 # This command will connect to the ChEMBL API, fetch a few records,
 # transform and validate them, and then exit without writing any output.
 # It is a perfect way to check that the pipeline is configured correctly.
-python -m bioetl.cli.main chembl_activity --output-dir /tmp/test --limit 10 --dry-run
+python -m bioetl.cli.app chembl_activity --output-dir /tmp/test --limit 10 --dry-run
 ```
 
 By providing a consistent and powerful CLI, the framework makes the process of running, testing, and debugging pipelines straightforward and repeatable for all users.

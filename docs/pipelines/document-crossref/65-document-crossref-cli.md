@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main document --source crossref
+python -m bioetl.cli.app document --source crossref
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main document --source crossref \
+python -m bioetl.cli.app document --source crossref \
   --config configs/pipelines/crossref/document.yaml \
   --output-dir data/output/document
 ```

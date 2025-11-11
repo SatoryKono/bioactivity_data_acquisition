@@ -23,5 +23,9 @@
 | `bioetl-semantic-diff` | `tools.semantic_diff` | Сравнивает документацию и реализацию ключевых API. | `artifacts/semantic-diff-report.json`. | `bioetl-semantic-diff` |
 | `bioetl-vocab-audit` | `tools.vocab_audit` | Сравнивает значения из ChEMBL с локальными словарями. | `artifacts/vocab_audit.csv`, `artifacts/vocab_audit.meta.yaml`. | `bioetl-vocab-audit --pages 5 --page-size 500` |
 
+`bioetl-run-test-report` использует общий модуль `bioetl.tools.test_report_artifacts`, чтобы формировать
+структуру артефактов тестирования и `meta.yaml`. Тесты обращаются к тем же определениям, что и CLI,
+поэтому импорт из `tests.bioetl` больше не требуется.
+
 Все CLI команды доступны после `pip install -e .[dev]` и исполняются из корня репозитория,
 чтобы относительные пути разрешались корректно.

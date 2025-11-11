@@ -9,23 +9,23 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
-from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline as ChemblTestItemPipeline
-from bioetl.pipelines.chembl_base import ChemblPipelineBase
+from bioetl.pipelines.chembl.activity import run as activity_run
+from bioetl.pipelines.chembl.assay import run as assay_run
+from bioetl.pipelines.chembl.document import run as document_run
+from bioetl.pipelines.chembl.target import run as target_run
+from bioetl.pipelines.chembl.testitem import run as testitem_run
+from bioetl.pipelines.chembl_descriptor import ChemblPipelineBase
 
 
 @pytest.mark.unit
 @pytest.mark.parametrize(
     ("pipeline_cls", "pipeline_name", "event_name"),
     [
-        (ChemblActivityPipeline, "activity_chembl", "chembl_activity.extract_mode"),
-        (ChemblAssayPipeline, "assay_chembl", "chembl_assay.extract_mode"),
-        (ChemblDocumentPipeline, "document_chembl", "chembl_document.extract_mode"),
-        (ChemblTestItemPipeline, "testitem_chembl", "chembl_testitem.extract_mode"),
-        (ChemblTargetPipeline, "target_chembl", "chembl_target.extract_mode"),
+        (activity_run.ChemblActivityPipeline, "activity_chembl", "chembl_activity.extract_mode"),
+        (assay_run.ChemblAssayPipeline, "assay_chembl", "chembl_assay.extract_mode"),
+        (document_run.ChemblDocumentPipeline, "document_chembl", "chembl_document.extract_mode"),
+        (testitem_run.TestItemChemblPipeline, "testitem_chembl", "chembl_testitem.extract_mode"),
+        (target_run.ChemblTargetPipeline, "target_chembl", "chembl_target.extract_mode"),
     ],
 )
 def test_extract_uses_shared_input_file_helper(

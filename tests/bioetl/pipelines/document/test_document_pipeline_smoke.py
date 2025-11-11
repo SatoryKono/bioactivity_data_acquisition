@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from bioetl.pipelines.chembl.document import run as document_run
 
 EXPECTED_SELECT_FIELDS = [
     "document_chembl_id",
@@ -206,7 +206,7 @@ class TestDocumentPipelineSmoke:
             mock_doc_client = make_document_client_mock(mock_documents)
             mock_doc_client_cls.return_value = mock_doc_client
 
-            pipeline = ChemblDocumentPipeline(config, run_id="test-run-001")
+            pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-001")
             result = pipeline.run(tmp_path)
 
             mock_doc_client_cls.assert_called_once()
@@ -282,7 +282,7 @@ class TestDocumentPipelineSmoke:
             mock_doc_client = make_document_client_mock(mock_documents)
             mock_doc_client_cls.return_value = mock_doc_client
 
-            pipeline = ChemblDocumentPipeline(config, run_id="test-run-002")
+            pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-002")
             result = pipeline.run(tmp_path)
 
             mock_doc_client_cls.assert_called_once()
@@ -357,7 +357,7 @@ class TestDocumentPipelineSmoke:
             mock_doc_client = make_document_client_mock(mock_documents)
             mock_doc_client_cls.return_value = mock_doc_client
 
-            pipeline = ChemblDocumentPipeline(config, run_id="test-run-003")
+            pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-003")
             result = pipeline.run(tmp_path)
 
             mock_doc_client.iterate_all.assert_called_once()

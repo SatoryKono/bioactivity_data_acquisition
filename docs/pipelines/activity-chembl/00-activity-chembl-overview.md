@@ -42,12 +42,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Deterministic run with the canonical config
-python -m bioetl.cli.main activity_chembl \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Override batch size for a smoke test
-python -m bioetl.cli.main activity_chembl \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10

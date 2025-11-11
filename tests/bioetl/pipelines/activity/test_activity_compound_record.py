@@ -10,7 +10,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.chembl.activity.normalize import enrich_with_compound_record
+from bioetl.pipelines.chembl.activity import normalize
 
 
 @pytest.fixture
@@ -84,7 +84,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -127,7 +127,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -167,7 +167,7 @@ class TestActivityCompoundRecordEnrichment:
             return_value={}
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -191,7 +191,7 @@ class TestActivityCompoundRecordEnrichment:
             return_value={}
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -225,7 +225,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -264,7 +264,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -280,7 +280,7 @@ class TestActivityCompoundRecordEnrichment:
         """Test that enrichment handles empty DataFrame."""
         empty_df = pd.DataFrame(columns=["activity_id", "molecule_chembl_id", "document_chembl_id"])
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             empty_df,
             mock_chembl_client,
             enrichment_config,
@@ -322,7 +322,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             df_with_order,
             mock_chembl_client,
             enrichment_config,
@@ -372,7 +372,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             df_with_na,
             mock_chembl_client,
             enrichment_config,
@@ -421,7 +421,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             df_mixed_case,
             mock_chembl_client,
             enrichment_config,
@@ -451,7 +451,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -474,7 +474,7 @@ class TestActivityCompoundRecordEnrichment:
             side_effect=Exception("API error")
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,
@@ -523,7 +523,7 @@ class TestActivityCompoundRecordEnrichment:
             }
         )
 
-        result = enrich_with_compound_record(
+        result = normalize.enrich_with_compound_record(
             sample_activity_df,
             mock_chembl_client,
             enrichment_config,

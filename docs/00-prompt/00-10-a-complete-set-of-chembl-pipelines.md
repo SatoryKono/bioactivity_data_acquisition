@@ -10,7 +10,7 @@
 
 ## Обязательные источники
 
-[ref: repo:README.md@refactoring_001] — перечень ChEMBL-пайплайнов, примеры CLI python -m bioetl.cli.main ..., пути к YAML.
+[ref: repo:README.md@refactoring_001] — перечень ChEMBL-пайплайнов, примеры CLI python -m bioetl.cli.app ..., пути к YAML.
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] — точные имена команд/флагов.
 
@@ -42,11 +42,11 @@
 
 | Пайплайн | CLI команда | Конфиг | Источник (ChEMBL) | Эндпоинт(ы) | Артефакт |
 |----------|-------------|--------|-------------------|-------------|----------|
-| Activity | bioetl.cli.main activity | [ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
-| Assay | bioetl.cli.main assay | [ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
-| Target | bioetl.cli.main target | [ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
-| Document | bioetl.cli.main document | [ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
-| TestItem | bioetl.cli.main testitem | [ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
+| Activity | bioetl.cli.app activity | [ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
+| Assay | bioetl.cli.app assay | [ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
+| Target | bioetl.cli.app target | [ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
+| Document | bioetl.cli.app document | [ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
+| TestItem | bioetl.cli.app testitem | [ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001] | ChEMBL API | указать по коду/конфигу | CSV/Parquet |
 
 Эндпоинты выписывать строго по исходникам/конфигах данного пайплайна.
 

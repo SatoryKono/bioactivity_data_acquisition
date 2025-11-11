@@ -9,10 +9,14 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.frame import ensure_columns
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
+
+
+_ensure_columns = ensure_columns
 
 
 def _escape_pipe(value: str | Any) -> str:
@@ -37,17 +41,6 @@ def _escape_pipe(value: str | Any) -> str:
         return ""
 
     return text.replace("\\", "\\\\").replace("|", "\\|")
-
-
-def _ensure_columns(
-    df: pd.DataFrame,
-    columns: tuple[tuple[str, str], ...],
-) -> pd.DataFrame:
-    result = df.copy()
-    for name, dtype in columns:
-        if name not in result.columns:
-            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
-    return result
 
 
 _DOCUMENT_TERM_COLUMNS: tuple[tuple[str, str], ...] = (

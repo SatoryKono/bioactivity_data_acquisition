@@ -44,12 +44,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from IUPHAR
-python -m bioetl.cli.main target-iuphar \
+python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar
 
 # With input file containing various identifiers
-python -m bioetl.cli.main target-iuphar \
+python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --input-file data/input/iuphar_targets.csv \
   --output-dir data/output/target-iuphar

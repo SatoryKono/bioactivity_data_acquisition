@@ -42,12 +42,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from Crossref
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document.yaml \
   --output-dir data/output/document-crossref
 
 # With input file containing DOIs
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document.yaml \
   --input-file data/input/dois.csv \
   --output-dir data/output/document-crossref

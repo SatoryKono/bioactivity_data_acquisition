@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+from ..models.base import build_source_config
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 
@@ -99,14 +100,4 @@ class ActivitySourceConfig(BaseModel):
         ActivitySourceConfig
             Pipeline-specific configuration.
         """
-        batch_size = config.batch_size if config.batch_size is not None else 25
-        parameters = ActivitySourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            batch_size=batch_size,
-            parameters=parameters,
-        )
+        return build_source_config(cls, ActivitySourceParameters, config)

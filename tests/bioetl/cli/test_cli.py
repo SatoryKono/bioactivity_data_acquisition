@@ -16,7 +16,7 @@ from bioetl.cli.command import (  # type: ignore[reportMissingImports,reportPriv
     _validate_config_path,
     _validate_output_dir,
 )
-from bioetl.cli.main import app  # type: ignore[reportUnknownVariableType]
+from bioetl.cli.app import app, run  # type: ignore[reportUnknownVariableType]
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
 )
@@ -85,6 +85,12 @@ class TestCLIParsing:
 @pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
 class TestCLICommands:
     """Test suite for CLI commands."""
+
+    def test_run_invokes_app(self):
+        """Ensure CLI entrypoint delegates to Typer app."""
+        with patch("bioetl.cli.app.app") as app_mock:
+            run()
+        app_mock.assert_called_once_with()
 
     def test_activity_command_dry_run(self, tmp_path: Path):
         """Test activity command in dry-run mode."""

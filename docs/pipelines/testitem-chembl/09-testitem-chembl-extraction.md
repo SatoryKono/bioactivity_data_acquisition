@@ -19,7 +19,7 @@ The pipeline is executed via the `testitem` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main testitem [OPTIONS]
+python -m bioetl.cli.app testitem [OPTIONS]
 ```
 
 **Required options:**
@@ -39,18 +39,18 @@ python -m bioetl.cli.main testitem [OPTIONS]
 
 ```bash
 # Basic run with canonical config
-python -m bioetl.cli.main testitem \
+python -m bioetl.cli.app testitem \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem
 
 # Dry run to validate configuration
-python -m bioetl.cli.main testitem \
+python -m bioetl.cli.app testitem \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem \
   --dry-run
 
 # Override batch size for smoke test
-python -m bioetl.cli.main testitem \
+python -m bioetl.cli.app testitem \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem \
   --set sources.chembl.batch_size=10 \

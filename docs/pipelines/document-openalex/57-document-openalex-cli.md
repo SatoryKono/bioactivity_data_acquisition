@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main document --source openalex
+python -m bioetl.cli.app document --source openalex
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main document --source openalex \
+python -m bioetl.cli.app document --source openalex \
   --config configs/pipelines/openalex/document.yaml \
   --output-dir data/output/document
 ```

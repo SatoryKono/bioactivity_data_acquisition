@@ -11,25 +11,25 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main document
+python -m bioetl.cli.app document
 ```
 
 ## Examples
 
 ```bash
 # Standard production run
-python -m bioetl.cli.main document \
+python -m bioetl.cli.app document \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document
 
 # Dry run to validate configuration
-python -m bioetl.cli.main document \
+python -m bioetl.cli.app document \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --dry-run
 
 # Override batch size for testing
-python -m bioetl.cli.main document \
+python -m bioetl.cli.app document \
   --config configs/pipelines/document/document_chembl.yaml \
   --output-dir data/output/document \
   --set sources.chembl.batch_size=10 \

@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+from ..models.base import build_source_config
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 
@@ -95,14 +96,4 @@ class DocumentSourceConfig(BaseModel):
         DocumentSourceConfig
             Pipeline-specific configuration.
         """
-        batch_size = config.batch_size if config.batch_size is not None else 25
-        parameters = DocumentSourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            batch_size=batch_size,
-            parameters=parameters,
-        )
+        return build_source_config(cls, DocumentSourceParameters, config)

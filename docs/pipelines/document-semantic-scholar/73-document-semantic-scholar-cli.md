@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main document --source semantic-scholar
+python -m bioetl.cli.app document --source semantic-scholar
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main document --source semantic-scholar \
+python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --output-dir data/output/document
 ```

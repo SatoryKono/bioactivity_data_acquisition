@@ -12,7 +12,7 @@ understood contract.
   the schema declared in the pipeline configuration and executes `schema.validate(df, lazy=True)`. Any violation raises a
   `SchemaError`, halting the run before write operations.
 - **Continuous testing**: Schema-specific tests in the `test_refactoring_32` branch (for example,
-  `[ref: repo:tests/schemas/test_activity_schema.py@test_refactoring_32]`) run the same validation logic with golden datasets to
+  `[ref: repo:tests/bioetl/schemas/test_activity_schema.py@test_refactoring_32]`) run the same validation logic with golden datasets to
   guarantee parity between developer machines and CI.
 - **Hash invariants**: Every exported dataset **must** expose `hash_row` и `hash_business_key`. Эти колонки вычисляются через `ensure_hash_columns()` и фиксируются в схемах как обязательные (за исключением случаев, где бизнес-ключ недоступен — допускается `nullable=True`).
 
@@ -48,14 +48,14 @@ Every Pandera schema **must** define a semantic version (`MAJOR.MINOR.PATCH`) st
 
 Golden artifacts provide regression coverage for schema behavior.
 
-1. **Storage**: Golden CSV/Parquet outputs and `meta.yaml` snapshots live under `tests/golden/<pipeline>/` (mirrored on the
+1. **Storage**: Golden CSV/Parquet outputs and `meta.yaml` snapshots live under `tests/bioetl/golden/<pipeline>/` (mirrored on the
     `test_refactoring_32` branch until merged).
 2. **Regeneration triggers**:
    - Schema version bump (of any level) or deterministic policy change.
    - Updates to canonical sorting or hashing rules.
 3. **Process**:
    - Run the pipeline locally with `--golden` fixtures to produce fresh outputs.
-   - Execute schema tests (see `[ref: repo:tests/schemas/test_pipeline_contract.py@test_refactoring_32]`).
+   - Execute schema tests (see `[ref: repo:tests/bioetl/schemas/test_pipeline_contract.py@test_refactoring_32]`).
    - Verify hashes and column order against the regenerated artifacts.
    - Commit updated golden files alongside the schema version bump notes.
 4. **Review checklist**:
@@ -109,4 +109,4 @@ pipelines and reproducible analytics.
 
 - `SchemaRegistry.register()` отклоняет дублирующиеся `column_order`, отсутствующие колонки и несогласованные версии.
 - `scripts/schema_guard.py` (см. [ref: repo:scripts/schema_guard.py]) валидирует конфиги и реестр схем, формирует отчёт `artifacts/SCHEMA_GUARD_REPORT.md` и прерывает CI при нарушениях.
-- Юнит-тест `tests/unit/schemas/test_schema_registry.py` гарантирует, что `hash_row`/`hash_business_key` присутствуют во всех зарегистрированных схемах и синхронизированы с константами `SCHEMA_VERSION`.
+- Юнит-тест `tests/bioetl/schemas/test_schema_registry.py` гарантирует, что `hash_row`/`hash_business_key` присутствуют во всех зарегистрированных схемах и синхронизированы с константами `SCHEMA_VERSION`.

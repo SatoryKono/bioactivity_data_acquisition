@@ -461,7 +461,7 @@ validation:
 ### 7.1 CLI `--set`
 
 ```bash
-python -m bioetl.cli.main activity \
+python -m bioetl.cli.app activity \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --set http.default.timeout_sec=90 \
   --set determinism.sort.by='["activity_id"]'
@@ -481,7 +481,7 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 1. **Unit**: проверить, что отсутствует обязательное поле `pipeline.name`, некорректный тип `http.default.timeout_sec` и неизвестный ключ в `sources.chembl` приводят к `ValidationError`.
 2. **Merge**: смоделировать каскад `base.yaml → determinism.yaml → pipeline.yaml → --set → env` и убедиться, что итоговое значение соответствует приоритету.
-3. **CLI Integration**: e2e-тест Typer-команды `bioetl.cli.main activity` c фиктивной конфигурацией, подтверждающий, что `cli.set_overrides` и `cli.profiles` заполняются из аргументов.
+3. **CLI Integration**: e2e-тест Typer-команды `bioetl.cli.app activity` c фиктивной конфигурацией, подтверждающий, что `cli.set_overrides` и `cli.profiles` заполняются из аргументов.
 4. **Golden**: при одинаковом входе и конфигурации повторный прогон формирует идентичный `PipelineConfig` и совпадающие хеши артефактов.
 
 ## 9. Рекомендации по дальнейшему развитию (опционально)

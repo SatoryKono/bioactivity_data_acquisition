@@ -1,6 +1,6 @@
 # CLI Overview and Principles
 
-> **Note**: The Typer CLI shipped in `bioetl.cli.main` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
+> **Note**: The Typer CLI shipped in `bioetl.cli.app` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
 
 ## 1. Purpose and Scope
 
@@ -15,7 +15,7 @@ The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. 
 
 ## 2. Architecture: A Static Registry
 
-The CLI is a Typer application whose main entry point is `python -m bioetl.cli.main`. Its architecture is based on a **static command registry** that is built when the application starts.
+The CLI is a Typer application whose main entry point is `python -m bioetl.cli.app`. Its architecture is based on a **static command registry** that is built when the application starts.
 
 - **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity_chembl`, `assay_chembl`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
 - **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
@@ -53,20 +53,20 @@ The Typer application defined in `[ref: repo:src/bioetl/cli/app.py@refactoring_0
 
 | Command | Invocation | Description | Source |
 | --- | --- | --- | --- |
-| Root | `python -m bioetl.cli.main` | Entry point that exposes all subcommands and global options. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
-| `list` | `python -m bioetl.cli.main list` | Prints the names of every registered pipeline so operators can discover available commands. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
-| `activity` | `python -m bioetl.cli.main activity` | Runs the ChEMBL activity ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `assay` | `python -m bioetl.cli.main assay` | Runs the ChEMBL assay ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `document` | `python -m bioetl.cli.main document` | Runs the ChEMBL document ETL pipeline with external enrichers. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `target` | `python -m bioetl.cli.main target` | Runs the ChEMBL target ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `testitem` | `python -m bioetl.cli.main testitem` | Runs the ChEMBL test item ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `pubchem` | `python -m bioetl.cli.main pubchem` | Runs the PubChem enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `gtp_iuphar` | `python -m bioetl.cli.main gtp_iuphar` | Runs the Guide to Pharmacology enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `uniprot` | `python -m bioetl.cli.main uniprot` | Runs the UniProt enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `openalex` | `python -m bioetl.cli.main openalex` | Runs the OpenAlex enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `crossref` | `python -m bioetl.cli.main crossref` | Runs the Crossref enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `pubmed` | `python -m bioetl.cli.main pubmed` | Runs the PubMed enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
-| `semantic_scholar` | `python -m bioetl.cli.main semantic_scholar` | Runs the Semantic Scholar enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| Root | `python -m bioetl.cli.app` | Entry point that exposes all subcommands and global options. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
+| `list` | `python -m bioetl.cli.app list` | Prints the names of every registered pipeline so operators can discover available commands. | `[ref: repo:src/bioetl/cli/app.py@refactoring_001]` |
+| `activity` | `python -m bioetl.cli.app activity` | Runs the ChEMBL activity ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `assay` | `python -m bioetl.cli.app assay` | Runs the ChEMBL assay ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `document` | `python -m bioetl.cli.app document` | Runs the ChEMBL document ETL pipeline with external enrichers. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `target` | `python -m bioetl.cli.app target` | Runs the ChEMBL target ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `testitem` | `python -m bioetl.cli.app testitem` | Runs the ChEMBL test item ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `pubchem` | `python -m bioetl.cli.app pubchem` | Runs the PubChem enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `gtp_iuphar` | `python -m bioetl.cli.app gtp_iuphar` | Runs the Guide to Pharmacology enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `uniprot` | `python -m bioetl.cli.app uniprot` | Runs the UniProt enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `openalex` | `python -m bioetl.cli.app openalex` | Runs the OpenAlex enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `crossref` | `python -m bioetl.cli.app crossref` | Runs the Crossref enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `pubmed` | `python -m bioetl.cli.app pubmed` | Runs the PubMed enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
+| `semantic_scholar` | `python -m bioetl.cli.app semantic_scholar` | Runs the Semantic Scholar enrichment pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
 
 ## 6. Global Options
 
@@ -102,7 +102,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 1. **List available pipelines**
 
    ```bash
-   python -m bioetl.cli.main list
+   python -m bioetl.cli.app list
    ```
 
    *Expected output*: A plain-text list of command names such as `activity`, `assay`, and `document` sourced from the static registry.
@@ -110,7 +110,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 2. **Dry-run the ChEMBL activity pipeline**
 
    ```bash
-   python -m bioetl.cli.main activity \
+   python -m bioetl.cli.app activity \
      --config configs/pipelines/activity/activity_chembl.yaml \
      --output-dir data/output/activity/dry_run \
      --dry-run
@@ -121,7 +121,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 3. **Run the document pipeline with deterministic profiles**
 
    ```bash
-   python -m bioetl.cli.main document \
+   python -m bioetl.cli.app document \
      --config configs/pipelines/document/document_chembl.yaml \
      --output-dir data/output/document/full_load \
      --set profiles.include="['base.yaml','determinism.yaml']"
@@ -132,7 +132,7 @@ The snippets below demonstrate reproducible invocations that rely on the command
 4. **Execute a PubChem enrichment sample**
 
    ```bash
-    python -m bioetl.cli.main pubchem \
+    python -m bioetl.cli.app pubchem \
       --config src/bioetl/configs/pipelines/pubchem.yaml \
       --output-dir data/output/pubchem/sample \
       --sample 250

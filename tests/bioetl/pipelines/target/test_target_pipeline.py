@@ -11,7 +11,7 @@ import pytest
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 
@@ -21,7 +21,7 @@ class TestChemblTargetPipeline:
 
     def test_init(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test ChemblTargetPipeline initialization."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
@@ -32,7 +32,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test chembl_release property."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.chembl_release is None
         pipeline._chembl_release = "33"  # noqa: SLF001  # type: ignore[attr-defined]
@@ -42,7 +42,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test fetching ChEMBL release version."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         mock_client = Mock(spec=ChemblClient)
         mock_client.handshake.return_value = {"chembl_db_version": "31"}
@@ -60,7 +60,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test harmonization of identifier column names."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -84,7 +84,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of ChEMBL identifiers."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -106,7 +106,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of string fields."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -131,7 +131,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of data types."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -157,7 +157,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test adding missing schema columns."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -183,7 +183,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test reordering columns to match schema order."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -203,7 +203,7 @@ class TestChemblTargetPipeline:
     ) -> None:
         """Test extract_all in dry-run mode."""
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         result = pipeline.extract_all()  # type: ignore[misc]
 
@@ -214,7 +214,7 @@ class TestChemblTargetPipeline:
     ) -> None:
         """Test extract_by_ids in dry-run mode."""
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
 
@@ -224,7 +224,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test enrich_protein_classifications with empty DataFrame."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame()
 
@@ -241,7 +241,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test enrich_protein_classifications with missing target_chembl_id column."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({"pref_name": ["Target 1"]})
 
@@ -259,7 +259,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that enrich_protein_classifications initializes new columns."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -281,7 +281,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that enrich_protein_classifications skips when data is already present."""
-        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {

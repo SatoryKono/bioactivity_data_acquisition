@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.frame import ensure_columns
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.assay import (
     ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA,
@@ -21,15 +22,7 @@ __all__ = [
 ]
 
 
-def _ensure_columns(
-    df: pd.DataFrame,
-    columns: tuple[tuple[str, str], ...],
-) -> pd.DataFrame:
-    result = df.copy()
-    for name, dtype in columns:
-        if name not in result.columns:
-            result[name] = pd.Series(pd.NA, index=result.index, dtype=dtype)
-    return result
+_ensure_columns = ensure_columns
 
 
 _CLASSIFICATION_COLUMNS: tuple[tuple[str, str], ...] = (
@@ -66,6 +59,24 @@ def enrich_with_assay_classifications(
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
     df_assay = _ensure_columns(df_assay, _CLASSIFICATION_COLUMNS)
+
+    if "assay_classifications" in df_assay.columns:
+        def _should_nullify(value: Any) -> bool:
+            if value is None:
+                return False
+            if value is pd.NA:
+                return False
+            if isinstance(value, float) and pd.isna(value):
+                return False
+            return not isinstance(value, str)
+
+        invalid_mask = df_assay["assay_classifications"].map(_should_nullify)
+        if bool(invalid_mask.any()):
+            log.warning(
+                "assay_classifications_reset_non_string",
+                rows=int(invalid_mask.sum()),
+            )
+            df_assay.loc[invalid_mask, "assay_classifications"] = pd.NA
 
     if df_assay.empty:
         log.debug("enrichment_skipped_empty_dataframe")
@@ -156,6 +167,8 @@ def enrich_with_assay_classifications(
 
         if not mappings:
             # Нет классификаций - оставляем NULL
+            df_assay.at[row_key, "assay_classifications"] = pd.NA
+            df_assay.at[row_key, "assay_class_id"] = pd.NA
             continue
 
         # Собрать данные классификаций

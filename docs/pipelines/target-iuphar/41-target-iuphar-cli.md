@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Target (
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main target --source iuphar
+python -m bioetl.cli.app target --source iuphar
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main target --source iuphar \
+python -m bioetl.cli.app target --source iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target
 ```

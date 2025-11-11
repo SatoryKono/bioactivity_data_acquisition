@@ -11,7 +11,7 @@ from typing import Any, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.etl.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
+from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
 
 __all__ = ["build_vocab_store"]
 

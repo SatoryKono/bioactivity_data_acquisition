@@ -17,13 +17,13 @@ The pipeline is executed via the `target-uniprot` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main target-uniprot [OPTIONS]
+python -m bioetl.cli.app target-uniprot [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.main target-uniprot \
+python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot
 ```
@@ -253,7 +253,7 @@ http.profiles.uniprot.rate_limit.max_calls
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.main target-uniprot \
+python -m bioetl.cli.app target-uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot \
   --set sources.uniprot.batch_size=50 \
@@ -487,7 +487,7 @@ schema_version: "1.0.0"
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/golden/target-uniprot/`
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/target-uniprot/`
 2. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
@@ -611,10 +611,10 @@ The `target-uniprot` pipeline follows the standard source architecture, utilizin
 
 **Tests:**
 
-- `tests/sources/uniprot/test_client.py` — HTTP client adapters (`fetch_entries`, ID mapping, ortholog lookups)
-- `tests/sources/uniprot/test_parser.py` — parsing helpers and isoform expansion
-- `tests/sources/uniprot/test_normalizer.py` — dataframe normalisation and enrichment fallbacks
-- `tests/sources/uniprot/test_pipeline_e2e.py` — pipeline orchestration happy path
+- `tests/bioetl/sources/uniprot/test_client.py` — HTTP client adapters (`fetch_entries`, ID mapping, ortholog lookups)
+- `tests/bioetl/sources/uniprot/test_parser.py` — parsing helpers and isoform expansion
+- `tests/bioetl/sources/uniprot/test_normalizer.py` — dataframe normalisation and enrichment fallbacks
+- `tests/bioetl/sources/uniprot/test_pipeline_e2e.py` — pipeline orchestration happy path
 
 ## 7. Key Identifiers
 

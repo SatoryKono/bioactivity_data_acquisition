@@ -11,7 +11,7 @@ For unit tests, the recommended approach is to use a library like `structlog-sen
 **Example using `pytest-structlog`:**
 
 ```python
-# file: tests/core/test_my_module.py
+# file: tests/bioetl/core/test_my_module.py
 import pytest
 from my_app.my_module import process_data
 

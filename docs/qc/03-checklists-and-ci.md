@@ -20,10 +20,10 @@ This stage prepares the environment to ensure a deterministic and isolated run.
 
 This stage runs the ETL pipeline using a deterministic configuration profile.
 
-- [ ] **Run Command**: Execute the pipeline using the `bioetl.cli.main` module. The run **MUST** use a configuration profile that enables determinism.
+- [ ] **Run Command**: Execute the pipeline using the `bioetl.cli.app` module. The run **MUST** use a configuration profile that enables determinism.
 
   - ```bash
-    python -m bioetl.cli.main activity \
+    python -m bioetl.cli.app activity \
       --config configs/pipelines/activity/activity_chembl.yaml \
       --output-dir data/output/activity_chembl \
       --set determinism.enabled=true
@@ -41,7 +41,7 @@ This stage compares the newly generated artifacts against the golden versions.
     # Pseudocode for a comparison script
     python tools/compare_artifacts.py \
       --new-dir data/output/activity_chembl/run_123 \
-      --golden-dir tests/golden/activity_chembl
+      --golden-dir tests/bioetl/golden/activity_chembl
     ```
 
 - [ ] **Check Exit Code**: The comparison script **MUST** exit with a non-zero exit code if any discrepancy is found.

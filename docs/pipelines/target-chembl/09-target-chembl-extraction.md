@@ -17,13 +17,13 @@ The pipeline is executed via the `target` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main target [OPTIONS]
+python -m bioetl.cli.app target [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.main target \
+python -m bioetl.cli.app target \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```
@@ -237,7 +237,7 @@ sources.chembl.batch_size
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.main target \
+python -m bioetl.cli.app target \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.chembl.batch_size=20 \
@@ -447,7 +447,7 @@ schema_version: "1.0.0"
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/golden/target/`
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/target/`
 2. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма

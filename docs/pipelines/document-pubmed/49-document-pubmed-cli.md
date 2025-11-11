@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main document --source pubmed
+python -m bioetl.cli.app document --source pubmed
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main document --source pubmed \
+python -m bioetl.cli.app document --source pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --output-dir data/output/document
 ```

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import load_config
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from bioetl.pipelines.chembl.assay import run as assay_run
 
 
 def create_mock_assay_data(count: int = 5) -> list[dict[str, object]]:
@@ -228,7 +228,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
             config.cli.limit = 5
@@ -283,7 +283,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
             config.cli.limit = 5
@@ -336,7 +336,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
             config.cli.limit = 10

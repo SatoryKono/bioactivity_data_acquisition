@@ -167,7 +167,7 @@ determinism:
 
 The primary strategy for testing determinism is "golden testing."
 
-- **Location**: Golden files are stored in `tests/golden/<pipeline_name>/`.
+- **Location**: Golden files are stored in `tests/bioetl/golden/<pipeline_name>/`.
 - **Process**:
   1. A test runs a pipeline against a fixed input dataset.
   2. The output dataset file and `meta.yaml` file are captured.

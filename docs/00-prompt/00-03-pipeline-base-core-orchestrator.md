@@ -87,7 +87,7 @@ GitHub
 
 Как пайплайн публикуется в Typer-команды, какие флаги обязательны (--config, --input-file, --output-dir, --dry-run), коды возврата и структура сообщений об ошибках. Пример вызова:
 
-python -m bioetl.cli.main activity \
+python -m bioetl.cli.app activity \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --input-file data/input/activity.csv \
   --output-dir data/output/activity \

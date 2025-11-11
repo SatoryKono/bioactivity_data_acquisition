@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
 
+from ..models.base import build_source_config
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 from ..utils import coerce_bool
@@ -99,19 +100,9 @@ class AssaySourceConfig(BaseModel):
         AssaySourceConfig
             Pipeline-specific configuration.
         """
-        batch_size = config.batch_size if config.batch_size is not None else 25
         max_url_length_raw = cls._extract_max_url_length(config.parameters)
-        parameters = AssaySourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            batch_size=batch_size,
-            max_url_length=max_url_length_raw,
-            parameters=parameters,
-        )
+        base_config = build_source_config(cls, AssaySourceParameters, config)
+        return base_config.model_copy(update={"max_url_length": max_url_length_raw})
 
     @staticmethod
     def _extract_max_url_length(parameters: Mapping[str, Any]) -> int:

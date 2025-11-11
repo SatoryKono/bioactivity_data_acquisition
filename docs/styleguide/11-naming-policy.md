@@ -14,7 +14,7 @@ Inside `pipelines/`, the hierarchy **MUST** remain three levels deep using `<pro
 - `entity` ∈ {`assay`, `activity`, `target`, `document`, `testitem`}
 - `stage` ∈ {`extract`, `transform`, `validate`, `write`, `run`}
 
-Tests **MUST** mirror the pipeline tree: `tests/<package>/.../test_<module>.py`.
+Tests **MUST** mirror the pipeline tree: `tests/bioetl/<package>/.../test_<module>.py`.
 
 ## File Naming Policy
 

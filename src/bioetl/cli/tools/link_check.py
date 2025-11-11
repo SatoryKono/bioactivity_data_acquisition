@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib
 from typing import Any, cast
 
+from bioetl.cli.runner import run_app
 from bioetl.cli.tools._typer import TyperApp, create_app
 from bioetl.tools.link_check import run_link_check as run_link_check_sync
 
@@ -48,9 +49,8 @@ def main(
 
 
 def run() -> None:
-    """Запускает Typer-приложение."""
-
-    app()
+    """Точка входа для Typer-приложения."""
+    run_app(app)
 
 
 if __name__ == "__main__":

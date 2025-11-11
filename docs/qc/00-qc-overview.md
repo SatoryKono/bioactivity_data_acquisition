@@ -61,14 +61,14 @@ Quality gates in the `test_refactoring_32` branch are organised around dedicated
 | **Not-null & completeness** | `missing_count_by_column`, `null_rate_by_column`, `invalid_enum_count(<col>)`. | DataFrame aggregation | Pipeline configs encode per-column tolerances; exceeding them surfaces a warning, while invalid enums or schema-required columns enforce failure. | Warn on soft limits, fail on hard violations. |
 | **Schema drift** | `dtype_mismatch_count`, strict Pandera validation, and column-order freeze checks. | Pandera validation & golden comparison | Any mismatch or reordering is a **fail**; schemas are `strict=True`, `ordered=True`, `coerce=True`. | Fail on mismatch. |
 | **Hash integrity** | `hash_row` / `hash_business_key` equality and `hash_algo_is_valid`. | Artifact comparison & `meta.yaml` | Hash algorithm must stay `sha256`; dataset/manifests undergo byte-for-byte equality. | Fail if algorithm changes or hashes differ. |
-| **Golden parity** | Primary dataset, `meta.yaml` (with volatile fields masked), and `manifest.txt`. | `tests/golden/<pipeline>/` snapshots | Byte-identical comparison for datasets & manifests; structural equality for masked metadata. | Fail on any divergence. |
+| **Golden parity** | Primary dataset, `meta.yaml` (with volatile fields masked), and `manifest.txt`. | `tests/bioetl/golden/<pipeline>/` snapshots | Byte-identical comparison for datasets & manifests; structural equality for masked metadata. | Fail on any divergence. |
 | **Network health** | `http_error_rate`, `retry_count_total`, `429_count`, `timeout_count`, `parse_error_count`, `pagination_gap_count`. | Structured client logs | Warn when error/retry rates exceed configured percentages; parsing or pagination gaps are fatal. | Warn/Fail per metric. |
 
 These expectations combine to cover the categories requested by compliance reviews—row counts and drifts, hash comparison, schema drift, not-null completeness, and uniqueness. Whenever a pipeline introduces intentional changes (e.g., a new feature causing extra rows), the accompanying PR must document the rationale and adjust the golden baseline as described below.
 
 ## 4. Golden Snapshot Layout and Maintenance Workflow
 
-Golden (snapshot) artifacts live under `tests/golden/<pipeline_name>/` and always include the following trio:
+Golden (snapshot) artifacts live under `tests/bioetl/golden/<pipeline_name>/` and always include the following trio:
 
 1. **Primary dataset** – canonical CSV/Parquet output sorted by the pipeline's deterministic keys.
 2. **`meta.yaml`** – the run manifest with column order, schema version, row counts, and hash summaries. Volatile keys (`run_id`, execution timings, config hashes) are masked prior to comparison.
@@ -91,7 +91,7 @@ Continuous Integration pipelines orchestrate QC in four deterministic stages tha
 2. **Pipeline execution** – run the CLI with determinism toggles, for example:
 
     ```bash
-    python -m bioetl.cli.main activity \
+    python -m bioetl.cli.app activity \
       --config configs/pipelines/activity/activity_chembl.yaml \
       --output-dir data/output/activity_chembl \
       --set determinism.enabled=true
@@ -102,7 +102,7 @@ Continuous Integration pipelines orchestrate QC in four deterministic stages tha
     ```bash
     python tools/compare_artifacts.py \
       --new-dir data/output/activity_chembl/latest \
-      --golden-dir tests/golden/activity_chembl
+      --golden-dir tests/bioetl/golden/activity_chembl
     ```
 
     The job publishes the dataset diff (if any), refreshed `qc_metrics.json`, and supporting manifests as CI artifacts.

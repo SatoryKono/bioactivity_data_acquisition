@@ -11,7 +11,7 @@ This document describes the `testitem_pubchem` pipeline, which is responsible fo
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `testitem_pubchem`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main testitem_pubchem`                                                       | Not Implemented       |
+| **CLI Command**   | `python -m bioetl.cli.app testitem_pubchem`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
@@ -124,8 +124,8 @@ The following QC metrics would be collected and reported in the pipeline's logs 
 
 ## Tests
 
-- `tests/unit/test_pubchem_pipeline.py` покрывает полный цикл `extract → transform → validate → export`, используя мок-адаптер PubChem.【F:tests/unit/test_pubchem_pipeline.py†L1-L60】
-- Модульные тесты будут размещены в `tests/clients/pubchem/` и покроют клиент и нормализацию адаптера, что поддерживает слои, требуемые `MODULE_RULES.md`.
+- `tests/bioetl/unit/test_pubchem_pipeline.py` покрывает полный цикл `extract → transform → validate → export`, используя мок-адаптер PubChem.【F:tests/bioetl/unit/test_pubchem_pipeline.py†L1-L60】
+- Модульные тесты будут размещены в `tests/bioetl/clients/pubchem/` и покроют клиент и нормализацию адаптера, что поддерживает слои, требуемые `MODULE_RULES.md`.
 
 ## 8. Errors and Exit Codes
 
@@ -144,7 +144,7 @@ Diagnostic messages would be logged to the console and/or a log file, providing 
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main testitem_pubchem \
+python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem
 ```
@@ -152,7 +152,7 @@ python -m bioetl.cli.main testitem_pubchem \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main testitem_pubchem \
+python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem \
   --dry-run
@@ -161,7 +161,7 @@ python -m bioetl.cli.main testitem_pubchem \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main testitem_pubchem \
+python -m bioetl.cli.app testitem_pubchem \
   --config src/bioetl/configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem \
   --profile determinism

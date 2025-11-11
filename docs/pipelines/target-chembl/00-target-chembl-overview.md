@@ -43,12 +43,12 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Full enrichment run
-python -m bioetl.cli.main target \
+python -m bioetl.cli.app target \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 
 # Disable UniProt enrichment for a connectivity check
-python -m bioetl.cli.main target \
+python -m bioetl.cli.app target \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.uniprot.enabled=false

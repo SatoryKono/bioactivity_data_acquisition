@@ -1,4 +1,4 @@
-"""Unit tests for TestItemChemblPipeline."""
+"""Unit tests for testitem_run.TestItemChemblPipeline."""
 
 from __future__ import annotations
 
@@ -8,16 +8,16 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
+from bioetl.pipelines.chembl.testitem import run as testitem_run
 
 
 @pytest.mark.unit
 class TestTestItemChemblPipeline:
-    """Test suite for TestItemChemblPipeline."""
+    """Test suite for testitem_run.TestItemChemblPipeline."""
 
     def test_init(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test TestItemChemblPipeline initialization."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
@@ -29,7 +29,7 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test fetching ChEMBL release from status endpoint."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         from bioetl.clients.chembl import ChemblClient
         from bioetl.core.logger import UnifiedLogger
@@ -53,7 +53,7 @@ class TestTestItemChemblPipeline:
         """Test that _flatten_nested_structures is no longer used (replaced by testitem_transform.transform)."""
         # This test verifies that flattening is now handled by testitem_transform.transform
         # The actual flattening tests are in test_testitem_flatten_and_serialize.py
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         # Verify that _flatten_nested_structures method no longer exists or is deprecated
         # The transform method now uses testitem_transform.transform instead
@@ -63,7 +63,7 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of ChEMBL identifiers and InChI keys."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -91,7 +91,7 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of string fields."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -115,7 +115,7 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test deduplication of molecules."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -139,7 +139,7 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test transform with nested ChEMBL data."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
@@ -173,7 +173,7 @@ class TestTestItemChemblPipeline:
 
     def test_augment_metadata(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test metadata augmentation with ChEMBL versions."""
-        pipeline = TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
@@ -196,7 +196,7 @@ class TestTestItemChemblPipeline:
             "page_meta": {"limit": 25, "offset": 0},
         }
 
-        result = TestItemChemblPipeline._extract_page_items(payload)  # noqa: SLF001  # type: ignore[attr-defined]
+        result = testitem_run.TestItemChemblPipeline._extract_page_items(payload)  # noqa: SLF001  # type: ignore[attr-defined]
 
         assert len(result) == 2
         assert result[0]["molecule_chembl_id"] == "CHEMBL1"
@@ -214,7 +214,7 @@ class TestTestItemChemblPipeline:
                 "next": "https://www.ebi.ac.uk/chembl/api/data/molecule.json?limit=25&offset=25",
             },
         }
-        result = TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
+        result = testitem_run.TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
         assert result == "/molecule.json?limit=25&offset=25"
 
         # Relative path in next link
@@ -223,10 +223,10 @@ class TestTestItemChemblPipeline:
                 "next": "/molecule.json?limit=25&offset=50",
             },
         }
-        result = TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
+        result = testitem_run.TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
         assert result == "/molecule.json?limit=25&offset=50"
 
         # No next link
         payload = {"page_meta": {"next": None}}
-        result = TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
+        result = testitem_run.TestItemChemblPipeline._next_link(payload, base_url)  # noqa: SLF001  # type: ignore[attr-defined]
         assert result is None

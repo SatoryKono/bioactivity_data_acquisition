@@ -7,6 +7,7 @@ from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 
+from ..models.base import build_source_config
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 
@@ -101,23 +102,16 @@ class TestItemSourceConfig(BaseModel):
         TestItemSourceConfig
             Pipeline-specific configuration.
         """
-        # Extract page_size from batch_size or parameters
-        page_size: int = 200
+        page_size = cls._resolve_page_size(config)
+        base_config = build_source_config(cls, TestItemSourceParameters, config)
+        return base_config.model_copy(update={"page_size": page_size})
+
+    @staticmethod
+    def _resolve_page_size(config: SourceConfig) -> int:
         if config.batch_size is not None:
-            page_size = config.batch_size
-        else:
-            parameters = config.parameters
-            batch_size_raw = parameters.get("batch_size")
-            if isinstance(batch_size_raw, int) and batch_size_raw > 0:
-                page_size = batch_size_raw
-
-        parameters_obj = TestItemSourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            page_size=page_size,
-            parameters=parameters_obj,
-        )
+            return config.batch_size
+        parameters = config.parameters
+        batch_size_raw = parameters.get("batch_size")
+        if isinstance(batch_size_raw, int) and batch_size_raw > 0:
+            return batch_size_raw
+        return 200

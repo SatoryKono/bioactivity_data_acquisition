@@ -11,7 +11,7 @@ This document describes the `document_crossref` pipeline, which is responsible f
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_crossref`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main document_crossref`                                                       | Not Implemented       |
+| **CLI Command**   | `python -m bioetl.cli.app document_crossref`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/crossref/document_crossref.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
@@ -717,7 +717,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
 ```
@@ -725,7 +725,7 @@ python -m bioetl.cli.main document_crossref \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --dry-run
@@ -734,7 +734,7 @@ python -m bioetl.cli.main document_crossref \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --profile determinism
@@ -746,7 +746,7 @@ python -m bioetl.cli.main document_crossref \
 export CROSSREF_MAILTO="owner@example.org"
 export CROSSREF_PLUS_TOKEN="your_plus_token_here"
 
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
 ```
@@ -754,7 +754,7 @@ python -m bioetl.cli.main document_crossref \
 ### Override Configuration
 
 ```bash
-python -m bioetl.cli.main document_crossref \
+python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --set sources.crossref.batching.dois_per_request=150 \

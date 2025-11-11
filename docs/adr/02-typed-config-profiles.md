@@ -24,7 +24,7 @@ Alternatives (pure environment variables, Hydra) were rejected because they eith
 - Documentation and examples must point to the canonical loading function and highlight the merge order.
 - New pipelines must add typed configs before wiring CLI entrypoints.
 - We need regression tests to ensure configs remain serializable/deterministic across runs.
-- Teams should add `Config` snapshots to `tests/configs/` to catch unintended changes.
+- Teams should add `Config` snapshots to `tests/bioetl/configs/` to catch unintended changes.
 
 ## References
 

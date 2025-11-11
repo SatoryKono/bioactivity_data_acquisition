@@ -17,13 +17,13 @@ The pipeline is executed via the `chembl2uniprot-mapping` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main chembl2uniprot-mapping [OPTIONS]
+python -m bioetl.cli.app chembl2uniprot-mapping [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.main chembl2uniprot-mapping \
+python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping
 ```
@@ -249,7 +249,7 @@ http.profiles.uniprot_idmapping.rate_limit.max_calls
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.main chembl2uniprot-mapping \
+python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping \
   --set sources.uniprot_idmapping.polling.interval_sec=10.0 \
@@ -461,7 +461,7 @@ schema_version: "1.0.0"
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/golden/chembl2uniprot-mapping/`
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/chembl2uniprot-mapping/`
 2. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
@@ -587,11 +587,11 @@ The `chembl2uniprot-mapping` pipeline follows the standard source architecture, 
 
 **Tests:**
 
-- `tests/integrations/uniprot/test_idmapping_client.py` — HTTP client adapters для ID Mapping API
-- `tests/integrations/uniprot/test_idmapping_job_manager.py` — job management tests
-- `tests/integrations/uniprot/test_idmapping_parser.py` — parsing helpers tests
-- `tests/integrations/uniprot/test_idmapping_normalizer.py` — normalization tests
-- `tests/integrations/uniprot/test_chembl2uniprot_pipeline_e2e.py` — pipeline orchestration happy path
+- `tests/bioetl/integration/uniprot/test_idmapping_client.py` — HTTP client adapters для ID Mapping API
+- `tests/bioetl/integration/uniprot/test_idmapping_job_manager.py` — job management tests
+- `tests/bioetl/integration/uniprot/test_idmapping_parser.py` — parsing helpers tests
+- `tests/bioetl/integration/uniprot/test_idmapping_normalizer.py` — normalization tests
+- `tests/bioetl/integration/uniprot/test_chembl2uniprot_pipeline_e2e.py` — pipeline orchestration happy path
 
 ## 7. Key Identifiers
 

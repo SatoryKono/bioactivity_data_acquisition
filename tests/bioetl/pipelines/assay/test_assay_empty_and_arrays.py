@@ -12,7 +12,7 @@ from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
 from bioetl.config.models.transform import TransformConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.assay.transform import header_rows_serialize
 
 
@@ -76,7 +76,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -95,7 +95,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -112,7 +112,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -131,7 +131,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -154,7 +154,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -182,7 +182,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -200,7 +200,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -225,7 +225,7 @@ class TestEmptyFieldsAndArrays:
             }
         )
 
-        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(_create_minimal_config(), "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -253,7 +253,7 @@ class TestEmptyFieldsAndArrays:
             }
         )
 
-        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(_create_minimal_config(), "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -276,7 +276,7 @@ class TestEmptyFieldsAndArrays:
             }
         )
 
-        pipeline = ChemblAssayPipeline(_create_minimal_config(), "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(_create_minimal_config(), "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
@@ -293,7 +293,7 @@ class TestEmptyFieldsAndArrays:
         )
 
         config = _create_minimal_config()
-        pipeline = ChemblAssayPipeline(config, "test_run")
+        pipeline = assay_run.ChemblAssayPipeline(config, "test_run")
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 

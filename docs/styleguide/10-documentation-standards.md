@@ -224,7 +224,7 @@ pipeline.run()
 ### Command Line Example
 
 ```bash
-python -m bioetl.cli.main activity \
+python -m bioetl.cli.app activity \
   --config configs/pipelines/activity.yaml \
   --output data/output/activity
 ```

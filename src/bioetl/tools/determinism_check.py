@@ -61,7 +61,7 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
     cmd = [
         sys.executable,
         "-m",
-        "bioetl.cli.main",
+        "bioetl.cli.app",
         pipeline_name,
         "--config",
         str(config_path),

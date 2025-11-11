@@ -21,7 +21,7 @@
 
 [ref: repo:docs/qc/00-qc-overview.md@refactoring_001]
 
-[ref: repo:tests/@refactoring_001]
+[ref: repo:tests/bioetl/@refactoring_001]
 
 Обязательные внешние факты (для ссылок в пояснениях)
 

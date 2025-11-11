@@ -1,6 +1,6 @@
 # CLI Exit Codes
 
-> **Note**: The Typer CLI shipped in `bioetl.cli.main` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
+> **Note**: The Typer CLI shipped in `bioetl.cli.app` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
 
 This document provides a reference for the exit codes returned by the `bioetl` CLI and maps them to specific error scenarios. Understanding these codes is essential for scripting, automation, and CI/CD integration.
 
@@ -47,7 +47,7 @@ The resilient HTTP layer retries transient errors before surfacing them as `requ
 ### Exit code `0`: successful run
 
 ```text
-$ python -m bioetl.cli.main activity --config configs/pipelines/activity/activity_chembl.yaml
+$ python -m bioetl.cli.app activity --config configs/pipelines/activity/activity_chembl.yaml
 === Pipeline Execution Summary ===
 Dataset: data/output/activity_20250115.csv
 Quality report: data/output/activity_20250115_qc.csv
@@ -61,7 +61,7 @@ $ echo $?
 Example: upstream API returned HTTP 503 after exhausting retries.
 
 ```text
-$ python -m bioetl.cli.main activity --config configs/pipelines/activity/activity_chembl.yaml
+$ python -m bioetl.cli.app activity --config configs/pipelines/activity/activity_chembl.yaml
 [2025-01-15T09:12:44Z] WARNING bioetl.core.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
 [2025-01-15T09:12:47Z] ERROR   cli.activity pipeline_failed error="503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json"
 [ERROR] Pipeline failed: 503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json
@@ -72,7 +72,7 @@ $ echo $?
 Example: column validation detected missing columns.
 
 ```text
-$ python -m bioetl.cli.main document --config configs/pipelines/document/document_chembl.yaml --validate-columns
+$ python -m bioetl.cli.app document --config configs/pipelines/document/document_chembl.yaml --validate-columns
 ...
 Критические несоответствия в колонках обнаружены!
 [ERROR] Pipeline failed: Column validation requested exit
@@ -83,9 +83,9 @@ $ echo $?
 ### Exit code `2`: usage error rejected by Typer
 
 ```text
-$ python -m bioetl.cli.main activity --sample 0
-Usage: python -m bioetl.cli.main activity [OPTIONS]
-Try 'python -m bioetl.cli.main activity --help' for help.
+$ python -m bioetl.cli.app activity --sample 0
+Usage: python -m bioetl.cli.app activity [OPTIONS]
+Try 'python -m bioetl.cli.app activity --help' for help.
 
 Error: Invalid value for '--sample': --sample must be >= 1
 $ echo $?
@@ -97,6 +97,6 @@ $ echo $?
 When integrating the CLI into automated environments, you **MUST** check the exit code after every execution.
 
 - A script **SHOULD** treat any non-zero exit code as a failure.
-- `if ! python -m bioetl.cli.main activity ...; then echo "Pipeline failed!"; exit 1; fi`
+- `if ! python -m bioetl.cli.app activity ...; then echo "Pipeline failed!"; exit 1; fi`
 - **Exit code `1`** indicates a problem with the pipeline's execution, configuration, or the data itself. The logs from the run are essential for diagnosing the root cause.
 - **Exit code `2`** indicates a problem with how the CI script is *invoking* the command. This is a script-level bug and should be fixed in the CI configuration.

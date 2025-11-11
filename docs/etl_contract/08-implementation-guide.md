@@ -118,7 +118,7 @@ Flesh out the `transform()` method. This is typically an iterative process:
 
 ```bash
 # Use --limit to test with a small number of records for faster iteration.
-python -m bioetl.cli.main uniprot_protein \
+python -m bioetl.cli.app uniprot_protein \
     --output-dir /tmp/uniprot-test \
     --limit 50 \
     --dry-run
@@ -129,7 +129,7 @@ python -m bioetl.cli.main uniprot_protein \
 Once the `--dry-run` is successful, perform a full test run without the `--dry-run` or `--limit` flags.
 
 ```bash
-python -m bioetl.cli.main uniprot_protein --output-dir /data/output/uniprot/protein-latest
+python -m bioetl.cli.app uniprot_protein --output-dir /data/output/uniprot/protein-latest
 ```
 
 Inspect the output artifacts:
@@ -141,7 +141,7 @@ Inspect the output artifacts:
 That's it! Because you followed the framework's conventions, your new `uniprot_protein` pipeline is automatically registered with the CLI. You can confirm this by running:
 
 ```bash
-python -m bioetl.cli.main list
+python -m bioetl.cli.app list
 ```
 
 Your new pipeline should appear in the list of available commands, ready for production use.

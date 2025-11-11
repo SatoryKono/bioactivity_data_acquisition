@@ -70,7 +70,7 @@ def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
         if not in_code_block or code_block_lang not in ("bash", "sh", ""):
             continue
 
-        if "python -m bioetl.cli.main" not in stripped and "bioetl.cli.main" not in stripped:
+        if "python -m bioetl.cli.app" not in stripped and "bioetl.cli.app" not in stripped:
             continue
 
         cmd_lines = [stripped]

@@ -13,7 +13,7 @@ tests to verify that CLI commands work correctly.
 from pathlib import Path
 
 import pytest
-from tests.tools.cli import run_cli_command
+from tests.bioetl.tools.cli import run_cli_command
 
 ROOT = Path(__file__).resolve().parents[3]
 

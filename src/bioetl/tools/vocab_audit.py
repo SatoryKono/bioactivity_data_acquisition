@@ -16,7 +16,7 @@ from typing import Any, Protocol, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.etl.vocab_store import VocabStoreError, load_vocab_store
+from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
 _chembl_new_client: Any | None = None

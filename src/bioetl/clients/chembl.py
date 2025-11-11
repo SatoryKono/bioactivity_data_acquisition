@@ -14,6 +14,7 @@ from bioetl.clients.chembl_entities import (
     ChemblDataValidityEntityClient,
     ChemblMoleculeEntityClient,
 )
+from bioetl.clients.chembl_base import ChemblEntityFetcher
 from bioetl.clients.document.chembl_document_entity import ChemblDocumentTermEntityClient
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
@@ -213,6 +214,16 @@ class ChemblClient:
         combined = f"{base.rstrip('/')}/{endpoint.lstrip('/')}" if base else endpoint
         return combined.split("?", 1)[0]
 
+    def _fetch_entity_by_ids(
+        self,
+        entity: ChemblEntityFetcher,
+        ids: Iterable[str],
+        fields: Sequence[str],
+        page_limit: int = 1000,
+    ) -> dict[str, dict[str, Any]]:
+        result = entity.fetch_by_ids(ids, fields, page_limit)
+        return cast(dict[str, dict[str, Any]], result)
+
     # ------------------------------------------------------------------
     # Assay fetching
     # ------------------------------------------------------------------
@@ -239,8 +250,7 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by assay_chembl_id -> record dict.
         """
-        result = self._assay_entity.fetch_by_ids(ids, fields, page_limit)
-        return cast(dict[str, dict[str, Any]], result)
+        return self._fetch_entity_by_ids(self._assay_entity, ids, fields, page_limit)
 
     # ------------------------------------------------------------------
     # Molecule fetching
@@ -268,8 +278,7 @@ class ChemblClient:
         dict[str, dict[str, Any]]:
             Dictionary keyed by molecule_chembl_id -> record dict.
         """
-        result = self._molecule_entity.fetch_by_ids(ids, fields, page_limit)
-        return cast(dict[str, dict[str, Any]], result)
+        return self._fetch_entity_by_ids(self._molecule_entity, ids, fields, page_limit)
 
     # ------------------------------------------------------------------
     # Data validity lookup fetching

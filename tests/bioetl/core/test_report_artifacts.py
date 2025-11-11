@@ -1,74 +1,67 @@
-"""Утилиты для формирования артефактов отчётов тестирования.
-
-Модуль используется исключительно в тестовых сценариях и вспомогательных
-скриптах, обеспечивая единообразную структуру артефактов pytest/coverage.
-"""
+"""Проверки утилит формирования артефактов отчётов тестирования."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Final
 
-TEST_REPORTS_ROOT: Final[Path] = Path("data/output/test-reports")
-
-PYTEST_REPORT_NAME: Final[str] = "pytest-report.json"
-COVERAGE_XML_NAME: Final[str] = "coverage.xml"
-META_YAML_NAME: Final[str] = "meta.yaml"
-
-
-def build_timestamp_directory_name(at: datetime) -> str:
-    """Вернуть имя подкаталога с меткой времени в формате UTC ISO-8601."""
-
-    return at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+from bioetl.tools.test_report_artifacts import (
+    TEST_REPORTS_ROOT,
+    TestReportArtifacts,
+    TestReportMeta,
+    build_timestamp_directory_name,
+    resolve_artifact_paths,
+)
 
 
-@dataclass(frozen=True, slots=True)
-class TestReportArtifacts:
-    """Абсолютные пути до артефактов тестового запуска."""
+def test_build_timestamp_directory_name_utc() -> None:
+    at = datetime(2024, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
 
-    root: Path
-    pytest_report: Path
-    coverage_xml: Path
-    meta_yaml: Path
+    assert build_timestamp_directory_name(at) == "20241231T235959Z"
 
 
-def resolve_artifact_paths(root: Path) -> TestReportArtifacts:
-    """Собрать структуру путей в каталоге *root* без побочных эффектов."""
+def test_build_timestamp_directory_name_converts_to_utc() -> None:
+    local_zone = timezone(timedelta(hours=3))
+    at = datetime(2024, 12, 31, 23, 59, 59, tzinfo=local_zone)
 
-    return TestReportArtifacts(
-        root=root,
-        pytest_report=root / PYTEST_REPORT_NAME,
-        coverage_xml=root / COVERAGE_XML_NAME,
-        meta_yaml=root / META_YAML_NAME,
+    assert build_timestamp_directory_name(at) == "20241231T205959Z"
+
+
+def test_resolve_artifact_paths(tmp_path: Path) -> None:
+    artifacts = resolve_artifact_paths(tmp_path)
+
+    assert artifacts == TestReportArtifacts(
+        root=tmp_path,
+        pytest_report=tmp_path / "pytest-report.json",
+        coverage_xml=tmp_path / "coverage.xml",
+        meta_yaml=tmp_path / "meta.yaml",
     )
 
 
-@dataclass(slots=True)
-class TestReportMeta:
-    """Структура meta.yaml для отчётов тестирования."""
+def test_test_report_meta_to_ordered_dict() -> None:
+    meta = TestReportMeta(
+        pipeline_version="1.2.3",
+        git_commit="abc123",
+        config_hash="cfg",
+        row_count=42,
+        generated_at_utc="2024-12-31T23:59:59Z",
+        blake2_checksum="deadbeef",
+        business_key_hash="cafebabe",
+        status="passed",
+    )
 
-    pipeline_version: str
-    git_commit: str
-    config_hash: str
-    row_count: int
-    generated_at_utc: str
-    blake2_checksum: str
-    business_key_hash: str
-    status: str
+    assert list(meta.to_ordered_dict().keys()) == [
+        "pipeline_version",
+        "git_commit",
+        "config_hash",
+        "row_count",
+        "generated_at_utc",
+        "blake2_checksum",
+        "business_key_hash",
+        "status",
+    ]
 
-    def to_ordered_dict(self) -> dict[str, str | int]:
-        """Вернуть словарь с фиксированным порядком ключей."""
 
-        return {
-            "pipeline_version": self.pipeline_version,
-            "git_commit": self.git_commit,
-            "config_hash": self.config_hash,
-            "row_count": self.row_count,
-            "generated_at_utc": self.generated_at_utc,
-            "blake2_checksum": self.blake2_checksum,
-            "business_key_hash": self.business_key_hash,
-            "status": self.status,
-        }
+def test_test_reports_root_points_to_output_dir() -> None:
+    assert TEST_REPORTS_ROOT == Path("data/output/test-reports")
 

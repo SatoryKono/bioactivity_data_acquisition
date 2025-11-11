@@ -8,7 +8,7 @@
 
 Обязательные источники
 
-[ref: repo:README.md@refactoring_001] ← быстрый старт и примеры команд python -m bioetl.cli.main list|activity|assay|... (см. блок Quick Start). GitHub
+[ref: repo:README.md@refactoring_001] ← быстрый старт и примеры команд python -m bioetl.cli.app list|activity|assay|... (см. блок Quick Start). GitHub
 
 [ref: repo:src/bioetl/cli/app.py@refactoring_001] ← определение Typer-приложения, регистрация команд и опций.
 
@@ -50,7 +50,7 @@ B. 01-cli-commands.md
 
 Назначение: показать зарегистрированные пайплайны и их алиасы.
 
-Формат: python -m bioetl.cli.main list (пример есть в README). Обязательные и опциональные флаги. GitHub
+Формат: python -m bioetl.cli.app list (пример есть в README). Обязательные и опциональные флаги. GitHub
 
 Пример вывода и коды возврата.
 
@@ -58,7 +58,7 @@ B. 01-cli-commands.md
 
 Синопсис:
 
-python -m bioetl.cli.main
+python -m bioetl.cli.app
 
 Описание стадий, которые выполняются при --dry-run и при обычном запуске.
 

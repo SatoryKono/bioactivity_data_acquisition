@@ -17,13 +17,13 @@ The pipeline is executed via the `target-iuphar` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.main target-iuphar [OPTIONS]
+python -m bioetl.cli.app target-iuphar [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.main target-iuphar \
+python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar
 ```
@@ -247,7 +247,7 @@ fallbacks:
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.main target-iuphar \
+python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar \
   --set sources.iuphar.pagination.page_size=50 \
@@ -276,7 +276,7 @@ CLI поддерживает следующие режимы выполнени�
 **Пример использования режима:**
 
 ```bash
-python -m bioetl.cli.main target-iuphar \
+python -m bioetl.cli.app target-iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar \
   --mode smoke
@@ -492,7 +492,7 @@ schema_version: "1.0.0"
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/golden/target-iuphar/`
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/target-iuphar/`
 2. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
@@ -681,12 +681,12 @@ The `target-iuphar` pipeline follows the standard source architecture, utilizing
 
 **Tests:**
 
-- `tests/unit/test_iuphar_pipeline.py` — проверка экстракции, материализации и интеграции пагинатора
-- `tests/sources/iuphar/test_client.py` — HTTP client tests
-- `tests/sources/iuphar/test_parser.py` — parser tests
-- `tests/sources/iuphar/test_normalizer.py` — normalizer tests
-- `tests/sources/iuphar/test_schema.py` — schema tests
-- `tests/sources/iuphar/test_pipeline_e2e.py` — end-to-end tests
+- `tests/bioetl/unit/test_iuphar_pipeline.py` — проверка экстракции, материализации и интеграции пагинатора
+- `tests/bioetl/sources/iuphar/test_client.py` — HTTP client tests
+- `tests/bioetl/sources/iuphar/test_parser.py` — parser tests
+- `tests/bioetl/sources/iuphar/test_normalizer.py` — normalizer tests
+- `tests/bioetl/sources/iuphar/test_schema.py` — schema tests
+- `tests/bioetl/sources/iuphar/test_pipeline_e2e.py` — end-to-end tests
 
 ## 7. Key Identifiers
 

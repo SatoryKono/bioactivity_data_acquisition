@@ -11,25 +11,25 @@ This document describes the pipeline-specific CLI configuration for the Activity
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main activity_chembl
+python -m bioetl.cli.app activity_chembl
 ```
 
 ## Examples
 
 ```bash
 # Standard production run
-python -m bioetl.cli.main activity_chembl \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Dry run to validate configuration
-python -m bioetl.cli.main activity_chembl \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
 
 # Override batch size for testing
-python -m bioetl.cli.main activity_chembl \
+python -m bioetl.cli.app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \

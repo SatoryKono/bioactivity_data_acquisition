@@ -11,13 +11,13 @@ This document describes the pipeline-specific CLI configuration for the Target (
 ## Pipeline-Specific Command Name
 
 ```bash
-python -m bioetl.cli.main target --source uniprot
+python -m bioetl.cli.app target --source uniprot
 ```
 
 ## Examples
 
 ```bash
-python -m bioetl.cli.main target --source uniprot \
+python -m bioetl.cli.app target --source uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target
 ```

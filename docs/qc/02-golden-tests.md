@@ -12,8 +12,8 @@ This approach is particularly effective for complex ETL pipelines where defining
 
 For each ChEMBL pipeline, a set of golden artifacts **MUST** be stored in a dedicated directory.
 
--   **Location**: `[ref: repo:tests/golden/<pipeline_name>/@refactoring_001]`
-    -   Example: `[ref: repo:tests/golden/activity_chembl/@refactoring_001]`
+-   **Location**: `[ref: repo:tests/bioetl/golden/<pipeline_name>/@refactoring_001]`
+    -   Example: `[ref: repo:tests/bioetl/golden/activity_chembl/@refactoring_001]`
 
 -   **Required Artifacts**:
     1.  **Primary Dataset**: The main output of the pipeline (e.g., `activity_chembl.parquet`). This is the most critical artifact.
@@ -100,7 +100,7 @@ Golden snapshots are a critical backstop against regressions and **MUST NOT** be
     1.  Run the pipeline and generate the new, correct output.
     2.  Verify that the new output passes all other tests (especially Pandera validation).
     3.  Delete the old golden artifacts.
-    4.  Copy the new artifacts into the `tests/golden/<pipeline_name>/` directory.
+    4.  Copy the new artifacts into the `tests/bioetl/golden/<pipeline_name>/` directory.
     5.  Commit the updated snapshots with a clear commit message explaining *why* the output changed.
 
 -   **Golden-Driven Development**: Golden tests can be used to guide development. A developer can intentionally write a failing golden test by creating the desired output manually, and then work on the pipeline until the test passes.

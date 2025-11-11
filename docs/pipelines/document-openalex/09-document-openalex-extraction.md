@@ -11,7 +11,7 @@ This document describes the `document_openalex` pipeline, which is responsible f
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_openalex`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main document_openalex`                                                       | Not Implemented       |
+| **CLI Command**   | `python -m bioetl.cli.app document_openalex`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/openalex/document_openalex.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
@@ -695,7 +695,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex
 ```
@@ -703,7 +703,7 @@ python -m bioetl.cli.main document_openalex \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --dry-run
@@ -712,7 +712,7 @@ python -m bioetl.cli.main document_openalex \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --profile determinism
@@ -721,7 +721,7 @@ python -m bioetl.cli.main document_openalex \
 ### Override Configuration
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --set sources.openalex.rate_limit.max_calls_per_sec=8 \

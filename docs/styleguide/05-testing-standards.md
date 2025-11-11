@@ -93,7 +93,7 @@ Golden tests **MUST** be used for critical outputs to ensure deterministic behav
 
 ### Golden Test Structure
 
-1. Store expected output in `tests/golden/{test_name}.golden`
+1. Store expected output in `tests/bioetl/golden/{test_name}.golden`
 2. Compare actual output with golden file
 3. Update golden file only when intentional changes occur
 
@@ -157,7 +157,7 @@ Test classes **MUST** follow the pattern: `Test*`
 ### Valid Examples
 
 ```python
-# File: tests/unit/test_normalizers.py
+# File: tests/bioetl/unit/test_normalizers.py
 
 import pytest
 
@@ -197,10 +197,10 @@ The following are excluded from coverage:
 
 ### Shared Fixtures
 
-Common fixtures **SHOULD** be defined in `tests/conftest.py`:
+Common fixtures **SHOULD** be defined in `tests/bioetl/conftest.py`:
 
 ```python
-# tests/conftest.py
+# tests/bioetl/conftest.py
 import pytest
 from pathlib import Path
 

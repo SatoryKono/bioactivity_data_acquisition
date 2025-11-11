@@ -1,15 +1,15 @@
 # CLI Commands
 
-> **Note**: The Typer CLI shipped in `bioetl.cli.main` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
+> **Note**: The Typer CLI shipped in `bioetl.cli.app` is available today. All paths referencing `src/bioetl/` correspond to the editable source tree that backs the installed package.
 
-This reference drills into every command exposed by `python -m bioetl.cli.main`, capturing its signature, required and optional options, default configuration bundles, runnable examples, and determinism guarantees.
+This reference drills into every command exposed by `python -m bioetl.cli.app`, capturing its signature, required and optional options, default configuration bundles, runnable examples, and determinism guarantees.
 
 ## Invocation pattern
 
 All pipeline entry points share the same Typer invocation form:
 
 ```bash
-python -m bioetl.cli.main <command> [OPTIONS]
+python -m bioetl.cli.app <command> [OPTIONS]
 ```
 
 The CLI loads configuration layers in a fixed precedence: profiles declared via `extends` (typically `configs/defaults/base.yaml`, `configs/defaults/network.yaml`, and `configs/defaults/determinism.yaml`), then the pipeline YAML passed with `--config`, then any `--set` overrides, and finally environment variables. This merge order keeps defaults predictable while still allowing per-run overrides.
@@ -42,7 +42,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `activity_chembl`
 
-- **Signature**: `python -m bioetl.cli.main activity_chembl [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app activity_chembl [OPTIONS]`
 - **Purpose**: Extract biological activity records from ChEMBL `/activity.json` and normalise them to the project schema.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any applicable `--set` overrides.
@@ -51,7 +51,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main activity_chembl \
+  python -m bioetl.cli.app activity_chembl \
     --config configs/pipelines/activity/activity_chembl.yaml \
     --output-dir data/output/activity \
     --set sources.chembl.batch_size=10
@@ -59,7 +59,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `assay_chembl`
 
-- **Signature**: `python -m bioetl.cli.main assay_chembl [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app assay_chembl [OPTIONS]`
 - **Purpose**: Retrieve and normalise assay metadata from ChEMBL `/assay.json`.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`.
@@ -68,14 +68,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main assay_chembl \
+  python -m bioetl.cli.app assay_chembl \
     --config configs/pipelines/assay/assay_chembl.yaml \
     --output-dir data/output/assay
   ```
 
 ### `target`
 
-- **Signature**: `python -m bioetl.cli.main target [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app target [OPTIONS]`
 - **Purpose**: Build the enriched target dimension by combining ChEMBL `/target.json` data with UniProt and IUPHAR classifications.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, to toggle enrichment services).
@@ -84,14 +84,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main target \
+  python -m bioetl.cli.app target \
     --config configs/pipelines/target/target_chembl.yaml \
     --output-dir data/output/target
   ```
 
 ### `document`
 
-- **Signature**: `python -m bioetl.cli.main document [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app document [OPTIONS]`
 - **Purpose**: Extract ChEMBL documents and optionally enrich them with PubMed, Crossref, OpenAlex, and Semantic Scholar metadata, depending on the configured mode.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode` (for example `chembl` vs `all`), `--limit`, `--sample`, `--golden`, `--set`.
@@ -100,7 +100,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main document \
+  python -m bioetl.cli.app document \
     --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/document \
     --mode all
@@ -108,7 +108,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `testitem`
 
-- **Signature**: `python -m bioetl.cli.main testitem [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app testitem [OPTIONS]`
 - **Purpose**: Produce the molecule (test item) dimension from ChEMBL `/molecule.json`, optionally blending in PubChem enrichment.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, toggling PubChem enrichment).
@@ -117,14 +117,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main testitem \
+  python -m bioetl.cli.app testitem \
     --config configs/pipelines/testitem/testitem_chembl.yaml \
     --output-dir data/output/testitem
   ```
 
 ### `pubchem`
 
-- **Signature**: `python -m bioetl.cli.main pubchem [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app pubchem [OPTIONS]`
 - **Purpose**: Enrich ChEMBL molecules with PubChem properties using the standalone PubChem pipeline.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, adjusting PubChem rate limits or lookup paths).
@@ -133,14 +133,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main pubchem \
+  python -m bioetl.cli.app pubchem \
     --config src/bioetl/configs/pipelines/pubchem.yaml \
     --output-dir data/output/pubchem
   ```
 
 ### `gtp_iuphar`
 
-- **Signature**: `python -m bioetl.cli.main gtp_iuphar [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app gtp_iuphar [OPTIONS]`
 - **Purpose**: Harvest Guide to Pharmacology target data as a standalone pipeline or enrichment service.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--mode` (for example, `smoke`), `--set` (to override API credentials or QC thresholds).
@@ -149,14 +149,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main gtp_iuphar \
+  python -m bioetl.cli.app gtp_iuphar \
     --config src/bioetl/configs/pipelines/iuphar.yaml \
     --output-dir data/output/gtp_iuphar
   ```
 
 ### `uniprot`
 
-- **Signature**: `python -m bioetl.cli.main uniprot [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app uniprot [OPTIONS]`
 - **Purpose**: Fetch UniProt records (including optional ID mapping and ortholog lookups) into a deterministic dataset.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and `--set` toggles for specific UniProt subsystems.
@@ -165,14 +165,14 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main uniprot \
+  python -m bioetl.cli.app uniprot \
     --config src/bioetl/configs/pipelines/uniprot.yaml \
     --output-dir data/output/uniprot
   ```
 
 ### `openalex`
 
-- **Signature**: `python -m bioetl.cli.main openalex [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app openalex [OPTIONS]`
 - **Purpose**: Convenience alias that runs the document pipeline with the OpenAlex adapter enabled for Works API enrichment.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (to adjust OpenAlex batch sizes or rate limits).
@@ -181,7 +181,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main openalex \
+  python -m bioetl.cli.app openalex \
     --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/openalex \
     --mode all \
@@ -193,7 +193,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `crossref`
 
-- **Signature**: `python -m bioetl.cli.main crossref [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app crossref [OPTIONS]`
 - **Purpose**: Run the document pipeline with only the Crossref adapter enabled (mail-to headers enforced for polite API usage).
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (for example, to provide `sources.crossref.mailto`).
@@ -202,7 +202,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main crossref \
+  python -m bioetl.cli.app crossref \
     --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/crossref \
     --mode all \
@@ -214,7 +214,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `pubmed`
 
-- **Signature**: `python -m bioetl.cli.main pubmed [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app pubmed [OPTIONS]`
 - **Purpose**: Execute the document pipeline with PubMed adapters enabled (optionally alongside other enrichers via `--mode`).
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (for example, `sources.pubmed.tool`, `sources.pubmed.email`).
@@ -223,7 +223,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main pubmed \
+  python -m bioetl.cli.app pubmed \
     --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/pubmed \
     --mode all \
@@ -235,7 +235,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `semantic_scholar`
 
-- **Signature**: `python -m bioetl.cli.main semantic_scholar [OPTIONS]`
+- **Signature**: `python -m bioetl.cli.app semantic_scholar [OPTIONS]`
 - **Purpose**: Run the document pipeline with Semantic Scholar Graph API enrichment enabled.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode`, `--limit`, `--sample`, `--golden`, `--set` (including `sources.semantic_scholar.api_key`).
@@ -244,7 +244,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 - **Example**:
 
   ```bash
-  python -m bioetl.cli.main semantic_scholar \
+  python -m bioetl.cli.app semantic_scholar \
     --config configs/pipelines/document/document_chembl.yaml \
     --output-dir data/output/semantic_scholar \
     --mode all \
@@ -256,7 +256,7 @@ Every command inherits the determinism policy enforced by `PipelineBase`: stable
 
 ### `list`
 
-- **Signature**: `python -m bioetl.cli.main list`
+- **Signature**: `python -m bioetl.cli.app list`
 - **Purpose**: Display the statically-registered pipeline commands packaged with the CLI.
 - **Behaviour**: No options are required. The command introspects the registry and prints the available pipeline names in deterministic (alphabetical) order for reproducible scripting.
 

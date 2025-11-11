@@ -1251,7 +1251,7 @@ sources.chembl.batch_size
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
@@ -1497,7 +1497,7 @@ schema_version: "2.0.0"
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/golden/assay/`
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/assay/`
 2. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
@@ -1542,12 +1542,12 @@ Workflow для изменения схемы:
 
 ### 9.1 Обзор
 
-Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.main assay`. Подробности архитектуры CLI см. в [CLI Overview](../cli/00-cli-overview.md).
+Assay pipeline использует унифицированный CLI интерфейс через Typer. Все команды запускаются через `python -m bioetl.cli.app assay`. Подробности архитектуры CLI см. в [CLI Overview](../cli/00-cli-overview.md).
 
 **Инвокация:**
 
 ```bash
-python -m bioetl.cli.main assay [OPTIONS]
+python -m bioetl.cli.app assay [OPTIONS]
 ```
 
 **Назначение:** Извлечение и нормализация метаданных ассаев из ChEMBL `/assay.json` с детерминированным выводом и полной воспроизводимостью.
@@ -1585,7 +1585,7 @@ CLI загружает конфигурацию в следующем поряд
 
 ### 9.4 Команда `assay`
 
-**Сигнатура:** `python -m bioetl.cli.main assay [OPTIONS]`
+**Сигнатура:** `python -m bioetl.cli.app assay [OPTIONS]`
 
 **Обязательные опции:** `--config`, `--output-dir`
 
@@ -1600,7 +1600,7 @@ CLI загружает конфигурацию в следующем поряд
 **Базовый запуск:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay
 ```
@@ -1608,7 +1608,7 @@ python -m bioetl.cli.main assay \
 **Проверка конфигурации (dry-run):**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --dry-run
@@ -1617,7 +1617,7 @@ python -m bioetl.cli.main assay \
 **Ограничение количества записей (smoke test):**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --limit 100
@@ -1626,7 +1626,7 @@ python -m bioetl.cli.main assay \
 **Случайная выборка с детерминированным seed:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --sample 500 \
@@ -1636,16 +1636,16 @@ python -m bioetl.cli.main assay \
 **Сравнение с golden-файлом:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
-  --golden tests/golden/assay/assay_20250115.csv
+  --golden tests/bioetl/golden/assay/assay_20250115.csv
 ```
 
 **Переопределение параметров ChEMBL:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --set sources.chembl.batch_size=20 \
@@ -1655,7 +1655,7 @@ python -m bioetl.cli.main assay \
 **Строгая валидация схемы:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --fail-on-schema-drift \
@@ -1665,7 +1665,7 @@ python -m bioetl.cli.main assay \
 **С входным файлом:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --input-file data/input/assay_ids.csv
@@ -1674,7 +1674,7 @@ python -m bioetl.cli.main assay \
 **Детальное логирование:**
 
 ```bash
-python -m bioetl.cli.main assay \
+python -m bioetl.cli.app assay \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
   --verbose

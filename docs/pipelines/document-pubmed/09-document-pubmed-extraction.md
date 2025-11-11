@@ -11,7 +11,7 @@ This document describes the `document_pubmed` pipeline, which is responsible for
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_pubmed`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main document_pubmed`                                                       | Not Implemented       |
+| **CLI Command**   | `python -m bioetl.cli.app document_pubmed`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubmed/document_pubmed.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
 
@@ -705,7 +705,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed
 ```
@@ -713,7 +713,7 @@ python -m bioetl.cli.main document_pubmed \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --dry-run
@@ -722,7 +722,7 @@ python -m bioetl.cli.main document_pubmed \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --profile determinism
@@ -735,7 +735,7 @@ export PUBMED_TOOL="bioactivity_etl"
 export PUBMED_EMAIL="contact@example.org"
 export PUBMED_API_KEY="your_api_key_here"
 
-python -m bioetl.cli.main document_pubmed \
+python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed
 ```
@@ -743,7 +743,7 @@ python -m bioetl.cli.main document_pubmed \
 ### Override Configuration
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --set sources.pubmed.history.batch_size=150 \

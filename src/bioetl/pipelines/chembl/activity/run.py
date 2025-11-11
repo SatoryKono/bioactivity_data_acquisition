@@ -41,7 +41,7 @@ from bioetl.schemas.activity import (
 from bioetl.schemas.vocab import required_vocab_ids
 
 from ...base import RunResult
-from ...chembl_base import (
+from ...chembl_descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
@@ -2099,17 +2099,34 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             if isinstance(next_link, str) and next_link:
                 # urlparse returns ParseResult with str path when input is str
-                base_path_parse_result = urlparse(base_url)
-                base_path: str = base_path_parse_result.path.rstrip("/")
+                base_url_str = str(base_url)
+                base_path_parse_result = urlparse(base_url_str)
+                base_path_raw = base_path_parse_result.path
+                base_path_str = (
+                    base_path_raw.decode("utf-8", "ignore")
+                    if isinstance(base_path_raw, (bytes, bytearray))
+                    else base_path_raw
+                )
+                base_path: str = base_path_str.rstrip("/")
 
                 # If next_link is a full URL, extract only the relative path
                 if next_link.startswith("http://") or next_link.startswith("https://"):
                     parsed = urlparse(next_link)
-                    base_parsed = urlparse(base_url)
+                    base_parsed = urlparse(base_url_str)
 
                     # Get paths - urlparse returns str path when input is str
-                    path: str = parsed.path
-                    base_path_from_url: str = base_parsed.path
+                    parsed_path_raw = parsed.path
+                    base_path_raw = base_parsed.path
+                    path: str = (
+                        parsed_path_raw.decode("utf-8", "ignore")
+                        if isinstance(parsed_path_raw, (bytes, bytearray))
+                        else parsed_path_raw
+                    )
+                    base_path_from_url: str = (
+                        base_path_raw.decode("utf-8", "ignore")
+                        if isinstance(base_path_raw, (bytes, bytearray))
+                        else base_path_raw
+                    )
 
                     # Normalize: remove trailing slashes for comparison
                     path_normalized: str = path.rstrip("/")
