@@ -49,15 +49,13 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        batch_from_input = self._extract_from_input_file(
+        return self._dispatch_extract_mode(
             log,
             event_name="chembl_target.extract_mode",
+            batch_callback=self.extract_by_ids,
+            full_callback=self.extract_all,
+            id_column_name="target_chembl_id",
         )
-        if batch_from_input is not None:
-            return batch_from_input
-
-        log.info("chembl_target.extract_mode", mode="full")
-        return self.extract_all()
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all target records from ChEMBL using pagination."""

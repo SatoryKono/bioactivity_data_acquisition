@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 import pandas as pd
 import pandera.errors
 from requests.exceptions import RequestException
+from structlog.stdlib import BoundLogger
 
 from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
@@ -122,29 +123,34 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        batch_from_input = self._extract_from_input_file(
-            log,
-            event_name="chembl_activity.extract_mode",
-        )
-        if batch_from_input is not None:
-            return batch_from_input
+        def legacy_activity_ids(bound_log: BoundLogger) -> Sequence[str] | None:
+            payload_activity_ids = kwargs.get("activity_ids")
+            if payload_activity_ids is None:
+                return None
 
-        # Legacy support: check kwargs for activity_ids (deprecated)
-        payload_activity_ids = kwargs.get("activity_ids")
-        if payload_activity_ids is not None:
-            log.warning(
+            bound_log.warning(
                 "chembl_activity.deprecated_kwargs",
                 message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
             )
-            if isinstance(payload_activity_ids, Sequence):
-                sequence_ids: Sequence[str | int] = cast(Sequence[str | int], payload_activity_ids)
-                ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
-            else:
-                ids_list = [str(payload_activity_ids)]
-            return self.extract_by_ids(ids_list)
+            if isinstance(payload_activity_ids, Sequence) and not isinstance(
+                payload_activity_ids, (str, bytes)
+            ):
+                sequence_ids: Sequence[str | int] = cast(
+                    Sequence[str | int], payload_activity_ids
+                )
+                return [str(id_val) for id_val in sequence_ids]
 
-        log.info("chembl_activity.extract_mode", mode="full")
-        return self.extract_all()
+            return [str(payload_activity_ids)]
+
+        return self._dispatch_extract_mode(
+            log,
+            event_name="chembl_activity.extract_mode",
+            batch_callback=self.extract_by_ids,
+            full_callback=self.extract_all,
+            id_column_name="activity_id",
+            legacy_id_resolver=legacy_activity_ids,
+            legacy_source="deprecated_kwargs",
+        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all activity records from ChEMBL using the shared iterator."""
