@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections import defaultdict
+from collections.abc import Callable, Sequence
+from decimal import Decimal, ROUND_HALF_UP
 from typing import TypedDict
 
 import pandas as pd
@@ -26,6 +28,7 @@ __all__ = [
     "compute_duplicate_stats",
     "compute_missingness",
     "compute_correlation_matrix",
+    "compute_categorical_distributions",
 ]
 
 
@@ -77,6 +80,165 @@ def compute_duplicate_stats(
     )
 
 
+class CategoricalDistributionEntry(TypedDict):
+    """Single bucket statistics for categorical distributions."""
+
+    count: int
+    ratio: float
+
+
+CategoricalDistribution = dict[str, dict[str, CategoricalDistributionEntry]]
+
+
+def _default_value_normalizer(value: object) -> str:
+    """Normalize raw categorical values to canonical textual keys."""
+
+    if pd.isna(value):
+        return "null"
+
+    if isinstance(value, str):
+        normalized = value.strip()
+        return normalized if normalized else "__empty__"
+
+    normalized = str(value)
+    return normalized.strip() if normalized.strip() else "__empty__"
+
+
+def _quantize_ratio(value: Decimal, *, precision: int) -> Decimal:
+    """Quantize ratios using half-up rounding with deterministic precision."""
+
+    quantizer = Decimal((0, (1,), -precision))
+    return value.quantize(quantizer, rounding=ROUND_HALF_UP)
+
+
+def _ensure_ratio_sum(
+    ordered_items: list[tuple[str, int, Decimal]],
+    *,
+    precision: int,
+) -> list[tuple[str, int, float]]:
+    """Convert Decimal ratios to floats ensuring their rounded sum equals 1."""
+
+    quantized: list[Decimal] = []
+    total = Decimal("0")
+    one = Decimal("1")
+    for index, (_, _, ratio) in enumerate(ordered_items):
+        if index == len(ordered_items) - 1:
+            remaining = one - total
+            if remaining < Decimal("0"):
+                remaining = Decimal("0")
+            quantized_ratio = _quantize_ratio(remaining, precision=precision)
+        else:
+            quantized_ratio = _quantize_ratio(ratio, precision=precision)
+            total += quantized_ratio
+            if total > one:
+                total = one
+        quantized.append(quantized_ratio)
+
+    adjusted: list[tuple[str, int, float]] = []
+    for (value, count, _), ratio_decimal in zip(ordered_items, quantized, strict=True):
+        adjusted.append((value, count, float(ratio_decimal)))
+    return adjusted
+
+
+def compute_categorical_distributions(
+    df: pd.DataFrame,
+    *,
+    column_suffixes: Sequence[str],
+    value_normalizer: Callable[[object], str] | None = None,
+    top_n: int = 20,
+    ratio_precision: int = 6,
+    other_bucket_label: str = "__other__",
+) -> CategoricalDistribution:
+    """Return deterministic categorical distributions for columns matching suffixes.
+
+    Args:
+        df: Исходный DataFrame.
+        column_suffixes: Список суффиксов, по которым выбираются целевые колонки.
+        value_normalizer: Функция нормализации категорий; по умолчанию убирает
+            пробелы, нормализует пустые значения и NaN.
+        top_n: Максимальное число категорий на колонку; избыточные категории
+            агрегируются в ``other_bucket_label``.
+        ratio_precision: Количество знаков после запятой для метрик долей.
+        other_bucket_label: Имя агрегированного bucket для редких категорий.
+
+    Returns:
+        Словарь: ``{column: {category: {count, ratio}}}``, где ключи отсортированы
+        по имени колонки и по убыванию счётчиков с детерминированной альф. стабилизацией.
+    """
+
+    if top_n <= 0:
+        msg = "top_n must be positive to maintain deterministic ordering"
+        raise ValueError(msg)
+    if ratio_precision < 0:
+        msg = "ratio_precision must be non-negative"
+        raise ValueError(msg)
+
+    normalizer = value_normalizer or _default_value_normalizer
+
+    matched_columns = [
+        column
+        for column in df.columns
+        if any(column.endswith(suffix) for suffix in column_suffixes)
+    ]
+
+    distributions: CategoricalDistribution = {}
+    for column in sorted(matched_columns):
+        series = df[column]
+        non_null_count = int(series.notna().sum())
+        if non_null_count == 0:
+            continue
+
+        raw_counts = series.astype("object").value_counts(dropna=False, sort=False)
+        aggregated: dict[str, int] = defaultdict(int)
+        for raw_value, raw_count in raw_counts.items():
+            normalized_value = normalizer(raw_value)
+            aggregated[normalized_value] += int(raw_count)
+
+        # Determine priority order for top-N selection.
+        prioritized = sorted(
+            aggregated.items(),
+            key=lambda item: (-item[1], item[0]),
+        )
+
+        if len(prioritized) > top_n:
+            retained = prioritized[:top_n]
+            remainder_count = sum(count for _, count in prioritized[top_n:])
+            merged: dict[str, int] = {key: count for key, count in retained}
+            if remainder_count > 0:
+                merged[other_bucket_label] = merged.get(other_bucket_label, 0) + remainder_count
+            final_items = merged.items()
+        else:
+            final_items = aggregated.items()
+
+        ordered = sorted(final_items, key=lambda item: item[0])
+        total_count = sum(count for _, count in ordered)
+        if total_count == 0:
+            continue
+
+        ratio_entries: list[tuple[str, int, Decimal]] = [
+            (value, count, Decimal(count) / Decimal(total_count))
+            for value, count in ordered
+        ]
+        quantized = _ensure_ratio_sum(ratio_entries, precision=ratio_precision)
+
+        if pd.isna(column):
+            msg = f"Column key must not be NaN: {column!r}"
+            raise ValueError(msg)
+
+        inner_keys = [value for value, *_ in quantized]
+        if inner_keys != sorted(inner_keys):
+            msg = f"Distribution keys must be sorted deterministically for {column}"
+            raise ValueError(msg)
+
+        for value in inner_keys:
+            if pd.isna(value):
+                msg = f"Category key must not be NaN in column {column}"
+                raise ValueError(msg)
+
+        inner = {value: {"count": count, "ratio": ratio} for value, count, ratio in quantized}
+        distributions[column] = inner
+
+    return distributions
 def compute_missingness(df: pd.DataFrame) -> pd.DataFrame:
     """Return per-column missing value statistics with stable ordering."""
 

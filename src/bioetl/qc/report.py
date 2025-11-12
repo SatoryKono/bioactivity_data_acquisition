@@ -9,6 +9,7 @@ import pandas as pd
 
 from .metrics import (
     DuplicateStats,
+    compute_categorical_distributions,
     compute_correlation_matrix,
     compute_duplicate_stats,
     compute_missingness,
@@ -21,71 +22,11 @@ __all__ = [
 ]
 
 
-def _normalize_value(value: Any) -> str:
-    """Return a human-readable representation for categorical values."""
-
-    if pd.isna(value):
-        return "null"
-    return str(value)
-
-
-def _compute_units_distribution(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float | int]]]:
-    """Return deterministic value counts for all ``*_units`` columns in ``df``."""
-
-    distributions: dict[str, dict[str, dict[str, float | int]]] = {}
-    unit_columns = [column for column in df.columns if column.endswith("units")]
-    for column in sorted(unit_columns):
-        series = df[column]
-        # Skip entirely empty columns to avoid noisy metrics
-        if series.notna().sum() == 0:
-            continue
-        value_counts = series.astype("object").value_counts(dropna=False, sort=False)
-        total = int(value_counts.sum())
-        normalized_items = sorted(
-            [
-                (
-                    _normalize_value(value),
-                    int(count),
-                    float(count / total) if total else 0.0,
-                )
-                for value, count in value_counts.items()
-            ],
-            key=lambda item: item[0],
-        )
-        distributions[column] = {
-            value: {"count": count, "ratio": ratio}
-            for value, count, ratio in normalized_items
-        }
-    return distributions
-
-
-def _compute_relation_distribution(df: pd.DataFrame) -> dict[str, dict[str, dict[str, float | int]]]:
-    """Return deterministic value counts for all ``*_relation`` columns in ``df``."""
-
-    distributions: dict[str, dict[str, dict[str, float | int]]] = {}
-    relation_columns = [column for column in df.columns if column.endswith("relation")]
-    for column in sorted(relation_columns):
-        series = df[column]
-        if series.notna().sum() == 0:
-            continue
-        value_counts = series.astype("object").value_counts(dropna=False, sort=False)
-        total = int(value_counts.sum())
-        normalized_items = sorted(
-            [
-                (
-                    _normalize_value(value),
-                    int(count),
-                    float(count / total) if total else 0.0,
-                )
-                for value, count in value_counts.items()
-            ],
-            key=lambda item: item[0],
-        )
-        distributions[column] = {
-            value: {"count": count, "ratio": ratio}
-            for value, count, ratio in normalized_items
-        }
-    return distributions
+_DISTRIBUTION_SUFFIX_UNITS: tuple[str, ...] = ("units",)
+_DISTRIBUTION_SUFFIX_RELATION: tuple[str, ...] = ("relation",)
+_DISTRIBUTION_TOP_N = 20
+_DISTRIBUTION_RATIO_PRECISION = 6
+_DISTRIBUTION_OTHER_BUCKET = "__other__"
 
 
 def _detect_simple_outliers(df: pd.DataFrame) -> dict[str, dict[str, float | int]]:
@@ -166,7 +107,13 @@ def build_quality_report(
                 }
             )
 
-    units_distribution = _compute_units_distribution(df)
+    units_distribution = compute_categorical_distributions(
+        df,
+        column_suffixes=_DISTRIBUTION_SUFFIX_UNITS,
+        top_n=_DISTRIBUTION_TOP_N,
+        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
+        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
+    )
     for column in sorted(units_distribution.keys()):
         for value, info in units_distribution[column].items():
             rows.append(
@@ -180,7 +127,13 @@ def build_quality_report(
                 }
             )
 
-    relation_distribution = _compute_relation_distribution(df)
+    relation_distribution = compute_categorical_distributions(
+        df,
+        column_suffixes=_DISTRIBUTION_SUFFIX_RELATION,
+        top_n=_DISTRIBUTION_TOP_N,
+        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
+        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
+    )
     for column in sorted(relation_distribution.keys()):
         for value, info in relation_distribution[column].items():
             rows.append(
@@ -250,8 +203,20 @@ def build_qc_metrics_payload(
     )
     total_missing = int(missing["missing_count"].sum()) if not missing.empty else 0
 
-    units_distribution = _compute_units_distribution(df)
-    relation_distribution = _compute_relation_distribution(df)
+    units_distribution = compute_categorical_distributions(
+        df,
+        column_suffixes=_DISTRIBUTION_SUFFIX_UNITS,
+        top_n=_DISTRIBUTION_TOP_N,
+        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
+        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
+    )
+    relation_distribution = compute_categorical_distributions(
+        df,
+        column_suffixes=_DISTRIBUTION_SUFFIX_RELATION,
+        top_n=_DISTRIBUTION_TOP_N,
+        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
+        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
+    )
     numeric_outliers = _detect_simple_outliers(df)
 
     payload: dict[str, Any] = {

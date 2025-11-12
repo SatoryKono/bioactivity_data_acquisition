@@ -7,7 +7,11 @@ import pytest
 
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.qc.metrics import compute_correlation_matrix, compute_missingness
+from bioetl.qc.metrics import (
+    compute_categorical_distributions,
+    compute_correlation_matrix,
+    compute_missingness,
+)
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
 
 
@@ -120,6 +124,52 @@ class TestQCMetrics:
         assert correlation is not None
         assert list(correlation.columns) == ["a", "m", "z"]
         assert list(correlation.index) == ["a", "m", "z"]
+
+    def test_compute_categorical_distributions_basic(self) -> None:
+        """Categorical distributions should normalize labels and ratios."""
+
+        df = pd.DataFrame(
+            {
+                "value_units": ["nM", " nM ", None, "mM", ""],
+                "value_relation": ["=", ">", "=", ">", None],
+            }
+        )
+
+        result = compute_categorical_distributions(
+            df,
+            column_suffixes=("units",),
+        )
+
+        assert "value_units" in result
+        distribution = result["value_units"]
+        assert list(distribution.keys()) == ["__empty__", "mM", "nM", "null"]
+        assert distribution["nM"]["count"] == 2
+        assert distribution["nM"]["ratio"] == 0.4
+        assert distribution["null"]["count"] == 1
+        assert distribution["null"]["ratio"] == 0.2
+
+    def test_compute_categorical_distributions_other_bucket(self) -> None:
+        """Rare categories should aggregate into the other bucket deterministically."""
+
+        df = pd.DataFrame(
+            {
+                "measurement_units": ["a", "b", "c", "d", "e"],
+            }
+        )
+
+        result = compute_categorical_distributions(
+            df,
+            column_suffixes=("units",),
+            top_n=2,
+        )
+
+        assert "measurement_units" in result
+        distribution = result["measurement_units"]
+        assert list(distribution.keys()) == ["__other__", "a", "b"]
+        assert distribution["__other__"]["count"] == 3
+        assert distribution["__other__"]["ratio"] == 0.6
+        assert distribution["a"]["count"] == 1
+        assert distribution["b"]["ratio"] == 0.2
 
     def test_pipeline_qc_artifacts(
         self,

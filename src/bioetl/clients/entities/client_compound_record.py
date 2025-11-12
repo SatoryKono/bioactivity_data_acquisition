@@ -35,6 +35,8 @@ class ChemblCompoundRecordEntityClient:
         pairs: Iterable[tuple[str, str]],
         fields: Sequence[str],
         page_limit: int = 1000,
+        *,
+        chunk_size: int = 100,
     ) -> dict[tuple[str, str], dict[str, Any]]:
         """Получить compound_record записи по парам (molecule_chembl_id, document_chembl_id).
 
@@ -46,6 +48,8 @@ class ChemblCompoundRecordEntityClient:
             Список полей для получения из API.
         page_limit:
             Размер страницы для пагинации.
+        chunk_size:
+            Максимальное количество molecule_chembl_id в одном запросе.
 
         Returns
         -------
@@ -53,6 +57,10 @@ class ChemblCompoundRecordEntityClient:
             Словарь (molecule_chembl_id, document_chembl_id) -> запись.
         """
         import pandas as pd
+
+        if chunk_size < 1:
+            msg = f"chunk_size must be positive, got {chunk_size}"
+            raise ValueError(msg)
 
         # Сбор уникальных пар, фильтрация None/NA значений
         unique_pairs: set[tuple[str, str]] = set()
@@ -79,7 +87,6 @@ class ChemblCompoundRecordEntityClient:
         for doc_id, mol_ids in doc_to_molecules.items():
             # ChEMBL API поддерживает molecule_chembl_id__in фильтр
             # Обработка чанками для избежания ограничений длины URL
-            chunk_size = 100  # Консервативный лимит для molecule_chembl_id__in
             for i in range(0, len(mol_ids), chunk_size):
                 chunk = mol_ids[i : i + chunk_size]
                 params: dict[str, Any] = {

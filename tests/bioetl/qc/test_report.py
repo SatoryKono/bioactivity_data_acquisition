@@ -243,3 +243,22 @@ class TestQCReport:
 
         assert report is not None
         assert list(report.columns) == ["feature", "a", "b", "c"]
+
+    def test_build_qc_metrics_payload_limits_distribution(self) -> None:
+        """QC payload should aggregate rare categories into the other bucket."""
+
+        units = [f"unit_{index:02d}" for index in range(25)]
+        df = pd.DataFrame(
+            {
+                "measurement_units": units,
+                "measurement_relation": ["="] * len(units),
+            }
+        )
+
+        payload = build_qc_metrics_payload(df)
+        units_distribution = payload["units_distribution"]["measurement_units"]
+
+        assert "__other__" in units_distribution
+        assert len(units_distribution) == 21  # top 20 + other bucket
+        assert units_distribution["__other__"]["count"] == 5
+        assert units_distribution["__other__"]["ratio"] == 0.2
