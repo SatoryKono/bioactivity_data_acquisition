@@ -14,8 +14,8 @@ import pandas as pd
 from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.chembl import ChemblClient
-from bioetl.clients.target.chembl_target import ChemblTargetClient
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.log_events import LogEvents
@@ -25,7 +25,7 @@ from bioetl.core.normalizers import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
+from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
 
 from ...chembl_descriptor import (
     BatchExtractionContext,

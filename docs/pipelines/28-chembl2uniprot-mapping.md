@@ -1,14 +1,25 @@
 # ChEMBL to UniProt Mapping Pipeline
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
-This document describes the `chembl2uniprot-mapping` pipeline, which is responsible for mapping ChEMBL target identifiers to UniProt accession numbers through the UniProt ID Mapping API.
+This document describes the `chembl2uniprot-mapping` pipeline, which is
+responsible for mapping ChEMBL target identifiers to UniProt accession numbers
+through the UniProt ID Mapping API.
 
 ## 1. Overview
 
-The `chembl2uniprot-mapping` pipeline creates mappings between ChEMBL `target_chembl_id` and UniProt accession numbers. This mapping is essential for enriching ChEMBL target data with UniProt protein information. The pipeline uses the UniProt ID Mapping API, which provides an asynchronous mapping service that can handle large volumes of identifiers.
+The `chembl2uniprot-mapping` pipeline creates mappings between ChEMBL
+`target_chembl_id` and UniProt accession numbers. This mapping is essential for
+enriching ChEMBL target data with UniProt protein information. The pipeline uses
+the UniProt ID Mapping API, which provides an asynchronous mapping service that
+can handle large volumes of identifiers.
 
-**Note:** This pipeline is separate from the target extraction pipelines. It focuses solely on creating the mapping table between ChEMBL and UniProt identifiers. The resulting mappings can then be used by other pipelines to enrich target data.
+**Note:** This pipeline is separate from the target extraction pipelines. It
+focuses solely on creating the mapping table between ChEMBL and UniProt
+identifiers. The resulting mappings can then be used by other pipelines to
+enrich target data.
 
 ## 2. CLI Command
 
@@ -18,14 +29,14 @@ The pipeline is executed via the `chembl2uniprot-mapping` CLI command.
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app chembl2uniprot-mapping [OPTIONS]
+python -m bioetl.cli.cli_app chembl2uniprot-mapping [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app chembl2uniprot-mapping \
+python -m bioetl.cli.cli_app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping
 ```
@@ -34,17 +45,23 @@ python -m bioetl.cli.app chembl2uniprot-mapping \
 
 ### 3.1 Обзор конфигурации
 
-ChEMBL2UniProt Mapping pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
+ChEMBL2UniProt Mapping pipeline управляется через декларативный YAML-файл
+конфигурации. Все конфигурационные файлы валидируются во время выполнения против
+строго типизированных Pydantic-моделей, что гарантирует корректность параметров
+перед запуском пайплайна.
 
 **Расположение конфига:** `configs/pipelines/uniprot/chembl2uniprot.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml`
+и `configs/defaults/determinism.yaml` через `extends`.
 
-**Основной источник:** UniProt ID Mapping API `https://rest.uniprot.org/idmapping`.
+**Основной источник:** UniProt ID Mapping API
+`https://rest.uniprot.org/idmapping`.
 
 ### 3.2 Структура конфигурации
 
-Конфигурационный файл ChEMBL2UniProt Mapping pipeline следует стандартной структуре `PipelineConfig`:
+Конфигурационный файл ChEMBL2UniProt Mapping pipeline следует стандартной
+структуре `PipelineConfig`:
 
 ```yaml
 # configs/pipelines/uniprot/chembl2uniprot.yaml
@@ -218,25 +235,26 @@ fallbacks:
 
 ### 3.3 Критические параметры
 
-| Параметр | Значение | Обоснование | Валидация |
-|----------|----------|------------|-----------|
-| `http.profiles.uniprot_idmapping.rate_limit.max_calls` | `2` | Жёсткое ограничение квоты UniProt API (2 req/sec) | `if max_calls > 2: raise ConfigValidationError` |
-| `sources.uniprot_idmapping.parameters.from` | `"CHEMBL_ID"` | Источник идентификаторов (ChEMBL ID) | Обязательно |
-| `sources.uniprot_idmapping.parameters.to` | `"UniProtKB"` | Назначение (UniProt KB) | Обязательно |
-| `sources.uniprot_idmapping.polling.interval_sec` | `5.0` | Интервал опроса статуса job | `>= 1.0` |
-| `sources.uniprot_idmapping.polling.max_polling_attempts` | `60` | Максимальное количество попыток опроса | `>= 1` |
-| `determinism.sort.by[0]` | `"target_chembl_id"` | Первый ключ сортировки | Обязательно |
-| `determinism.hashing.business_key_fields` | `["target_chembl_id", "uniprot_accession"]` | Составной бизнес-ключ | Обязательно |
-| `validation.schema_out` | `"bioetl.schemas.uniprot.mapping.ChEMBL2UniProtMappingOutputSchema"` | Обязательная ссылка на Pandera-схему | Должен существовать и быть импортируемым |
+| Параметр                                                 | Значение                                                             | Обоснование                                       | Валидация                                       |
+| -------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| `http.profiles.uniprot_idmapping.rate_limit.max_calls`   | `2`                                                                  | Жёсткое ограничение квоты UniProt API (2 req/sec) | `if max_calls > 2: raise ConfigValidationError` |
+| `sources.uniprot_idmapping.parameters.from`              | `"CHEMBL_ID"`                                                        | Источник идентификаторов (ChEMBL ID)              | Обязательно                                     |
+| `sources.uniprot_idmapping.parameters.to`                | `"UniProtKB"`                                                        | Назначение (UniProt KB)                           | Обязательно                                     |
+| `sources.uniprot_idmapping.polling.interval_sec`         | `5.0`                                                                | Интервал опроса статуса job                       | `>= 1.0`                                        |
+| `sources.uniprot_idmapping.polling.max_polling_attempts` | `60`                                                                 | Максимальное количество попыток опроса            | `>= 1`                                          |
+| `determinism.sort.by[0]`                                 | `"target_chembl_id"`                                                 | Первый ключ сортировки                            | Обязательно                                     |
+| `determinism.hashing.business_key_fields`                | `["target_chembl_id", "uniprot_accession"]`                          | Составной бизнес-ключ                             | Обязательно                                     |
+| `validation.schema_out`                                  | `"bioetl.schemas.uniprot.mapping.ChEMBL2UniProtMappingOutputSchema"` | Обязательная ссылка на Pandera-схему              | Должен существовать и быть импортируемым        |
 
 ### 3.4 Валидация конфигурации
 
 Конфигурация валидируется через Pydantic-модель `PipelineConfig` при загрузке:
 
 1. **Типобезопасность:** Все значения проверяются на соответствие типам
-2. **Обязательные поля:** Отсутствие обязательных полей приводит к ошибке
-3. **Неизвестные ключи:** Неизвестные ключи запрещены (`extra="forbid"`)
-4. **Кросс-полевые инварианты:** Проверка согласованности (например, длина `sort.by` и `sort.ascending`)
+1. **Обязательные поля:** Отсутствие обязательных полей приводит к ошибке
+1. **Неизвестные ключи:** Неизвестные ключи запрещены (`extra="forbid"`)
+1. **Кросс-полевые инварианты:** Проверка согласованности (например, длина
+   `sort.by` и `sort.ascending`)
 
 **Пример ошибки валидации:**
 
@@ -252,7 +270,7 @@ http.profiles.uniprot_idmapping.rate_limit.max_calls
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app chembl2uniprot-mapping \
+python -m bioetl.cli.cli_app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping \
   --set sources.uniprot_idmapping.polling.interval_sec=10.0 \
@@ -261,7 +279,8 @@ python -m bioetl.cli.app chembl2uniprot-mapping \
 
 ### 3.6 Переменные окружения
 
-Наивысший приоритет имеют переменные окружения (формат: `BIOETL__<SECTION>__<KEY>__<SUBKEY>`):
+Наивысший приоритет имеют переменные окружения (формат:
+`BIOETL__<SECTION>__<KEY>__<SUBKEY>`):
 
 ```bash
 export UNIPROT_API_KEY="your_api_key_here"  # Опционально, передается в UnifiedAPIClient
@@ -272,31 +291,44 @@ export BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=180
 
 ### 3.7 Пример полного конфига
 
-Полный пример конфигурационного файла для chembl2uniprot-mapping pipeline доступен в `configs/pipelines/uniprot/chembl2uniprot.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и асинхронным маппингом через UniProt ID Mapping API.
+Полный пример конфигурационного файла для chembl2uniprot-mapping pipeline
+доступен в `configs/pipelines/uniprot/chembl2uniprot.yaml`. Конфигурация
+включает все необходимые секции для работы пайплайна с детерминизмом, валидацией
+и асинхронным маппингом через UniProt ID Mapping API.
 
-For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
+For detailed configuration structure and API, see
+[Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
 ## 4. Data Schemas
 
 ### 4.1 Обзор
 
-ChEMBL2UniProt Mapping pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
+ChEMBL2UniProt Mapping pipeline использует Pandera для строгой валидации данных
+перед записью. Схема валидации определяет структуру, типы данных, порядок
+колонок и ограничения для всех записей. Подробности о политике Pandera схем см.
+в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
 
-**Расположение схемы:** `src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py`
+**Расположение схемы:**
+`src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py`
 
-**Ссылка в конфиге:** `validation.schema_out: "bioetl.schemas.uniprot.mapping.ChEMBL2UniProtMappingOutputSchema"`
+**Ссылка в конфиге:**
+`validation.schema_out: "bioetl.schemas.uniprot.mapping.ChEMBL2UniProtMappingOutputSchema"`
 
-**Версионирование:** Схема имеет семантическую версию (`MAJOR.MINOR.PATCH`), которая фиксируется в `meta.yaml` для каждой записи пайплайна.
+**Версионирование:** Схема имеет семантическую версию (`MAJOR.MINOR.PATCH`),
+которая фиксируется в `meta.yaml` для каждой записи пайплайна.
 
 ### 4.2 Требования к схеме
 
-Схема валидации для chembl2uniprot-mapping pipeline должна соответствовать следующим требованиям:
+Схема валидации для chembl2uniprot-mapping pipeline должна соответствовать
+следующим требованиям:
 
 1. **Строгость:** `strict=True` - все колонки должны быть явно определены
-2. **Приведение типов:** `coerce=True` - автоматическое приведение типов данных
-3. **Порядок колонок:** `ordered=True` - фиксированный порядок колонок
-4. **Nullable dtypes:** Использование nullable dtypes (`pd.StringDtype()`, `pd.Int64Dtype()`, `pd.Float64Dtype()`) вместо `object`
-5. **Составной бизнес-ключ:** Валидация уникальности комбинации `(target_chembl_id, uniprot_accession)`
+1. **Приведение типов:** `coerce=True` - автоматическое приведение типов данных
+1. **Порядок колонок:** `ordered=True` - фиксированный порядок колонок
+1. **Nullable dtypes:** Использование nullable dtypes (`pd.StringDtype()`,
+   `pd.Int64Dtype()`, `pd.Float64Dtype()`) вместо `object`
+1. **Составной бизнес-ключ:** Валидация уникальности комбинации
+   `(target_chembl_id, uniprot_accession)`
 
 ### 4.3 Структура схемы
 
@@ -312,19 +344,18 @@ from typing import Optional
 # Версия схемы
 SCHEMA_VERSION = "1.0.0"
 
+
 class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
     """Pandera schema for ChEMBL to UniProt mapping output data."""
 
     # Составной бизнес-ключ (обязательные поля, NOT NULL)
     target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
-        nullable=False,
-        regex="^CHEMBL\\d+$"
+        description="ChEMBL target identifier", nullable=False, regex="^CHEMBL\\d+$"
     )
     uniprot_accession: Series[str] = pa.Field(
         description="UniProt accession identifier",
         nullable=False,
-        regex="^[A-NR-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2}$|^[OPQ][0-9][A-Z0-9]{3}[0-9]$"
+        regex="^[A-NR-Z][0-9]([A-Z][A-Z, 0-9][A-Z, 0-9][0-9]){1,2}$|^[OPQ][0-9][A-Z0-9]{3}[0-9]$",
     )
 
     # Маппинг метаданные
@@ -332,73 +363,58 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
         description="Confidence score for the mapping (0.0-1.0)",
         nullable=True,
         ge=0.0,
-        le=1.0
+        le=1.0,
     )
     mapping_status: Series[str] = pa.Field(
         description="Status of the mapping",
         nullable=False,
-        isin=["success", "partial", "failed", "ambiguous"]
+        isin=["success", "partial", "failed", "ambiguous"],
     )
     mapping_source: Series[str] = pa.Field(
         description="Source of the mapping",
         nullable=False,
-        isin=["UniProt_IDMapping", "UniProt_IDMapping_FALLBACK"]
+        isin=["UniProt_IDMapping", "UniProt_IDMapping_FALLBACK"],
     )
 
     # One-to-many detection
     is_primary_mapping: Series[pa.typing.Bool] = pa.Field(
         description="Whether this is the primary mapping (for one-to-many cases)",
-        nullable=True
+        nullable=True,
     )
     total_mappings_count: Series[Int64] = pa.Field(
-        description="Total number of mappings for this target_chembl_id",
-        nullable=True
+        description="Total number of mappings for this target_chembl_id", nullable=True
     )
 
     # Системные метаданные
-    run_id: Series[str] = pa.Field(
-        description="Pipeline run ID",
-        nullable=False
-    )
-    git_commit: Series[str] = pa.Field(
-        description="Git commit SHA",
-        nullable=False
-    )
+    run_id: Series[str] = pa.Field(description="Pipeline run ID", nullable=False)
+    git_commit: Series[str] = pa.Field(description="Git commit SHA", nullable=False)
     config_hash: Series[str] = pa.Field(
-        description="Configuration hash",
-        nullable=False
+        description="Configuration hash", nullable=False
     )
     pipeline_version: Series[str] = pa.Field(
-        description="Pipeline version",
-        nullable=False
+        description="Pipeline version", nullable=False
     )
     source_system: Series[str] = pa.Field(
         description="Source system (UniProt_IDMapping or UniProt_IDMapping_FALLBACK)",
         nullable=False,
-        isin=["UniProt_IDMapping", "UniProt_IDMapping_FALLBACK"]
+        isin=["UniProt_IDMapping", "UniProt_IDMapping_FALLBACK"],
     )
     extracted_at: Series[DateTime] = pa.Field(
-        description="Extraction timestamp (UTC)",
-        nullable=False
+        description="Extraction timestamp (UTC)", nullable=False
     )
 
     # Хеши
     hash_row: Series[str] = pa.Field(
-        description="SHA256 hash of entire row",
-        nullable=False,
-        regex="^[a-f0-9]{64}$"
+        description="SHA256 hash of entire row", nullable=False, regex="^[a-f0-9]{64}$"
     )
     hash_business_key: Series[str] = pa.Field(
         description="SHA256 hash of composite business key",
         nullable=False,
-        regex="^[a-f0-9]{64}$"
+        regex="^[a-f0-9]{64}$",
     )
 
     # Индекс
-    index: Series[Int64] = pa.Field(
-        description="Row index",
-        nullable=False
-    )
+    index: Series[Int64] = pa.Field(description="Row index", nullable=False)
 
     # Порядок колонок
     class Config:
@@ -422,7 +438,7 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
             "extracted_at",
             "hash_row",
             "hash_business_key",
-            "index"
+            "index",
         ]
 
     # Валидация уникальности составного бизнес-ключа
@@ -436,11 +452,15 @@ class ChEMBL2UniProtMappingOutputSchema(pa.DataFrameModel):
 
 Схема версионируется по семантическому версионированию (`MAJOR.MINOR.PATCH`):
 
-- **PATCH:** Обновления документации или корректировки, не влияющие на логику валидации
-- **MINOR:** Обратно совместимые расширения (добавление nullable колонок с дефолтами, ослабление ограничений)
-- **MAJOR:** Breaking changes (переименование/удаление колонок, изменение типов, изменение порядка колонок)
+- **PATCH:** Обновления документации или корректировки, не влияющие на логику
+  валидации
+- **MINOR:** Обратно совместимые расширения (добавление nullable колонок с
+  дефолтами, ослабление ограничений)
+- **MAJOR:** Breaking changes (переименование/удаление колонок, изменение типов,
+  изменение порядка колонок)
 
-**Инвариант:** Версия схемы фиксируется в `meta.yaml` для каждой записи пайплайна:
+**Инвариант:** Версия схемы фиксируется в `meta.yaml` для каждой записи
+пайплайна:
 
 ```yaml
 schema_version: "1.0.0"
@@ -451,25 +471,30 @@ schema_version: "1.0.0"
 Валидация выполняется в стадии `validate` пайплайна (`PipelineBase.validate()`):
 
 1. **Загрузка схемы:** Динамическая загрузка схемы из `validation.schema_out`
-2. **Lazy validation:** Выполнение `schema.validate(df, lazy=True)` для сбора всех ошибок
-3. **Проверка порядка колонок:** Применение `ensure_column_order()` для соответствия `column_order`
-4. **Запись версии:** Фиксация `schema_version` в `meta.yaml`
+1. **Lazy validation:** Выполнение `schema.validate(df, lazy=True)` для сбора
+   всех ошибок
+1. **Проверка порядка колонок:** Применение `ensure_column_order()` для
+   соответствия `column_order`
+1. **Запись версии:** Фиксация `schema_version` в `meta.yaml`
 
 **Режимы валидации:**
 
-- **Fail-closed (по умолчанию):** Пайплайн завершается при первой ошибке валидации
-- **Fail-open (опционально):** Ошибки логируются как предупреждения, `schema_valid: false` в `meta.yaml`
+- **Fail-closed (по умолчанию):** Пайплайн завершается при первой ошибке
+  валидации
+- **Fail-open (опционально):** Ошибки логируются как предупреждения,
+  `schema_valid: false` в `meta.yaml`
 
 ### 4.6 Golden-тесты
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/chembl2uniprot-mapping/`
-2. **Триггеры регенерации:**
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в
+   `tests/bioetl/golden/chembl2uniprot-mapping/`
+1. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
    - Обновление правил сортировки или хеширования
-3. **Процесс:**
+1. **Процесс:**
    - Запуск пайплайна с `--golden` для получения свежих артефактов
    - Выполнение тестов схемы
    - Проверка хешей и порядка колонок
@@ -488,7 +513,8 @@ Golden-артефакты обеспечивают регрессионное п
 
 **Обязательные поля:**
 
-- `target_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор target в формате `CHEMBL\d+`
+- `target_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор target в
+  формате `CHEMBL\d+`
 
 **Опциональные поля:**
 
@@ -499,11 +525,10 @@ Golden-артефакты обеспечивают регрессионное п
 ```python
 # src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_input_schema.py
 
+
 class ChEMBL2UniProtMappingInputSchema(pa.DataFrameModel):
     target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
-        nullable=False,
-        regex="^CHEMBL\\d+$"
+        description="ChEMBL target identifier", nullable=False, regex="^CHEMBL\\d+$"
     )
 
     class Config:
@@ -524,36 +549,47 @@ CHEMBL232
 
 **Структура выходного CSV/Parquet:**
 
-Выходной файл содержит все поля из `ChEMBL2UniProtMappingOutputSchema` в фиксированном порядке колонок, определенном в схеме.
+Выходной файл содержит все поля из `ChEMBL2UniProtMappingOutputSchema` в
+фиксированном порядке колонок, определенном в схеме.
 
 **Обязательные артефакты:**
 
-- `chembl2uniprot_mapping_{date_tag}.csv` или `chembl2uniprot_mapping_{date_tag}.parquet` — основной датасет с маппингами
-- `chembl2uniprot_mapping_{date_tag}_quality_report.csv` — QC метрики и отчет о качестве данных
+- `chembl2uniprot_mapping_{date_tag}.csv` или
+  `chembl2uniprot_mapping_{date_tag}.parquet` — основной датасет с маппингами
+- `chembl2uniprot_mapping_{date_tag}_quality_report.csv` — QC метрики и отчет о
+  качестве данных
 
 **Опциональные артефакты (extended режим):**
 
 - `chembl2uniprot_mapping_{date_tag}_meta.yaml` — метаданные запуска пайплайна
-- `chembl2uniprot_mapping_{date_tag}_run_manifest.json` — манифест запуска (опционально)
+- `chembl2uniprot_mapping_{date_tag}_run_manifest.json` — манифест запуска
+  (опционально)
 
 **Формат имен файлов:**
 
 - Дата-тег: `YYYYMMDD` (например, `20250115`)
-- Формат: определяется параметром `materialization.default_format` (по умолчанию `parquet`)
-- Пример: `chembl2uniprot_mapping_20250115.parquet`, `chembl2uniprot_mapping_20250115_quality_report.csv`
+- Формат: определяется параметром `materialization.default_format` (по умолчанию
+  `parquet`)
+- Пример: `chembl2uniprot_mapping_20250115.parquet`,
+  `chembl2uniprot_mapping_20250115_quality_report.csv`
 
 **Структура выходных данных:**
 
 Выходной файл содержит следующие группы полей:
 
 1. **Составной бизнес-ключ:** `target_chembl_id`, `uniprot_accession`
-2. **Маппинг метаданные:** `confidence_score`, `mapping_status`, `mapping_source`
-3. **One-to-many detection:** `is_primary_mapping`, `total_mappings_count`
-4. **Системные метаданные:** `run_id`, `git_commit`, `config_hash`, `pipeline_version`, `source_system`, `extracted_at`
-5. **Хеши:** `hash_row`, `hash_business_key`
-6. **Индекс:** `index`
+1. **Маппинг метаданные:** `confidence_score`, `mapping_status`,
+   `mapping_source`
+1. **One-to-many detection:** `is_primary_mapping`, `total_mappings_count`
+1. **Системные метаданные:** `run_id`, `git_commit`, `config_hash`,
+   `pipeline_version`, `source_system`, `extracted_at`
+1. **Хеши:** `hash_row`, `hash_business_key`
+1. **Индекс:** `index`
 
-**Важно:** Один `target_chembl_id` может маппиться на несколько `uniprot_accession` (изоформы). Каждая комбинация `(target_chembl_id, uniprot_accession)` является отдельной записью в выходном файле.
+**Важно:** Один `target_chembl_id` может маппиться на несколько
+`uniprot_accession` (изоформы). Каждая комбинация
+`(target_chembl_id, uniprot_accession)` является отдельной записью в выходном
+файле.
 
 **Пример структуры выходного файла:**
 
@@ -566,15 +602,17 @@ CHEMBL231,P67891,0.88,success,UniProt_IDMapping,false,2,...,a1b2c3d4e5f6g7h8,abc
 
 ## 6. Component Architecture
 
-The `chembl2uniprot-mapping` pipeline follows the standard source architecture, utilizing a stack of specialized components for its operation. Pipeline focuses on asynchronous mapping through UniProt ID Mapping API.
+The `chembl2uniprot-mapping` pipeline follows the standard source architecture,
+utilizing a stack of specialized components for its operation. Pipeline focuses
+on asynchronous mapping through UniProt ID Mapping API.
 
-| Component | Implementation |
-|---|---|
-| **Client** | `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP client for UniProt ID Mapping API |
-| **Parser** | `src/bioetl/integrations/uniprot/parser/idmapping_parser.py` — parsing helpers for ID mapping results |
+| Component      | Implementation                                                                                                          |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| **Client**     | `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP client for UniProt ID Mapping API           |
+| **Parser**     | `src/bioetl/integrations/uniprot/parser/idmapping_parser.py` — parsing helpers for ID mapping results                   |
 | **Normalizer** | `src/bioetl/integrations/uniprot/normalizer/idmapping_normalizer.py` — dataframe normalisation and one-to-many handling |
-| **JobManager** | `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление асинхронными job (create, poll, stream) |
-| **Schema** | `src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py` — Pandera schema для валидации |
+| **JobManager** | `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление асинхронными job (create, poll, stream)     |
+| **Schema**     | `src/bioetl/schemas/uniprot/mapping/chembl2uniprot_mapping_output_schema.py` — Pandera schema для валидации             |
 
 **Public API:**
 
@@ -584,36 +622,52 @@ The `chembl2uniprot-mapping` pipeline follows the standard source architecture, 
 
 **Module layout:**
 
-- `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP client для ID Mapping API
-- `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление async job (create, poll, stream)
-- `src/bioetl/pipelines/uniprot/chembl2uniprot.py` — standalone CLI pipeline wrapper
+- `src/bioetl/integrations/uniprot/client/uniprot_idmapping_client.py` — HTTP
+  client для ID Mapping API
+- `src/bioetl/integrations/uniprot/job/idmapping_job_manager.py` — управление
+  async job (create, poll, stream)
+- `src/bioetl/pipelines/uniprot/chembl2uniprot.py` — standalone CLI pipeline
+  wrapper
 
 **Tests:**
 
-- `tests/bioetl/integration/uniprot/test_idmapping_client.py` — HTTP client adapters для ID Mapping API
-- `tests/bioetl/integration/uniprot/test_idmapping_job_manager.py` — job management tests
-- `tests/bioetl/integration/uniprot/test_idmapping_parser.py` — parsing helpers tests
-- `tests/bioetl/integration/uniprot/test_idmapping_normalizer.py` — normalization tests
-- `tests/bioetl/integration/uniprot/test_chembl2uniprot_pipeline_e2e.py` — pipeline orchestration happy path
+- `tests/bioetl/integration/uniprot/test_idmapping_client.py` — HTTP client
+  adapters для ID Mapping API
+- `tests/bioetl/integration/uniprot/test_idmapping_job_manager.py` — job
+  management tests
+- `tests/bioetl/integration/uniprot/test_idmapping_parser.py` — parsing helpers
+  tests
+- `tests/bioetl/integration/uniprot/test_idmapping_normalizer.py` —
+  normalization tests
+- `tests/bioetl/integration/uniprot/test_chembl2uniprot_pipeline_e2e.py` —
+  pipeline orchestration happy path
 
 ## 7. Key Identifiers
 
-- **Business Key**: Составной ключ `(target_chembl_id, uniprot_accession)` — уникальная комбинация ChEMBL ID и UniProt accession
-- **Sort Key**: `["target_chembl_id", "uniprot_accession"]` — используется для детерминированной сортировки перед записью
+- **Business Key**: Составной ключ `(target_chembl_id, uniprot_accession)` —
+  уникальная комбинация ChEMBL ID и UniProt accession
+- **Sort Key**: `["target_chembl_id", "uniprot_accession"]` — используется для
+  детерминированной сортировки перед записью
 
 ## 8. Детерминизм
 
 **Sort keys:** `["target_chembl_id", "uniprot_accession"]`
 
-ChEMBL2UniProt Mapping pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование:
+ChEMBL2UniProt Mapping pipeline обеспечивает детерминированный вывод через
+стабильную сортировку и хеширование:
 
-- **Sort keys:** Строки сортируются сначала по `target_chembl_id`, затем по `uniprot_accession` перед записью
-- **Hash policy:** Используется SHA256 для генерации `hash_row` и `hash_business_key`
+- **Sort keys:** Строки сортируются сначала по `target_chembl_id`, затем по
+  `uniprot_accession` перед записью
+- **Hash policy:** Используется SHA256 для генерации `hash_row` и
+  `hash_business_key`
   - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`)
-  - `hash_business_key`: хеш составного бизнес-ключа `(target_chembl_id, uniprot_accession)`
-- **Canonicalization:** Все значения нормализуются перед хешированием (trim whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
+  - `hash_business_key`: хеш составного бизнес-ключа
+    `(target_chembl_id, uniprot_accession)`
+- **Canonicalization:** Все значения нормализуются перед хешированием (trim
+  whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
 - **Column order:** Фиксированный порядок колонок из Pandera схемы
-- **Meta.yaml:** Содержит `pipeline_version`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
+- **Meta.yaml:** Содержит `pipeline_version`, `row_count`, checksums,
+  `hash_algo`, `hash_policy_version`
 
 **Guarantees:**
 
@@ -621,25 +675,27 @@ ChEMBL2UniProt Mapping pipeline обеспечивает детерминиро�
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
+For detailed policy, see
+[Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 
 **Ключевые метрики успеха:**
 
-| Метрика | Target | Критичность |
-|---------|--------|-------------|
-| **Mapping coverage** | 100% идентификаторов | HIGH |
-| **Mapping success rate** | ≥90% успешных маппингов | HIGH |
-| **One-to-many detection** | 100% обнаружение множественных маппингов | MEDIUM |
-| **Duplicate detection** | 0% дубликатов составного ключа | CRITICAL |
-| **Pipeline failure rate** | 0% (graceful degradation) | CRITICAL |
-| **Детерминизм** | Бит-в-бит воспроизводимость | CRITICAL |
+| Метрика                   | Target                                   | Критичность |
+| ------------------------- | ---------------------------------------- | ----------- |
+| **Mapping coverage**      | 100% идентификаторов                     | HIGH        |
+| **Mapping success rate**  | ≥90% успешных маппингов                  | HIGH        |
+| **One-to-many detection** | 100% обнаружение множественных маппингов | MEDIUM      |
+| **Duplicate detection**   | 0% дубликатов составного ключа           | CRITICAL    |
+| **Pipeline failure rate** | 0% (graceful degradation)                | CRITICAL    |
+| **Детерминизм**           | Бит-в-бит воспроизводимость              | CRITICAL    |
 
 **QC метрики:**
 
 - Покрытие маппинга: процент успешно обработанных target_chembl_id
-- Успешность маппинга: процент target_chembl_id с успешным маппингом (status="success")
+- Успешность маппинга: процент target_chembl_id с успешным маппингом
+  (status="success")
 - One-to-many ratio: процент target_chembl_id с множественными маппингами
 - Обнаружение дубликатов: проверка отсутствия дубликатов составного ключа
 - Валидность данных: соответствие схеме Pandera
@@ -648,27 +704,33 @@ For detailed policy, see [Determinism Policy](../determinism/00-determinism-poli
 
 - Mapping coverage должен быть 100% (критично)
 - Mapping success rate ≥90% (высокий приоритет)
-- One-to-many detection: все множественные маппинги должны быть обнаружены (средний приоритет)
+- One-to-many detection: все множественные маппинги должны быть обнаружены
+  (средний приоритет)
 - Duplicate detection: 0% дубликатов составного ключа (критично)
 
 **QC отчеты:**
 
-- Генерируется `chembl2uniprot_mapping_quality_report.csv` с метриками покрытия и валидности
-- При использовании `--extended` режима дополнительно создается подробный отчет с:
+- Генерируется `chembl2uniprot_mapping_quality_report.csv` с метриками покрытия
+  и валидности
+- При использовании `--extended` режима дополнительно создается подробный отчет
+  с:
   - Распределением one-to-many маппингов
   - Распределением confidence scores
   - Статистикой по mapping_status
 
-For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
+For detailed QC metrics and policies, see
+[QC Overview](../qc/00-qc-overview.md).
 
 ## 10. Логирование и трассировка
 
-ChEMBL2UniProt Mapping pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
+ChEMBL2UniProt Mapping pipeline использует `UnifiedLogger` для
+структурированного логирования всех операций с обязательными полями контекста.
 
 **Обязательные поля в логах:**
 
 - `run_id`: Уникальный идентификатор запуска пайплайна
-- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`,
+  `write`)
 - `pipeline`: Имя пайплайна (`chembl2uniprot-mapping`)
 - `duration`: Время выполнения стадии в секундах
 - `row_count`: Количество обработанных строк
@@ -684,7 +746,8 @@ ChEMBL2UniProt Mapping pipeline использует `UnifiedLogger` для ст
 - `extract_started`: Начало стадии извлечения
 - `extract_completed`: Завершение стадии извлечения с метриками
 - `transform_started`: Начало стадии трансформации
-- `transform_completed`: Завершение стадии трансформации (с обработкой one-to-many)
+- `transform_completed`: Завершение стадии трансформации (с обработкой
+  one-to-many)
 - `validate_started`: Начало валидации
 - `validate_completed`: Завершение валидации
 - `write_started`: Начало записи результатов
@@ -757,22 +820,27 @@ ChEMBL2UniProt Mapping pipeline использует `UnifiedLogger` для ст
 
 **Трассировка:**
 
-- Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
+- Все операции связаны через `run_id` для отслеживания полного жизненного цикла
+  пайплайна
 - Каждая стадия логирует начало и завершение с метриками производительности
-- Асинхронные операции (job creation, polling) логируются с `job_id` для трассировки
+- Асинхронные операции (job creation, polling) логируются с `job_id` для
+  трассировки
 - Ошибки логируются с полным контекстом и stack trace
 
-For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).
+For detailed logging configuration and API, see
+[Logging Overview](../logging/00-overview.md).
 
 ## 11. Асинхронный процесс маппинга
 
 ### 11.1 Обзор
 
-UniProt ID Mapping API использует асинхронный процесс для обработки больших объемов идентификаторов:
+UniProt ID Mapping API использует асинхронный процесс для обработки больших
+объемов идентификаторов:
 
 1. **Создание job:** Отправка списка идентификаторов через `/idmapping/run`
-2. **Polling статуса:** Опрос статуса job через `/idmapping/status` с `job_id`
-3. **Streaming результатов:** Загрузка результатов через `/idmapping/stream` после завершения job
+1. **Polling статуса:** Опрос статуса job через `/idmapping/status` с `job_id`
+1. **Streaming результатов:** Загрузка результатов через `/idmapping/stream`
+   после завершения job
 
 ### 11.2 Создание ID Mapping Job
 
@@ -816,11 +884,15 @@ UniProt ID Mapping API использует асинхронный процес�
 
 **Обработка:**
 
-- Polling выполняется с интервалом `sources.uniprot_idmapping.polling.interval_sec` (по умолчанию 5 секунд)
-- Максимальное количество попыток: `sources.uniprot_idmapping.polling.max_polling_attempts` (по умолчанию 60)
-- Таймаут: `sources.uniprot_idmapping.polling.timeout_sec` (по умолчанию 300 секунд)
+- Polling выполняется с интервалом
+  `sources.uniprot_idmapping.polling.interval_sec` (по умолчанию 5 секунд)
+- Максимальное количество попыток:
+  `sources.uniprot_idmapping.polling.max_polling_attempts` (по умолчанию 60)
+- Таймаут: `sources.uniprot_idmapping.polling.timeout_sec` (по умолчанию 300
+  секунд)
 - Логируется событие `idmapping_job_polling` при каждой попытке опроса
-- При `status="FINISHED"` логируется событие `idmapping_job_completed` и переход к streaming
+- При `status="FINISHED"` логируется событие `idmapping_job_completed` и переход
+  к streaming
 
 ### 11.4 Streaming результатов
 
@@ -831,7 +903,8 @@ UniProt ID Mapping API использует асинхронный процес�
 - Результаты загружаются потоковым способом для больших объемов
 - Формат: JSON (конфигурируемо)
 - Логируется событие `idmapping_streaming_started` в начале загрузки
-- Логируется событие `idmapping_streaming_completed` после завершения загрузки с `row_count`
+- Логируется событие `idmapping_streaming_completed` после завершения загрузки с
+  `row_count`
 
 **Формат результата:**
 
@@ -857,14 +930,17 @@ UniProt ID Mapping API использует асинхронный процес�
 
 ### 11.5 Обработка One-to-Many маппингов
 
-**Важно:** Один ChEMBL ID может маппиться на несколько UniProt accession (изоформы).
+**Важно:** Один ChEMBL ID может маппиться на несколько UniProt accession
+(изоформы).
 
 **Обработка:**
 
 1. **Обнаружение:** Группировка результатов по `from` (target_chembl_id)
-2. **Подсчет:** Подсчет количества маппингов для каждого `target_chembl_id`
-3. **Маркировка:** Установка `is_primary_mapping=true` для первого маппинга (или на основе confidence_score)
-4. **Запись:** Все маппинги записываются как отдельные строки с одинаковым `target_chembl_id`
+1. **Подсчет:** Подсчет количества маппингов для каждого `target_chembl_id`
+1. **Маркировка:** Установка `is_primary_mapping=true` для первого маппинга (или
+   на основе confidence_score)
+1. **Запись:** Все маппинги записываются как отдельные строки с одинаковым
+   `target_chembl_id`
 
 **Пример:**
 
@@ -879,7 +955,9 @@ def process_one_to_many(mapping_results: list[dict]) -> pd.DataFrame:
     df["total_mappings_count"] = df["target_chembl_id"].map(mapping_counts)
 
     # Сортировка по confidence_score (если доступен) для определения primary
-    df = df.sort_values(["target_chembl_id", "confidence_score"], ascending=[True, False])
+    df = df.sort_values(
+        ["target_chembl_id", "confidence_score"], ascending=[True, False]
+    )
     df["is_primary_mapping"] = ~df.duplicated(subset=["target_chembl_id"], keep="first")
 
     return df
@@ -905,7 +983,7 @@ def create_fallback_record(target_chembl_id: str, error: Exception = None) -> di
         "mapping_status": "failed",
         "mapping_source": "UniProt_IDMapping_FALLBACK",
         "source_system": "UniProt_IDMapping_FALLBACK",
-        "error_code": error.code if hasattr(error, 'code') else None,
+        "error_code": error.code if hasattr(error, "code") else None,
         "error_message": str(error) if error else "Fallback: ID Mapping unavailable",
         # ... остальные поля с NULL/default значениями
     }

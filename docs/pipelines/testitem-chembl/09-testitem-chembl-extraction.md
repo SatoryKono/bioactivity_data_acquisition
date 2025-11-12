@@ -1,12 +1,18 @@
 # ChEMBL TestItem Extraction Pipeline
 
-This document specifies the `testitem` pipeline, which extracts molecule data from the ChEMBL API. The pipeline flattens nested JSON structures from ChEMBL responses to create comprehensive, flat records for each molecule.
+This document specifies the `testitem` pipeline, which extracts molecule data
+from the ChEMBL API. The pipeline flattens nested JSON structures from ChEMBL
+responses to create comprehensive, flat records for each molecule.
 
-> **Note**: PubChem enrichment is described in a separate document: [PubChem TestItem Pipeline](../testitem-pubchem/09-testitem-pubchem-extraction.md).
+> **Note**: PubChem enrichment is described in a separate document:
+> [PubChem TestItem Pipeline](../testitem-pubchem/09-testitem-pubchem-extraction.md).
 
 ## 1. Overview
 
-The `testitem` pipeline is responsible for fetching detailed information about chemical compounds (molecules) from the ChEMBL database. It flattens nested structures from the ChEMBL API response to create a comprehensive, flat record for each molecule.
+The `testitem` pipeline is responsible for fetching detailed information about
+chemical compounds (molecules) from the ChEMBL database. It flattens nested
+structures from the ChEMBL API response to create a comprehensive, flat record
+for each molecule.
 
 - **Primary Source**: ChEMBL API `/molecule.json` endpoint
 - **Implementation**: `src/bioetl/pipelines/chembl_testitem.py`
@@ -19,38 +25,41 @@ The pipeline is executed via the `testitem` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.app testitem_chembl [OPTIONS]
+python -m bioetl.cli.cli_app testitem_chembl [OPTIONS]
 ```
 
 **Required options:**
 
-- `--config PATH`: Path to the pipeline configuration YAML (e.g., `configs/pipelines/chembl/chembl_testitem.yaml`)
+- `--config PATH`: Path to the pipeline configuration YAML (e.g.,
+  `configs/pipelines/chembl/chembl_testitem.yaml`)
 - `--output-dir PATH`: Directory where run artifacts are materialized
 
 **Optional options:**
 
-- `--dry-run`: Load, merge, and validate configuration without executing the pipeline
+- `--dry-run`: Load, merge, and validate configuration without executing the
+  pipeline
 - `--limit N`: Process at most `N` rows (useful for smoke runs)
 - `--sample N`: Randomly sample `N` rows
-- `--set KEY=VALUE`: Override individual configuration keys at runtime (repeatable)
+- `--set KEY=VALUE`: Override individual configuration keys at runtime
+  (repeatable)
 - `--verbose`: Emit verbose (development) logging
 
 **Examples:**
 
 ```bash
 # Basic run with canonical config
-python -m bioetl.cli.app testitem_chembl \
+python -m bioetl.cli.cli_app testitem_chembl \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem
 
 # Dry run to validate configuration
-python -m bioetl.cli.app testitem_chembl \
+python -m bioetl.cli.cli_app testitem_chembl \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem \
   --dry-run
 
 # Override batch size for smoke test
-python -m bioetl.cli.app testitem_chembl \
+python -m bioetl.cli.cli_app testitem_chembl \
   --config configs/pipelines/chembl/chembl_testitem.yaml \
   --output-dir data/output/chembl_testitem \
   --set sources.chembl.batch_size=10 \
@@ -59,23 +68,25 @@ python -m bioetl.cli.app testitem_chembl \
 
 **Configuration loading precedence:**
 
-1. Base profiles (`configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`)
-2. Pipeline YAML (`--config`)
-3. CLI overrides (`--set`)
-4. Environment variables
+1. Base profiles (`configs/defaults/base.yaml`,
+   `configs/defaults/determinism.yaml`)
+1. Pipeline YAML (`--config`)
+1. CLI overrides (`--set`)
+1. Environment variables
 
-For more details, see [CLI Overview](../cli/00-cli-overview.md) and [CLI Commands](../cli/01-cli-commands.md).
+For more details, see [CLI Overview](../cli/00-cli-overview.md) and
+[CLI Commands](../cli/01-cli-commands.md).
 
 ## 3. Архитектура
 
 Pipeline использует компонентную архитектуру с разделением ответственности:
 
-| Component | Implementation | Назначение |
-|---|---|---|
+| Component    | Implementation                                              | Назначение                                         |
+| ------------ | ----------------------------------------------------------- | -------------------------------------------------- |
 | **Pipeline** | `src/bioetl/pipelines/chembl_testitem.py::TestItemPipeline` | Основной класс пайплайна, наследует `PipelineBase` |
-| **Client** | `src/bioetl/sources/chembl/testitem/client/` | Батчевое извлечение данных из ChEMBL API |
-| **Parser** | `src/bioetl/sources/chembl/testitem/parser/` | Разбор и flattening вложенных JSON структур |
-| **Schema** | `src/bioetl/schemas/chembl_testitem.py::TestItemSchema` | Pandera схема для валидации данных |
+| **Client**   | `src/bioetl/sources/chembl/testitem/client/`                | Батчевое извлечение данных из ChEMBL API           |
+| **Parser**   | `src/bioetl/sources/chembl/testitem/parser/`                | Разбор и flattening вложенных JSON структур        |
+| **Schema**   | `src/bioetl/schemas/chembl_testitem.py::TestItemSchema`     | Pandera схема для валидации данных                 |
 
 ### 3.1. Pipeline Flow
 
@@ -107,22 +118,28 @@ TestItemPipeline
 
 **Базовый стандарт:** см. `docs/configs/00-typed-configs-and-profiles.md`.
 
-**Профильный файл:** `configs/pipelines/chembl/chembl_testitem.yaml`, который объявляет `extends: "../base.yaml"` и проходит валидацию `PipelineConfig`.
+**Профильный файл:** `configs/pipelines/chembl/chembl_testitem.yaml`, который
+объявляет `extends: "../base.yaml"` и проходит валидацию `PipelineConfig`.
 
 **Критические переопределения:**
 
-| Путь | Значение по умолчанию | Ограничение | Комментарий |
-|------|-----------------------|-------------|-------------|
-| `sources.chembl.batch_size` | 25 | `≤ 25` (жёсткое требование ChEMBL URL) | Проверяется на этапе валидации конфигурации. |
-| `sources.chembl.max_url_length` | 2000 | `≤ 2000` | Используется для предиктивного троттлинга запросов. |
-| `cache.namespace` | `"chembl"` | Не пусто | Обеспечивает release-scoped invalidation. |
-| `determinism.sort.by` | `['molecule_chembl_id']` | Первый ключ — `molecule_chembl_id` | Сортировка применяется перед записью; итоговый CSV следует `TestItemSchema.Config.column_order`. |
-| `determinism.column_order` | `TestItemSchema._column_order` (~150 колонок) | Полный список обязателен | Нарушение приводит к падению `PipelineConfig`. |
-| `qc.thresholds.testitem.duplicate_ratio` | 0.0 | `≥ 0` | Критично: дубликаты недопустимы. |
-| `qc.thresholds.testitem.fallback_ratio` | 0.2 | `≥ 0` | Процент fallback записей при ошибках API. |
-| `qc.thresholds.testitem.parent_missing_ratio` | 0.0 | `≥ 0` | Referential integrity для `parent_chembl_id`. |
+| Путь                                          | Значение по умолчанию                         | Ограничение                            | Комментарий                                                                                      |
+| --------------------------------------------- | --------------------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `sources.chembl.batch_size`                   | 25                                            | `≤ 25` (жёсткое требование ChEMBL URL) | Проверяется на этапе валидации конфигурации.                                                     |
+| `sources.chembl.max_url_length`               | 2000                                          | `≤ 2000`                               | Используется для предиктивного троттлинга запросов.                                              |
+| `cache.namespace`                             | `"chembl"`                                    | Не пусто                               | Обеспечивает release-scoped invalidation.                                                        |
+| `determinism.sort.by`                         | `['molecule_chembl_id']`                      | Первый ключ — `molecule_chembl_id`     | Сортировка применяется перед записью; итоговый CSV следует `TestItemSchema.Config.column_order`. |
+| `determinism.column_order`                    | `TestItemSchema._column_order` (~150 колонок) | Полный список обязателен               | Нарушение приводит к падению `PipelineConfig`.                                                   |
+| `qc.thresholds.testitem.duplicate_ratio`      | 0.0                                           | `≥ 0`                                  | Критично: дубликаты недопустимы.                                                                 |
+| `qc.thresholds.testitem.fallback_ratio`       | 0.2                                           | `≥ 0`                                  | Процент fallback записей при ошибках API.                                                        |
+| `qc.thresholds.testitem.parent_missing_ratio` | 0.0                                           | `≥ 0`                                  | Referential integrity для `parent_chembl_id`.                                                    |
 
-Секреты (API ключи) прокидываются через переменные окружения `BIOETL_SOURCES__CHEMBL__API_KEY` и `BIOETL_HTTP__GLOBAL__HEADERS__AUTHORIZATION`. Для быстрой настройки допускается использование CLI-переопределений, например `--set sources.chembl.batch_size=20`, однако изменения должны сопровождаться обоснованием в run metadata.
+Секреты (API ключи) прокидываются через переменные окружения
+`BIOETL_SOURCES__CHEMBL__API_KEY` и
+`BIOETL_HTTP__GLOBAL__HEADERS__AUTHORIZATION`. Для быстрой настройки допускается
+использование CLI-переопределений, например
+`--set sources.chembl.batch_size=20`, однако изменения должны сопровождаться
+обоснованием в run metadata.
 
 **Пример конфигурации:**
 
@@ -173,21 +190,23 @@ qc:
 
 **Обязательные поля:**
 
-- `molecule_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор молекулы в формате `CHEMBL\d+`
+- `molecule_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор молекулы в
+  формате `CHEMBL\d+`
 
 **Опциональные поля:**
 
-- Любые дополнительные колонки из схемы `TestItemSchema` (будут использованы при merge с данными из API)
+- Любые дополнительные колонки из схемы `TestItemSchema` (будут использованы при
+  merge с данными из API)
 
 **Схема валидации:**
 
 ```python
 # src/bioetl/schemas/input_schemas.py
 
+
 class TestItemInputSchema(pa.DataFrameModel):
     molecule_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL molecule identifier",
-        regex=r'^CHEMBL\d+$'
+        description="ChEMBL molecule identifier", regex=r"^CHEMBL\d+$"
     )
 
     class Config:
@@ -197,7 +216,8 @@ class TestItemInputSchema(pa.DataFrameModel):
 
 ### 5.2 Процесс чтения
 
-Pipeline использует метод `read_input_table()` из `PipelineBase` для чтения входных данных:
+Pipeline использует метод `read_input_table()` из `PipelineBase` для чтения
+входных данных:
 
 - Автоматическое разрешение пути через `config.paths.input_root`
 - Поддержка `--limit` и `--sample` для ограничения размера выборки
@@ -228,20 +248,24 @@ chembl_base_url: str  # URL для воспроизводимости
 **КРИТИЧЕСКИ ВАЖНО:**
 
 1. Снимок `/status` выполняется **один раз** в начале run
-2. `chembl_release` записывается в `run_config.yaml` в output_dir
-3. Все последующие запросы **БЛОКИРУЮТСЯ** при смене release
-4. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release: `molecule:{release}:{molecule_chembl_id}`
+1. `chembl_release` записывается в `run_config.yaml` в output_dir
+1. Все последующие запросы **БЛОКИРУЮТСЯ** при смене release
+1. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release:
+   `molecule:{release}:{molecule_chembl_id}`
 
 ### 6.2 Режимы извлечения
 
 Pipeline поддерживает два режима извлечения:
 
-1. **Full pagination** (по умолчанию): извлечение всех записей через `extract_all()`
-2. **Batch extraction** (опционально): извлечение по списку ID через `extract_by_ids()` при наличии `--input-file`
+1. **Full pagination** (по умолчанию): извлечение всех записей через
+   `extract_all()`
+1. **Batch extraction** (опционально): извлечение по списку ID через
+   `extract_by_ids()` при наличии `--input-file`
 
 Режим определяется автоматически в методе `extract()`:
 
-- Если указан `--input-file` с колонкой `molecule_chembl_id`, вызывается `extract_by_ids()`
+- Если указан `--input-file` с колонкой `molecule_chembl_id`, вызывается
+  `extract_by_ids()`
 - Если `--input-file` не указан, вызывается `extract_all()`
 
 ### 6.3 Полное извлечение (Full Pagination)
@@ -250,7 +274,8 @@ Pipeline поддерживает два режима извлечения:
 
 **Эндпоинт ChEMBL:** `/molecule.json` (пагинация без фильтров)
 
-**Описание:** Итерируется по всем доступным молекулам через пагинацию ChEMBL API с использованием `page_meta.next` для навигации.
+**Описание:** Итерируется по всем доступным молекулам через пагинацию ChEMBL API
+с использованием `page_meta.next` для навигации.
 
 ### 6.4 Батчевое извлечение из ChEMBL API
 
@@ -310,23 +335,38 @@ def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
 
 ### 6.3 Field Extraction and Flattening
 
-Pipeline извлекает более 100 полей и разворачивает несколько вложенных JSON структур из ответа ChEMBL:
+Pipeline извлекает более 100 полей и разворачивает несколько вложенных JSON
+структур из ответа ChEMBL:
 
 **Группы полей:**
 
-1. **ChEMBL core fields** (59 полей): `molregno`, `pref_name`, `parent_chembl_id`, `therapeutic_flag`, `molecule_type`, `max_phase`, `first_approval`, и др.
-2. **ChEMBL property fields** (24 поля): `mw_freebase`, `alogp`, `hba`, `hbd`, `psa`, `rtb`, `ro3_pass`, `num_ro5_violations`, `acd_logp`, `acd_logd`, `full_mwt`, `aromatic_rings`, `heavy_atoms`, `qed_weighted`, и др.
-3. **ChEMBL structure fields** (3 поля): `standardized_smiles`, `standard_inchi`, `standard_inchi_key`
-4. **ChEMBL JSON fields** (11 полей): `molecule_hierarchy`, `molecule_properties`, `molecule_structures`, `molecule_synonyms`, `atc_classifications`, `cross_references`, `biotherapeutic`, `chemical_probe`, `orphan`, `veterinary`, `helm_notation`
-5. **ChEMBL text fields** (1 поле): `all_names` (агрегированные синонимы)
+1. **ChEMBL core fields** (59 полей): `molregno`, `pref_name`,
+   `parent_chembl_id`, `therapeutic_flag`, `molecule_type`, `max_phase`,
+   `first_approval`, и др.
+1. **ChEMBL property fields** (24 поля): `mw_freebase`, `alogp`, `hba`, `hbd`,
+   `psa`, `rtb`, `ro3_pass`, `num_ro5_violations`, `acd_logp`, `acd_logd`,
+   `full_mwt`, `aromatic_rings`, `heavy_atoms`, `qed_weighted`, и др.
+1. **ChEMBL structure fields** (3 поля): `standardized_smiles`,
+   `standard_inchi`, `standard_inchi_key`
+1. **ChEMBL JSON fields** (11 полей): `molecule_hierarchy`,
+   `molecule_properties`, `molecule_structures`, `molecule_synonyms`,
+   `atc_classifications`, `cross_references`, `biotherapeutic`,
+   `chemical_probe`, `orphan`, `veterinary`, `helm_notation`
+1. **ChEMBL text fields** (1 поле): `all_names` (агрегированные синонимы)
 
 **Flattening правил:**
 
-- **`molecule_hierarchy`**: Разворачивается в `parent_chembl_id` и `parent_molregno`, исходный JSON сохраняется в `molecule_hierarchy`
-- **`molecule_properties`**: Разворачивается в ~24 отдельных физико-химических свойства, исходный JSON сохраняется в `molecule_properties`
-- **`molecule_structures`**: Разворачивается в `standardized_smiles`, `standard_inchi`, `standard_inchi_key`, исходный JSON сохраняется в `molecule_structures`
-- **`molecule_synonyms`**: Агрегируется в `all_names` (для поиска), исходный JSON сохраняется в `molecule_synonyms`
-- **Другие вложенные объекты**: `atc_classifications`, `cross_references`, `biotherapeutic`, и др. сохраняются как канонические JSON строки
+- **`molecule_hierarchy`**: Разворачивается в `parent_chembl_id` и
+  `parent_molregno`, исходный JSON сохраняется в `molecule_hierarchy`
+- **`molecule_properties`**: Разворачивается в ~24 отдельных физико-химических
+  свойства, исходный JSON сохраняется в `molecule_properties`
+- **`molecule_structures`**: Разворачивается в `standardized_smiles`,
+  `standard_inchi`, `standard_inchi_key`, исходный JSON сохраняется в
+  `molecule_structures`
+- **`molecule_synonyms`**: Агрегируется в `all_names` (для поиска), исходный
+  JSON сохраняется в `molecule_synonyms`
+- **Другие вложенные объекты**: `atc_classifications`, `cross_references`,
+  `biotherapeutic`, и др. сохраняются как канонические JSON строки
 
 ## 7. Схемы данных
 
@@ -336,59 +376,81 @@ Pipeline извлекает более 100 полей и разворачива�
 
 **Класс:** `TestItemSchema` (наследует `FallbackMetadataMixin`, `BaseSchema`)
 
-**Версия схемы:** Регистрируется в `schema_registry` как `"testitem"` версия `"1.0.0"`
+**Версия схемы:** Регистрируется в `schema_registry` как `"testitem"` версия
+`"1.0.0"`
 
 **Группы полей:**
 
 1. **ChEMBL core fields** (59 полей):
-   - Идентификаторы: `molecule_chembl_id`, `molregno`, `parent_chembl_id`, `parent_molregno`
+
+   - Идентификаторы: `molecule_chembl_id`, `molregno`, `parent_chembl_id`,
+     `parent_molregno`
    - Названия: `pref_name`, `pref_name_key`
-   - Флаги: `therapeutic_flag`, `dosed_ingredient`, `direct_interaction`, `molecular_mechanism`, `oral`, `parenteral`, `topical`, `black_box_warning`, `natural_product`, `first_in_class`, `prodrug`, `inorganic_flag`, `polymer_flag`, `withdrawn_flag`
-   - Типы: `structure_type`, `molecule_type`, `molecule_type_chembl`, `chirality`, `chirality_chembl`
-   - Клинические данные: `max_phase`, `first_approval`, `availability_type`, `mechanism_of_action`
-   - USAN данные: `usan_year`, `usan_stem`, `usan_substem`, `usan_stem_definition`
+   - Флаги: `therapeutic_flag`, `dosed_ingredient`, `direct_interaction`,
+     `molecular_mechanism`, `oral`, `parenteral`, `topical`,
+     `black_box_warning`, `natural_product`, `first_in_class`, `prodrug`,
+     `inorganic_flag`, `polymer_flag`, `withdrawn_flag`
+   - Типы: `structure_type`, `molecule_type`, `molecule_type_chembl`,
+     `chirality`, `chirality_chembl`
+   - Клинические данные: `max_phase`, `first_approval`, `availability_type`,
+     `mechanism_of_action`
+   - USAN данные: `usan_year`, `usan_stem`, `usan_substem`,
+     `usan_stem_definition`
    - Индикации: `indication_class`
    - Отзывы: `withdrawn_year`, `withdrawn_country`, `withdrawn_reason`
-   - Drug данные: `drug_chembl_id`, `drug_name`, `drug_type`, и флаги `drug_*_flag` (9 полей)
+   - Drug данные: `drug_chembl_id`, `drug_name`, `drug_type`, и флаги
+     `drug_*_flag` (9 полей)
 
-2. **ChEMBL property fields** (24 поля):
+1. **ChEMBL property fields** (24 поля):
+
    - Молекулярная масса: `mw_freebase`, `full_mwt`, `mw_monoisotopic`
    - Липофильность: `alogp`, `acd_logp`, `acd_logd`
    - Водородные связи: `hba`, `hbd`, `hba_lipinski`, `hbd_lipinski`
    - Поверхность: `psa`
    - Гибкость: `rtb` (rotatable bonds)
    - Кольца: `aromatic_rings`, `heavy_atoms`
-   - Правила: `ro3_pass`, `num_ro5_violations`, `lipinski_ro5_pass`, `num_lipinski_ro5_violations`, `lipinski_ro5_violations`
+   - Правила: `ro3_pass`, `num_ro5_violations`, `lipinski_ro5_pass`,
+     `num_lipinski_ro5_violations`, `lipinski_ro5_violations`
    - pKa: `acd_most_apka`, `acd_most_bpka`
    - Прочее: `molecular_species`, `full_molformula`, `qed_weighted`
 
-3. **ChEMBL structure fields** (3 поля):
+1. **ChEMBL structure fields** (3 поля):
+
    - `standardized_smiles`: Стандартизированные SMILES
    - `standard_inchi`: Стандартный InChI
    - `standard_inchi_key`: Стандартный InChI ключ
 
-4. **ChEMBL JSON fields** (11 полей):
-   - `molecule_hierarchy`, `molecule_properties`, `molecule_structures`, `molecule_synonyms`
-   - `atc_classifications`, `cross_references`, `biotherapeutic`, `chemical_probe`, `orphan`, `veterinary`, `helm_notation`
+1. **ChEMBL JSON fields** (11 полей):
 
-5. **ChEMBL text fields** (1 поле):
+   - `molecule_hierarchy`, `molecule_properties`, `molecule_structures`,
+     `molecule_synonyms`
+   - `atc_classifications`, `cross_references`, `biotherapeutic`,
+     `chemical_probe`, `orphan`, `veterinary`, `helm_notation`
+
+1. **ChEMBL text fields** (1 поле):
+
    - `all_names`: Агрегированные синонимы для поиска
 
-6. **Fallback fields** (8 полей):
-   - `fallback_reason`, `fallback_error_type`, `fallback_error_code`, `fallback_http_status`, `fallback_retry_after_sec`, `fallback_attempt`, `fallback_error_message`, `fallback_timestamp`
+1. **Fallback fields** (8 полей):
+
+   - `fallback_reason`, `fallback_error_type`, `fallback_error_code`,
+     `fallback_http_status`, `fallback_retry_after_sec`, `fallback_attempt`,
+     `fallback_error_message`, `fallback_timestamp`
 
 **COLUMN_ORDER:**
 
-Порядок колонок фиксирован в `TestItemSchema._column_order` и включает ~150 колонок в следующем порядке:
+Порядок колонок фиксирован в `TestItemSchema._column_order` и включает ~150
+колонок в следующем порядке:
 
-1. Метаданные: `index`, `hash_row`, `hash_business_key`, `pipeline_version`, `run_id`, `source_system`, `chembl_release`, `extracted_at`
-2. Fallback метаданные
-3. Бизнес-ключ: `molecule_chembl_id`
-4. ChEMBL core fields
-5. ChEMBL property fields
-6. ChEMBL structure fields
-7. ChEMBL text fields
-8. ChEMBL JSON fields
+1. Метаданные: `index`, `hash_row`, `hash_business_key`, `pipeline_version`,
+   `run_id`, `source_system`, `chembl_release`, `extracted_at`
+1. Fallback метаданные
+1. Бизнес-ключ: `molecule_chembl_id`
+1. ChEMBL core fields
+1. ChEMBL property fields
+1. ChEMBL structure fields
+1. ChEMBL text fields
+1. ChEMBL JSON fields
 
 **Валидация:**
 
@@ -396,8 +458,10 @@ Pipeline извлекает более 100 полей и разворачива�
 - `coerce = True`: автоматическое приведение типов
 - `ordered = True`: порядок колонок строго соблюдается
 - Regex валидация для `molecule_chembl_id`: `^CHEMBL\d+$`
-- Nullable policy: большинство полей nullable, только `molecule_chembl_id` NOT NULL
-- Range checks: `ge=1` для `molregno`, `parent_molregno`, `ge=0` для числовых полей
+- Nullable policy: большинство полей nullable, только `molecule_chembl_id` NOT
+  NULL
+- Range checks: `ge=1` для `molregno`, `parent_molregno`, `ge=0` для числовых
+  полей
 
 ## 8. Выходные данные
 
@@ -475,12 +539,7 @@ column_order:
 **Механизм:** Временный файл в run_id-scoped директории + atomic rename
 
 ```python
-def _atomic_write(
-    self,
-    content: bytes,
-    target_path: Path,
-    run_id: str
-) -> Path:
+def _atomic_write(self, content: bytes, target_path: Path, run_id: str) -> Path:
     """Atomic write with run_id-scoped temp directory."""
 
     # Temp directory per run
@@ -509,11 +568,15 @@ def _atomic_write(
 
 **Sort keys:** `["molecule_chembl_id"]`
 
-TestItem pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование:
+TestItem pipeline обеспечивает детерминированный вывод через стабильную
+сортировку и хеширование:
 
-- **Sort keys:** Строки сортируются по `molecule_chembl_id` перед записью (определяется в `determinism.sort.by`)
-- **Hash policy:** Используется SHA256 для генерации `hash_row` и `hash_business_key`
-  - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`, `extracted_at`)
+- **Sort keys:** Строки сортируются по `molecule_chembl_id` перед записью
+  (определяется в `determinism.sort.by`)
+- **Hash policy:** Используется SHA256 для генерации `hash_row` и
+  `hash_business_key`
+  - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`,
+    `extracted_at`)
   - `hash_business_key`: хеш бизнес-ключа (`molecule_chembl_id`)
 - **Canonicalization:** Все значения нормализуются перед хешированием:
   - JSON с `sort_keys=True`, `separators=(',', ':')`
@@ -521,8 +584,10 @@ TestItem pipeline обеспечивает детерминированный в
   - Float формат: `%.6f`
   - Empty/None значения: `""` (пустая строка)
   - Column order: строго по `TestItemSchema._column_order`
-- **Column order:** Фиксированный порядок колонок из `TestItemSchema._column_order` (~150 колонок)
-- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
+- **Column order:** Фиксированный порядок колонок из
+  `TestItemSchema._column_order` (~150 колонок)
+- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`,
+  checksums, `hash_algo`, `hash_policy_version`
 
 **Guarantees:**
 
@@ -558,51 +623,59 @@ def _canonicalize_row_for_hash(row: dict, column_order: list[str]) -> str:
         elif isinstance(value, datetime):
             canonical[col] = value.isoformat() + "Z"
         elif isinstance(value, (dict, list)):
-            canonical[col] = json.dumps(value, sort_keys=True, separators=(',', ':'))
+            canonical[col] = json.dumps(value, sort_keys=True, separators=(",", ":"))
         else:
             canonical[col] = str(value)
 
     # JSON serialization with strict format
-    return json.dumps(canonical, sort_keys=True, separators=(',', ':'))
+    return json.dumps(canonical, sort_keys=True, separators=(",", ":"))
 ```
 
-For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
+For detailed policy, see
+[Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 11. QC/QA
 
 **Ключевые метрики успеха:**
 
-| Метрика | TestItem | Критичность |
-|---------|----------|-------------|
-| **ChEMBL coverage** | 100% идентификаторов | HIGH |
-| **Duplicate ratio** | 0% (дубликаты недопустимы) | CRITICAL |
-| **Fallback ratio** | ≤20% fallback записей | MEDIUM |
-| **Parent referential integrity** | 100% (parent_chembl_id должен существовать) | HIGH |
-| **Pipeline failure rate** | 0% (graceful degradation) | CRITICAL |
-| **Детерминизм** | Бит-в-бит воспроизводимость | CRITICAL |
+| Метрика                          | TestItem                                    | Критичность |
+| -------------------------------- | ------------------------------------------- | ----------- |
+| **ChEMBL coverage**              | 100% идентификаторов                        | HIGH        |
+| **Duplicate ratio**              | 0% (дубликаты недопустимы)                  | CRITICAL    |
+| **Fallback ratio**               | ≤20% fallback записей                       | MEDIUM      |
+| **Parent referential integrity** | 100% (parent_chembl_id должен существовать) | HIGH        |
+| **Pipeline failure rate**        | 0% (graceful degradation)                   | CRITICAL    |
+| **Детерминизм**                  | Бит-в-бит воспроизводимость                 | CRITICAL    |
 
 **QC метрики:**
 
 1. **`testitem.duplicate_ratio`**: Дубликаты по `molecule_chembl_id`
+
    - Порог: `0.0` (критично)
    - Метрика: количество дубликатов / общее количество строк
    - Действие: удаление дубликатов при превышении порога
 
-2. **`testitem.fallback_ratio`**: Процент fallback записей
+1. **`testitem.fallback_ratio`**: Процент fallback записей
+
    - Порог: `0.2` (20%)
    - Метрика: количество fallback записей / общее количество строк
    - Действие: предупреждение при превышении порога
 
-3. **`testitem.parent_missing_ratio`**: Referential integrity для `parent_chembl_id`
+1. **`testitem.parent_missing_ratio`**: Referential integrity для
+   `parent_chembl_id`
+
    - Порог: `0.0` (критично)
-   - Метрика: количество `parent_chembl_id`, которые не существуют в наборе `molecule_chembl_id` / общее количество ссылок
+   - Метрика: количество `parent_chembl_id`, которые не существуют в наборе
+     `molecule_chembl_id` / общее количество ссылок
    - Действие: ошибка при превышении порога
 
-4. **Валидация форматов идентификаторов**: Regex для `molecule_chembl_id`
+1. **Валидация форматов идентификаторов**: Regex для `molecule_chembl_id`
+
    - Паттерн: `^CHEMBL\d+$`
    - Действие: ошибка при несоответствии
 
-5. **Schema validation**: Соответствие схеме Pandera
+1. **Schema validation**: Соответствие схеме Pandera
+
    - Проверка типов, nullable, диапазонов, regex
    - Действие: ошибка при нарушении схемы
 
@@ -614,8 +687,10 @@ For detailed policy, see [Determinism Policy](../determinism/00-determinism-poli
 
 **QC отчеты:**
 
-- Генерируется `testitem_{date}_quality_report.csv` с метриками покрытия и валидности
-- При использовании `--extended` режима дополнительно создается подробный отчет с распределениями
+- Генерируется `testitem_{date}_quality_report.csv` с метриками покрытия и
+  валидности
+- При использовании `--extended` режима дополнительно создается подробный отчет
+  с распределениями
 - Все метрики записываются в `meta.yaml` в секции `qc`
 
 **Referential Integrity Check:**
@@ -636,7 +711,9 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> None:
     missing_count = int(missing_mask.sum())
     missing_ratio = missing_count / len(parent_series) if len(parent_series) else 0.0
 
-    threshold = float(self.config.qc.thresholds.get("testitem.parent_missing_ratio", 0.0))
+    threshold = float(
+        self.config.qc.thresholds.get("testitem.parent_missing_ratio", 0.0)
+    )
 
     if missing_ratio > threshold:
         raise ValueError(
@@ -644,16 +721,19 @@ def _check_referential_integrity(self, df: pd.DataFrame) -> None:
         )
 ```
 
-For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
+For detailed QC metrics and policies, see
+[QC Overview](../qc/00-qc-overview.md).
 
 ## 12. Логирование и трассировка
 
-TestItem pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста.
+TestItem pipeline использует `UnifiedLogger` для структурированного логирования
+всех операций с обязательными полями контекста.
 
 **Обязательные поля в логах:**
 
 - `run_id`: Уникальный идентификатор запуска пайплайна
-- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`,
+  `write`)
 - `pipeline`: Имя пайплайна (`chembl_testitem`)
 - `duration`: Время выполнения стадии в секундах
 - `row_count`: Количество обработанных строк
@@ -665,15 +745,19 @@ TestItem pipeline использует `UnifiedLogger` для структури
 - `reading_input`: Чтение входного файла
 - `input_file_not_found`: Предупреждение при отсутствии входного файла
 - `extraction_completed`: Завершение стадии извлечения с метриками
-- `molecule_fetch_summary`: Сводка по извлечению молекул (requested, fetched, cache_hits, api_success_count, fallback_count)
+- `molecule_fetch_summary`: Сводка по извлечению молекул (requested, fetched,
+  cache_hits, api_success_count, fallback_count)
 - `transform_started`: Начало стадии трансформации
 - `transform_completed`: Завершение стадии трансформации
 - `validation_started`: Начало валидации
 - `validation_completed`: Завершение валидации с количеством issues
-- `qc_metric`: Логирование QC метрик (metric, value, threshold, severity, count, details)
+- `qc_metric`: Логирование QC метрик (metric, value, threshold, severity, count,
+  details)
 - `referential_integrity_passed`: Успешная проверка referential integrity
-- `referential_integrity_failure`: Ошибка referential integrity (relation, missing_count, missing_ratio, threshold, severity)
-- `identifier_format_error`: Ошибка формата идентификатора (column, invalid_count, sample_values)
+- `referential_integrity_failure`: Ошибка referential integrity (relation,
+  missing_count, missing_ratio, threshold, severity)
+- `identifier_format_error`: Ошибка формата идентификатора (column,
+  invalid_count, sample_values)
 - `write_started`: Начало записи результатов
 - `write_completed`: Завершение записи результатов
 - `pipeline_completed`: Успешное завершение пайплайна
@@ -736,9 +820,11 @@ TestItem pipeline использует `UnifiedLogger` для структури
 
 **Трассировка:**
 
-- Все операции связаны через `run_id` для отслеживания полного жизненного цикла пайплайна
+- Все операции связаны через `run_id` для отслеживания полного жизненного цикла
+  пайплайна
 - Каждая стадия логирует начало и завершение с метриками производительности
 - Ошибки логируются с полным контекстом и stack trace
 - QC метрики логируются с деталями для анализа качества данных
 
-For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).
+For detailed logging configuration and API, see
+[Logging Overview](../logging/00-overview.md).

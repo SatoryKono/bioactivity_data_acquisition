@@ -1,8 +1,6 @@
 # 28 Target UniProt Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
@@ -20,9 +18,9 @@ The pipeline uses `TargetUniProtSchema` for validation:
 ## Validation Workflow
 
 1. **Schema Validation**: Validates against TargetUniProtSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `uniprot_accession` values
-3. **Accession Validation**: Validates UniProt accession format
-4. **Taxonomy Validation**: Validates organism taxonomy IDs
+1. **Duplicate Detection**: Ensures duplicate-free `uniprot_accession` values
+1. **Accession Validation**: Validates UniProt accession format
+1. **Taxonomy Validation**: Validates organism taxonomy IDs
 
 ## Constraints
 

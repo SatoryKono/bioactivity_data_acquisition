@@ -11,8 +11,8 @@ import pandas as pd
 from pandas import Series
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.assay.chembl_assay import ChemblAssayClient
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.assay.client_chembl_assay import ChemblAssayClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.log_events import LogEvents
@@ -30,7 +30,7 @@ from .transform import (
     serialize_array_fields,
     validate_assay_parameters_truv,
 )
-from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
+from bioetl.schemas.chembl_assay_schema import COLUMN_ORDER, AssaySchema
 
 from ...chembl_descriptor import (
     BatchExtractionContext,

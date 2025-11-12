@@ -17,11 +17,12 @@ import pandera.errors
 from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.activity.chembl_activity import ChemblActivityClient
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.log_events import LogEvents
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
@@ -30,16 +31,15 @@ from bioetl.core.normalizers import (
 )
 from bioetl.core.utils.molecule_map import join_activity_with_molecule
 from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
-from bioetl.core.log_events import LogEvents
 from bioetl.qc.report import build_quality_report as build_default_quality_report
-from bioetl.schemas.activity import (
+from bioetl.schemas.chembl_activity_schema import (
     ACTIVITY_PROPERTY_KEYS,
     COLUMN_ORDER,
     RELATIONS,
     STANDARD_TYPES,
     ActivitySchema,
 )
-from bioetl.schemas.vocab import required_vocab_ids
+from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 from ...base import RunResult
 from ...chembl_descriptor import (
@@ -1722,14 +1722,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 }
                 metrics["unknown_data_validity_comments_count"] = unknown_count
                 metrics["unknown_data_validity_comments_samples"] = unknown_values
-                log.warning(LogEvents.UNKNOWN_DATA_VALIDITY_COMMENTS_DETECTED,
+                log.warning(LogEvents.UNKNOWN_DATA_VALIDITY_COMMENTS_DETECTED.legacy(),
                     unknown_count=unknown_count,
                     samples=unknown_values,
                     whitelist=whitelist,
                 )
 
         if metrics:
-            log.info(LogEvents.VALIDITY_COMMENTS_METRICS, **metrics)
+            log.info(LogEvents.VALIDITY_COMMENTS_METRICS.legacy(), **metrics)
 
     def _get_data_validity_comment_whitelist(self) -> list[str]:
         """Получить whitelist допустимых значений для data_validity_comment из словаря.
@@ -2692,7 +2692,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             items = list(value)  # pyright: ignore[reportUnknownArgumentType]
         else:
             if log is not None:
-                log.warning(LogEvents.ACTIVITY_PROPERTIES_UNHANDLED_TYPE,
+                log.warning(LogEvents.ACTIVITY_PROPERTIES_UNHANDLED_TYPE.legacy(),
                     value_type=type(raw_value).__name__,
                 )
             return None
@@ -2717,7 +2717,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 normalized.append(str_base)
             else:
                 if log is not None:
-                    log.warning(LogEvents.ACTIVITY_PROPERTIES_ITEM_UNHANDLED,
+                    log.warning(LogEvents.ACTIVITY_PROPERTIES_ITEM_UNHANDLED.legacy(),
                         item_type=type(item).__name__,
                     )
 
@@ -3128,7 +3128,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 .head(10)
                 .items()
             }
-            log.warning(LogEvents.SOFT_ENUM_UNKNOWN_DATA_VALIDITY_COMMENT,
+            log.warning(LogEvents.SOFT_ENUM_UNKNOWN_DATA_VALIDITY_COMMENT.legacy(),
                 unknown_count=unknown_count,
                 total_count=len(non_null_comments_series),
                 samples=unknown_values,

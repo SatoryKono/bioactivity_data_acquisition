@@ -10,14 +10,14 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.chembl import ChemblClient
-from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.core.log_events import LogEvents
-from bioetl.schemas.testitem import COLUMN_ORDER
+from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
 
 from ...chembl_descriptor import (
     BatchExtractionContext,
@@ -723,7 +723,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        from bioetl.schemas.testitem import COLUMN_ORDER
+        from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
 
         schema_columns = set(COLUMN_ORDER)
         existing_columns = set(df.columns)

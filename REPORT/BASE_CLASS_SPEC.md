@@ -10,7 +10,7 @@
 - **Сигнатуры и чистота.** Все публичные методы базового класса должны иметь фиксированные сигнатуры (см. §3). Запрещены скрытые побочные эффекты вне документированных стадий; текущее ядро хранит состояние только через конфиг и кэшированные вычисления (например, `_extract_metadata`).【src/bioetl/pipelines/base.py:129-170】【src/bioetl/pipelines/base.py:408-460】
 - **Детерминизм вывода.** Порядок строк и столбцов фиксируется через сортировку и переупорядочивание перед записью; запись выполняется атомарно через `write_dataset_atomic`/`write_yaml_atomic` и сериализует данные в каноническом формате.【src/bioetl/core/output.py:113-208】【src/bioetl/core/output.py:323-337】
 - **Структурное логирование.** Все стадии обязаны логировать события с полями `pipeline`, `stage`, `dataset`, `page`, `records`, `duration_ms`, `run_id`; существующая реализация привязывает контекст через `UnifiedLogger.bind` и `UnifiedLogger.stage`, требуя обязательных полей `run_id`, `pipeline`, `stage`, `dataset`, `component`, `trace_id`, `span_id`. Дополнительные поля (`page`, `records`, `duration_ms`) вводятся спецификацией как расширение обязательного набора.【src/bioetl/pipelines/base.py:1389-1488】【src/bioetl/core/logger.py:52-142】
-- **Политика ошибок.** Исключения типов `ValueError`, `TypeError`, `KeyError` используются для нарушения предусловий (например, отсутствующие столбцы), все неожиданные исключения транслируются наверх с логированием. CLI различает коды выхода: 0 – успех, 1 – ошибка пайплайна, 2 – некорректная конфигурация/ввод, 3 – сбой внешнего API.【src/bioetl/pipelines/base.py:1497-1509】【src/bioetl/cli/command.py:198-345】
+- **Политика ошибок.** Исключения типов `ValueError`, `TypeError`, `KeyError` используются для нарушения предусловий (например, отсутствующие столбцы), все неожиданные исключения транслируются наверх с логированием. CLI различает коды выхода: 0 – успех, 1 – ошибка пайплайна, 2 – некорректная конфигурация/ввод, 3 – сбой внешнего API.【src/bioetl/pipelines/base.py:1497-1509】【src/bioetl/cli/cli_command.py:198-345】
 
 ## 3. Интерфейс `BasePipeline[TRecord]`
 
@@ -44,7 +44,7 @@ class BasePipeline(Generic[TRecord], Protocol):
 ### 3.3 Контракты методов
 
 - **`build_query`**: предусловие – валидированный `PipelineConfig`; постусловие – словарь с параметрами запроса, отсортированными по ключам (детерминизм). Нарушения – `ValueError` при отсутствии обязательных полей (сравнить с проверками `_read_input_ids`).【src/bioetl/pipelines/base.py:573-650】
-- **`extract_pages`**: обязателен вызов handshake (см. миксин §4.1) и ведение учёта страниц. Постусловие – итератор в фиксированном порядке страниц; ожидаемая сложность зависит от API, но минимально O(n) по числу записей. Ошибки API пробрасываются как `RequestException` через `UnifiedAPIClient` с логом `cli_pipeline_api_error`.【src/bioetl/cli/command.py:331-345】【src/bioetl/clients/chembl.py:83-159】
+- **`extract_pages`**: обязателен вызов handshake (см. миксин §4.1) и ведение учёта страниц. Постусловие – итератор в фиксированном порядке страниц; ожидаемая сложность зависит от API, но минимально O(n) по числу записей. Ошибки API пробрасываются как `RequestException` через `UnifiedAPIClient` с логом `cli_pipeline_api_error`.【src/bioetl/cli/cli_command.py:331-345】【src/bioetl/clients/chembl.py:83-159】
 - **`normalize`**: должен приводить типы и очищать данные без изменения исходного порядка страниц; допускается использование Pandas. Обязательный лог `normalize_completed` с числом записей.
 - **`map_schema`**: для каждой строки обеспечивает соответствие целевому столбцу `row_id`; отсутствие обязательных колонок вызывает `KeyError` по аналогии с `_ensure_schema_columns`.【src/bioetl/pipelines/base.py:1020-1100】
 - **`row_id`**: возвращает канонический идентификатор, совместимый с `ensure_hash_columns`; должен быть детерминированным и стабильно сериализированным.【src/bioetl/core/output.py:43-110】
@@ -110,7 +110,7 @@ class BasePipeline(Generic[TRecord], Protocol):
 
 ## 5. Совместимость с CLI и миграция конфигов
 
-- **Команды CLI.** Базовый класс должен оставаться совместимым с регистрацией Typer-команд через `create_pipeline_command`; сигнатуры `run` и `write` обязаны принимать `output_path` и флаги `extended`, `include_correlation`, `include_qc_metrics`, чтобы существующий фабричный код не менялся.【src/bioetl/cli/app.py:21-67】【src/bioetl/cli/command.py:93-349】
+- **Команды CLI.** Базовый класс должен оставаться совместимым с регистрацией Typer-команд через `create_pipeline_command`; сигнатуры `run` и `write` обязаны принимать `output_path` и флаги `extended`, `include_correlation`, `include_qc_metrics`, чтобы существующий фабричный код не менялся.【src/bioetl/cli/cli_app.py:21-67】【src/bioetl/cli/cli_command.py:93-349】
 - **Маппинг конфигов.** Миграция YAML-конфигов выполняется слоем сопоставления, зафиксированным в `CONFIG_SCHEMA.yaml` (`api.endpoint` → `client.base_url`, `output.dir` → `output_path` и т.д.).【REPORT/CONFIG_SCHEMA.yaml:1-109】
 - **Шим профилей.** Существующие профили (`base.yaml`, `determinism.yaml`) остаются источником истины; новый базовый класс обязан поддерживать включение профилей через `PipelineConfig.extends`. Нарушение схемы должно приводить к ошибке валидации (см. §2 и §4.3).
 
@@ -151,7 +151,7 @@ def run_pipeline(pipeline: BasePipeline[dict], config: PipelineConfig, output_pa
 - **Юнит-тесты.** Проверять порядок вызовов стадий и инварианты детерминизма, включая сортировку и атомарную запись (сравните с `TestPipelineLifecycle`).【tests/bioetl/pipelines/common/test_pipeline_lifecycle.py:21-176】
 - **Тесты миксинов.** Handshake – проверка кэширования и логов; пагинация – подсчёт страниц и повторное использование backoff (по аналогии с существующими тестами клиентов ChEMBL).【tests/bioetl/clients/test_chembl_client.py:38-142】
 - **Golden-тесты.** Сравнивать наборы артефактов и `meta.yaml` с эталоном (см. политику детерминизма).【docs/determinism/01-determinism-policy.md:1-195】
-- **CLI интеграция.** Проверять `--dry-run`, коды выхода и отсутствие побочных эффектов при dry run (опираясь на поведение `create_pipeline_command`).【src/bioetl/cli/command.py:198-258】
+- **CLI интеграция.** Проверять `--dry-run`, коды выхода и отсутствие побочных эффектов при dry run (опираясь на поведение `create_pipeline_command`).【src/bioetl/cli/cli_command.py:198-258】
 
 ## 10. Глоссарий
 

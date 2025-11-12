@@ -181,4 +181,4 @@ chembl:
         retry_backoff: 1.5
 
 validation:
-  schema_out: bioetl.schemas.activity.activity_chembl.ActivitySchema
+  schema_out: bioetl.schemas.chembl_activity_schema.ActivitySchema

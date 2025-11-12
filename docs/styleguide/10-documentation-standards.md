@@ -1,18 +1,22 @@
 # Documentation Standards
 
-This document defines the standards for documentation in the `bioetl` project. All documentation **MUST** be synchronized with code and schemas.
+This document defines the standards for documentation in the `bioetl` project.
+All documentation **MUST** be synchronized with code and schemas.
 
 ## Principles
 
-- **Synchronization**: Documentation **MUST** be synchronized with code and schemas.
-- **No Manual Editing**: Auto-generated sections **SHALL NOT** be edited manually.
+- **Synchronization**: Documentation **MUST** be synchronized with code and
+  schemas.
+- **No Manual Editing**: Auto-generated sections **SHALL NOT** be edited
+  manually.
 - **Contract Changes**: Any contract changes **MUST** be documented immediately.
 - **CHANGELOG**: Breaking changes **MUST** be recorded in CHANGELOG.md.
 - **Examples**: All major features **SHOULD** include runnable examples.
 
 ## File Naming Conventions
 
-All documentation files **MUST** follow the naming conventions defined in [`00-naming-conventions.md`](./00-naming-conventions.md):
+All documentation files **MUST** follow the naming conventions defined in
+[`00-naming-conventions.md`](./00-naming-conventions.md):
 
 ### Sequenced Documents
 
@@ -49,15 +53,20 @@ docs/
 
 ### Documentation Update Checklist
 
-Any pull request that changes public-facing artifacts **MUST** update the corresponding documentation and examples:
+Any pull request that changes public-facing artifacts **MUST** update the
+corresponding documentation and examples:
 
-- New CLI command → update `docs/cli/01-cli-commands.md` and add a runnable example
-- New or modified CLI flag → synchronize the options table in `docs/cli/01-cli-commands.md`
-- New environment variable → update `docs/configs/config-env.md` and `.env.example`
+- New CLI command → update `docs/cli/01-cli-commands.md` and add a runnable
+  example
+- New or modified CLI flag → synchronize the options table in
+  `docs/cli/01-cli-commands.md`
+- New environment variable → update `docs/configs/config-env.md` and
+  `.env.example`
 - New or updated exit codes → refresh `docs/cli/02-cli-exit-codes.md`
 - Changed public function signatures → update the API references in `docs/api/`
 
-Pull requests that introduce such changes **SHALL** be rejected if the documentation checklist is not satisfied.
+Pull requests that introduce such changes **SHALL** be rejected if the
+documentation checklist is not satisfied.
 
 ### Schema Documentation
 
@@ -138,36 +147,36 @@ Any changes to public APIs, CLI, or schemas **MUST** be documented:
 
 1. **Update Function Docstring**:
 
-    ```python
-    def process_data(df: pd.DataFrame, batch_size: int = 1000) -> pd.DataFrame:
-        """Process data in batches.
+   ```python
+   def process_data(df: pd.DataFrame, batch_size: int = 1000) -> pd.DataFrame:
+       """Process data in batches.
 
-        Args:
-            df: Input DataFrame
-            batch_size: Number of rows per batch (default: 1000, changed from 500 in v1.1.0)
+       Args:
+           df: Input DataFrame
+           batch_size: Number of rows per batch (default: 1000, changed from 500 in v1.1.0)
 
-        Returns:
-            Processed DataFrame
-        """
-        pass
-    ```
+       Returns:
+           Processed DataFrame
+       """
+       pass
+   ```
 
 1. **Update CHANGELOG.md**:
 
-    ```markdown
-    ## [1.1.0] - 2024-01-01
+   ```markdown
+   ## [1.1.0] - 2024-01-01
 
-    ### Changed
-    - `process_data()` default `batch_size` changed from 500 to 1000
-    ```
+   ### Changed
+   - `process_data()` default `batch_size` changed from 500 to 1000
+   ```
 
 1. **Update Documentation**:
 
-    ```markdown
-    ## Process Data Function
+   ```markdown
+   ## Process Data Function
 
-    The `process_data()` function processes data in batches. The default batch size is now 1000 (changed from 500 in v1.1.0).
-    ```
+   The `process_data()` function processes data in batches. The default batch size is now 1000 (changed from 500 in v1.1.0).
+   ```
 
 ## CHANGELOG.md
 
@@ -221,27 +230,27 @@ All major features **SHOULD** include runnable examples:
 
 - **Python API example**:
 
-    ```python
-    from bioetl.pipelines import ActivityPipeline
-    from bioetl.config import load_config
+  ```python
+  from bioetl.pipelines import ActivityPipeline
+  from bioetl.config import load_config
 
-    # Load configuration
-    config = load_config("configs/pipelines/activity.yaml")
+  # Load configuration
+  config = load_config("configs/pipelines/activity.yaml")
 
-    # Create pipeline
-    pipeline = ActivityPipeline(config)
+  # Create pipeline
+  pipeline = ActivityPipeline(config)
 
-    # Run pipeline
-    pipeline.run()
-    ```
+  # Run pipeline
+  pipeline.run()
+  ```
 
 - **Command line example**:
 
-    ```bash
-    python -m bioetl.cli.app activity \
-      --config configs/pipelines/activity.yaml \
-      --output data/output/activity
-    ```
+  ```bash
+  python -m bioetl.cli.cli_app activity \
+    --config configs/pipelines/activity.yaml \
+    --output data/output/activity
+  ```
 
 ## Diagrams
 

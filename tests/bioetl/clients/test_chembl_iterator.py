@@ -7,8 +7,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.chembl_base import EntityConfig
-from bioetl.clients.chembl_iterator import ChemblEntityIterator
+from bioetl.clients.client_chembl_base import EntityConfig
+from bioetl.clients.client_chembl_iterator import (
+    ChemblEntityIterator,
+    ChemblEntityIteratorBase,
+)
 
 
 @pytest.fixture
@@ -30,7 +33,7 @@ def chembl_config() -> EntityConfig:
 def mock_logger() -> Iterator[MagicMock]:
     """Patch UnifiedLogger.get to avoid touching global logging."""
 
-    with patch("bioetl.clients.chembl_iterator.UnifiedLogger.get") as mock_get_logger:
+    with patch("bioetl.clients.client_chembl_iterator.UnifiedLogger.get") as mock_get_logger:
         bound_logger = MagicMock()
         mock_get_logger.return_value = MagicMock(bind=MagicMock(return_value=bound_logger))
         yield bound_logger
@@ -49,7 +52,7 @@ class TestChemblEntityIterator:
         chembl_client = MagicMock()
         chembl_client.handshake.return_value = {"chembl_db_version": "34"}
 
-        iterator = ChemblEntityIterator(
+        iterator = ChemblEntityIteratorBase(
             chembl_client,
             chembl_config,
             batch_size=25,
@@ -83,7 +86,7 @@ class TestChemblEntityIterator:
             ]
         )
 
-        iterator = ChemblEntityIterator(
+        iterator = ChemblEntityIteratorBase(
             chembl_client,
             chembl_config,
             batch_size=10,
@@ -109,7 +112,7 @@ class TestChemblEntityIterator:
     ) -> None:
         """Ensure identifier chunking respects URL length constraints."""
         chembl_client = MagicMock()
-        iterator = ChemblEntityIterator(
+        iterator = ChemblEntityIteratorBase(
             chembl_client,
             chembl_config,
             batch_size=5,

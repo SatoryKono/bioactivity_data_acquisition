@@ -10,7 +10,7 @@ import pytest  # type: ignore[import-not-found]
 
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.schemas.activity import ActivitySchema
+from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
@@ -403,7 +403,7 @@ class TestValidityCommentsOnlyFields:
         )
 
         # Mock ChemblClient и fetch_data_validity_lookup
-        from bioetl.clients.chembl import ChemblClient
+        from bioetl.clients.client_chembl import ChemblClient
 
         mock_api_client = MagicMock()
         mock_chembl_client = ChemblClient(mock_api_client)

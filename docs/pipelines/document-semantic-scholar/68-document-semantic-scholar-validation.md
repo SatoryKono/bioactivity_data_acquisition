@@ -1,12 +1,11 @@
 # 68 Document Semantic Scholar Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the validation stage of the Document (Semantic Scholar) pipeline.
+This document describes the validation stage of the Document (Semantic Scholar)
+pipeline.
 
 ## Pandera Schemas
 
@@ -19,10 +18,11 @@ The pipeline uses `DocumentSemanticScholarSchema` for validation:
 
 ## Validation Workflow
 
-1. **Schema Validation**: Validates against DocumentSemanticScholarSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `semantic_scholar_id` values
-3. **Identifier Validation**: Validates Semantic Scholar ID/DOI/ArXiv formats
-4. **Citation Validation**: Validates citation and reference IDs
+1. **Schema Validation**: Validates against DocumentSemanticScholarSchema with
+   strict=True
+1. **Duplicate Detection**: Ensures duplicate-free `semantic_scholar_id` values
+1. **Identifier Validation**: Validates Semantic Scholar ID/DOI/ArXiv formats
+1. **Citation Validation**: Validates citation and reference IDs
 
 ## Constraints
 

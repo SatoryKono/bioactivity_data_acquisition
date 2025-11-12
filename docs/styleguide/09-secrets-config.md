@@ -1,20 +1,25 @@
 # Secrets and Configuration
 
-This document defines the standards for handling secrets and configuration in the `bioetl` project. All secrets **MUST** be handled securely, and all configuration **MUST** be type-safe.
+This document defines the standards for handling secrets and configuration in
+the `bioetl` project. All secrets **MUST** be handled securely, and all
+configuration **MUST** be type-safe.
 
 ## Principles
 
 - **No Hardcoded Secrets**: Secrets **SHALL NOT** be hardcoded in source code.
-- **Environment Variables**: Secrets **MUST** be loaded from environment variables or secret managers.
+- **Environment Variables**: Secrets **MUST** be loaded from environment
+  variables or secret managers.
 - **Typed Configuration**: All configuration **MUST** use typed Pydantic models.
-- **Configuration Profiles**: Shared settings **SHOULD** use configuration profiles.
+- **Configuration Profiles**: Shared settings **SHOULD** use configuration
+  profiles.
 - **Secret Rotation**: Secrets **SHOULD** support rotation and revocation.
 
 ## Secret Management
 
 ### Environment Variables
 
-Secrets **MUST** be loaded from environment variables via `.env` files or environment:
+Secrets **MUST** be loaded from environment variables via `.env` files or
+environment:
 
 ```python
 import os
@@ -57,6 +62,7 @@ api_key = secret_manager.get_secret("chembl/api_key")
 import os
 from typing import Optional
 
+
 def get_api_key(service: str) -> str:
     """Get API key from environment variable."""
     key_name = f"{service.upper()}_API_KEY"
@@ -86,8 +92,10 @@ All configuration **MUST** use typed Pydantic models:
 from pydantic import BaseModel, Field
 from pathlib import Path
 
+
 class PipelineConfig(BaseModel):
     """Pipeline configuration model."""
+
     name: str
     source: str
     version: str = "1.0.0"
@@ -105,6 +113,7 @@ class PipelineConfig(BaseModel):
 from bioetl.config.models import PipelineConfig
 import yaml
 from pathlib import Path
+
 
 def load_config(config_path: Path) -> PipelineConfig:
     """Load and validate configuration."""
@@ -160,6 +169,7 @@ pipeline:
 from pathlib import Path
 import yaml
 
+
 def load_config_with_profiles(config_path: Path, profile_names: list[str]) -> dict:
     """Load config with profile inheritance."""
     config = {}
@@ -188,8 +198,10 @@ All configuration **MUST** be validated on load:
 ```python
 from pydantic import BaseModel, validator
 
+
 class APIConfig(BaseModel):
     """API configuration with validation."""
+
     base_url: str
     timeout: float = Field(default=30.0, gt=0.0)
     api_key: str = Field(..., min_length=1)
@@ -209,6 +221,7 @@ Secrets **SHOULD** support rotation:
 
 ```python
 from datetime import datetime, timedelta
+
 
 class RotatingSecret:
     """Secret with rotation support."""
@@ -261,9 +274,9 @@ repos:
 Configuration **MUST** follow this precedence (highest to lowest):
 
 1. Environment variables
-2. CLI overrides (`--set KEY=VALUE`)
-3. Pipeline-specific config
-4. Configuration profiles
+1. CLI overrides (`--set KEY=VALUE`)
+1. Pipeline-specific config
+1. Configuration profiles
 
 ### Valid Examples
 
@@ -273,6 +286,7 @@ def merge_config(base: dict, override: dict) -> dict:
     merged = base.copy()
     merged.update(override)
     return merged
+
 
 # Load with precedence
 config = load_profile("base.yaml")
@@ -284,4 +298,5 @@ config = merge_config(config, load_env_variables())
 ## References
 
 - Configuration documentation: [`docs/configs/`](../configs/)
-- Typed configs: [`docs/configs/00-typed-configs-and-profiles.md`](../configs/00-typed-configs-and-profiles.md)
+- Typed configs:
+  [`docs/configs/00-typed-configs-and-profiles.md`](../configs/00-typed-configs-and-profiles.md)

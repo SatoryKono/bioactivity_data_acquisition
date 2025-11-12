@@ -132,4 +132,4 @@ chembl:
         active_only: true
 
 validation:
-  schema_out: bioetl.schemas.assay.assay_chembl.AssaySchema
+  schema_out: bioetl.schemas.chembl_assay_schema.AssaySchema

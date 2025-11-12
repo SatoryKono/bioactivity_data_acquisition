@@ -1,6 +1,8 @@
 # 3. Извлечение данных (UnifiedAPIClient)
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
 ## Обзор
 
@@ -8,7 +10,8 @@ UnifiedAPIClient — универсальный клиент для работы
 
 - **TTL-кэш** для тяжелых источников (ChEMBL_data_acquisition6)
 
-- **Circuit breaker** для защиты от каскадных ошибок (bioactivity_data_acquisition5)
+- **Circuit breaker** для защиты от каскадных ошибок
+  (bioactivity_data_acquisition5)
 
 - **Fallback manager** со стратегиями отката (bioactivity_data_acquisition5)
 
@@ -46,7 +49,6 @@ UnifiedAPIClient
 Конфигурация клиента:
 
 ```python
-
 @dataclass
 class APIConfig:
     """Конфигурация API клиента."""
@@ -93,40 +95,41 @@ class APIConfig:
     # Fallback
 
     fallback_enabled: bool = True
-    fallback_strategies: list[str] = field(default_factory=lambda: ["cache", "partial_retry"])
-
+    fallback_strategies: list[str] = field(
+        default_factory=lambda: ["cache", "partial_retry"]
+    )
 ```
 
 **Примечание о fallback стратегиях:**
 
 В системе существуют два уровня fallback стратегий:
 
-1. **Стратегии поведения в UnifiedAPIClient** (`fallback_strategies` в `APIConfig`):
+1. **Стратегии поведения в UnifiedAPIClient** (`fallback_strategies` в
+   `APIConfig`):
+
    - `"cache"` — использование кэшированных данных при ошибках запроса
    - `"partial_retry"` — частичный повтор запроса с уменьшением объёма данных
 
-2. **FallbackManager** (отдельный компонент в `src/bioetl/core/fallback_manager.py`, не интегрирован):
+1. **FallbackManager** (отдельный компонент в
+   `src/bioetl/core/fallback_manager.py`, не интегрирован):
+
    - Стратегии типов ошибок: `"network"`, `"timeout"`, `"5xx"`
-   - Определяет, на какие типы ошибок реагировать (ConnectionError, Timeout, HTTP 5xx)
+   - Определяет, на какие типы ошибок реагировать (ConnectionError, Timeout,
+     HTTP 5xx)
    - В настоящее время не используется в UnifiedAPIClient
 
-Реализация: UnifiedAPIClient использует встроенные стратегии `["cache", "partial_retry"]` через метод `_apply_fallback_strategies()`.
+Реализация: UnifiedAPIClient использует встроенные стратегии
+`["cache", "partial_retry"]` через метод `_apply_fallback_strategies()`.
 
 ### 2. CircuitBreaker
 
 Защита от каскадных ошибок:
 
 ```python
-
 class CircuitBreaker:
     """Circuit breaker для защиты API."""
 
-    def __init__(
-        self,
-        name: str,
-        failure_threshold: int = 5,
-        timeout: float = 60.0
-    ):
+    def __init__(self, name: str, failure_threshold: int = 5, timeout: float = 60.0):
         self.name = name
         self.failure_threshold = failure_threshold
         self.timeout = timeout
@@ -140,7 +143,9 @@ class CircuitBreaker:
             if time.time() - (self.last_failure_time or 0) > self.timeout:
                 self.state = "half-open"
             else:
-                raise CircuitBreakerOpenError(f"Circuit breaker for {self.name} is open")
+                raise CircuitBreakerOpenError(
+                    f"Circuit breaker for {self.name} is open"
+                )
 
         try:
             result = func()
@@ -156,7 +161,6 @@ class CircuitBreaker:
                 self.state = "open"
 
             raise
-
 ```
 
 ### 3. TokenBucketLimiter
@@ -164,16 +168,10 @@ class CircuitBreaker:
 Rate limiting с jitter:
 
 ```python
-
 class TokenBucketLimiter:
     """Token bucket rate limiter с jitter."""
 
-    def __init__(
-        self,
-        max_calls: int,
-        period: float,
-        jitter: bool = True
-    ):
+    def __init__(self, max_calls: int, period: float, jitter: bool = True):
         self.max_calls = max_calls
         self.period = period
         self.jitter = jitter
@@ -214,7 +212,6 @@ class TokenBucketLimiter:
         if elapsed >= self.period:
             self.tokens = self.max_calls
             self.last_refill = now
-
 ```
 
 ### 4. RetryPolicy
@@ -222,7 +219,6 @@ class TokenBucketLimiter:
 Политика повторов с giveup:
 
 ```python
-
 class RetryPolicy:
     """Политика повторов с giveup условиями."""
 
@@ -230,7 +226,7 @@ class RetryPolicy:
         self,
         total: int = 3,
         backoff_factor: float = 2.0,
-        giveup_on: list[type[Exception]] = None
+        giveup_on: list[type[Exception]] = None,
     ):
         self.total = total
         self.backoff_factor = backoff_factor
@@ -252,7 +248,7 @@ class RetryPolicy:
         # Специальная обработка для HTTP ошибок
 
         if isinstance(exc, requests.exceptions.HTTPError):
-            if hasattr(exc, 'response') and exc.response:
+            if hasattr(exc, "response") and exc.response:
                 status_code = exc.response.status_code
 
                 # Не прекращаем для 429 (rate limit) и 5xx
@@ -267,7 +263,7 @@ class RetryPolicy:
                         "Client error, giving up",
                         code=status_code,
                         attempt=attempt,
-                        message=str(exc)
+                        message=str(exc),
                     )
                     return True
 
@@ -277,8 +273,7 @@ class RetryPolicy:
 
     def get_wait_time(self, attempt: int) -> float:
         """Вычисляет время ожидания для attempt."""
-        return self.backoff_factor ** attempt
-
+        return self.backoff_factor**attempt
 ```
 
 ### 5. FallbackManager
@@ -286,7 +281,6 @@ class RetryPolicy:
 Управление fallback стратегиями:
 
 ```python
-
 class FallbackManager:
     """Управляет fallback стратегиями."""
 
@@ -295,9 +289,7 @@ class FallbackManager:
         self.fallback_data: dict[str, Any] = {}
 
     def execute_with_fallback(
-        self,
-        func: Callable,
-        fallback_data: dict | None = None
+        self, func: Callable, fallback_data: dict | None = None
     ) -> Any:
         """Выполняет func с fallback."""
         try:
@@ -313,7 +305,7 @@ class FallbackManager:
             logger.warning(
                 "Using fallback data",
                 error=str(e),
-                strategy=self.get_strategy_for_error(e)
+                strategy=self.get_strategy_for_error(e),
             )
 
             return data
@@ -325,7 +317,7 @@ class FallbackManager:
         if isinstance(exc, requests.exceptions.Timeout):
             return "timeout" in self.strategies
         if isinstance(exc, requests.exceptions.HTTPError):
-            if hasattr(exc, 'response') and exc.response:
+            if hasattr(exc, "response") and exc.response:
                 if 500 <= exc.response.status_code < 600:
                     return "5xx" in self.strategies
         return False
@@ -333,7 +325,6 @@ class FallbackManager:
     def get_fallback_data(self) -> dict:
         """Возвращает пустые fallback данные."""
         return {}
-
 ```
 
 ### 6. ResponseParser
@@ -341,27 +332,26 @@ class FallbackManager:
 Универсальный парсер ответов:
 
 ```python
-
 class ResponseParser:
     """Парсит ответы API."""
 
     def parse(self, response: requests.Response) -> dict[str, Any]:
         """Парсит response в dict."""
-        content_type = response.headers.get('content-type', '').lower()
+        content_type = response.headers.get("content-type", "").lower()
 
         # JSON
 
-        if 'application/json' in content_type or 'json' in content_type:
+        if "application/json" in content_type or "json" in content_type:
             return response.json()
 
         # XML (например, ChEMBL)
 
-        if 'application/xml' in content_type or 'xml' in content_type:
+        if "application/xml" in content_type or "xml" in content_type:
             return self._parse_xml(response.text)
 
         # Text (например, UniProt TSV)
 
-        if 'text/plain' in content_type or 'text/tab-separated-values' in content_type:
+        if "text/plain" in content_type or "text/tab-separated-values" in content_type:
             return self._parse_text(response.text)
 
         # По умолчанию пытаемся JSON
@@ -375,6 +365,7 @@ class ResponseParser:
         """Парсит XML в dict."""
         try:
             from defusedxml.ElementTree import fromstring as safe_fromstring
+
             root = safe_fromstring(xml_text)
             return self._xml_to_dict(root)
         except Exception as e:
@@ -407,7 +398,6 @@ class ResponseParser:
             return element.text.strip()
 
         return result
-
 ```
 
 ### 7. PaginationHandler
@@ -415,15 +405,11 @@ class ResponseParser:
 Обработка различных типов пагинации:
 
 ```python
-
 class PaginationHandler:
     """Обрабатывает пагинацию."""
 
     def paginate(
-        self,
-        session: requests.Session,
-        url: str,
-        config: dict
+        self, session: requests.Session, url: str, config: dict
     ) -> Iterator[dict]:
         """Возвращает генератор страниц."""
 
@@ -437,10 +423,7 @@ class PaginationHandler:
             yield from self._paginate_by_offset(session, url, config)
 
     def _paginate_by_page(
-        self,
-        session: requests.Session,
-        url: str,
-        config: dict
+        self, session: requests.Session, url: str, config: dict
     ) -> Iterator[dict]:
         """Пагинация по номеру страницы."""
         page = 1
@@ -466,10 +449,7 @@ class PaginationHandler:
             page += 1
 
     def _paginate_by_cursor(
-        self,
-        session: requests.Session,
-        url: str,
-        config: dict
+        self, session: requests.Session, url: str, config: dict
     ) -> Iterator[dict]:
         """Пагинация по cursor token."""
         cursor: str | None = config.get("initial_cursor")
@@ -491,10 +471,7 @@ class PaginationHandler:
             cursor = data.get(config.get("next_cursor_key", "next_cursor"))
 
     def _paginate_by_offset(
-        self,
-        session: requests.Session,
-        url: str,
-        config: dict
+        self, session: requests.Session, url: str, config: dict
     ) -> Iterator[dict]:
         """Пагинация по offset/limit."""
         offset = config.get("offset_start", 0)
@@ -547,13 +524,11 @@ class PaginationHandler:
             return len(items) == config.get("limit", 100)
 
         return False
-
 ```
 
 ## Основной класс: UnifiedAPIClient
 
 ```python
-
 class UnifiedAPIClient:
     """Универсальный API клиент."""
 
@@ -562,32 +537,35 @@ class UnifiedAPIClient:
 
         # Инициализация подсистем
 
-        self.cache = TTLCache(
-            maxsize=config.cache_maxsize,
-            ttl=config.cache_ttl
-        ) if config.cache_enabled else None
+        self.cache = (
+            TTLCache(maxsize=config.cache_maxsize, ttl=config.cache_ttl)
+            if config.cache_enabled
+            else None
+        )
 
         self.circuit_breaker = CircuitBreaker(
             name=config.name,
             failure_threshold=config.cb_failure_threshold,
-            timeout=config.cb_timeout
+            timeout=config.cb_timeout,
         )
 
         self.rate_limiter = TokenBucketLimiter(
             max_calls=config.rate_limit_max_calls,
             period=config.rate_limit_period,
-            jitter=config.rate_limit_jitter
+            jitter=config.rate_limit_jitter,
         )
 
         self.retry_policy = RetryPolicy(
             total=config.retry_total,
             backoff_factor=config.retry_backoff_factor,
-            giveup_on=config.retry_giveup_on
+            giveup_on=config.retry_giveup_on,
         )
 
-        self.fallback_manager = FallbackManager(
-            strategies=config.fallback_strategies
-        ) if config.fallback_enabled else None
+        self.fallback_manager = (
+            FallbackManager(strategies=config.fallback_strategies)
+            if config.fallback_enabled
+            else None
+        )
 
         self.parser = ResponseParser()
 
@@ -596,12 +574,7 @@ class UnifiedAPIClient:
         self.session = requests.Session()
         self.session.headers.update(config.headers)
 
-    def request(
-        self,
-        method: str,
-        endpoint: str,
-        **kwargs
-    ) -> dict:
+    def request(self, method: str, endpoint: str, **kwargs) -> dict:
         """Выполняет HTTP запрос."""
 
         # Circuit breaker + Retry
@@ -624,7 +597,7 @@ class UnifiedAPIClient:
 
             if response.status_code == 429:  # Rate limit
 
-                retry_after = response.headers.get('Retry-After')
+                retry_after = response.headers.get("Retry-After")
                 if retry_after:
                     wait_time = min(int(retry_after), 60)
                     logger.warning(
@@ -632,7 +605,7 @@ class UnifiedAPIClient:
                         code=429,
                         retry_after=wait_time,
                         attempt=attempt,
-                        endpoint=endpoint
+                        endpoint=endpoint,
                     )
                     time.sleep(wait_time)
                 raise RateLimitError("Rate limited")
@@ -652,12 +625,11 @@ class UnifiedAPIClient:
 
                 if self.retry_policy.should_giveup(e, attempt):
 
-# Fallback (continued 1)
+                    # Fallback (continued 1)
 
                     if self.fallback_manager:
                         return self.fallback_manager.execute_with_fallback(
                             lambda: None  # Уже провалилось
-
                         )
                     raise
 
@@ -665,7 +637,6 @@ class UnifiedAPIClient:
 
                 wait_time = self.retry_policy.get_wait_time(attempt)
                 time.sleep(wait_time)
-
 ```
 
 ### Cache policy
@@ -674,19 +645,22 @@ UnifiedAPIClient разделяет ответственность кэширо�
 
 1. **In-memory TTLCache** — run-scoped. Очищается при завершении пайплайна.
 
-2. **Persistent cache** — release-scoped. Ключи include `chembl_release`/`pipeline_version`.
+1. **Persistent cache** — release-scoped. Ключи include
+   `chembl_release`/`pipeline_version`.
 
 ```python
-
 def _cache_key(self, endpoint: str, params: dict) -> str:
     """Формирует release-scoped ключ."""
-    release = params.get("chembl_release") or self.config.headers.get("X-Source-Release")
+    release = params.get("chembl_release") or self.config.headers.get(
+        "X-Source-Release"
+    )
     payload = {
         "endpoint": endpoint,
         "params": params,
         "release": release,
     }
     return canonical_hash(payload)
+
 
 def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
     """Выполняет запрос с warm-up и инвалидацией."""
@@ -702,20 +676,24 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
         self.cache[key] = response
 
     return response
-
 ```
 
-**Warm-up:** допускается прогрев популярных ключей при старте (например, `status` endpoints).
+**Warm-up:** допускается прогрев популярных ключей при старте (например,
+`status` endpoints).
 
 **Invalidation:**
 
-- При смене `chembl_release`/`pipeline_version` сбрасываем persistent cache (новый namespace).
+- При смене `chembl_release`/`pipeline_version` сбрасываем persistent cache
+  (новый namespace).
 
-- Принудительное очищение через CLI флаг `--cache-clear` добавляет `run_id` в namespace.
+- Принудительное очищение через CLI флаг `--cache-clear` добавляет `run_id` в
+  namespace.
 
-**TTL ответственность:** значения TTL читаются из `config.cache_ttl`; истёкший ключ удаляется при обращении. Для критичных
+**TTL ответственность:** значения TTL читаются из `config.cache_ttl`; истёкший
+ключ удаляется при обращении. Для критичных
 
-источников (ChEMBL activities) дополнительно проверяем release-маркер и drop cache, если API вернул новый `release`.
+источников (ChEMBL activities) дополнительно проверяем release-маркер и drop
+cache, если API вернул новый `release`.
 
 ```python
 
@@ -757,7 +735,6 @@ def get_with_cache(self, endpoint: str, *, params: dict | None = None) -> dict:
 ### ChEMBL
 
 ```python
-
 chembl_config = APIConfig(
     name="chembl",
     base_url="<https://www.ebi.ac.uk/chembl/api/data>",
@@ -768,15 +745,13 @@ chembl_config = APIConfig(
     rate_limit_max_calls=20,
     rate_limit_period=1.0,
     timeout_connect=5.0,
-    timeout_read=90.0
+    timeout_read=90.0,
 )
-
 ```
 
 ### PubMed
 
 ```python
-
 pubmed_config = APIConfig(
     name="pubmed",
     base_url="<https://eutils.ncbi.nlm.nih.gov/entrez/eutils>",
@@ -785,81 +760,69 @@ pubmed_config = APIConfig(
     retry_total=10,
     retry_backoff_factor=3.0,
     timeout_read=60.0,
-    fallback_strategies=["timeout", "5xx"]
+    fallback_strategies=["timeout", "5xx"],
 )
-
 ```
 
 ### Semantic Scholar
 
 ```python
-
 semantic_scholar_config = APIConfig(
     name="semantic_scholar",
     base_url="<https://api.semanticscholar.org/graph/v1/paper>",
     headers={"x-api-key": "{API_KEY}"},
     rate_limit_max_calls=1,
     rate_limit_period=10.0,  # Консервативно: 1 запрос в 10 сек
-
     retry_total=15,
     retry_backoff_factor=5.0,
-    timeout_read=60.0
+    timeout_read=60.0,
 )
-
 ```
 
 ### PubChem
 
 ```python
-
 pubchem_config = APIConfig(
     name="pubchem",
     base_url="<https://pubchem.ncbi.nlm.nih.gov/rest/pug>",
     cache_enabled=True,
     cache_ttl=7200,  # 2 часа
-
     rate_limit_max_calls=5,
     rate_limit_period=1.0,
     timeout_connect=10.0,
-    timeout_read=30.0
+    timeout_read=30.0,
 )
-
 ```
 
 ### UniProt
 
 ```python
-
 uniprot_config = APIConfig(
     name="uniprot",
     base_url="<https://rest.uniprot.org>",
     cache_enabled=True,
     cache_ttl=3600,
     timeout_connect=10.0,
-    timeout_read=30.0
+    timeout_read=30.0,
 )
-
 ```
 
 ### IUPHAR
 
 ```python
-
 iuphar_config = APIConfig(
     name="iuphar",
     base_url="<https://www.guidetopharmacology.org/DATA>",
     cache_enabled=True,
     cache_ttl=3600,
     rate_limit_max_calls=10,
-    rate_limit_period=1.0
+    rate_limit_period=1.0,
 )
-
 ```
 
 ## Использование
 
 ```python
-
 from unified_client import UnifiedAPIClient, APIConfig
 
 # Создание клиента
@@ -867,7 +830,7 @@ from unified_client import UnifiedAPIClient, APIConfig
 config = APIConfig(
     name="chembl",
     base_url="<https://www.ebi.ac.uk/chembl/api/data>",
-    cache_enabled=True
+    cache_enabled=True,
 )
 client = UnifiedAPIClient(config)
 
@@ -878,7 +841,6 @@ data = client.get("molecule/CHEMBL25.json")
 # С параметрами
 
 data = client.get("molecule", params={"molecule_chembl_id__in": "CHEMBL25,CHEMBL26"})
-
 ```
 
 ## Error Model
@@ -888,43 +850,52 @@ data = client.get("molecule", params={"molecule_chembl_id__in": "CHEMBL25,CHEMBL
 ### Классы ошибок
 
 ```python
-
 class APIError(Exception):
     """Базовый класс для ошибок API."""
+
     pass
+
 
 class ClientError(APIError):
     """Ошибка клиента (4xx): неправильный запрос."""
+
     def __init__(self, code: int, message: str, endpoint: str):
         self.code = code
         self.message = message
         self.endpoint = endpoint
+
 
 class ServerError(APIError):
     """Ошибка сервера (5xx): временная проблема."""
+
     def __init__(self, code: int, message: str, endpoint: str):
         self.code = code
         self.message = message
         self.endpoint = endpoint
 
+
 class RateLimited(APIError):
     """Превышен лимит запросов (429)."""
+
     def __init__(self, retry_after: int | None = None):
         self.retry_after = retry_after
 
+
 class RetryExhausted(APIError):
     """Исчерпаны все попытки повтора."""
+
     def __init__(self, attempt: int, last_error: Exception):
         self.attempt = attempt
         self.last_error = last_error
 
+
 class PartialFailure(APIError):
     """Частичный сбой: получены не все данные."""
+
     def __init__(self, received: int, expected: int, page_state: str | None):
         self.received = received
         self.expected = expected
         self.page_state = page_state
-
 ```
 
 ### Поля события
@@ -945,36 +916,40 @@ class PartialFailure(APIError):
 
 ### Таблица реакций пайплайна
 
-| Код | Класс | Действие | Retry | Fallback |
-|-----|-------|----------|-------|----------|
-| 400 | ClientError | Fail-fast | Нет | Нет |
-| 401 | ClientError | Fail-fast | Нет | Нет |
-| 403 | ClientError | Fail-fast | Нет | Нет |
-| 404 | ClientError | Fail-fast | Нет | Нет |
-| 429 | RateLimited | Wait + retry | Да | Да |
+| Код | Класс       | Действие     | Retry | Fallback |
+| --- | ----------- | ------------ | ----- | -------- |
+| 400 | ClientError | Fail-fast    | Нет   | Нет      |
+| 401 | ClientError | Fail-fast    | Нет   | Нет      |
+| 403 | ClientError | Fail-fast    | Нет   | Нет      |
+| 404 | ClientError | Fail-fast    | Нет   | Нет      |
+| 429 | RateLimited | Wait + retry | Да    | Да       |
 
-| 500 | ServerError | Retry с backoff | Да | Да |
-| 502 | ServerError | Retry с backoff | Да | Да |
-| 503 | ServerError | Retry с backoff | Да | Да |
-| Partial | PartialFailure | Log + requeue | Да | Да |
+| 500 | ServerError | Retry с backoff | Да | Да | | 502 | ServerError | Retry с
+backoff | Да | Да | | 503 | ServerError | Retry с backoff | Да | Да | | Partial
+| PartialFailure | Log + requeue | Да | Да |
 
 ### Протокол повторной постановки (requeue) для PartialFailure
 
-**Цель:** гарантировать дочитывание недополученных страниц без нарушения детерминизма.
+**Цель:** гарантировать дочитывание недополученных страниц без нарушения
+детерминизма.
 
 **Шаги протокола:**
 
-1. При выбросе `PartialFailure` сохраняем `endpoint`, `page_state`, `expected` и `received` в run-scoped `retry_queue`.
-2. После основной пагинации обрабатываем `retry_queue` FIFO, повторно вызывая `request()` с оригинальным `page_state`.
-3. Ограничиваем `max_partial_retries` (конфиг `http.global.partial_retries.max`, по умолчанию 3) для защиты от бесконечных циклов.
-4. Логи повторов включают `run_id`, `page_state`, `attempt` и `retry_origin="partial_requeue"`.
+1. При выбросе `PartialFailure` сохраняем `endpoint`, `page_state`, `expected` и
+   `received` в run-scoped `retry_queue`.
+1. После основной пагинации обрабатываем `retry_queue` FIFO, повторно вызывая
+   `request()` с оригинальным `page_state`.
+1. Ограничиваем `max_partial_retries` (конфиг `http.global.partial_retries.max`,
+   по умолчанию 3) для защиты от бесконечных циклов.
+1. Логи повторов включают `run_id`, `page_state`, `attempt` и
+   `retry_origin="partial_requeue"`.
 
 ```python
-
 from collections import deque
 from dataclasses import dataclass
 
 retry_queue: deque[RetryWorkItem] = deque()
+
 
 @dataclass
 class RetryWorkItem:
@@ -982,9 +957,11 @@ class RetryWorkItem:
     params: dict
     attempt: int = 0
 
+
 def requeue_partial(endpoint: str, params: dict) -> None:
     """Помещает PartialFailure в очередь повторной обработки."""
     retry_queue.append(RetryWorkItem(endpoint=endpoint, params=params.copy()))
+
 
 def drain_partial_queue(client: UnifiedAPIClient) -> None:
     """Обрабатывает очередь частичных сбоев FIFO."""
@@ -992,22 +969,21 @@ def drain_partial_queue(client: UnifiedAPIClient) -> None:
         item = retry_queue.popleft()
         if item.attempt >= config.http["global"].partial_retries["max"]:
             raise RetryExhausted(
-                item.attempt,
-                PartialFailure(0, 0, item.params.get("page_state"))
+                item.attempt, PartialFailure(0, 0, item.params.get("page_state"))
             )
         client.logger.info(
             "partial_requeue_retry",
             endpoint=item.endpoint,
             page_state=item.params.get("page_state"),
             attempt=item.attempt + 1,
-            retry_origin="partial_requeue"
+            retry_origin="partial_requeue",
         )
         client.request("GET", item.endpoint, params=item.params)
         item.attempt += 1
-
 ```
 
-**Примечание:** `params` обязан содержать исходный `page_state`, чтобы соблюсти контракт идемпотентности.
+**Примечание:** `params` обязан содержать исходный `page_state`, чтобы соблюсти
+контракт идемпотентности.
 
 **Конфигурация:**
 
@@ -1021,7 +997,9 @@ http:
 
 ```
 
-**Обоснование:** Предотвращает потерю данных при частичных сбоях пагинации, формализует недостающий контракт обработки ошибок, закрывает риск R3 из gap-анализа.
+**Обоснование:** Предотвращает потерю данных при частичных сбоях пагинации,
+формализует недостающий контракт обработки ошибок, закрывает риск R3 из
+gap-анализа.
 
 ### Примеры логов
 
@@ -1051,19 +1029,22 @@ http:
 
 Все ChEMBL pipelines поддерживают два режима извлечения:
 
-1. **Full pagination** (по умолчанию): извлечение всех записей через пагинацию без фильтров
-2. **Batch IDs** (опционально): извлечение по списку ID из входного файла через `--input-file`
+1. **Full pagination** (по умолчанию): извлечение всех записей через пагинацию
+   без фильтров
+1. **Batch IDs** (опционально): извлечение по списку ID из входного файла через
+   `--input-file`
 
-| Pipeline | Стратегия | Параметр | Batch Size | URL Limit | Endpoint |
-|----------|-----------|----------|------------|-----------|----------|
-| Assay | Full / Batch IDs | `assay_chembl_id__in` (batch) | 25 | 2000 | `/assay.json` |
-| Testitem | Full / Batch IDs | `molecule_chembl_id__in` (batch) | 25 | 2000 | `/molecule.json` |
-| Activity | Full / Batch IDs | `activity_id__in` (batch) | 25 | 2000 | `/activity.json` |
-| Target | Full / Batch IDs | `target_chembl_id__in` (batch) | 25 | 2000 | `/target.json` |
+| Pipeline | Стратегия        | Параметр                         | Batch Size | URL Limit | Endpoint         |
+| -------- | ---------------- | -------------------------------- | ---------- | --------- | ---------------- |
+| Assay    | Full / Batch IDs | `assay_chembl_id__in` (batch)    | 25         | 2000      | `/assay.json`    |
+| Testitem | Full / Batch IDs | `molecule_chembl_id__in` (batch) | 25         | 2000      | `/molecule.json` |
+| Activity | Full / Batch IDs | `activity_id__in` (batch)        | 25         | 2000      | `/activity.json` |
+| Target   | Full / Batch IDs | `target_chembl_id__in` (batch)   | 25         | 2000      | `/target.json`   |
 
 **Режим извлечения определяется автоматически:**
 
-- Если указан `--input-file` с колонкой ID (например, `assay_chembl_id`, `activity_id`, `molecule_chembl_id`), используется batch extraction
+- Если указан `--input-file` с колонкой ID (например, `assay_chembl_id`,
+  `activity_id`, `molecule_chembl_id`), используется batch extraction
 - Если `--input-file` не указан, используется full pagination всех записей
 
 **Общие стратегии для других API:**
@@ -1071,48 +1052,41 @@ http:
 #### Page + Limit
 
 ```python
-
 params = {"page": 1, "limit": 100}
 
 # Ответ: {"items": [...], "page": 1, "total_pages": 10}
-
 ```
 
 #### Cursor
 
 ```python
-
 params = {"cursor": "abc123", "limit": 100}
 
 # Ответ: {"items": [...], "next_cursor": "def456", "has_more": true}
-
 ```
 
 #### Offset + Limit
 
 ```python
-
 params = {"offset": 0, "limit": 100}
 
 # Ответ: {"items": [...], "offset": 100, "total": 1000}
-
 ```
 
 ### Сигналы завершения
 
-| Стратегия | Сигнал завершения |
-|-----------|-------------------|
+| Стратегия    | Сигнал завершения                   |
+| ------------ | ----------------------------------- |
 | Page + Limit | `items=[]` или `page > total_pages` |
 
-| Cursor | `items=[]` или `next_cursor=null` или `has_more=false` |
-| Offset + Limit | `received < limit` или `offset >= total` |
+| Cursor | `items=[]` или `next_cursor=null` или `has_more=false` | | Offset +
+Limit | `received < limit` или `offset >= total` |
 
 ### Контракт идемпотентности
 
 Одинаковый `page_state` → идентичный набор данных.
 
 ```python
-
 # Запрос 1
 
 params = {"page": 5}
@@ -1125,7 +1099,6 @@ params = {"page": 5}  # Тот же page_state
 response2 = api.get("/data", params=params)
 
 assert response1.items == response2.items  # Идемпотентность
-
 ```
 
 Нарушения идемпотентности:
@@ -1138,19 +1111,21 @@ assert response1.items == response2.items  # Идемпотентность
 
 ### Запрет смешивания стратегий
 
-**Критическое правило:** Каждый запрос использует **только одну** стратегию пагинации.
+**Критическое правило:** Каждый запрос использует **только одну** стратегию
+пагинации.
 
-**⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на поддержку batch IDs стратегии.
+**⚠️ Breaking Change (v3.0):** Все ChEMBL pipelines унифицированы на поддержку
+batch IDs стратегии.
 
 **Режимы работы:**
 
 - **Full mode** (по умолчанию): пагинация всех записей без входного файла
-- **Batch mode** (опционально): batch extraction по списку ID из входного файла (`--input-file`)
+- **Batch mode** (опционально): batch extraction по списку ID из входного файла
+  (`--input-file`)
 
 **Недопустимо:**
 
 ```python
-
 # Смешивание page и cursor
 
 params = {"page": 1, "cursor": "abc123"}  # Ошибка! Непредсказуемое поведение
@@ -1162,13 +1137,11 @@ params = {"offset": 100, "cursor": "abc123"}  # Ошибка!
 # Смешивание batch IDs с другими стратегиями пагинации
 
 params = {"assay_chembl_id__in": "CHEMBL1,CHEMBL2", "offset": 0}  # Ошибка!
-
 ```
 
 **Допустимо (унифицированная стратегия для ChEMBL):**
 
 ```python
-
 # Batch IDs для всех ChEMBL pipelines
 
 params = {"activity_id__in": "123,456,789"}  # Activity
@@ -1186,27 +1159,22 @@ params = {"cursor": "abc123", "limit": 100}  # Только cursor
 # Однозначная стратегия - только page
 
 params = {"page": 1, "limit": 100}  # Только page
-
 ```
 
 **Валидация стратегии:**
 
 ```python
-
 def validate_pagination_params(params: dict) -> None:
     """Валидирует, что используется только одна стратегия."""
-    strategies = sum([
-        "offset" in params,
-        "page" in params,
-        "cursor" in params
-    ])
+    strategies = sum(["offset" in params, "page" in params, "cursor" in params])
 
     if strategies > 1:
         raise ValueError(f"Multiple pagination strategies detected: {params}")
-
 ```
 
-**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md) и [Activity Pipeline](activity-chembl/09-activity-chembl-extraction.md).
+**См. также**: Детали реализации см. в
+[Pipeline Contract](../etl_contract/01-pipeline-contract.md) и
+[Activity Pipeline](activity-chembl/09-activity-chembl-extraction.md).
 
 ### TTL курсора
 
@@ -1222,26 +1190,27 @@ TTL курсора — ответственность внешнего API. Unif
 
 ### Контракт Retry-After (инвариант)
 
-**Обязательное требование**: Respect Retry-After обязателен; ожидание не меньше указанного; ретраи на 4xx запрещены (кроме 429); circuit-breaker обязателен.
+**Обязательное требование**: Respect Retry-After обязателен; ожидание не меньше
+указанного; ретраи на 4xx запрещены (кроме 429); circuit-breaker обязателен.
 
 **Протокол для 429**:
 
 ```python
-
 if response.status_code == 429:
-    retry_after = response.headers.get('Retry-After')
+    retry_after = response.headers.get("Retry-After")
     if retry_after:
         wait = min(int(retry_after), 60)  # Cap at 60s
 
-        logger.warning("Rate limited by API",
-                      code=429,
-                      retry_after=wait,
-                      endpoint=endpoint,
-                      attempt=attempt,
-                      run_id=context.run_id)
+        logger.warning(
+            "Rate limited by API",
+            code=429,
+            retry_after=wait,
+            endpoint=endpoint,
+            attempt=attempt,
+            run_id=context.run_id,
+        )
         time.sleep(wait)
     raise RateLimitError("Rate limited")
-
 ```
 
 **Политика ретраев**:
@@ -1254,7 +1223,8 @@ if response.status_code == 429:
 
 - 5xx: exponential backoff, retry
 
-**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md).
+**См. также**: Детали реализации см. в
+[Pipeline Contract](../etl_contract/01-pipeline-contract.md).
 
 ## Acceptance Criteria
 
@@ -1267,11 +1237,10 @@ if response.status_code == 429:
 **Тест:**
 
 ```python
-
 # Mock 429 ответа с Retry-After: 7
 
 response.status_code = 429
-response.headers['Retry-After'] = '7'
+response.headers["Retry-After"] = "7"
 
 # Запрос
 
@@ -1284,7 +1253,6 @@ result = client.get("/api/data", params={"limit": 100})
 assert "Rate limited by API" in log_output
 assert "retry_after=7" in log_output
 assert "attempt=1" in log_output
-
 ```
 
 **Порог:** Время ожидания >= указанному Retry-After.
@@ -1296,7 +1264,6 @@ assert "attempt=1" in log_output
 **Тест:**
 
 ```python
-
 # Mock 400 ответа
 
 response.status_code = 400
@@ -1312,7 +1279,6 @@ except Exception:
 
 assert attempt == 1
 assert "Client error, giving up" in log_output
-
 ```
 
 **Порог:** Нет ретраев на 4xx (кроме 429).
@@ -1321,20 +1287,22 @@ assert "Client error, giving up" in log_output
 
 1. **Включайте кэш для тяжелых API**: ChEMBL, PubChem, UniProt
 
-2. **Настройте rate limits строго**: следование лимитам API
+1. **Настройте rate limits строго**: следование лимитам API
 
-3. **Используйте circuit breaker**: для production окружений
+1. **Используйте circuit breaker**: для production окружений
 
-4. **Настраивайте fallback**: для критичных пайплайнов
+1. **Настраивайте fallback**: для критичных пайплайнов
 
-5. **Мониторьте timeout**: разные API имеют разные требования
+1. **Мониторьте timeout**: разные API имеют разные требования
 
-6. **Логируйте все запросы**: для отладки и аудита
+1. **Логируйте все запросы**: для отладки и аудита
 
-7. **Используйте POST override для длинных URL**: автоматически при превышении max_url_length
+1. **Используйте POST override для длинных URL**: автоматически при превышении
+   max_url_length
 
-8. **Не смешивайте стратегии пагинации**: только offset, или только cursor, или только page
+1. **Не смешивайте стратегии пагинации**: только offset, или только cursor, или
+   только page
 
----
+______________________________________________________________________
 
 **Следующий раздел**: [Validation](../etl_contract/05-validation.md)

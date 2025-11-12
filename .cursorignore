@@ -14,7 +14,7 @@ data/output/
 data/silver/
 data/gold/
 *.parquet
-*.csv
+# *.csv
 *.xlsx
 *.xlsm
 

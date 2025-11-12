@@ -1,12 +1,11 @@
 # 18 Activity ChEMBL Field Mapping
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-Исчерпывающее описание правил заполнения таблицы активностей в пайплайне активностей. Для каждого поля описано:
+Исчерпывающее описание правил заполнения таблицы активностей в пайплайне
+активностей. Для каждого поля описано:
 
 - Как запрашиваются данные из ChEMBL API
 - Как нормализуются значения
@@ -24,8 +23,8 @@
 ### Этапы обработки
 
 1. **Extract**: извлечение сырых данных из ChEMBL API
-2. **Transform**: нормализация и обогащение данных
-3. **Validate**: валидация по Pandera схеме
+1. **Transform**: нормализация и обогащение данных
+1. **Validate**: валидация по Pandera схеме
 
 ## Описание полей
 
@@ -48,7 +47,7 @@
 - Тип: `int64`, не nullable, `>= 1`, уникальное
 - Проверка уникальности перед валидацией схемы
 
----
+______________________________________________________________________
 
 ### 2. row_subtype
 
@@ -65,7 +64,7 @@
 - Тип: `string`, не nullable
 - Значение: `"activity"`
 
----
+______________________________________________________________________
 
 ### 3. row_index
 
@@ -83,7 +82,7 @@
 - Тип: `Int64`, не nullable
 - Последовательные значения от 0
 
----
+______________________________________________________________________
 
 ### 4. assay_chembl_id
 
@@ -105,7 +104,7 @@
 - Формат: `CHEMBL\d+` (regex)
 - Проверка foreign key integrity
 
----
+______________________________________________________________________
 
 ### 5. assay_type
 
@@ -125,7 +124,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 6. assay_description
 
@@ -145,19 +144,20 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 7. assay_organism
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`assay_organism`)
-2. Обогащение через `/assay.json` (если включено)
+1. Обогащение через `/assay.json` (если включено)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Обогащение: через `enrich_with_assay()` → `/assay.json` с полями `assay_organism`, `assay_tax_id`
+- Обогащение: через `enrich_with_assay()` → `/assay.json` с полями
+  `assay_organism`, `assay_tax_id`
 
 **Нормализация:**
 
@@ -170,19 +170,20 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 8. assay_tax_id
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`assay_tax_id`)
-2. Обогащение через `/assay.json` (если включено)
+1. Обогащение через `/assay.json` (если включено)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Обогащение: через `enrich_with_assay()` → `/assay.json` с полями `assay_organism`, `assay_tax_id`
+- Обогащение: через `enrich_with_assay()` → `/assay.json` с полями
+  `assay_organism`, `assay_tax_id`
 
 **Нормализация:**
 
@@ -194,7 +195,7 @@
 
 - Тип: `Int64`, nullable, `>= 1`
 
----
+______________________________________________________________________
 
 ### 9. testitem_chembl_id
 
@@ -218,7 +219,7 @@
 - Проверка foreign key integrity
 - Проверка соответствия с `molecule_chembl_id` (warning при несоответствии)
 
----
+______________________________________________________________________
 
 ### 10. molecule_chembl_id
 
@@ -240,7 +241,7 @@
 - Формат: `CHEMBL\d+` (regex)
 - Проверка foreign key integrity
 
----
+______________________________________________________________________
 
 ### 11. parent_molecule_chembl_id
 
@@ -262,14 +263,15 @@
 - Формат: `CHEMBL\d+` (regex, если не NULL)
 - Проверка foreign key integrity
 
----
+______________________________________________________________________
 
 ### 12. molecule_pref_name
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`molecule_pref_name`)
-2. Вложенный объект `molecule.pref_name` (извлекается в `_extract_nested_fields()`)
+1. Вложенный объект `molecule.pref_name` (извлекается в
+   `_extract_nested_fields()`)
 
 **Запрос:**
 
@@ -286,7 +288,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 13. target_chembl_id
 
@@ -308,7 +310,7 @@
 - Формат: `CHEMBL\d+` (regex, если не NULL)
 - Проверка foreign key integrity
 
----
+______________________________________________________________________
 
 ### 14. target_pref_name
 
@@ -328,7 +330,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 15. document_chembl_id
 
@@ -350,7 +352,7 @@
 - Формат: `CHEMBL\d+` (regex, если не NULL)
 - Проверка foreign key integrity
 
----
+______________________________________________________________________
 
 ### 16. record_id
 
@@ -370,7 +372,7 @@
 
 - Тип: `Int64`, nullable, `>= 1`
 
----
+______________________________________________________________________
 
 ### 17. src_id
 
@@ -390,7 +392,7 @@
 
 - Тип: `Int64`, nullable, `>= 1`
 
----
+______________________________________________________________________
 
 ### 18. type
 
@@ -410,7 +412,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 19. relation
 
@@ -423,7 +425,9 @@
 **Нормализация:**
 
 - Trim пробелов: `.str.strip()`
+
 - Замена Unicode символов на ASCII:
+
   - `≤` → `<=`
 
   - `≥` → `>=`
@@ -431,6 +435,7 @@
   - `≠` → `~`
 
 - Валидация по whitelist: `{"=", ">", "<", ">=", "<=", "~"}`
+
 - Невалидные значения → `None`
 
 **Валидация:**
@@ -438,7 +443,7 @@
 - Тип: `string`, nullable
 - Допустимые значения: `{"=", ">", "<", ">=", "<=", "~"}`
 
----
+______________________________________________________________________
 
 ### 20. value
 
@@ -458,7 +463,7 @@
 - Тип: `object`, nullable
 - Может содержать числа или строки
 
----
+______________________________________________________________________
 
 ### 21. units
 
@@ -478,7 +483,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 22. standard_type
 
@@ -491,15 +496,17 @@
 **Нормализация:**
 
 - Trim пробелов: `.str.strip()`
-- Валидация по whitelist: `{"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}`
+- Валидация по whitelist:
+  `{"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}`
 - Невалидные значения → `None`
 
 **Валидация:**
 
 - Тип: `string`, nullable
-- Допустимые значения: `{"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}`
+- Допустимые значения:
+  `{"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}`
 
----
+______________________________________________________________________
 
 ### 23. standard_relation
 
@@ -512,7 +519,9 @@
 **Нормализация:**
 
 - Trim пробелов: `.str.strip()`
+
 - Замена Unicode символов на ASCII:
+
   - `≤` → `<=`
 
   - `≥` → `>=`
@@ -520,6 +529,7 @@
   - `≠` → `~`
 
 - Валидация по whitelist: `{"=", ">", "<", ">=", "<=", "~"}`
+
 - Невалидные значения → `None`
 
 **Валидация:**
@@ -527,7 +537,7 @@
 - Тип: `string`, nullable
 - Допустимые значения: `{"=", ">", "<", ">=", "<=", "~"}`
 
----
+______________________________________________________________________
 
 ### 24. standard_value
 
@@ -541,7 +551,8 @@
 
 - Преобразование в строку: `.astype(str).str.strip()`
 - Удаление пробелов и запятых: `.str.replace(r"[,\s]", "", regex=True)`
-- Извлечение первого числового значения из диапазонов: `.str.extract(r"([+-]?\d*\.?\d+)", expand=False)`
+- Извлечение первого числового значения из диапазонов:
+  `.str.extract(r"([+-]?\d*\.?\d+)", expand=False)`
 - Приведение к числовому типу: `pd.to_numeric(..., errors="coerce")`
 - Отрицательные значения → `None` (должно быть `>= 0`)
 - Приведение к `float64`
@@ -550,25 +561,28 @@
 
 - Тип: `float64`, nullable, `>= 0`
 
----
+______________________________________________________________________
 
 ### 25. standard_upper_value
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`standard_upper_value`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
 - Преобразование в строку: `.astype(str).str.strip()`
 - Удаление пробелов и запятых: `.str.replace(r"[,\s]", "", regex=True)`
-- Извлечение первого числового значения: `.str.extract(r"([+-]?\d*\.?\d+)", expand=False)`
+- Извлечение первого числового значения:
+  `.str.extract(r"([+-]?\d*\.?\d+)", expand=False)`
 - Приведение к числовому типу: `pd.to_numeric(..., errors="coerce")`
 - Отрицательные значения → `None` (должно быть `>= 0`)
 - Приведение к `float64`
@@ -577,7 +591,7 @@
 
 - Тип: `float64`, nullable, `>= 0`
 
----
+______________________________________________________________________
 
 ### 26. standard_units
 
@@ -590,7 +604,9 @@
 **Нормализация:**
 
 - Trim пробелов: `.str.strip()`
+
 - Нормализация синонимов единиц измерения:
+
   - `nanomolar`, `nmol`, `nm`, `NM` → `nM`
 
   - `µM`, `uM`, `UM`, `micromolar`, `microM`, `umol` → `μM`
@@ -607,19 +623,21 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 27. standard_text_value
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`standard_text_value`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
@@ -631,7 +649,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 28. standard_flag
 
@@ -652,19 +670,21 @@
 - Тип: `Int64`, nullable
 - Допустимые значения: `{0, 1}`
 
----
+______________________________________________________________________
 
 ### 29. upper_value
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`upper_value`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
@@ -676,19 +696,21 @@
 
 - Тип: `float64`, nullable, `>= 0`
 
----
+______________________________________________________________________
 
 ### 30. lower_value
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`lower_value`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
@@ -700,7 +722,7 @@
 
 - Тип: `float64`, nullable, `>= 0`
 
----
+______________________________________________________________________
 
 ### 31. pchembl_value
 
@@ -720,7 +742,7 @@
 
 - Тип: `float64`, nullable, `>= 0`
 
----
+______________________________________________________________________
 
 ### 32. uo_units
 
@@ -740,7 +762,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 33. qudt_units
 
@@ -760,19 +782,21 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 34. text_value
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`text_value`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
@@ -784,19 +808,21 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 35. activity_comment
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`activity_comment`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
 
 **Нормализация:**
 
@@ -808,7 +834,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 36. bao_endpoint
 
@@ -829,7 +855,7 @@
 - Тип: `string`, nullable
 - Формат: `BAO_\d{7}` (regex, если не NULL)
 
----
+______________________________________________________________________
 
 ### 37. bao_format
 
@@ -850,7 +876,7 @@
 - Тип: `string`, nullable
 - Формат: `BAO_\d{7}` (regex, если не NULL)
 
----
+______________________________________________________________________
 
 ### 38. bao_label
 
@@ -872,7 +898,7 @@
 - Тип: `string`, nullable
 - Максимальная длина: 128 символов
 
----
+______________________________________________________________________
 
 ### 39. canonical_smiles
 
@@ -892,7 +918,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 40. ligand_efficiency
 
@@ -904,7 +930,8 @@
 
 **Нормализация:**
 
-- Сериализация в JSON строку: `json.dumps(..., ensure_ascii=False, sort_keys=True)`
+- Сериализация в JSON строку:
+  `json.dumps(..., ensure_ascii=False, sort_keys=True)`
 - Если не сериализуется → `None`
 - Приведение к типу `object` (string)
 
@@ -912,7 +939,7 @@
 
 - Тип: `string` (nullable), должен быть валидным JSON
 
----
+______________________________________________________________________
 
 ### 41. target_organism
 
@@ -933,7 +960,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 42. target_tax_id
 
@@ -953,21 +980,25 @@
 
 - Тип: `Int64`, nullable, `>= 1`
 
----
+______________________________________________________________________
 
 ### 43. data_validity_comment
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`data_validity_comment`)
-2. Из массива `activity_properties` (fallback, если отсутствует в основном ответе)
+1. Из массива `activity_properties` (fallback, если отсутствует в основном
+   ответе)
 
 **Запрос:**
 
 - Прямое поле: из `/activity.json`
-- Fallback: из `activity_properties` (извлекается в `_extract_activity_properties_fields()`)
-  - Ищет элементы с `type == "data_validity"` и наличием хотя бы одного из: `text_value` или `value`
-  - При извлечении: использует `text_value` если он есть и не пустой, иначе `value`
+- Fallback: из `activity_properties` (извлекается в
+  `_extract_activity_properties_fields()`)
+  - Ищет элементы с `type == "data_validity"` и наличием хотя бы одного из:
+    `text_value` или `value`
+  - При извлечении: использует `text_value` если он есть и не пустой, иначе
+    `value`
   - Приоритет элементов с `result_flag == 1`
 
 **Нормализация:**
@@ -979,9 +1010,10 @@
 **Валидация:**
 
 - Тип: `string`, nullable
-- Soft enum: проверка по whitelist из конфига (warning при несоответствии, не блокирует валидацию)
+- Soft enum: проверка по whitelist из конфига (warning при несоответствии, не
+  блокирует валидацию)
 
----
+______________________________________________________________________
 
 ### 44. data_validity_description
 
@@ -999,14 +1031,16 @@
 - Trim пробелов: `.str.strip()`
 - Пустые строки → `None`
 - Приведение к типу `string`
-- Проверка инварианта: `data_validity_description` не должно быть заполнено при `data_validity_comment = NULL` (warning)
+- Проверка инварианта: `data_validity_description` не должно быть заполнено при
+  `data_validity_comment = NULL` (warning)
 
 **Валидация:**
 
 - Тип: `string`, nullable
-- Инвариант: если `data_validity_description` заполнено, то `data_validity_comment` должно быть заполнено
+- Инвариант: если `data_validity_description` заполнено, то
+  `data_validity_comment` должно быть заполнено
 
----
+______________________________________________________________________
 
 ### 45. potential_duplicate
 
@@ -1025,7 +1059,7 @@
 
 - Тип: `boolean`, nullable
 
----
+______________________________________________________________________
 
 ### 46. activity_properties
 
@@ -1039,21 +1073,27 @@
 **Нормализация:**
 
 - Парсинг JSON строки (если строка)
+
 - Нормализация элементов массива:
-  - Каждый элемент должен содержать только ключи из `ACTIVITY_PROPERTY_KEYS`: `["type", "relation", "units", "value", "text_value", "result_flag"]`
+
+  - Каждый элемент должен содержать только ключи из `ACTIVITY_PROPERTY_KEYS`:
+    `["type", "relation", "units", "value", "text_value", "result_flag"]`
 
   - `result_flag`: приведение `int` (0/1) → `bool`
 
-- Сериализация в канонический JSON: `json.dumps(..., ensure_ascii=False, sort_keys=True)`
+- Сериализация в канонический JSON:
+  `json.dumps(..., ensure_ascii=False, sort_keys=True)`
+
 - Если не сериализуется → `None`
 
 **Валидация:**
 
 - Тип: `string` (nullable), должен быть валидным JSON массивом
-- Каждый элемент массива должен соответствовать структуре `ACTIVITY_PROPERTY_KEYS`
+- Каждый элемент массива должен соответствовать структуре
+  `ACTIVITY_PROPERTY_KEYS`
 - Валидация через функцию `_is_valid_activity_properties()`
 
----
+______________________________________________________________________
 
 ### 47. compound_key
 
@@ -1075,7 +1115,7 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 48. compound_name
 
@@ -1097,14 +1137,14 @@
 
 - Тип: `string`, nullable
 
----
+______________________________________________________________________
 
 ### 49. curated
 
 **Источник:**
 
 1. Прямое поле из ChEMBL API (`curated_by`)
-2. Обогащение через `fetch_compound_records_by_pairs()` (если включено)
+1. Обогащение через `fetch_compound_records_by_pairs()` (если включено)
 
 **Запрос:**
 
@@ -1121,7 +1161,7 @@
 
 - Тип: `boolean`, nullable
 
----
+______________________________________________________________________
 
 ### 50. removed
 
@@ -1142,7 +1182,7 @@
 - Тип: `boolean`, nullable
 - Всегда `NULL` (не используется в ChEMBL)
 
----
+______________________________________________________________________
 
 ## Специальные обработки
 
@@ -1157,7 +1197,8 @@
 
 ### Извлечение полей из activity_properties
 
-Метод `_extract_activity_properties_fields()` извлекает поля из массива `activity_properties` только если они отсутствуют в основном ответе API:
+Метод `_extract_activity_properties_fields()` извлекает поля из массива
+`activity_properties` только если они отсутствуют в основном ответе API:
 
 - `upper_value`
 - `lower_value`
@@ -1165,28 +1206,35 @@
 - `text_value`
 - `standard_text_value`
 - `activity_comment`
-- `data_validity_comment` (из элементов с `type == "data_validity"`, приоритет `text_value`, затем `value`)
+- `data_validity_comment` (из элементов с `type == "data_validity"`, приоритет
+  `text_value`, затем `value`)
 
 ### Обогащение данных
 
 Обогащение выполняется в этапе `transform()`:
 
-1. **enrich_with_assay()**: обогащает `assay_organism`, `assay_tax_id` из `/assay.json`
-2. **enrich_with_compound_record()**: обогащает `compound_name`, `compound_key`, `curated`, `removed` из `fetch_compound_records_by_pairs()`
-3. **enrich_with_data_validity()**: обогащает `data_validity_description` из `/data_validity_lookup.json`
+1. **enrich_with_assay()**: обогащает `assay_organism`, `assay_tax_id` из
+   `/assay.json`
+1. **enrich_with_compound_record()**: обогащает `compound_name`, `compound_key`,
+   `curated`, `removed` из `fetch_compound_records_by_pairs()`
+1. **enrich_with_data_validity()**: обогащает `data_validity_description` из
+   `/data_validity_lookup.json`
 
 ## Порядок обработки
 
 1. **Extract**:
+
    - Запрос к `/activity.json` с батчингом по `activity_id`
 
    - Извлечение вложенных полей (`_extract_nested_fields()`)
 
-   - Извлечение полей из `activity_properties` (`_extract_activity_properties_fields()`)
+   - Извлечение полей из `activity_properties`
+     (`_extract_activity_properties_fields()`)
 
-   - Запрос `data_validity_description` через `_extract_data_validity_descriptions()`
+   - Запрос `data_validity_description` через
+     `_extract_data_validity_descriptions()`
 
-2. **Transform**:
+1. **Transform**:
 
    - Нормализация идентификаторов (`_normalize_identifiers()`)
 
@@ -1200,13 +1248,15 @@
 
    - Нормализация типов данных (`_normalize_data_types()`)
 
-   - Обогащение данными из других источников (assay, compound_record, data_validity)
+   - Обогащение данными из других источников (assay, compound_record,
+     data_validity)
 
-   - Финализация колонок (`_finalize_identifier_columns()`, `_finalize_output_columns()`)
+   - Финализация колонок (`_finalize_identifier_columns()`,
+     `_finalize_output_columns()`)
 
    - Фильтрация невалидных строк (`_filter_invalid_required_fields()`)
 
-3. **Validate**:
+1. **Validate**:
 
    - Проверка уникальности `activity_id`
 
@@ -1218,7 +1268,11 @@
 
 ## Связанная документация
 
-- [09-activity-chembl-extraction.md](09-activity-chembl-extraction.md) — Этап извлечения
-- [10-activity-chembl-transformation.md](10-activity-chembl-transformation.md) — Этап трансформации
-- [11-activity-chembl-validation.md](11-activity-chembl-validation.md) — Этап валидации
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Обзор пайплайна
+- [09-activity-chembl-extraction.md](09-activity-chembl-extraction.md) — Этап
+  извлечения
+- [10-activity-chembl-transformation.md](10-activity-chembl-transformation.md) —
+  Этап трансформации
+- [11-activity-chembl-validation.md](11-activity-chembl-validation.md) — Этап
+  валидации
+- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Обзор
+  пайплайна

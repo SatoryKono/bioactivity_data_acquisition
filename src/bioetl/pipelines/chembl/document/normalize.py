@@ -8,11 +8,11 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.frame import ensure_columns
-from bioetl.core.logger import UnifiedLogger
 from bioetl.core.log_events import LogEvents
-from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
+from bioetl.core.logger import UnifiedLogger
+from bioetl.schemas.chembl_document_enrichment import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
 

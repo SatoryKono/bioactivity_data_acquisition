@@ -1,10 +1,12 @@
 # CLI Contracts
 
-This document defines the standards for command-line interface (CLI) contracts in the `bioetl` project. All CLI commands **MUST** follow these standards.
+This document defines the standards for command-line interface (CLI) contracts
+in the `bioetl` project. All CLI commands **MUST** follow these standards.
 
 ## Principles
 
-- **Explicit Flags**: Use explicit flags instead of positional arguments where ambiguity exists.
+- **Explicit Flags**: Use explicit flags instead of positional arguments where
+  ambiguity exists.
 - **Input Validation**: All inputs **MUST** be validated before processing.
 - **Clear Error Messages**: Error messages **MUST** be clear and actionable.
 - **Exit Codes**: Use standardized exit codes for different failure modes.
@@ -19,6 +21,7 @@ import typer
 from pathlib import Path
 
 app = typer.Typer()
+
 
 @app.command()
 def run_pipeline(
@@ -68,6 +71,7 @@ All inputs **MUST** be validated before processing:
 from pathlib import Path
 import typer
 
+
 @app.command()
 def run_pipeline(
     config_path: Path = typer.Option(..., "--config"),
@@ -80,7 +84,9 @@ def run_pipeline(
 
     # Validate output directory is writable
     if not output_dir.parent.exists():
-        raise typer.BadParameter(f"Output directory parent does not exist: {output_dir.parent}")
+        raise typer.BadParameter(
+            f"Output directory parent does not exist: {output_dir.parent}"
+        )
 
     # Process pipeline
     process_pipeline(config_path, output_dir)
@@ -100,6 +106,7 @@ CLI commands **MUST** use standardized exit codes:
 ```python
 import sys
 import typer
+
 
 @app.command()
 def run_pipeline(config_path: Path) -> None:
@@ -136,7 +143,7 @@ if not config_path.exists():
     typer.echo(
         f"Error: Configuration file not found: {config_path}\n"
         f"Please provide a valid path using --config or -c flag.",
-        err=True
+        err=True,
     )
     raise typer.Exit(code=2)
 ```
@@ -158,7 +165,9 @@ Commands **SHOULD** be idempotent where possible:
 @app.command()
 def export_data(
     output_path: Path = typer.Option(..., "--output"),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing file"),
+    overwrite: bool = typer.Option(
+        False, "--overwrite", help="Overwrite existing file"
+    ),
 ) -> None:
     """Export data (idempotent)."""
     if output_path.exists() and not overwrite:
@@ -174,22 +183,13 @@ def export_data(
 All commands and options **MUST** have clear help text:
 
 ```python
-@app.command(
-    name="extract-activity",
-    help="Extract activity data from ChEMBL database"
-)
+@app.command(name="extract-activity", help="Extract activity data from ChEMBL database")
 def extract_activity(
     source: str = typer.Option(
-        ...,
-        "--source",
-        "-s",
-        help="Data source identifier (e.g., 'chembl', 'pubchem')"
+        ..., "--source", "-s", help="Data source identifier (e.g., 'chembl', 'pubchem')"
     ),
     batch_size: int = typer.Option(
-        1000,
-        "--batch-size",
-        "-b",
-        help="Number of records per batch (default: 1000)"
+        1000, "--batch-size", "-b", help="Number of records per batch (default: 1000)"
     ),
 ) -> None:
     """Extract activity data."""
@@ -204,12 +204,15 @@ Long-running commands **SHOULD** provide progress indication:
 import typer
 from rich.progress import Progress
 
+
 @app.command()
 def process_large_dataset(input_path: Path) -> None:
     """Process large dataset with progress bar."""
     with Progress() as progress:
         task = progress.add_task("Processing...", total=100)
-        process_data(input_path, progress_callback=lambda p: progress.update(task, completed=p))
+        process_data(
+            input_path, progress_callback=lambda p: progress.update(task, completed=p)
+        )
 ```
 
 ## Command Structure
@@ -222,9 +225,12 @@ from pathlib import Path
 
 app = typer.Typer(help="BioETL command-line interface")
 
+
 @app.command()
 def run_pipeline(
-    config: Path = typer.Option(..., "--config", "-c", help="Path to configuration file"),
+    config: Path = typer.Option(
+        ..., "--config", "-c", help="Path to configuration file"
+    ),
     output: Path = typer.Option(..., "--output", "-o", help="Output directory"),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Verbose output"),
 ) -> None:
@@ -250,6 +256,7 @@ def run_pipeline(
     except Exception as e:
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(code=1)
+
 
 if __name__ == "__main__":
     app()

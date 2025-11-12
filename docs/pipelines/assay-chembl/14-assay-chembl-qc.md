@@ -1,12 +1,11 @@
 # 14 Assay ChEMBL QC
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes QC metrics and thresholds for the Assay (ChEMBL) pipeline.
+This document describes QC metrics and thresholds for the Assay (ChEMBL)
+pipeline.
 
 ## QC Metrics
 

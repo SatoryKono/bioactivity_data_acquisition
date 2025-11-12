@@ -1,87 +1,131 @@
 # Determinism Policy
 
-> This document provides the canonical specification for ensuring byte-for-byte reproducible outputs in the `bioetl` project. It captures the non-negotiable mechanics that every deterministic run must apply, mirroring the behaviour baked into `PipelineBase` and the determinism regression tests tracked on branch `test_refactoring_32`.
+> This document provides the canonical specification for ensuring byte-for-byte
+> reproducible outputs in the `bioetl` project. It captures the non-negotiable
+> mechanics that every deterministic run must apply, mirroring the behaviour
+> baked into `PipelineBase` and the determinism regression tests tracked on
+> branch `test_refactoring_32`.
 
 ## 1. Scope and Invariants
 
-A "deterministic output" in the `bioetl` project guarantees that two pipeline runs with identical inputs and configurations will produce bit-for-bit identical output artifacts. This policy is the cornerstone of data integrity, reproducibility, and automated quality control.
+A "deterministic output" in the `bioetl` project guarantees that two pipeline
+runs with identical inputs and configurations will produce bit-for-bit identical
+output artifacts. This policy is the cornerstone of data integrity,
+reproducibility, and automated quality control.
 
 The following invariants **must** be upheld for every deterministic run:
 
-- **Stable Row Order**: Rows in the output dataset must be in a consistent, predictable order.
+- **Stable Row Order**: Rows in the output dataset must be in a consistent,
+  predictable order.
 - **Stable Column Order**: Columns must appear in a fixed, predefined order.
-- **Consistent Serialization**: Data types (numbers, dates, booleans) must be serialized to strings in a uniform format.
-- **Fixed Environment**: All operations must behave as if they are in a fixed locale (`C`) and timezone (`UTC`).
+- **Consistent Serialization**: Data types (numbers, dates, booleans) must be
+  serialized to strings in a uniform format.
+- **Fixed Environment**: All operations must behave as if they are in a fixed
+  locale (`C`) and timezone (`UTC`).
 - **Frozen Schema**: The data must conform to a versioned Pandera schema.
-- **Reproducible Hashes**: Integrity hashes (`hash_row`, `hash_business_key`) must be identical across identical runs.
-- **Atomic Writes**: Output artifacts are written atomically to prevent partial or corrupt files.
+- **Reproducible Hashes**: Integrity hashes (`hash_row`, `hash_business_key`)
+  must be identical across identical runs.
+- **Atomic Writes**: Output artifacts are written atomically to prevent partial
+  or corrupt files.
 
-This policy is enforced by the `PipelineBase` orchestrator, which applies settings from standard configuration profiles. The CLI automatically includes `base.yaml` and `determinism.yaml` for every run, ensuring these invariants are applied consistently.
+This policy is enforced by the `PipelineBase` orchestrator, which applies
+settings from standard configuration profiles. The CLI automatically includes
+`base.yaml` and `determinism.yaml` for every run, ensuring these invariants are
+applied consistently.
 
-[ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
-[ref: repo:src/bioetl/cli/app.py@refactoring_001]
+[ref: repo:src/bioetl/pipelines/base.py@refactoring_001] \[ref:
+repo:src/bioetl/cli/cli_app.py@refactoring_001\]
 
 ## 2. Stable Sort Keys by Pipeline
 
-To guarantee a stable row order, every pipeline **must** define a `determinism.sort.by` key in its configuration. The following table documents the established sort keys for the primary ChEMBL pipelines.
+To guarantee a stable row order, every pipeline **must** define a
+`determinism.sort.by` key in its configuration. The following table documents
+the established sort keys for the primary ChEMBL pipelines.
 
-| Pipeline          | Sort Key(s)                               | Justification & Tie-Breaker Policy                                                                                                                                      | Source References                                                                                                |
-| ----------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| **`activity`**    | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001]                                |
-| **`assay`**       | `["assay_id"]`                            | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001]                                   |
-| **`target`**      | `["target_id"]`                           | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                              | [ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001]                                  |
-| **`document`**    | `["year", "document_id"]`                 | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected. | [ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001]                              |
-| **`testitem`**    | `["testitem_id"]`                         | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                     | [ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001]                              |
+| Pipeline       | Sort Key(s)                                  | Justification & Tie-Breaker Policy                                                                                                                                                                   | Source References                                                           |
+| -------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **`activity`** | `["assay_id", "testitem_id", "activity_id"]` | `activity_id` is the primary business key and is unique. `assay_id` and `testitem_id` are included for locality and creating a more human-readable sort. Nulls are not expected in these key fields. | [ref: repo:configs/pipelines/activity/activity_chembl.yaml@refactoring_001] |
+| **`assay`**    | `["assay_id"]`                               | `assay_id` is the primary business key and unique identifier for an assay. No tie-breaker is needed. Nulls are not permitted.                                                                        | [ref: repo:configs/pipelines/assay/assay_chembl.yaml@refactoring_001]       |
+| **`target`**   | `["target_id"]`                              | `target_id` is the primary business key and unique identifier for a target. No tie-breaker is needed. Nulls are not permitted.                                                                       | [ref: repo:configs/pipelines/target/target_chembl.yaml@refactoring_001]     |
+| **`document`** | `["year", "document_id"]`                    | `document_id` is the primary business key. `year` is included as the primary sort key for chronological grouping, with `document_id` acting as the tie-breaker. Nulls are not expected.              | [ref: repo:configs/pipelines/document/document_chembl.yaml@refactoring_001] |
+| **`testitem`** | `["testitem_id"]`                            | `testitem_id` (the molecule's ChEMBL ID) is the primary business key and is unique. No tie-breaker is needed. Nulls are not permitted.                                                               | [ref: repo:configs/pipelines/testitem/testitem_chembl.yaml@refactoring_001] |
 
 ### Operational notes
 
-1. Sorting is always executed with a **stable algorithm**, `na_position="last"`, and `ascending=True`, guaranteeing consistent placement of duplicate keys and null handling.
-2. Sort key declarations live under `determinism.sort.by` in every pipeline configuration; missing keys cause the pipeline tests to fail before any write occurs.
+1. Sorting is always executed with a **stable algorithm**, `na_position="last"`,
+   and `ascending=True`, guaranteeing consistent placement of duplicate keys and
+   null handling.
+1. Sort key declarations live under `determinism.sort.by` in every pipeline
+   configuration; missing keys cause the pipeline tests to fail before any write
+   occurs.
 
 ## 3. Value Canonicalization
 
-Before any sorting or hashing operations, all data values must be brought to a standard, "canonical" form. This prevents inconsistencies arising from different data representations.
+Before any sorting or hashing operations, all data values must be brought to a
+standard, "canonical" form. This prevents inconsistencies arising from different
+data representations.
 
-- **Whitespace**: All strings must be trimmed of leading and trailing whitespace.
-- **Case Normalization**: Identifiers and controlled vocabulary fields should be normalized to a consistent case (typically lowercase).
-- **Null Values**: All forms of nulls (`None`, `np.nan`, `pd.NA`) must be unified to a single representation (e.g., an empty string `""` in CSVs, as defined in `na_rep`).
-- **Numbers**: Floating-point numbers must be serialized to a fixed precision (e.g., 6 decimal places).
-- **Dates and Times**: All datetime values must be converted to UTC and serialized in ISO-8601 format (e.g., `YYYY-MM-DDTHH:MM:SS.ffffffZ`).
-- **Complex Types**: Lists and dictionaries must be serialized to JSON with `sort_keys=True` to ensure a stable string representation.
+- **Whitespace**: All strings must be trimmed of leading and trailing
+  whitespace.
+- **Case Normalization**: Identifiers and controlled vocabulary fields should be
+  normalized to a consistent case (typically lowercase).
+- **Null Values**: All forms of nulls (`None`, `np.nan`, `pd.NA`) must be
+  unified to a single representation (e.g., an empty string `""` in CSVs, as
+  defined in `na_rep`).
+- **Numbers**: Floating-point numbers must be serialized to a fixed precision
+  (e.g., 6 decimal places).
+- **Dates and Times**: All datetime values must be converted to UTC and
+  serialized in ISO-8601 format (e.g., `YYYY-MM-DDTHH:MM:SS.ffffffZ`).
+- **Complex Types**: Lists and dictionaries must be serialized to JSON with
+  `sort_keys=True` to ensure a stable string representation.
 
 ## 4. Hash Policy
 
-The framework uses hashes to verify data integrity. The current implementation uses the **SHA256** algorithm.
+The framework uses hashes to verify data integrity. The current implementation
+uses the **SHA256** algorithm.
 
 [ref: repo:src/bioetl/core/hashing.py@refactoring_001]
 
 ### `hash_row`
 
 1. **Purpose**: To verify the integrity of an entire data row.
-2. **Process**:
-   1. Select the subset of columns defined in the `determinism.hashing.row_fields` configuration key.
-   2. For each row, create a dictionary of these fields.
-   3. Apply the canonicalization rules from the previous section to the values.
-   4. Remove any keys where the value is null.
-   5. Serialize the dictionary to a compact JSON string with sorted keys (using `sort_keys=True` and no whitespace padding).
-   6. The `hash_row` is the SHA256 hexdigest of this UTF-8 encoded JSON string; prefixing with `"sha256:"` is optional but recommended for clarity.
-3. **Exclusions**: Fields that are non-deterministic by nature, such as `generated_at` or `run_id`, **must not** be included in the `hash_row` calculation.
+1. **Process**:
+   1. Select the subset of columns defined in the
+      `determinism.hashing.row_fields` configuration key.
+   1. For each row, create a dictionary of these fields.
+   1. Apply the canonicalization rules from the previous section to the values.
+   1. Remove any keys where the value is null.
+   1. Serialize the dictionary to a compact JSON string with sorted keys (using
+      `sort_keys=True` and no whitespace padding).
+   1. The `hash_row` is the SHA256 hexdigest of this UTF-8 encoded JSON string;
+      prefixing with `"sha256:"` is optional but recommended for clarity.
+1. **Exclusions**: Fields that are non-deterministic by nature, such as
+   `generated_at` or `run_id`, **must not** be included in the `hash_row`
+   calculation.
 
 ### `hash_business_key`
 
-1. **Purpose**: To provide a stable, unique identifier for a business entity across pipeline runs.
-2. **Process**:
-   1. Concatenate the canonicalized values of the business key columns in a deterministic order.
-   2. Encode the concatenated string as UTF-8 and compute the SHA256 hexdigest.
-3. **Salting**: No salt is used. Collisions are monitored through golden tests and schema versioning; any schema change touching the business key must increment the schema version and refresh goldens.
+1. **Purpose**: To provide a stable, unique identifier for a business entity
+   across pipeline runs.
+1. **Process**:
+   1. Concatenate the canonicalized values of the business key columns in a
+      deterministic order.
+   1. Encode the concatenated string as UTF-8 and compute the SHA256 hexdigest.
+1. **Salting**: No salt is used. Collisions are monitored through golden tests
+   and schema versioning; any schema change touching the business key must
+   increment the schema version and refresh goldens.
 
 ### Schema Migration
 
-If a schema change alters the data type or content of a field included in a hash, the `hash_row` for affected rows **will change**. This is expected behavior and a key feature of integrity checking. Any such change must be accompanied by a schema version bump and regeneration of golden test files.
+If a schema change alters the data type or content of a field included in a
+hash, the `hash_row` for affected rows **will change**. This is expected
+behavior and a key feature of integrity checking. Any such change must be
+accompanied by a schema version bump and regeneration of golden test files.
 
 ## 5. `meta.yaml` Structure
 
-The `meta.yaml` file is the definitive record of a pipeline run. It is a YAML file with alphabetically sorted keys, containing the following structure:
+The `meta.yaml` file is the definitive record of a pipeline run. It is a YAML
+file with alphabetically sorted keys, containing the following structure:
 
 ```yaml
 # Example emitted by PipelineBase (values representative, not literal)
@@ -129,13 +173,18 @@ source_lineage:
 
 ### Emission contract
 
-- `meta.yaml` is written atomically using the same helper as the dataset (see Atomic Write Procedure below).
-- Keys are serialized in alphabetical order to keep diffs deterministic, and the payload captures both configuration lineage and result metrics.
-- Any addition/removal of keys requires updating the schema version and regenerating golden fixtures; the determinism tests will flag unexpected drift automatically.
+- `meta.yaml` is written atomically using the same helper as the dataset (see
+  Atomic Write Procedure below).
+- Keys are serialized in alphabetical order to keep diffs deterministic, and the
+  payload captures both configuration lineage and result metrics.
+- Any addition/removal of keys requires updating the schema version and
+  regenerating golden fixtures; the determinism tests will flag unexpected drift
+  automatically.
 
 ## 6. `determinism.yaml` Template
 
-This profile provides the baseline settings for ensuring deterministic runs. It is located at `configs/defaults/determinism.yaml`.
+This profile provides the baseline settings for ensuring deterministic runs. It
+is located at `configs/defaults/determinism.yaml`.
 
 [ref: repo:configs/defaults/determinism.yaml@refactoring_001]
 
@@ -167,38 +216,63 @@ determinism:
 
 The primary strategy for testing determinism is "golden testing."
 
-- **Location**: Golden files are stored in `tests/bioetl/golden/<pipeline_name>/`.
+- **Location**: Golden files are stored in
+  `tests/bioetl/golden/<pipeline_name>/`.
 - **Process**:
   1. A test runs a pipeline against a fixed input dataset.
-  2. The output dataset file and `meta.yaml` file are captured.
-  3. The test compares the SHA256 hash of the new outputs against the hashes of the "golden" files stored in the repository.
-  4. A secondary check verifies that the column order in the output matches the expected order.
-- **Exclusions**: For `meta.yaml`, fields that are expected to change with every run (`generated_at_utc`, `run_id`) must be excluded from the comparison.
+  1. The output dataset file and `meta.yaml` file are captured.
+  1. The test compares the SHA256 hash of the new outputs against the hashes of
+     the "golden" files stored in the repository.
+  1. A secondary check verifies that the column order in the output matches the
+     expected order.
+- **Exclusions**: For `meta.yaml`, fields that are expected to change with every
+  run (`generated_at_utc`, `run_id`) must be excluded from the comparison.
 
 ## 8. Schema Migration Rules
 
-- **Versioning**: All Pandera schemas must be versioned. The version is recorded in `meta.yaml`.
-- **Compatibility**: Changes to a schema (e.g., adding a nullable column) are considered backward-compatible. Breaking changes (e.g., changing a data type, removing a column, changing a sort key) require a major version bump.
-- **Golden Artifacts**: Any schema change that alters the output artifacts **must** be accompanied by a regeneration of the corresponding golden test files.
+- **Versioning**: All Pandera schemas must be versioned. The version is recorded
+  in `meta.yaml`.
+- **Compatibility**: Changes to a schema (e.g., adding a nullable column) are
+  considered backward-compatible. Breaking changes (e.g., changing a data type,
+  removing a column, changing a sort key) require a major version bump.
+- **Golden Artifacts**: Any schema change that alters the output artifacts
+  **must** be accompanied by a regeneration of the corresponding golden test
+  files.
 
 ## 9. Atomic Write Procedure
 
-Deterministic runs must never leave partially written artifacts. `PipelineBase` enforces an atomic writer that stages files via a temporary path and swaps them into place once the write completes.
+Deterministic runs must never leave partially written artifacts. `PipelineBase`
+enforces an atomic writer that stages files via a temporary path and swaps them
+into place once the write completes.
 
-1. **Generate target paths** — derive the final dataset filename and locate the sibling `meta.yaml` path.
-2. **Write to a temporary file** — stream the dataset (CSV/Parquet) into a temp file within the destination directory. Flush buffers and `fsync` to guarantee durability before renaming.
-3. **Rename atomically** — promote the temp file into place with `os.replace`, ensuring the operation is atomic on POSIX-compliant filesystems. The same helper writes `meta.yaml` through `write_json_as_yaml(..., sort_keys=True)` to guarantee stable ordering.
-4. **Post-write validation** — optionally re-load the dataset to confirm the row count, hash columns, and schema; this mirrors the checks executed in the determinism regression suite and guards against silent truncation.
-5. **Structured logging** — emit success/failure telemetry so CI golden tests can correlate writes with deterministic expectations.
+1. **Generate target paths** — derive the final dataset filename and locate the
+   sibling `meta.yaml` path.
+1. **Write to a temporary file** — stream the dataset (CSV/Parquet) into a temp
+   file within the destination directory. Flush buffers and `fsync` to guarantee
+   durability before renaming.
+1. **Rename atomically** — promote the temp file into place with `os.replace`,
+   ensuring the operation is atomic on POSIX-compliant filesystems. The same
+   helper writes `meta.yaml` through `write_json_as_yaml(..., sort_keys=True)`
+   to guarantee stable ordering.
+1. **Post-write validation** — optionally re-load the dataset to confirm the row
+   count, hash columns, and schema; this mirrors the checks executed in the
+   determinism regression suite and guards against silent truncation.
+1. **Structured logging** — emit success/failure telemetry so CI golden tests
+   can correlate writes with deterministic expectations.
 
-By following this sequence, every pipeline inherits the same durability guarantees, and determinism regressions surface immediately through the golden tests that guard the `test_refactoring_32` branch.
+By following this sequence, every pipeline inherits the same durability
+guarantees, and determinism regressions surface immediately through the golden
+tests that guard the `test_refactoring_32` branch.
 
 ## 10. `write()` Finalization Pseudocode
 
-This pseudocode details the sequence of operations within the `write()` stage to ensure determinism. The public API method is `write()`, though some implementations may use `export()` as an internal method name.
+This pseudocode details the sequence of operations within the `write()` stage to
+ensure determinism. The public API method is `write()`, though some
+implementations may use `export()` as an internal method name.
 
 ```python
 # Pseudocode within the framework's UnifiedOutputWriter class
+
 
 def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteResult":
 
@@ -209,7 +283,9 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
 
     # 2. Sorting
     sort_keys = config.determinism.sort.by
-    df = df.sort_values(by=sort_keys, kind="stable", na_position="last").reset_index(drop=True)
+    df = df.sort_values(by=sort_keys, kind="stable", na_position="last").reset_index(
+        drop=True
+    )
     log.info("DataFrame sorted.", sort_keys=sort_keys)
 
     # 3. Freeze Column Order
@@ -224,10 +300,12 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
     if "hash_row" not in df.columns:
         df["hash_row"] = df.apply(
             lambda row: generate_hash_row(row[config.determinism.hashing.row_fields]),
-            axis=1
+            axis=1,
         )
     if "hash_business_key" not in df.columns:
-        df["hash_business_key"] = df[config.determinism.hashing.business_key_field].apply(generate_hash_business_key)
+        df["hash_business_key"] = df[
+            config.determinism.hashing.business_key_field
+        ].apply(generate_hash_business_key)
     log.info("Integrity hashes calculated.")
 
     # 5. Atomic Write of Dataset
@@ -238,7 +316,7 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
 
     # 6. Generate meta.yaml
     meta_path = dataset_path.with_name("meta.yaml")
-    metadata = generate_metadata(df, config, dataset_path) # Gathers all fields
+    metadata = generate_metadata(df, config, dataset_path)  # Gathers all fields
     atomic_writer.write_json_as_yaml(metadata, meta_path, sort_keys=True)
     log.info("Metadata file generated.", path=meta_path)
 
@@ -254,17 +332,25 @@ def write_final_artifacts(df: pd.DataFrame, config: PipelineConfig) -> "WriteRes
 
 The determinism policy is automatically enforced by the CLI.
 
-[ref: repo:src/bioetl/cli/app.py@refactoring_001]
+[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]
 
-- **Profile Injection**: The `README.md` and CLI implementation confirm that the `determinism.yaml` profile is automatically loaded for every pipeline run, establishing its settings as the default.
-- **Priority**: Parameters defined directly in a pipeline's specific YAML file (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
-- **Error Codes**: Failures related to determinism (e.g., a golden test mismatch) result in a non-zero exit code.
+- **Profile Injection**: The `README.md` and CLI implementation confirm that the
+  `determinism.yaml` profile is automatically loaded for every pipeline run,
+  establishing its settings as the default.
+- **Priority**: Parameters defined directly in a pipeline's specific YAML file
+  (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
+- **Error Codes**: Failures related to determinism (e.g., a golden test
+  mismatch) result in a non-zero exit code.
 
 ### 11.1 `--golden` comparison
 
-- The CLI option `--golden <path>` enables a byte-for-byte comparison of the produced dataset against a stored golden artifact.
-- When the comparison detects any difference (size, checksum, or parquet/CSV payload), the command terminates with exit code `1`. See `docs/cli/02-cli-exit-codes.md` for the full mapping.
-- The comparison runs after the pipeline materializes artifacts and before reporting success, guaranteeing that mismatches prevent downstream publishing.
+- The CLI option `--golden <path>` enables a byte-for-byte comparison of the
+  produced dataset against a stored golden artifact.
+- When the comparison detects any difference (size, checksum, or parquet/CSV
+  payload), the command terminates with exit code `1`. See
+  `docs/cli/02-cli-exit-codes.md` for the full mapping.
+- The comparison runs after the pipeline materializes artifacts and before
+  reporting success, guaranteeing that mismatches prevent downstream publishing.
 
 Example (smoke run against the PubMed document pipeline):
 
@@ -276,5 +362,9 @@ bioetl document-pubmed run ^
   --golden tests/bioetl/golden/document_pubmed/documents.parquet
 ```
 
-- `--sample N` produces a deterministic subset using a fixed seed so that quick CI checks can run against a representative slice while keeping outputs reproducible.
-- Golden jobs in CI MUST always run without `--sample` to cover the full dataset; local smoke runs MAY use `--sample` provided the golden baseline was generated in the same mode.
+- `--sample N` produces a deterministic subset using a fixed seed so that quick
+  CI checks can run against a representative slice while keeping outputs
+  reproducible.
+- Golden jobs in CI MUST always run without `--sample` to cover the full
+  dataset; local smoke runs MAY use `--sample` provided the golden baseline was
+  generated in the same mode.

@@ -48,6 +48,24 @@ class LogEvents(str, Enum):
         dotted = ".".join((namespace, action, suffix))
         return LogEventString(dotted)
 
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, str):
+            value = self.value
+            if isinstance(value, LogEventString):
+                return value == other
+            return str(value) == other
+        return super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
+    def legacy(self) -> str:
+        """Return underscore-delimited identifier for compatibility tests."""
+
+        value = self.value
+        if isinstance(value, LogEventString):
+            return value.legacy
+        return str(value).replace(".", "_")
     CLI_RUN_START = auto()
     CLI_RUN_FINISH = auto()
     CLI_RUN_ERROR = auto()

@@ -4,7 +4,9 @@
 
 ### Назначение модуля
 
-Модуль извлекает биологические активности (activity) из ChEMBL Data Web Services, нормализует и валидирует записи, формирует детерминированные артефакты вывода и метаданные.
+Модуль извлекает биологические активности (activity) из ChEMBL Data Web
+Services, нормализует и валидирует записи, формирует детерминированные артефакты
+вывода и метаданные.
 
 **Основные функции:**
 
@@ -22,13 +24,17 @@
 
 Используются унифицированные компоненты архитектуры:
 
-- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) — HTTP запросы, ретраи, кэширование
+- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) —
+  HTTP запросы, ретраи, кэширование
 
-- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) — Pandera-схемы и реестр нормализаторов
+- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) —
+  Pandera-схемы и реестр нормализаторов
 
-- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) — атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
+- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) —
+  атомарная запись CSV/Parquet, meta.yaml, QC-отчеты
 
-- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) — структурные JSON-логи
+- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) —
+  структурные JSON-логи
 
 ### Источник данных
 
@@ -52,16 +58,19 @@
 
 1. **Только официальные эндпоинты** ChEMBL Data Web Services
 
-2. **Формат ответа:** JSON (предпочтительно) или XML
+1. **Формат ответа:** JSON (предпочтительно) или XML
 
-3. **Все запросы** через `UnifiedAPIClient` с таймаутами, ретраями и кэшированием
+1. **Все запросы** через `UnifiedAPIClient` с таймаутами, ретраями и
+   кэшированием
 
-   - Handshake `/status.json` для фиксации `chembl_release` выполняется тем же клиентом,
+   - Handshake `/status.json` для фиксации `chembl_release` выполняется тем же
+     клиентом,
 
-     поэтому при недоступности ChEMBL активируются штатные ретраи, circuit-breaker и
-     fallback стратегии (`cache`, `partial_retry`) без обходов через «сырые» HTTP вызовы.
+     поэтому при недоступности ChEMBL активируются штатные ретраи,
+     circuit-breaker и fallback стратегии (`cache`, `partial_retry`) без обходов
+     через «сырые» HTTP вызовы.
 
-4. **Детерминизм:**
+1. **Детерминизм:**
 
    - Стабильная сортировка по `activity_id`
    - Фиксированный `COLUMN_ORDER` из Pandera-схемы
@@ -80,17 +89,15 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 **Python (requests):**
 
 ```python
-
 import requests
 
 r = requests.get(
     "<https://www.ebi.ac.uk/chembl/api/data/activity.json>",
     params={"molecule_chembl_id": "CHEMBL998", "limit": 5},
-    timeout=30
+    timeout=30,
 )
 r.raise_for_status()
 data = r.json()
-
 ```
 
 **Критерии детерминизма/валидности:**
@@ -103,7 +110,7 @@ data = r.json()
 
 - Фиксация `chembl_release` через `/status` endpoint
 
----
+______________________________________________________________________
 
 ## 2. CLI
 
@@ -114,46 +121,46 @@ Activity pipeline запускается через команду `activity` CL
 **Базовая команда:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl [OPTIONS]
+python -m bioetl.cli.cli_app activity_chembl [OPTIONS]
 ```
 
 **Минимальный пример:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
 
 ### 2.2. Обязательные параметры CLI
 
-| Параметр | Описание | Пример |
-|----------|----------|--------|
-| `--config PATH` | Путь к YAML-конфигурации пайплайна | `configs/pipelines/activity/activity_chembl.yaml` |
-| `--output-dir PATH` | Директория для записи артефактов запуска | `data/output/activity` |
+| Параметр            | Описание                                 | Пример                                            |
+| ------------------- | ---------------------------------------- | ------------------------------------------------- |
+| `--config PATH`     | Путь к YAML-конфигурации пайплайна       | `configs/pipelines/activity/activity_chembl.yaml` |
+| `--output-dir PATH` | Директория для записи артефактов запуска | `data/output/activity`                            |
 
 **Важно:** Оба параметра обязательны. Без них пайплайн не запустится.
 
 ### 2.3. Опциональные параметры CLI
 
-| Параметр | Краткая форма | Описание | Значение по умолчанию |
-|----------|---------------|----------|----------------------|
-| `--dry-run` | `-d` | Загрузить, объединить и валидировать конфигурацию без выполнения пайплайна | `False` |
-| `--limit N` | — | Обработать максимум `N` строк (полезно для smoke-тестов) | `None` |
-| `--sample N` | — | Случайная выборка `N` строк; использует детерминированный seed из конфигурации | `None` |
-| `--set KEY=VALUE` | `-S` | Переопределить отдельные ключи конфигурации во время выполнения (повторяемый) | `[]` |
-| `--verbose` | `-v` | Выводить подробные (development) логи | `False` |
-| `--extended` | — | Включить расширенные QC-артефакты (meta.yaml, correlation report) | `False` |
-| `--golden PATH` | — | Сравнить выводы с сохранённым golden-датасетом для проверки битового детерминизма | `None` |
-| `--fail-on-schema-drift` / `--allow-schema-drift` | — | Переключатель: падать при отклонении схемы вывода от ожидаемого порядка | `--fail-on-schema-drift` |
-| `--validate-columns` / `--no-validate-columns` | — | Управление хуками валидации колонок на этапе постобработки | `--validate-columns` |
+| Параметр                                          | Краткая форма | Описание                                                                          | Значение по умолчанию    |
+| ------------------------------------------------- | ------------- | --------------------------------------------------------------------------------- | ------------------------ |
+| `--dry-run`                                       | `-d`          | Загрузить, объединить и валидировать конфигурацию без выполнения пайплайна        | `False`                  |
+| `--limit N`                                       | —             | Обработать максимум `N` строк (полезно для smoke-тестов)                          | `None`                   |
+| `--sample N`                                      | —             | Случайная выборка `N` строк; использует детерминированный seed из конфигурации    | `None`                   |
+| `--set KEY=VALUE`                                 | `-S`          | Переопределить отдельные ключи конфигурации во время выполнения (повторяемый)     | `[]`                     |
+| `--verbose`                                       | `-v`          | Выводить подробные (development) логи                                             | `False`                  |
+| `--extended`                                      | —             | Включить расширенные QC-артефакты (meta.yaml, correlation report)                 | `False`                  |
+| `--golden PATH`                                   | —             | Сравнить выводы с сохранённым golden-датасетом для проверки битового детерминизма | `None`                   |
+| `--fail-on-schema-drift` / `--allow-schema-drift` | —             | Переключатель: падать при отклонении схемы вывода от ожидаемого порядка           | `--fail-on-schema-drift` |
+| `--validate-columns` / `--no-validate-columns`    | —             | Управление хуками валидации колонок на этапе постобработки                        | `--validate-columns`     |
 
 ### 2.4. Примеры использования
 
 **Базовый запуск с каноническим конфигом:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 ```
@@ -161,7 +168,7 @@ python -m bioetl.cli.app activity_chembl \
 **Dry-run для валидации конфигурации:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
@@ -170,7 +177,7 @@ python -m bioetl.cli.app activity_chembl \
 **Smoke-тест с переопределением batch_size:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10 \
@@ -180,7 +187,7 @@ python -m bioetl.cli.app activity_chembl \
 **Расширенный режим с QC-артефактами:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
@@ -189,7 +196,7 @@ python -m bioetl.cli.app activity_chembl \
 **С несколькими переопределениями через --set:**
 
 ```bash
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=20 \
@@ -201,7 +208,7 @@ python -m bioetl.cli.app activity_chembl \
 
 ```bash
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --set sources.chembl.batch_size=10  # будет переопределено env
@@ -209,12 +216,16 @@ python -m bioetl.cli.app activity_chembl \
 
 ### 2.5. Порядок загрузки конфигурации
 
-Конфигурация загружается в следующем порядке (поздние источники переопределяют ранние):
+Конфигурация загружается в следующем порядке (поздние источники переопределяют
+ранние):
 
-1. **Базовые профили** (`configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`) — задаются через `extends` в pipeline YAML
-2. **Pipeline YAML** (`--config`) — основной конфигурационный файл пайплайна
-3. **CLI переопределения** (`--set KEY=VALUE`) — переопределения через командную строку
-4. **Переменные окружения** — имеют наивысший приоритет
+1. **Базовые профили** (`configs/defaults/base.yaml`,
+   `configs/defaults/determinism.yaml`) — задаются через `extends` в pipeline
+   YAML
+1. **Pipeline YAML** (`--config`) — основной конфигурационный файл пайплайна
+1. **CLI переопределения** (`--set KEY=VALUE`) — переопределения через командную
+   строку
+1. **Переменные окружения** — имеют наивысший приоритет
 
 **Пример приоритетов:**
 
@@ -235,7 +246,8 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 
 ### 2.6. Переменные окружения
 
-Переменные окружения имеют наивысший приоритет и могут переопределять любые параметры конфигурации.
+Переменные окружения имеют наивысший приоритет и могут переопределять любые
+параметры конфигурации.
 
 **Формат имени переменной:**
 
@@ -245,12 +257,12 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 
 **Часто используемые переменные для Activity pipeline:**
 
-| Переменная | Описание | Пример |
-|------------|----------|--------|
-| `BIOETL__SOURCES__CHEMBL__BATCH_SIZE` | Размер батча для ChEMBL API | `25` |
-| `BIOETL__CACHE__ENABLED` | Включить/выключить кэш | `true` |
-| `BIOETL__CACHE__TTL` | TTL кэша в секундах | `3600` |
-| `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC` | Таймаут HTTP-запросов | `60.0` |
+| Переменная                            | Описание                    | Пример |
+| ------------------------------------- | --------------------------- | ------ |
+| `BIOETL__SOURCES__CHEMBL__BATCH_SIZE` | Размер батча для ChEMBL API | `25`   |
+| `BIOETL__CACHE__ENABLED`              | Включить/выключить кэш      | `true` |
+| `BIOETL__CACHE__TTL`                  | TTL кэша в секундах         | `3600` |
+| `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC`  | Таймаут HTTP-запросов       | `60.0` |
 
 ### 2.7. Режимы выполнения
 
@@ -276,18 +288,18 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 
 ```bash
 # Standard режим
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity
 
 # Extended режим
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --extended
 
 # Dry-run режим
-python -m bioetl.cli.app activity_chembl \
+python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
   --dry-run
@@ -298,13 +310,16 @@ python -m bioetl.cli.app activity_chembl \
 - См. [CLI Overview](../cli/00-cli-overview.md) для общего описания CLI
 - См. [CLI Commands](../cli/01-cli-commands.md) для справочника по командам
 
----
+______________________________________________________________________
 
 ## 3. Конфигурация
 
 ### 3.1. Обзор конфигурации
 
-Activity pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
+Activity pipeline управляется через декларативный YAML-файл конфигурации. Все
+конфигурационные файлы валидируются во время выполнения против строго
+типизированных Pydantic-моделей, что гарантирует корректность параметров перед
+запуском пайплайна.
 
 **Путь к конфигурационному файлу:**
 
@@ -318,7 +333,8 @@ Activity pipeline управляется через декларативный Y
 
 ### 3.2. Структура конфигурационного файла
 
-Конфигурационный файл Activity pipeline следует стандартной структуре `PipelineConfig`:
+Конфигурационный файл Activity pipeline следует стандартной структуре
+`PipelineConfig`:
 
 ```yaml
 version: 1  # Версия схемы конфигурации
@@ -378,21 +394,21 @@ postprocess:  # Постобработка
 
 ### 3.3. Основные параметры конфигурации
 
-| Секция | Ключ | Тип | Обязательный | Значение по умолчанию | Ограничения | Описание |
-|--------|------|-----|--------------|----------------------|-------------|----------|
-| `pipeline` | `name` | string | Да | — | — | Имя пайплайна (`activity_chembl`) |
-| `pipeline` | `version` | string | Да | — | — | Версия пайплайна |
-| `sources.chembl` | `batch_size` | integer | Да | — | `≤ 25` | Размер батча для ChEMBL API (жесткое ограничение URL длины) |
-| `determinism.sort` | `by` | array | Нет | `[]` | Должно совпадать с `ascending` по длине | Ключи сортировки: `["assay_id", "testitem_id", "activity_id"]` |
-| `determinism.sort` | `ascending` | array | Нет | `[]` | Должно совпадать с `by` по длине | Направление сортировки |
-| `determinism.sort` | `na_position` | string | Нет | `"last"` | `"first"` или `"last"` | Позиция NA значений |
-| `determinism.column_order` | — | array | Нет | `[]` | Должен соответствовать Pandera-схеме | Фиксированный порядок колонок |
-| `postprocess.correlation` | `enabled` | boolean | Нет | `false` | — | Включить correlation report |
-| `cache` | `enabled` | boolean | Нет | `true` | — | Включить HTTP-кэш |
-| `cache` | `ttl` | integer | Нет | `3600` | `> 0` | TTL кэша в секундах |
-| `http.default` | `timeout_sec` | float | Нет | `60.0` | `> 0` | Общий таймаут запроса |
-| `http.default` | `rate_limit.max_calls` | integer | Нет | `10` | `> 0` | Максимум запросов в окне |
-| `http.default` | `rate_limit.period` | float | Нет | `1.0` | `> 0` | Длина окна в секундах |
+| Секция                     | Ключ                   | Тип     | Обязательный | Значение по умолчанию | Ограничения                             | Описание                                                       |
+| -------------------------- | ---------------------- | ------- | ------------ | --------------------- | --------------------------------------- | -------------------------------------------------------------- |
+| `pipeline`                 | `name`                 | string  | Да           | —                     | —                                       | Имя пайплайна (`activity_chembl`)                              |
+| `pipeline`                 | `version`              | string  | Да           | —                     | —                                       | Версия пайплайна                                               |
+| `sources.chembl`           | `batch_size`           | integer | Да           | —                     | `≤ 25`                                  | Размер батча для ChEMBL API (жесткое ограничение URL длины)    |
+| `determinism.sort`         | `by`                   | array   | Нет          | `[]`                  | Должно совпадать с `ascending` по длине | Ключи сортировки: `["assay_id", "testitem_id", "activity_id"]` |
+| `determinism.sort`         | `ascending`            | array   | Нет          | `[]`                  | Должно совпадать с `by` по длине        | Направление сортировки                                         |
+| `determinism.sort`         | `na_position`          | string  | Нет          | `"last"`              | `"first"` или `"last"`                  | Позиция NA значений                                            |
+| `determinism.column_order` | —                      | array   | Нет          | `[]`                  | Должен соответствовать Pandera-схеме    | Фиксированный порядок колонок                                  |
+| `postprocess.correlation`  | `enabled`              | boolean | Нет          | `false`               | —                                       | Включить correlation report                                    |
+| `cache`                    | `enabled`              | boolean | Нет          | `true`                | —                                       | Включить HTTP-кэш                                              |
+| `cache`                    | `ttl`                  | integer | Нет          | `3600`                | `> 0`                                   | TTL кэша в секундах                                            |
+| `http.default`             | `timeout_sec`          | float   | Нет          | `60.0`                | `> 0`                                   | Общий таймаут запроса                                          |
+| `http.default`             | `rate_limit.max_calls` | integer | Нет          | `10`                  | `> 0`                                   | Максимум запросов в окне                                       |
+| `http.default`             | `rate_limit.period`    | float   | Нет          | `1.0`                 | `> 0`                                   | Длина окна в секундах                                          |
 
 ### 3.4. Пример конфигурационного файла
 
@@ -494,13 +510,17 @@ qc:
 
 ### 3.5. Правила валидации конфигурации
 
-Конфигурация валидируется через Pydantic-модели в `src/bioetl/configs/models.py`:
+Конфигурация валидируется через Pydantic-модели в
+`src/bioetl/configs/models.py`:
 
 **Обязательные проверки:**
 
-- `sources.chembl.batch_size` **должен быть ≤ 25** (жесткое ограничение ChEMBL API)
-- `determinism.sort.ascending` должен быть пустым или совпадать по длине с `determinism.sort.by`
-- Если задан `determinism.column_order`, необходимо указать `validation.schema_out`
+- `sources.chembl.batch_size` **должен быть ≤ 25** (жесткое ограничение ChEMBL
+  API)
+- `determinism.sort.ascending` должен быть пустым или совпадать по длине с
+  `determinism.sort.by`
+- Если задан `determinism.column_order`, необходимо указать
+  `validation.schema_out`
 - Все значения должны соответствовать типам из Pydantic-моделей
 - Неизвестные ключи запрещены (модели объявлены с `extra="forbid"`)
 
@@ -512,13 +532,13 @@ qc:
    ConfigValidationError: sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit
    ```
 
-2. **Несогласованные ключи сортировки:**
+1. **Несогласованные ключи сортировки:**
 
    ```text
    ValueError: determinism.sort.ascending must be empty or match determinism.sort.by length
    ```
 
-3. **Неизвестный ключ:**
+1. **Неизвестный ключ:**
 
    ```text
    ValidationError: Extra inputs are not permitted (field: 'unknown_key')
@@ -585,16 +605,19 @@ export BIOETL__CACHE__TTL=7200
 **Порядок приоритетов (от низшего к высшему):**
 
 1. Базовые профили (`extends`)
-2. Pipeline YAML (`--config`)
-3. CLI переопределения (`--set`)
-4. Переменные окружения (наивысший приоритет)
+1. Pipeline YAML (`--config`)
+1. CLI переопределения (`--set`)
+1. Переменные окружения (наивысший приоритет)
 
 **Дополнительная информация:**
 
-- См. [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md) для детального описания структуры конфигурации
-- См. [Pipeline Configuration](../etl_contract/02-pipeline-config.md) для общего обзора конфигурации пайплайнов
+- См.
+  [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md)
+  для детального описания структуры конфигурации
+- См. [Pipeline Configuration](../etl_contract/02-pipeline-config.md) для общего
+  обзора конфигурации пайплайнов
 
----
+______________________________________________________________________
 
 ## 4. ChEMBL Activity API
 
@@ -610,15 +633,18 @@ export BIOETL__CACHE__TTL=7200
 
 - Шаблон `/RESOURCE/ID` официально поддерживается
 
-**Ссылка:** [ChEMBL Blog - Resource URLs](https://www.ebi.ac.uk/chembl/blog/resource-urls)
+**Ссылка:**
+[ChEMBL Blog - Resource URLs](https://www.ebi.ac.uk/chembl/blog/resource-urls)
 
 ### Методы HTTP
 
 - **GET** — основной способ получения данных
 
-- **POST** с заголовком `X-HTTP-Method-Override: GET` — для длинных параметров запроса (обход лимита длины URL)
+- **POST** с заголовком `X-HTTP-Method-Override: GET` — для длинных параметров
+  запроса (обход лимита длины URL)
 
-**Контракт:** Использовать только документированные фильтры и шаблон `/RESOURCE/ID`
+**Контракт:** Использовать только документированные фильтры и шаблон
+`/RESOURCE/ID`
 
 ### Параметры запроса
 
@@ -636,15 +662,19 @@ export BIOETL__CACHE__TTL=7200
 
 **Пагинация:**
 
-- `limit` — количество записей на странице (default: 20, max: см. раздел UNCERTAIN)
+- `limit` — количество записей на странице (default: 20, max: см. раздел
+  UNCERTAIN)
 
 - `offset` — смещение для offset-based pagination
 
-**⚠️ Breaking Change (v3.0):** Activity pipeline теперь поддерживает **batch IDs** стратегию (`activity_id__in`) через опциональный входной файл, а также полную пагинацию по умолчанию. См. раздел "Режимы извлечения" ниже.
+**⚠️ Breaking Change (v3.0):** Activity pipeline теперь поддерживает **batch
+IDs** стратегию (`activity_id__in`) через опциональный входной файл, а также
+полную пагинацию по умолчанию. См. раздел "Режимы извлечения" ниже.
 
 **Расширенные фильтры:**
 
-- `field__filter` — стандартные Django-подобные фильтры (например, `pchembl_value__gte`)
+- `field__filter` — стандартные Django-подобные фильтры (например,
+  `pchembl_value__gte`)
 
 - `only` — выборка полей (например, `only=molecule_chembl_id,pchembl_value`)
 
@@ -665,18 +695,15 @@ export BIOETL__CACHE__TTL=7200
 - **Валидация конфига:**
 
 ```python
-
-  if batch_size > 25:
-      raise ConfigValidationError(
-          "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
-      )
-
+if batch_size > 25:
+    raise ConfigValidationError(
+        "sources.chembl.batch_size must be <= 25 due to ChEMBL API URL length limit"
+    )
 ```
 
 **Алгоритм:**
 
 ```python
-
 def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
     """Extract activity records by a specific list of IDs using batch extraction."""
 
@@ -697,7 +724,7 @@ def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
     # Батчевое извлечение
 
     for i in range(0, len(activity_ids), BATCH_SIZE):
-        batch_ids = activity_ids[i:i + BATCH_SIZE]
+        batch_ids = activity_ids[i : i + BATCH_SIZE]
 
         try:
 
@@ -742,29 +769,32 @@ def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
 
     # Логирование статистики
 
-    logger.info({
-        "total_activities": len(activity_ids),
-        "success_count": success_count,
-        "fallback_count": fallback_count,
-        "error_count": error_count,
-        "success_rate": (success_count + fallback_count) / len(activity_ids),
-        "api_calls": api_calls,
-        "cache_hits": cache_hits
-    })
+    logger.info(
+        {
+            "total_activities": len(activity_ids),
+            "success_count": success_count,
+            "fallback_count": fallback_count,
+            "error_count": error_count,
+            "success_rate": (success_count + fallback_count) / len(activity_ids),
+            "api_calls": api_calls,
+            "cache_hits": cache_hits,
+        }
+    )
 
     return extracted_dataframe
-
 ```
 
 **Преимущества batch IDs над offset:**
 
-- Детерминированность: одинаковый набор activity_id всегда даёт одинаковый результат
+- Детерминированность: одинаковый набор activity_id всегда даёт одинаковый
+  результат
 
 - Кэшируемость: ключ кэша = список ID, не зависит от пагинации
 
 - Производительность: один запрос на 25 записей вместо множества offset-запросов
 
-- Отказоустойчивость: можно повторно запросить конкретный батч без потери контекста
+- Отказоустойчивость: можно повторно запросить конкретный батч без потери
+  контекста
 
 ### Примеры запросов
 
@@ -807,7 +837,8 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ```
 
-Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`, `total_count`.
+Response содержит `page_meta`: `limit`, `offset`, `next`, `previous`,
+`total_count`.
 
 **Batch по target_chembl_id с фильтрами:**
 
@@ -827,7 +858,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 - `page_meta` присутствует при списковых запросах
 
----
+______________________________________________________________________
 
 ## 5. Структура данных ChEMBL Activity
 
@@ -835,33 +866,35 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 **Ключевые поля ресурса activity** (из live-ответов API):
 
-| Поле | Тип | Описание | Nullable |
-|---|---|---|---|
-| `activity_id` | int | Уникальный ID активности | False |
-| `molecule_chembl_id` | string | Ссылка на молекулу | True |
-| `assay_chembl_id` | string | Ссылка на assay | True |
-| `target_chembl_id` | string | Ссылка на target | True |
-| `document_chembl_id` | string | Ссылка на документ | True |
-| `standard_type` | string | Тип измерения (Ki, IC50, etc.) | True |
-| `standard_value` | float | Стандартизированное значение | True |
-| `standard_units` | string | Единицы измерения (nM, μM) | True |
-| `standard_relation` | string | Отношение (=, <, >, ~, <=, >=) | True |
-| `pchembl_value` | float | -log10(molar IC50, XC50, EC50, AC50, Ki, Kd или Potency) | True |
-| `canonical_smiles` | string | Каноническая структура | True |
-| `ligand_efficiency` | object | Метрики эффективности лиганда (nested) | True |
-| `bao_endpoint` | string | BAO endpoint ID | True |
-| `bao_format` | string | BAO format ID | True |
-| `bao_label` | string | BAO format label | True |
-| `target_organism` | string | Организм таргета | True |
-| `target_tax_id` | int | Taxonomy ID | True |
-| `data_validity_comment` | string | Комментарии о валидности | True |
-| `activity_properties` | array | Вложенные свойства (JSON массив объектов) | True |
+| Поле                    | Тип    | Описание                                                 | Nullable |
+| ----------------------- | ------ | -------------------------------------------------------- | -------- |
+| `activity_id`           | int    | Уникальный ID активности                                 | False    |
+| `molecule_chembl_id`    | string | Ссылка на молекулу                                       | True     |
+| `assay_chembl_id`       | string | Ссылка на assay                                          | True     |
+| `target_chembl_id`      | string | Ссылка на target                                         | True     |
+| `document_chembl_id`    | string | Ссылка на документ                                       | True     |
+| `standard_type`         | string | Тип измерения (Ki, IC50, etc.)                           | True     |
+| `standard_value`        | float  | Стандартизированное значение                             | True     |
+| `standard_units`        | string | Единицы измерения (nM, μM)                               | True     |
+| `standard_relation`     | string | Отношение (=, \<, >, ~, \<=, >=)                         | True     |
+| `pchembl_value`         | float  | -log10(molar IC50, XC50, EC50, AC50, Ki, Kd или Potency) | True     |
+| `canonical_smiles`      | string | Каноническая структура                                   | True     |
+| `ligand_efficiency`     | object | Метрики эффективности лиганда (nested)                   | True     |
+| `bao_endpoint`          | string | BAO endpoint ID                                          | True     |
+| `bao_format`            | string | BAO format ID                                            | True     |
+| `bao_label`             | string | BAO format label                                         | True     |
+| `target_organism`       | string | Организм таргета                                         | True     |
+| `target_tax_id`         | int    | Taxonomy ID                                              | True     |
+| `data_validity_comment` | string | Комментарии о валидности                                 | True     |
+| `activity_properties`   | array  | Вложенные свойства (JSON массив объектов)                | True     |
 
 **Nested структуры:**
 
 - `ligand_efficiency` содержит: `BEI`, `LE`, `LLE`, `SEI`
 
-- `activity_properties` — массив объектов вида `{type, relation, units, value, text_value, result_flag}` (значения `null` допустимы)
+- `activity_properties` — массив объектов вида
+  `{type, relation, units, value, text_value, result_flag}` (значения `null`
+  допустимы)
 
 ### Контракт сохранения данных
 
@@ -879,7 +912,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 - [ChEMBL Data Model](https://www.ebi.ac.uk/chembl/documentation)
 
----
+______________________________________________________________________
 
 ## 6. Маппинг полей CSV → ChEMBL API
 
@@ -887,78 +920,108 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 Полная таблица маппинга полей с правилами нормализации и валидации:
 
-| _internal_name | _chembl_field | _datatype | _example | _normalisation | _validation | source_endpoint | notes |
-|---|---|---|---|---|---|---|---|
-| ACTIVITY.activity_id | activity_id | int | 31863 | as-is | unique, >=1 | /activity | PK поле |
-| ACTIVITY.molecule_chembl_id | molecule_chembl_id | string | CHEMBL998 | uppercase; regex ^CHEMBL\d+$ | regex; not null for molecule-linked | /activity | Foreign key |
-| ACTIVITY.assay_chembl_id | assay_chembl_id | string | CHEMBL1909156 | uppercase; regex ^CHEMBL\d+$ | regex | /activity | Foreign key |
-| ACTIVITY.target_chembl_id | target_chembl_id | string | CHEMBL231 | uppercase; regex ^CHEMBL\d+$ | regex or null | /activity | Foreign key |
-| ACTIVITY.document_chembl_id | document_chembl_id | string | CHEMBL1137930 | uppercase; regex ^CHEMBL\d+$ | regex or null | /activity | Foreign key |
-| ACTIVITY.standard_type | standard_type | string | Ki | trim; upper-case tokens preserved | isin{IC50,EC50,XC50,AC50,Ki,Kd,Potency,ED50} | /activity | whitelist расширяем |
-| ACTIVITY.standard_relation | standard_relation | string | = | map unicode inequalities to ASCII | isin{=,>,<,>=,<=,~} | /activity | - |
+| \_internal_name             | \_chembl_field     | \_datatype | \_example     | \_normalisation                   | \_validation                                 | source_endpoint | notes               |
+| --------------------------- | ------------------ | ---------- | ------------- | --------------------------------- | -------------------------------------------- | --------------- | ------------------- |
+| ACTIVITY.activity_id        | activity_id        | int        | 31863         | as-is                             | unique, >=1                                  | /activity       | PK поле             |
+| ACTIVITY.molecule_chembl_id | molecule_chembl_id | string     | CHEMBL998     | uppercase; regex ^CHEMBL\\d+$     | regex; not null for molecule-linked          | /activity       | Foreign key         |
+| ACTIVITY.assay_chembl_id    | assay_chembl_id    | string     | CHEMBL1909156 | uppercase; regex ^CHEMBL\\d+$     | regex                                        | /activity       | Foreign key         |
+| ACTIVITY.target_chembl_id   | target_chembl_id   | string     | CHEMBL231     | uppercase; regex ^CHEMBL\\d+$     | regex or null                                | /activity       | Foreign key         |
+| ACTIVITY.document_chembl_id | document_chembl_id | string     | CHEMBL1137930 | uppercase; regex ^CHEMBL\\d+$     | regex or null                                | /activity       | Foreign key         |
+| ACTIVITY.standard_type      | standard_type      | string     | Ki            | trim; upper-case tokens preserved | isin{IC50,EC50,XC50,AC50,Ki,Kd,Potency,ED50} | /activity       | whitelist расширяем |
+| ACTIVITY.standard_relation  | standard_relation  | string     | =             | map unicode inequalities to ASCII | isin{=,>,\<,>=,\<=,~}                        | /activity       | -                   |
 
-| ACTIVITY.standard_value | standard_value | float | 20.0 | to float; NaN if empty | >=0 or NaN | /activity | - |
+| ACTIVITY.standard_value | standard_value | float | 20.0 | to float; NaN if
+empty | >=0 or NaN | /activity | - |
 
-| ACTIVITY.standard_units | standard_units | string | nM | normalize unit synonyms | isin{nM,µM,mM,%,ratio,...} | /activity | единицы без выдумки |
-| ACTIVITY.pchembl_value | pchembl_value | float | 7.70 | as-is | >=0 or NaN | /activity | см. FAQ pChEMBL |
-| ACTIVITY.bao_endpoint | bao_endpoint | string | BAO_0000190 | regex ^BAO_\d{7}$ | regex or null | /activity | - |
+| ACTIVITY.standard_units | standard_units | string | nM | normalize unit
+synonyms | isin{nM,µM,mM,%,ratio,...} | /activity | единицы без выдумки | |
+ACTIVITY.pchembl_value | pchembl_value | float | 7.70 | as-is | >=0 or NaN |
+/activity | см. FAQ pChEMBL | | ACTIVITY.bao_endpoint | bao_endpoint | string |
+BAO_0000190 | regex ^BAO\_\\d{7}$ | regex or null | /activity | - |
 
-| ACTIVITY.bao_format | bao_format | string | BAO_0000357 | regex ^BAO_\d{7}$ | regex or null | /activity | - |
+| ACTIVITY.bao_format | bao_format | string | BAO_0000357 | regex ^BAO\_\\d{7}$
+| regex or null | /activity | - |
 
-| ACTIVITY.bao_label | bao_label | string | single protein format | trim | len<=128 or null | /activity | - |
+| ACTIVITY.bao_label | bao_label | string | single protein format | trim |
+len\<=128 or null | /activity | - |
 
-| ACTIVITY.canonical_smiles | canonical_smiles | string | CC(=O)Oc1ccccc1C(=O)O | canonicalization deferred | non-empty or null | /activity | - |
+| ACTIVITY.canonical_smiles | canonical_smiles | string | CC(=O)Oc1ccccc1C(=O)O
+| canonicalization deferred | non-empty or null | /activity | - |
 
-| ACTIVITY.ligand_efficiency | ligand_efficiency | string | {"LE":0.45,...} | stable json dumps | json parseable or null | /activity | может быть вложенным |
-| ACTIVITY.target_organism | target_organism | string | Homo sapiens | title-case | len<=255 or null | /activity | - |
+| ACTIVITY.ligand_efficiency | ligand_efficiency | string | {"LE":0.45,...} |
+stable json dumps | json parseable or null | /activity | может быть вложенным |
+| ACTIVITY.target_organism | target_organism | string | Homo sapiens |
+title-case | len\<=255 or null | /activity | - |
 
-| ACTIVITY.target_tax_id | target_tax_id | int | 9606 | int | >=1 or null | /activity | - |
+| ACTIVITY.target_tax_id | target_tax_id | int | 9606 | int | >=1 or null |
+/activity | - |
 
-| ACTIVITY.data_validity_comment | data_validity_comment | string | Outside typical range | trim | enum per FAQ or null | /activity | см. FAQ |
-| ACTIVITY.activity_properties | activity_properties | string | [{"type":"IC50","relation":"=","units":"nM","value":10.0,"text_value":null,"result_flag":true}] | normalized json array | каждый объект содержит только {type, relation, units, value, text_value, result_flag} | /activity | - |
+| ACTIVITY.data_validity_comment | data_validity_comment | string | Outside
+typical range | trim | enum per FAQ or null | /activity | см. FAQ | |
+ACTIVITY.activity_properties | activity_properties | string |
+[{"type":"IC50","relation":"=","units":"nM","value":10.0,"text_value":null,"result_flag":true}]
+| normalized json array | каждый объект содержит только {type, relation, units,
+value, text_value, result_flag} | /activity | - |
 
-| ACTIVITY.compound_key | compound_key | string | CHEMBL998\|Ki\|CHEMBL231 | concat | len<=256 | derived | бизнес-ключ |
+| ACTIVITY.compound_key | compound_key | string | CHEMBL998|Ki|CHEMBL231 |
+concat | len\<=256 | derived | бизнес-ключ |
 
 ### Дополнительные поля (enrichment из связанных источников)
 
 Поля извлекаются из связанных источников ChEMBL через enrichment функции:
 
 - `assay_organism`, `assay_tax_id` — из ASSAYS через `enrich_with_assay()`
+
   - Источник: `ASSAYS.ASSAY_ORGANISM`, `ASSAYS.ASSAY_TAX_ID`
 
 - `compound_name` — из MOLECULE_DICTIONARY через `enrich_with_compound_record()`
-  - Источник: `MOLECULE_DICTIONARY.PREF_NAME` (fallback: `MOLECULE_DICTIONARY.CHEMBL_ID`)
+
+  - Источник: `MOLECULE_DICTIONARY.PREF_NAME` (fallback:
+    `MOLECULE_DICTIONARY.CHEMBL_ID`)
 
 - `compound_key` — из COMPOUND_STRUCTURES через `enrich_with_compound_record()`
+
   - Источник: `COMPOUND_STRUCTURES.STANDARD_INCHI_KEY`
 
 - `curated` — из ACTIVITIES через `_extract_nested_fields()`
+
   - Источник: `(ACTIVITIES.CURATED_BY IS NOT NULL)` → bool
 
 - `removed` — всегда NULL на стадии извлечения (не извлекается из ChEMBL)
 
-- `data_validity_description` — из DATA_VALIDITY_LOOKUP через `enrich_with_data_validity()`
-  - Источник: `DATA_VALIDITY_LOOKUP.DESCRIPTION` (LEFT JOIN по `data_validity_comment`)
+- `data_validity_description` — из DATA_VALIDITY_LOOKUP через
+  `enrich_with_data_validity()`
+
+  - Источник: `DATA_VALIDITY_LOOKUP.DESCRIPTION` (LEFT JOIN по
+    `data_validity_comment`)
 
 **Маппинг полей из ACTIVITIES (прямо из API):**
 
 - `upper_value`, `lower_value`, `text_value` — сырые значения из `ACTIVITIES`
-- `standard_upper_value`, `standard_text_value` — стандартизованные значения из `ACTIVITIES`
+- `standard_upper_value`, `standard_text_value` — стандартизованные значения из
+  `ACTIVITIES`
 - `activity_comment` — из `ACTIVITIES.ACTIVITY_COMMENT`
-- `data_validity_comment` — из `ACTIVITIES.DATA_VALIDITY_COMMENT` (fallback: из `activity_properties` с `type == "data_validity"`, приоритет `text_value`, затем `value`)
+- `data_validity_comment` — из `ACTIVITIES.DATA_VALIDITY_COMMENT` (fallback: из
+  `activity_properties` с `type == "data_validity"`, приоритет `text_value`,
+  затем `value`)
 
 **Контракт:**
 
-- Поля извлекаются напрямую из ChEMBL API с согласованным маппингом по источникам/типам
+- Поля извлекаются напрямую из ChEMBL API с согласованным маппингом по
+  источникам/типам
 - При отсутствии источника — `null`
-- Enrichment функции выполняются в порядке: assay → compound_record → data_validity
+- Enrichment функции выполняются в порядке: assay → compound_record →
+  data_validity
 
 **Критерии:**
 
 - Заморозка порядка колонок через `COLUMN_ORDER` из Pandera-схемы
-- Инварианты: `standard_text_value IS NOT NULL ⇒ standard_value IS NULL`, `text_value IS NOT NULL ⇒ value IS NULL`, `data_validity_comment IS NOT NULL ⇒ data_validity_description IS NOT NULL` (после LEFT JOIN)
+- Инварианты: `standard_text_value IS NOT NULL ⇒ standard_value IS NULL`,
+  `text_value IS NOT NULL ⇒ value IS NULL`,
+  `data_validity_comment IS NOT NULL ⇒ data_validity_description IS NOT NULL`
+  (после LEFT JOIN)
 
----
+______________________________________________________________________
 
 ## 7. Нормализация данных
 
@@ -1024,7 +1087,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 - Enum: `=`, `>`, `<`, `>=`, `<=`, `~`
 
-- Нормализация: map unicode inequalities to ASCII (≤ → <=, ≥ → >=)
+- Нормализация: map unicode inequalities to ASCII (≤ → \<=, ≥ → >=)
 
 **standard_units:**
 
@@ -1034,7 +1097,8 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?target_chembl_id=C
 
 ### Политика округления
 
-ChEMBL применяет стандартизацию и проверки валидности данных. Детальные правила приведены в [ChEMBL FAQ](https://www.ebi.ac.uk/chembl/documentation/faq).
+ChEMBL применяет стандартизацию и проверки валидности данных. Детальные правила
+приведены в [ChEMBL FAQ](https://www.ebi.ac.uk/chembl/documentation/faq).
 
 **Ключевые моменты:**
 
@@ -1068,50 +1132,73 @@ ChEMBL применяет стандартизацию и проверки ва�
 
 - Все проверяется Pandera-схемой
 
----
+______________________________________________________________________
 
 ## 8. Pandera Schema для Activity
 
 ### SCHEMA_VERSION и COLUMN_ORDER
 
 ```python
-
 from pandera import DataFrameSchema, Column, Check
 import pandera as pa
 
 SCHEMA_VERSION = "1.0.0"
 COLUMN_ORDER = [
-    "activity_id", "molecule_chembl_id", "assay_chembl_id", "target_chembl_id",
-    "document_chembl_id", "standard_type", "standard_relation", "standard_value",
-    "standard_units", "pchembl_value", "bao_endpoint", "bao_format", "bao_label",
-    "canonical_smiles", "ligand_efficiency", "target_organism", "target_tax_id",
-    "data_validity_comment", "activity_properties",
-    "compound_key"
+    "activity_id",
+    "molecule_chembl_id",
+    "assay_chembl_id",
+    "target_chembl_id",
+    "document_chembl_id",
+    "standard_type",
+    "standard_relation",
+    "standard_value",
+    "standard_units",
+    "pchembl_value",
+    "bao_endpoint",
+    "bao_format",
+    "bao_label",
+    "canonical_smiles",
+    "ligand_efficiency",
+    "target_organism",
+    "target_tax_id",
+    "data_validity_comment",
+    "activity_properties",
+    "compound_key",
 ]
 
 STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
-
 ```
 
 ### ActivitySchema
 
 ```python
-
 ActivitySchema = DataFrameSchema(
     {
         "activity_id": Column(pa.Int64, Check.ge(1), unique=True, nullable=False),
-        "molecule_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "assay_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "target_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
-        "document_chembl_id": Column(pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True),
+        "molecule_chembl_id": Column(
+            pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True
+        ),
+        "assay_chembl_id": Column(
+            pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True
+        ),
+        "target_chembl_id": Column(
+            pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True
+        ),
+        "document_chembl_id": Column(
+            pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True
+        ),
         "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
         "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
         "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),
         "standard_units": Column(pa.String, nullable=True),
         "pchembl_value": Column(pa.Float64, Check.ge(0), nullable=True),
-        "bao_endpoint": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
-        "bao_format": Column(pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True),
+        "bao_endpoint": Column(
+            pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True
+        ),
+        "bao_format": Column(
+            pa.String, Check.str_matches(r"^BAO_\d{7}$"), nullable=True
+        ),
         "bao_label": Column(pa.String, nullable=True),
         "canonical_smiles": Column(pa.String, nullable=True),
         "ligand_efficiency": Column(pa.String, nullable=True),
@@ -1125,7 +1212,6 @@ ActivitySchema = DataFrameSchema(
     coerce=True,
     name=f"ActivitySchema_v{SCHEMA_VERSION}",
 )
-
 ```
 
 ### Контракт валидации
@@ -1140,15 +1226,21 @@ ActivitySchema = DataFrameSchema(
 
 **Sort keys:** `["assay_id", "testitem_id", "activity_id"]`
 
-Activity pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование:
+Activity pipeline обеспечивает детерминированный вывод через стабильную
+сортировку и хеширование:
 
-- **Sort keys:** Строки сортируются по `assay_id`, затем `testitem_id`, затем `activity_id` перед записью
-- **Hash policy:** Используется SHA256 для генерации `hash_row` и `hash_business_key`
+- **Sort keys:** Строки сортируются по `assay_id`, затем `testitem_id`, затем
+  `activity_id` перед записью
+- **Hash policy:** Используется SHA256 для генерации `hash_row` и
+  `hash_business_key`
   - `hash_row`: хеш всей строки (кроме полей `generated_at`, `run_id`)
   - `hash_business_key`: хеш бизнес-ключа (`activity_id`)
-- **Canonicalization:** Все значения нормализуются перед хешированием (trim whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
-- **Column order:** Фиксированный порядок колонок из `COLUMN_ORDER` в Pandera схеме
-- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`, checksums, `hash_algo`, `hash_policy_version`
+- **Canonicalization:** Все значения нормализуются перед хешированием (trim
+  whitespace, lowercase identifiers, fixed precision numbers, UTC timestamps)
+- **Column order:** Фиксированный порядок колонок из `COLUMN_ORDER` в Pandera
+  схеме
+- **Meta.yaml:** Содержит `pipeline_version`, `chembl_release`, `row_count`,
+  checksums, `hash_algo`, `hash_policy_version`
 
 **Guarantees:**
 
@@ -1156,9 +1248,10 @@ Activity pipeline обеспечивает детерминированный в
 - Стабильный порядок строк и колонок
 - Идентичные хеши для идентичных данных
 
-For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
+For detailed policy, see
+[Determinism Policy](../determinism/00-determinism-policy.md).
 
----
+______________________________________________________________________
 
 ## 9. Rate Limiting и Circuit Breaker
 
@@ -1181,7 +1274,6 @@ For detailed policy, see [Determinism Policy](../determinism/00-determinism-poli
 ### ChEMBL API конфигурация
 
 ```python
-
 from unified_client import APIConfig
 
 chembl_activity_config = APIConfig(
@@ -1190,26 +1282,24 @@ chembl_activity_config = APIConfig(
     headers={"Accept": "application/json"},
     cache_enabled=True,
     cache_ttl=3600,  # 1 час
-
     cache_maxsize=4096,
     rate_limit_max_calls=20,  # консервативно
-
     rate_limit_period=1.0,
     timeout_connect=5.0,
     timeout_read=90.0,
     retry_total=3,
     retry_backoff_factor=2.0,
     cb_failure_threshold=5,
-    cb_timeout=60.0
+    cb_timeout=60.0,
 )
-
 ```
 
 ### ⚠️ UNCERTAIN: Rate Limits
 
 **Проблема:**
 
-- Официальный фиксированный лимит запросов в сек. не документирован на странице web-services
+- Официальный фиксированный лимит запросов в сек. не документирован на странице
+  web-services
 
 **План проверки:**
 
@@ -1221,7 +1311,7 @@ chembl_activity_config = APIConfig(
 
 - Зафиксировать результат в Best Practices
 
----
+______________________________________________________________________
 
 ## 10. Батчинг и пагинация
 
@@ -1238,7 +1328,6 @@ chembl_activity_config = APIConfig(
 ### Псевдокод
 
 ```python
-
 offset = 0
 limit = 1000  # безопасное значение; при 400/413 уменьшать
 
@@ -1249,7 +1338,6 @@ while True:
     if not pm.get("next"):
         break
     offset += pm["limit"]
-
 ```
 
 ### page_meta структура
@@ -1272,22 +1360,28 @@ while True:
 
 - Идти по `next` до `null`
 
-**Инвариант G2, G9:** Только offset-пагинация; идти по page_meta.next до null; перед записью сортировка по activity_id обязательна: `df.sort_values(["activity_id"])`.
+**Инвариант G2, G9:** Только offset-пагинация; идти по page_meta.next до null;
+перед записью сортировка по activity_id обязательна:
+`df.sort_values(["activity_id"])`.
 
-**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md).
+**См. также**: Детали реализации см. в
+[Pipeline Contract](../etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ TODO: Максимальный limit для Activity API
 
 **Проблема (AUD-1):**
 
-Внешние источники упоминают 1000 как возможный максимум, но это не подтверждено для `/activity` endpoint. Требуется эмпирическая верификация через бинарный поиск.
+Внешние источники упоминают 1000 как возможный максимум, но это не подтверждено
+для `/activity` endpoint. Требуется эмпирическая верификация через бинарный
+поиск.
 
 **План верификации:**
 
 1. **Бинарный поиск по значениям `limit`**: начать с диапазона [1, 10000]
-2. **Критерий остановки**: первая 400/413 ошибка от ChEMBL API
-3. **Зафиксировать проверенное значение** в configs/pipelines/activity.yaml (поле `sources.chembl.max_limit`)
-4. **Добавить тест** в `tests/bioetl/integration/test_chembl_limits.py`
+1. **Критерий остановки**: первая 400/413 ошибка от ChEMBL API
+1. **Зафиксировать проверенное значение** в configs/pipelines/activity.yaml
+   (поле `sources.chembl.max_limit`)
+1. **Добавить тест** в `tests/bioetl/integration/test_chembl_limits.py`
 
 **curl команды для проверки:**
 
@@ -1307,26 +1401,29 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 ```
 
-**Ссылка:** Детали тестирования см. в [QC Checklists](../qc/03-checklists-and-ci.md).
+**Ссылка:** Детали тестирования см. в
+[QC Checklists](../qc/03-checklists-and-ci.md).
 
----
+______________________________________________________________________
 
 ## 11. Обработка ошибок
 
 ### Таблица ERROR_HANDLING
 
-| code | condition | action | retry_policy | log_fields | metric |
-|---|---|---|---|---|---|
-| 200 | OK | продолжить | n/a | info, "page ok" | counter:page_ok |
-| 204 | empty page | завершить по next==null | n/a | info, "empty page" | counter:page_empty |
-| 400 | bad request | fail-fast | none | warn, "bad request" | counter:http_400 |
-| 404 | not found | warn-and-continue | none | warn, "not found" | counter:http_404 |
-| 408 | timeout | retry | exp backoff, max N | warn, "timeout" | counter:http_408 |
-| 429 | rate limited | retry | exp backoff + Retry-After | warn, include retry_after | counter:http_429 |
+| code | condition    | action                  | retry_policy              | log_fields                | metric             |
+| ---- | ------------ | ----------------------- | ------------------------- | ------------------------- | ------------------ |
+| 200  | OK           | продолжить              | n/a                       | info, "page ok"           | counter:page_ok    |
+| 204  | empty page   | завершить по next==null | n/a                       | info, "empty page"        | counter:page_empty |
+| 400  | bad request  | fail-fast               | none                      | warn, "bad request"       | counter:http_400   |
+| 404  | not found    | warn-and-continue       | none                      | warn, "not found"         | counter:http_404   |
+| 408  | timeout      | retry                   | exp backoff, max N        | warn, "timeout"           | counter:http_408   |
+| 429  | rate limited | retry                   | exp backoff + Retry-After | warn, include retry_after | counter:http_429   |
 
-| 500/502/503/504 | server errors | retry | exp backoff + jitter | error | counter:http_5xx |
+| 500/502/503/504 | server errors | retry | exp backoff + jitter | error |
+counter:http_5xx |
 
-| else | unexpected | fail-fast | none | error, include body | counter:http_other |
+| else | unexpected | fail-fast | none | error, include body |
+counter:http_other |
 
 ### Log fields
 
@@ -1395,7 +1492,7 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 
 - Верификация корректности интерпретации
 
----
+______________________________________________________________________
 
 ## 12. Кэширование
 
@@ -1416,9 +1513,9 @@ curl -s "<https://www.ebi.ac.uk/chembl/api/data/activity.json?molecule_chembl_id
 ### Пример генерации cache key
 
 ```python
-
 import hashlib
 import json
+
 
 def make_cache_key(endpoint: str, params: dict) -> str:
     """Генерирует стабильный cache key из endpoint и параметров."""
@@ -1426,15 +1523,14 @@ def make_cache_key(endpoint: str, params: dict) -> str:
     key_str = f"{endpoint}?{params_json}"
     return hashlib.md5(key_str.encode()).hexdigest()
 
+
 # Пример
 
 cache_key = make_cache_key(
-    "/activity.json",
-    {"molecule_chembl_id": "CHEMBL998", "limit": 100}
+    "/activity.json", {"molecule_chembl_id": "CHEMBL998", "limit": 100}
 )
 
 # Результат: 'a1b2c3d4e5f6...' (детерминированный для одинаковых параметров)
-
 ```
 
 ### Контракт кэширования
@@ -1453,7 +1549,7 @@ cache_key = make_cache_key(
 
 - Hit rate отслеживается в метриках
 
----
+______________________________________________________________________
 
 ## 13. Quality Control
 
@@ -1473,7 +1569,8 @@ cache_key = make_cache_key(
 
 **Referential integrity:**
 
-- Валидация ссылок на `assay_chembl_id`, `molecule_chembl_id`, `target_chembl_id`, `document_chembl_id`
+- Валидация ссылок на `assay_chembl_id`, `molecule_chembl_id`,
+  `target_chembl_id`, `document_chembl_id`
 
 **Флаги валидности (из ChEMBL FAQ):**
 
@@ -1492,30 +1589,30 @@ cache_key = make_cache_key(
 ### Примеры QC фильтров
 
 ```python
-
 # Фильтр по валидности данных
 
-valid_activities = df[df['data_validity_comment'].isna() |
-                      (df['data_validity_comment'] == '')]
+valid_activities = df[
+    df["data_validity_comment"].isna() | (df["data_validity_comment"] == "")
+]
 
 # Фильтр по дубликатам
 
-unique_activities = df[df['potential_duplicate'] == 0]
+unique_activities = df[df["potential_duplicate"] == 0]
 
 # Фильтр по заполненности critical полей
 
 complete_activities = df[
-    df['standard_value'].notna() &
-    df['standard_type'].notna() &
-    df['molecule_chembl_id'].notna()
+    df["standard_value"].notna()
+    & df["standard_type"].notna()
+    & df["molecule_chembl_id"].notna()
 ]
-
 ```
 
-**Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант duplicates_activity_id==0; проверка перед записью: `df["activity_id"].duplicated().sum()==0`.
+**Инвариант G10, AC9:** QC-фильтры по validity/duplicates как AC; инвариант
+duplicates_activity_id==0; проверка перед записью:
+`df["activity_id"].duplicated().sum()==0`.
 
 ```python
-
 # Обязательная проверка перед записью
 
 duplicate_count = df["activity_id"].duplicated().sum()
@@ -1526,18 +1623,19 @@ assert duplicate_count == 0, f"Found {duplicate_count} duplicate activity_id ent
 qc_report = {
     "duplicates_activity_id": duplicate_count,
     "threshold": 0,
-    "passed": duplicate_count == 0
+    "passed": duplicate_count == 0,
 }
-
 ```
 
-**См. также**: Детали реализации см. в [Pipeline Contract](../etl_contract/01-pipeline-contract.md).
+**См. также**: Детали реализации см. в
+[Pipeline Contract](../etl_contract/01-pipeline-contract.md).
 
 ### ⚠️ UNCERTAIN: Стабильность BAO полей
 
 **Проблема:**
 
-- Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но допускает null
+- Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но
+  допускает null
 
 - Доля заполненности неизвестна
 
@@ -1549,7 +1647,7 @@ qc_report = {
 
 - Документирование результатов
 
----
+______________________________________________________________________
 
 ## 14. Output Artifacts
 
@@ -1559,7 +1657,9 @@ qc_report = {
 
 - `activity_{date}_quality_report.csv` — QC метрики
 
-**Корреляционный анализ опционален**: файл `activity_{date}_correlation_report.csv` создаётся только при `postprocess.correlation.enabled: true` в конфигурации.
+**Корреляционный анализ опционален**: файл
+`activity_{date}_correlation_report.csv` создаётся только при
+`postprocess.correlation.enabled: true` в конфигурации.
 
 ### Extended режим (+ metadata и manifest)
 
@@ -1646,14 +1746,13 @@ notes:
 
 - `chembl_release` извлекается из `/status` endpoint
 
----
+______________________________________________________________________
 
 ## 15. Примеры использования
 
 ### Инициализация и GET-батч
 
 ```python
-
 import hashlib
 import json
 import time
@@ -1661,9 +1760,11 @@ import requests
 
 BASE = "<https://www.ebi.ac.uk/chembl/api/data>"
 
+
 def stable_params(d):
     """Стабильная сериализация параметров."""
     return json.dumps(d, sort_keys=True, separators=(",", ":"))
+
 
 def fetch_activities(filters, limit=1000, sleep_s=1.0):
     """Извлекает activities с пагинацией и rate limiting."""
@@ -1693,49 +1794,43 @@ def fetch_activities(filters, limit=1000, sleep_s=1.0):
         offset += pm.get("limit", 0)
         time.sleep(0.2)  # мягкий rate limit
 
+
 # Использование
 
 for activity in fetch_activities({"target_chembl_id": "CHEMBL240"}):
     print(f"Activity {activity['activity_id']}: {activity['standard_value']}")
-
 ```
 
-### POST с X-HTTP-Method-Override (длинные списки __in)
+### POST с X-HTTP-Method-Override (длинные списки \_\_in)
 
 ```python
-
 import requests
 
 filters = {
-    "assay_chembl_id__in": ",".join([
-        "CHEMBL830379",
-        "CHEMBL1909156",
-        "CHEMBL691450"
-    ]),
+    "assay_chembl_id__in": ",".join(["CHEMBL830379", "CHEMBL1909156", "CHEMBL691450"]),
     "molecule_chembl_id": "CHEMBL998",
     "format": "json",
-    "limit": 500
+    "limit": 500,
 }
 
 r = requests.post(
     f"{BASE}/activity",
     data=filters,
     headers={"X-HTTP-Method-Override": "GET"},
-    timeout=60
+    timeout=60,
 )
 r.raise_for_status()
 data = r.json()
 
 print(f"Received {len(data.get('activities', []))} activities")
-
 ```
 
-Поддержка POST + X-HTTP-Method-Override: GET описана в [официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
+Поддержка POST + X-HTTP-Method-Override: GET описана в
+[официальной документации ChEMBL](https://www.ebi.ac.uk/chembl/documentation/webservices).
 
 ### Полный пайплайн
 
 ```python
-
 from unified_client import UnifiedAPIClient
 from activity_schema import ActivitySchema
 from unified_output import UnifiedOutputWriter
@@ -1773,10 +1868,8 @@ writer.write(
     df_normalized,
     output_name="activity",
     schema=schema,
-    mode="extended"  # включает meta.yaml
-
+    mode="extended",  # включает meta.yaml
 )
-
 ```
 
 ### Критерии валидности примеров
@@ -1787,55 +1880,55 @@ writer.write(
 
 - Единицы измерения и типы согласуются с документацией/FAQ
 
----
+______________________________________________________________________
 
 ## 16. Best Practices
 
-1. **Сужайте выборку фильтрами:** `assay_type`, `target_organism`, `pchembl_value__gte`, `only=...`
+1. **Сужайте выборку фильтрами:** `assay_type`, `target_organism`,
+   `pchembl_value__gte`, `only=...`
 
-2. **При больших выборках используйте POST с override:** для длинных списков в `__in` фильтрах
+1. **При больших выборках используйте POST с override:** для длинных списков в
+   `__in` фильтрах
 
-3. **Логируйте все параметры и page_meta:** для воспроизводимости и отладки
+1. **Логируйте все параметры и page_meta:** для воспроизводимости и отладки
 
-4. **Фиксируйте chembl_release через /status в meta.yaml:** для трассировки версии источника
+1. **Фиксируйте chembl_release через /status в meta.yaml:** для трассировки
+   версии источника
 
-5. **Применяйте QC-фильтры:** по `data_validity_comment`, `potential_duplicate`
+1. **Применяйте QC-фильтры:** по `data_validity_comment`, `potential_duplicate`
 
-6. **Всегда используйте кэш:** для ChEMBL Activity API (TTL 1 час)
+1. **Всегда используйте кэш:** для ChEMBL Activity API (TTL 1 час)
 
-7. **Батчинг по target/assay:** эффективнее чем по molecule
+1. **Батчинг по target/assay:** эффективнее чем по molecule
 
-8. **Валидация referential integrity:** критична для целостности данных
+1. **Валидация referential integrity:** критична для целостности данных
 
-9. **Мониторинг rate limits:** ChEMBL имеет жесткие ограничения
+1. **Мониторинг rate limits:** ChEMBL имеет жесткие ограничения
 
-10. **Детерминированная сортировка:** по `activity_id` для воспроизводимости
+1. **Детерминированная сортировка:** по `activity_id` для воспроизводимости
 
 ### Примеры Best Practices
 
 **Эффективная фильтрация:**
 
 ```python
-
 # Хорошо: суженная выборка
 
 filters = {
     "target_chembl_id": "CHEMBL240",
     "assay_type": "B",
     "pchembl_value__gte": 6,
-    "only": "activity_id,molecule_chembl_id,standard_value,standard_type"
+    "only": "activity_id,molecule_chembl_id,standard_value,standard_type",
 }
 
 # Плохо: вся активность
 
 filters = {}  # Будет очень медленно!
-
 ```
 
 **Кэширование:**
 
 ```python
-
 # Хорошо: используем кэш
 
 client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
@@ -1843,22 +1936,25 @@ client = UnifiedAPIClient(APIConfig(cache_enabled=True, cache_ttl=3600))
 # Плохо: без кэша
 
 client = UnifiedAPIClient(APIConfig(cache_enabled=False))
-
 ```
 
----
+______________________________________________________________________
 
 ## 17. Связь с другими компонентами
 
 ### Зависимости (cross-reference)
 
-- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) — для запросов к API
+- **UnifiedAPIClient** (см. [03-data-extraction.md](../03-data-extraction.md)) —
+  для запросов к API
 
-- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) — для валидации
+- **UnifiedSchema** (см. [Validation](../etl_contract/05-validation.md)) — для
+  валидации
 
-- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) — для записи
+- **UnifiedOutputWriter** (см. [Output Layout](../output/00-output-layout.md)) —
+  для записи
 
-- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) — для логирования
+- **UnifiedLogger** (см. [Logging Overview](../logging/00-overview.md)) — для
+  логирования
 
 ### Интеграция с другими сущностями (referential integrity)
 
@@ -1887,28 +1983,26 @@ Activity
 **Проверка referential integrity:**
 
 ```python
-
 def validate_referential_integrity(activities_df, assays_df, targets_df):
     """Проверяет, что все ссылки ссылаются на существующие записи."""
 
     missing_assays = activities_df[
-        ~activities_df['assay_chembl_id'].isin(assays_df['assay_chembl_id'])
+        ~activities_df["assay_chembl_id"].isin(assays_df["assay_chembl_id"])
     ]
 
     missing_targets = activities_df[
-        ~activities_df['target_chembl_id'].isin(targets_df['target_chembl_id'])
+        ~activities_df["target_chembl_id"].isin(targets_df["target_chembl_id"])
     ]
 
     if len(missing_assays) > 0 or len(missing_targets) > 0:
         logger.warning(
             "Referential integrity violations",
             missing_assays=len(missing_assays),
-            missing_targets=len(missing_targets)
+            missing_targets=len(missing_targets),
         )
-
 ```
 
----
+______________________________________________________________________
 
 ## 18. Диаграмма потока данных
 
@@ -1933,25 +2027,25 @@ flowchart LR
 
 1. **Request filters** — входные параметры запроса
 
-2. **Cache** — проверка кэша (TTL)
+1. **Cache** — проверка кэша (TTL)
 
-3. **UnifiedAPIClient** — HTTP запрос с retry/backoff
+1. **UnifiedAPIClient** — HTTP запрос с retry/backoff
 
-4. **Response JSON** — ответ от ChEMBL API
+1. **Response JSON** — ответ от ChEMBL API
 
-5. **Normalize** — нормализация полей
+1. **Normalize** — нормализация полей
 
-6. **Validate Pandera** — валидация через Pandera схемы
+1. **Validate Pandera** — валидация через Pandera схемы
 
-7. **Write CSV/Parquet** — запись основного датасета
+1. **Write CSV/Parquet** — запись основного датасета
 
-8. **QC reports** — генерация QC и correlation отчетов
+1. **QC reports** — генерация QC и correlation отчетов
 
-9. **meta.yaml** — формирование метаданных
+1. **meta.yaml** — формирование метаданных
 
-10. **Log error + fail-fast** — обработка ошибок валидации
+1. **Log error + fail-fast** — обработка ошибок валидации
 
----
+______________________________________________________________________
 
 ## 19. Открытые вопросы (OPEN_QUESTIONS)
 
@@ -1969,11 +2063,11 @@ flowchart LR
 
 1. Нагрузочный прогон на `/activity?limit=1000` с ретраями
 
-2. Логировать 429 ошибки и заголовки ответа
+1. Логировать 429 ошибки и заголовки ответа
 
-3. Подобрать безопасный QPS эмпирически
+1. Подобрать безопасный QPS эмпирически
 
-4. Документировать результаты
+1. Документировать результаты
 
 ### 2. Максимально допустимый limit
 
@@ -1985,9 +2079,9 @@ flowchart LR
 
 1. Бинарный поиск по значениям `limit` (1000, 2000, 5000)
 
-2. До первого 400/413 ошибки
+1. До первого 400/413 ошибки
 
-3. Зафиксировать предел в Best Practices
+1. Зафиксировать предел в Best Practices
 
 ### 3. Наличие canonical_smiles в каждом activity
 
@@ -1999,15 +2093,16 @@ flowchart LR
 
 1. Выборка случайных страниц (1000 записей × 10 страниц)
 
-2. Расчет доли null значений
+1. Расчет доли null значений
 
-3. Документирование результатов
+1. Документирование результатов
 
 ### 4. Стабильность набора полей BAO
 
 **Проблема:**
 
-- Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но допускает null
+- Набор (`bao_endpoint`, `bao_format`, `bao_label`) подтвержден схемой, но
+  допускает null
 
 - Доля заполненности неизвестна
 
@@ -2015,9 +2110,9 @@ flowchart LR
 
 1. Сэмплирование 10k записей
 
-2. Оценка заполненности BAO полей
+1. Оценка заполненности BAO полей
 
-3. Документирование статистики
+1. Документирование статистики
 
 ### 5. Политика округления standard_value
 
@@ -2031,11 +2126,11 @@ flowchart LR
 
 1. Сверка с `ACTIVITY_STDS_LOOKUP` (дамп БД ChEMBL)
 
-2. Выборка примеров с границами округления
+1. Выборка примеров с границами округления
 
-3. Документирование паттернов
+1. Документирование паттернов
 
----
+______________________________________________________________________
 
 ## 20. Ссылки (опорные)
 
@@ -2079,10 +2174,9 @@ flowchart LR
 
 - [ChEMBL Data Quality Filters](https://www.ebi.ac.uk/chembl/documentation/faq#Quality)
 
----
+______________________________________________________________________
 
-**Версия документа:** 1.0
-**Дата:** 2025-01-28
-**Автор:** ETL Architecture Team
+**Версия документа:** 1.0 **Дата:** 2025-01-28 **Автор:** ETL Architecture Team
 
-**Следующий раздел:** Интеграция с другими модулями, см. [ETL Overview](../etl_contract/00-etl-overview.md)
+**Следующий раздел:** Интеграция с другими модулями, см.
+[ETL Overview](../etl_contract/00-etl-overview.md)

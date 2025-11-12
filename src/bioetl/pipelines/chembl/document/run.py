@@ -11,14 +11,14 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.chembl import ChemblClient
-from bioetl.clients.document import ChemblDocumentClient
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
 from bioetl.core.log_events import LogEvents
-from bioetl.schemas.document import COLUMN_ORDER
+from bioetl.schemas.chembl_document_schema import COLUMN_ORDER
 
 from ...chembl_descriptor import (
     BatchExtractionContext,

@@ -1,12 +1,11 @@
 # 15 Activity ChEMBL Logging
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the pipeline-specific logging configuration for the Activity (ChEMBL) pipeline.
+This document describes the pipeline-specific logging configuration for the
+Activity (ChEMBL) pipeline.
 
 ## Pipeline-Specific Actor Value
 
@@ -14,5 +13,7 @@ This document describes the pipeline-specific logging configuration for the Acti
 
 ## Related Documentation
 
-- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure) — General logging format, mandatory fields, stage-specific events
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline overview
+- [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure)
+  — General logging format, mandatory fields, stage-specific events
+- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline
+  overview

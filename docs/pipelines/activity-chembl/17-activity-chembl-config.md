@@ -1,16 +1,16 @@
 # 17 Activity ChEMBL Config
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the configuration keys and profiles for the Activity (ChEMBL) pipeline.
+This document describes the configuration keys and profiles for the Activity
+(ChEMBL) pipeline.
 
 ## Configuration File
 
-The pipeline configuration is defined in `configs/pipelines/activity/activity_chembl.yaml`.
+The pipeline configuration is defined in
+`configs/pipelines/activity/activity_chembl.yaml`.
 
 ## Profile Inheritance
 
@@ -34,7 +34,8 @@ The configuration extends the following profiles:
 
 ### Post-processing
 
-- `postprocess.correlation.enabled`: Enable correlation report generation (default: false)
+- `postprocess.correlation.enabled`: Enable correlation report generation
+  (default: false)
 
 ### QC Thresholds
 
@@ -46,11 +47,13 @@ The configuration extends the following profiles:
 Configuration can be overridden via:
 
 1. Environment variables (highest priority)
-2. `--set` CLI flags
-3. Configuration file values (lowest priority)
+1. `--set` CLI flags
+1. Configuration file values (lowest priority)
 
 ## Related Documentation
 
-- [Typed Configurations](../configs/00-typed-configs-and-profiles.md) — Configuration system
+- [Typed Configurations](../configs/00-typed-configs-and-profiles.md) —
+  Configuration system
 - [16-activity-chembl-cli.md](16-activity-chembl-cli.md) — CLI usage
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline overview
+- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline
+  overview

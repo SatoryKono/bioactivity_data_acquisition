@@ -132,7 +132,7 @@ def extract_cli_commands() -> list[str]:
     """Извлекает CLI-команды из реестра."""
 
     try:
-        from bioetl.cli.registry import COMMAND_REGISTRY
+        from bioetl.cli.cli_registry import COMMAND_REGISTRY
     except ImportError as exc:  # pragma: no cover
         return [f"Error: {exc}"]
     return sorted(COMMAND_REGISTRY.keys())

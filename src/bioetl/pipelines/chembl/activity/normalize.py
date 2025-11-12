@@ -8,11 +8,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.frame import ensure_columns
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
-from bioetl.schemas.activity import (
+from bioetl.schemas.chembl_activity_enrichment import (
     ASSAY_ENRICHMENT_SCHEMA,
     COMPOUND_RECORD_ENRICHMENT_SCHEMA,
     DATA_VALIDITY_ENRICHMENT_SCHEMA,

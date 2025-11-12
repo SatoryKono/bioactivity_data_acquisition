@@ -19,11 +19,11 @@ def _create_minimal_config() -> PipelineConfig:
         version=1,
         pipeline=PipelineMetadata(name="assay_chembl", version="1.0.0"),
         transform=TransformConfig(
-            arrays_to_header_rows=["assay_classifications", "assay_parameters"]
+            arrays_to_header_rows=["client_assay_classifications", "client_assay_parameters"]
         ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
-        validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
+        validation=ValidationConfig(schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema"),
     )
 
 

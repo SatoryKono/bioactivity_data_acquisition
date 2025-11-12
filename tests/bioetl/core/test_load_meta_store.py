@@ -11,7 +11,7 @@ import pytest
 
 from bioetl.core.hashing import hash_from_mapping
 from bioetl.core.load_meta_store import LoadMetaStore
-from bioetl.schemas.load_meta import (
+from bioetl.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     ROW_HASH_FIELDS,
     LoadMetaSchema,

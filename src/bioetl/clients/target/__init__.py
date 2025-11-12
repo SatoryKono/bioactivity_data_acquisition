@@ -1,5 +1,5 @@
 """Target-specific ChEMBL clients."""
 
-from .chembl_target import ChemblTargetClient
+from .client_chembl_target import ChemblTargetClient
 
 __all__ = ["ChemblTargetClient"]

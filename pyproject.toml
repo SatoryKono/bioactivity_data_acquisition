@@ -64,7 +64,7 @@ dev = [
 ]
 
 [project.scripts]
-bioetl = "bioetl.cli.app:run"
+bioetl = "bioetl.cli.cli_app:run"
 bioetl-audit-docs = "tools.audit_docs:app"
 bioetl-build-vocab-store = "tools.build_vocab_store:app"
 bioetl-catalog-code-symbols = "tools.catalog_code_symbols:app"
@@ -187,6 +187,7 @@ markers = [
     "integration: Integration tests",
     "golden: Golden tests for deterministic output verification",
     "determinism: Bit-identical determinism verification tests",
+    "smoke: Fast smoke checks for import and wiring validation",
     "slow: Slow tests (>5s)",
     "property: Property-based tests",
     "qc: Quality control tests",

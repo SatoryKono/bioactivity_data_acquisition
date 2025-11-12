@@ -10,8 +10,8 @@ import typer  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.app import app, run  # type: ignore[reportUnknownVariableType]
-from bioetl.cli.command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
+from bioetl.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
+from bioetl.cli.cli_command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
     _parse_set_overrides,
     _validate_config_path,
     _validate_output_dir,
@@ -88,7 +88,7 @@ class TestCLICommands:
 
     def test_run_invokes_app(self):
         """Ensure CLI entrypoint delegates to Typer app."""
-        with patch("bioetl.cli.app.app") as app_mock:
+        with patch("bioetl.cli.cli_app.app") as app_mock:
             run()
         app_mock.assert_called_once_with()
 
@@ -408,7 +408,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity.activity_chembl:ActivitySchema"
+  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
 """
         )
 
@@ -534,7 +534,7 @@ http:
 
         output_dir = tmp_path / "output"
 
-        with patch("bioetl.cli.command.load_environment_settings") as mock_env_settings:
+        with patch("bioetl.cli.cli_command.load_environment_settings") as mock_env_settings:
             mock_env_settings.side_effect = ValueError("invalid environment")
 
             result = runner.invoke(

@@ -1,12 +1,17 @@
 # Testing Standards
 
-This document defines the testing standards for the `bioetl` project. All tests **MUST** follow these standards to ensure reliability, reproducibility, and maintainability.
+This document defines the testing standards for the `bioetl` project. All tests
+**MUST** follow these standards to ensure reliability, reproducibility, and
+maintainability.
 
 ## Principles
 
-- **No Network Calls**: Unit tests **MUST NOT** make network requests; use mocks or fixtures.
-- **Golden Tests**: Critical outputs **MUST** have golden tests for deterministic verification.
-- **Property-Based Tests**: Critical transformations **SHOULD** use property-based testing (Hypothesis).
+- **No Network Calls**: Unit tests **MUST NOT** make network requests; use mocks
+  or fixtures.
+- **Golden Tests**: Critical outputs **MUST** have golden tests for
+  deterministic verification.
+- **Property-Based Tests**: Critical transformations **SHOULD** use
+  property-based testing (Hypothesis).
 - **Coverage Threshold**: Minimum coverage **MUST** be 85% (enforced in CI).
 
 ## Test Categories and Markers
@@ -53,13 +58,15 @@ def test_normalize_id_property(chembl_id: str):
 
 ## No Network Calls
 
-Unit tests **MUST NOT** make actual network requests. Use mocks or fixtures instead:
+Unit tests **MUST NOT** make actual network requests. Use mocks or fixtures
+instead:
 
 ### Valid Examples
 
 ```python
 from unittest.mock import Mock, patch
 import pytest
+
 
 @pytest.mark.unit
 @patch("requests.get")
@@ -69,6 +76,7 @@ def test_fetch_data_mocked(mock_get):
     result = fetch_data("https://api.example.com")
     assert result == {"data": "test"}
     mock_get.assert_called_once()
+
 
 @pytest.mark.unit
 def test_process_data_with_fixture(sample_data_fixture):
@@ -83,25 +91,29 @@ def test_process_data_with_fixture(sample_data_fixture):
 # Invalid: real network call in unit test
 @pytest.mark.unit
 def test_fetch_data_real():
-    response = requests.get("https://api.example.com/data")  # SHALL NOT make real requests
+    response = requests.get(
+        "https://api.example.com/data"
+    )  # SHALL NOT make real requests
     assert response.status_code == 200
 ```
 
 ## Golden Tests
 
-Golden tests **MUST** be used for critical outputs to ensure deterministic behavior:
+Golden tests **MUST** be used for critical outputs to ensure deterministic
+behavior:
 
 ### Golden Test Structure
 
 1. Store expected output in `tests/bioetl/golden/{test_name}.golden`
-2. Compare actual output with golden file
-3. Update golden file only when intentional changes occur
+1. Compare actual output with golden file
+1. Update golden file only when intentional changes occur
 
 ### Valid Examples
 
 ```python
 import pytest
 from pathlib import Path
+
 
 @pytest.mark.golden
 def test_activity_schema_golden(golden_dir: Path):
@@ -129,10 +141,9 @@ Use Hypothesis for property-based testing of critical transformations:
 from hypothesis import given, strategies as st
 import pytest
 
+
 @pytest.mark.property
-@given(
-    st.lists(st.floats(min_value=0.0, max_value=1000.0), min_size=1, max_size=100)
-)
+@given(st.lists(st.floats(min_value=0.0, max_value=1000.0), min_size=1, max_size=100))
 def test_normalize_values_property(values: list[float]):
     """Property-based test for value normalization."""
     normalized = normalize_values(values)
@@ -160,6 +171,7 @@ Test classes **MUST** follow the pattern: `Test*`
 # File: tests/bioetl/unit/test_normalizers.py
 
 import pytest
+
 
 class TestChemBLNormalizer:
     @pytest.mark.unit
@@ -204,13 +216,12 @@ Common fixtures **SHOULD** be defined in `tests/bioetl/conftest.py`:
 import pytest
 from pathlib import Path
 
+
 @pytest.fixture
 def sample_data_fixture():
     """Sample data fixture for testing."""
-    return pd.DataFrame({
-        "id": ["1", "2", "3"],
-        "value": [1.0, 2.0, 3.0]
-    })
+    return pd.DataFrame({"id": ["1", "2", "3"], "value": [1.0, 2.0, 3.0]})
+
 
 @pytest.fixture
 def golden_dir(tmp_path: Path) -> Path:

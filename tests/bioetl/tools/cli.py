@@ -30,7 +30,7 @@ def run_cli_command(
     text: bool = True,
 ) -> subprocess.CompletedProcess[str]:
     """Execute the BioETL CLI with the provided arguments."""
-    command: list[str] = [sys.executable, "-m", "bioetl.cli.app", *args]
+    command: list[str] = [sys.executable, "-m", "bioetl.cli.cli_app", *args]
     return subprocess.run(
         command,
         cwd=cwd or PROJECT_ROOT,

@@ -1,8 +1,6 @@
 # 44 Document PubMed Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
@@ -19,10 +17,11 @@ The pipeline uses `DocumentPubMedSchema` for validation:
 
 ## Validation Workflow
 
-1. **Schema Validation**: Validates against DocumentPubMedSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `pmid` values
-3. **Identifier Validation**: Validates PMID/DOI/PMCID formats
-4. **Date Validation**: Validates publication date ranges
+1. **Schema Validation**: Validates against DocumentPubMedSchema with
+   strict=True
+1. **Duplicate Detection**: Ensures duplicate-free `pmid` values
+1. **Identifier Validation**: Validates PMID/DOI/PMCID formats
+1. **Date Validation**: Validates publication date ranges
 
 ## Constraints
 

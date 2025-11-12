@@ -1,14 +1,21 @@
 # ChEMBL Target Extraction Pipeline
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
-This document describes the `target` pipeline, which is responsible for extracting and processing target data from the ChEMBL database.
+This document describes the `target` pipeline, which is responsible for
+extracting and processing target data from the ChEMBL database.
 
 ## 1. Overview
 
-The `target` pipeline extracts information about macromolecular targets of bioactive compounds from the ChEMBL database. This data is essential for understanding drug-target interactions and mechanisms of action. The pipeline focuses solely on extracting and normalizing target data from ChEMBL API.
+The `target` pipeline extracts information about macromolecular targets of
+bioactive compounds from the ChEMBL database. This data is essential for
+understanding drug-target interactions and mechanisms of action. The pipeline
+focuses solely on extracting and normalizing target data from ChEMBL API.
 
-**Note:** Enrichment from external sources (UniProt, IUPHAR) is handled by separate pipelines. This pipeline only extracts data from ChEMBL.
+**Note:** Enrichment from external sources (UniProt, IUPHAR) is handled by
+separate pipelines. This pipeline only extracts data from ChEMBL.
 
 ## 2. CLI Command
 
@@ -17,13 +24,13 @@ The pipeline is executed via the `target` CLI command.
 **Usage:**
 
 ```bash
-python -m bioetl.cli.app target_chembl [OPTIONS]
+python -m bioetl.cli.cli_app target_chembl [OPTIONS]
 ```
 
 **Example:**
 
 ```bash
-python -m bioetl.cli.app target_chembl \
+python -m bioetl.cli.cli_app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target
 ```
@@ -32,17 +39,22 @@ python -m bioetl.cli.app target_chembl \
 
 ### 3.1 Обзор конфигурации
 
-Target pipeline управляется через декларативный YAML-файл конфигурации. Все конфигурационные файлы валидируются во время выполнения против строго типизированных Pydantic-моделей, что гарантирует корректность параметров перед запуском пайплайна.
+Target pipeline управляется через декларативный YAML-файл конфигурации. Все
+конфигурационные файлы валидируются во время выполнения против строго
+типизированных Pydantic-моделей, что гарантирует корректность параметров перед
+запуском пайплайна.
 
 **Расположение конфига:** `configs/pipelines/target/target_chembl.yaml`
 
-**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml` и `configs/defaults/determinism.yaml` через `extends`.
+**Профили по умолчанию:** Конфигурация наследует от `configs/defaults/base.yaml`
+и `configs/defaults/determinism.yaml` через `extends`.
 
 **Основной источник:** ChEMBL API `/target.json` endpoint.
 
 ### 3.2 Структура конфигурации
 
-Конфигурационный файл Target pipeline следует стандартной структуре `PipelineConfig`:
+Конфигурационный файл Target pipeline следует стандартной структуре
+`PipelineConfig`:
 
 ```yaml
 # configs/pipelines/target/target_chembl.yaml
@@ -207,22 +219,23 @@ fallbacks:
 
 ### 3.3 Критические параметры
 
-| Параметр | Значение | Обоснование | Валидация |
-|----------|----------|------------|-----------|
-| `sources.chembl.batch_size` | `25` | Жёсткое ограничение длины URL в ChEMBL API (~2000 символов) | `if batch_size > 25: raise ConfigValidationError` |
-| `sources.chembl.max_url_length` | `2000` | Максимальная длина URL для предиктивного троттлинга | `<= 2000` |
-| `determinism.sort.by[0]` | `"target_chembl_id"` | Первый ключ сортировки должен быть бизнес-ключом | Обязательно |
-| `determinism.column_order` | Полный список колонок | Полный список колонок из `TargetSchema.Config.column_order` | Проверяется на соответствие схеме |
-| `validation.schema_out` | `"bioetl.schemas.chembl.target.TargetOutputSchema"` | Обязательная ссылка на Pandera-схему | Должен существовать и быть импортируемым |
+| Параметр                        | Значение                                            | Обоснование                                                 | Валидация                                         |
+| ------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- | ------------------------------------------------- |
+| `sources.chembl.batch_size`     | `25`                                                | Жёсткое ограничение длины URL в ChEMBL API (~2000 символов) | `if batch_size > 25: raise ConfigValidationError` |
+| `sources.chembl.max_url_length` | `2000`                                              | Максимальная длина URL для предиктивного троттлинга         | `<= 2000`                                         |
+| `determinism.sort.by[0]`        | `"target_chembl_id"`                                | Первый ключ сортировки должен быть бизнес-ключом            | Обязательно                                       |
+| `determinism.column_order`      | Полный список колонок                               | Полный список колонок из `TargetSchema.Config.column_order` | Проверяется на соответствие схеме                 |
+| `validation.schema_out`         | `"bioetl.schemas.chembl.target.TargetOutputSchema"` | Обязательная ссылка на Pandera-схему                        | Должен существовать и быть импортируемым          |
 
 ### 3.4 Валидация конфигурации
 
 Конфигурация валидируется через Pydantic-модель `PipelineConfig` при загрузке:
 
 1. **Типобезопасность:** Все значения проверяются на соответствие типам
-2. **Обязательные поля:** Отсутствие обязательных полей приводит к ошибке
-3. **Неизвестные ключи:** Неизвестные ключи запрещены (`extra="forbid"`)
-4. **Кросс-полевые инварианты:** Проверка согласованности (например, длина `sort.by` и `sort.ascending`)
+1. **Обязательные поля:** Отсутствие обязательных полей приводит к ошибке
+1. **Неизвестные ключи:** Неизвестные ключи запрещены (`extra="forbid"`)
+1. **Кросс-полевые инварианты:** Проверка согласованности (например, длина
+   `sort.by` и `sort.ascending`)
 
 **Пример ошибки валидации:**
 
@@ -237,7 +250,7 @@ sources.chembl.batch_size
 Параметры конфигурации могут быть переопределены через CLI флаг `--set`:
 
 ```bash
-python -m bioetl.cli.app target_chembl \
+python -m bioetl.cli.cli_app target_chembl \
   --config configs/pipelines/target/target_chembl.yaml \
   --output-dir data/output/target \
   --set sources.chembl.batch_size=20 \
@@ -247,7 +260,8 @@ python -m bioetl.cli.app target_chembl \
 
 ### 3.6 Переменные окружения
 
-Наивысший приоритет имеют переменные окружения (формат: `BIOETL__<SECTION>__<KEY>__<SUBKEY>`):
+Наивысший приоритет имеют переменные окружения (формат:
+`BIOETL__<SECTION>__<KEY>__<SUBKEY>`):
 
 ```bash
 export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25
@@ -257,31 +271,43 @@ export BIOETL__DETERMINISM__FLOAT_PRECISION=4
 
 ### 3.7 Пример полного конфига
 
-Полный пример конфигурационного файла для target pipeline доступен в `configs/pipelines/target/target_chembl.yaml`. Конфигурация включает все необходимые секции для работы пайплайна с детерминизмом, валидацией и извлечением данных из ChEMBL.
+Полный пример конфигурационного файла для target pipeline доступен в
+`configs/pipelines/target/target_chembl.yaml`. Конфигурация включает все
+необходимые секции для работы пайплайна с детерминизмом, валидацией и
+извлечением данных из ChEMBL.
 
-For detailed configuration structure and API, see [Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
+For detailed configuration structure and API, see
+[Typed Configurations and Profiles](../configs/00-typed-configs-and-profiles.md).
 
 ## 4. Data Schemas
 
 ### 4.1 Обзор
 
-Target pipeline использует Pandera для строгой валидации данных перед записью. Схема валидации определяет структуру, типы данных, порядок колонок и ограничения для всех записей. Подробности о политике Pandera схем см. в [Pandera Schema Policy](../schemas/00-pandera-policy.md).
+Target pipeline использует Pandera для строгой валидации данных перед записью.
+Схема валидации определяет структуру, типы данных, порядок колонок и ограничения
+для всех записей. Подробности о политике Pandera схем см. в
+[Pandera Schema Policy](../schemas/00-pandera-policy.md).
 
-**Расположение схемы:** `src/bioetl/schemas/chembl/target/target_output_schema.py`
+**Расположение схемы:**
+`src/bioetl/schemas/chembl/target/target_output_schema.py`
 
-**Ссылка в конфиге:** `validation.schema_out: "bioetl.schemas.chembl.target.TargetOutputSchema"`
+**Ссылка в конфиге:**
+`validation.schema_out: "bioetl.schemas.chembl.target.TargetOutputSchema"`
 
-**Версионирование:** Схема имеет семантическую версию (`MAJOR.MINOR.PATCH`), которая фиксируется в `meta.yaml` для каждой записи пайплайна.
+**Версионирование:** Схема имеет семантическую версию (`MAJOR.MINOR.PATCH`),
+которая фиксируется в `meta.yaml` для каждой записи пайплайна.
 
 ### 4.2 Требования к схеме
 
-Схема валидации для target pipeline должна соответствовать следующим требованиям:
+Схема валидации для target pipeline должна соответствовать следующим
+требованиям:
 
 1. **Строгость:** `strict=True` - все колонки должны быть явно определены
-2. **Приведение типов:** `coerce=True` - автоматическое приведение типов данных
-3. **Порядок колонок:** `ordered=True` - фиксированный порядок колонок
-4. **Nullable dtypes:** Использование nullable dtypes (`pd.StringDtype()`, `pd.Int64Dtype()`, `pd.Float64Dtype()`) вместо `object`
-5. **Бизнес-ключ:** Валидация уникальности `target_chembl_id`
+1. **Приведение типов:** `coerce=True` - автоматическое приведение типов данных
+1. **Порядок колонок:** `ordered=True` - фиксированный порядок колонок
+1. **Nullable dtypes:** Использование nullable dtypes (`pd.StringDtype()`,
+   `pd.Int64Dtype()`, `pd.Float64Dtype()`) вместо `object`
+1. **Бизнес-ключ:** Валидация уникальности `target_chembl_id`
 
 ### 4.3 Структура схемы
 
@@ -297,90 +323,62 @@ from typing import Optional
 # Версия схемы
 SCHEMA_VERSION = "1.0.0"
 
+
 class TargetOutputSchema(pa.DataFrameModel):
     """Pandera schema for ChEMBL target output data."""
 
     # Бизнес-ключ (обязательное поле, NOT NULL)
     target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
-        nullable=False,
-        regex="^CHEMBL\\d+$"
+        description="ChEMBL target identifier", nullable=False, regex="^CHEMBL\\d+$"
     )
 
     # Основные поля target
     pref_name: Series[str] = pa.Field(
-        description="Preferred target name",
-        nullable=True
+        description="Preferred target name", nullable=True
     )
-    organism: Series[str] = pa.Field(
-        description="Target organism",
-        nullable=True
-    )
-    target_type: Series[str] = pa.Field(
-        description="Type of target",
-        nullable=True
-    )
+    organism: Series[str] = pa.Field(description="Target organism", nullable=True)
+    target_type: Series[str] = pa.Field(description="Type of target", nullable=True)
     species_group_flag: Series[Int64] = pa.Field(
-        description="Species group flag",
-        nullable=True
+        description="Species group flag", nullable=True
     )
-    tax_id: Series[Int64] = pa.Field(
-        description="Taxonomy ID",
-        nullable=True
-    )
+    tax_id: Series[Int64] = pa.Field(description="Taxonomy ID", nullable=True)
     component_count: Series[Int64] = pa.Field(
-        description="Number of components",
-        nullable=True
+        description="Number of components", nullable=True
     )
 
     # Системные метаданные
-    run_id: Series[str] = pa.Field(
-        description="Pipeline run ID",
-        nullable=False
-    )
-    git_commit: Series[str] = pa.Field(
-        description="Git commit SHA",
-        nullable=False
-    )
+    run_id: Series[str] = pa.Field(description="Pipeline run ID", nullable=False)
+    git_commit: Series[str] = pa.Field(description="Git commit SHA", nullable=False)
     config_hash: Series[str] = pa.Field(
-        description="Configuration hash",
-        nullable=False
+        description="Configuration hash", nullable=False
     )
     pipeline_version: Series[str] = pa.Field(
-        description="Pipeline version",
-        nullable=False
+        description="Pipeline version", nullable=False
     )
     source_system: Series[str] = pa.Field(
         description="Source system (ChEMBL or ChEMBL_FALLBACK)",
         nullable=False,
-        isin=["ChEMBL", "ChEMBL_FALLBACK"]
+        isin=["ChEMBL", "ChEMBL_FALLBACK"],
     )
     chembl_release: Series[str] = pa.Field(
-        description="ChEMBL release version",
-        nullable=False
+        description="ChEMBL release version", nullable=False
     )
     extracted_at: Series[DateTime] = pa.Field(
-        description="Extraction timestamp (UTC)",
-        nullable=False
+        description="Extraction timestamp (UTC)", nullable=False
     )
 
     # Хеши
     hash_row: Series[str] = pa.Field(
-        description="SHA256 hash of entire row",
-        nullable=False,
-        regex="^[a-f0-9]{64}$"
+        description="SHA256 hash of entire row", nullable=False, regex="^[a-f0-9]{64}$"
     )
     hash_business_key: Series[str] = pa.Field(
         description="SHA256 hash of business key",
         nullable=False,
-        regex="^[a-f0-9]{64}$"
+        regex="^[a-f0-9]{64}$",
     )
 
     # Индекс
-    index: Series[Int64] = pa.Field(
-        description="Row index",
-        nullable=False
-    )
+    index: Series[Int64] = pa.Field(description="Row index", nullable=False)
 
     # Порядок колонок
     class Config:
@@ -405,7 +403,7 @@ class TargetOutputSchema(pa.DataFrameModel):
             "extracted_at",
             "hash_row",
             "hash_business_key",
-            "index"
+            "index",
         ]
 
     # Валидация уникальности бизнес-ключа
@@ -419,11 +417,15 @@ class TargetOutputSchema(pa.DataFrameModel):
 
 Схема версионируется по семантическому версионированию (`MAJOR.MINOR.PATCH`):
 
-- **PATCH:** Обновления документации или корректировки, не влияющие на логику валидации
-- **MINOR:** Обратно совместимые расширения (добавление nullable колонок с дефолтами, ослабление ограничений)
-- **MAJOR:** Breaking changes (переименование/удаление колонок, изменение типов, изменение порядка колонок)
+- **PATCH:** Обновления документации или корректировки, не влияющие на логику
+  валидации
+- **MINOR:** Обратно совместимые расширения (добавление nullable колонок с
+  дефолтами, ослабление ограничений)
+- **MAJOR:** Breaking changes (переименование/удаление колонок, изменение типов,
+  изменение порядка колонок)
 
-**Инвариант:** Версия схемы фиксируется в `meta.yaml` для каждой записи пайплайна:
+**Инвариант:** Версия схемы фиксируется в `meta.yaml` для каждой записи
+пайплайна:
 
 ```yaml
 schema_version: "1.0.0"
@@ -434,25 +436,30 @@ schema_version: "1.0.0"
 Валидация выполняется в стадии `validate` пайплайна (`PipelineBase.validate()`):
 
 1. **Загрузка схемы:** Динамическая загрузка схемы из `validation.schema_out`
-2. **Lazy validation:** Выполнение `schema.validate(df, lazy=True)` для сбора всех ошибок
-3. **Проверка порядка колонок:** Применение `ensure_column_order()` для соответствия `column_order`
-4. **Запись версии:** Фиксация `schema_version` в `meta.yaml`
+1. **Lazy validation:** Выполнение `schema.validate(df, lazy=True)` для сбора
+   всех ошибок
+1. **Проверка порядка колонок:** Применение `ensure_column_order()` для
+   соответствия `column_order`
+1. **Запись версии:** Фиксация `schema_version` в `meta.yaml`
 
 **Режимы валидации:**
 
-- **Fail-closed (по умолчанию):** Пайплайн завершается при первой ошибке валидации
-- **Fail-open (опционально):** Ошибки логируются как предупреждения, `schema_valid: false` в `meta.yaml`
+- **Fail-closed (по умолчанию):** Пайплайн завершается при первой ошибке
+  валидации
+- **Fail-open (опционально):** Ошибки логируются как предупреждения,
+  `schema_valid: false` в `meta.yaml`
 
 ### 4.6 Golden-тесты
 
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
-1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в `tests/bioetl/golden/target/`
-2. **Триггеры регенерации:**
+1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в
+   `tests/bioetl/golden/target/`
+1. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
    - Обновление правил сортировки или хеширования
-3. **Процесс:**
+1. **Процесс:**
    - Запуск пайплайна с `--golden` для получения свежих артефактов
    - Выполнение тестов схемы
    - Проверка хешей и порядка колонок
@@ -471,7 +478,8 @@ Golden-артефакты обеспечивают регрессионное п
 
 **Обязательные поля:**
 
-- `target_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор target в формате `CHEMBL\d+`
+- `target_chembl_id` (StringDtype, NOT NULL): ChEMBL идентификатор target в
+  формате `CHEMBL\d+`
 
 **Опциональные поля:**
 
@@ -482,11 +490,10 @@ Golden-артефакты обеспечивают регрессионное п
 ```python
 # src/bioetl/schemas/chembl/target/target_input_schema.py
 
+
 class TargetInputSchema(pa.DataFrameModel):
     target_chembl_id: Series[str] = pa.Field(
-        description="ChEMBL target identifier",
-        nullable=False,
-        regex="^CHEMBL\\d+$"
+        description="ChEMBL target identifier", nullable=False, regex="^CHEMBL\\d+$"
     )
 
     class Config:
@@ -507,11 +514,13 @@ CHEMBL232
 
 **Структура выходного CSV/Parquet:**
 
-Выходной файл содержит все поля из `TargetOutputSchema` в фиксированном порядке колонок, определенном в схеме.
+Выходной файл содержит все поля из `TargetOutputSchema` в фиксированном порядке
+колонок, определенном в схеме.
 
 **Обязательные артефакты:**
 
-- `target_{date_tag}.csv` или `target_{date_tag}.parquet` — основной датасет с данными target
+- `target_{date_tag}.csv` или `target_{date_tag}.parquet` — основной датасет с
+  данными target
 - `target_{date_tag}_quality_report.csv` — QC метрики и отчет о качестве данных
 
 **Опциональные артефакты (extended режим):**
@@ -522,7 +531,8 @@ CHEMBL232
 **Формат имен файлов:**
 
 - Дата-тег: `YYYYMMDD` (например, `20250115`)
-- Формат: определяется параметром `materialization.default_format` (по умолчанию `parquet`)
+- Формат: определяется параметром `materialization.default_format` (по умолчанию
+  `parquet`)
 - Пример: `target_20250115.parquet`, `target_20250115_quality_report.csv`
 
 **Структура выходных данных:**
@@ -530,10 +540,12 @@ CHEMBL232
 Выходной файл содержит следующие группы полей:
 
 1. **Бизнес-ключ:** `target_chembl_id`
-2. **Основные поля target:** `pref_name`, `organism`, `target_type`, `species_group_flag`, `tax_id`, `component_count`
-3. **Системные метаданные:** `run_id`, `git_commit`, `config_hash`, `pipeline_version`, `source_system`, `chembl_release`, `extracted_at`
-4. **Хеши:** `hash_row`, `hash_business_key`
-5. **Индекс:** `index`
+1. **Основные поля target:** `pref_name`, `organism`, `target_type`,
+   `species_group_flag`, `tax_id`, `component_count`
+1. **Системные метаданные:** `run_id`, `git_commit`, `config_hash`,
+   `pipeline_version`, `source_system`, `chembl_release`, `extracted_at`
+1. **Хеши:** `hash_row`, `hash_business_key`
+1. **Индекс:** `index`
 
 **Пример структуры выходного файла:**
 
@@ -544,33 +556,41 @@ CHEMBL240,Cytochrome P450 2D6,Homo sapiens,PROTEIN,0,9606,1,...,a1b2c3d4e5f6g7h8
 
 ## 6. Component Architecture
 
-The `target` pipeline follows the standard source architecture, utilizing a stack of specialized components for its operation. Pipeline focuses solely on extracting data from ChEMBL API.
+The `target` pipeline follows the standard source architecture, utilizing a
+stack of specialized components for its operation. Pipeline focuses solely on
+extracting data from ChEMBL API.
 
-| Component | Implementation |
-|---|---|
-| **Client** | `[ref: repo:src/bioetl/sources/chembl/target/client/target_client.py@refactoring_001]` |
-| **Parser** | `[ref: repo:src/bioetl/sources/chembl/target/parser/target_parser.py@refactoring_001]` |
+| Component      | Implementation                                                                                 |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| **Client**     | `[ref: repo:src/bioetl/sources/chembl/target/client/target_client.py@refactoring_001]`         |
+| **Parser**     | `[ref: repo:src/bioetl/sources/chembl/target/parser/target_parser.py@refactoring_001]`         |
 | **Normalizer** | `[ref: repo:src/bioetl/sources/chembl/target/normalizer/target_normalizer.py@refactoring_001]` |
-| **Schema** | `[ref: repo:src/bioetl/schemas/chembl/target/target_output_schema.py@refactoring_001]` |
+| **Schema**     | `[ref: repo:src/bioetl/schemas/chembl/target/target_output_schema.py@refactoring_001]`         |
 
-**Note:** Enrichment from external sources (UniProt, IUPHAR) is handled by separate pipelines. This pipeline only extracts data from ChEMBL.
+**Note:** Enrichment from external sources (UniProt, IUPHAR) is handled by
+separate pipelines. This pipeline only extracts data from ChEMBL.
 
 ## 7. Key Identifiers
 
-- **Business Key**: `target_chembl_id` — уникальный идентификатор target из ChEMBL
-- **Sort Key**: `target_chembl_id` — используется для детерминированной сортировки перед записью
+- **Business Key**: `target_chembl_id` — уникальный идентификатор target из
+  ChEMBL
+- **Sort Key**: `target_chembl_id` — используется для детерминированной
+  сортировки перед записью
 
 ## 8. Детерминизм
 
 ### 8.1 Обзор
 
-Target pipeline обеспечивает детерминированный вывод через стабильную сортировку и хеширование. Это гарантирует бит-в-бит воспроизводимость при одинаковых входных данных и конфигурации.
+Target pipeline обеспечивает детерминированный вывод через стабильную сортировку
+и хеширование. Это гарантирует бит-в-бит воспроизводимость при одинаковых
+входных данных и конфигурации.
 
 **Sort keys:** `["target_chembl_id"]`
 
 ### 8.2 Стабильная сортировка
 
-Перед записью все строки сортируются по ключу `target_chembl_id` в стабильном порядке:
+Перед записью все строки сортируются по ключу `target_chembl_id` в стабильном
+порядке:
 
 ```python
 # Псевдокод в стадии write
@@ -578,7 +598,7 @@ sort_keys = config.determinism.sort.by  # ["target_chembl_id"]
 df = df.sort_values(
     by=sort_keys,
     kind="stable",  # Стабильная сортировка
-    na_position="last"  # NULL значения в конце
+    na_position="last",  # NULL значения в конце
 ).reset_index(drop=True)
 ```
 
@@ -609,8 +629,8 @@ def calculate_hash_row(row: dict, column_order: list[str]) -> str:
         canonical[col] = canonicalize_value(value)
 
     # Каноническая JSON сериализация
-    json_str = json.dumps(canonical, sort_keys=True, separators=(',', ':'))
-    return sha256(json_str.encode('utf-8')).hexdigest()
+    json_str = json.dumps(canonical, sort_keys=True, separators=(",", ":"))
+    return sha256(json_str.encode("utf-8")).hexdigest()
 ```
 
 **hash_business_key:** Хеш бизнес-ключа (`target_chembl_id`)
@@ -619,7 +639,7 @@ def calculate_hash_row(row: dict, column_order: list[str]) -> str:
 # Псевдокод расчета hash_business_key
 def calculate_hash_business_key(target_chembl_id: str) -> str:
     """Calculate hash of business key."""
-    return sha256(target_chembl_id.encode('utf-8')).hexdigest()
+    return sha256(target_chembl_id.encode("utf-8")).hexdigest()
 ```
 
 ### 8.4 Каноническая нормализация
@@ -629,11 +649,11 @@ def calculate_hash_business_key(target_chembl_id: str) -> str:
 **Правила канонизации:**
 
 1. **Строки:** trim whitespace, lowercase для идентификаторов
-2. **Числа с плавающей точкой:** фиксированная точность (6 знаков после запятой)
-3. **Даты/время:** ISO-8601 формат в UTC
-4. **NULL/NaN:** пустая строка `""`
-5. **Булевы значения:** `"True"` или `"False"` (строки)
-6. **JSON объекты/массивы:** каноническая JSON сериализация с `sort_keys=True`
+1. **Числа с плавающей точкой:** фиксированная точность (6 знаков после запятой)
+1. **Даты/время:** ISO-8601 формат в UTC
+1. **NULL/NaN:** пустая строка `""`
+1. **Булевы значения:** `"True"` или `"False"` (строки)
+1. **JSON объекты/массивы:** каноническая JSON сериализация с `sort_keys=True`
 
 ```python
 # Псевдокод канонизации
@@ -648,14 +668,17 @@ def canonicalize_value(value) -> str:
     elif isinstance(value, bool):
         return "True" if value else "False"
     elif isinstance(value, (dict, list)):
-        return json.dumps(value, sort_keys=True, separators=(',', ':'))
+        return json.dumps(value, sort_keys=True, separators=(",", ":"))
     else:
-        return str(value).strip().lower() if is_identifier(value) else str(value).strip()
+        return (
+            str(value).strip().lower() if is_identifier(value) else str(value).strip()
+        )
 ```
 
 ### 8.5 Фиксированный порядок колонок
 
-Порядок колонок фиксируется из Pandera схемы (`TargetSchema.Config.column_order`):
+Порядок колонок фиксируется из Pandera схемы
+(`TargetSchema.Config.column_order`):
 
 ```python
 # Псевдокод обеспечения порядка колонок
@@ -663,11 +686,13 @@ column_order = config.determinism.column_order  # Из схемы
 df = df[column_order]  # Переупорядочивание колонок
 ```
 
-**Инвариант:** Порядок колонок должен полностью соответствовать `column_order` из схемы.
+**Инвариант:** Порядок колонок должен полностью соответствовать `column_order`
+из схемы.
 
 ### 8.6 Атомарная запись файлов
 
-Файлы записываются атомарно для предотвращения частичных или поврежденных файлов:
+Файлы записываются атомарно для предотвращения частичных или поврежденных
+файлов:
 
 ```python
 # Псевдокод атомарной записи
@@ -727,31 +752,40 @@ generated_at_utc: "2025-01-15T10:32:00.678901Z"
 
 Target pipeline гарантирует:
 
-1. **Бит-в-бит воспроизводимость:** При одинаковых входных данных и конфигурации выходные файлы идентичны бит-в-бит
-2. **Стабильный порядок строк:** Строки всегда сортируются по `target_chembl_id` в одинаковом порядке
-3. **Стабильный порядок колонок:** Колонки всегда в фиксированном порядке из схемы
-4. **Идентичные хеши:** Для идентичных данных генерируются идентичные хеши (`hash_row`, `hash_business_key`)
-5. **Атомарная запись:** Файлы записываются атомарно, предотвращая частичные записи
-6. **Воспроизводимые метаданные:** Все метаданные фиксируются в `meta.yaml` для полной трассируемости
+1. **Бит-в-бит воспроизводимость:** При одинаковых входных данных и конфигурации
+   выходные файлы идентичны бит-в-бит
+1. **Стабильный порядок строк:** Строки всегда сортируются по `target_chembl_id`
+   в одинаковом порядке
+1. **Стабильный порядок колонок:** Колонки всегда в фиксированном порядке из
+   схемы
+1. **Идентичные хеши:** Для идентичных данных генерируются идентичные хеши
+   (`hash_row`, `hash_business_key`)
+1. **Атомарная запись:** Файлы записываются атомарно, предотвращая частичные
+   записи
+1. **Воспроизводимые метаданные:** Все метаданные фиксируются в `meta.yaml` для
+   полной трассируемости
 
-For detailed policy, see [Determinism Policy](../determinism/00-determinism-policy.md).
+For detailed policy, see
+[Determinism Policy](../determinism/00-determinism-policy.md).
 
 ## 9. QC/QA
 
 ### 9.1 Обзор
 
-Target pipeline выполняет комплексную проверку качества данных на всех этапах обработки. QC метрики обеспечивают валидность данных, полноту извлечения и соответствие схемам.
+Target pipeline выполняет комплексную проверку качества данных на всех этапах
+обработки. QC метрики обеспечивают валидность данных, полноту извлечения и
+соответствие схемам.
 
 ### 9.2 Ключевые метрики успеха
 
-| Метрика | Target | Критичность | Порог |
-|---------|--------|-------------|-------|
-| **ChEMBL coverage** | 100% идентификаторов | CRITICAL | 100% |
-| **Completeness** | Заполненность ключевых полей | HIGH | ≥85% |
-| **Uniqueness** | Отсутствие дубликатов | CRITICAL | 0% |
-| **Schema compliance** | Соответствие Pandera схеме | CRITICAL | 100% |
-| **Pipeline failure rate** | Процент неудачных обработок | CRITICAL | 0% |
-| **Детерминизм** | Бит-в-бит воспроизводимость | CRITICAL | 100% |
+| Метрика                   | Target                       | Критичность | Порог |
+| ------------------------- | ---------------------------- | ----------- | ----- |
+| **ChEMBL coverage**       | 100% идентификаторов         | CRITICAL    | 100%  |
+| **Completeness**          | Заполненность ключевых полей | HIGH        | ≥85%  |
+| **Uniqueness**            | Отсутствие дубликатов        | CRITICAL    | 0%    |
+| **Schema compliance**     | Соответствие Pandera схеме   | CRITICAL    | 100%  |
+| **Pipeline failure rate** | Процент неудачных обработок  | CRITICAL    | 0%    |
+| **Детерминизм**           | Бит-в-бит воспроизводимость  | CRITICAL    | 100%  |
 
 ### 9.3 Детальные QC метрики
 
@@ -896,9 +930,9 @@ pipeline_failure_rate,0.0,0.0,PASS,No failures detected
 QC валидация выполняется на следующих этапах:
 
 1. **После extract:** Проверка ChEMBL coverage и базовых метрик
-2. **После transform:** Проверка completeness и нормализации данных
-3. **После validate:** Проверка schema compliance и uniqueness
-4. **После write:** Финальная проверка всех метрик и генерация QC отчетов
+1. **После transform:** Проверка completeness и нормализации данных
+1. **После validate:** Проверка schema compliance и uniqueness
+1. **После write:** Финальная проверка всех метрик и генерация QC отчетов
 
 **Алгоритм валидации:**
 
@@ -956,13 +990,16 @@ def validate_qc(df: pd.DataFrame, config: PipelineConfig) -> QCResult:
 - Информация логируется как информационное сообщение
 - QC отчет содержит информацию о нарушении
 
-For detailed QC metrics and policies, see [QC Overview](../qc/00-qc-overview.md).
+For detailed QC metrics and policies, see
+[QC Overview](../qc/00-qc-overview.md).
 
 ## 10. Логирование и трассировка
 
 ### 10.1 Обзор
 
-Target pipeline использует `UnifiedLogger` для структурированного логирования всех операций с обязательными полями контекста. Все логи формируются в формате JSON для машинной обработки и анализа.
+Target pipeline использует `UnifiedLogger` для структурированного логирования
+всех операций с обязательными полями контекста. Все логи формируются в формате
+JSON для машинной обработки и анализа.
 
 ### 10.2 Обязательные поля в логах
 
@@ -970,7 +1007,8 @@ Target pipeline использует `UnifiedLogger` для структурир
 
 - `event`: Тип события (например, `pipeline_started`, `extract_completed`)
 - `run_id`: Уникальный идентификатор запуска пайплайна
-- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`, `write`)
+- `stage`: Текущая стадия выполнения (`extract`, `transform`, `validate`,
+  `write`)
 - `pipeline`: Имя пайплайна (`target`)
 - `timestamp`: Временная метка события в формате ISO-8601 UTC
 
@@ -987,19 +1025,19 @@ Target pipeline использует `UnifiedLogger` для структурир
 
 #### 10.3.1 Полный список событий
 
-| Событие | Стадия | Описание | Обязательные поля |
-|---------|--------|----------|-------------------|
-| `pipeline_started` | `bootstrap` | Начало выполнения пайплайна | `run_id`, `pipeline`, `timestamp` |
-| `extract_started` | `extract` | Начало стадии извлечения | `run_id`, `stage`, `pipeline`, `timestamp` |
-| `extract_completed` | `extract` | Завершение стадии извлечения | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
-| `transform_started` | `transform` | Начало стадии трансформации | `run_id`, `stage`, `pipeline`, `timestamp` |
+| Событие               | Стадия      | Описание                        | Обязательные поля                                                   |
+| --------------------- | ----------- | ------------------------------- | ------------------------------------------------------------------- |
+| `pipeline_started`    | `bootstrap` | Начало выполнения пайплайна     | `run_id`, `pipeline`, `timestamp`                                   |
+| `extract_started`     | `extract`   | Начало стадии извлечения        | `run_id`, `stage`, `pipeline`, `timestamp`                          |
+| `extract_completed`   | `extract`   | Завершение стадии извлечения    | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
+| `transform_started`   | `transform` | Начало стадии трансформации     | `run_id`, `stage`, `pipeline`, `timestamp`                          |
 | `transform_completed` | `transform` | Завершение стадии трансформации | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
-| `validate_started` | `validate` | Начало валидации | `run_id`, `stage`, `pipeline`, `timestamp` |
-| `validate_completed` | `validate` | Завершение валидации | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
-| `write_started` | `write` | Начало записи результатов | `run_id`, `stage`, `pipeline`, `timestamp` |
-| `write_completed` | `write` | Завершение записи результатов | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
-| `pipeline_completed` | `bootstrap` | Успешное завершение пайплайна | `run_id`, `pipeline`, `duration`, `row_count`, `timestamp` |
-| `pipeline_failed` | `*` | Ошибка выполнения | `run_id`, `stage`, `pipeline`, `error`, `timestamp` |
+| `validate_started`    | `validate`  | Начало валидации                | `run_id`, `stage`, `pipeline`, `timestamp`                          |
+| `validate_completed`  | `validate`  | Завершение валидации            | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
+| `write_started`       | `write`     | Начало записи результатов       | `run_id`, `stage`, `pipeline`, `timestamp`                          |
+| `write_completed`     | `write`     | Завершение записи результатов   | `run_id`, `stage`, `pipeline`, `duration`, `row_count`, `timestamp` |
+| `pipeline_completed`  | `bootstrap` | Успешное завершение пайплайна   | `run_id`, `pipeline`, `duration`, `row_count`, `timestamp`          |
+| `pipeline_failed`     | `*`         | Ошибка выполнения               | `run_id`, `stage`, `pipeline`, `error`, `timestamp`                 |
 
 ### 10.4 Детальные примеры JSON-логов
 
@@ -1158,7 +1196,8 @@ Target pipeline использует `UnifiedLogger` для структурир
 
 #### 10.5.1 Использование run_id
 
-Все события в рамках одного запуска пайплайна связаны через `run_id`. Это позволяет:
+Все события в рамках одного запуска пайплайна связаны через `run_id`. Это
+позволяет:
 
 - Отслеживать полный жизненный цикл пайплайна
 - Коррелировать события между стадиями
@@ -1226,13 +1265,13 @@ Target pipeline использует `UnifiedLogger` для структурир
 
 #### 10.6.3 Уровни логирования
 
-| Уровень | Использование | Пример |
-|---------|---------------|--------|
-| `DEBUG` | Детальная отладочная информация | Параметры API запросов, промежуточные результаты |
-| `INFO` | Информационные сообщения | Старт/завершение стадий, метрики производительности |
-| `WARNING` | Предупреждения | Нарушения порогов QC, но не критичные |
-| `ERROR` | Ошибки | Ошибки API, валидации, но пайплайн продолжает работу |
-| `CRITICAL` | Критические ошибки | Ошибки, приводящие к остановке пайплайна |
+| Уровень    | Использование                   | Пример                                               |
+| ---------- | ------------------------------- | ---------------------------------------------------- |
+| `DEBUG`    | Детальная отладочная информация | Параметры API запросов, промежуточные результаты     |
+| `INFO`     | Информационные сообщения        | Старт/завершение стадий, метрики производительности  |
+| `WARNING`  | Предупреждения                  | Нарушения порогов QC, но не критичные                |
+| `ERROR`    | Ошибки                          | Ошибки API, валидации, но пайплайн продолжает работу |
+| `CRITICAL` | Критические ошибки              | Ошибки, приводящие к остановке пайплайна             |
 
 ### 10.7 Примеры трассировки полного цикла
 
@@ -1259,4 +1298,5 @@ Target pipeline использует `UnifiedLogger` для структурир
 2025-01-15T10:31:02.456Z [ERROR] pipeline_failed run_id=a1b2c3d4e5f6g7h8 error="ChEMBL API unavailable"
 ```
 
-For detailed logging configuration and API, see [Logging Overview](../logging/00-overview.md).
+For detailed logging configuration and API, see
+[Logging Overview](../logging/00-overview.md).

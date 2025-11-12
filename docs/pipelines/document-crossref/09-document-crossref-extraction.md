@@ -1,26 +1,36 @@
 # Pipeline: `document_crossref`
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
-This document describes the `document_crossref` pipeline, which is responsible for extracting document metadata from Crossref REST API.
+This document describes the `document_crossref` pipeline, which is responsible
+for extracting document metadata from Crossref REST API.
 
-**Note:** This pipeline is not yet implemented. This document serves as a specification for its future implementation.
+**Note:** This pipeline is not yet implemented. This document serves as a
+specification for its future implementation.
 
 ## 1. Identification
 
-| Item              | Value                                                                                              | Status                |
-| ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
-| **Pipeline Name** | `document_crossref`                                                                                 | Not Implemented       |
+| Item              | Value               | Status          |
+| ----------------- | ------------------- | --------------- |
+| **Pipeline Name** | `document_crossref` | Not Implemented |
+
 # (not implemented)
-| **CLI Command**   | `python -m bioetl.cli.app document_crossref`                                                       | Not Implemented       |
-| **Config File**   | [ref: repo:src/bioetl/configs/pipelines/crossref/document_crossref.yaml@refactoring_001]     | Not Implemented       |
-| **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
+
+| **CLI Command** | `python -m bioetl.cli.cli_app document_crossref` | Not
+Implemented | | **Config File** | \[ref:
+repo:src/bioetl/configs/pipelines/crossref/document_crossref.yaml@refactoring_001\]
+| Not Implemented | | **CLI Registration** | \[ref:
+repo:src/bioetl/cli/cli_registry.py@refactoring_001\] | Not Implemented |
 
 ## 2. Purpose and Scope
 
 ### Purpose
 
-The `document_crossref` pipeline extracts publication metadata from Crossref REST API. Crossref is a DOI registration agency providing comprehensive bibliographic metadata for scholarly works.
+The `document_crossref` pipeline extracts publication metadata from Crossref
+REST API. Crossref is a DOI registration agency providing comprehensive
+bibliographic metadata for scholarly works.
 
 ### Scope
 
@@ -177,8 +187,9 @@ Crossref provides two access pools:
 
 **How to Use Polite Pool:**
 
-1. Include `mailto=` in User-Agent header: `User-Agent: app/version (mailto:owner@example.org)`
-2. Or include `mailto=` in query string: `?mailto=owner@example.org`
+1. Include `mailto=` in User-Agent header:
+   `User-Agent: app/version (mailto:owner@example.org)`
+1. Or include `mailto=` in query string: `?mailto=owner@example.org`
 
 ### Rate Limiting
 
@@ -240,9 +251,9 @@ curl "https://api.crossref.org/works?filter=doi:10.1371/*&rows=1000&cursor={valu
 **Priority order:**
 
 1. `published-print.date-parts` - print publication date (preferred)
-2. `published-online.date-parts` - online publication date
-3. `issued.date-parts` - issued date (if available)
-4. `created.date-parts` - date of record creation in Crossref
+1. `published-online.date-parts` - online publication date
+1. `issued.date-parts` - issued date (if available)
+1. `created.date-parts` - date of record creation in Crossref
 
 ### ISSN Extraction (Print vs Electronic)
 
@@ -251,23 +262,23 @@ def extract_issn(record):
     """Extract ISSN from Crossref record"""
     issn_data = {}
 
-    if 'ISSN' in record:
-        issn_list = record['ISSN']
+    if "ISSN" in record:
+        issn_list = record["ISSN"]
         if len(issn_list) > 0:
-            issn_data['issn_print'] = issn_list[0]
+            issn_data["issn_print"] = issn_list[0]
         if len(issn_list) > 1:
-            issn_data['issn_electronic'] = issn_list[1]
+            issn_data["issn_electronic"] = issn_list[1]
 
     # Check issn-type array
-    if 'issn-type' in record:
-        for issn_obj in record['issn-type']:
-            issn_type = issn_obj.get('type')
-            issn_value = issn_obj.get('value')
+    if "issn-type" in record:
+        for issn_obj in record["issn-type"]:
+            issn_type = issn_obj.get("type")
+            issn_value = issn_obj.get("value")
 
-            if issn_type == 'print':
-                issn_data['issn_print'] = issn_value
-            elif issn_type == 'electronic':
-                issn_data['issn_electronic'] = issn_value
+            if issn_type == "print":
+                issn_data["issn_print"] = issn_value
+            elif issn_type == "electronic":
+                issn_data["issn_electronic"] = issn_value
 
     return issn_data
 ```
@@ -280,10 +291,10 @@ def normalize_orcid(orcid_value):
     if not orcid_value:
         return None
 
-    orcid = orcid_value.replace('https://orcid.org/', '')
-    orcid = orcid.replace('http://orcid.org/', '')
+    orcid = orcid_value.replace("https://orcid.org/", "")
+    orcid = orcid.replace("http://orcid.org/", "")
 
-    if re.match(r'^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$', orcid):
+    if re.match(r"^\d{4}-\d{4}-\d{4}-\d{3}[0-9X]$", orcid):
         return orcid
 
     return None
@@ -311,43 +322,49 @@ Crossref metadata under CC0 (public domain):
 
 ### 5.1 Required Parameters
 
-This pipeline follows the standard `docs/configs/00-typed-configs-and-profiles.md`.
+This pipeline follows the standard
+`docs/configs/00-typed-configs-and-profiles.md`.
 
-Configuration file: `configs/pipelines/crossref-document.yaml` (`extends: "../base.yaml"`).
+Configuration file: `configs/pipelines/crossref-document.yaml`
+(`extends: "../base.yaml"`).
 
 ### 5.2 Main Configuration Overrides
 
-| Section | Key | Value | Constraint | Comment |
-|--------|------|----------|-------------|-------------|
-| Pipeline | `pipeline.name` | `document_crossref` | — | Used in logs and `run_config.yaml`. |
-| Sources / Crossref | `sources.crossref.base_url` | `https://api.crossref.org` | — | Base URL for Crossref REST API. |
-| Sources / Crossref | `sources.crossref.batching.dois_per_request` | `100` | `≤ 200` | Maximum batch DOI for batch request. |
-| Sources / Crossref | `sources.crossref.batching.use_cursor` | `true` | — | Use cursor-based pagination for large lists. |
-| Sources / Crossref | `sources.crossref.rate_limit.max_calls_per_sec` | `2` | — | Conservative strategy: 2 requests/second (polite pool). |
-| Sources / Crossref | `sources.crossref.rate_limit.burst_capacity` | `5` | — | Maximum number of requests in burst. |
-| Sources / Crossref | `sources.crossref.workers` | `2-4` | `2-4` | Parallel threads for processing requests. |
-| Sources / Crossref | `sources.crossref.polite_pool` | `true` | — | Use Polite Pool (recommended). |
-| Sources / Crossref | `sources.crossref.http.timeout_sec` | `60.0` | — | Timeout for HTTP requests. |
-| Sources / Crossref | `sources.crossref.http.connect_timeout_sec` | `10.0` | — | Timeout for connection. |
-| Sources / Crossref | `sources.crossref.http.read_timeout_sec` | `30.0` | — | Timeout for reading response. |
-| Sources / Crossref | `sources.crossref.http.headers.User-Agent` | `"bioactivity_etl/1.0 (mailto:owner@example.org)"` | — | User-Agent with mailto for Polite Pool. |
-| Sources / Crossref | `sources.crossref.identify.mailto` | — | Recommended | Email for Polite Pool (passed via User-Agent or query string). |
-| Sources / Crossref | `sources.crossref.identify.plus_token` | — | Optional | Crossref Plus token for increased limits and additional metadata. |
-| Cache | `cache.namespace` | `"crossref"` | Not empty | Ensures cache isolation. |
-| Cache | `cache.ttl` | `86400` | — | Cache TTL in seconds (24 hours). |
+| Section            | Key                                             | Value                                              | Constraint  | Comment                                                           |
+| ------------------ | ----------------------------------------------- | -------------------------------------------------- | ----------- | ----------------------------------------------------------------- |
+| Pipeline           | `pipeline.name`                                 | `document_crossref`                                | —           | Used in logs and `run_config.yaml`.                               |
+| Sources / Crossref | `sources.crossref.base_url`                     | `https://api.crossref.org`                         | —           | Base URL for Crossref REST API.                                   |
+| Sources / Crossref | `sources.crossref.batching.dois_per_request`    | `100`                                              | `≤ 200`     | Maximum batch DOI for batch request.                              |
+| Sources / Crossref | `sources.crossref.batching.use_cursor`          | `true`                                             | —           | Use cursor-based pagination for large lists.                      |
+| Sources / Crossref | `sources.crossref.rate_limit.max_calls_per_sec` | `2`                                                | —           | Conservative strategy: 2 requests/second (polite pool).           |
+| Sources / Crossref | `sources.crossref.rate_limit.burst_capacity`    | `5`                                                | —           | Maximum number of requests in burst.                              |
+| Sources / Crossref | `sources.crossref.workers`                      | `2-4`                                              | `2-4`       | Parallel threads for processing requests.                         |
+| Sources / Crossref | `sources.crossref.polite_pool`                  | `true`                                             | —           | Use Polite Pool (recommended).                                    |
+| Sources / Crossref | `sources.crossref.http.timeout_sec`             | `60.0`                                             | —           | Timeout for HTTP requests.                                        |
+| Sources / Crossref | `sources.crossref.http.connect_timeout_sec`     | `10.0`                                             | —           | Timeout for connection.                                           |
+| Sources / Crossref | `sources.crossref.http.read_timeout_sec`        | `30.0`                                             | —           | Timeout for reading response.                                     |
+| Sources / Crossref | `sources.crossref.http.headers.User-Agent`      | `"bioactivity_etl/1.0 (mailto:owner@example.org)"` | —           | User-Agent with mailto for Polite Pool.                           |
+| Sources / Crossref | `sources.crossref.identify.mailto`              | —                                                  | Recommended | Email for Polite Pool (passed via User-Agent or query string).    |
+| Sources / Crossref | `sources.crossref.identify.plus_token`          | —                                                  | Optional    | Crossref Plus token for increased limits and additional metadata. |
+| Cache              | `cache.namespace`                               | `"crossref"`                                       | Not empty   | Ensures cache isolation.                                          |
+| Cache              | `cache.ttl`                                     | `86400`                                            | —           | Cache TTL in seconds (24 hours).                                  |
 
 ### 5.3 CLI Overrides and Environment Variables
 
 #### CLI Examples
 
 - `--set sources.crossref.batching.dois_per_request=150` — change batch size.
-- `--set sources.crossref.rate_limit.max_calls_per_sec=3` — increase request limit.
-- `--set sources.crossref.polite_pool=false` — use Public Pool (not recommended).
+- `--set sources.crossref.rate_limit.max_calls_per_sec=3` — increase request
+  limit.
+- `--set sources.crossref.polite_pool=false` — use Public Pool (not
+  recommended).
 
 #### Environment Variables
 
-- `CROSSREF_MAILTO` or `BIOETL_SOURCES__CROSSREF__IDENTIFY__MAILTO` — email for Polite Pool (recommended).
-- `CROSSREF_PLUS_TOKEN` or `BIOETL_SOURCES__CROSSREF__IDENTIFY__PLUS_TOKEN` — Crossref Plus token (optional).
+- `CROSSREF_MAILTO` or `BIOETL_SOURCES__CROSSREF__IDENTIFY__MAILTO` — email for
+  Polite Pool (recommended).
+- `CROSSREF_PLUS_TOKEN` or `BIOETL_SOURCES__CROSSREF__IDENTIFY__PLUS_TOKEN` —
+  Crossref Plus token (optional).
 
 ### 5.4 Example Configuration
 
@@ -433,13 +450,17 @@ qc:
 
 ### 5.5 Validation Rules
 
-- Uses `PipelineConfig.validate_yaml('configs/pipelines/crossref-document.yaml')`.
+- Uses
+  `PipelineConfig.validate_yaml('configs/pipelines/crossref-document.yaml')`.
 
 - Additional checks:
+
   - `sources.crossref.batching.dois_per_request` ≤ 200 (maximum Crossref batch).
-  - `sources.crossref.rate_limit.max_calls_per_sec` ≥ 1 (minimum 1 request/second).
+  - `sources.crossref.rate_limit.max_calls_per_sec` ≥ 1 (minimum 1
+    request/second).
   - `sources.crossref.workers` ≥ 1 and ≤ 4 (optimal range).
-  - When `sources.crossref.polite_pool=true`, `sources.crossref.identify.mailto` is required.
+  - When `sources.crossref.polite_pool=true`, `sources.crossref.identify.mailto`
+    is required.
   - `qc` thresholds cannot be negative and must be in range [0, 1].
 
 ### 5.6 Special Features
@@ -486,44 +507,49 @@ For large lists, cursor-based pagination is recommended:
 
 The pipeline supports the following standard CLI flags:
 
-| Flag              | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `--config`        | Path to a pipeline-specific configuration file.                               |
-| `--output-dir`    | Directory to write the output artifacts to.                                 |
-| `--dry-run`       | Run the pipeline without writing any output.                                |
-| `--limit`         | Limit the number of records to process.                                     |
-| `--profile`       | Apply a configuration profile (e.g., `determinism`).                         |
+| Flag           | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `--config`     | Path to a pipeline-specific configuration file.      |
+| `--output-dir` | Directory to write the output artifacts to.          |
+| `--dry-run`    | Run the pipeline without writing any output.         |
+| `--limit`      | Limit the number of records to process.              |
+| `--profile`    | Apply a configuration profile (e.g., `determinism`). |
 
 ### Configuration Merge Order
 
-The configuration is loaded in the following order, with later sources overriding earlier ones:
+The configuration is loaded in the following order, with later sources
+overriding earlier ones:
 
 1. **Base Profile:** `src/bioetl/configs/defaults/base.yaml`
-2. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated by `--profile determinism`)
-3. **Explicit Config:** The file specified by the `--config` flag.
-4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated
+   by `--profile determinism`)
+1. **Explicit Config:** The file specified by the `--config` flag.
+1. **CLI Flags:** Any flags that override configuration values (e.g.,
+   `--limit`).
 
 ### Configuration Keys
 
-The following table describes the expected keys in the `document_crossref.yaml` configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001] for the underlying configuration models.
+The following table describes the expected keys in the `document_crossref.yaml`
+configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001]
+for the underlying configuration models.
 
-| Key                             | Type    | Required | Default | Description                                                                 |
-| ------------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------------- |
-| `pipeline.name`                 | string  | Yes      |         | The name of the pipeline (e.g., `document_crossref`).                           |
-| `pipeline.version`              | string  | Yes      |         | The version of the pipeline.                                                |
-| `sources.crossref.base_url`     | string  | No       | `https://api.crossref.org` | The base URL for Crossref API.                                           |
-| `sources.crossref.batching.dois_per_request` | integer | No       | `100`       | Maximum number of DOIs per batch request (max: 200).                                 |
-| `sources.crossref.batching.use_cursor` | boolean | No       | `true`       | Use cursor-based pagination (for large lists).                                 |
-| `sources.crossref.rate_limit.max_calls_per_sec` | float | No       | `2.0`       | Rate limit (conservative strategy, Polite Pool).                                 |
-| `sources.crossref.rate_limit.burst_capacity` | integer | No       | `5`       | Maximum number of requests in burst.                                 |
-| `sources.crossref.workers`      | integer | No       | `3`       | Number of parallel workers (2-4 recommended).                                 |
-| `sources.crossref.polite_pool` | boolean | No       | `true`       | Use Polite Pool (recommended).                                 |
-| `sources.crossref.http.headers.User-Agent` | string | Yes      |         | User-Agent with mailto for Polite Pool.                                 |
-| `sources.crossref.identify.mailto` | string | No       |         | Email for Polite Pool (recommended).                                 |
-| `sources.crossref.identify.plus_token` | string | No       |         | Crossref Plus token for increased limits (optional).                                 |
-| `cache.namespace`                | string  | Yes      |         | Cache namespace for isolation.         |
-| `cache.ttl`                      | integer | No       | `86400`  | Cache TTL in seconds (24 hours).         |
-| `materialization.pipeline_subdir` | string  | Yes      |         | The subdirectory within the output directory to write artifacts to.         |
+| Key                                             | Type    | Required | Default                    | Description                                                         |
+| ----------------------------------------------- | ------- | -------- | -------------------------- | ------------------------------------------------------------------- |
+| `pipeline.name`                                 | string  | Yes      |                            | The name of the pipeline (e.g., `document_crossref`).               |
+| `pipeline.version`                              | string  | Yes      |                            | The version of the pipeline.                                        |
+| `sources.crossref.base_url`                     | string  | No       | `https://api.crossref.org` | The base URL for Crossref API.                                      |
+| `sources.crossref.batching.dois_per_request`    | integer | No       | `100`                      | Maximum number of DOIs per batch request (max: 200).                |
+| `sources.crossref.batching.use_cursor`          | boolean | No       | `true`                     | Use cursor-based pagination (for large lists).                      |
+| `sources.crossref.rate_limit.max_calls_per_sec` | float   | No       | `2.0`                      | Rate limit (conservative strategy, Polite Pool).                    |
+| `sources.crossref.rate_limit.burst_capacity`    | integer | No       | `5`                        | Maximum number of requests in burst.                                |
+| `sources.crossref.workers`                      | integer | No       | `3`                        | Number of parallel workers (2-4 recommended).                       |
+| `sources.crossref.polite_pool`                  | boolean | No       | `true`                     | Use Polite Pool (recommended).                                      |
+| `sources.crossref.http.headers.User-Agent`      | string  | Yes      |                            | User-Agent with mailto for Polite Pool.                             |
+| `sources.crossref.identify.mailto`              | string  | No       |                            | Email for Polite Pool (recommended).                                |
+| `sources.crossref.identify.plus_token`          | string  | No       |                            | Crossref Plus token for increased limits (optional).                |
+| `cache.namespace`                               | string  | Yes      |                            | Cache namespace for isolation.                                      |
+| `cache.ttl`                                     | integer | No       | `86400`                    | Cache TTL in seconds (24 hours).                                    |
+| `materialization.pipeline_subdir`               | string  | Yes      |                            | The subdirectory within the output directory to write artifacts to. |
 
 ### Input Data Format
 
@@ -535,11 +561,7 @@ The following table describes the expected keys in the `document_crossref.yaml` 
 
 ```python
 class DocumentCrossrefInputSchema(pa.DataFrameModel):
-    doi: Series[str] = pa.Field(
-        regex=r"^10\.\d+/[^\s]+$",
-        nullable=False,
-        unique=True
-    )
+    doi: Series[str] = pa.Field(regex=r"^10\.\d+/[^\s]+$", nullable=False, unique=True)
 
     class Config:
         strict = True
@@ -553,7 +575,8 @@ The extraction process uses Crossref REST API components:
 
 ### Client
 
-The `CrossrefClient` ([ref: repo:src/bioetl/sources/crossref/client/client.py@refactoring_001]) handles:
+The `CrossrefClient` (\[ref:
+repo:src/bioetl/sources/crossref/client/client.py@refactoring_001\]) handles:
 
 - HTTP requests to Crossref API
 - Timeouts, retries with exponential backoff
@@ -566,12 +589,13 @@ The `CrossrefClient` ([ref: repo:src/bioetl/sources/crossref/client/client.py@re
 For multiple DOIs:
 
 1. **Batch requests**: Group DOIs into batches (max 200 per request)
-2. **POST request**: Use `/works` endpoint with JSON body
-3. **Error handling**: Split batch on errors, retry individual DOIs
+1. **POST request**: Use `/works` endpoint with JSON body
+1. **Error handling**: Split batch on errors, retry individual DOIs
 
 ### Parser
 
-The parser ([ref: repo:src/bioetl/sources/crossref/parser/parser.py@refactoring_001]) extracts:
+The parser (\[ref:
+repo:src/bioetl/sources/crossref/parser/parser.py@refactoring_001\]) extracts:
 
 - DOI, title, container title (journal)
 - Publication dates (print/online)
@@ -584,7 +608,9 @@ The parser ([ref: repo:src/bioetl/sources/crossref/parser/parser.py@refactoring_
 
 ### Normalizer
 
-The `CrossrefNormalizer` ([ref: repo:src/bioetl/sources/crossref/normalizer/normalizer.py@refactoring_001]) performs:
+The `CrossrefNormalizer` (\[ref:
+repo:src/bioetl/sources/crossref/normalizer/normalizer.py@refactoring_001\])
+performs:
 
 - Date normalization (ISO 8601 format)
 - DOI validation and normalization
@@ -594,7 +620,8 @@ The `CrossrefNormalizer` ([ref: repo:src/bioetl/sources/crossref/normalizer/norm
 
 ### Pandera Schema
 
-A Pandera schema ([ref: repo:src/bioetl/sources/crossref/schema/schema.py@refactoring_001]) validates:
+A Pandera schema (\[ref:
+repo:src/bioetl/sources/crossref/schema/schema.py@refactoring_001\]) validates:
 
 - Data types and constraints
 - Required fields
@@ -663,18 +690,18 @@ generated_at_utc: "2025-01-28T12:00:00Z"
 
 The following QC metrics are collected and reported:
 
-| Metric                  | Description                                                                 |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `total_records`         | Total number of records processed.                |
-| `successful_fetches`    | Number of successful API calls.                   |
-| `failed_fetches`        | Number of failed API calls.            |
-| `doi_coverage`          | Percentage of input DOIs successfully retrieved.                 |
-| `title_coverage`        | Percentage of records with title.                 |
-| `container_title_coverage` | Percentage of records with journal/venue.                 |
-| `authors_coverage`      | Percentage of records with authors.                 |
-| `404_rate`              | Percentage of records with 404 (not found).                 |
-| `duplicate_count`       | Number of duplicate records (based on DOI).            |
-| `retry_events`          | Number of retry attempts.                 |
+| Metric                     | Description                                      |
+| -------------------------- | ------------------------------------------------ |
+| `total_records`            | Total number of records processed.               |
+| `successful_fetches`       | Number of successful API calls.                  |
+| `failed_fetches`           | Number of failed API calls.                      |
+| `doi_coverage`             | Percentage of input DOIs successfully retrieved. |
+| `title_coverage`           | Percentage of records with title.                |
+| `container_title_coverage` | Percentage of records with journal/venue.        |
+| `authors_coverage`         | Percentage of records with authors.              |
+| `404_rate`                 | Percentage of records with 404 (not found).      |
+| `duplicate_count`          | Number of duplicate records (based on DOI).      |
+| `retry_events`             | Number of retry attempts.                        |
 
 ### QC Thresholds
 
@@ -687,11 +714,11 @@ Configuration thresholds:
 
 The pipeline uses the following exit codes:
 
-| Exit Code | Category                | Description                                                                 |
-| --------- | ----------------------- | --------------------------------------------------------------------------- |
-| 0         | Success                 | The pipeline completed successfully.                                        |
-| 1         | Application Error       | A fatal error occurred, such as a network error or a bug in the code.       |
-| 2         | Usage Error             | An error occurred due to invalid configuration or command-line arguments.   |
+| Exit Code | Category          | Description                                                               |
+| --------- | ----------------- | ------------------------------------------------------------------------- |
+| 0         | Success           | The pipeline completed successfully.                                      |
+| 1         | Application Error | A fatal error occurred, such as a network error or a bug in the code.     |
+| 2         | Usage Error       | An error occurred due to invalid configuration or command-line arguments. |
 
 ### Error Handling
 
@@ -719,7 +746,7 @@ The pipeline uses the following exit codes:
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app document_crossref \
+python -m bioetl.cli.cli_app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
 ```
@@ -728,7 +755,7 @@ python -m bioetl.cli.app document_crossref \
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app document_crossref \
+python -m bioetl.cli.cli_app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --dry-run
@@ -738,7 +765,7 @@ python -m bioetl.cli.app document_crossref \
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app document_crossref \
+python -m bioetl.cli.cli_app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --profile determinism
@@ -751,7 +778,7 @@ export CROSSREF_MAILTO="owner@example.org"
 export CROSSREF_PLUS_TOKEN="your_plus_token_here"
 
 # (not implemented)
-python -m bioetl.cli.app document_crossref \
+python -m bioetl.cli.cli_app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
 ```
@@ -760,7 +787,7 @@ python -m bioetl.cli.app document_crossref \
 
 ```bash
 # (not implemented)
-python -m bioetl.cli.app document_crossref \
+python -m bioetl.cli.cli_app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
   --set sources.crossref.batching.dois_per_request=150 \
@@ -770,7 +797,10 @@ python -m bioetl.cli.app document_crossref \
 
 ## 12. References
 
-- Configuration: [66-document-crossref-config.md](66-document-crossref-config.md)
+- Configuration:
+  [66-document-crossref-config.md](66-document-crossref-config.md)
 - Crossref API: [Crossref REST API](https://api.crossref.org/)
-- Polite Pool Guidelines: [Crossref Polite Pool Guidelines](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-metadata-maker/)
-- ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)
+- Polite Pool Guidelines:
+  [Crossref Polite Pool Guidelines](https://www.crossref.org/documentation/retrieve-metadata/rest-api/tips-for-using-metadata-maker/)
+- ChEMBL Document Pipeline:
+  [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

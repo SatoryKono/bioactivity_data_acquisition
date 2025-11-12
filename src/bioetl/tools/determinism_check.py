@@ -10,8 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logger import UnifiedLogger
 from bioetl.core.log_events import LogEvents
+from bioetl.core.logger import UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -62,7 +62,7 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
     cmd = [
         sys.executable,
         "-m",
-        "bioetl.cli.app",
+        "bioetl.cli.cli_app",
         pipeline_name,
         "--config",
         str(config_path),

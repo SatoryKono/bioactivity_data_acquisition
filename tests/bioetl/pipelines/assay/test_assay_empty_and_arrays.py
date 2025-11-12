@@ -26,7 +26,7 @@ def _create_minimal_config() -> PipelineConfig:
         ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
-        validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
+        validation=ValidationConfig(schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema"),
     )
 
 

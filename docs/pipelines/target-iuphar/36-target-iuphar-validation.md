@@ -1,8 +1,6 @@
 # 36 Target IUPHAR Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
@@ -20,9 +18,9 @@ The pipeline uses `TargetIUPHARSchema` for validation:
 ## Validation Workflow
 
 1. **Schema Validation**: Validates against TargetIUPHARSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `iuphar_object_id` values
-3. **ID Validation**: Validates IUPHAR object ID format
-4. **UniProt Validation**: Validates UniProt accession references
+1. **Duplicate Detection**: Ensures duplicate-free `iuphar_object_id` values
+1. **ID Validation**: Validates IUPHAR object ID format
+1. **UniProt Validation**: Validates UniProt accession references
 
 ## Constraints
 

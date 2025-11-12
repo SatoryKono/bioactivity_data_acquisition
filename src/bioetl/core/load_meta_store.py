@@ -1,4 +1,4 @@
-"""Storage helper for persisting load_meta lineage events."""
+"""Storage helper for persisting chembl_metadata_schema lineage events."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ import pandera as pa
 
 from bioetl.core.hashing import hash_from_mapping
 from bioetl.core.log_events import LogEvents
-from bioetl.schemas.load_meta import (
+from bioetl.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     COLUMN_ORDER,
     ROW_HASH_FIELDS,
@@ -96,7 +96,7 @@ class _ActiveRecord:
 
 
 class LoadMetaStore:
-    """Manage lifecycle of load_meta entries with deterministic persistence."""
+    """Manage lifecycle of chembl_metadata_schema entries with deterministic persistence."""
 
     def __init__(self, base_path: str | Path, *, dataset_format: str = "parquet") -> None:
         if dataset_format not in {"parquet", "delta"}:
@@ -126,7 +126,7 @@ class LoadMetaStore:
         operator: str | None = None,
         notes: str | None = None,
     ) -> str:
-        """Create a new active load_meta record and return its identifier."""
+        """Create a new active chembl_metadata_schema record and return its identifier."""
 
         load_meta_id = str(uuid4())
         base_url = _normalise_base_url(request_base_url)

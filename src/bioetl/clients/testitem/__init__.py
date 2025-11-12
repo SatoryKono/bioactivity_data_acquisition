@@ -1,5 +1,5 @@
 """Testitem-specific ChEMBL clients."""
 
-from .chembl_testitem import ChemblTestitemClient
+from .client_chembl_testitem import ChemblTestitemClient
 
 __all__ = ["ChemblTestitemClient"]

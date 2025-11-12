@@ -10,7 +10,7 @@ import pytest  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.app import app  # type: ignore[reportUnknownVariableType]
+from bioetl.cli.cli_app import app  # type: ignore[reportUnknownVariableType]
 
 CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
 
@@ -41,7 +41,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity.activity_chembl:ActivitySchema"
+  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
 determinism:
   sort:
     by: ["activity_id"]
@@ -113,7 +113,7 @@ determinism:
                         ),
                     ),
                     validation=ValidationConfig(
-                        schema_out="bioetl.schemas.activity.activity_chembl:ActivitySchema",
+                        schema_out="bioetl.schemas.chembl_activity_schema:ActivitySchema",
                         strict=True,
                         coerce=True,
                     ),

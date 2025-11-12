@@ -1,16 +1,28 @@
 # 1. The ETL Pipeline Contract
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
 ## The `PipelineBase` Interface
 
-At the core of the `bioetl` framework is the abstract base class, `PipelineBase`. Every ETL pipeline **must** inherit from this class. It establishes a clear, consistent interface and lifecycle for all data processing tasks. By enforcing this contract, the framework ensures that all pipelines are predictable, maintainable, and integrate seamlessly with the broader system.
+At the core of the `bioetl` framework is the abstract base class,
+`PipelineBase`. Every ETL pipeline **must** inherit from this class. It
+establishes a clear, consistent interface and lifecycle for all data processing
+tasks. By enforcing this contract, the framework ensures that all pipelines are
+predictable, maintainable, and integrate seamlessly with the broader system.
 
-The `PipelineBase` class defines four critical stages of an ETL pipeline: `extract`, `transform`, `validate`, and `write`. The `run()` method orchestrates the execution of these stages in sequence. Developers are responsible for implementing the business logic within the `extract` and `transform` stages, while the framework manages the `validate`, `write`, and `run` stages to guarantee consistency.
+The `PipelineBase` class defines four critical stages of an ETL pipeline:
+`extract`, `transform`, `validate`, and `write`. The `run()` method orchestrates
+the execution of these stages in sequence. Developers are responsible for
+implementing the business logic within the `extract` and `transform` stages,
+while the framework manages the `validate`, `write`, and `run` stages to
+guarantee consistency.
 
 ### Abstract Interface Definition
 
-Below is the abstract interface that every pipeline must implement. This pseudocode illustrates the required methods and their responsibilities.
+Below is the abstract interface that every pipeline must implement. This
+pseudocode illustrates the required methods and their responsibilities.
 
 ```python
 # file: src/bioetl/pipelines/base.py
@@ -18,10 +30,12 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from bioetl.config import PipelineConfig
 
+
 class PipelineBase(ABC):
     """
     Abstract base class defining the contract for all ETL pipelines.
     """
+
     def __init__(self, config: PipelineConfig, run_id: str):
         self.config = config
         self.run_id = run_id
@@ -88,12 +102,13 @@ class PipelineBase(ABC):
         """
         # ... framework implementation ...
         pass
-
 ```
 
 ## Implementation Example
 
-To make the contract concrete, here is a practical pseudocode example of a pipeline that fetches data from a REST API. This demonstrates how a developer would implement the required `extract` and `transform` methods.
+To make the contract concrete, here is a practical pseudocode example of a
+pipeline that fetches data from a REST API. This demonstrates how a developer
+would implement the required `extract` and `transform` methods.
 
 ```python
 # file: src/bioetl/pipelines/my_api_pipeline.py
@@ -102,10 +117,12 @@ import requests
 from bioetl.pipelines.base import PipelineBase
 from bioetl.config import PipelineConfig
 
+
 class MyApiPipeline(PipelineBase):
     """
     Example implementation of a pipeline for a fictional API.
     """
+
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         # It is best practice to initialize API clients in the constructor.
@@ -133,10 +150,10 @@ class MyApiPipeline(PipelineBase):
 
         while next_page_url:
             response = self.api_client.get(next_page_url, params=params)
-            response.raise_for_status() # Fail fast on API errors
+            response.raise_for_status()  # Fail fast on API errors
             data = response.json()
 
-            records = data.get('results', [])
+            records = data.get("results", [])
             all_records.extend(records)
 
             # The framework expects the pagination logic to be handled here.
@@ -155,22 +172,24 @@ class MyApiPipeline(PipelineBase):
             return df
 
         # 1. Rename columns to match the target schema
-        df = df.rename(columns={
-            'compound_id': 'id',
-            'molecular_weight': 'mol_weight',
-            'last_updated': 'updated_at'
-        })
+        df = df.rename(
+            columns={
+                "compound_id": "id",
+                "molecular_weight": "mol_weight",
+                "last_updated": "updated_at",
+            }
+        )
 
         # 2. Apply declarative normalizers from config
         for normalizer in self.config.transform.normalizers:
-            if normalizer['type'] == 'lowercase' and normalizer['field'] in df.columns:
-                df[normalizer['field']] = df[normalizer['field']].str.lower()
+            if normalizer["type"] == "lowercase" and normalizer["field"] in df.columns:
+                df[normalizer["field"]] = df[normalizer["field"]].str.lower()
 
         # 3. Coerce data types as per config
         df = df.astype(self.config.transform.dtypes)
 
         # 4. Handle complex transformations (e.g., date parsing)
-        df['updated_at'] = pd.to_datetime(df['updated_at'], utc=True)
+        df["updated_at"] = pd.to_datetime(df["updated_at"], utc=True)
 
         # 5. Ensure all required output columns exist before returning.
         # The `validate` stage will enforce the final order and check for nulls.

@@ -1,5 +1,5 @@
 """Activity-specific ChEMBL clients."""
 
-from .chembl_activity import ChemblActivityClient
+from .client_chembl_activity import ChemblActivityClient
 
 __all__ = ["ChemblActivityClient"]
