@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import ClassVar, Sequence
 
-import pandas as pd
-
 from bioetl.qc.metrics import compute_categorical_distributions
 
 
