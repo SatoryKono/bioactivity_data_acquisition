@@ -4,6 +4,8 @@
 **Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
+
 ## Purpose
 
 The Document (Semantic Scholar) pipeline is a standalone pipeline that extracts publication metadata from Semantic Scholar using the Graph API. It provides comprehensive bibliographic information including titles, abstracts, authors, citations, and research paper embeddings metadata.
@@ -41,14 +43,12 @@ This pipeline documentation is organized by stage and topic:
 ## CLI Usage Example
 
 ```bash
-# Standard extraction from Semantic Scholar
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from Semantic Scholar (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
   --output-dir data/output/document-semantic-scholar
 
-# With input file containing PMIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing PMIDs (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
   --input-file data/input/pmids.csv \

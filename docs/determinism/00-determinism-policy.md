@@ -259,3 +259,22 @@ The determinism policy is automatically enforced by the CLI.
 - **Profile Injection**: The `README.md` and CLI implementation confirm that the `determinism.yaml` profile is automatically loaded for every pipeline run, establishing its settings as the default.
 - **Priority**: Parameters defined directly in a pipeline's specific YAML file (e.g., `activity.yaml`) will override the defaults set by `determinism.yaml`.
 - **Error Codes**: Failures related to determinism (e.g., a golden test mismatch) result in a non-zero exit code.
+
+### 11.1 `--golden` comparison
+
+- The CLI option `--golden <path>` enables a byte-for-byte comparison of the produced dataset against a stored golden artifact.
+- When the comparison detects any difference (size, checksum, or parquet/CSV payload), the command terminates with exit code `1`. See `docs/cli/02-cli-exit-codes.md` for the full mapping.
+- The comparison runs after the pipeline materializes artifacts and before reporting success, guaranteeing that mismatches prevent downstream publishing.
+
+Example (smoke run against the PubMed document pipeline):
+
+```
+bioetl document-pubmed run ^
+  --config configs/pipelines/document/document_pubmed.yaml ^
+  --output-dir data/output/document/pubmed ^
+  --sample 500 ^
+  --golden tests/bioetl/golden/document_pubmed/documents.parquet
+```
+
+- `--sample N` produces a deterministic subset using a fixed seed so that quick CI checks can run against a representative slice while keeping outputs reproducible.
+- Golden jobs in CI MUST always run without `--sample` to cover the full dataset; local smoke runs MAY use `--sample` provided the golden baseline was generated in the same mode.

@@ -4,6 +4,8 @@
 **Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
+
 ## Purpose
 
 The Document (PubMed) pipeline is a standalone pipeline that extracts publication metadata from PubMed using the E-utilities API. It provides comprehensive bibliographic information including titles, abstracts, authors, journal details, and publication metadata.
@@ -41,14 +43,12 @@ This pipeline documentation is organized by stage and topic:
 ## CLI Usage Example
 
 ```bash
-# Standard extraction from PubMed
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from PubMed (not implemented)
 python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --output-dir data/output/document-pubmed
 
-# With input file containing PMIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing PMIDs (not implemented)
 python -m bioetl.cli.app document_pubmed \
   --config configs/pipelines/pubmed/document.yaml \
   --input-file data/input/pmids.csv \

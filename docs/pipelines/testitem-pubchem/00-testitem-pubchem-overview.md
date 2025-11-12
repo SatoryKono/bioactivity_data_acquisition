@@ -42,13 +42,13 @@ This pipeline documentation is organized by stage and topic:
 
 ```bash
 # Standard extraction from PubChem
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app testitem_pubchem \
   --config configs/pipelines/pubchem/testitem_pubchem.yaml \
   --output-dir data/output/testitem_pubchem
 
 # With input file containing PubChem CIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app testitem_pubchem \
   --config configs/pipelines/pubchem/testitem_pubchem.yaml \
   --input-file data/input/pubchem_cids.csv \

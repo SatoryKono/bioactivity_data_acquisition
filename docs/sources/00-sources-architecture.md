@@ -11,6 +11,27 @@ The standard component stack follows this sequence:
 
 These components are invoked during the `extract` and `transform` stages of a pipeline, which is executed via the CLI with commands like `python -m bioetl.cli.app activity_chembl`.
 
+```mermaid
+flowchart LR
+  cfg[/"Config (YAML + ENV + --set)"/]
+  cli["CLI Typer команда"]
+  ext["extract()"]
+  trf["transform()"]
+  ldq["load() + QC"]
+  art[/"Артефакты в output-dir"/]
+
+  cfg --> cli
+  cli --> ext
+  ext --> trf
+  trf --> ldq
+  ldq --> art
+```
+
+- Конфигурация агрегируется в `CLI` командой `Typer`, см. `[ref: repo:docs/cli/00-cli-overview.md@refactoring_001]`.
+- `extract()` и `transform()` используют слои из `[ref: repo:docs/pipelines/03-data-extraction.md@refactoring_001]` и `[ref: repo:docs/pipelines/10-pipelines-catalog.md@refactoring_001]`.
+- Этап `load() + QC` оформляет валидацию и проверку качества по `[ref: repo:docs/qc/00-qc-overview.md@refactoring_001]` и инфраструктуре ядра `[ref: repo:docs/styleguide/08-etl-architecture.md@refactoring_001]`.
+- Итоговые артефакты попадают в `output-dir` вместе с sidecar-метаданными, см. `[ref: repo:docs/output/00-output-layout.md@refactoring_001]`.
+
 ## 2. Layer Interfaces and Invariants
 
 This section defines the project contract for each layer of the source component stack.
@@ -68,6 +89,7 @@ This section defines the project contract for each layer of the source component
 ## 3. Interface and Implementation Matrix
 
 A detailed matrix mapping each pipeline to its specific component implementations is available in a separate document:
+
 - **[Interface Matrix](./01-interface-matrix.md)**
 
 ## 4. Interaction with Schemas and Determinism Policy
@@ -86,6 +108,7 @@ A detailed matrix mapping each pipeline to its specific component implementation
 ## 6. Integration with CLI and Configs
 
 The CLI and configuration system are responsible for wiring the component stack together.
+
 - **CLI Commands**: Typer commands, defined via `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, instantiate a specific `PipelineBase` subclass.
 - **Configuration**: The pipeline's YAML config provides the `http_profile` that selects the correct network settings, as well as any source-specific parameters needed by the client or parser. The `extends` key is used to inherit from shared profiles like `base.yaml` and `network.yaml`.
 - **Cross-Navigation**: This document is linked from the main `[ref: repo:docs/INDEX.md@refactoring_001]` and provides context for the **CLI**, **Configs**, and **QC** documentation.

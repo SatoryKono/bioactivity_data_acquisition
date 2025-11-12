@@ -300,57 +300,28 @@ python -m bioetl.cli.app testitem_chembl \
 
 ### Document PubMed (`document_pubmed`) {#document_pubmed}
 
-**Purpose.** Extracts publication metadata from PubMed using the E-utilities API. It provides comprehensive bibliographic information including titles, abstracts, authors, journal details, and publication metadata.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L7-L11】
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`). Документация архива удерживается для справки.
 
-**Documentation Structure** (canon: `<NN>-<entity>-<source>-<topic>.md`):
+**Архивная документация** (canon: `<NN>-<entity>-<source>-<topic>.md`):
 
-- [00-document-pubmed-overview.md](document-pubmed/00-document-pubmed-overview.md) — Pipeline overview
-- [09-document-pubmed-extraction.md](document-pubmed/09-document-pubmed-extraction.md) — Extraction from PubMed E-utilities API
-- [43-document-pubmed-transformation.md](document-pubmed/43-document-pubmed-transformation.md) — XML parsing and field normalization
-- [44-document-pubmed-validation.md](document-pubmed/44-document-pubmed-validation.md) — Pandera schemas and validation
-- [45-document-pubmed-io.md](document-pubmed/45-document-pubmed-io.md) — Output formats and atomic writing
-- [46-document-pubmed-determinism.md](document-pubmed/46-document-pubmed-determinism.md) — Determinism, stable sort, hashing
-- [47-document-pubmed-qc.md](document-pubmed/47-document-pubmed-qc.md) — QC metrics and thresholds
-- [48-document-pubmed-logging.md](document-pubmed/48-document-pubmed-logging.md) — Structured logging format
-- [49-document-pubmed-cli.md](document-pubmed/49-document-pubmed-cli.md) — CLI commands and flags
-- [50-document-pubmed-config.md](document-pubmed/50-document-pubmed-config.md) — Configuration keys and profiles
+- `document-pubmed/00-document-pubmed-overview.md` — Pipeline overview
+- `document-pubmed/09-document-pubmed-extraction.md` — Extraction from PubMed E-utilities API
+- `document-pubmed/43-document-pubmed-transformation.md` — XML parsing and field normalization
+- `document-pubmed/44-document-pubmed-validation.md` — Pandera schemas and validation
+- `document-pubmed/45-document-pubmed-io.md` — Output formats and atomic writing
+- `document-pubmed/46-document-pubmed-determinism.md` — Determinism, stable sort, hashing
+- `document-pubmed/47-document-pubmed-qc.md` — QC metrics and thresholds
+- `document-pubmed/48-document-pubmed-logging.md` — Structured logging format
+- `document-pubmed/49-document-pubmed-cli.md` — CLI commands and flags (архив)
+- `document-pubmed/50-document-pubmed-config.md` — Configuration keys and profiles
 
-**Key configuration.**
-
-| Key | Requirement / Default | Notes |
-| --- | --- | --- |
-| `sources.pubmed.history.use_history` | `true` | Enables e-utilities history for large batches.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L61】 |
-| `sources.pubmed.rate_limit.max_calls` | `3` (without API key) | Rate limiting: 3 requests per second without API key.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L62】 |
-| `determinism.sort.by` | `['pmid']` | Primary sort key is `pmid`.【F:docs/pipelines/document-pubmed/46-document-pubmed-determinism.md†L13】 |
-
-**Inputs.** Requires PMID or DOI identifiers from input CSV and fetches document data from PubMed E-utilities API (ESearch, EPost, EFetch) with history server support for batch operations.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L21-L24】
-
-**Outputs.** Produces publication dataset alongside standard meta/QC artifacts mandated by the determinism contract. Outputs include `document_pubmed_{date}.csv`, `document_pubmed_{date}_quality_report.csv`, and optionally `document_pubmed_{date}_meta.yaml` in extended mode.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L24】
-
-**Quality controls.** Coverage metrics for PMID/DOI/title/journal/authors, missing value detection, duplicate tracking, and validity checks feed a consolidated QC report.【F:docs/pipelines/document-pubmed/00-document-pubmed-overview.md†L64】
-
-**CLI usage.**
-
-```bash
-# Standard extraction from PubMed
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
-python -m bioetl.cli.app document --source pubmed \
-  --config configs/pipelines/pubmed/document.yaml \
-  --output-dir data/output/document-pubmed
-
-# With input file containing PMIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
-python -m bioetl.cli.app document --source pubmed \
-  --config configs/pipelines/pubmed/document.yaml \
-  --input-file data/input/pmids.csv \
-  --output-dir data/output/document-pubmed
-```
-
-【F:docs/pipelines/document-pubmed/49-document-pubmed-cli.md†L14-L23】
+**Важно.** CLI команды `document` и `document_pubmed` отсутствуют; приведённые ранее примеры запусков удалены, чтобы не вводить в заблуждение.
 
 ---
 
 ### Document Crossref (`document_crossref`) {#document_crossref}
+
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from Crossref REST API. Crossref is a DOI registration agency providing comprehensive bibliographic metadata for scholarly works.【F:docs/pipelines/document-crossref/00-document-crossref-overview.md†L9-L22】
 
@@ -384,14 +355,12 @@ python -m bioetl.cli.app document --source pubmed \
 **CLI usage.**
 
 ```bash
-# Standard extraction from Crossref
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from Crossref (not implemented)
 python -m bioetl.cli.app document --source crossref \
   --config configs/pipelines/crossref/document.yaml \
   --output-dir data/output/document-crossref
 
-# With input file containing DOIs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing DOIs (not implemented)
 python -m bioetl.cli.app document --source crossref \
   --config configs/pipelines/crossref/document.yaml \
   --input-file data/input/dois.csv \
@@ -403,6 +372,8 @@ python -m bioetl.cli.app document --source crossref \
 ---
 
 ### Document OpenAlex (`document_openalex`) {#document_openalex}
+
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from OpenAlex using the Works API. OpenAlex is a free, open-source database of scholarly works with comprehensive metadata including citations, concepts, and open access status.【F:docs/pipelines/document-openalex/00-document-openalex-overview.md†L9-L32】
 
@@ -435,14 +406,12 @@ python -m bioetl.cli.app document --source crossref \
 **CLI usage.**
 
 ```bash
-# Standard extraction from OpenAlex
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from OpenAlex (not implemented)
 python -m bioetl.cli.app document --source openalex \
   --config configs/pipelines/openalex/document.yaml \
   --output-dir data/output/document-openalex
 
-# With input file containing DOIs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing DOIs (not implemented)
 python -m bioetl.cli.app document --source openalex \
   --config configs/pipelines/openalex/document.yaml \
   --input-file data/input/dois.csv \
@@ -454,6 +423,8 @@ python -m bioetl.cli.app document --source openalex \
 ---
 
 ### Document Semantic Scholar (`document_semantic_scholar`) {#document_semantic_scholar}
+
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
 
 **Purpose.** Extracts publication metadata from Semantic Scholar Graph API. Semantic Scholar provides comprehensive bibliographic data including citation metrics, abstract, and fields of study.【F:docs/pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md†L9-L32】
 
@@ -487,14 +458,12 @@ python -m bioetl.cli.app document --source openalex \
 **CLI usage.**
 
 ```bash
-# Standard extraction from Semantic Scholar
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from Semantic Scholar (not implemented)
 python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --output-dir data/output/document-semantic-scholar
 
-# With input file containing PMIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing PMIDs (not implemented)
 python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --input-file data/input/pmids.csv \
@@ -540,13 +509,13 @@ python -m bioetl.cli.app document --source semantic-scholar \
 
 ```bash
 # Standard extraction from UniProt
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app target --source uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --output-dir data/output/target-uniprot
 
 # With input file containing UniProt accessions
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app target --source uniprot \
   --config configs/pipelines/uniprot/target.yaml \
   --input-file data/input/uniprot_accessions.csv \
@@ -592,13 +561,13 @@ python -m bioetl.cli.app target --source uniprot \
 
 ```bash
 # Standard extraction from IUPHAR
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app target --source iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --output-dir data/output/target-iuphar
 
 # With input file containing various identifiers
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app target --source iuphar \
   --config configs/pipelines/iuphar/target.yaml \
   --input-file data/input/iuphar_targets.csv \
@@ -644,13 +613,13 @@ python -m bioetl.cli.app target --source iuphar \
 
 ```bash
 # Standard extraction from PubChem
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app testitem --source pubchem \
   --config configs/pipelines/pubchem/testitem.yaml \
   --output-dir data/output/testitem-pubchem
 
 # With input file containing PubChem CIDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app testitem --source pubchem \
   --config configs/pipelines/pubchem/testitem.yaml \
   --input-file data/input/pubchem_cids.csv \
@@ -688,13 +657,13 @@ python -m bioetl.cli.app testitem --source pubchem \
 
 ```bash
 # Standard mapping run
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --output-dir data/output/chembl2uniprot-mapping
 
 # With input file containing ChEMBL target IDs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app chembl2uniprot-mapping \
   --config configs/pipelines/uniprot/chembl2uniprot.yaml \
   --input-file data/input/chembl_targets.csv \

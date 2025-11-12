@@ -118,6 +118,7 @@ Flesh out the `transform()` method. This is typically an iterative process:
 
 ```bash
 # Use --limit to test with a small number of records for faster iteration.
+# not implemented
 python -m bioetl.cli.app uniprot_protein \
     --output-dir /tmp/uniprot-test \
     --limit 50 \
@@ -129,6 +130,7 @@ python -m bioetl.cli.app uniprot_protein \
 Once the `--dry-run` is successful, perform a full test run without the `--dry-run` or `--limit` flags.
 
 ```bash
+# not implemented
 python -m bioetl.cli.app uniprot_protein --output-dir /data/output/uniprot/protein-latest
 ```
 

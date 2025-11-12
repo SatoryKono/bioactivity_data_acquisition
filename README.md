@@ -18,13 +18,16 @@
 ```bash
 pip install -e .
 
+# демо-запуск ChEMBL activity (офлайн-режим настраивается через .env)
 python -m bioetl.cli.app activity_chembl \
-  --config /path/to/activity_chembl.yaml \
   --output-dir ./data/output \
   --sample 5
+
+# список команд и алиасов CLI
+python -m bioetl.cli.app list
 ```
 
-Обязательные флаги: `--config`/`-c`, `--output-dir`/`-o`. Полный перечень и описания доступны в `python -m bioetl.cli.app --help` и в документации [`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md).
+Обязательные флаги и параметры описаны в `python -m bioetl.cli.app --help`, подробности см. в [`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и руководстве по конфигурации [`docs/configs/README.md`](docs/configs/README.md).
 
 ## Топология репозитория
 

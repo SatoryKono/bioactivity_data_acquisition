@@ -4,6 +4,8 @@
 **Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
+
 ## Purpose
 
 This document describes the pipeline-specific CLI configuration for the Document (Semantic Scholar) pipeline.
@@ -11,14 +13,14 @@ This document describes the pipeline-specific CLI configuration for the Document
 ## Pipeline-Specific Command Name
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# not implemented
 python -m bioetl.cli.app document --source semantic-scholar
 ```
 
 ## Examples
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# not implemented
 python -m bioetl.cli.app document --source semantic-scholar \
   --config configs/pipelines/semantic-scholar/document.yaml \
   --output-dir data/output/document

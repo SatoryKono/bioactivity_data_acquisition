@@ -6,6 +6,8 @@
 
 **Сигнатура**: `load_config(config_path: str | Path, *, profiles: Sequence[str | Path] | None = None, cli_overrides: Mapping[str, Any] | None = None, env: Mapping[str, str] | None = None, env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"), include_default_profiles: bool = False) -> PipelineConfig`
 
+**Источник**: `src/bioetl/config/loader.py`
+
 Загружает, объединяет и валидирует YAML-конфигурацию пайплайна:
 
 - рекурсивно обрабатывает `extends` и `!include`;
@@ -17,10 +19,10 @@
 
 **Исключения**:
 
-- `FileNotFoundError` — основной файл, профили или include-ресурсы не найдены;
+- `FileNotFoundError` — основной файл, профили, include-ресурсы или строгие каталоговые слои среды не найдены;
 - `yaml.YAMLError` — синтаксическая ошибка YAML;
-- `TypeError` — файл не содержит mapping или ключи не строки;
-- `ValueError` — обнаружен цикл `extends` либо недопустимое значение `BIOETL_ENV`;
+- `TypeError` — файл не содержит mapping либо ключи не строки, источники merge-ноды некорректны;
+- `ValueError` — обнаружен цикл `extends` либо переменная окружения `BIOETL_ENV` вне допустимого множества;
 - `pydantic.ValidationError` — итоговая конфигурация не соответствует `PipelineConfig`.
 
 ### Пример
@@ -84,4 +86,3 @@ overrides = apply_runtime_overrides(settings)
 ```
 
 `apply_runtime_overrides` (см. модуль `environment.py`) дополнит `os.environ` недостающими ключами `BIOETL__...`, используя загруженные значения.
-

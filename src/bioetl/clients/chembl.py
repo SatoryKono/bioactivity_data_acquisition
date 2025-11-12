@@ -6,6 +6,7 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
 
 from bioetl.clients.assay.chembl_assay_entity import ChemblAssayEntityClient
+from bioetl.clients.chembl_base import ChemblEntityFetcher
 from bioetl.clients.chembl_entities import (
     ChemblAssayClassificationEntityClient,
     ChemblAssayClassMapEntityClient,
@@ -14,7 +15,6 @@ from bioetl.clients.chembl_entities import (
     ChemblDataValidityEntityClient,
     ChemblMoleculeEntityClient,
 )
-from bioetl.clients.chembl_base import ChemblEntityFetcher
 from bioetl.clients.document.chembl_document_entity import ChemblDocumentTermEntityClient
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore

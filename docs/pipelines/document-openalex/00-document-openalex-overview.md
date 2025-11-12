@@ -4,6 +4,8 @@
 **Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
+
 ## Purpose
 
 The Document (OpenAlex) pipeline is a standalone pipeline that extracts publication metadata from OpenAlex using the Works API. It provides comprehensive bibliographic information including titles, abstracts, authors, citations, and open access indicators.
@@ -41,14 +43,12 @@ This pipeline documentation is organized by stage and topic:
 ## CLI Usage Example
 
 ```bash
-# Standard extraction from OpenAlex
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from OpenAlex (not implemented)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document.yaml \
   --output-dir data/output/document-openalex
 
-# With input file containing DOIs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing DOIs (not implemented)
 python -m bioetl.cli.app document_openalex \
   --config configs/pipelines/openalex/document.yaml \
   --input-file data/input/dois.csv \

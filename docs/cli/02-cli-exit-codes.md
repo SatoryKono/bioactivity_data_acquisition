@@ -17,7 +17,7 @@ For a general overview of the CLI, see `[ref: repo:docs/cli/00-cli-overview.md@r
 
 ## 2. Exception → Exit Code Matrix
 
-The CLI wraps every pipeline command in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`. The command raises `typer.Exit(code=1)` for any unhandled internal exception and `typer.Exit(code=3)` for upstream HTTP/API failures so that automation receives deterministic failure codes. Only `typer.BadParameter` exceptions are re-raised, allowing Typer to exit with `code=2` and display the usage banner.
+The CLI wraps every pipeline command in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`. The command raises `typer.Exit(code=1)` for any unhandled internal exception and `typer.Exit(code=3)` for upstream HTTP/API failures so that automation receives deterministic failure codes. Only `typer.BadParameter` exceptions are re-raised, allowing Typer to exit with `code=2` and display the usage banner. Unit tests in `[ref: repo:tests/bioetl/cli/test_cli.py@refactoring_001]` assert that simulated external API failures exit with code `3`.
 
 | Exit Code | Exception(s) (примеры) | Raised by |
 |---|---|---|
@@ -79,16 +79,19 @@ $ echo $?
 
 Example: upstream API returned HTTP 503 after exhausting retries.
 
+```shell
 $ python -m bioetl.cli.app activity_chembl --config configs/pipelines/activity/activity_chembl.yaml
 [2025-01-15T09:12:44Z] WARNING bioetl.core.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
 [2025-01-15T09:12:47Z] ERROR   cli.activity external_api_failure error="503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json"
 [ERROR] External API failure: 503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json
 $ echo $?
 3
+
 ```
 
 ### Exit code `2`: usage error rejected by Typer
 
+```shell
 $ python -m bioetl.cli.app activity_chembl --sample 0
 Usage: python -m bioetl.cli.app activity_chembl [OPTIONS]
 Try 'python -m bioetl.cli.app activity_chembl --help' for help.

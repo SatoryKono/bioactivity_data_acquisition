@@ -78,3 +78,14 @@ export BIOETL__DETERMINISM__HASHING__ALGORITHM=blake2b
 | `BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO` | Контакт для Crossref | `src/bioetl/config/environment.py` |
 | `BIOETL__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY` | API-ключ Semantic Scholar | `src/bioetl/config/environment.py` |
 | `BIOETL__SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY` | API-ключ IUPHAR | `src/bioetl/config/environment.py` |
+
+## 8. Пример `.env`
+
+Минимальный пример для локального офлайн-запуска доступен в [`docs/configs/.env.example`](./.env.example). Скопируйте файл в корень репозитория и заполните реальные значения перед экспортом переменных:
+
+```bash
+cp docs/configs/.env.example .env
+export $(grep -v '^#' .env | xargs)
+```
+
+Шаблон содержит только обязательные ключи, поэтому при добавлении новых источников данных обязательно обновляйте таблицу переменных и пример `.env`.

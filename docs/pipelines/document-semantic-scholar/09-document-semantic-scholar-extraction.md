@@ -11,7 +11,7 @@ This document describes the `document_semantic_scholar` pipeline, which is respo
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_semantic_scholar`                                                                                 | Not Implemented       |
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 | **CLI Command**   | `python -m bioetl.cli.app document_semantic_scholar`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/semantic-scholar/document_semantic_scholar.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
@@ -768,7 +768,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar
@@ -777,7 +777,7 @@ python -m bioetl.cli.app document_semantic_scholar \
 ### Dry Run
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \
@@ -787,7 +787,7 @@ python -m bioetl.cli.app document_semantic_scholar \
 ### With Determinism Profile
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \
@@ -799,7 +799,7 @@ python -m bioetl.cli.app document_semantic_scholar \
 ```bash
 export SEMANTIC_SCHOLAR_API_KEY="your_api_key_here"
 
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar
@@ -808,7 +808,7 @@ python -m bioetl.cli.app document_semantic_scholar \
 ### Override Configuration
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_semantic_scholar \
   --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \

@@ -11,7 +11,7 @@ This document describes the `document_crossref` pipeline, which is responsible f
 | Item              | Value                                                                                              | Status                |
 | ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
 | **Pipeline Name** | `document_crossref`                                                                                 | Not Implemented       |
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 | **CLI Command**   | `python -m bioetl.cli.app document_crossref`                                                       | Not Implemented       |
 | **Config File**   | [ref: repo:src/bioetl/configs/pipelines/crossref/document_crossref.yaml@refactoring_001]     | Not Implemented       |
 | **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
@@ -718,7 +718,7 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
@@ -727,7 +727,7 @@ python -m bioetl.cli.app document_crossref \
 ### Dry Run
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
@@ -737,7 +737,7 @@ python -m bioetl.cli.app document_crossref \
 ### With Determinism Profile
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \
@@ -750,7 +750,7 @@ python -m bioetl.cli.app document_crossref \
 export CROSSREF_MAILTO="owner@example.org"
 export CROSSREF_PLUS_TOKEN="your_plus_token_here"
 
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref
@@ -759,7 +759,7 @@ python -m bioetl.cli.app document_crossref \
 ### Override Configuration
 
 ```bash
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document_crossref.yaml \
   --output-dir data/output/document_crossref \

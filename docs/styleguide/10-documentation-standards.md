@@ -31,9 +31,9 @@ Primary index files **SHOULD** use all-caps names:
 - `INDEX.md`: Main index for a directory
 - `README.md`: Directory overview
 
-### Valid Examples
+### Valid Examples: Naming
 
-```
+```text
 docs/
 ├── INDEX.md
 ├── cli/
@@ -46,6 +46,18 @@ docs/
 ```
 
 ## Synchronization with Code
+
+### Documentation Update Checklist
+
+Any pull request that changes public-facing artifacts **MUST** update the corresponding documentation and examples:
+
+- New CLI command → update `docs/cli/01-cli-commands.md` and add a runnable example
+- New or modified CLI flag → synchronize the options table in `docs/cli/01-cli-commands.md`
+- New environment variable → update `docs/configs/config-env.md` and `.env.example`
+- New or updated exit codes → refresh `docs/cli/02-cli-exit-codes.md`
+- Changed public function signatures → update the API references in `docs/api/`
+
+Pull requests that introduce such changes **SHALL** be rejected if the documentation checklist is not satisfied.
 
 ### Schema Documentation
 
@@ -94,7 +106,7 @@ def get(self, endpoint: str, params: dict | None = None) -> Response:
 
 Auto-generated sections **SHALL NOT** be edited manually:
 
-### Valid Examples
+### Valid Examples: Auto-Generated Sections
 
 ```markdown
 <!-- This section is auto-generated. Do not edit manually. -->
@@ -122,37 +134,40 @@ Auto-generated sections **SHALL NOT** be edited manually:
 
 Any changes to public APIs, CLI, or schemas **MUST** be documented:
 
-### Valid Examples
+### Valid Examples: Contract Updates
 
 1. **Update Function Docstring**:
-```python
-def process_data(df: pd.DataFrame, batch_size: int = 1000) -> pd.DataFrame:
-    """Process data in batches.
 
-    Args:
-        df: Input DataFrame
-        batch_size: Number of rows per batch (default: 1000, changed from 500 in v1.1.0)
+    ```python
+    def process_data(df: pd.DataFrame, batch_size: int = 1000) -> pd.DataFrame:
+        """Process data in batches.
 
-    Returns:
-        Processed DataFrame
-    """
-    pass
-```
+        Args:
+            df: Input DataFrame
+            batch_size: Number of rows per batch (default: 1000, changed from 500 in v1.1.0)
 
-2. **Update CHANGELOG.md**:
-```markdown
-## [1.1.0] - 2024-01-01
+        Returns:
+            Processed DataFrame
+        """
+        pass
+    ```
 
-### Changed
-- `process_data()` default `batch_size` changed from 500 to 1000
-```
+1. **Update CHANGELOG.md**:
 
-3. **Update Documentation**:
-```markdown
-## Process Data Function
+    ```markdown
+    ## [1.1.0] - 2024-01-01
 
-The `process_data()` function processes data in batches. The default batch size is now 1000 (changed from 500 in v1.1.0).
-```
+    ### Changed
+    - `process_data()` default `batch_size` changed from 500 to 1000
+    ```
+
+1. **Update Documentation**:
+
+    ```markdown
+    ## Process Data Function
+
+    The `process_data()` function processes data in batches. The default batch size is now 1000 (changed from 500 in v1.1.0).
+    ```
 
 ## CHANGELOG.md
 
@@ -183,7 +198,7 @@ All notable changes to this project will be documented in this file.
 - Bug fix A
 ```
 
-### Valid Examples
+### Valid Examples: Changelog Entries
 
 ```markdown
 ## [1.2.0] - 2024-02-01
@@ -202,40 +217,35 @@ All notable changes to this project will be documented in this file.
 
 All major features **SHOULD** include runnable examples:
 
-### Valid Examples
+### Valid Examples: Usage Documentation
 
-```markdown
-## Usage Example
+- **Python API example**:
 
-```python
-from bioetl.pipelines import ActivityPipeline
-from bioetl.config import load_config
+    ```python
+    from bioetl.pipelines import ActivityPipeline
+    from bioetl.config import load_config
 
-# Load configuration
-config = load_config("configs/pipelines/activity.yaml")
+    # Load configuration
+    config = load_config("configs/pipelines/activity.yaml")
 
-# Create pipeline
-pipeline = ActivityPipeline(config)
+    # Create pipeline
+    pipeline = ActivityPipeline(config)
 
-# Run pipeline
-pipeline.run()
-```
+    # Run pipeline
+    pipeline.run()
+    ```
 
-### Command Line Example
+- **Command line example**:
 
-```bash
-python -m bioetl.cli.app activity \
-  --config configs/pipelines/activity.yaml \
-  --output data/output/activity
-```
-```
+    ```bash
+    python -m bioetl.cli.app activity \
+      --config configs/pipelines/activity.yaml \
+      --output data/output/activity
+    ```
 
 ## Diagrams
 
 Diagrams **SHOULD** use Mermaid format:
-
-```markdown
-## Architecture Diagram
 
 ```mermaid
 graph TD
@@ -244,13 +254,12 @@ graph TD
     C --> D[Validate]
     D --> E[Export]
 ```
-```
 
 ## Input/Output Documentation
 
 All pipelines **MUST** document inputs and outputs:
 
-### Valid Examples
+### Valid Examples: Input/Output Documentation
 
 ```markdown
 ## Activity Pipeline

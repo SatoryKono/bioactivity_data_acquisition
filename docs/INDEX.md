@@ -126,19 +126,19 @@ This document serves as the central navigation hub for all `bioetl` documentatio
 - **Target UniProt** (`pipelines/target-uniprot/`): [00-target-uniprot-overview.md](pipelines/target-uniprot/00-target-uniprot-overview.md) - Overview and all pipeline documentation
 - **Target IUPHAR** (`pipelines/target-iuphar/`): [00-target-iuphar-overview.md](pipelines/target-iuphar/00-target-iuphar-overview.md) - Overview and all pipeline documentation
 - **TestItem PubChem** (`pipelines/testitem-pubchem/`): [00-testitem-pubchem-overview.md](pipelines/testitem-pubchem/00-testitem-pubchem-overview.md) - Overview and all pipeline documentation
-- **Document PubMed** (`pipelines/document-pubmed/`): [00-document-pubmed-overview.md](pipelines/document-pubmed/00-document-pubmed-overview.md) - Overview and all pipeline documentation
-- **Document OpenAlex** (`pipelines/document-openalex/`): [00-document-openalex-overview.md](pipelines/document-openalex/00-document-openalex-overview.md) - Overview and all pipeline documentation
-- **Document Crossref** (`pipelines/document-crossref/`): [00-document-crossref-overview.md](pipelines/document-crossref/00-document-crossref-overview.md) - Overview and all pipeline documentation
-- **Document Semantic Scholar** (`pipelines/document-semantic-scholar/`): [00-document-semantic-scholar-overview.md](pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md) - Overview and all pipeline documentation
+- **Document PubMed** (`pipelines/document-pubmed/`): архив (не реализовано). Историческая документация: `pipelines/document-pubmed/00-document-pubmed-overview.md`.
+- **Document OpenAlex** (`pipelines/document-openalex/`): архив (не реализовано). Историческая документация: `pipelines/document-openalex/00-document-openalex-overview.md`.
+- **Document Crossref** (`pipelines/document-crossref/`): архив (не реализовано). Историческая документация: `pipelines/document-crossref/00-document-crossref-overview.md`.
+- **Document Semantic Scholar** (`pipelines/document-semantic-scholar/`): архив (не реализовано). Историческая документация: `pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md`.
 
 #### Pipeline Sources
 
-> **Note**: Source documentation for Crossref, OpenAlex, PubMed, and Semantic Scholar is integrated into the pipelines listed below.
+> **Note**: Source документация для Crossref, OpenAlex, PubMed и Semantic Scholar помечена как архив — соответствующие pipelines не реализованы.
 
-- [Document Crossref Pipeline](pipelines/document-crossref/00-document-crossref-overview.md)
-- [Document OpenAlex Pipeline](pipelines/document-openalex/00-document-openalex-overview.md)
-- [Document PubMed Pipeline](pipelines/document-pubmed/00-document-pubmed-overview.md)
-- [Document Semantic Scholar Pipeline](pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md)
+- Document Crossref Pipeline (архив, не реализовано): `pipelines/document-crossref/00-document-crossref-overview.md`
+- Document OpenAlex Pipeline (архив, не реализовано): `pipelines/document-openalex/00-document-openalex-overview.md`
+- Document PubMed Pipeline (архив, не реализовано): `pipelines/document-pubmed/00-document-pubmed-overview.md`
+- Document Semantic Scholar Pipeline (архив, не реализовано): `pipelines/document-semantic-scholar/00-document-semantic-scholar-overview.md`
 
 > **Note**: ChEMBL, PubChem, UniProt, and IUPHAR source documentation has been consolidated into the main pipeline documents listed below.
 

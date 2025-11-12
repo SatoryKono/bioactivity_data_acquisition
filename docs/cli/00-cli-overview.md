@@ -7,6 +7,7 @@
 The `bioetl` Command-Line Interface (CLI) is the primary entry point for executing and managing ETL pipelines. It provides a standardized way to run pipelines, manage configurations, and pass runtime parameters.
 
 The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. This includes:
+
 - Parsing command-line arguments.
 - Loading and merging all configuration sources.
 - Setting up the logging system.
@@ -17,7 +18,7 @@ The CLI's main responsibility is to handle the "scaffolding" of a pipeline run. 
 
 The CLI is a Typer application whose main entry point is `python -m bioetl.cli.app`. Its architecture is based on a **static command registry** that is built when the application starts.
 
-- **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity_chembl`, `assay_chembl`, `target`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
+- **Command Registration**: The file `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` defines the list of all available pipeline commands (e.g., `activity_chembl`, `assay_chembl`, `target_chembl`). It explicitly imports a `build_command_config` function for each pipeline and uses these to construct a dictionary that maps command names to their configurations.
 - **Application Startup**: The main application file, `[ref: repo:src/bioetl/cli/app.py@refactoring_001]`, reads this static registry and uses a factory pattern (`create_pipeline_command`) to generate and register a Typer command for each entry.
 
 This approach is **not dynamic**. Adding a new pipeline requires explicitly adding its configuration to `registry.py`.
@@ -61,7 +62,7 @@ The Typer application defined in `[ref: repo:src/bioetl/cli/app.py@refactoring_0
 | `target_chembl` | `python -m bioetl.cli.app target_chembl` | Runs the ChEMBL target ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
 | `testitem_chembl` | `python -m bioetl.cli.app testitem_chembl` | Runs the ChEMBL test item ETL pipeline. | `[ref: repo:src/bioetl/cli/registry.py@refactoring_001]` |
 
-Команды `pubchem`, `uniprot`, `gtp_iuphar`, `openalex`, `crossref`, `pubmed`, `semantic_scholar` **не реализованы** в текущей сборке и помечены как «(не реализовано)» в соответствующей документации.
+Команды `activity`, `assay`, `document`, `document_pubmed`, `document_crossref`, `document_openalex`, `document_semantic_scholar`, `pubchem`, `uniprot`, `gtp_iuphar`, `openalex`, `crossref`, `pubmed`, `semantic_scholar` **не реализованы** в текущей сборке и отмечены как **not implemented** в соответствующей документации.
 
 ## 6. Global Options
 
@@ -113,10 +114,10 @@ The snippets below demonstrate reproducible invocations that rely on the command
 
    *Expected output*: Configuration merge summary and validation logs with no CSV files written.
 
-3. **Run the document pipeline with deterministic profiles**
+3. **Run the ChEMBL document pipeline with deterministic profiles**
 
    ```bash
-   python -m bioetl.cli.app document \
+   python -m bioetl.cli.app document_chembl \
      --config configs/pipelines/document/document_chembl.yaml \
      --output-dir data/output/document/full_load \
      --set profiles.include="['base.yaml','determinism.yaml']"
@@ -124,13 +125,14 @@ The snippets below demonstrate reproducible invocations that rely on the command
 
    *Expected output*: ETL progress logs, QC reports, and deterministic CSV outputs under `data/output/document/full_load`.
 
-4. **Execute a PubChem enrichment sample**
+4. **Execute a PubChem enrichment sample (not implemented)**
 
    ```bash
+    # not implemented
     python -m bioetl.cli.app pubchem \
       --config src/bioetl/configs/pipelines/pubchem.yaml \
       --output-dir data/output/pubchem/sample \
       --sample 250
     ```
 
-    *Expected output*: Confirmation that only 250 records were processed along with generated CSV/QC artifacts in the specified directory.
+    *Expected output*: Команда отсутствует; CLI вернёт ошибку, пока пайплайн не будет реализован.

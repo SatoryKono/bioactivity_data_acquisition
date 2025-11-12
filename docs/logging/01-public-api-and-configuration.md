@@ -1,73 +1,92 @@
 # 1. Public API and Configuration
 
-## Overview
+## Обзор
 
-The `UnifiedLogger` provides a simple and consistent public API for all logging operations. Its behavior is controlled by a strongly-typed `LoggerConfig` dataclass, which allows for declarative configuration of log levels, formats, and outputs.
+`UnifiedLogger` обеспечивает единый детерминированный слой логирования, обобщающий настройки `structlog` и стандартного `logging`. Для конфигурирования используется типизированный класс `LoggerConfig`, который задаёт формат, уровень и стратегию редактирования чувствительных полей.
 
-## Public API
+## Публичный API `UnifiedLogger`
 
-The `UnifiedLogger` class exposes three primary static methods for application-wide use.
+Все методы определены как `@staticmethod` и не требуют инициализации экземпляра.
 
-### `UnifiedLogger.configure(config: LoggerConfig, ...)`
+### `UnifiedLogger.configure(config: LoggerConfig | None = None, *, additional_processors: Sequence[Any] | None = None) -> None`
 
-This method initializes the global logging system. It **must be called once** at the application's entry point (e.g., in the main CLI function) before any logging occurs.
+**Источник**: `src/bioetl/core/logger.py`
 
-- **`config: LoggerConfig`**: An instance of the `LoggerConfig` dataclass containing all the configuration settings for the logging system.
-- **`additional_processors: list[Processor] | None = None`**: An optional list of custom `structlog` processors to be added to the end of the processing chain, just before the renderer.
+- Выполняет полную инициализацию `structlog` и стандартного `logging`.
+- При `config=None` используется `LoggerConfig()` с настройками по умолчанию.
+- `additional_processors` добавляются в конец конвейера после базовых процессоров.
 
-### `UnifiedLogger.get(name: str | None = None)`
+**Исключения**:
 
-This method returns a `structlog.BoundLogger` instance that is ready for use. It is the standard way to get a logger within any module.
+- `ValueError` — недопустимый уровень логирования (см. `_coerce_log_level`).
 
-- **`name: str | None = None`**: The name of the logger. By convention, this should be `__name__`, which will associate the logger with the module's hierarchy (e.g., `bioetl.pipelines.chembl.activity.run`).
+### `UnifiedLogger.get(name: str | None = None) -> BoundLogger`
 
-### `set_run_context(...)`
+**Источник**: `src/bioetl/core/logger.py`
 
-This is a standalone helper function that sets the global, thread-safe context for a pipeline run. It should be called at the beginning of a pipeline execution. All log records emitted after this call will be automatically enriched with this context.
+- Возвращает заранее сконфигурированный `structlog.BoundLogger`.
+- По умолчанию используется имя `"bioetl"`, чтобы обеспечить стабильные ключи в JSON-сообщениях.
 
-- **`run_id: str`**: A stable, unique identifier for the pipeline run.
-- **`stage: str`**: The name of the current execution stage (e.g., `extract`, `transform`).
-- **`actor: str`**: The entity initiating the run (e.g., `scheduler`, `username`).
-- **`source: str`**: The data source being processed (e.g., `chembl`, `pubmed`).
-- **`trace_id: str | None = None`**: (Optional) The OpenTelemetry trace ID, if available.
-- **`generated_at: str | None = None`**: (Optional) An ISO 8601 timestamp. If not provided, a UTC timestamp is generated automatically.
+**Исключения**:
 
-## Configuration (`LoggerConfig`)
+- `TypeError` — если `structlog.get_logger` вернул объект без метода `bind`.
 
-The `LoggerConfig` dataclass provides a declarative way to control the entire logging system. An instance of this class is passed to `UnifiedLogger.configure()`.
+### `UnifiedLogger.bind(**context: Any) -> None`
+
+- Привязывает переданный контекст к глобальным `contextvars`; значения автоматически появятся в каждом событии.
+- Рекомендуется вызывать на старте пайплайна для установки `run_id`, `pipeline`, `stage`, `dataset`.
+
+### `UnifiedLogger.reset() -> None`
+
+- Полностью очищает глобальный контекст, удаляя ранее привязанные значения.
+- Используется в тестах и изолированных задачах для предотвращения утечек контекста.
+
+### `UnifiedLogger.scoped(**context: Any) -> AbstractContextManager[None]`
+
+- Возвращает контекстный менеджер, временно добавляющий/заменяющий значения в контексте.
+- После выхода из блока исходные значения восстанавливаются.
+
+### `UnifiedLogger.stage(stage: str, **context: Any) -> AbstractContextManager[None]`
+
+- Упрощённый адаптер над `scoped`, который гарантированно задаёт ключ `stage`.
+- Полезен для обёртывания этапов `extract/transform/load/validate`.
+
+## Конфигурация (`LoggerConfig`)
+
+`LoggerConfig` — это алиас для `LogConfig`; оба имени указывают на один и тот же `@dataclass` в модуле логирования. Все поля строго типизированы и совместимы с `mypy --strict`.
 
 ```python
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal
-
-@dataclass
-class LoggerConfig:
-    level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
-    console_format: Literal["text", "json"] = "text"
-    file_enabled: bool = True
-    file_path: Path = Path("var/logs/app.log")
-    file_format: Literal["json"] = "json"
-    max_bytes: int = 10 * 1024 * 1024
-    backup_count: int = 10
-    telemetry_enabled: bool = False
-    redact_secrets: bool = True
-    json_sort_keys: bool = True
-    json_ensure_ascii: bool = False
+from bioetl.core.logger import LogConfig, LoggerConfig, LogFormat
 ```
 
-### Configuration Details
+### Поля `LoggerConfig`
 
-| Parameter             | Type                               | Default                                | Description                                                                                                                              |
-| --------------------- | ---------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `level`               | `str`                              | `"INFO"`                               | The minimum log level to be processed. Messages below this level will be discarded.                                                      |
-| `console_format`      | `"text"` or `"json"`                 | `"text"`                               | The output format for logs sent to the console (stdout/stderr). Use `"text"` for development and `"json"` for containerized environments. |
-| `file_enabled`        | `bool`                             | `True`                                 | If `True`, logs will be written to a file in addition to the console.                                                                    |
-| `file_path`           | `Path`                             | `"var/logs/app.log"`                   | The path to the log file.                                                                                                                |
-| `file_format`         | `"json"`                           | `"json"`                               | The output format for the log file. Must be `"json"` for machine-parsable output.                                                        |
-| `max_bytes`           | `int`                              | `10485760` (10 MB)                     | The maximum size of a log file before it is rotated.                                                                                     |
-| `backup_count`        | `int`                              | `10`                                   | The number of old log files to keep after rotation.                                                                                      |
-| `telemetry_enabled`   | `bool`                             | `False`                                | If `True`, enables the OpenTelemetry processor to inject `trace_id` and `span_id` into log records.                                        |
-| `redact_secrets`      | `bool`                             | `True`                                 | If `True`, enables the secret redaction processor to mask sensitive data.                                                                |
-| `json_sort_keys`      | `bool`                             | `True`                                 | If `True`, the JSON renderer will sort keys in the output. This is **critical for deterministic logs**.                                  |
-| `json_ensure_ascii`   | `bool`                             | `False`                                | If `False`, the JSON renderer will correctly serialize Unicode characters (e.g., Cyrillic) instead of escaping them.                   |
+| Поле            | Тип                  | Значение по умолчанию                | Описание                                                                                  |
+| --------------- | -------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `level`         | `int \| str`         | `DEFAULT_LOG_LEVEL`                  | Уровень логирования, принимает числовые значения `logging` или строковые алиасы.          |
+| `format`        | `LogFormat`          | `LogFormat.JSON`                     | Формат вывода: структурированный JSON или key-value вывод для локальной отладки.         |
+| `redact_fields` | `Sequence[str]`      | `("api_key", "access_token", "password")` | Список ключей, которые будут замещены `***REDACTED***` перед рендерингом. |
+
+### `LogFormat`
+
+- `LogFormat.JSON` — JSON-рендерер с сортировкой ключей и ISO-8601 UTC таймштампами.
+- `LogFormat.KEY_VALUE` — человекочитаемый вывод с фиксированным порядком ключей, полезен локально.
+
+## Пример использования
+
+```python
+from bioetl.core.logger import LogFormat, LoggerConfig, UnifiedLogger
+
+UnifiedLogger.configure(
+    config=LoggerConfig(
+        level="DEBUG",
+        format=LogFormat.JSON,
+        redact_fields=("api_key", "session_token"),
+    ),
+)
+
+logger = UnifiedLogger.get(__name__)
+logger.info("pipeline_started", run_id="2025-10-29T00-00Z", pipeline="chembl-activity")
+```
+
+> Примечание: Поддерживается повторный вызов `UnifiedLogger.configure`, однако он заменяет все обработчики `logging` с флагом `force=True`, поэтому вызывайте его строго один раз в процессе.

@@ -16,23 +16,32 @@ The CLI loads configuration layers in a fixed precedence: profiles declared via 
 
 ## Global options
 
-These switches are available to every pipeline command. Flags marked as **required** must be present on the command line; all others default to a safe, deterministic behaviour when omitted.
+These switches are available to every pipeline command. Options without defaults must be supplied explicitly whenever the CLI reports them as required.
 
-| Option | Shorthand | Required | Description | Defaults |
-| --- | --- | --- | --- | --- |
-| `--config PATH` | | **Yes** | Path to the pipeline configuration YAML. | Provided per command |
-| `--output-dir PATH` | `-o` | **Yes** | Directory where run artifacts are materialised. | Provided per run |
-| `--input-file PATH` | `-i` | No | Optional seed dataset used during extraction for pipelines that require one. | Pipeline specific |
-| `--dry-run` | `-d` | No | Load, merge, and validate configuration without executing the pipeline. | `False` |
-| `--limit N` | | No | Process at most `N` rows (useful for smoke runs). | `None` |
-| `--sample N` | | No | Randomly sample `N` rows; honours deterministic sampling seeds when configured. | `None` |
-| `--golden PATH` | | No | Compare outputs against a stored golden dataset for bitwise determinism checks. | `None` |
-| `--mode NAME` | | No | Select a pre-defined execution mode (for example, enabling enrichment adapters). | Pipeline specific |
-| `--set KEY=VALUE` | `-S` | No | Override individual configuration keys at runtime. Repeatable. | `[]` |
-| `--fail-on-schema-drift / --allow-schema-drift` | | No | Toggle failure when output schemas deviate from the expected order. | `--fail-on-schema-drift` |
-| `--validate-columns / --no-validate-columns` | | No | Control column validation hooks in the post-processing stage. | `--validate-columns` |
-| `--extended / --no-extended` | | No | Enable extended QC artifacts. | `--no-extended` |
-| `--verbose` | `-v` | No | Emit verbose (development) logging. | `False` |
+| Flag | Purpose | Default |
+| --- | --- | --- |
+| `--config, -c` | Path to the pipeline configuration YAML. | — |
+| `--output-dir, -o` | Directory where pipeline artifacts are written. | — |
+| `--input-file, -i` | Optional CSV/Parquet containing seed IDs or records. | — |
+| `--dry-run, -d` | Load and validate configuration without executing the pipeline. | `False` |
+| `--verbose, -v` | Enable verbose (DEBUG-level) logging. | `False` |
+| `--set, -S` | Repeatable `KEY=VALUE` overrides applied after config merge. | `[]` |
+| `--sample` | Deterministically sample `N` rows from the input dataset. | `None` |
+| `--limit` | Process at most `N` rows (handy for smoke runs). | `None` |
+| `--extended` | Emit extended QC sidecars and metrics. | `False` |
+| `--golden` | Path to a golden dataset for determinism checks. | `None` |
+| `--fail-on-schema-drift / --allow-schema-drift` | Control whether schema drift raises or logs. | `--fail-on-schema-drift` |
+| `--validate-columns / --no-validate-columns` | Toggle strict column validation in post-processing. | `--validate-columns` |
+
+## Доступные команды (актуально)
+
+Список синхронизирован с `bioetl.cli.registry.COMMAND_REGISTRY` и отражает только активные команды CLI.
+
+- `activity_chembl` — ChEMBL activity fact pipeline.
+- `assay_chembl` — ChEMBL assay dimension pipeline.
+- `target_chembl` — ChEMBL target dimension pipeline.
+- `document_chembl` — ChEMBL document pipeline.
+- `testitem_chembl` — ChEMBL molecule/test item pipeline.
 
 ## Determinism building blocks
 
@@ -69,14 +78,15 @@ If the comparison detects any byte-level difference, the command exits with a no
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any applicable `--set` overrides.
 - **Default profiles**: Always merges `configs/defaults/base.yaml` and `configs/defaults/determinism.yaml`; network defaults can be layered when referenced in the pipeline YAML.
 - **Deterministic output**: Rows are sorted by `assay_id`, `testitem_id`, then `activity_id`; `hash_row` and `hash_business_key` are produced with SHA256 using the canonicalisation rules from the determinism profile. The run emits a `meta.yaml` snapshot with the fingerprint of both configuration and outputs.
-- **Example**:
 
-  ```bash
-  python -m bioetl.cli.app activity_chembl \
-    --config configs/pipelines/activity/activity_chembl.yaml \
-    --output-dir ./data/output/activity \
-    --sample 5
-  ```
+#### Пример запуска: activity_chembl
+
+```bash
+python -m bioetl.cli.app activity_chembl \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --output-dir ./data/output/activity \
+  --sample 5
+```
 
 ### `assay_chembl`
 
@@ -86,14 +96,15 @@ If the comparison detects any byte-level difference, the command exits with a no
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`.
 - **Default profiles**: `base.yaml` and `determinism.yaml`, with optional network profile via the pipeline config.
 - **Deterministic output**: Sorted by `assay_id` before export; SHA256 hashes cover the business key and entire row, ensuring reproducible QC and golden comparisons.
-- **Example**:
 
-  ```bash
-  python -m bioetl.cli.app assay_chembl \
-    --config configs/pipelines/assay/assay_chembl.yaml \
-    --output-dir ./data/output/assay \
-    --sample 5
-  ```
+#### Пример запуска: assay_chembl
+
+```bash
+python -m bioetl.cli.app assay_chembl \
+  --config configs/pipelines/assay/assay_chembl.yaml \
+  --output-dir ./data/output/assay \
+  --sample 5
+```
 
 ### `target_chembl`
 
@@ -103,14 +114,15 @@ If the comparison detects any byte-level difference, the command exits with a no
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, to toggle enrichment services).
 - **Default profiles**: `base.yaml` + `determinism.yaml`; additional network-specific overrides come from the pipeline YAML, including dedicated HTTP profiles for external enrichers.
 - **Deterministic output**: Sorted by `target_id` and hashed with SHA256; the determinism profile guarantees stable canonicalisation, while the pipeline config fixes enrichment thresholds and QC expectations.
-- **Example**:
 
-  ```bash
-  python -m bioetl.cli.app target_chembl \
-    --config configs/pipelines/target/target_chembl.yaml \
-    --output-dir ./data/output/target \
-    --sample 5
-  ```
+#### Пример запуска: target_chembl
+
+```bash
+python -m bioetl.cli.app target_chembl \
+  --config configs/pipelines/target/target_chembl.yaml \
+  --output-dir ./data/output/target \
+  --sample 5
+```
 
 ### `document_chembl`
 
@@ -120,14 +132,15 @@ If the comparison detects any byte-level difference, the command exits with a no
 - **Optional options**: `--dry-run`, `--mode` (for example `chembl` vs `all`), `--limit`, `--sample`, `--golden`, `--set`.
 - **Default profiles**: `base.yaml` and `determinism.yaml`; enrichment adapters inherit network defaults specified in the document pipeline config.
 - **Deterministic output**: Sorted by `year` and `document_id`, with SHA256 hashes covering both the full row and business keys. The adapter settings ensure canonical source precedence while still producing deterministic outputs and metadata.
-- **Example**:
 
-  ```bash
-  python -m bioetl.cli.app document_chembl \
-    --config configs/pipelines/document/document_chembl.yaml \
-    --output-dir ./data/output/document \
-    --sample 5
-  ```
+#### Пример запуска: document_chembl
+
+```bash
+python -m bioetl.cli.app document_chembl \
+  --config configs/pipelines/document/document_chembl.yaml \
+  --output-dir ./data/output/document \
+  --sample 5
+```
 
 ### `testitem_chembl`
 
@@ -137,18 +150,35 @@ If the comparison detects any byte-level difference, the command exits with a no
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set` (for example, toggling PubChem enrichment).
 - **Default profiles**: `base.yaml`, `determinism.yaml`, plus any network overrides included in the pipeline config.
 - **Deterministic output**: Sorted by `testitem_id` and hashed deterministically; outputs and QC sidecars inherit the shared determinism policy.
-- **Example**:
 
-  ```bash
-  python -m bioetl.cli.app testitem_chembl \
-    --config configs/pipelines/testitem/testitem_chembl.yaml \
-    --output-dir ./data/output/testitem \
-    --sample 5
-  ```
+#### Пример запуска: testitem_chembl
+
+```bash
+python -m bioetl.cli.app testitem_chembl \
+  --config configs/pipelines/testitem/testitem_chembl.yaml \
+  --output-dir ./data/output/testitem \
+  --sample 5
+```
 
 ### Не реализовано
 
-Команды `activity`, `assay`, `document_*` (например, `document_pubmed`, `document_crossref`, `document_openalex`), а также `pubchem`, `uniprot`, `gtp_iuphar`, `openalex`, `crossref`, `pubmed`, `semantic_scholar`, `list` **не активны** в текущей сборке и помечены как «не реализовано».
+Следующие команды отсутствуют в `COMMAND_REGISTRY` и помечены как **not implemented**:
+
+- `activity`
+- `assay`
+- `document_pubmed`
+- `document_crossref`
+- `document_openalex`
+- `document_semantic_scholar`
+- `document`
+- `pubchem`
+- `uniprot`
+- `gtp_iuphar`
+- `openalex`
+- `crossref`
+- `pubmed`
+- `semantic_scholar`
+- `list`
 
 ## Summary matrix
 

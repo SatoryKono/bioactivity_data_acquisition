@@ -4,6 +4,8 @@
 **Date:** 2025-01-29
 **Author:** Data Acquisition Team
 
+> **Статус:** not implemented (CLI команда отсутствует в `COMMAND_REGISTRY`).
+
 ## Purpose
 
 The Document (Crossref) pipeline is a standalone pipeline that extracts publication metadata from Crossref using the REST API `/works` endpoint. It provides comprehensive bibliographic information including titles, authors, journal details, publication dates, and citation metadata.
@@ -41,14 +43,12 @@ This pipeline documentation is organized by stage and topic:
 ## CLI Usage Example
 
 ```bash
-# Standard extraction from Crossref
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# Standard extraction from Crossref (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document.yaml \
   --output-dir data/output/document-crossref
 
-# With input file containing DOIs
-# (РЅРµ СЂРµР°Р»РёР·РѕРІР°РЅРѕ)
+# With input file containing DOIs (not implemented)
 python -m bioetl.cli.app document_crossref \
   --config configs/pipelines/crossref/document.yaml \
   --input-file data/input/dois.csv \
