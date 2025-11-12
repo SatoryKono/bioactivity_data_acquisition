@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Literal
 
+# ruff: noqa: I001
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .cache import CacheConfig
@@ -14,7 +15,8 @@ from .fallbacks import FallbacksConfig
 from .http import HTTPConfig
 from .io import IOConfig
 from .logging import LoggingConfig
-from .paths import MaterializationConfig, PathsConfig
+from .paths import MaterializationConfig
+from .paths import PathsConfig
 from .postprocess import PostprocessConfig
 from .runtime import RuntimeConfig
 from .source import SourceConfig
