@@ -25,7 +25,10 @@ class DocumentSourceParameters(BaseSourceParameters):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> DocumentSourceParameters:
+    def from_mapping(
+        cls,
+        params: Mapping[str, Any] | None = None,
+    ) -> DocumentSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -38,7 +41,8 @@ class DocumentSourceParameters(BaseSourceParameters):
         DocumentSourceParameters
             Constructed parameters object.
         """
-        select_fields_raw = params.get("select_fields")
+        data = params or {}
+        select_fields_raw = data.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
             if isinstance(select_fields_raw, Sequence) and not isinstance(
@@ -47,7 +51,7 @@ class DocumentSourceParameters(BaseSourceParameters):
                 select_fields = tuple(str(field) for field in select_fields_raw)
 
         return cls(
-            base_url=params.get("base_url"),
+            base_url=data.get("base_url"),
             select_fields=select_fields,
         )
 

@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from typing import ClassVar, Sequence
 
-from bioetl.qc.metrics import compute_categorical_distributions
+import pandas as pd
+
+from bioetl.qc.metrics import (
+    CategoricalDistribution,
+    compute_categorical_distributions,
+)
 
 
 class QCUnits:
@@ -17,13 +22,13 @@ class QCUnits:
     OTHER_BUCKET: ClassVar[str] = "__other__"
 
     @classmethod
-    def for_units(cls, df: pd.DataFrame) -> dict[str, dict[str, dict[str, float | int]]]:
+    def for_units(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Вернуть распределения значений для всех ``*_units`` столбцов."""
 
         return cls._compute(df, column_suffixes=cls.UNITS_SUFFIXES)
 
     @classmethod
-    def for_relation(cls, df: pd.DataFrame) -> dict[str, dict[str, dict[str, float | int]]]:
+    def for_relation(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Вернуть распределения значений для всех ``*_relation`` столбцов."""
 
         return cls._compute(df, column_suffixes=cls.RELATION_SUFFIXES)
@@ -34,7 +39,7 @@ class QCUnits:
         df: pd.DataFrame,
         *,
         column_suffixes: Sequence[str],
-    ) -> dict[str, dict[str, dict[str, float | int]]]:
+    ) -> CategoricalDistribution:
         return compute_categorical_distributions(
             df,
             column_suffixes=column_suffixes,
