@@ -12,6 +12,7 @@ from typing import Literal, TypedDict
 from uuid import uuid4
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -88,7 +89,7 @@ def read_md_file(path: Path) -> str:
         return path.read_text(encoding="utf-8")
     except Exception as exc:  # noqa: BLE001 - логируем и возвращаем пустой текст
         log = UnifiedLogger.get(__name__)
-        log.error("markdown_read_failed", path=str(path), error=str(exc))
+        log.error(LogEvents.MARKDOWN_READ_FAILED, path=str(path), error=str(exc))
         return ""
 
 
@@ -133,7 +134,7 @@ def audit_broken_links() -> list[BrokenLink]:
     broken: list[BrokenLink] = []
 
     if not DOCS.exists():
-        log.warning("docs_directory_missing", docs_path=str(DOCS))
+        log.warning(LogEvents.DOCS_DIRECTORY_MISSING, docs_path=str(DOCS))
         return broken
 
     for md_file in sorted(DOCS.rglob("*.md")):
@@ -288,14 +289,13 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
     )
     log = UnifiedLogger.get(__name__)
 
-    log.info("audit_started", docs_path=str(DOCS))
+    log.info(LogEvents.AUDIT_STARTED, docs_path=str(DOCS))
 
     with UnifiedLogger.stage("link_audit"):
         log = UnifiedLogger.get(__name__)
         broken_links = audit_broken_links()
         lychee_missing = find_lychee_missing()
-        log.info(
-            "link_audit_completed",
+        log.info(LogEvents.LINK_AUDIT_COMPLETED,
             broken_count=len(broken_links),
             lychee_missing_count=len(lychee_missing),
         )
@@ -304,7 +304,7 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
         log = UnifiedLogger.get(__name__)
         pipeline_info = [extract_pipeline_info(pipeline) for pipeline in ALL_PIPELINES]
         pipeline_info.sort(key=lambda item: item["pipeline"])
-        log.info("pipeline_inventory_completed", pipelines=len(pipeline_info))
+        log.info(LogEvents.PIPELINE_INVENTORY_COMPLETED, pipelines=len(pipeline_info))
 
     with UnifiedLogger.stage("write_artifacts"):
         log = UnifiedLogger.get(__name__)
@@ -382,8 +382,8 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
             )
 
         _write_markdown_atomic(target_dir / "LINKCHECK.md", markdown_lines)
-        log.info("artifacts_written", directory=str(target_dir))
+        log.info(LogEvents.ARTIFACTS_WRITTEN, directory=str(target_dir))
 
     UnifiedLogger.bind(stage="complete")
     log = UnifiedLogger.get(__name__)
-    log.info("audit_finished")
+    log.info(LogEvents.AUDIT_FINISHED)

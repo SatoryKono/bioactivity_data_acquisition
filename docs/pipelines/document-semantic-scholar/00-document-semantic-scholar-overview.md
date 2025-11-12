@@ -14,7 +14,7 @@ The Document (Semantic Scholar) pipeline is a standalone pipeline that extracts 
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 

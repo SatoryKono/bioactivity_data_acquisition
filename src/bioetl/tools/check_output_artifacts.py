@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["MAX_BYTES", "check_output_artifacts"]
@@ -46,7 +47,7 @@ def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
     repo_root = get_project_root()
     output_dir = repo_root / "data" / "output"
 
-    log.info("checking_output_artifacts", output_dir=str(output_dir), max_bytes=max_bytes)
+    log.info(LogEvents.CHECKING_OUTPUT_ARTIFACTS, output_dir=str(output_dir), max_bytes=max_bytes)
 
     tracked = [p for p in _git_ls_files("data/output") if p.name not in IGNORED_NAMES]
     staged = [p for p in _git_diff_cached("data/output") if p.name not in IGNORED_NAMES]
@@ -83,5 +84,5 @@ def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
             f"{formatted}"
         )
 
-    log.info("output_artifact_check_completed", issues=len(errors))
+    log.info(LogEvents.OUTPUT_ARTIFACT_CHECK_COMPLETED, issues=len(errors))
     return errors

@@ -88,6 +88,18 @@ class PipelineConfig(BaseModel):
         description="ChEMBL-specific configuration (e.g., enrichment settings).",
     )
 
+    @property
+    def common(self) -> PipelineCommonCompat:
+        """Compatibility shim exposing legacy `config.common` attributes.
+
+        Older test helpers expect `config.common` to surface runtime overrides
+        such as `input_file`, `limit`, and `extended`. The modern configuration
+        schema captures these under `config.cli`; this property delegates
+        attribute access without duplicating state.
+        """
+
+        return PipelineCommonCompat(self.cli)
+
     @model_validator(mode="after")
     def ensure_column_order_when_set(self) -> PipelineConfig:
         if self.determinism.column_order and not self.validation.schema_out:
@@ -97,6 +109,54 @@ class PipelineConfig(BaseModel):
             )
             raise ValueError(msg)
         return self
+
+
+class PipelineCommonCompat:
+    """Read-only facade mapping legacy `common` fields onto ``CLIConfig``."""
+
+    __slots__ = ("_cli",)
+
+    def __init__(self, cli: CLIConfig) -> None:
+        self._cli = cli
+
+    @property
+    def input_file(self) -> str | None:
+        return self._cli.input_file
+
+    @property
+    def limit(self) -> int | None:
+        return self._cli.limit
+
+    @property
+    def sample(self) -> int | None:
+        return self._cli.sample
+
+    @property
+    def extended(self) -> bool:
+        return self._cli.extended
+
+    @property
+    def dry_run(self) -> bool:
+        return self._cli.dry_run
+
+    @property
+    def fail_on_schema_drift(self) -> bool:
+        return self._cli.fail_on_schema_drift
+
+    @property
+    def validate_columns(self) -> bool:
+        return self._cli.validate_columns
+
+    @property
+    def golden(self) -> str | None:
+        return self._cli.golden
+
+    @property
+    def verbose(self) -> bool:
+        return self._cli.verbose
+
+    def __getattr__(self, item: str) -> Any:
+        return getattr(self._cli, item)
 
 
 def _resolve_batch_field(cls: Type[Any]) -> str:

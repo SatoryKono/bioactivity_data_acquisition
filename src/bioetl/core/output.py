@@ -15,6 +15,7 @@ import yaml
 
 from bioetl.config import PipelineConfig
 from bioetl.core.hashing import hash_from_mapping
+from bioetl.core.log_events import LogEvents
 
 from .logger import UnifiedLogger
 
@@ -332,7 +333,7 @@ def emit_qc_artifact(
 
     if frame is None or target_path is None:
         return None
-    log.debug("writing_qc_artifact", artifact=artifact_name, path=str(target_path))
+    log.debug(LogEvents.WRITING_QC_ARTIFACT, artifact=artifact_name, path=str(target_path))
     write_frame_like(frame, target_path, config=config)
     return target_path
 
@@ -357,7 +358,7 @@ def finalise_output(
     """Persist the dataset and optional QC artefacts."""
 
     log = UnifiedLogger.get(__name__)
-    log.debug("building_write_artifacts", dataset=str(dataset_path))
+    log.debug(LogEvents.BUILDING_WRITE_ARTIFACTS, dataset=str(dataset_path))
     prepared = build_write_artifacts(
         df,
         config=config,
@@ -370,10 +371,10 @@ def finalise_output(
     if metadata_hook is not None:
         metadata = dict(metadata_hook(metadata, prepared.dataframe))
 
-    log.debug("writing_dataset", path=str(dataset_path), rows=len(prepared.dataframe))
+    log.debug(LogEvents.WRITING_DATASET, path=str(dataset_path), rows=len(prepared.dataframe))
     write_dataset_atomic(prepared.dataframe, dataset_path, config=config)
 
-    log.debug("writing_metadata", path=str(metadata_path))
+    log.debug(LogEvents.WRITING_METADATA, path=str(metadata_path))
     write_yaml_atomic(metadata, metadata_path)
 
     emit_qc_artifact(

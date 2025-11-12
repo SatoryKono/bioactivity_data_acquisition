@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+from pandas.testing import assert_frame_equal
 
 from bioetl.qc.report import (
     build_correlation_report,
@@ -191,3 +192,54 @@ class TestQCReport:
 
         assert payload["total_missing_values"] == 0
         assert payload["columns_with_missing"] == ""
+
+    def test_build_quality_report_is_deterministic(self) -> None:
+        """Quality report should be identical across repeated invocations."""
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 2, 4],
+                "value": [1.0, None, 3.0, 4.0],
+                "value_units": ["nM", "uM", "nM", "nM"],
+                "value_relation": ["=", ">", "<", "="],
+            }
+        )
+
+        report1 = build_quality_report(df, business_key_fields=("activity_id",))
+        report2 = build_quality_report(df.copy(), business_key_fields=("activity_id",))
+
+        assert_frame_equal(report1, report2, check_dtype=False, check_like=False)
+
+    def test_build_qc_metrics_payload_sorted_keys(self) -> None:
+        """QC payload should expose sorted keys for nested structures."""
+        df = pd.DataFrame(
+            {
+                "id": [1, 2, 3, 4],
+                "measurement_units": ["mM", "nM", "uM", "nM"],
+                "measurement_relation": ["<", "=", ">", "="],
+            }
+        )
+
+        payload = build_qc_metrics_payload(df)
+
+        units_distribution_keys = list(payload["units_distribution"]["measurement_units"].keys())
+        relation_distribution_keys = list(
+            payload["relation_distribution"]["measurement_relation"].keys()
+        )
+
+        assert units_distribution_keys == sorted(units_distribution_keys)
+        assert relation_distribution_keys == sorted(relation_distribution_keys)
+
+    def test_build_correlation_report_has_sorted_columns(self) -> None:
+        """Correlation report should include feature column followed by sorted metrics."""
+        df = pd.DataFrame(
+            {
+                "b": [1, 2, 3, 4, 5],
+                "a": [2, 3, 4, 5, 6],
+                "c": [5, 4, 3, 2, 1],
+            }
+        )
+
+        report = build_correlation_report(df)
+
+        assert report is not None
+        assert list(report.columns) == ["feature", "a", "b", "c"]

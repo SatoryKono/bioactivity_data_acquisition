@@ -16,6 +16,7 @@ from uuid import uuid4
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
     TestReportMeta,
@@ -122,10 +123,10 @@ def generate_test_report(output_root: Path | None = None) -> int:
     tmp_root = target_root / f".{folder_name}-{uuid4().hex}.tmp"
 
     if final_root.exists():
-        log.error("target_directory_exists", path=str(final_root))
+        log.error(LogEvents.TARGET_DIRECTORY_EXISTS, path=str(final_root))
         return 1
 
-    log.info("preparing_directories", tmp_root=str(tmp_root), final_root=str(final_root))
+    log.info(LogEvents.PREPARING_DIRECTORIES, tmp_root=str(tmp_root), final_root=str(final_root))
     tmp_root.mkdir(parents=True, exist_ok=True)
 
     artifacts = resolve_artifact_paths(tmp_root)
@@ -142,16 +143,16 @@ def generate_test_report(output_root: Path | None = None) -> int:
         f"--cov-report=html:{html_dir}",
     ]
 
-    log.info("running_pytest", command=pytest_cmd, cwd=str(REPO_ROOT))
+    log.info(LogEvents.RUNNING_PYTEST, command=pytest_cmd, cwd=str(REPO_ROOT))
     result = subprocess.run(pytest_cmd, cwd=REPO_ROOT, check=False)
 
     status = "passed" if result.returncode == 0 else "failed"
     UnifiedLogger.bind(stage="post-processing")
     log = UnifiedLogger.get(__name__)
-    log.info("pytest_finished", returncode=result.returncode, status=status)
+    log.info(LogEvents.PYTEST_FINISHED, returncode=result.returncode, status=status)
 
     if not artifacts.pytest_report.exists():
-        log.error("pytest_json_missing", path=str(artifacts.pytest_report))
+        log.error(LogEvents.PYTEST_JSON_MISSING, path=str(artifacts.pytest_report))
         return max(result.returncode, 1)
 
     row_count, summary = _load_pytest_summary(artifacts.pytest_report)
@@ -189,8 +190,7 @@ def generate_test_report(output_root: Path | None = None) -> int:
         "summary": summary,
     }
 
-    log.info(
-        "writing_meta",
+    log.info(LogEvents.WRITING_META,
         meta_path=str(artifacts.meta_yaml),
         status=status,
         row_count=row_count,
@@ -201,12 +201,12 @@ def generate_test_report(output_root: Path | None = None) -> int:
     if html_dir.exists():
         shutil.rmtree(html_dir)
 
-    log.info("finalising_output", source=str(tmp_root), destination=str(final_root))
+    log.info(LogEvents.FINALISING_OUTPUT, source=str(tmp_root), destination=str(final_root))
     tmp_root.rename(final_root)
 
     if status == "failed":
-        log.warning("tests_failed", returncode=result.returncode)
+        log.warning(LogEvents.TESTS_FAILED, returncode=result.returncode)
     else:
-        log.info("tests_succeeded")
+        log.info(LogEvents.TESTS_SUCCEEDED)
 
     return result.returncode

@@ -11,6 +11,7 @@ import pandas as pd
 
 from bioetl.clients.activity.chembl_activity import ChemblActivityClient
 from bioetl.clients.chembl import ChemblClient
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
@@ -76,17 +77,17 @@ def join_activity_with_molecule(
     if isinstance(activity_ids, pd.DataFrame):
         df_act = activity_ids.copy()
         if df_act.empty:
-            log.debug("join_skipped_empty_dataframe")
+            log.debug(LogEvents.JOIN_SKIPPED_EMPTY_DATAFRAME)
             return _create_empty_result()
         required_cols = ["activity_id", "record_id", "molecule_chembl_id"]
         missing_cols = [c for c in required_cols if c not in df_act.columns]
         if missing_cols:
-            log.warning("join_skipped_missing_columns", missing_columns=missing_cols)
+            log.warning(LogEvents.JOIN_SKIPPED_MISSING_COLUMNS, missing_columns=missing_cols)
             return _create_empty_result()
     else:
         df_act = _fetch_activity_by_ids(activity_ids, client, cfg, log)
         if df_act.empty:
-            log.debug("join_skipped_no_activity_data")
+            log.debug(LogEvents.JOIN_SKIPPED_NO_ACTIVITY_DATA)
             return _create_empty_result()
 
     record_ids: set[str] = set()
@@ -120,8 +121,7 @@ def join_activity_with_molecule(
     if "activity_id" in df_result.columns:
         df_result = df_result.sort_values("activity_id").reset_index(drop=True)
 
-    log.info(
-        "join_completed",
+    log.info(LogEvents.JOIN_COMPLETED,
         rows=len(df_result),
         compound_records_matched=len(compound_records_dict),
         molecules_matched=len(molecules_dict),
@@ -145,7 +145,7 @@ def _fetch_activity_by_ids(
             unique_ids.append(str(act_id).strip())
 
     if not unique_ids:
-        log.debug("activity.no_ids")
+        log.debug(LogEvents.ACTIVITY_NO_IDS)
         return pd.DataFrame(columns=fields)
 
     activity_client = ChemblActivityClient(client, batch_size=batch_size)
@@ -155,15 +155,14 @@ def _fetch_activity_by_ids(
         for record in activity_client.iterate_by_ids(unique_ids, select_fields=fields):
             all_records.append(dict(record))
     except Exception as exc:
-        log.warning(
-            "activity.fetch_error",
+        log.warning(LogEvents.ACTIVITY_FETCH_ERROR,
             ids_count=len(unique_ids),
             error=str(exc),
             exc_info=True,
         )
 
     if not all_records:
-        log.debug("activity.no_records_fetched")
+        log.debug(LogEvents.ACTIVITY_NO_RECORDS_FETCHED)
         return pd.DataFrame(columns=fields)
 
     df = pd.DataFrame.from_records(all_records)  # pyright: ignore[reportUnknownMemberType]
@@ -197,7 +196,7 @@ def _fetch_compound_records_by_ids(
             unique_ids.append(rid_str)
 
     if not unique_ids:
-        log.debug("compound_record.no_ids_after_cleanup")
+        log.debug(LogEvents.COMPOUND_RECORD_NO_IDS_AFTER_CLEANUP)
         return {}
 
     all_records: list[dict[str, Any]] = []
@@ -230,8 +229,7 @@ def _fetch_compound_records_by_ids(
                 collected_from_api += 1
 
         except Exception as exc:
-            log.warning(
-                "compound_record.fetch_error",
+            log.warning(LogEvents.COMPOUND_RECORD_FETCH_ERROR,
                 chunk_size=len(chunk),
                 error=str(exc),
                 exc_info=True,
@@ -248,8 +246,7 @@ def _fetch_compound_records_by_ids(
                 "compound_name": record.get("compound_name"),
             }
 
-    log.info(
-        "compound_record.fetch_complete",
+    log.info(LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,
         ids_requested=len(unique_ids),
         records_fetched=len(all_records),
         records_deduped=len(result),
@@ -260,8 +257,7 @@ def _fetch_compound_records_by_ids(
         collected=collected_from_api,
     )
     if expected_total is not None and collected_from_api < expected_total:
-        log.warning(
-            "compound_record.incomplete_pagination",
+        log.warning(LogEvents.COMPOUND_RECORD_INCOMPLETE_PAGINATION,
             collected=collected_from_api,
             total_count=expected_total,
             hint="Проверьте paginate() и items_key='compound_records', а также limit<=1000.",

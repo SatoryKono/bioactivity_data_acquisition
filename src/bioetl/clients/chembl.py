@@ -18,6 +18,7 @@ from bioetl.clients.chembl_entities import (
 from bioetl.clients.document.chembl_document_entity import ChemblDocumentTermEntityClient
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["ChemblClient"]
@@ -68,8 +69,7 @@ class ChemblClient:
                 self._chembl_release = release
             if isinstance(api_version, str):
                 self._api_version = api_version
-            self._log.info(
-                "chembl.handshake",
+            self._log.info(LogEvents.CHEMBL_HANDSHAKE,
                 endpoint=endpoint,
                 chembl_release=self._chembl_release,
                 api_version=self._api_version,

@@ -18,6 +18,7 @@ from bioetl.clients.chembl import ChemblClient
 from bioetl.clients.target.chembl_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
@@ -112,8 +113,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             stage_start: float,
         ) -> pd.DataFrame:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_target.extract_skipped",
+            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_release=pipeline._chembl_release,
@@ -168,8 +168,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_target.extract_skipped",
+            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_release=self._chembl_release,
@@ -209,8 +208,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_target.extract_by_ids_summary",
+        log.info(LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
@@ -232,10 +230,10 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
         if df.empty:
-            log.debug("transform_empty_dataframe")
+            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
             return df
 
-        log.info("transform_started", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
@@ -262,7 +260,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info("transform_completed", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
 
     # ------------------------------------------------------------------
@@ -284,7 +282,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             actions.append(f"dropped_aliases:{','.join(alias_columns)}")
 
         if actions:
-            log.debug("identifier_harmonization", actions=actions)
+            log.debug(LogEvents.IDENTIFIER_HARMONIZATION, actions=actions)
 
         return df
 
@@ -302,8 +300,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         invalid_info = stats.per_column.get("target_chembl_id")
         if invalid_info and invalid_info["invalid"] > 0:
-            log.warning(
-                "invalid_target_chembl_id",
+            log.warning(LogEvents.INVALID_TARGET_CHEMBL_ID,
                 count=invalid_info["invalid"],
             )
 
@@ -340,7 +337,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         if not target_ids_to_enrich:
-            log.debug("enrich_target_components_skipped", reason="all_data_present")
+            log.debug(LogEvents.ENRICH_TARGET_COMPONENTS_SKIPPED, reason="all_data_present")
             return df
 
         # Reuse existing client if available, otherwise create new one
@@ -368,7 +365,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         target_membership = df["target_chembl_id"].map(_is_target)
 
-        log.info("enrich_target_components_start", target_count=len(target_ids_to_enrich))
+        log.info(LogEvents.ENRICH_TARGET_COMPONENTS_START, target_count=len(target_ids_to_enrich))
 
         for target_id in target_ids_to_enrich:
             try:
@@ -386,8 +383,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 if components:
                     component_map[target_id] = components
             except Exception as exc:
-                log.warning(
-                    "target_component_fetch_error",
+                log.warning(LogEvents.TARGET_COMPONENT_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -412,7 +408,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
                 )
 
-        log.info("enrich_target_components_complete", enriched_count=len(component_map))
+        log.info(LogEvents.ENRICH_TARGET_COMPONENTS_COMPLETE, enriched_count=len(component_map))
         return df
 
     def _enrich_protein_classifications(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
@@ -452,7 +448,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         if not target_ids_to_enrich:
-            log.debug("enrich_protein_classifications_skipped", reason="all_data_present")
+            log.debug(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_SKIPPED, reason="all_data_present")
             return df
 
         source_raw = self._resolve_source_config("chembl")
@@ -487,7 +483,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         target_membership = df["target_chembl_id"].map(_is_target)
 
-        log.info("enrich_protein_classifications_start", target_count=len(target_ids_to_enrich))
+        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
 
         for target_id in target_ids_to_enrich:
             try:
@@ -525,8 +521,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                 protein_component_ids.append(component_id)
                                 break
                     except Exception as exc:
-                        log.debug(
-                            "component_sequence_fetch_error",
+                        log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -549,8 +544,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             if protein_class_id is not None:
                                 protein_class_ids.add(str(protein_class_id))
                     except Exception as exc:
-                        log.debug(
-                            "component_class_fetch_error",
+                        log.debug(LogEvents.COMPONENT_CLASS_FETCH_ERROR,
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -604,8 +598,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                             path_levels[i - 1] = str(level_value)
                                 break
                         except Exception as exc:
-                            log.debug(
-                                "protein_family_classification_fetch_error",
+                            log.debug(LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 protein_class_id=protein_class_id,
                                 error=str(exc),
@@ -624,8 +617,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             }
                             protein_classes.append(class_obj)
                     except Exception as exc:
-                        log.warning(
-                            "protein_classification_fetch_error",
+                        log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                             target_chembl_id=target_id,
                             protein_class_id=protein_class_id,
                             error=str(exc),
@@ -666,8 +658,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         classification_top_map[target_id] = top_class
 
             except Exception as exc:
-                log.warning(
-                    "protein_classification_fetch_error",
+                log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -700,8 +691,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     else pd.NA
                 )
 
-        log.info(
-            "enrich_protein_classifications_complete",
+        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
             enriched_list_count=len(classification_list_map),
             enriched_top_count=len(classification_top_map),
         )
@@ -721,8 +711,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(
-                "string_fields_normalized",
+            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -778,6 +767,6 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 coerced_species_group_flag = df["species_group_flag"].map(_coerce_nullable_int)
                 df["species_group_flag"] = coerced_species_group_flag.astype("Int64")
             except (ValueError, TypeError) as exc:
-                log.warning("species_group_flag_conversion_failed", error=str(exc))
+                log.warning(LogEvents.SPECIES_GROUP_FLAG_CONVERSION_FAILED, error=str(exc))
 
         return df

@@ -17,6 +17,7 @@ from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import StringRule, normalize_string_columns
+from bioetl.core.log_events import LogEvents
 from bioetl.schemas.document import COLUMN_ORDER
 
 from ...chembl_descriptor import (
@@ -267,8 +268,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_document.extract_by_ids_summary",
+        log.info(LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
@@ -287,10 +287,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         df = df.copy()
 
         if df.empty:
-            log.debug("transform_empty_dataframe")
+            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
             return df
 
-        log.info("transform_started", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
@@ -322,8 +322,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             )
             deduped_count = len(df)
             if deduped_count < initial_count:
-                log.warning(
-                    "document_deduplication_applied",
+                log.warning(LogEvents.DOCUMENT_DEDUPLICATION_APPLIED,
                     initial_count=initial_count,
                     deduped_count=deduped_count,
                     removed_count=initial_count - deduped_count,
@@ -332,7 +331,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # Order columns according to schema
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info("transform_completed", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -341,28 +340,26 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
         if df.empty:
-            log.debug("validate_empty_dataframe")
+            log.debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
             return df
 
         if self.config.validation.strict:
             allowed_columns = set(COLUMN_ORDER)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
-                log.debug(
-                    "drop_extra_columns_before_validation",
+                log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
                     extras=extra_columns,
                 )
                 df = df.drop(columns=extra_columns)
 
-        log.info("validate_started", rows=len(df))
+        log.info(LogEvents.STAGE_VALIDATE_START, rows=len(df))
 
         # Pre-validation checks
         self._check_document_id_uniqueness(df, log)
 
         # Call base validation
         validated = super().validate(df)
-        log.info(
-            "validate_completed",
+        log.info(LogEvents.STAGE_VALIDATE_FINISH,
             rows=len(validated),
             schema=self.config.validation.schema_out,
             strict=self.config.validation.strict,
@@ -419,8 +416,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(
-                "string_fields_normalized",
+            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -565,8 +561,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             duplicate_ids = (
                 df[df["document_chembl_id"].duplicated()]["document_chembl_id"].unique().tolist()
             )
-            log.warning(
-                "document_id_duplicates",
+            log.warning(LogEvents.DOCUMENT_ID_DUPLICATES,
                 duplicate_count=duplicates.sum(),
                 duplicate_ids=duplicate_ids[:10],  # Limit to first 10
             )
@@ -614,8 +609,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                             document_term_section = cast(Mapping[str, Any], document_term_section)
                             enrich_cfg = dict(document_term_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
+            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
                 error=str(exc),
                 message="Using default enrichment config",
             )

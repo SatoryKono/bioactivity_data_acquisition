@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["run_semantic_diff"]
@@ -235,7 +236,7 @@ def run_semantic_diff() -> Path:
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)
 
-    log.info("semantic_diff_extract_start")
+    log.info(LogEvents.SEMANTIC_DIFF_EXTRACT_START)
     code_methods = extract_pipeline_base_methods()
     doc_methods = extract_pipeline_base_from_docs()
     method_differences = compare_methods(code_methods, doc_methods)
@@ -259,5 +260,5 @@ def run_semantic_diff() -> Path:
         json.dump(diff_report, handle, indent=2, ensure_ascii=False)
     tmp.replace(output_file)
 
-    log.info("semantic_diff_written", path=str(output_file))
+    log.info(LogEvents.SEMANTIC_DIFF_WRITTEN, path=str(output_file))
     return output_file

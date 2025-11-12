@@ -4,19 +4,38 @@ from __future__ import annotations
 
 import importlib
 import uuid
+from builtins import (
+    ConnectionError as BuiltinConnectionError,
+)
+from builtins import (
+    TimeoutError as BuiltinTimeoutError,
+)
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from zoneinfo import ZoneInfo
 
 import typer
+from structlog.stdlib import BoundLogger
 
+from bioetl.clients.exceptions import (
+    ConnectionError as ClientConnectionError,
+)
+from bioetl.clients.exceptions import (
+    HTTPError,
+    RequestException,
+)
+from bioetl.clients.exceptions import (
+    Timeout as ClientTimeout,
+)
 from bioetl.config import (
     apply_runtime_overrides,
     load_config,
     load_environment_settings,
 )
+from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
 
@@ -70,10 +89,9 @@ def _validate_config_path(config_path: Path) -> None:
     """Validate that the configuration file exists."""
     resolved_path = config_path.expanduser().resolve()
     if not resolved_path.exists():
-        typer.echo(
-            f"Error: Configuration file not found: {resolved_path}\n"
-            "Please provide a valid path using --config or -c flag.",
-            err=False,
+        _echo_error(
+            "E002",
+            f"Configuration file not found: {resolved_path}. Provide a valid path via --config/-c.",
         )
         raise typer.Exit(code=2)
 
@@ -83,10 +101,7 @@ def _validate_output_dir(output_dir: Path) -> None:
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        typer.echo(
-            f"Error: Cannot create output directory: {output_dir}\n{exc}",
-            err=True,
-        )
+        _echo_error("E002", f"Cannot create output directory: {output_dir}. {exc}")
         raise typer.Exit(code=2) from exc
 
 
@@ -198,7 +213,7 @@ def create_pipeline_command(
         try:
             env_settings = load_environment_settings()
         except ValueError as exc:
-            typer.echo(f"Error: Environment validation failed: {exc}", err=True)
+            _echo_error("E002", f"Environment validation failed: {exc}")
             raise typer.Exit(code=2) from exc
 
         apply_runtime_overrides(env_settings)
@@ -217,15 +232,15 @@ def create_pipeline_command(
                 include_default_profiles=True,
             )
         except FileNotFoundError as exc:
-            typer.echo(
-                f"Error: Configuration file or referenced profile not found: {exc}",
-                err=True,
+            _echo_error(
+                "E002",
+                f"Configuration file or referenced profile not found: {exc}",
             )
             raise typer.Exit(code=2) from exc
         except ValueError as exc:
-            typer.echo(
-                f"Error: Configuration validation failed: {exc}",
-                err=True,
+            _echo_error(
+                "E002",
+                f"Configuration validation failed: {exc}",
             )
             raise typer.Exit(code=2) from exc
 
@@ -268,8 +283,7 @@ def create_pipeline_command(
         )
 
         log = UnifiedLogger.get(__name__)
-        log.info(
-            "cli_pipeline_started",
+        log.info(LogEvents.CLI_RUN_START,
             pipeline=command_config.name,
             config=str(config),
             output_dir=str(output_dir),
@@ -279,26 +293,13 @@ def create_pipeline_command(
             extended=extended,
         )
 
-        try:
-            pipeline_module = importlib.import_module(pipeline_module_name)
-            pipeline_cls = getattr(pipeline_module, pipeline_class_name)
-        except (ModuleNotFoundError, AttributeError) as exc:  # pragma: no cover - defensive guard
-            log.error(
-                "cli_pipeline_class_lookup_failed",
-                pipeline=command_config.name,
-                module=pipeline_module_name,
-                class_name=pipeline_class_name,
-                run_id=run_id,
-                error=str(exc),
-                exc_info=True,
-            )
-            typer.echo(
-                "Error: Pipeline class could not be resolved. Please check installation.",
-                err=True,
-            )
-            raise typer.Exit(code=2) from exc
-
-        pipeline = pipeline_cls(pipeline_config, run_id)
+        pipeline = _resolve_pipeline_class(
+            module_name=pipeline_module_name,
+            class_name=pipeline_class_name,
+            log=log,
+            run_id=run_id,
+            command_name=command_config.name,
+        )(pipeline_config, run_id)
 
         postprocess_config = getattr(pipeline_config, "postprocess", None)
         correlation_section = getattr(postprocess_config, "correlation", None)
@@ -309,6 +310,8 @@ def create_pipeline_command(
             "include_correlation": effective_extended or correlation_enabled,
             "include_qc_metrics": effective_extended,
         }
+        # QC artefacts are constructed inside the pipeline implementation;
+        # the CLI only passes orchestration flags without invoking QC helpers.
 
         try:
             # Use output_dir as output_path for run()
@@ -317,8 +320,7 @@ def create_pipeline_command(
                 **run_kwargs,
             )
 
-            log.info(
-                "cli_pipeline_completed",
+            log.info(LogEvents.CLI_RUN_FINISH,
                 run_id=run_id,
                 pipeline=command_config.name,
                 dataset=str(result.write_result.dataset),
@@ -331,19 +333,102 @@ def create_pipeline_command(
         except typer.Exit:
             raise
         except Exception as exc:
-            from requests.exceptions import HTTPError, RequestException, Timeout
-
-            if isinstance(
-                exc, (ConnectionError, TimeoutError, RequestException, Timeout, HTTPError)
-            ):
-                log.error("cli_pipeline_api_error", run_id=run_id, error=str(exc), exc_info=True)
-                typer.echo(f"Error: External API failure: {exc}", err=True)
-                raise typer.Exit(code=3) from exc
-
-            log.error("cli_pipeline_failed", run_id=run_id, error=str(exc), exc_info=True)
-            typer.echo(f"Error: Pipeline execution failed: {exc}", err=True)
-            raise typer.Exit(code=1) from exc
+            _handle_pipeline_exception(
+                exc=exc,
+                log=log,
+                run_id=run_id,
+                command_name=command_config.name,
+            )
 
     # Set command metadata
     command.__doc__ = command_config.description
     return command
+
+
+def _resolve_pipeline_class(
+    *,
+    module_name: str,
+    class_name: str,
+    log: BoundLogger,
+    run_id: str,
+    command_name: str,
+) -> type[PipelineBase]:
+    """Resolve pipeline class lazily to decouple CLI from pipeline modules."""
+    try:
+        pipeline_module = importlib.import_module(module_name)
+        pipeline_cls = getattr(pipeline_module, class_name)
+    except (ModuleNotFoundError, AttributeError) as exc:  # pragma: no cover - defensive guard
+        log.error(LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
+            pipeline=command_name,
+            module=module_name,
+            class_name=class_name,
+            run_id=run_id,
+            error=str(exc),
+            exc_info=True,
+        )
+        _echo_error("E002", "Pipeline class could not be resolved. Check installation.")
+        raise typer.Exit(code=2) from exc
+
+    if isinstance(pipeline_cls, type):
+        if not issubclass(pipeline_cls, PipelineBase):
+            log.error(LogEvents.CLI_PIPELINE_CLASS_INVALID,
+                pipeline=command_name,
+                module=module_name,
+                class_name=class_name,
+                run_id=run_id,
+            )
+            _echo_error("E002", "Pipeline type mismatch. Expected PipelineBase subclass.")
+            raise typer.Exit(code=2)
+    elif not callable(pipeline_cls):
+        log.error(LogEvents.CLI_PIPELINE_CLASS_INVALID,
+            pipeline=command_name,
+            module=module_name,
+            class_name=class_name,
+            run_id=run_id,
+        )
+        _echo_error("E002", "Pipeline entry is not callable.")
+        raise typer.Exit(code=2)
+
+    return cast(type[PipelineBase], pipeline_cls)
+
+
+def _handle_pipeline_exception(
+    *,
+    exc: Exception,
+    log: BoundLogger,
+    run_id: str,
+    command_name: str,
+) -> None:
+    """Map runtime exceptions to deterministic exit codes and logs."""
+    network_errors = (
+        ClientConnectionError,
+        BuiltinConnectionError,
+        BuiltinTimeoutError,
+        ClientTimeout,
+        HTTPError,
+        RequestException,
+        CircuitBreakerOpenError,
+    )
+    if isinstance(exc, network_errors):
+        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+            run_id=run_id,
+            pipeline=command_name,
+            error=str(exc),
+            exc_info=True,
+        )
+        _echo_error("E003", f"External API failure: {exc}")
+        raise typer.Exit(code=3) from exc
+
+    log.error(LogEvents.CLI_RUN_ERROR,
+        run_id=run_id,
+        pipeline=command_name,
+        error=str(exc),
+        exc_info=True,
+    )
+    _echo_error("E001", f"Pipeline execution failed: {exc}")
+    raise typer.Exit(code=1) from exc
+
+
+def _echo_error(code: str, message: str) -> None:
+    """Emit a deterministic error message."""
+    typer.echo(f"[bioetl-cli] ERROR {code}: {message}", err=True)

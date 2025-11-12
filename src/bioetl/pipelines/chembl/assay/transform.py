@@ -8,6 +8,7 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.core.serialization import header_rows_serialize, serialize_array_fields
 
 __all__ = [
@@ -81,7 +82,7 @@ def validate_assay_parameters_truv(
     log = UnifiedLogger.get(__name__).bind(component="assay_transform")
 
     if column not in df.columns:
-        log.debug("truv_validation_skipped_missing_column", column=column)
+        log.debug(LogEvents.TRUV_VALIDATION_SKIPPED_MISSING_COLUMN, column=column)
         return df
 
     # Стандартные операторы relation
@@ -214,19 +215,19 @@ def validate_assay_parameters_truv(
     # Логируем предупреждения
     if warnings:
         for warning in warnings:
-            log.warning("truv_validation_warning", message=warning)
+            log.warning(LogEvents.TRUV_VALIDATION_WARNING, message=warning)
 
     # Обрабатываем ошибки
     if errors:
         error_msg = f"TRUV validation failed for {column}:\n" + "\n".join(errors)
         if fail_fast:
-            log.error("truv_validation_failed", error_count=len(errors))
+            log.error(LogEvents.TRUV_VALIDATION_FAILED, error_count=len(errors))
             raise ValueError(error_msg)
         else:
             for error in errors:
-                log.warning("truv_validation_error", message=error)
+                log.warning(LogEvents.TRUV_VALIDATION_ERROR, message=error)
 
     if not errors and not warnings:
-        log.debug("truv_validation_passed", rows_checked=len(df))
+        log.debug(LogEvents.TRUV_VALIDATION_PASSED, rows_checked=len(df))
 
     return df

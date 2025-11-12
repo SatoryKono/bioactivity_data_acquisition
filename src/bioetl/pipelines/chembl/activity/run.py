@@ -30,6 +30,7 @@ from bioetl.core.normalizers import (
 )
 from bioetl.core.utils.molecule_map import join_activity_with_molecule
 from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
+from bioetl.core.log_events import LogEvents
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas.activity import (
     ACTIVITY_PROPERTY_KEYS,
@@ -133,8 +134,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if payload_activity_ids is None:
                 return None
 
-            bound_log.warning(
-                "chembl_activity.deprecated_kwargs",
+            bound_log.warning(LogEvents.CHEMBL_ACTIVITY_DEPRECATED_KWARGS,
                 message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
             )
             if isinstance(payload_activity_ids, Sequence) and not isinstance(
@@ -284,15 +284,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         )
 
         if invalid_ids:
-            log.warning(
-                "chembl_activity.invalid_activity_ids",
+            log.warning(LogEvents.CHEMBL_ACTIVITY_INVALID_ACTIVITY_IDS,
                 invalid_count=len(invalid_ids),
             )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
         batch_stats = self._last_batch_extract_stats or {}
-        log.info(
-            "chembl_activity.extract_by_ids_summary",
+        log.info(LogEvents.CHEMBL_ACTIVITY_EXTRACT_BY_IDS_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
@@ -485,8 +483,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 normalized_ids.append((numeric_id, key))
 
         if invalid_ids:
-            log.warning(
-                "chembl_activity.invalid_activity_ids",
+            log.warning(LogEvents.CHEMBL_ACTIVITY_INVALID_ACTIVITY_IDS,
                 invalid_count=len(invalid_ids),
             )
 
@@ -569,8 +566,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         error_count += 1
 
                 batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
-                log.debug(
-                    "chembl_activity.batch_processed",
+                log.debug(LogEvents.CHEMBL_ACTIVITY_BATCH_PROCESSED,
                     batch_size=len(chunk),
                     from_cache=from_cache,
                     success_in_batch=success_in_batch,
@@ -578,8 +574,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     duration_ms=batch_duration_ms,
                 )
             except CircuitBreakerOpenError as exc:
-                log.warning(
-                    "chembl_activity.batch_circuit_breaker",
+                log.warning(LogEvents.CHEMBL_ACTIVITY_BATCH_CIRCUIT_BREAKER,
                     batch_size=len(chunk),
                     error=str(exc),
                 )
@@ -591,8 +586,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     fallback_count += 1
                     error_count += 1
             except RequestException as exc:
-                log.error(
-                    "chembl_activity.batch_request_error",
+                log.error(LogEvents.CHEMBL_ACTIVITY_BATCH_REQUEST_ERROR,
                     batch_size=len(chunk),
                     error=str(exc),
                 )
@@ -604,8 +598,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     fallback_count += 1
                     error_count += 1
             except Exception as exc:  # pragma: no cover - defensive path
-                log.error(
-                    "chembl_activity.batch_unhandled_error",
+                log.error(LogEvents.CHEMBL_ACTIVITY_BATCH_UNHANDLED_ERROR,
                     batch_size=len(chunk),
                     error=str(exc),
                     exc_info=True,
@@ -649,10 +642,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
         if df.empty:
-            log.debug("transform_empty_dataframe")
+            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
             return df
 
-        log.info("transform_started", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
         df = self._normalize_identifiers(df, log)
         df = self._normalize_measurements(df, log)
@@ -695,7 +688,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._finalize_output_columns(df, log)
         df = self._filter_invalid_required_fields(df, log)
 
-        log.info("transform_completed", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -704,20 +697,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
         if df.empty:
-            log.debug("validate_empty_dataframe")
+            log.debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
             return df
 
         if self.config.validation.strict:
             allowed_columns = set(COLUMN_ORDER)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
-                log.debug(
-                    "drop_extra_columns_before_validation",
+                log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
                     extras=extra_columns,
                 )
                 df = df.drop(columns=extra_columns)
 
-        log.info("validate_started", rows=len(df))
+        log.info(LogEvents.STAGE_VALIDATE_START, rows=len(df))
 
         # Ensure target_tax_id has correct nullable integer type before validation
         if "target_tax_id" in df.columns:
@@ -743,8 +735,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         try:
             self.config.validation.coerce = False
             validated = super().validate(df)
-            log.info(
-                "validate_completed",
+            log.info(LogEvents.STAGE_VALIDATE_FINISH,
                 rows=len(validated),
                 schema=self.config.validation.schema_out,
                 strict=self.config.validation.strict,
@@ -759,8 +750,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             error_count = len(failure_cases_df) if failure_cases_df is not None else 0
             error_summary = summarize_schema_errors(exc)
 
-            log.error(
-                "validation_failed",
+            log.error(LogEvents.VALIDATION_FAILED,
                 error_count=error_count,
                 schema=self.config.validation.schema_out,
                 strict=self.config.validation.strict,
@@ -772,7 +762,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             # Log detailed failure cases if available
             if failure_cases_df is not None and not failure_cases_df.empty:
                 failure_cases_summary = format_failure_cases(failure_cases_df)
-                log.error("validation_failure_cases", failure_cases=failure_cases_summary)
+                log.error(LogEvents.VALIDATION_FAILURE_CASES, failure_cases=failure_cases_summary)
                 # Log individual errors with row index and activity_id as per documentation
                 self._log_detailed_validation_errors(failure_cases_df, df, log)
 
@@ -782,8 +772,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             raise ValueError(msg) from exc
         except Exception as exc:
-            log.error(
-                "validation_error",
+            log.error(LogEvents.VALIDATION_ERROR,
                 error=str(exc),
                 schema=self.config.validation.schema_out,
                 exc_info=True,
@@ -841,8 +830,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             )
                             enrich_cfg = dict(compound_record_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
+            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
                 error=str(exc),
                 message="Using default enrichment config",
             )
@@ -909,8 +897,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             assay_section = cast(Mapping[str, Any], assay_section)
                             enrich_cfg = dict(assay_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
+            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
                 error=str(exc),
                 message="Using default enrichment config",
             )
@@ -977,8 +964,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             data_validity_section = cast(Mapping[str, Any], data_validity_section)
                             enrich_cfg = dict(data_validity_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
+            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
                 error=str(exc),
                 message="Using default enrichment config",
             )
@@ -1056,8 +1042,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             molecule_section = cast(Mapping[str, Any], molecule_section)
                             enrich_cfg = dict(molecule_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(
-                "enrichment_config_error",
+            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
                 error=str(exc),
                 message="Using default enrichment config",
             )
@@ -1099,8 +1084,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
                 # Заполнить molecule_pref_name из molecule_name где оно пусто
                 df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
-                log.info(
-                    "molecule_pref_name_enriched",
+                log.info(LogEvents.MOLECULE_PREF_NAME_ENRICHED,
                     rows_enriched=int(mask.sum()),
                     total_rows=len(df),
                 )
@@ -1146,7 +1130,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 "success_rate": 0.0,
             }
             self._last_batch_extract_stats = summary
-            log.info("chembl_activity.batch_summary", **summary)
+            log.info(LogEvents.CHEMBL_ACTIVITY_BATCH_SUMMARY, **summary)
             empty_frame = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
             return self._ensure_comment_fields(empty_frame, log)
 
@@ -1158,7 +1142,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         duration_ms = (time.perf_counter() - method_start) * 1000.0
         summary["duration_ms"] = duration_ms
         self._last_batch_extract_stats = summary
-        log.info("chembl_activity.batch_summary", **summary)
+        log.info(LogEvents.CHEMBL_ACTIVITY_BATCH_SUMMARY, **summary)
 
         result_df: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
         if result_df.empty:
@@ -1247,7 +1231,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             tmp_path.replace(cache_file)
         except Exception as exc:  # pragma: no cover - cache best-effort
             log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
-            log.debug("chembl_activity.cache_store_failed", error=str(exc))
+            log.debug(LogEvents.CHEMBL_ACTIVITY_CACHE_STORE_FAILED, error=str(exc))
 
     def _cache_file_path(self, batch_ids: Sequence[str], release: str | None) -> Path:
         directory = self._cache_directory(release)
@@ -1353,7 +1337,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if missing_fields:
             for field in missing_fields:
                 df[field] = pd.Series([pd.NA] * len(df), dtype="string")
-            log.debug("comment_fields_ensured", fields=missing_fields)
+            log.debug(LogEvents.COMMENT_FIELDS_ENSURED, fields=missing_fields)
 
         return df
 
@@ -1383,8 +1367,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return df
 
         if "data_validity_comment" not in df.columns:
-            log.debug(
-                "extract_data_validity_descriptions_skipped",
+            log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_SKIPPED,
                 reason="data_validity_comment_column_missing",
             )
             return df
@@ -1405,7 +1388,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 validity_comments.append(comment_str)
 
         if not validity_comments:
-            log.debug("extract_data_validity_descriptions_skipped", reason="no_valid_comments")
+            log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_SKIPPED, reason="no_valid_comments")
             # Гарантируем наличие колонки с pd.NA
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
@@ -1413,7 +1396,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Вызвать fetch_data_validity_lookup для получения descriptions
         unique_comments = list(set(validity_comments))
-        log.info("extract_data_validity_descriptions_fetching", comments_count=len(unique_comments))
+        log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCHING, comments_count=len(unique_comments))
 
         try:
             records_dict = client.fetch_data_validity_lookup(
@@ -1453,7 +1436,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
 
         if not enrichment_data:
-            log.debug("extract_data_validity_descriptions_no_records")
+            log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_NO_RECORDS)
             # Гарантируем наличие колонки с pd.NA
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
@@ -1486,8 +1469,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Восстановить исходный порядок
         df_result = df_result.reindex(original_index)
 
-        log.info(
-            "extract_data_validity_descriptions_complete",
+        log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
             comments_requested=len(unique_comments),
             records_fetched=len(enrichment_data),
             rows_enriched=len(df_result),
@@ -1521,7 +1503,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return df
 
         if "assay_chembl_id" not in df.columns:
-            log.debug("extract_assay_fields_skipped", reason="assay_chembl_id_column_missing")
+            log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_SKIPPED, reason="assay_chembl_id_column_missing")
             # Гарантируем наличие колонок с pd.NA
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
@@ -1544,7 +1526,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 assay_ids.append(assay_id_str)
 
         if not assay_ids:
-            log.debug("extract_assay_fields_skipped", reason="no_valid_assay_ids")
+            log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_SKIPPED, reason="no_valid_assay_ids")
             # Гарантируем наличие колонок с pd.NA
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
@@ -1553,7 +1535,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Вызвать fetch_assays_by_ids для получения assay данных
         unique_assay_ids = list(set(assay_ids))
-        log.info("extract_assay_fields_fetching", assay_ids_count=len(unique_assay_ids))
+        log.info(LogEvents.EXTRACT_ASSAY_FIELDS_FETCHING, assay_ids_count=len(unique_assay_ids))
 
         try:
             records_dict = client.fetch_assays_by_ids(
@@ -1562,8 +1544,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 page_limit=1000,
             )
         except Exception as exc:
-            log.warning(
-                "extract_assay_fields_fetch_error",
+            log.warning(LogEvents.EXTRACT_ASSAY_FIELDS_FETCH_ERROR,
                 error=str(exc),
                 exc_info=True,
             )
@@ -1596,7 +1577,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
 
         if not enrichment_data:
-            log.debug("extract_assay_fields_no_records")
+            log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_NO_RECORDS)
             # Гарантируем наличие колонок с pd.NA
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
@@ -1663,8 +1644,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if mask_valid.any():
             invalid_mask = mask_valid & (df_result["assay_tax_id"] < 1)
             if invalid_mask.any():
-                log.warning(
-                    "invalid_assay_tax_id_range",
+                log.warning(LogEvents.INVALID_ASSAY_TAX_ID_RANGE,
                     count=int(invalid_mask.sum()),
                 )
                 df_result.loc[invalid_mask, "assay_tax_id"] = pd.NA
@@ -1672,8 +1652,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Восстановить исходный порядок
         df_result = df_result.reindex(original_index)
 
-        log.info(
-            "extract_assay_fields_complete",
+        log.info(LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE,
             assay_ids_requested=len(unique_assay_ids),
             records_fetched=len(enrichment_data),
             rows_enriched=len(df_result),
@@ -1743,15 +1722,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 }
                 metrics["unknown_data_validity_comments_count"] = unknown_count
                 metrics["unknown_data_validity_comments_samples"] = unknown_values
-                log.warning(
-                    "unknown_data_validity_comments_detected",
+                log.warning(LogEvents.UNKNOWN_DATA_VALIDITY_COMMENTS_DETECTED,
                     unknown_count=unknown_count,
                     samples=unknown_values,
                     whitelist=whitelist,
                 )
 
         if metrics:
-            log.info("validity_comments_metrics", **metrics)
+            log.info(LogEvents.VALIDITY_COMMENTS_METRICS, **metrics)
 
     def _get_data_validity_comment_whitelist(self) -> list[str]:
         """Получить whitelist допустимых значений для data_validity_comment из словаря.
@@ -1824,8 +1802,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Проверка наличия activity_properties (совместимость с ChEMBL < v24)
         if "activity_properties" not in record:
-            log.warning(
-                "activity_properties_missing",
+            log.warning(LogEvents.ACTIVITY_PROPERTIES_MISSING,
                 activity_id=activity_id,
                 message="activity_properties not found in API response (possible ChEMBL < v24)",
             )
@@ -1834,8 +1811,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         properties = record["activity_properties"]
         if properties is None:
-            log.debug(
-                "activity_properties_null",
+            log.debug(LogEvents.ACTIVITY_PROPERTIES_NULL,
                 activity_id=activity_id,
                 message="activity_properties is None (possible ChEMBL < v24)",
             )
@@ -1846,8 +1822,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             try:
                 properties = json.loads(properties)
             except (TypeError, ValueError, json.JSONDecodeError) as exc:
-                log.debug(
-                    "activity_properties_parse_failed",
+                log.debug(LogEvents.ACTIVITY_PROPERTIES_PARSE_FAILED,
                     error=str(exc),
                     activity_id=record.get("activity_id"),
                 )
@@ -1982,8 +1957,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         comment_value = str(value).strip()
                     if comment_value:
                         record["data_validity_comment"] = comment_value
-                        log.debug(
-                            "data_validity_comment_fallback_applied",
+                        log.debug(LogEvents.DATA_VALIDITY_COMMENT_FALLBACK_APPLIED,
                             activity_id=record.get("activity_id"),
                             source="activity_properties",
                             priority="measured",
@@ -2002,8 +1976,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         comment_value = str(value).strip()
                     if comment_value:
                         record["data_validity_comment"] = comment_value
-                        log.debug(
-                            "data_validity_comment_fallback_applied",
+                        log.debug(LogEvents.DATA_VALIDITY_COMMENT_FALLBACK_APPLIED,
                             activity_id=record.get("activity_id"),
                             source="activity_properties",
                             priority="first",
@@ -2011,16 +1984,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         )
             else:
                 # Логирование случая, когда activity_properties есть, но data_validity_comment не найден
-                log.debug(
-                    "data_validity_comment_fallback_no_items",
+                log.debug(LogEvents.DATA_VALIDITY_COMMENT_FALLBACK_NO_ITEMS,
                     activity_id=record.get("activity_id"),
                     activity_properties_count=len(items),
                     has_activity_properties=True,
                 )
         else:
             # Логирование случая, когда data_validity_comment уже заполнен из прямого поля API
-            log.debug(
-                "data_validity_comment_from_api",
+            log.debug(LogEvents.DATA_VALIDITY_COMMENT_FROM_API,
                 activity_id=record.get("activity_id"),
                 comment_value=current_comment,
             )
@@ -2040,8 +2011,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             # Сохраняем нормализованные и дедуплицированные свойства
             record["activity_properties"] = deduplicated_properties
             # Логирование статистики
-            log.debug(
-                "activity_properties_processed",
+            log.debug(LogEvents.ACTIVITY_PROPERTIES_PROCESSED,
                 activity_id=activity_id,
                 original_count=len(property_items),
                 normalized_count=len(normalized_properties),
@@ -2053,8 +2023,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         else:
             # Если нормализация не удалась, сохраняем исходные свойства
             record["activity_properties"] = properties
-            log.debug(
-                "activity_properties_normalization_failed",
+            log.debug(LogEvents.ACTIVITY_PROPERTIES_NORMALIZATION_FAILED,
                 activity_id=activity_id,
                 message="activity_properties normalization failed, keeping original",
             )
@@ -2232,7 +2201,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             actions.append(f"dropped_aliases:{','.join(alias_columns)}")
 
         if actions:
-            log.debug("identifier_harmonization", actions=actions)
+            log.debug(LogEvents.IDENTIFIER_HARMONIZATION, actions=actions)
 
         return df
 
@@ -2268,8 +2237,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_identifier_columns(df, rules)
 
         if stats.has_changes:
-            log.debug(
-                "identifiers_normalized",
+            log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
                 normalized_count=stats.normalized,
                 invalid_count=stats.invalid,
                 columns=list(stats.per_column.keys()),
@@ -2297,8 +2265,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     .to_dict("records")  # pyright: ignore[reportUnknownMemberType]
                 )
                 samples: list[dict[str, Any]] = cast(list[dict[str, Any]], samples_raw)
-                log.warning(
-                    "identifier_mismatch",
+                log.warning(LogEvents.IDENTIFIER_MISMATCH,
                     count=mismatch_count,
                     samples=samples,
                 )
@@ -2320,7 +2287,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     df[column] = df["molecule_chembl_id"].copy()
                 else:
                     df[column] = pd.Series([None] * len(df), dtype="object")
-            log.warning("identifier_columns_missing", columns=missing_columns)
+            log.warning(LogEvents.IDENTIFIER_COLUMNS_MISSING, columns=missing_columns)
 
         return df
 
@@ -2333,7 +2300,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         extras = [column for column in df.columns if column not in expected]
         if extras:
             df = df.drop(columns=extras)
-            log.debug("output_columns_dropped", columns=extras)
+            log.debug(LogEvents.OUTPUT_COLUMNS_DROPPED, columns=extras)
 
         missing = [column for column in expected if column not in df.columns]
         if missing:
@@ -2343,7 +2310,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     df[column] = df["molecule_chembl_id"].copy()
                 else:
                     df[column] = pd.Series([pd.NA] * len(df), dtype="object")
-            log.warning("output_columns_missing", columns=missing)
+            log.warning(LogEvents.OUTPUT_COLUMNS_MISSING, columns=missing)
 
         if not expected:
             return df
@@ -2377,8 +2344,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         required_fields = ["assay_chembl_id", "molecule_chembl_id"]
         missing_fields = [field for field in required_fields if field not in df.columns]
         if missing_fields:
-            log.warning(
-                "filter_skipped_missing_columns",
+            log.warning(LogEvents.FILTER_SKIPPED_MISSING_COLUMNS,
                 missing_columns=missing_fields,
                 message="Cannot filter: required columns are missing",
             )
@@ -2397,8 +2363,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 if "activity_id" in invalid_rows.columns
                 else []
             )
-            log.warning(
-                "filtered_invalid_rows",
+            log.warning(LogEvents.FILTERED_INVALID_ROWS,
                 filtered_count=invalid_count,
                 remaining_count=int(valid_mask.sum()),
                 sample_activity_ids=sample_activity_ids,
@@ -2437,7 +2402,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 # Check for negative values (should be >= 0)
                 negative_mask = mask & (df["standard_value"] < 0)
                 if negative_mask.any():
-                    log.warning("negative_standard_value", count=int(negative_mask.sum()))
+                    log.warning(LogEvents.NEGATIVE_STANDARD_VALUE, count=int(negative_mask.sum()))
                     df.loc[negative_mask, "standard_value"] = None
 
                 normalized_count += int(mask.sum())
@@ -2456,7 +2421,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "standard_relation"] = series
                 invalid_mask = mask & ~df["standard_relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
-                    log.warning("invalid_standard_relation", count=int(invalid_mask.sum()))
+                    log.warning(LogEvents.INVALID_STANDARD_RELATION, count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_relation"] = None
                 normalized_count += int(mask.sum())
 
@@ -2469,7 +2434,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 standard_types_set: set[str] = STANDARD_TYPES
                 invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
-                    log.warning("invalid_standard_type", count=int(invalid_mask.sum()))
+                    log.warning(LogEvents.INVALID_STANDARD_TYPE, count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "standard_type"] = None
                 normalized_count += int(mask.sum())
 
@@ -2522,7 +2487,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "relation"] = series
                 invalid_mask = mask & ~df["relation"].isin(RELATIONS)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
-                    log.warning("invalid_relation", count=int(invalid_mask.sum()))
+                    log.warning(LogEvents.INVALID_RELATION, count=int(invalid_mask.sum()))
                     df.loc[invalid_mask, "relation"] = None
                 normalized_count += int(mask.sum())
 
@@ -2538,7 +2503,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "standard_upper_value"] = numeric_series_std_upper
                 negative_mask = mask & (df["standard_upper_value"] < 0)
                 if negative_mask.any():
-                    log.warning("negative_standard_upper_value", count=int(negative_mask.sum()))
+                    log.warning(LogEvents.NEGATIVE_STANDARD_UPPER_VALUE, count=int(negative_mask.sum()))
                     df.loc[negative_mask, "standard_upper_value"] = None
                 normalized_count += int(mask.sum())
 
@@ -2554,7 +2519,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "upper_value"] = numeric_series_upper
                 negative_mask = mask & (df["upper_value"] < 0)
                 if negative_mask.any():
-                    log.warning("negative_upper_value", count=int(negative_mask.sum()))
+                    log.warning(LogEvents.NEGATIVE_UPPER_VALUE, count=int(negative_mask.sum()))
                     df.loc[negative_mask, "upper_value"] = None
                 normalized_count += int(mask.sum())
 
@@ -2570,12 +2535,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "lower_value"] = numeric_series_lower
                 negative_mask = mask & (df["lower_value"] < 0)
                 if negative_mask.any():
-                    log.warning("negative_lower_value", count=int(negative_mask.sum()))
+                    log.warning(LogEvents.NEGATIVE_LOWER_VALUE, count=int(negative_mask.sum()))
                     df.loc[negative_mask, "lower_value"] = None
                 normalized_count += int(mask.sum())
 
         if normalized_count > 0:
-            log.debug("measurements_normalized", normalized_count=normalized_count)
+            log.debug(LogEvents.MEASUREMENTS_NORMALIZED, normalized_count=normalized_count)
 
         return df
 
@@ -2624,8 +2589,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(
-                "string_fields_normalized",
+            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -2655,8 +2619,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         try:
                             serialized.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
                         except (TypeError, ValueError) as exc:
-                            log.warning(
-                                "nested_serialization_failed",
+                            log.warning(LogEvents.NESTED_SERIALIZATION_FAILED,
                                 field=field,
                                 index=idx,
                                 error=str(exc),
@@ -2678,8 +2641,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if "standard_value" in df.columns and "ligand_efficiency" in df.columns:
             mask = df["standard_value"].notna() & df["ligand_efficiency"].isna()
             if mask.any():
-                log.warning(
-                    "ligand_efficiency_missing_with_standard_value",
+                log.warning(LogEvents.LIGAND_EFFICIENCY_MISSING_WITH_STANDARD_VALUE,
                     count=int(mask.sum()),
                     message="ligand_efficiency is empty while standard_value exists",
                 )
@@ -2698,7 +2660,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return json.dumps(normalized_items, ensure_ascii=False, sort_keys=True)
         except (TypeError, ValueError) as exc:
             if log is not None:
-                log.warning("activity_properties_serialization_failed", error=str(exc))
+                log.warning(LogEvents.ACTIVITY_PROPERTIES_SERIALIZATION_FAILED, error=str(exc))
             return None
 
     def _normalize_activity_properties_items(
@@ -2730,8 +2692,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             items = list(value)  # pyright: ignore[reportUnknownArgumentType]
         else:
             if log is not None:
-                log.warning(
-                    "activity_properties_unhandled_type",
+                log.warning(LogEvents.ACTIVITY_PROPERTIES_UNHANDLED_TYPE,
                     value_type=type(raw_value).__name__,
                 )
             return None
@@ -2756,8 +2717,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 normalized.append(str_base)
             else:
                 if log is not None:
-                    log.warning(
-                        "activity_properties_item_unhandled",
+                    log.warning(LogEvents.ACTIVITY_PROPERTIES_ITEM_UNHANDLED,
                         item_type=type(item).__name__,
                     )
 
@@ -2825,8 +2785,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if not is_valid:
                 invalid_count += 1
                 invalid_items.append(prop)
-                log.warning(
-                    "activity_property_truv_validation_failed",
+                log.warning(LogEvents.ACTIVITY_PROPERTY_TRUV_VALIDATION_FAILED,
                     activity_id=activity_id,
                     property=prop,
                     errors=validation_errors,
@@ -2884,8 +2843,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 deduplicated.append(prop)
             else:
                 duplicates_removed += 1
-                log.debug(
-                    "activity_property_duplicate_removed",
+                log.debug(LogEvents.ACTIVITY_PROPERTY_DUPLICATE_REMOVED,
                     activity_id=activity_id,
                     property=prop,
                     message="Exact duplicate removed",
@@ -2908,18 +2866,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Add row_subtype: "activity" for all rows
         if "row_subtype" not in df.columns:
             df["row_subtype"] = "activity"
-            log.debug("row_subtype_added", value="activity")
+            log.debug(LogEvents.ROW_SUBTYPE_ADDED, value="activity")
         elif df["row_subtype"].isna().all():
             df["row_subtype"] = "activity"
-            log.debug("row_subtype_filled", value="activity")
+            log.debug(LogEvents.ROW_SUBTYPE_FILLED, value="activity")
 
         # Add row_index: sequential index starting from 0
         if "row_index" not in df.columns:
             df["row_index"] = range(len(df))
-            log.debug("row_index_added", count=len(df))
+            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(df))
         elif df["row_index"].isna().all():
             df["row_index"] = range(len(df))
-            log.debug("row_index_filled", count=len(df))
+            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(df))
 
         return df
 
@@ -2973,7 +2931,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
                 df[field] = numeric_series_int.astype("Int64")
             except (ValueError, TypeError) as exc:
-                log.warning("type_conversion_failed", field=field, error=str(exc))
+                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=field, error=str(exc))
 
         # Handle nullable integers - preserve NA values
         for field in nullable_int_fields:
@@ -2999,14 +2957,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     if mask_valid.any():
                         invalid_mask = mask_valid & (df[field] < 1)
                         if invalid_mask.any():
-                            log.warning(
-                                "invalid_positive_integer",
+                            log.warning(LogEvents.INVALID_POSITIVE_INTEGER,
                                 field=field,
                                 count=int(invalid_mask.sum()),
                             )
                             df.loc[invalid_mask, field] = pd.NA
             except (ValueError, TypeError) as exc:
-                log.warning("type_conversion_failed", field=field, error=str(exc))
+                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=field, error=str(exc))
 
         # Handle float fields
         for field in float_fields:
@@ -3018,7 +2975,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
                 df[field] = numeric_series_float.astype("float64")
             except (ValueError, TypeError) as exc:
-                log.warning("type_conversion_failed", field=field, error=str(exc))
+                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=field, error=str(exc))
 
         for field in bool_fields:
             if field not in df.columns:
@@ -3038,7 +2995,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     )
                     df[field] = (bool_numeric_series != 0).astype("boolean")  # pyright: ignore[reportUnknownMemberType]
             except (ValueError, TypeError) as exc:
-                log.warning("bool_conversion_failed", field=field, error=str(exc))
+                log.warning(LogEvents.BOOL_CONVERSION_FAILED, field=field, error=str(exc))
 
         for field in binary_flag_fields:
             if field not in df.columns:
@@ -3052,14 +3009,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     invalid_valid_mask = ~valid_values.isin([0, 1])  # pyright: ignore[reportUnknownMemberType]
                     if invalid_valid_mask.any():
                         invalid_index = valid_values.index[invalid_valid_mask]
-                        log.warning(
-                            "invalid_standard_flag",
+                        log.warning(LogEvents.INVALID_STANDARD_FLAG,
                             field=field,
                             count=int(invalid_valid_mask.sum()),
                         )
                         df.loc[invalid_index, field] = pd.NA
             except (ValueError, TypeError) as exc:
-                log.warning("type_conversion_failed", field=field, error=str(exc))
+                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=field, error=str(exc))
 
         # Handle object fields (value, activity_properties, etc.)
         # These fields should remain as object type to allow mixed types
@@ -3101,7 +3057,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     warnings.append(warning_msg)
 
         if warnings:
-            log.warning("foreign_key_validation", warnings=warnings)
+            log.warning(LogEvents.FOREIGN_KEY_VALIDATION, warnings=warnings)
 
         return df
 
@@ -3109,15 +3065,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """Check uniqueness of activity_id before validation."""
 
         if "activity_id" not in df.columns:
-            log.warning("activity_id_uniqueness_check_skipped", reason="column_not_found")
+            log.warning(LogEvents.ACTIVITY_ID_UNIQUENESS_CHECK_SKIPPED, reason="column_not_found")
             return
 
         duplicates = df[df["activity_id"].duplicated(keep=False)]
         if not duplicates.empty:
             duplicate_count = len(duplicates)
             duplicate_ids = duplicates["activity_id"].unique().tolist()
-            log.error(
-                "activity_id_duplicates_found",
+            log.error(LogEvents.ACTIVITY_ID_DUPLICATES_FOUND,
                 duplicate_count=duplicate_count,
                 duplicate_ids=duplicate_ids[:10],  # Log first 10 duplicates
                 total_duplicate_ids=len(duplicate_ids),
@@ -3128,7 +3083,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             raise ValueError(msg)
 
-        log.debug("activity_id_uniqueness_verified", unique_count=df["activity_id"].nunique())
+        log.debug(LogEvents.ACTIVITY_ID_UNIQUENESS_VERIFIED, unique_count=df["activity_id"].nunique())
 
     def _validate_data_validity_comment_soft_enum(
         self, df: pd.DataFrame, log: BoundLogger
@@ -3173,8 +3128,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 .head(10)
                 .items()
             }
-            log.warning(
-                "soft_enum_unknown_data_validity_comment",
+            log.warning(LogEvents.SOFT_ENUM_UNKNOWN_DATA_VALIDITY_COMMENT,
                 unknown_count=unknown_count,
                 total_count=len(non_null_comments_series),
                 samples=unknown_values,
@@ -3198,14 +3152,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         for field in reference_fields:
             if field not in df.columns:
-                log.debug(
-                    "foreign_key_integrity_check_skipped", field=field, reason="column_not_found"
+                log.debug(LogEvents.FOREIGN_KEY_INTEGRITY_CHECK_SKIPPED, field=field, reason="column_not_found"
                 )
                 continue
 
             mask = df[field].notna()
             if not mask.any():
-                log.debug("foreign_key_integrity_check_skipped", field=field, reason="all_null")
+                log.debug(LogEvents.FOREIGN_KEY_INTEGRITY_CHECK_SKIPPED, field=field, reason="all_null")
                 continue
 
             invalid_mask = mask & ~df[field].astype(str).str.match(
@@ -3217,19 +3170,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 errors.append(
                     f"{field}: {invalid_count} invalid format(s), samples: {invalid_samples}"
                 )
-                log.warning(
-                    "foreign_key_integrity_invalid",
+                log.warning(LogEvents.FOREIGN_KEY_INTEGRITY_INVALID,
                     field=field,
                     invalid_count=invalid_count,
                     samples=invalid_samples,
                 )
 
         if errors:
-            log.error("foreign_key_integrity_check_failed", errors=errors)
+            log.error(LogEvents.FOREIGN_KEY_INTEGRITY_CHECK_FAILED, errors=errors)
             msg = f"Foreign key integrity check failed: {'; '.join(errors)}"
             raise ValueError(msg)
 
-        log.debug("foreign_key_integrity_verified")
+        log.debug(LogEvents.FOREIGN_KEY_INTEGRITY_VERIFIED)
 
     def _log_detailed_validation_errors(
         self,
@@ -3292,11 +3244,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if "failure_case" in error_row and pd.notna(error_row["failure_case"]):
                 error_details["failure_case"] = str(error_row["failure_case"])
 
-            log.error("validation_error_detail", **error_details)
+            log.error(LogEvents.VALIDATION_ERROR_DETAIL, **error_details)
 
         if len(failure_cases) > max_errors:
-            log.warning(
-                "validation_errors_truncated",
+            log.warning(LogEvents.VALIDATION_ERRORS_TRUNCATED,
                 total_errors=len(failure_cases),
                 logged_errors=max_errors,
             )
@@ -3442,8 +3393,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 na_position="last",
             )
 
-            log.debug(
-                "write_sort_config_set",
+            log.debug(LogEvents.WRITE_SORT_CONFIG_SET,
                 sort_keys=sort_keys,
                 original_sort_keys=list(original_sort_by) if original_sort_by else [],
             )

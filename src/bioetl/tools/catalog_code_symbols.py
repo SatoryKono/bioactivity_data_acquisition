@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 from bioetl.tools import get_project_root
 
@@ -157,12 +158,11 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
     target_dir = artifacts_dir if artifacts_dir is not None else PROJECT_ROOT / "artifacts"
     _ensure_dir(target_dir)
 
-    log.info("catalog_extract_start")
+    log.info(LogEvents.CATALOG_EXTRACT_START)
     pipeline_signatures = extract_pipeline_base_signatures()
     config_models = extract_config_models()
     cli_commands = extract_cli_commands()
-    log.info(
-        "catalog_extract_done",
+    log.info(LogEvents.CATALOG_EXTRACT_DONE,
         pipeline_methods=len(pipeline_signatures),
         cli_commands=len(cli_commands),
     )
@@ -179,8 +179,7 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
     _write_json_atomic(json_path, code_signatures)
     _write_text_atomic(cli_path, "\n".join(cli_commands) + "\n")
 
-    log.info(
-        "catalog_written",
+    log.info(LogEvents.CATALOG_WRITTEN,
         json_path=str(json_path),
         cli_path=str(cli_path),
     )

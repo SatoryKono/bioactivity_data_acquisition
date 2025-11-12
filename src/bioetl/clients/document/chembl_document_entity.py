@@ -2,34 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from bioetl.clients.chembl_base import ChemblClientProtocol, ChemblEntityFetcher, EntityConfig
-
-if TYPE_CHECKING:
-    from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.base_entity import BaseEntityClient
+from bioetl.clients.chembl_base import EntityConfig
 
 __all__ = ["ChemblDocumentTermEntityClient"]
 
 
-class ChemblDocumentTermEntityClient(ChemblEntityFetcher):
+class ChemblDocumentTermEntityClient(BaseEntityClient):
     """Клиент для получения document_term записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для document_term.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/document_term.json",
-            filter_param="document_chembl_id__in",
-            id_key="document_chembl_id",
-            items_key="document_terms",
-            log_prefix="document_term",
-            chunk_size=100,
-            supports_list_result=True,  # Один документ может иметь несколько терминов
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/document_term.json",
+        filter_param="document_chembl_id__in",
+        id_key="document_chembl_id",
+        items_key="document_terms",
+        log_prefix="document_term",
+        chunk_size=100,
+        supports_list_result=True,  # Один документ может иметь несколько терминов
+    )

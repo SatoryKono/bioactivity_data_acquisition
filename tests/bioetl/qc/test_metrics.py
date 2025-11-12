@@ -7,6 +7,7 @@ import pytest
 
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from bioetl.qc.metrics import compute_correlation_matrix, compute_missingness
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
 
 
@@ -87,6 +88,38 @@ class TestQCMetrics:
 
         assert metrics is not None
         assert isinstance(metrics, dict)
+
+    def test_compute_missingness_is_sorted(self) -> None:
+        """Missingness stats should be sorted deterministically."""
+        df = pd.DataFrame(
+            {
+                "b": [1, None, 3],
+                "a": [None, None, 3],
+                "c": [1, 2, 3],
+            }
+        )
+
+        result = compute_missingness(df)
+        reordered = compute_missingness(df[["c", "b", "a"]])
+
+        assert result.equals(reordered)
+        assert result["column"].tolist() == ["a", "b", "c"]
+        assert str(result["column"].dtype) == "string[python]"
+
+    def test_compute_correlation_matrix_sorted_axes(self) -> None:
+        """Correlation matrix should sort axes alphabetically."""
+        df = pd.DataFrame(
+            {
+                "z": [1, 2, 3, 4],
+                "a": [2, 4, 6, 8],
+                "m": [5, 6, 7, 8],
+            }
+        )
+
+        correlation = compute_correlation_matrix(df)
+        assert correlation is not None
+        assert list(correlation.columns) == ["a", "m", "z"]
+        assert list(correlation.index) == ["a", "m", "z"]
 
     def test_pipeline_qc_artifacts(
         self,

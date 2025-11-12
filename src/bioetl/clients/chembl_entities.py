@@ -5,12 +5,10 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any
 
-from bioetl.clients.chembl_base import (
-    ChemblClientProtocol,
-    ChemblEntityFetcher,
-    EntityConfig,
-)
+from bioetl.clients.base_entity import BaseEntityClient
+from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 
 __all__ = [
     "ChemblMoleculeEntityClient",
@@ -22,94 +20,58 @@ __all__ = [
 ]
 
 
-class ChemblMoleculeEntityClient(ChemblEntityFetcher):
+class ChemblMoleculeEntityClient(BaseEntityClient):
     """Клиент для получения molecule записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для molecule.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/molecule.json",
-            filter_param="molecule_chembl_id__in",
-            id_key="molecule_chembl_id",
-            items_key="molecules",
-            log_prefix="molecule",
-            chunk_size=100,
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/molecule.json",
+        filter_param="molecule_chembl_id__in",
+        id_key="molecule_chembl_id",
+        items_key="molecules",
+        log_prefix="molecule",
+        chunk_size=100,
+    )
 
 
-class ChemblDataValidityEntityClient(ChemblEntityFetcher):
+class ChemblDataValidityEntityClient(BaseEntityClient):
     """Клиент для получения data_validity_lookup записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для data_validity_lookup.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/data_validity_lookup.json",
-            filter_param="data_validity_comment__in",
-            id_key="data_validity_comment",
-            items_key="data_validity_lookups",
-            log_prefix="data_validity_lookup",
-            chunk_size=100,
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/data_validity_lookup.json",
+        filter_param="data_validity_comment__in",
+        id_key="data_validity_comment",
+        items_key="data_validity_lookups",
+        log_prefix="data_validity_lookup",
+        chunk_size=100,
+    )
 
 
-class ChemblAssayClassMapEntityClient(ChemblEntityFetcher):
+class ChemblAssayClassMapEntityClient(BaseEntityClient):
     """Клиент для получения assay_class_map записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для assay_class_map.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/assay_class_map.json",
-            filter_param="assay_chembl_id__in",
-            id_key="assay_chembl_id",
-            items_key="assay_class_maps",
-            log_prefix="assay_class_map",
-            chunk_size=100,
-            supports_list_result=True,  # Один assay может иметь несколько class mappings
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/assay_class_map.json",
+        filter_param="assay_chembl_id__in",
+        id_key="assay_chembl_id",
+        items_key="assay_class_maps",
+        log_prefix="assay_class_map",
+        chunk_size=100,
+        supports_list_result=True,  # Один assay может иметь несколько class mappings
+    )
 
 
-class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
+class ChemblAssayParametersEntityClient(BaseEntityClient):
     """Клиент для получения assay_parameters записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для assay_parameters.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/assay_parameter.json",
-            filter_param="assay_chembl_id__in",
-            id_key="assay_chembl_id",
-            items_key="assay_parameters",
-            log_prefix="assay_parameters",
-            chunk_size=100,
-            supports_list_result=True,  # Один assay может иметь несколько parameters
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/assay_parameter.json",
+        filter_param="assay_chembl_id__in",
+        id_key="assay_chembl_id",
+        items_key="assay_parameters",
+        log_prefix="assay_parameters",
+        chunk_size=100,
+        supports_list_result=True,  # Один assay может иметь несколько parameters
+    )
 
     def fetch_by_ids(
         self,
@@ -186,26 +148,17 @@ class ChemblAssayParametersEntityClient(ChemblEntityFetcher):
         return self._build_list_result(all_records, unique_ids)
 
 
-class ChemblAssayClassificationEntityClient(ChemblEntityFetcher):
+class ChemblAssayClassificationEntityClient(BaseEntityClient):
     """Клиент для получения assay_classification записей из ChEMBL API."""
 
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для assay_classification.
-
-        Parameters
-        ----------
-        chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
-        """
-        config = EntityConfig(
-            endpoint="/assay_classification.json",
-            filter_param="assay_class_id__in",
-            id_key="assay_class_id",
-            items_key="assay_classifications",
-            log_prefix="assay_classification",
-            chunk_size=100,
-        )
-        super().__init__(chembl_client, config)
+    CONFIG = EntityConfig(
+        endpoint="/assay_classification.json",
+        filter_param="assay_class_id__in",
+        id_key="assay_class_id",
+        items_key="assay_classifications",
+        log_prefix="assay_classification",
+        chunk_size=100,
+    )
 
 
 def _compound_record_dedup_priority(
@@ -341,7 +294,7 @@ class ChemblCompoundRecordEntityClient:
                 unique_pairs.add((str(mol_id).strip(), str(doc_id).strip()))
 
         if not unique_pairs:
-            self._log.debug("compound_record.no_pairs", message="No valid pairs to fetch")
+            self._log.debug(LogEvents.COMPOUND_RECORD_NO_PAIRS, message="No valid pairs to fetch")
             return {}
 
         # Группировка пар по document_chembl_id
@@ -375,8 +328,7 @@ class ChemblCompoundRecordEntityClient:
                     ):
                         all_records.append(dict(record))
                 except Exception as exc:
-                    self._log.warning(
-                        "compound_record.fetch_error",
+                    self._log.warning(LogEvents.COMPOUND_RECORD_FETCH_ERROR,
                         document_chembl_id=doc_id,
                         molecule_count=len(chunk),
                         error=str(exc),
@@ -404,8 +356,7 @@ class ChemblCompoundRecordEntityClient:
             else:
                 result[key] = _compound_record_dedup_priority(existing, record)
 
-        self._log.info(
-            "compound_record.fetch_complete",
+        self._log.info(LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,
             pairs_requested=len(unique_pairs),
             records_fetched=len(all_records),
             records_deduped=len(result),

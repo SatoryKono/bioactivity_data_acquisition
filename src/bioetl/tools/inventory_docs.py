@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -64,8 +65,7 @@ def write_inventory(
     project_root = get_project_root()
     docs_files = files if files is not None else collect_markdown_files()
 
-    log.info(
-        "inventory_collected",
+    log.info(LogEvents.INVENTORY_COLLECTED,
         docs_root=str(project_root / "docs"),
         files=len(docs_files),
     )
@@ -89,8 +89,7 @@ def write_inventory(
     inventory_tmp.replace(inventory_path)
     hashes_tmp.replace(hashes_path)
 
-    log.info(
-        "inventory_written",
+    log.info(LogEvents.INVENTORY_WRITTEN,
         inventory=str(inventory_path),
         hashes=str(hashes_path),
     )

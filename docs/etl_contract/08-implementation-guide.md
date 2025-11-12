@@ -102,17 +102,23 @@ write:
 ## Step 4: Implement the `extract()` Method
 
 Flesh out the `extract()` method in your pipeline class. This involves:
+
 1. Initializing a robust API client (as described in `03-extraction.md`).
 2. Implementing the logic to fetch all pages of data from the source.
 3. Returning the raw data as a DataFrame.
 
+Proceed to Step 5 once extraction results pass deterministic validation and schema checks.
+
 ## Step 5: Implement the `transform()` Method
 
 Flesh out the `transform()` method. This is typically an iterative process:
+
 1. Implement the core transformation logic (renaming, normalization, type casting).
 2. Run a `--dry-run` to see the validation errors from Pandera.
 3. Refine the transformation logic to fix the errors.
 4. Repeat until the `--dry-run` completes successfully.
+
+Advance to full test runs only after the dry-run completes without validation errors.
 
 **Workflow using the CLI:**
 
@@ -135,8 +141,11 @@ python -m bioetl.cli.app uniprot_protein --output-dir /data/output/uniprot/prote
 ```
 
 Inspect the output artifacts:
+
 - Check the Parquet file to ensure the data looks correct.
 - Review the `meta.yaml` file to ensure all the fields (run ID, hashes, row count) have been populated correctly.
+
+Confirm both artifacts before promoting the pipeline.
 
 ## Step 7: Automatic CLI Registration
 

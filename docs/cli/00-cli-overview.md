@@ -46,6 +46,17 @@ This layered approach provides a powerful and flexible system for managing confi
 - **`--dry-run`**: Executes all pipeline setup, including configuration loading and validation, but **stops before running the pipeline**. It is an essential tool for verifying that a configuration is valid.
 - **`--verbose`**: Increases the logging level to provide more detailed output for debugging.
 
+### Error handling policy
+
+The CLI maps specific families of exceptions to deterministic exit codes (see `docs/cli/02-cli-exit-codes.md`):
+
+- **Configuration bootstrapping**: `typer.BadParameter`, `FileNotFoundError`, and `ValueError` emitted by `bioetl.config.loader.load_config` or environment validation trigger exit code `2`. CLI modules MUST import configuration models exclusively from `bioetl.config.models.*`.
+- **Runtime validation failures**: Pandera or pipeline validation errors that bubble up as `ValueError` or domain exceptions produce exit code `1` with structured logging.
+- **External dependencies**: Network and API issues are normalized to `bioetl.clients.exceptions` (`ConnectionError`, `Timeout`, `HTTPError`, `RequestException`) and `bioetl.core.api_client.CircuitBreakerOpenError`, alongside builtin `ConnectionError`/`TimeoutError`. CLI code MUST reference these via `bioetl.clients.exceptions`, never via `requests.exceptions`.
+- **Unexpected failures**: Any other exception is logged as `cli_pipeline_failed` and results in exit code `1`.
+
+Direct imports of `requests` or `requests.exceptions` inside `src/bioetl/cli/**` are prohibited; all HTTP concerns flow through the client abstraction.
+
 A full list of commands and their specific flags can be found in the `[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed reference on exit codes, see `[ref: repo:docs/cli/02-cli-exit-codes.md@refactoring_001]`.
 
 ## 5. Command Catalog

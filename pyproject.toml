@@ -193,6 +193,7 @@ markers = [
     "schema: Schema validation tests",
     "api: External API tests",
     "benchmark: Performance benchmark tests",
+    "cli: CLI tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",

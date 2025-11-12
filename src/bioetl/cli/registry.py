@@ -8,8 +8,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from importlib import import_module
 from pathlib import Path
 from typing import Any
+
+from bioetl.pipelines.base import PipelineBase
 
 __all__ = ["CommandConfig", "COMMAND_REGISTRY"]
 
@@ -26,104 +29,124 @@ class CommandConfig:
 
 def build_command_config_activity() -> CommandConfig:
     """Build command configuration for activity pipeline."""
-    from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-
-    return CommandConfig(
-        name="activity_chembl",
-        description="Extract biological activity records from ChEMBL API and normalize them to the project schema.",
-        pipeline_class=ChemblActivityPipeline,
-        default_config_path=Path("configs/pipelines/activity/activity_chembl.yaml"),
+    return _build_config(
+        command_name="activity_chembl",
+        description=(
+            "Extract biological activity records from ChEMBL API and normalize them to the project schema."
+        ),
+        pipeline_path="bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline",
+        default_config="configs/pipelines/activity/activity_chembl.yaml",
     )
 
 
 def build_command_config_assay() -> CommandConfig:
     """Build command configuration for assay pipeline."""
-    from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
-
-    return CommandConfig(
-        name="assay_chembl",
+    return _build_config(
+        command_name="assay_chembl",
         description="Extract assay records from ChEMBL API.",
-        pipeline_class=ChemblAssayPipeline,
-        default_config_path=Path("configs/pipelines/assay/assay_chembl.yaml"),
+        pipeline_path="bioetl.pipelines.chembl.assay.run.ChemblAssayPipeline",
+        default_config="configs/pipelines/assay/assay_chembl.yaml",
     )
 
 
 def build_command_config_target() -> CommandConfig:
     """Build command configuration for target pipeline."""
-    from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
-
-    return CommandConfig(
-        name="target",
-        description="Extract target records from ChEMBL API and normalize them to the project schema.",
-        pipeline_class=ChemblTargetPipeline,
-        default_config_path=Path("configs/pipelines/target/target_chembl.yaml"),
+    return _build_config(
+        command_name="target_chembl",
+        description=(
+            "Extract target records from ChEMBL API and normalize them to the project schema."
+        ),
+        pipeline_path="bioetl.pipelines.chembl.target.run.ChemblTargetPipeline",
+        default_config="configs/pipelines/target/target_chembl.yaml",
     )
 
 
 def build_command_config_document() -> CommandConfig:
     """Build command configuration for document pipeline."""
-    from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
-
-    return CommandConfig(
-        name="document",
-        description="Extract document records from ChEMBL API and normalize them to the project schema.",
-        pipeline_class=ChemblDocumentPipeline,
-        default_config_path=Path("configs/pipelines/document/document_chembl.yaml"),
+    return _build_config(
+        command_name="document_chembl",
+        description=(
+            "Extract document records from ChEMBL API and normalize them to the project schema."
+        ),
+        pipeline_path="bioetl.pipelines.chembl.document.run.ChemblDocumentPipeline",
+        default_config="configs/pipelines/document/document_chembl.yaml",
     )
 
 
 def build_command_config_testitem() -> CommandConfig:
     """Build command configuration for testitem pipeline."""
-    from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
-
-    return CommandConfig(
-        name="testitem_chembl",
+    return _build_config(
+        command_name="testitem_chembl",
         description="Extract molecule records from ChEMBL API and normalize them to test items.",
-        pipeline_class=TestItemChemblPipeline,
-        default_config_path=Path("configs/pipelines/testitem/testitem_chembl.yaml"),
+        pipeline_path="bioetl.pipelines.chembl.testitem.run.TestItemChemblPipeline",
+        default_config="configs/pipelines/testitem/testitem_chembl.yaml",
     )
 
 
 def build_command_config_pubchem() -> CommandConfig:
     """Build command configuration for pubchem pipeline."""
-    # TODO: Import when pubchem pipeline is implemented
     raise NotImplementedError("PubChem pipeline not yet implemented")
 
 
 def build_command_config_uniprot() -> CommandConfig:
     """Build command configuration for uniprot pipeline."""
-    # TODO: Import when uniprot pipeline is implemented
     raise NotImplementedError("UniProt pipeline not yet implemented")
 
 
 def build_command_config_iuphar() -> CommandConfig:
     """Build command configuration for iuphar pipeline."""
-    # TODO: Import when iuphar pipeline is implemented
     raise NotImplementedError("IUPHAR pipeline not yet implemented")
 
 
 def build_command_config_openalex() -> CommandConfig:
     """Build command configuration for openalex pipeline."""
-    # TODO: Import when openalex pipeline is implemented
     raise NotImplementedError("OpenAlex pipeline not yet implemented")
 
 
 def build_command_config_crossref() -> CommandConfig:
     """Build command configuration for crossref pipeline."""
-    # TODO: Import when crossref pipeline is implemented
     raise NotImplementedError("Crossref pipeline not yet implemented")
 
 
 def build_command_config_pubmed() -> CommandConfig:
     """Build command configuration for pubmed pipeline."""
-    # TODO: Import when pubmed pipeline is implemented
     raise NotImplementedError("PubMed pipeline not yet implemented")
 
 
 def build_command_config_semantic_scholar() -> CommandConfig:
     """Build command configuration for semantic_scholar pipeline."""
-    # TODO: Import when semantic_scholar pipeline is implemented
     raise NotImplementedError("Semantic Scholar pipeline not yet implemented")
+
+
+def _build_config(
+    *,
+    command_name: str,
+    description: str,
+    pipeline_path: str,
+    default_config: str | None,
+) -> CommandConfig:
+    """Resolve the pipeline class and construct a command configuration."""
+    pipeline_class = _load_pipeline_class(pipeline_path)
+    default_path = Path(default_config) if default_config is not None else None
+    return CommandConfig(
+        name=command_name,
+        description=description,
+        pipeline_class=pipeline_class,
+        default_config_path=default_path,
+    )
+
+
+def _load_pipeline_class(path: str) -> type[Any]:
+    module_path, class_name = path.rsplit(".", 1)
+    module = import_module(module_path)
+    pipeline_cls = getattr(module, class_name)
+    if not isinstance(pipeline_cls, type):
+        msg = f"Object '{class_name}' from '{module_path}' is not a class."
+        raise TypeError(msg)
+    if not issubclass(pipeline_cls, PipelineBase):
+        msg = f"Class '{class_name}' from '{module_path}' is not a PipelineBase subclass."
+        raise TypeError(msg)
+    return pipeline_cls
 
 
 # Static registry mapping command names to their build functions

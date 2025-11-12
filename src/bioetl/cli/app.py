@@ -14,6 +14,10 @@ import typer
 from bioetl.cli.command import create_pipeline_command
 from bioetl.cli.registry import COMMAND_REGISTRY
 from bioetl.cli.tools._typer import run_app
+from bioetl.core.log_events import LogEvents
+from bioetl.core.logger import UnifiedLogger
+
+_log = UnifiedLogger.get(__name__)
 
 __all__ = ["app", "create_app"]
 
@@ -30,16 +34,23 @@ def create_app() -> typer.Typer:
     @app.command(name="list")
     def list_commands() -> None:
         """List all available pipeline commands."""
-        commands = sorted(COMMAND_REGISTRY.keys())
-        typer.echo("Available pipeline commands:")
-        for cmd in commands:
+        typer.echo("[bioetl-cli] Registered pipeline commands:")
+        for command_name in sorted(COMMAND_REGISTRY.keys()):
             try:
-                config = COMMAND_REGISTRY[cmd]()
-                typer.echo(f"  {cmd:<20} - {config.description}")
+                config = COMMAND_REGISTRY[command_name]()
             except NotImplementedError:
-                typer.echo(f"  {cmd:<20} - (not yet implemented)")
-            except Exception as exc:
-                typer.echo(f"  {cmd:<20} - (error: {exc})")
+                typer.echo(f"  {command_name:<20} - not implemented")
+                continue
+            except Exception as exc:  # noqa: BLE001
+                _log.error(LogEvents.CLI_REGISTRY_LOOKUP_FAILED,
+                    command=command_name,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                typer.echo(f"  {command_name:<20} - ERROR: {exc}")
+                continue
+
+            typer.echo(f"  {command_name:<20} - {config.description}")
 
     # Register all pipeline commands from registry
     for command_name, build_config_func in COMMAND_REGISTRY.items():
@@ -55,10 +66,12 @@ def create_app() -> typer.Typer:
             continue
         except Exception as exc:
             # Log error but continue registering other commands
-            typer.echo(
-                f"Warning: Failed to register command '{command_name}': {exc}",
-                err=True,
+            _log.error(LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                command=command_name,
+                error=str(exc),
+                exc_info=True,
             )
+            typer.echo(f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})", err=True)
 
     return app
 

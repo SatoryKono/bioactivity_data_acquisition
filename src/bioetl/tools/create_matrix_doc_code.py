@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -221,8 +222,7 @@ def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
     csv_tmp.replace(csv_path)
     json_tmp.replace(json_path)
 
-    log.info(
-        "doc_code_matrix_written",
+    log.info(LogEvents.DOC_CODE_MATRIX_WRITTEN,
         rows=len(rows),
         csv=str(csv_path),
         json=str(json_path),

@@ -16,6 +16,7 @@ from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
+from bioetl.core.log_events import LogEvents
 from bioetl.schemas.testitem import COLUMN_ORDER
 
 from ...chembl_descriptor import (
@@ -105,13 +106,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 api_candidate = status_payload.get("api_version")
                 if isinstance(api_candidate, str) and api_candidate.strip():
                     api_version = api_candidate
-                bound_log.info(
-                    "chembl_testitem.status",
+                bound_log.info(LogEvents.CHEMBL_TESTITEM_STATUS,
                     chembl_db_version=release_value,
                     api_version=api_version,
                 )
         except Exception as exc:  # noqa: BLE001
-            bound_log.warning("chembl_testitem.status_failed", error=str(exc))
+            bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
         finally:
             self._chembl_db_version = release_value
             self._api_version = api_version
@@ -172,7 +172,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
             pipeline._fetch_chembl_release(chembl_client, log)
             select_fields = source_config.parameters.select_fields
-            log.debug("chembl_testitem.select_fields", fields=select_fields)
+            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
             testitem_client = ChemblTestitemClient(
                 chembl_client,
                 batch_size=min(source_config.page_size, 25),
@@ -197,8 +197,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             stage_start: float,
         ) -> pd.DataFrame:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_testitem.extract_skipped",
+            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=pipeline._chembl_db_version,
@@ -266,8 +265,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                "chembl_testitem.extract_skipped",
+            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=self._chembl_db_version,
@@ -279,7 +277,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         resolved_select_fields = source_config.parameters.select_fields
         merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
-        log.debug("chembl_testitem.select_fields", fields=merged_select_fields)
+        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
 
         testitem_client = ChemblTestitemClient(chembl_client, batch_size=page_size)
 
@@ -310,8 +308,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            "chembl_testitem.extract_by_ids_summary",
+        log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
@@ -333,10 +330,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         df = df.copy()
 
         if df.empty:
-            log.debug("transform_empty_dataframe")
+            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
             return df
 
-        log.info("transform_started", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
         # Apply transform module: flatten nested objects and serialize arrays
         df = transform_testitem(df, self.config)
@@ -373,7 +370,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         # Reorder columns according to schema COLUMN_ORDER
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info("transform_completed", rows=len(df))
+        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
 
     def augment_metadata(
@@ -430,7 +427,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 if col in properties_df.columns:
                     df[col] = properties_df[col]
 
-        log.debug("flatten_nested_structures_completed", columns=list(df.columns))
+        log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
         return df
 
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
@@ -460,13 +457,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             stats = StringStats()
 
         if stats.has_changes:
-            log.debug(
-                "normalize_identifiers_completed",
+            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
-            log.debug("normalize_identifiers_completed")
+            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
 
         return normalized_df
 
@@ -488,13 +484,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(
-                "normalize_string_fields_completed",
+            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
-            log.debug("normalize_string_fields_completed")
+            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED)
 
         return normalized_df
 
@@ -658,7 +653,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     df[col] = numeric_series.astype("Int64")
 
-        log.debug("normalize_numeric_fields_completed")
+        log.debug(LogEvents.NORMALIZE_NUMERIC_FIELDS_COMPLETED)
         return df
 
     def _check_empty_columns(self, df: pd.DataFrame, log: Any) -> None:
@@ -714,8 +709,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:
-            log.warning(
-                "highly_empty_columns_detected",
+            log.warning(LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
                 empty_fields=highly_empty_fields,
                 message=(
                     f"Fields with >95% empty values detected: {highly_empty_fields}. "
@@ -737,8 +731,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         if extra_columns:
             df = df.drop(columns=list(extra_columns))
-            log.debug(
-                "remove_extra_columns_completed",
+            log.debug(LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
                 removed_columns=list(extra_columns),
                 remaining_columns=list(df.columns),
             )
@@ -797,8 +790,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         rows_after = len(df)
         dropped = rows_before - rows_after
         if dropped > 0:
-            log.info(
-                "deduplicate_molecules_completed",
+            log.info(LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
                 rows_before=rows_before,
                 rows_after=rows_after,
                 dropped=dropped,

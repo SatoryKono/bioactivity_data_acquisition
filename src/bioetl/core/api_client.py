@@ -20,6 +20,7 @@ from requests.exceptions import HTTPError, RequestException, Timeout
 
 from bioetl.config.models.http import CircuitBreakerConfig, HTTPClientConfig
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 
 __all__ = [
     "TokenBucketLimiter",
@@ -142,8 +143,7 @@ class CircuitBreaker:
                         self._state = "half-open"
                         self._half_open_calls = 0
                         if self._logger:
-                            self._logger.info(
-                                "circuit_breaker.transition",
+                            self._logger.info(LogEvents.CIRCUIT_BREAKER_TRANSITION,
                                 state="half-open",
                                 name=self.name,
                                 elapsed=elapsed,
@@ -151,8 +151,7 @@ class CircuitBreaker:
                     else:
                         # Still in open state
                         if self._logger:
-                            self._logger.warning(
-                                "circuit_breaker.blocked",
+                            self._logger.warning(LogEvents.CIRCUIT_BREAKER_BLOCKED,
                                 state="open",
                                 name=self.name,
                                 elapsed=elapsed,
@@ -182,8 +181,7 @@ class CircuitBreaker:
                 self._last_failure_time = None
                 self._half_open_calls = 0
                 if self._logger:
-                    self._logger.info(
-                        "circuit_breaker.transition",
+                    self._logger.info(LogEvents.CIRCUIT_BREAKER_TRANSITION,
                         state="closed",
                         name=self.name,
                         reason="successful_request",
@@ -203,8 +201,7 @@ class CircuitBreaker:
                 self._state = "open"
                 self._half_open_calls = 0
                 if self._logger:
-                    self._logger.warning(
-                        "circuit_breaker.transition",
+                    self._logger.warning(LogEvents.CIRCUIT_BREAKER_TRANSITION,
                         state="open",
                         name=self.name,
                         reason="failure_in_half_open",
@@ -215,8 +212,7 @@ class CircuitBreaker:
                     # Too many failures, transition to open
                     self._state = "open"
                     if self._logger:
-                        self._logger.warning(
-                            "circuit_breaker.transition",
+                        self._logger.warning(LogEvents.CIRCUIT_BREAKER_TRANSITION,
                             state="open",
                             name=self.name,
                             reason="threshold_exceeded",
@@ -342,8 +338,7 @@ class UnifiedAPIClient:
             if self._max_url_length and len(full_url) > self._max_url_length:
                 override_headers = dict(headers or {})
                 override_headers.setdefault("X-HTTP-Method-Override", "GET")
-                self._logger.info(
-                    "http.request.method_override",
+                self._logger.info(LogEvents.HTTP_REQUEST_METHOD_OVERRIDE,
                     endpoint=full_url,
                     url_length=len(full_url),
                     max_length=self._max_url_length,
@@ -381,8 +376,7 @@ class UnifiedAPIClient:
                 attempt += 1
                 wait_seconds = self._rate_limiter.acquire()
                 if wait_seconds:
-                    self._logger.debug(
-                        "http.rate_limiter.wait",
+                    self._logger.debug(LogEvents.HTTP_RATE_LIMITER_WAIT,
                         wait_seconds=wait_seconds,
                         endpoint=url,
                         attempt=attempt,
@@ -402,8 +396,7 @@ class UnifiedAPIClient:
                 except RequestException as exc:
                     duration_ms = (time.perf_counter() - start) * 1000
                     last_error = exc
-                    self._logger.warning(
-                        "http.request.exception",
+                    self._logger.warning(LogEvents.HTTP_REQUEST_EXCEPTION,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -420,8 +413,7 @@ class UnifiedAPIClient:
                 status_code = response.status_code
                 retry_after = _parse_retry_after(response.headers.get("Retry-After"))
                 if self._should_retry(status_code):
-                    self._logger.warning(
-                        "http.request.retry",
+                    self._logger.warning(LogEvents.HTTP_REQUEST_RETRY,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -438,8 +430,7 @@ class UnifiedAPIClient:
                     continue
 
                 if 400 <= status_code:
-                    self._logger.error(
-                        "http.request.failed",
+                    self._logger.error(LogEvents.HTTP_REQUEST_FAILED,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -448,8 +439,7 @@ class UnifiedAPIClient:
                     )
                     response.raise_for_status()
                 else:
-                    self._logger.info(
-                        "http.request.completed",
+                    self._logger.info(LogEvents.HTTP_REQUEST_COMPLETED,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -521,8 +511,7 @@ class UnifiedAPIClient:
         if not self.base_url:
             return endpoint
         resolved = urljoin(self.base_url + "/", endpoint.lstrip("/"))
-        self._logger.debug(
-            "http.resolve_url",
+        self._logger.debug(LogEvents.HTTP_RESOLVE_URL,
             endpoint=endpoint,
             base_url=self.base_url,
             resolved=resolved,

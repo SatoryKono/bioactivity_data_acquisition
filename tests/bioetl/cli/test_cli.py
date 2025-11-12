@@ -8,15 +8,15 @@ from unittest.mock import MagicMock, patch
 import pytest  # type: ignore[reportMissingImports]
 import typer  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
-from requests.exceptions import Timeout  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
+from bioetl.cli.app import app, run  # type: ignore[reportUnknownVariableType]
 from bioetl.cli.command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
     _parse_set_overrides,
     _validate_config_path,
     _validate_output_dir,
 )
-from bioetl.cli.app import app, run  # type: ignore[reportUnknownVariableType]
+from bioetl.clients.exceptions import Timeout  # type: ignore[reportMissingImports]
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
 )

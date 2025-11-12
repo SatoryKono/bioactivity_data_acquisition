@@ -20,6 +20,7 @@ from structlog.stdlib import BoundLogger
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 
 from .base import PipelineBase
@@ -683,9 +684,9 @@ class ChemblPipelineBase(PipelineBase):
                     candidate = status_mapping.get("chembl_db_version") or status_mapping.get("chembl_release")
                     if isinstance(candidate, str):
                         release_value = candidate
-                        log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
+                        log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
             except Exception as exc:
-                log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
+                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
             finally:
                 self.record_extract_metadata(
                     chembl_release=release_value,
@@ -705,9 +706,9 @@ class ChemblPipelineBase(PipelineBase):
                     status_payload_raw = json_candidate()
                     status_payload = self._coerce_mapping(status_payload_raw)
                     release_value = self._extract_chembl_release(status_payload)
-                    log.info(f"{self.pipeline_code}.status", chembl_release=release_value)
+                    log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
             except Exception as exc:
-                log.warning(f"{self.pipeline_code}.status_failed", error=str(exc))
+                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
             finally:
                 self.record_extract_metadata(
                     chembl_release=release_value,
@@ -1172,7 +1173,7 @@ class ChemblPipelineBase(PipelineBase):
         unique_ids = sorted({str(id_val) for id_val in ids if id_val and str(id_val).strip()})
 
         if not unique_ids:
-            log.debug("extract_ids_paginated.no_valid_ids")
+            log.debug(LogEvents.EXTRACT_IDS_PAGINATED_NO_VALID_IDS)
             return pd.DataFrame({id_column: pd.Series(dtype="string")})
 
         # Process in batches
@@ -1209,8 +1210,7 @@ class ChemblPipelineBase(PipelineBase):
                     break
 
             except Exception as exc:
-                log.warning(
-                    "extract_ids_paginated.batch_error",
+                log.warning(LogEvents.EXTRACT_IDS_PAGINATED_BATCH_ERROR,
                     batch_ids=batch_ids,
                     error=str(exc),
                     exc_info=True,
@@ -1223,8 +1223,7 @@ class ChemblPipelineBase(PipelineBase):
             dataframe = dataframe.sort_values(id_column).reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - method_start) * 1000.0
-        log.info(
-            "extract_ids_paginated.summary",
+        log.info(LogEvents.EXTRACT_IDS_PAGINATED_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(unique_ids),
             batches=batches,

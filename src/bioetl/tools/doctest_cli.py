@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -125,8 +126,7 @@ def extract_cli_examples() -> list[CLIExample]:
     for file_path in _iter_markdown_files():
         content = file_path.read_text(encoding="utf-8")
         extracted = extract_bash_commands(content, file_path)
-        log.info(
-            "cli_examples_extracted",
+        log.info(LogEvents.CLI_EXAMPLES_EXTRACTED,
             file=str(file_path.relative_to(PROJECT_ROOT)),
             count=len(extracted),
         )
@@ -213,7 +213,7 @@ def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExam
     log = UnifiedLogger.get(__name__)
 
     targets = examples if examples is not None else extract_cli_examples()
-    log.info("cli_examples_running", count=len(targets))
+    log.info(LogEvents.CLI_EXAMPLES_RUNNING, count=len(targets))
 
     results: list[CLIExampleResult] = []
     for example in targets:
@@ -226,8 +226,7 @@ def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExam
                 stderr=stderr,
             )
         )
-        log.info(
-            "cli_example_result",
+        log.info(LogEvents.CLI_EXAMPLE_RESULT,
             command=example.command,
             exit_code=exit_code,
             source=str(example.source_file.relative_to(PROJECT_ROOT)),
@@ -235,5 +234,5 @@ def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExam
         )
 
     report_path = _write_report(results)
-    log.info("cli_doctest_report_written", path=str(report_path))
+    log.info(LogEvents.CLI_DOCTEST_REPORT_WRITTEN, path=str(report_path))
     return results, report_path

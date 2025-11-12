@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -188,7 +189,7 @@ def run_determinism_check(
     log = UnifiedLogger.get(__name__)
 
     target_pipelines = pipelines or ("activity_chembl", "assay_chembl")
-    log.info("determinism_check_start", pipelines=target_pipelines)
+    log.info(LogEvents.DETERMINISM_CHECK_START, pipelines=target_pipelines)
 
     results: dict[str, DeterminismRunResult] = {}
 
@@ -196,7 +197,7 @@ def run_determinism_check(
         temp_path = Path(temp_dir)
 
         for pipeline_name in target_pipelines:
-            log.info("running_pipeline_check", pipeline=pipeline_name)
+            log.info(LogEvents.RUNNING_PIPELINE_CHECK, pipeline=pipeline_name)
 
             output_dir1 = temp_path / f"{pipeline_name}_run1"
             output_dir1.mkdir()
@@ -204,8 +205,7 @@ def run_determinism_check(
 
             if exit_code1 != 0:
                 error_message = f"Run 1 failed with exit code {exit_code1}: {stderr1[:200]}"
-                log.warning(
-                    "pipeline_run_failed", pipeline=pipeline_name, attempt=1, error=error_message
+                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=1, error=error_message
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -226,8 +226,7 @@ def run_determinism_check(
 
             if exit_code2 != 0:
                 error_message = f"Run 2 failed with exit code {exit_code2}: {stderr2[:200]}"
-                log.warning(
-                    "pipeline_run_failed", pipeline=pipeline_name, attempt=2, error=error_message
+                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=2, error=error_message
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -247,10 +246,9 @@ def run_determinism_check(
             are_identical, differences = compare_logs(logs1, logs2)
 
             if are_identical:
-                log.info("pipeline_deterministic", pipeline=pipeline_name, log_count=len(logs1))
+                log.info(LogEvents.PIPELINE_DETERMINISTIC, pipeline=pipeline_name, log_count=len(logs1))
             else:
-                log.warning(
-                    "pipeline_not_deterministic",
+                log.warning(LogEvents.PIPELINE_NOT_DETERMINISTIC,
                     pipeline=pipeline_name,
                     differences=len(differences),
                 )
@@ -270,6 +268,6 @@ def run_determinism_check(
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "DETERMINISM_CHECK_REPORT.md"
     _write_report(report_path, results)
-    log.info("determinism_check_report_written", path=str(report_path))
+    log.info(LogEvents.DETERMINISM_CHECK_REPORT_WRITTEN, path=str(report_path))
 
     return results

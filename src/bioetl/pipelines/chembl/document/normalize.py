@@ -11,6 +11,7 @@ import pandas as pd
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.frame import ensure_columns
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.schemas.document import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
@@ -174,7 +175,7 @@ def enrich_with_document_terms(
     df_docs = _ensure_columns(df_docs, _DOCUMENT_TERM_COLUMNS)
 
     if df_docs.empty:
-        log.debug("enrichment_skipped_empty_dataframe")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         prepared_empty = _ensure_term_columns(df_docs)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_empty, lazy=True)
 
@@ -182,8 +183,7 @@ def enrich_with_document_terms(
     required_cols = ["document_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_docs.columns]
     if missing_cols:
-        log.warning(
-            "enrichment_skipped_missing_columns",
+        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         prepared_missing = _ensure_term_columns(df_docs)
@@ -205,7 +205,7 @@ def enrich_with_document_terms(
             doc_ids.append(doc_id_str)
 
     if not doc_ids:
-        log.debug("enrichment_skipped_no_valid_ids")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
     # Получить конфигурацию
@@ -214,7 +214,7 @@ def enrich_with_document_terms(
     sort = cfg.get("sort", "weight_desc")
 
     # Вызвать client.fetch_document_terms_by_ids
-    log.info("enrichment_fetching_terms", ids_count=len(set(doc_ids)))
+    log.info(LogEvents.ENRICHMENT_FETCHING_TERMS, ids_count=len(set(doc_ids)))
     records_dict = client.fetch_document_terms_by_ids(
         ids=doc_ids,
         fields=list(fields),
@@ -241,7 +241,7 @@ def enrich_with_document_terms(
         )
 
     if not enrichment_data:
-        log.debug("enrichment_no_records_found")
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         prepared = _ensure_term_columns(df_docs)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared, lazy=True)
 
@@ -286,8 +286,7 @@ def enrich_with_document_terms(
     df_result = df_result.reindex(original_index)
     df_result = _ensure_term_columns(df_result)
 
-    log.info(
-        "enrichment_completed",
+    log.info(LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         documents_with_terms=len(agg_result),
     )

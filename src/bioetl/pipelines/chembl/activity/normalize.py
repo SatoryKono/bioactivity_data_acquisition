@@ -7,10 +7,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from pandas import Series
 
 from bioetl.clients.chembl import ChemblClient
 from bioetl.core.frame import ensure_columns
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 from bioetl.schemas.activity import (
     ASSAY_ENRICHMENT_SCHEMA,
@@ -81,12 +81,12 @@ def enrich_with_assay(
     df_act = _ensure_columns(df_act, _ASSAY_COLUMNS)
 
     if df_act.empty:
-        log.debug("enrichment_skipped_empty_dataframe")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 1) Валидация наличия ключа
     if "assay_chembl_id" not in df_act.columns:
-        log.warning("enrichment_skipped_missing_columns", missing_columns=["assay_chembl_id"])
+        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"])
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 2) Собрать уникальные валидные идентификаторы (без iterrows: быстрее и чище)
@@ -95,7 +95,7 @@ def enrich_with_assay(
 
     # Гарантируем наличие выходных колонок даже при пустом наборе ID
     if not assay_ids:
-        log.debug("enrichment_skipped_no_valid_ids")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 3) Конфигурация (явно фиксируем корректные имена полей ChEMBL /assay)
@@ -115,7 +115,7 @@ def enrich_with_assay(
     #  - проставит only=fields
     #  - корректно пройдёт пагинацию по page_meta (limit/offset/next/total_count)
     #  - вернёт dict: {assay_chembl_id: record_dict}
-    log.info("enrichment_fetching_assays", ids_count=len(assay_ids))
+    log.info(LogEvents.ENRICHMENT_FETCHING_ASSAYS, ids_count=len(assay_ids))
     records_by_id: dict[str, dict[str, Any]] = (
         client.fetch_assays_by_ids(
             ids=assay_ids,
@@ -127,7 +127,7 @@ def enrich_with_assay(
 
     # 5) Построить таблицу обогащения (только нужные выходные поля)
     if not records_by_id:
-        log.debug("enrichment_no_records_found")
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     enrichment_rows: list[dict[str, Any]] = []
@@ -176,8 +176,7 @@ def enrich_with_assay(
         df_merged["assay_tax_id"], errors="coerce"
     ).astype("Int64")
 
-    log.info(
-        "enrichment_completed",
+    log.info(LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=int(df_merged.shape[0]),
         records_matched=int(len(records_by_id)),
     )
@@ -216,13 +215,12 @@ def enrich_with_compound_record(
     df_act = _ensure_columns(df_act, _COMPOUND_COLUMNS)
 
     if df_act.empty:
-        log.debug("enrichment_skipped_empty_dataframe")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Проверка наличия необходимых колонок
     if "molecule_chembl_id" not in df_act.columns:
-        log.warning(
-            "enrichment_skipped_missing_columns",
+        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=["molecule_chembl_id"],
         )
         return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
@@ -427,8 +425,7 @@ def enrich_with_compound_record(
     df_result["compound_key"] = df_result["compound_key"].astype("string")
     df_result["removed"] = df_result["removed"].astype("boolean")
 
-    log.info(
-        "enrichment_completed",
+    log.info(LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         rows_with_doc_id=len(df_with_doc) if not df_with_doc.empty else 0,
         rows_without_doc_id=len(df_without_doc) if not df_without_doc.empty else 0,
@@ -452,7 +449,7 @@ def _enrich_by_pairs(
     pairs: set[tuple[str, str]] = set(map(tuple, pairs_df.to_numpy()))
 
     if not pairs:
-        log.debug("enrichment_by_pairs_skipped_no_valid_pairs")
+        log.debug(LogEvents.ENRICHMENT_BY_PAIRS_SKIPPED_NO_VALID_PAIRS)
         return df_act
 
     # Поля запроса к клиенту — плоские имена полей, которые возвращает ChEMBL API
@@ -469,7 +466,7 @@ def _enrich_by_pairs(
     page_limit = cfg.get("page_limit", 1000)
 
     # Обернуть вызов клиента в try/except — не роняем пайплайн
-    log.info("enrichment_fetching_compound_records_by_pairs", pairs_count=len(pairs))
+    log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_PAIRS, pairs_count=len(pairs))
     compound_records_dict: dict[tuple[str, str], dict[str, Any]] = {}
     try:
         compound_records_dict = (
@@ -481,8 +478,7 @@ def _enrich_by_pairs(
             or {}
         )
     except Exception as exc:
-        log.warning(
-            "enrichment_fetch_error_by_pairs",
+        log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_PAIRS,
             pairs_count=len(pairs),
             error=str(exc),
             exc_info=True,
@@ -548,8 +544,7 @@ def _enrich_by_pairs(
             )
 
     # Логирование результатов
-    log.info(
-        "enrichment_by_pairs_complete",
+    log.info(LogEvents.ENRICHMENT_BY_PAIRS_COMPLETE,
         pairs_requested=len(pairs),
         pairs_found=pairs_found,
         pairs_not_found=pairs_not_found,
@@ -557,15 +552,14 @@ def _enrich_by_pairs(
     )
 
     if pairs_not_found > 0:
-        log.warning(
-            "enrichment_by_pairs_some_pairs_not_found",
+        log.warning(LogEvents.ENRICHMENT_BY_PAIRS_SOME_PAIRS_NOT_FOUND,
             pairs_not_found=pairs_not_found,
             pairs_total=len(pairs),
             hint="Проверьте, что пары (molecule_chembl_id, document_chembl_id) существуют в ChEMBL API",
         )
 
     if not enrichment_data:
-        log.debug("enrichment_by_pairs_no_records_found")
+        log.debug(LogEvents.ENRICHMENT_BY_PAIRS_NO_RECORDS_FOUND)
         return df_act
 
     df_enrich = pd.DataFrame(enrichment_data)
@@ -632,7 +626,7 @@ def _enrich_by_record_id(
                 record_ids.add(rec_s)
 
     if not record_ids:
-        log.debug("enrichment_by_record_id_skipped_no_valid_ids")
+        log.debug(LogEvents.ENRICHMENT_BY_RECORD_ID_SKIPPED_NO_VALID_IDS)
         return df_act
 
     # Поля запроса к клиенту — плоские имена полей
@@ -641,7 +635,9 @@ def _enrich_by_record_id(
     batch_size = int(cfg.get("batch_size", 100)) or 100
 
     # Получить compound_record по record_id
-    log.info("enrichment_fetching_compound_records_by_record_id", record_ids_count=len(record_ids))
+    log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_RECORD_ID,
+        record_ids_count=len(record_ids),
+    )
     compound_records_dict: dict[str, dict[str, Any]] = {}
     try:
         unique_ids = list(record_ids)
@@ -666,8 +662,7 @@ def _enrich_by_record_id(
                 ):
                     all_records.append(dict(record))
             except Exception as exc:
-                log.warning(
-                    "enrichment_fetch_error_by_record_id",
+                log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
                     chunk_size=len(chunk),
                     error=str(exc),
                     exc_info=True,
@@ -686,8 +681,7 @@ def _enrich_by_record_id(
                     "compound_name": record.get("compound_name"),
                 }
     except Exception as exc:
-        log.warning(
-            "enrichment_fetch_error_by_record_id",
+        log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
             record_ids_count=len(record_ids),
             error=str(exc),
             exc_info=True,
@@ -695,7 +689,7 @@ def _enrich_by_record_id(
         return df_act
 
     if not compound_records_dict:
-        log.debug("enrichment_by_record_id_no_records_found")
+        log.debug(LogEvents.ENRICHMENT_BY_RECORD_ID_NO_RECORDS_FOUND)
         return df_act
 
     # Создать DataFrame для join
@@ -782,15 +776,14 @@ def enrich_with_data_validity(
     df_act = _ensure_columns(df_act, _DATA_VALIDITY_COLUMNS)
 
     if df_act.empty:
-        log.debug("enrichment_skipped_empty_dataframe")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Проверка наличия необходимых колонок
     required_cols = ["data_validity_comment"]
     missing_cols = [col for col in required_cols if col not in df_act.columns]
     if missing_cols:
-        log.warning(
-            "enrichment_skipped_missing_columns",
+        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
@@ -811,7 +804,7 @@ def enrich_with_data_validity(
             validity_comments.append(comment_str)
 
     if not validity_comments:
-        log.debug("enrichment_skipped_no_valid_comments")
+        log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_COMMENTS)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # Получить конфигурацию
@@ -819,7 +812,7 @@ def enrich_with_data_validity(
     page_limit = cfg.get("page_limit", 1000)
 
     # Вызвать client.fetch_data_validity_lookup
-    log.info("enrichment_fetching_data_validity", comments_count=len(set(validity_comments)))
+    log.info(LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY, comments_count=len(set(validity_comments)))
     records_dict = client.fetch_data_validity_lookup(
         comments=validity_comments,
         fields=list(fields),
@@ -847,7 +840,7 @@ def enrich_with_data_validity(
             )
 
     if not enrichment_data:
-        log.debug("enrichment_no_records_found")
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     df_enrich = pd.DataFrame(enrichment_data)
@@ -882,8 +875,7 @@ def enrich_with_data_validity(
     # Нормализовать типы
     df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
 
-    log.info(
-        "enrichment_completed",
+    log.info(LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         records_matched=len(records_dict),
     )

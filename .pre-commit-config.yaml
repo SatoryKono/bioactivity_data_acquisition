@@ -145,5 +145,40 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: forbid-requests-exceptions-in-cli
+        name: Forbid requests.exceptions imports in CLI layer
+        entry: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path("src/bioetl/cli")
+          if not root.exists():
+              sys.exit(0)
+
+          patterns = (
+              re.compile(r"\brequests\.exceptions\b"),
+              re.compile(r"\bfrom\s+requests\s+import\s+exceptions\b"),
+          )
+
+          violations: list[str] = []
+          for path in root.rglob("*.py"):
+              text = path.read_text(encoding="utf-8")
+              for pattern in patterns:
+                  if pattern.search(text):
+                      violations.append(
+                          f"{path.as_posix()}: replace requests.exceptions with bioetl.clients.exceptions"
+                      )
+                      break
+
+          if violations:
+              for violation in violations:
+                  print(violation)
+              sys.exit(1)
+          PY
+        language: system
+        pass_filenames: false
+
 default_language_version:
   python: python3
