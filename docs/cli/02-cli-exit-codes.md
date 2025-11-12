@@ -19,6 +19,12 @@ For a general overview of the CLI, see `[ref: repo:docs/cli/00-cli-overview.md@r
 
 The CLI wraps every pipeline command in `[ref: repo:src/bioetl/cli/command.py@refactoring_001]`. The command raises `typer.Exit(code=1)` for any unhandled internal exception and `typer.Exit(code=3)` for upstream HTTP/API failures so that automation receives deterministic failure codes. Only `typer.BadParameter` exceptions are re-raised, allowing Typer to exit with `code=2` and display the usage banner.
 
+| Exit Code | Exception(s) (примеры) | Raised by |
+|---|---|---|
+| `1` | `FileNotFoundError`, `PermissionError`, `ValueError` | Внутри выполнения пайплайна (см. `typer.Exit(code=1)` в `src/bioetl/cli/command.py`) |
+| `2` | Ошибки валидации Typer/аргументов (`typer.BadParameter`) | До старта пайплайна (`Typer` завершает процесс с `Exit(code=2)`) |
+| `3` | `ConnectionError`, `TimeoutError`, `requests.exceptions.Timeout`, `requests.exceptions.HTTPError` | Внешний HTTP/API клиент (`typer.Exit(code=3)` в обёртке пайплайна) |
+
 | Exit Code | Exception(s) | Raised by | Typical root cause |
 |---|---|---|---|
 | `0` | _n/a_ | Normal completion | Pipeline stages (`extract`, `transform`, `load`) all returned without raising. |
