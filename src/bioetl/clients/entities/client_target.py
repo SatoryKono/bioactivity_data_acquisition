@@ -1,4 +1,4 @@
-"""Target-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl`."""
+"""Target-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl_common`."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Assay-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl`."""
+"""Assay-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl_common`."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
 from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
 
 if TYPE_CHECKING:
-    from bioetl.clients.client_chembl import ChemblClient
+    from bioetl.clients.client_chembl_common import ChemblClient
 
 __all__ = ["ChemblAssayClient"]
 

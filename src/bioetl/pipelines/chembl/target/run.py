@@ -14,7 +14,7 @@ import pandas as pd
 from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger

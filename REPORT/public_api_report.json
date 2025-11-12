@@ -46,16 +46,16 @@
     "bioetl.clients.base_entity": [
       "BaseEntityClient"
     ],
-    "bioetl.clients.chembl": [
+    "bioetl.clients.client_chembl_common": [
       "ChemblClient"
     ],
-    "bioetl.clients.chembl_base": [
+    "bioetl.clients.client_chembl_base": [
       "ChemblClientProtocol",
       "ChemblEntityFetcher",
       "EntityConfig",
       "make_entity_config"
     ],
-    "bioetl.clients.chembl_entities": [
+    "bioetl.clients.client_chembl_entities": [
       "ChemblAssayClassMapEntityClient",
       "ChemblAssayClassificationEntityClient",
       "ChemblAssayParametersEntityClient",
@@ -63,7 +63,7 @@
       "ChemblDataValidityEntityClient",
       "ChemblMoleculeEntityClient"
     ],
-    "bioetl.clients.chembl_iterator": [
+    "bioetl.clients.client_chembl_iterator": [
       "ChemblEntityIterator"
     ],
     "bioetl.clients.document": [
@@ -175,7 +175,7 @@
       "BaseEntityClient",
       "ChemblEntityClientBase"
     ],
-    "bioetl.clients.client_chembl": [
+    "bioetl.clients.client_chembl_common": [
       "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
     ],
     "bioetl.clients.client_chembl_base": [

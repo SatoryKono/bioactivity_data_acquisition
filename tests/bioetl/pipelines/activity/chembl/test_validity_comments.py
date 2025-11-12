@@ -403,7 +403,7 @@ class TestValidityCommentsOnlyFields:
         )
 
         # Mock ChemblClient и fetch_data_validity_lookup
-        from bioetl.clients.client_chembl import ChemblClient
+        from bioetl.clients.client_chembl_common import ChemblClient
 
         mock_api_client = MagicMock()
         mock_chembl_client = ChemblClient(mock_api_client)

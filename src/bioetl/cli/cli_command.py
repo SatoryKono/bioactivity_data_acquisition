@@ -7,7 +7,7 @@ import uuid
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Protocol, cast
+from typing import Any, NoReturn, Protocol, cast
 from zoneinfo import ZoneInfo
 
 import typer
@@ -399,50 +399,21 @@ def _handle_pipeline_exception(
 ) -> None:
     """Map runtime exceptions to deterministic exit codes and logs."""
 
-    if isinstance(exc, PipelineTimeoutError):
-        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+    if _is_requests_api_error(exc):
+        _emit_external_api_failure(
+            exc=exc,
+            log=log,
             run_id=run_id,
-            pipeline=command_name,
-            error=str(exc),
-            error_type=exc.__class__.__name__,
-            cause=str(exc.__cause__) if exc.__cause__ else None,
-            exc_info=True,
+            command_name=command_name,
         )
-        _echo_error(
-            "E003",
-            "Внешний источник не ответил вовремя. Повторите запуск после проверки конфигурации.",
-        )
-        raise typer.Exit(code=3) from exc
 
-    if isinstance(exc, PipelineHTTPError):
-        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+    if isinstance(exc, (PipelineTimeoutError, PipelineHTTPError, PipelineNetworkError)):
+        _emit_external_api_failure(
+            exc=exc,
+            log=log,
             run_id=run_id,
-            pipeline=command_name,
-            error=str(exc),
-            error_type=exc.__class__.__name__,
-            cause=str(exc.__cause__) if exc.__cause__ else None,
-            exc_info=True,
+            command_name=command_name,
         )
-        _echo_error(
-            "E003",
-            "Внешний источник вернул некорректный ответ. См. логи для деталей и повторите запуск.",
-        )
-        raise typer.Exit(code=3) from exc
-
-    if isinstance(exc, PipelineNetworkError):
-        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
-            run_id=run_id,
-            pipeline=command_name,
-            error=str(exc),
-            error_type=exc.__class__.__name__,
-            cause=str(exc.__cause__) if exc.__cause__ else None,
-            exc_info=True,
-        )
-        _echo_error(
-            "E003",
-            "Не удалось связаться с внешним источником данных. Проверьте сеть и повторите запуск.",
-        )
-        raise typer.Exit(code=3) from exc
 
     if isinstance(exc, PipelineError):
         log.error(LogEvents.CLI_RUN_ERROR,
@@ -471,3 +442,30 @@ def _handle_pipeline_exception(
 def _echo_error(code: str, message: str) -> None:
     """Emit a deterministic error message."""
     typer.echo(f"[bioetl-cli] ERROR {code}: {message}", err=True)
+
+
+def _emit_external_api_failure(
+    *,
+    exc: Exception,
+    log: LoggerProtocol,
+    run_id: str,
+    command_name: str,
+) -> NoReturn:
+    log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+        run_id=run_id,
+        pipeline=command_name,
+        error=str(exc),
+        error_type=exc.__class__.__name__,
+        cause=str(exc.__cause__) if exc.__cause__ else None,
+        exc_info=True,
+    )
+    _echo_error("E003", f"External API failure: {exc}")
+    raise typer.Exit(code=3) from exc
+
+
+def _is_requests_api_error(exc: Exception) -> bool:
+    try:
+        from requests import exceptions as requests_exceptions
+    except ModuleNotFoundError:  # pragma: no cover - requests is a required runtime dep
+        return False
+    return isinstance(exc, requests_exceptions.RequestException)

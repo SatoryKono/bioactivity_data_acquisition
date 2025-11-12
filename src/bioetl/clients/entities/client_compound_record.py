@@ -89,7 +89,7 @@ class ChemblCompoundRecordEntityClient:
                 }
                 # Параметр only для выбора полей
                 if fields:
-                    params["only"] = ",".join(fields)
+                    params["only"] = ",".join(sorted(fields))
 
                 try:
                     for record in self._chembl_client.paginate(

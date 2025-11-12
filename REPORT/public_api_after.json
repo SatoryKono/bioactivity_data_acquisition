@@ -33,7 +33,7 @@
       "BaseEntityClient",
       "ChemblEntityClientBase"
     ],
-    "bioetl.clients.client_chembl": [
+    "bioetl.clients.client_chembl_common": [
       "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
     ],
     "bioetl.clients.client_chembl_base": [

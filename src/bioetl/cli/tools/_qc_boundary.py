@@ -67,10 +67,16 @@ def collect_qc_boundary_violations(
         ):
             chains.add(chain)
 
+    normalized_chains: set[tuple[str, ...]] = set()
+    for chain in chains:
+        if not chain:
+            continue
+        normalized_chains.add((chain[0], chain[-1]))
+
     violations = [
-        Violation(chain=chain, source_path=module_records[chain[0]].path) for chain in chains
+        Violation(chain=chain, source_path=module_records[chain[0]].path)
+        for chain in sorted(normalized_chains)
     ]
-    violations.sort(key=lambda item: item.chain)
     return violations
 
 
@@ -221,6 +227,10 @@ def _is_qc_module(module_name: str) -> bool:
 def _normalize_qc_name(module_name: str) -> str:
     parts = module_name.split(".")
     prefix_parts = QC_MODULE_PREFIX.split(".")
-    return ".".join(prefix_parts + parts[len(prefix_parts) :])
+    suffix_parts = parts[len(prefix_parts) :]
+    if suffix_parts:
+        normalized_suffix = suffix_parts[0]
+        return ".".join((*prefix_parts, normalized_suffix))
+    return ".".join(prefix_parts)
 
 

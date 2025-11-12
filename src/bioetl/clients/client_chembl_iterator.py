@@ -175,7 +175,7 @@ class ChemblEntityIteratorBase:
             params["limit"] = effective_page_size
 
         if select_fields:
-            params["only"] = ",".join(select_fields)
+            params["only"] = ",".join(sorted(select_fields))
 
         for item in self._chembl_client.paginate(
             self._config.endpoint,
@@ -211,7 +211,7 @@ class ChemblEntityIteratorBase:
         for chunk in self._chunk_identifiers(ids, select_fields=select_fields):
             params: dict[str, object] = {self._config.filter_param: ",".join(chunk)}
             if select_fields:
-                params["only"] = ",".join(select_fields)
+                params["only"] = ",".join(sorted(select_fields))
 
             yield from self._chembl_client.paginate(
                 self._config.endpoint,
@@ -327,7 +327,7 @@ class ChemblEntityIteratorBase:
         """
         params_dict: dict[str, str] = {self._config.filter_param: ",".join(identifiers)}
         if select_fields:
-            params_dict["only"] = ",".join(select_fields)
+            params_dict["only"] = ",".join(sorted(select_fields))
 
         params = urlencode(params_dict)
         # Учитываем базовую длину endpoint для приблизительной оценки финальной длины URL

@@ -17,7 +17,7 @@ import pandera.errors
 from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger

@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
+from math import isnan
 from typing import Any, Protocol
-
-import pandas as pd
 
 from bioetl.core.logger import UnifiedLogger
 
@@ -187,12 +186,23 @@ class ChemblEntityFetcherBase:
         dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]:
             Словарь, ключ - ID, значение - запись или список записей
             (в зависимости от supports_list_result).
+
+        Notes
+        -----
+        Обработка NaN реализована без pandas: используется math.isnan для float.
         """
         # Нормализация и фильтрация ID
         unique_ids: set[str] = set()
         for entity_id in ids:
-            if entity_id and not (isinstance(entity_id, float) and pd.isna(entity_id)):
-                unique_ids.add(str(entity_id).strip())
+            if entity_id is None:
+                continue
+            if isinstance(entity_id, float) and isnan(entity_id):
+                continue
+
+            normalized_id = str(entity_id).strip()
+            if not normalized_id:
+                continue
+            unique_ids.add(normalized_id)
 
         if not unique_ids:
             self._log.debug(
@@ -215,7 +225,7 @@ class ChemblEntityFetcherBase:
             }
             # Параметр only для выбора полей
             if fields:
-                params["only"] = ",".join(fields)
+                params["only"] = ",".join(sorted(fields))
 
             try:
                 for record in self._chembl_client.paginate(

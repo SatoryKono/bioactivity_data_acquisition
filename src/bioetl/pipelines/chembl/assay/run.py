@@ -11,7 +11,7 @@ import pandas as pd
 from pandas import Series
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
@@ -22,14 +22,6 @@ from bioetl.core.normalizers import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from .normalize import (
-    enrich_with_assay_classifications,
-    enrich_with_assay_parameters,
-)
-from .transform import (
-    serialize_array_fields,
-    validate_assay_parameters_truv,
-)
 from bioetl.schemas.chembl_assay_schema import COLUMN_ORDER, AssaySchema
 
 from ...chembl_descriptor import (
@@ -37,6 +29,14 @@ from ...chembl_descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+)
+from .normalize import (
+    enrich_with_assay_classifications,
+    enrich_with_assay_parameters,
+)
+from .transform import (
+    serialize_array_fields,
+    validate_assay_parameters_truv,
 )
 
 SelfChemblAssayPipeline = TypeVar("SelfChemblAssayPipeline", bound="ChemblAssayPipeline")

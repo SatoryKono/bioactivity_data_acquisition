@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.core.frame import ensure_columns
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger

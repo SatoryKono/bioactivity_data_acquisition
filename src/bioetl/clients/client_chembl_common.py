@@ -4,8 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
+import warnings
 
 from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
+from bioetl.clients.client_exceptions import (
+    ConnectionError,
+    HTTPError,
+    RequestException,
+    Timeout,
+)
 from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
 from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
@@ -58,10 +65,18 @@ class ChemblClient:
     # ------------------------------------------------------------------
 
     def handshake(self, endpoint: str = "/status") -> Mapping[str, Any]:
-        """Perform the handshake for ``endpoint`` once and cache the payload."""
+        """Perform handshake and propagate public network exceptions from ``client_exceptions``."""
 
         if endpoint not in self._status_cache:
-            payload = self._client.get(endpoint).json()
+            try:
+                response = self._client.get(endpoint)
+                payload = response.json()
+            except (ConnectionError, Timeout, HTTPError, RequestException) as exc:
+                self._log.error(LogEvents.HTTP_REQUEST_FAILED,
+                    endpoint=endpoint,
+                    error=str(exc),
+                )
+                raise
             self._status_cache[endpoint] = payload
             release = payload.get("chembl_db_version")
             api_version = payload.get("api_version")
@@ -88,7 +103,7 @@ class ChemblClient:
         page_size: int = 200,
         items_key: str | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield records for ``endpoint`` honouring ChEMBL pagination."""
+        """Yield paginated records and propagate public network exceptions from ``client_exceptions``."""
 
         self.handshake()
         next_url: str | None = endpoint
@@ -112,10 +127,17 @@ class ChemblClient:
                 )
             while next_url:
                 normalized_url = self._normalize_endpoint(next_url)
-                response = self._client.get(
-                    normalized_url, params=query if next_url == endpoint else None
-                )
-                payload: Mapping[str, Any] = response.json()
+                try:
+                    response = self._client.get(
+                        normalized_url, params=query if next_url == endpoint else None
+                    )
+                    payload: Mapping[str, Any] = response.json()
+                except (ConnectionError, Timeout, HTTPError, RequestException) as exc:
+                    self._log.error(LogEvents.HTTP_REQUEST_FAILED,
+                        endpoint=normalized_url,
+                        error=str(exc),
+                    )
+                    raise
                 items = list(self._extract_items(payload, items_key))
                 if load_meta_id is not None and store is not None:
                     pagination_snapshot: dict[str, Any] = {
@@ -165,6 +187,11 @@ class ChemblClient:
         payload: Mapping[str, Any],
         items_key: str | None,
     ) -> Iterable[Mapping[str, Any]]:
+        """Извлечь элементы ответа ChEMBL.
+
+        Эвристика поиска без явного items_key будет удалена в будущих версиях —
+        передавайте явный ключ (см. EntityConfig.items_key).
+        """
         if items_key:
             items = payload.get(items_key)
             if isinstance(items, Sequence):
@@ -175,6 +202,12 @@ class ChemblClient:
                         result.append(cast(Mapping[str, Any], item))
                 return result
             return []
+        warnings.warn(
+            "Эвристика items_key=None будет удалена в будущих версиях; "
+            "передавайте явный items_key (например, через EntityConfig.items_key).",
+            PendingDeprecationWarning,
+            stacklevel=2,
+        )
         for key, value in payload.items():
             if key == "page_meta":
                 continue

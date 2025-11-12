@@ -199,7 +199,7 @@
   },
   {
     "old_path": "src/bioetl/clients/chembl.py",
-    "new_path": "src/bioetl/clients/client_chembl.py",
+    "new_path": "src/bioetl/clients/client_chembl_common.py",
     "scope": "file",
     "rationale_rule_id": "NR-005"
   },

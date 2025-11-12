@@ -32,7 +32,7 @@
         {"path": "src/bioetl/pipelines/chembl/activity/run.py:34-40", "symbols": ["ACTIVITY_PROPERTY_KEYS", "COLUMN_ORDER", "RELATIONS", "STANDARD_TYPES", "ActivitySchema"]}
       ],
       "api_clients": [
-        {"path": "src/bioetl/pipelines/chembl/activity/run.py:20-33", "modules": ["bioetl.clients.entities.activity", "bioetl.clients.client_chembl"]}
+        {"path": "src/bioetl/pipelines/chembl/activity/run.py:20-33", "modules": ["bioetl.clients.entities.activity", "bioetl.clients.client_chembl_common"]}
       ],
       "configs": [
         {"path": "src/bioetl/pipelines/chembl/activity/run.py:22-23", "detail": "PipelineConfig import"},
@@ -69,7 +69,7 @@
         {"path": "src/bioetl/pipelines/chembl/assay/run.py:32-33", "symbols": ["COLUMN_ORDER", "AssaySchema"]}
       ],
       "api_clients": [
-        {"path": "src/bioetl/pipelines/chembl/assay/run.py:14-27", "modules": ["bioetl.clients.assay.chembl_assay", "bioetl.clients.client_chembl"]}
+        {"path": "src/bioetl/pipelines/chembl/assay/run.py:14-27", "modules": ["bioetl.clients.assay.chembl_assay", "bioetl.clients.client_chembl_common"]}
       ],
       "configs": [
         {"path": "src/bioetl/pipelines/chembl/assay/run.py:16-17", "detail": "PipelineConfig import"},
@@ -105,7 +105,7 @@
         {"path": "src/bioetl/pipelines/chembl/testitem/run.py:19-20", "symbols": ["COLUMN_ORDER"]}
       ],
       "api_clients": [
-        {"path": "src/bioetl/pipelines/chembl/testitem/run.py:13-28", "modules": ["bioetl.clients.client_chembl", "bioetl.clients.entities.testitem"]}
+        {"path": "src/bioetl/pipelines/chembl/testitem/run.py:13-28", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.testitem"]}
       ],
       "configs": [
         {"path": "src/bioetl/pipelines/chembl/testitem/run.py:15-16", "detail": "PipelineConfig import"},
@@ -141,7 +141,7 @@
         {"path": "src/bioetl/pipelines/chembl/target/run.py:27-28", "symbols": ["COLUMN_ORDER", "TargetSchema"]}
       ],
       "api_clients": [
-        {"path": "src/bioetl/pipelines/chembl/target/run.py:17-35", "modules": ["bioetl.clients.client_chembl", "bioetl.clients.entities.target"]}
+        {"path": "src/bioetl/pipelines/chembl/target/run.py:17-35", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.target"]}
       ],
       "configs": [
         {"path": "src/bioetl/pipelines/chembl/target/run.py:19-20", "detail": "PipelineConfig import"},
@@ -177,7 +177,7 @@
         {"path": "src/bioetl/pipelines/chembl/document/run.py:20-21", "symbols": ["COLUMN_ORDER"]}
       ],
       "api_clients": [
-        {"path": "src/bioetl/pipelines/chembl/document/run.py:14-29", "modules": ["bioetl.clients.client_chembl", "bioetl.clients.entities.document"]}
+        {"path": "src/bioetl/pipelines/chembl/document/run.py:14-29", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.document"]}
       ],
       "configs": [
         {"path": "src/bioetl/pipelines/chembl/document/run.py:16-18", "detail": "PipelineConfig import"},

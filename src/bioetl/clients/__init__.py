@@ -11,11 +11,11 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from bioetl.clients.client_chembl import ChemblClient
     from bioetl.clients.client_chembl_base import (
         ChemblEntityFetcherBase,
         EntityConfig,
     )
+    from bioetl.clients.client_chembl_common import ChemblClient
     from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
     from bioetl.clients.client_chembl_iterator import (
         ChemblEntityIterator,
@@ -70,7 +70,7 @@ __all__ = [
 ]
 
 _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
-    "ChemblClient": ("bioetl.clients.client_chembl", "ChemblClient"),
+    "ChemblClient": ("bioetl.clients.client_chembl_common", "ChemblClient"),
     "ChemblAssayClient": ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
     "ChemblAssayEntityClient": (
         "bioetl.clients.entities.client_assay_entity",

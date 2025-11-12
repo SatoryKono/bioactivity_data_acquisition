@@ -31,7 +31,7 @@ class TestTestItemChemblPipeline:
         """Test fetching ChEMBL release from status endpoint."""
         pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        from bioetl.clients.client_chembl import ChemblClient
+        from bioetl.clients.client_chembl_common import ChemblClient
         from bioetl.core.logger import UnifiedLogger
 
         mock_client = Mock(spec=ChemblClient)

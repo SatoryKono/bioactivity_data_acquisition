@@ -9,7 +9,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.config import PipelineConfig
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
