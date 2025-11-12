@@ -2,25 +2,16 @@
 
 from __future__ import annotations
 
-import importlib.util
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
 
-from bioetl.clients.assay.client_chembl_assay_entity import ChemblAssayEntityClient
-from bioetl.clients.client_chembl_base import EntityConfig
+from bioetl.clients.client_chembl_base import ChemblClientProtocol, EntityConfig
 from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
+from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
 
-# Import ChemblClient directly from the module to avoid conflict with chembl/ package
-# Use importlib to load from client_chembl.py file, not from chembl/ package
-# Path updated: now in assay/ subdirectory, so client_chembl.py is in parent directory
-_chembl_module_path = Path(__file__).parent.parent / "client_chembl.py"
-_spec = importlib.util.spec_from_file_location("bioetl.clients.client_chembl", _chembl_module_path)
-if _spec is not None and _spec.loader is not None:
-    _chembl_module = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_chembl_module)
-    ChemblClient = _chembl_module.ChemblClient
-else:
-    raise ImportError("Failed to load chembl.py module")
+if TYPE_CHECKING:
+    from bioetl.clients.client_chembl import ChemblClient
+
+__all__ = ["ChemblAssayClient"]
 
 
 class ChemblAssayClient(ChemblEntityIteratorBase):
@@ -28,7 +19,7 @@ class ChemblAssayClient(ChemblEntityIteratorBase):
 
     def __init__(
         self,
-        client: Any,  # ChemblClient from dynamic import
+        chembl_client: ChemblClient | ChemblClientProtocol,
         *,
         batch_size: int,
         max_url_length: int,
@@ -37,14 +28,13 @@ class ChemblAssayClient(ChemblEntityIteratorBase):
 
         Parameters
         ----------
-        client:
+        chembl_client:
             Экземпляр ChemblClient для выполнения запросов.
         batch_size:
             Размер батча для пагинации (максимум 25 для ChEMBL API).
         max_url_length:
             Максимальная длина URL для проверки.
         """
-        # Конфигурация для assay с включенной проверкой длины URL
         config = EntityConfig(
             endpoint="/assay.json",
             filter_param="assay_chembl_id__in",
@@ -58,11 +48,11 @@ class ChemblAssayClient(ChemblEntityIteratorBase):
         )
 
         super().__init__(
-            chembl_client=client,
+            chembl_client=chembl_client,
             config=config,
             batch_size=batch_size,
             max_url_length=max_url_length,
         )
 
-        # Используем унифицированный entity client для получения по ID
-        self._entity_client = ChemblAssayEntityClient(client)
+        self._entity_client = ChemblAssayEntityClient(chembl_client)
+

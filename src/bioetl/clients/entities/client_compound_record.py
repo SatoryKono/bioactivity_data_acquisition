@@ -16,7 +16,7 @@ class ChemblCompoundRecordEntityClient:
     """Клиент для получения compound_record записей из ChEMBL API.
 
     Особенность: использует пары (molecule_chembl_id, document_chembl_id)
-    вместо простых ID, поэтому не наследуется от ChemblEntityFetcher.
+    вместо простых ID, поэтому не наследуется от ChemblEntityFetcherBase.
     """
 
     def __init__(self, chembl_client: ChemblClientProtocol) -> None:

@@ -83,10 +83,24 @@ class SchemaRegistry:
     ) -> SchemaRegistryEntry:
         """Register a schema and return the created entry."""
 
+        if not isinstance(version, str):
+            msg = f"Schema '{identifier}' version must be string."
+            raise TypeError(msg)
+
         if identifier in self._entries:
             msg = f"Schema '{identifier}' is already registered"
             raise ValueError(msg)
-        normalized_order = tuple(column_order or tuple(schema.columns.keys()))
+
+        metadata = schema.metadata or {}
+        metadata_column_order = metadata.get("column_order")
+        metadata_name = metadata.get("name")
+        metadata_version = metadata.get("version")
+
+        effective_column_order: Sequence[str] | None = column_order
+        if effective_column_order is None and metadata_column_order:
+            effective_column_order = tuple(metadata_column_order)
+
+        normalized_order = tuple(effective_column_order or tuple(schema.columns.keys()))
         if len(set(normalized_order)) != len(normalized_order):
             msg = f"Schema '{identifier}' column order contains duplicates"
             raise ValueError(msg)
@@ -96,9 +110,24 @@ class SchemaRegistry:
                 f"Schema '{identifier}' column order references missing columns: {missing_columns}"
             )
             raise ValueError(msg)
+
+        if metadata_column_order is not None and tuple(metadata_column_order) != normalized_order:
+            msg = (
+                f"Schema '{identifier}' metadata column_order does not match registered order."
+            )
+            raise ValueError(msg)
+
+        if metadata_version is not None and str(metadata_version) != version:
+            msg = (
+                f"Schema '{identifier}' metadata version '{metadata_version}' "
+                f"does not match declared version '{version}'."
+            )
+            raise ValueError(msg)
+
+        resolved_name = name or metadata_name or schema.name or identifier.split(".")[-1]
         entry = SchemaRegistryEntry(
             identifier=identifier,
-            name=name or schema.name or identifier.split(".")[-1],
+            name=resolved_name,
             version=version,
             column_order=normalized_order,
             schema=schema,
@@ -116,7 +145,11 @@ class SchemaRegistry:
         module = import_module(module_path)
         schema = getattr(module, attr)
         version = getattr(module, "SCHEMA_VERSION", "0.0.0")
-        column_order = getattr(module, "COLUMN_ORDER", tuple(getattr(schema, "columns", {}).keys()))
+        column_order = getattr(
+            module,
+            "COLUMN_ORDER",
+            schema.metadata.get("column_order") if schema.metadata else None,
+        )
         name = getattr(schema, "name", attr)
 
         if not isinstance(schema, pa.DataFrameSchema):

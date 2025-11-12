@@ -236,6 +236,7 @@ ActivitySchema = create_schema(
     },
     version=SCHEMA_VERSION,
     name="ActivitySchema",
+    column_order=COLUMN_ORDER,
 )
 
 __all__ = [

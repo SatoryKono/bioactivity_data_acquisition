@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.clients.exceptions import HTTPError, Timeout
+from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.errors import BioETLError
 from bioetl.tools.catalog_code_symbols import CodeCatalog

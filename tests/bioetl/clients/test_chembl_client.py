@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.clients import chembl
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
 
 
@@ -31,7 +31,7 @@ class TestChemblClient:
 
     def test_init(self, mock_api_client: MagicMock) -> None:
         """Test ChemblClient initialization."""
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         assert client._client == mock_api_client
         assert client._status_cache == {}
 
@@ -43,7 +43,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         result1 = client.handshake("/status")
         result2 = client.handshake("/status")
 
@@ -60,7 +60,7 @@ class TestChemblClient:
         mock_response.json.return_value = {"chembl_db_version": "33"}
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         client.handshake("/status")
         client.handshake("/version")
 
@@ -79,7 +79,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/activities.json", page_size=200))
 
         assert len(items) == 2
@@ -102,7 +102,7 @@ class TestChemblClient:
         # First call for handshake, then two calls for pagination
         mock_api_client.get.side_effect = [response1, response1, response2]
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/activities.json", page_size=2))
 
         assert len(items) == 3
@@ -118,7 +118,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/activities.json", params={"filter": "value"}, page_size=100))
 
         assert len(items) == 1
@@ -142,7 +142,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/endpoint.json", items_key="custom_items"))
 
         assert len(items) == 2
@@ -157,7 +157,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/activities.json"))
 
         assert len(items) == 0
@@ -172,7 +172,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/activities.json", items_key="activities"))
 
         assert len(items) == 0
@@ -187,7 +187,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         items = list(client.paginate("/endpoint.json"))
 
         assert len(items) == 2
@@ -202,7 +202,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        client = chembl.ChemblClient(mock_api_client)
+        client = ChemblClient(mock_api_client)
         list(client.paginate("/activities.json"))
 
         # Should call handshake (which calls get) and then paginate

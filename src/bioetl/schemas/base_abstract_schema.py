@@ -12,6 +12,7 @@ def create_schema(
     columns: dict[str, Column],
     version: str,
     name: str,
+    column_order: Sequence[str] | None = None,
     strict: bool = False,
     ordered: bool = True,
     checks: Sequence[Check] | None = None,
@@ -38,13 +39,39 @@ def create_schema(
     DataFrameSchema
         A configured DataFrameSchema with ordered=True and coerce=False.
     """
+    schema_columns = dict(columns)
+    if column_order:
+        normalized_order = list(column_order)
+        missing_columns = [column for column in normalized_order if column not in schema_columns]
+        if missing_columns:
+            msg = f"column_order references missing columns: {missing_columns}"
+            raise ValueError(msg)
+        duplicate_columns = {column for column in normalized_order if normalized_order.count(column) > 1}
+        if duplicate_columns:
+            msg = f"column_order contains duplicates: {sorted(duplicate_columns)}"
+            raise ValueError(msg)
+        ordered_columns: dict[str, Column] = {
+            column: schema_columns[column] for column in normalized_order
+        }
+        for column_name, column_schema in schema_columns.items():
+            if column_name not in ordered_columns:
+                ordered_columns[column_name] = column_schema
+        schema_columns = ordered_columns
+
+    metadata = {
+        "name": name,
+        "version": version,
+        "column_order": tuple(column_order) if column_order else None,
+    }
+
     return DataFrameSchema(
-        columns,
+        schema_columns,
         ordered=ordered,
         coerce=False,  # Disable coercion at schema level - types are normalized in transform
         strict=strict,
         checks=list(checks) if checks else None,
         name=f"{name}_v{version}",
+        metadata=metadata,
     )
 
 

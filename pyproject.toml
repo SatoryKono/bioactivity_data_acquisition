@@ -80,6 +80,7 @@ bioetl-run-test-report = "tools.run_test_report:app"
 bioetl-schema-guard = "tools.schema_guard:app"
 bioetl-semantic-diff = "tools.semantic_diff:app"
 bioetl-vocab-audit = "tools.vocab_audit:app"
+bioetl-qc-boundary-check = "bioetl.cli.tools.qc_boundary_check:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]

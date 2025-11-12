@@ -8,7 +8,6 @@ __all__ = [
     "ChemblEntityFetcherBase",
     "ChemblClientProtocol",
     "make_entity_config",
-    "ChemblEntityFetcher",
 ]
 
 
@@ -87,5 +86,3 @@ class ChemblEntityFetcherBase:
         unique_ids: set[str],
     ) -> dict[str, list[dict[str, Any]]]: ...
 
-
-class ChemblEntityFetcher(ChemblEntityFetcherBase): ...

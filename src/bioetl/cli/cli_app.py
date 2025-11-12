@@ -9,31 +9,34 @@ from the static registry.
 
 from __future__ import annotations
 
-import typer
+import importlib
+from typing import Any, Callable, cast
 
 from bioetl.cli.cli_command import create_pipeline_command
-from bioetl.cli.cli_registry import COMMAND_REGISTRY
+from bioetl.cli.cli_registry import COMMAND_REGISTRY, TOOL_COMMANDS, ToolCommandConfig
 from bioetl.cli.cli_runner import run_app
+from bioetl.cli.tools._typer import TyperApp
+from bioetl.cli.tools._typer import create_app as create_typer_app
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
+
+typer = cast(Any, importlib.import_module("typer"))
 
 _log = UnifiedLogger.get(__name__)
 
 __all__ = ["app", "create_app", "run"]
 
 
-def create_app() -> typer.Typer:
+def create_app() -> TyperApp:
     """Create and configure the Typer application with all registered commands."""
-    app = typer.Typer(
+    app = create_typer_app(
         name="bioetl",
-        help="BioETL command-line interface for executing ETL pipelines.",
-        add_completion=False,
+        help_text="BioETL command-line interface for executing ETL pipelines.",
     )
 
-    # Register list command first
     @app.command(name="list")
     def list_commands() -> None:
-        """List all available pipeline commands."""
+        """List all available pipeline and tool commands."""
         typer.echo("[bioetl-cli] Registered pipeline commands:")
         for command_name in sorted(COMMAND_REGISTRY.keys()):
             try:
@@ -42,7 +45,8 @@ def create_app() -> typer.Typer:
                 typer.echo(f"  {command_name:<20} - not implemented")
                 continue
             except Exception as exc:  # noqa: BLE001
-                _log.error(LogEvents.CLI_REGISTRY_LOOKUP_FAILED,
+                _log.error(
+                    LogEvents.CLI_REGISTRY_LOOKUP_FAILED,
                     command=command_name,
                     error=str(exc),
                     exc_info=True,
@@ -52,7 +56,11 @@ def create_app() -> typer.Typer:
 
             typer.echo(f"  {command_name:<20} - {config.description}")
 
-    # Register all pipeline commands from registry
+        if TOOL_COMMANDS:
+            typer.echo("[bioetl-cli] Registered utility commands:")
+            for tool_name, tool_config in sorted(TOOL_COMMANDS.items()):
+                typer.echo(f"  {tool_name:<20} - {tool_config.description}")
+
     for command_name, build_config_func in COMMAND_REGISTRY.items():
         try:
             command_config = build_config_func()
@@ -62,21 +70,50 @@ def create_app() -> typer.Typer:
             )
             app.command(name=command_name)(command_func)
         except NotImplementedError:
-            # Skip not-yet-implemented pipelines
             continue
         except Exception as exc:
-            # Log error but continue registering other commands
-            _log.error(LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+            _log.error(
+                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
                 command=command_name,
                 error=str(exc),
                 exc_info=True,
             )
-            typer.echo(f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})", err=True)
+            typer.echo(
+                f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})",
+                err=True,
+            )
+
+    for tool_name, tool_config in TOOL_COMMANDS.items():
+        try:
+            entrypoint = _load_tool_entrypoint(tool_config)
+            app.command(name=tool_name)(entrypoint)
+        except Exception as exc:  # noqa: BLE001
+            _log.error(
+                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                command=tool_name,
+                error=str(exc),
+                exc_info=True,
+            )
+            typer.echo(
+                f"[bioetl-cli] WARN: Tool '{tool_name}' not loaded ({exc})",
+                err=True,
+            )
 
     return app
 
 
-# Create the app instance
+def _load_tool_entrypoint(tool_config: ToolCommandConfig) -> Callable[..., None]:
+    """Dynamically load a tool entrypoint without importing QC modules into CLI."""
+    module = importlib.import_module(tool_config.module)
+    attribute = getattr(module, tool_config.attribute)
+    if callable(attribute):
+        return cast(Callable[..., None], attribute)
+    msg = (
+        f"Attribute '{tool_config.attribute}' from '{tool_config.module}' is not callable."
+    )
+    raise TypeError(msg)
+
+
 app = create_app()
 
 

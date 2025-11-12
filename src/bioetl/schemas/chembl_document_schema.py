@@ -68,6 +68,7 @@ DocumentSchema = create_schema(
     },
     version=SCHEMA_VERSION,
     name="DocumentSchema",
+    column_order=COLUMN_ORDER,
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "DocumentSchema"]

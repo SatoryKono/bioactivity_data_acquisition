@@ -11,26 +11,25 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from bioetl.clients.assay.client_chembl_assay import ChemblAssayClient
-    from bioetl.clients.assay.client_chembl_assay_entity import ChemblAssayEntityClient
-    from bioetl.clients.client_base_entity import ChemblEntityClientBase
     from bioetl.clients.client_chembl import ChemblClient
     from bioetl.clients.client_chembl_base import (
-        ChemblEntityFetcher,
         ChemblEntityFetcherBase,
         EntityConfig,
     )
+    from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
     from bioetl.clients.client_chembl_iterator import (
         ChemblEntityIterator,
         ChemblEntityIteratorBase,
     )
     from bioetl.clients.entities.client_activity import ChemblActivityClient
+    from bioetl.clients.entities.client_assay import ChemblAssayClient
     from bioetl.clients.entities.client_assay_class_map import (
         ChemblAssayClassMapEntityClient,
     )
     from bioetl.clients.entities.client_assay_classification import (
         ChemblAssayClassificationEntityClient,
     )
+    from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
     from bioetl.clients.entities.client_assay_parameters import (
         ChemblAssayParametersEntityClient,
     )
@@ -48,9 +47,6 @@ if TYPE_CHECKING:
     from bioetl.clients.entities.client_target import ChemblTargetClient
     from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 
-    BaseEntityClient = ChemblEntityClientBase
-
-
 __all__ = [
     "ChemblClient",
     "ChemblAssayClient",
@@ -60,11 +56,9 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestitemClient",
     "ChemblEntityFetcherBase",
-    "ChemblEntityFetcher",
     "ChemblEntityIteratorBase",
     "ChemblEntityIterator",
     "ChemblEntityClientBase",
-    "BaseEntityClient",
     "EntityConfig",
     "ChemblMoleculeEntityClient",
     "ChemblDataValidityEntityClient",
@@ -77,26 +71,24 @@ __all__ = [
 
 _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
     "ChemblClient": ("bioetl.clients.client_chembl", "ChemblClient"),
-    "ChemblAssayClient": ("bioetl.clients.assay.client_chembl_assay", "ChemblAssayClient"),
+    "ChemblAssayClient": ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
     "ChemblAssayEntityClient": (
-        "bioetl.clients.assay.client_chembl_assay_entity",
+        "bioetl.clients.entities.client_assay_entity",
         "ChemblAssayEntityClient",
     ),
     "ChemblEntityFetcherBase": (
         "bioetl.clients.client_chembl_base",
         "ChemblEntityFetcherBase",
     ),
-    "ChemblEntityFetcher": ("bioetl.clients.client_chembl_base", "ChemblEntityFetcher"),
     "ChemblEntityIteratorBase": (
         "bioetl.clients.client_chembl_iterator",
         "ChemblEntityIteratorBase",
     ),
     "ChemblEntityIterator": ("bioetl.clients.client_chembl_iterator", "ChemblEntityIterator"),
     "ChemblEntityClientBase": (
-        "bioetl.clients.client_base_entity",
+        "bioetl.clients.client_chembl_entity",
         "ChemblEntityClientBase",
     ),
-    "BaseEntityClient": ("bioetl.clients.client_base_entity", "BaseEntityClient"),
     "EntityConfig": ("bioetl.clients.client_chembl_base", "EntityConfig"),
     "ChemblActivityClient": ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
     "ChemblDocumentClient": ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),

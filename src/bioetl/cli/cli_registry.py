@@ -14,7 +14,7 @@ from typing import Any
 
 from bioetl.pipelines.base import PipelineBase
 
-__all__ = ["CommandConfig", "COMMAND_REGISTRY"]
+__all__ = ["CommandConfig", "ToolCommandConfig", "COMMAND_REGISTRY", "TOOL_COMMANDS"]
 
 
 @dataclass(frozen=True)
@@ -25,6 +25,16 @@ class CommandConfig:
     description: str
     pipeline_class: type[Any]
     default_config_path: Path | None = None
+
+
+@dataclass(frozen=True)
+class ToolCommandConfig:
+    """Configuration for standalone CLI tools shipped with BioETL."""
+
+    name: str
+    description: str
+    module: str
+    attribute: str = "app"
 
 
 def build_command_config_activity() -> CommandConfig:
@@ -163,4 +173,17 @@ COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
     # "crossref": build_command_config_crossref,
     # "pubmed": build_command_config_pubmed,
     # "semantic_scholar": build_command_config_semantic_scholar,
+}
+
+
+TOOL_COMMANDS: dict[str, ToolCommandConfig] = {
+    "qc_boundary_check": ToolCommandConfig(
+        name="bioetl-qc-boundary-check",
+        description=(
+            "Статическая проверка, гарантирующая отсутствие прямых и косвенных импорта "
+            "bioetl.qc из слоя CLI."
+        ),
+        module="bioetl.cli.tools.qc_boundary_check",
+        attribute="main",
+    ),
 }

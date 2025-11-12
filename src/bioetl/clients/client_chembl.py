@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, cast
 
-from bioetl.clients.assay.client_chembl_assay_entity import ChemblAssayEntityClient
 from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
 from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
 from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
 from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
+from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
 from bioetl.clients.entities.client_compound_record import ChemblCompoundRecordEntityClient
 from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient

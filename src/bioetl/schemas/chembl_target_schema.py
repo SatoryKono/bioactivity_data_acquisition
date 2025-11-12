@@ -60,6 +60,7 @@ TargetSchema = create_schema(
     version=SCHEMA_VERSION,
     name="TargetSchema",
     strict=True,
+    column_order=COLUMN_ORDER,
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TARGET_TYPES", "TargetSchema"]

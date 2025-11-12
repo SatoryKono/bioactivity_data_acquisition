@@ -11,6 +11,8 @@ import hashlib
 import time
 import uuid
 from abc import ABC, abstractmethod
+from builtins import ConnectionError as BuiltinConnectionError
+from builtins import TimeoutError as BuiltinTimeoutError
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -24,9 +26,10 @@ from pandas import Series
 from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients import client_exceptions
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
@@ -39,16 +42,21 @@ from bioetl.core.output import (
     write_yaml_atomic,
 )
 from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
-from bioetl.qc.report import (
-    build_correlation_report as build_default_correlation_report,
-)
-from bioetl.qc.report import (
-    build_qc_metrics_payload,
-)
-from bioetl.qc.report import (
-    build_quality_report as build_default_quality_report,
-)
+from bioetl.pipelines.errors import PipelineError, map_client_exc
+from bioetl.qc.report import build_correlation_report as build_default_correlation_report
+from bioetl.qc.report import build_qc_metrics_payload
+from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry, get_schema
+
+_NETWORK_ERROR_TYPES = (
+    client_exceptions.Timeout,
+    client_exceptions.HTTPError,
+    client_exceptions.RequestException,
+    client_exceptions.ConnectionError,
+    BuiltinConnectionError,
+    BuiltinTimeoutError,
+    CircuitBreakerOpenError,
+)
 
 
 @dataclass(frozen=True)
@@ -988,7 +996,13 @@ class PipelineBase(ABC):
             msg = "base_url must be a string"
             raise TypeError(msg)
 
-        client = factory.for_source("chembl", base_url=base_url)
+        try:
+            client = factory.for_source("chembl", base_url=base_url)
+        except Exception as exc:
+            if isinstance(exc, _NETWORK_ERROR_TYPES):
+                mapped = map_client_exc(exc)
+                raise mapped from exc
+            raise
         self.register_client("chembl_client", client)
 
         log = UnifiedLogger.get(__name__)
@@ -1521,8 +1535,27 @@ class PipelineBase(ABC):
 
             return result
 
+        except PipelineError as exc:
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(exc),
+                error_type=exc.__class__.__name__,
+                exc_info=True,
+            )
+            raise
+        except _NETWORK_ERROR_TYPES as exc:
+            mapped = map_client_exc(exc)
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(mapped),
+                error_type=mapped.__class__.__name__,
+                exc_info=True,
+            )
+            raise mapped from exc
         except Exception as exc:
-            log.error(LogEvents.STAGE_RUN_ERROR, error=str(exc), exc_info=True)
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(exc),
+                error_type=exc.__class__.__name__,
+                exc_info=True,
+            )
             raise
 
         finally:

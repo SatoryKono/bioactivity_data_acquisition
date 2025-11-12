@@ -144,6 +144,7 @@ TestItemSchema = create_schema(
     version=SCHEMA_VERSION,
     name="TestItemSchema",
     strict=True,
+    column_order=COLUMN_ORDER,
 )
 
 __all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TestItemSchema"]

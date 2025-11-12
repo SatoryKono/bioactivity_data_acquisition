@@ -16,7 +16,7 @@ from bioetl.cli.cli_command import (  # type: ignore[reportMissingImports,report
     _validate_config_path,
     _validate_output_dir,
 )
-from bioetl.clients.exceptions import Timeout  # type: ignore[reportMissingImports]
+from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
 )

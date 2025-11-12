@@ -9,6 +9,8 @@ import pytest  # type: ignore[reportMissingImports]
 
 ENTITY_IMPORTS: tuple[tuple[str, str], ...] = (
     ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
+    ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
+    ("bioetl.clients.entities.client_assay_entity", "ChemblAssayEntityClient"),
     ("bioetl.clients.entities.client_testitem", "ChemblTestitemClient"),
     ("bioetl.clients.entities.client_target", "ChemblTargetClient"),
     ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),

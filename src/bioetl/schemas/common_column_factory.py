@@ -325,6 +325,42 @@ def uuid_column(*, nullable: bool = False, unique: bool = False) -> Column:
     )
 
 
+def chembl_molecule_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Return a column enforcing canonical ChEMBL molecule identifiers."""
+
+    return chembl_id_column(nullable=nullable, unique=unique)
+
+
+def chembl_assay_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Return a column enforcing canonical ChEMBL assay identifiers."""
+
+    return chembl_id_column(nullable=nullable, unique=unique)
+
+
+def chembl_target_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Return a column enforcing canonical ChEMBL target identifiers."""
+
+    return chembl_id_column(nullable=nullable, unique=unique)
+
+
+def chembl_document_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Return a column enforcing canonical ChEMBL document identifiers."""
+
+    return chembl_id_column(nullable=nullable, unique=unique)
+
+
+def chembl_testitem_id_column(*, nullable: bool = True, unique: bool = False) -> Column:
+    """Return a column enforcing canonical ChEMBL test item identifiers."""
+
+    return chembl_id_column(nullable=nullable, unique=unique)
+
+
+def bao_term_id_column(*, nullable: bool = True) -> Column:
+    """Return a column enforcing canonical BAO term identifiers."""
+
+    return bao_id_column(nullable=nullable)
+
+
 __all__ = [
     "CHEMBL_ID_PATTERN",
     "BAO_ID_PATTERN",
@@ -344,4 +380,10 @@ __all__ = [
     "doi_column",
     "nullable_object_column",
     "uuid_column",
+    "chembl_molecule_id_column",
+    "chembl_assay_id_column",
+    "chembl_target_id_column",
+    "chembl_document_id_column",
+    "chembl_testitem_id_column",
+    "bao_term_id_column",
 ]

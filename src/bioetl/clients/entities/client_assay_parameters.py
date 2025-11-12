@@ -5,8 +5,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar
 
-from bioetl.clients.client_base_entity import ChemblEntityClientBase
 from bioetl.clients.client_chembl_base import EntityConfig, make_entity_config
+from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
 
 __all__ = ["ChemblAssayParametersEntityClient"]
 

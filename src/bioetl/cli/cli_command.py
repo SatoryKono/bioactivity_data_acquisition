@@ -4,42 +4,40 @@ from __future__ import annotations
 
 import importlib
 import uuid
-from builtins import (
-    ConnectionError as BuiltinConnectionError,
-)
-from builtins import (
-    TimeoutError as BuiltinTimeoutError,
-)
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 from zoneinfo import ZoneInfo
 
 import typer
-from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_exceptions import (
-    ConnectionError as ClientConnectionError,
-)
-from bioetl.clients.client_exceptions import (
-    HTTPError,
-    RequestException,
-)
-from bioetl.clients.client_exceptions import (
-    Timeout as ClientTimeout,
-)
 from bioetl.config import (
     apply_runtime_overrides,
     load_config,
     load_environment_settings,
 )
-from bioetl.core.api_client import CircuitBreakerOpenError
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.errors import (
+    PipelineError,
+    PipelineHTTPError,
+    PipelineNetworkError,
+    PipelineTimeoutError,
+)
 
 __all__ = ["create_pipeline_command", "CommonOptions"]
+
+
+class LoggerProtocol(Protocol):
+    """Минимальный контракт логгера, используемый фабрикой CLI."""
+
+    def info(self, event: str, /, **context: Any) -> Any:
+        ...
+
+    def error(self, event: str, /, **context: Any) -> Any:
+        ...
 
 
 class CommonOptions:
@@ -349,7 +347,7 @@ def _resolve_pipeline_class(
     *,
     module_name: str,
     class_name: str,
-    log: BoundLogger,
+    log: LoggerProtocol,
     run_id: str,
     command_name: str,
 ) -> type[PipelineBase]:
@@ -395,34 +393,75 @@ def _resolve_pipeline_class(
 def _handle_pipeline_exception(
     *,
     exc: Exception,
-    log: BoundLogger,
+    log: LoggerProtocol,
     run_id: str,
     command_name: str,
 ) -> None:
     """Map runtime exceptions to deterministic exit codes and logs."""
-    network_errors = (
-        ClientConnectionError,
-        BuiltinConnectionError,
-        BuiltinTimeoutError,
-        ClientTimeout,
-        HTTPError,
-        RequestException,
-        CircuitBreakerOpenError,
-    )
-    if isinstance(exc, network_errors):
+
+    if isinstance(exc, PipelineTimeoutError):
         log.error(LogEvents.CLI_PIPELINE_API_ERROR,
             run_id=run_id,
             pipeline=command_name,
             error=str(exc),
+            error_type=exc.__class__.__name__,
+            cause=str(exc.__cause__) if exc.__cause__ else None,
             exc_info=True,
         )
-        _echo_error("E003", f"External API failure: {exc}")
+        _echo_error(
+            "E003",
+            "Внешний источник не ответил вовремя. Повторите запуск после проверки конфигурации.",
+        )
         raise typer.Exit(code=3) from exc
+
+    if isinstance(exc, PipelineHTTPError):
+        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+            run_id=run_id,
+            pipeline=command_name,
+            error=str(exc),
+            error_type=exc.__class__.__name__,
+            cause=str(exc.__cause__) if exc.__cause__ else None,
+            exc_info=True,
+        )
+        _echo_error(
+            "E003",
+            "Внешний источник вернул некорректный ответ. См. логи для деталей и повторите запуск.",
+        )
+        raise typer.Exit(code=3) from exc
+
+    if isinstance(exc, PipelineNetworkError):
+        log.error(LogEvents.CLI_PIPELINE_API_ERROR,
+            run_id=run_id,
+            pipeline=command_name,
+            error=str(exc),
+            error_type=exc.__class__.__name__,
+            cause=str(exc.__cause__) if exc.__cause__ else None,
+            exc_info=True,
+        )
+        _echo_error(
+            "E003",
+            "Не удалось связаться с внешним источником данных. Проверьте сеть и повторите запуск.",
+        )
+        raise typer.Exit(code=3) from exc
+
+    if isinstance(exc, PipelineError):
+        log.error(LogEvents.CLI_RUN_ERROR,
+            run_id=run_id,
+            pipeline=command_name,
+            error=str(exc),
+            error_type=exc.__class__.__name__,
+            cause=str(exc.__cause__) if exc.__cause__ else None,
+            exc_info=True,
+        )
+        _echo_error("E001", f"Пайплайн завершился с ошибкой: {exc}")
+        raise typer.Exit(code=1) from exc
 
     log.error(LogEvents.CLI_RUN_ERROR,
         run_id=run_id,
         pipeline=command_name,
         error=str(exc),
+        error_type=exc.__class__.__name__,
+        cause=str(exc.__cause__) if exc.__cause__ else None,
         exc_info=True,
     )
     _echo_error("E001", f"Pipeline execution failed: {exc}")

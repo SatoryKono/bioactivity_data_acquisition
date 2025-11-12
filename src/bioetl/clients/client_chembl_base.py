@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -16,7 +15,6 @@ __all__ = [
     "ChemblEntityFetcherBase",
     "ChemblClientProtocol",
     "make_entity_config",
-    "ChemblEntityFetcher",
 ]
 
 
@@ -322,15 +320,3 @@ class ChemblEntityFetcherBase:
         )
         return result
 
-
-class ChemblEntityFetcher(ChemblEntityFetcherBase):
-    """Устаревший алиас для :class:`ChemblEntityFetcherBase`."""
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        warnings.warn(
-            "ChemblEntityFetcher устарел и будет удалён в будущих версиях. "
-            "Используйте ChemblEntityFetcherBase.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(*args, **kwargs)

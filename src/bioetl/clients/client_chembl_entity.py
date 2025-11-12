@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
 from typing import ClassVar
 
 from bioetl.clients.client_chembl_base import (
@@ -11,8 +10,7 @@ from bioetl.clients.client_chembl_base import (
     EntityConfig,
 )
 
-__all__ = ["ChemblEntityClientBase", "BaseEntityClient"]
-
+__all__ = ["ChemblEntityClientBase"]
 
 class ChemblEntityClientBase(ChemblEntityFetcherBase):
     """Базовый клиент, использующий EntityConfig, созданный через make_entity_config."""
@@ -30,16 +28,3 @@ class ChemblEntityClientBase(ChemblEntityFetcherBase):
             )
         super().__init__(chembl_client=chembl_client, config=config)
 
-
-class BaseEntityClient(ChemblEntityClientBase):
-    """Устаревший алиас для :class:`ChemblEntityClientBase`."""
-
-    def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать устаревший алиас и вывести предупреждение."""
-        warnings.warn(
-            "BaseEntityClient устарел и будет удалён в будущих версиях. "
-            "Используйте ChemblEntityClientBase.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        super().__init__(chembl_client=chembl_client)

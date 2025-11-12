@@ -156,6 +156,7 @@ _BASE_SCHEMA = create_schema(
     version=SCHEMA_VERSION,
     name="LoadMetaSchema",
     strict=True,
+    column_order=COLUMN_ORDER,
     checks=[Check(_time_window_consistent, axis=1, name="time_window_consistency", element_wise=False)],
 )
 LoadMetaSchema = _BASE_SCHEMA
