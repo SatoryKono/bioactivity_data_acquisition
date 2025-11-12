@@ -10,6 +10,7 @@ from the static registry.
 from __future__ import annotations
 
 import importlib
+from collections.abc import Mapping
 from typing import Any, Callable, cast
 
 from bioetl.cli.cli_command import create_pipeline_command
@@ -27,8 +28,14 @@ _log = UnifiedLogger.get(__name__)
 __all__ = ["app", "create_app", "run"]
 
 
-def create_app() -> TyperApp:
+def create_app(
+    command_registry: Mapping[str, Callable[[], Any]] | None = None,
+    tool_commands: Mapping[str, ToolCommandConfig] | None = None,
+) -> TyperApp:
     """Create and configure the Typer application with all registered commands."""
+    registry = dict(command_registry or COMMAND_REGISTRY)
+    tools = dict(tool_commands or TOOL_COMMANDS)
+
     app = create_typer_app(
         name="bioetl",
         help_text="BioETL command-line interface for executing ETL pipelines.",
@@ -38,9 +45,9 @@ def create_app() -> TyperApp:
     def list_commands() -> None:
         """List all available pipeline and tool commands."""
         typer.echo("[bioetl-cli] Registered pipeline commands:")
-        for command_name in sorted(COMMAND_REGISTRY.keys()):
+        for command_name in sorted(registry.keys()):
             try:
-                config = COMMAND_REGISTRY[command_name]()
+                config = registry[command_name]()
             except NotImplementedError:
                 typer.echo(f"  {command_name:<20} - not implemented")
                 continue
@@ -56,12 +63,12 @@ def create_app() -> TyperApp:
 
             typer.echo(f"  {command_name:<20} - {config.description}")
 
-        if TOOL_COMMANDS:
+        if tools:
             typer.echo("[bioetl-cli] Registered utility commands:")
-            for tool_name, tool_config in sorted(TOOL_COMMANDS.items()):
+            for tool_name, tool_config in sorted(tools.items()):
                 typer.echo(f"  {tool_name:<20} - {tool_config.description}")
 
-    for command_name, build_config_func in COMMAND_REGISTRY.items():
+    for command_name, build_config_func in registry.items():
         try:
             command_config = build_config_func()
             command_func = create_pipeline_command(
@@ -83,7 +90,7 @@ def create_app() -> TyperApp:
                 err=True,
             )
 
-    for tool_name, tool_config in TOOL_COMMANDS.items():
+    for tool_name, tool_config in tools.items():
         try:
             entrypoint = _load_tool_entrypoint(tool_config)
             app.command(name=tool_name)(entrypoint)

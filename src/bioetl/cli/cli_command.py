@@ -12,11 +12,9 @@ from zoneinfo import ZoneInfo
 
 import typer
 
-from bioetl.config import (
-    apply_runtime_overrides,
-    load_config,
-    load_environment_settings,
-)
+from bioetl.config.environment import apply_runtime_overrides, load_environment_settings
+from bioetl.config.loader import load_config
+from bioetl.core.cli_base import CliCommandBase
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase
@@ -71,6 +69,172 @@ class CommonOptions:
         self.golden = golden
 
 
+class PipelineCliCommand(CliCommandBase):
+    """Реализация Typer-команды для запуска пайплайна."""
+
+    def __init__(
+        self,
+        *,
+        pipeline_module_name: str,
+        pipeline_class_name: str,
+        command_config: Any,
+    ) -> None:
+        super().__init__(logger=UnifiedLogger.get(__name__))
+        self._pipeline_module_name = pipeline_module_name
+        self._pipeline_class_name = pipeline_class_name
+        self._command_config = command_config
+        self._run_id: str | None = None
+
+    def handle(
+        self,
+        *,
+        config: Path,
+        output_dir: Path,
+        dry_run: bool,
+        verbose: bool,
+        set_overrides: list[str],
+        sample: int | None,
+        limit: int | None,
+        extended: bool,
+        fail_on_schema_drift: bool,
+        validate_columns: bool,
+        golden: Path | None,
+        input_file: Path | None,
+    ) -> None:
+        if limit is not None and sample is not None:
+            raise typer.BadParameter("--limit and --sample are mutually exclusive")
+
+        try:
+            env_settings = load_environment_settings()
+        except ValueError as exc:
+            self.emit_error("E002", f"Environment validation failed: {exc}")
+            self.exit(2)
+
+        apply_runtime_overrides(env_settings)
+
+        _validate_config_path(config)
+        _validate_output_dir(output_dir)
+
+        cli_overrides: dict[str, Any] = {}
+        if set_overrides:
+            cli_overrides = _parse_set_overrides(set_overrides)
+
+        try:
+            pipeline_config = load_config(
+                config_path=config,
+                cli_overrides=cli_overrides,
+                include_default_profiles=True,
+            )
+        except FileNotFoundError as exc:
+            self.emit_error(
+                "E002",
+                f"Configuration file or referenced profile not found: {exc}",
+            )
+            self.exit(2)
+        except ValueError as exc:
+            self.emit_error("E002", f"Configuration validation failed: {exc}")
+            self.exit(2)
+
+        pipeline_config.cli.dry_run = dry_run
+        if limit is not None:
+            pipeline_config.cli.limit = limit
+        if sample is not None:
+            pipeline_config.cli.sample = sample
+        pipeline_config.cli.extended = extended
+        if golden is not None:
+            pipeline_config.cli.golden = str(golden)
+        if input_file is not None:
+            pipeline_config.cli.input_file = str(input_file)
+        pipeline_config.cli.verbose = verbose
+        pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
+        pipeline_config.cli.validate_columns = validate_columns
+        if not validate_columns:
+            pipeline_config.validation.strict = False
+
+        pipeline_config.materialization.root = str(output_dir)
+
+        log_level = "DEBUG" if verbose else "INFO"
+        UnifiedLogger.configure(LoggerConfig(level=log_level))
+
+        if dry_run:
+            typer.echo("Configuration validated successfully (dry-run mode)")
+            self.exit(0)
+
+        run_id = str(uuid.uuid4())
+        self._run_id = run_id
+
+        timezone_name = pipeline_config.determinism.environment.timezone
+        try:
+            tz = ZoneInfo(timezone_name)
+        except Exception:  # pragma: no cover - fallback path
+            tz = ZoneInfo("UTC")
+        pipeline_config.cli.date_tag = pipeline_config.cli.date_tag or datetime.now(tz).strftime(
+            "%Y%m%d"
+        )
+
+        log = self.logger
+        log.info(
+            LogEvents.CLI_RUN_START,
+            pipeline=self._command_config.name,
+            config=str(config),
+            output_dir=str(output_dir),
+            run_id=run_id,
+            dry_run=dry_run,
+            limit=limit,
+            extended=extended,
+        )
+
+        pipeline_factory = _resolve_pipeline_class(
+            module_name=self._pipeline_module_name,
+            class_name=self._pipeline_class_name,
+            log=log,
+            run_id=run_id,
+            command_name=self._command_config.name,
+        )
+        pipeline = pipeline_factory(pipeline_config, run_id)
+
+        postprocess_config = getattr(pipeline_config, "postprocess", None)
+        correlation_section = getattr(postprocess_config, "correlation", None)
+        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
+        effective_extended = bool(extended or pipeline_config.cli.extended)
+        run_kwargs: dict[str, Any] = {
+            "extended": effective_extended,
+            "include_correlation": effective_extended or correlation_enabled,
+            "include_qc_metrics": effective_extended,
+        }
+
+        try:
+            result = pipeline.run(
+                Path(output_dir),
+                **run_kwargs,
+            )
+        except typer.Exit:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            self.handle_exception(exc)
+            return
+
+        log.info(
+            LogEvents.CLI_RUN_FINISH,
+            run_id=run_id,
+            pipeline=self._command_config.name,
+            dataset=str(result.write_result.dataset),
+            duration_ms=sum(result.stage_durations_ms.values()),
+        )
+
+        typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
+        self.exit(0)
+
+    def handle_exception(self, exc: Exception) -> NoReturn:
+        run_id = self._run_id or "unknown"
+        _handle_pipeline_exception(
+            exc=exc,
+            log=self.logger,
+            run_id=run_id,
+            command_name=self._command_config.name,
+        )
+        raise typer.Exit(code=self.exit_code_error)
+
 def _parse_set_overrides(set_overrides: list[str]) -> dict[str, Any]:
     """Parse --set KEY=VALUE flags into a dictionary."""
     parsed: dict[str, Any] = {}
@@ -107,26 +271,7 @@ def create_pipeline_command(
     pipeline_class: type[PipelineBase],
     command_config: Any,  # CommandConfig from registry
 ) -> Callable[..., None]:
-    """Create a Typer command function for a pipeline.
-
-    This factory function creates a command function that:
-    1. Loads and validates configuration
-    2. Instantiates the pipeline
-    3. Executes the pipeline run
-    4. Handles errors and exit codes
-
-    Parameters
-    ----------
-    pipeline_class:
-        The pipeline class to instantiate.
-    command_config:
-        The command configuration from the registry.
-
-    Returns
-    -------
-    Callable:
-        A Typer command function ready to be registered.
-    """
+    """Create a Typer command function for a pipeline."""
 
     pipeline_module_name = pipeline_class.__module__
     pipeline_class_name = pipeline_class.__name__
@@ -205,138 +350,25 @@ def create_pipeline_command(
         ),
     ) -> None:
         """Execute the pipeline command."""
-        if limit is not None and sample is not None:
-            raise typer.BadParameter("--limit and --sample are mutually exclusive")
-
-        try:
-            env_settings = load_environment_settings()
-        except ValueError as exc:
-            _echo_error("E002", f"Environment validation failed: {exc}")
-            raise typer.Exit(code=2) from exc
-
-        apply_runtime_overrides(env_settings)
-
-        _validate_config_path(config)
-        _validate_output_dir(output_dir)
-
-        cli_overrides: dict[str, Any] = {}
-        if set_overrides:
-            cli_overrides = _parse_set_overrides(set_overrides)
-
-        try:
-            pipeline_config = load_config(
-                config_path=config,
-                cli_overrides=cli_overrides,
-                include_default_profiles=True,
-            )
-        except FileNotFoundError as exc:
-            _echo_error(
-                "E002",
-                f"Configuration file or referenced profile not found: {exc}",
-            )
-            raise typer.Exit(code=2) from exc
-        except ValueError as exc:
-            _echo_error(
-                "E002",
-                f"Configuration validation failed: {exc}",
-            )
-            raise typer.Exit(code=2) from exc
-
-        # Apply CLI options to config
-        pipeline_config.cli.dry_run = dry_run
-        if limit is not None:
-            pipeline_config.cli.limit = limit
-        if sample is not None:
-            pipeline_config.cli.sample = sample
-        pipeline_config.cli.extended = extended
-        if golden is not None:
-            pipeline_config.cli.golden = str(golden)
-        if input_file is not None:
-            pipeline_config.cli.input_file = str(input_file)
-        pipeline_config.cli.verbose = verbose
-        pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
-        pipeline_config.cli.validate_columns = validate_columns
-        if not validate_columns:
-            pipeline_config.validation.strict = False
-
-        pipeline_config.materialization.root = str(output_dir)
-
-        # Configure logging
-        log_level = "DEBUG" if verbose else "INFO"
-        UnifiedLogger.configure(LoggerConfig(level=log_level))
-
-        if dry_run:
-            typer.echo("Configuration validated successfully (dry-run mode)")
-            raise typer.Exit(code=0)
-
-        # Generate run_id and deterministic date tag
-        run_id = str(uuid.uuid4())
-        timezone_name = pipeline_config.determinism.environment.timezone
-        try:
-            tz = ZoneInfo(timezone_name)
-        except Exception:  # pragma: no cover - invalid timezone handled by defaults
-            tz = ZoneInfo("UTC")
-        pipeline_config.cli.date_tag = pipeline_config.cli.date_tag or datetime.now(tz).strftime(
-            "%Y%m%d"
+        runner = PipelineCliCommand(
+            pipeline_module_name=pipeline_module_name,
+            pipeline_class_name=pipeline_class_name,
+            command_config=command_config,
         )
-
-        log = UnifiedLogger.get(__name__)
-        log.info(LogEvents.CLI_RUN_START,
-            pipeline=command_config.name,
-            config=str(config),
-            output_dir=str(output_dir),
-            run_id=run_id,
+        runner.invoke(
+            config=config,
+            output_dir=output_dir,
             dry_run=dry_run,
+            verbose=verbose,
+            set_overrides=set_overrides,
+            sample=sample,
             limit=limit,
             extended=extended,
+            fail_on_schema_drift=fail_on_schema_drift,
+            validate_columns=validate_columns,
+            golden=golden,
+            input_file=input_file,
         )
-
-        pipeline = _resolve_pipeline_class(
-            module_name=pipeline_module_name,
-            class_name=pipeline_class_name,
-            log=log,
-            run_id=run_id,
-            command_name=command_config.name,
-        )(pipeline_config, run_id)
-
-        postprocess_config = getattr(pipeline_config, "postprocess", None)
-        correlation_section = getattr(postprocess_config, "correlation", None)
-        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
-        effective_extended = bool(extended or pipeline_config.cli.extended)
-        run_kwargs: dict[str, Any] = {
-            "extended": effective_extended,
-            "include_correlation": effective_extended or correlation_enabled,
-            "include_qc_metrics": effective_extended,
-        }
-        # QC artefacts are constructed inside the pipeline implementation;
-        # the CLI only passes orchestration flags without invoking QC helpers.
-
-        try:
-            # Use output_dir as output_path for run()
-            result = pipeline.run(
-                Path(output_dir),
-                **run_kwargs,
-            )
-
-            log.info(LogEvents.CLI_RUN_FINISH,
-                run_id=run_id,
-                pipeline=command_config.name,
-                dataset=str(result.write_result.dataset),
-                duration_ms=sum(result.stage_durations_ms.values()),
-            )
-
-            typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
-            raise typer.Exit(code=0)
-
-        except typer.Exit:
-            raise
-        except Exception as exc:
-            _handle_pipeline_exception(
-                exc=exc,
-                log=log,
-                run_id=run_id,
-                command_name=command_config.name,
-            )
 
     # Set command metadata
     command.__doc__ = command_config.description
@@ -441,7 +473,7 @@ def _handle_pipeline_exception(
 
 def _echo_error(code: str, message: str) -> None:
     """Emit a deterministic error message."""
-    typer.echo(f"[bioetl-cli] ERROR {code}: {message}", err=True)
+    CliCommandBase.emit_error(code, message)
 
 
 def _emit_external_api_failure(

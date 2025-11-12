@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast
 
 from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
@@ -18,12 +20,51 @@ from bioetl.clients.entities.client_compound_record import ChemblCompoundRecordE
 from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
+from bioetl.config.loader import _load_yaml
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 
 __all__ = ["ChemblClient"]
+
+_DEFAULT_STATUS_ENDPOINT = "/status.json"
+_CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defaults" / "chembl.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_chembl_client_defaults() -> Mapping[str, Any]:
+    try:
+        payload = _load_yaml(_CHEMBL_DEFAULTS_PATH)
+    except FileNotFoundError:
+        return {}
+
+    if not isinstance(payload, Mapping):
+        return {}
+
+    # Preferred location under top-level `chembl` (schema-compliant profile).
+    chembl_section = payload.get("chembl")
+    if isinstance(chembl_section, Mapping):
+        return dict(chembl_section)
+
+    # Backwards compatibility for legacy `clients.chembl` structure.
+    clients_section = payload.get("clients")
+    if isinstance(clients_section, Mapping):
+        legacy_chembl = clients_section.get("chembl")
+        if isinstance(legacy_chembl, Mapping):
+            return dict(legacy_chembl)
+
+    return {}
+
+
+def _resolve_status_endpoint() -> str:
+    chembl_defaults = _load_chembl_client_defaults()
+    candidate: Any = chembl_defaults.get("status_endpoint")
+    if isinstance(candidate, str):
+        normalized = candidate.strip()
+        if normalized:
+            return normalized
+    return _DEFAULT_STATUS_ENDPOINT
 
 
 class ChemblClient:
@@ -59,20 +100,27 @@ class ChemblClient:
     # Discovery / handshake
     # ------------------------------------------------------------------
 
-    def handshake(self, endpoint: str = "/status") -> Mapping[str, Any]:
-        """Perform handshake and propagate public network exceptions from ``client_exceptions``."""
+    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]:
+        """Perform the handshake once and cache the payload.
 
-        if endpoint not in self._status_cache:
+        If ``endpoint`` is ``None``, the value is resolved from
+        ``chembl.status_endpoint`` (with backwards compatibility for legacy
+        ``clients.chembl.status_endpoint``; fallback ``"/status.json"``). The
+        effective endpoint is used verbatim; no path normalization is applied.
+        """
+
+        resolved_endpoint = endpoint if endpoint is not None else _resolve_status_endpoint()
+        if resolved_endpoint not in self._status_cache:
             try:
-                response = self._client.get(endpoint)
+                response = self._client.get(resolved_endpoint)
                 payload = response.json()
             except (ConnectionError, Timeout, HTTPError, RequestException) as exc:
                 self._log.error(LogEvents.HTTP_REQUEST_FAILED,
-                    endpoint=endpoint,
+                    endpoint=resolved_endpoint,
                     error=str(exc),
                 )
                 raise
-            self._status_cache[endpoint] = payload
+            self._status_cache[resolved_endpoint] = payload
             release = payload.get("chembl_db_version")
             api_version = payload.get("api_version")
             if isinstance(release, str):
@@ -80,11 +128,11 @@ class ChemblClient:
             if isinstance(api_version, str):
                 self._api_version = api_version
             self._log.info(LogEvents.CHEMBL_HANDSHAKE,
-                endpoint=endpoint,
+                endpoint=resolved_endpoint,
                 chembl_release=self._chembl_release,
                 api_version=self._api_version,
             )
-        return self._status_cache[endpoint]
+        return self._status_cache[resolved_endpoint]
 
     # ------------------------------------------------------------------
     # Pagination helpers

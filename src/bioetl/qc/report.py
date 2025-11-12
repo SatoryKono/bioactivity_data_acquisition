@@ -7,9 +7,10 @@ from typing import Any, Literal, cast
 
 import pandas as pd
 
+from bioetl.core.qc.units import QCUnits
+
 from .metrics import (
     DuplicateStats,
-    compute_categorical_distributions,
     compute_correlation_matrix,
     compute_duplicate_stats,
     compute_missingness,
@@ -20,13 +21,6 @@ __all__ = [
     "build_correlation_report",
     "build_qc_metrics_payload",
 ]
-
-
-_DISTRIBUTION_SUFFIX_UNITS: tuple[str, ...] = ("units",)
-_DISTRIBUTION_SUFFIX_RELATION: tuple[str, ...] = ("relation",)
-_DISTRIBUTION_TOP_N = 20
-_DISTRIBUTION_RATIO_PRECISION = 6
-_DISTRIBUTION_OTHER_BUCKET = "__other__"
 
 
 def _detect_simple_outliers(df: pd.DataFrame) -> dict[str, dict[str, float | int]]:
@@ -107,13 +101,7 @@ def build_quality_report(
                 }
             )
 
-    units_distribution = compute_categorical_distributions(
-        df,
-        column_suffixes=_DISTRIBUTION_SUFFIX_UNITS,
-        top_n=_DISTRIBUTION_TOP_N,
-        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
-        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
-    )
+    units_distribution = QCUnits.for_units(df)
     for column in sorted(units_distribution.keys()):
         for value, info in units_distribution[column].items():
             rows.append(
@@ -127,13 +115,7 @@ def build_quality_report(
                 }
             )
 
-    relation_distribution = compute_categorical_distributions(
-        df,
-        column_suffixes=_DISTRIBUTION_SUFFIX_RELATION,
-        top_n=_DISTRIBUTION_TOP_N,
-        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
-        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
-    )
+    relation_distribution = QCUnits.for_relation(df)
     for column in sorted(relation_distribution.keys()):
         for value, info in relation_distribution[column].items():
             rows.append(
@@ -203,20 +185,8 @@ def build_qc_metrics_payload(
     )
     total_missing = int(missing["missing_count"].sum()) if not missing.empty else 0
 
-    units_distribution = compute_categorical_distributions(
-        df,
-        column_suffixes=_DISTRIBUTION_SUFFIX_UNITS,
-        top_n=_DISTRIBUTION_TOP_N,
-        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
-        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
-    )
-    relation_distribution = compute_categorical_distributions(
-        df,
-        column_suffixes=_DISTRIBUTION_SUFFIX_RELATION,
-        top_n=_DISTRIBUTION_TOP_N,
-        ratio_precision=_DISTRIBUTION_RATIO_PRECISION,
-        other_bucket_label=_DISTRIBUTION_OTHER_BUCKET,
-    )
+    units_distribution = QCUnits.for_units(df)
+    relation_distribution = QCUnits.for_relation(df)
     numeric_outliers = _detect_simple_outliers(df)
 
     payload: dict[str, Any] = {

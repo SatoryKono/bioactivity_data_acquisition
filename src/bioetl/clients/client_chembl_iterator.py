@@ -5,6 +5,8 @@ from __future__ import annotations
 import warnings
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from functools import lru_cache
+from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlencode
 
@@ -13,12 +15,49 @@ from structlog.stdlib import (
 )
 
 from bioetl.clients.client_chembl_base import EntityConfig
+from bioetl.config.loader import _load_yaml
 from bioetl.core.logger import UnifiedLogger
 
 # ChemblClient is dynamically loaded in __init__.py, so we use Any for type checking
 # Import is done at runtime to avoid circular dependencies
 
 __all__ = ["ChemblEntityIteratorBase", "ChemblEntityIterator"]
+
+_DEFAULT_STATUS_ENDPOINT = "/status.json"
+_CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defaults" / "chembl.yaml"
+
+
+@lru_cache(maxsize=1)
+def _load_chembl_client_defaults() -> Mapping[str, Any]:
+    try:
+        payload = _load_yaml(_CHEMBL_DEFAULTS_PATH)
+    except FileNotFoundError:
+        return {}
+
+    if not isinstance(payload, Mapping):
+        return {}
+
+    chembl_section = payload.get("chembl")
+    if isinstance(chembl_section, Mapping):
+        return dict(chembl_section)
+
+    clients_section = payload.get("clients")
+    if isinstance(clients_section, Mapping):
+        legacy_chembl = clients_section.get("chembl")
+        if isinstance(legacy_chembl, Mapping):
+            return dict(legacy_chembl)
+
+    return {}
+
+
+def _resolve_status_endpoint() -> str:
+    chembl_defaults = _load_chembl_client_defaults()
+    candidate: Any = chembl_defaults.get("status_endpoint")
+    if isinstance(candidate, str):
+        normalized = candidate.strip()
+        if normalized:
+            return normalized
+    return _DEFAULT_STATUS_ENDPOINT
 
 
 class ChemblEntityIteratorBase:
@@ -101,15 +140,20 @@ class ChemblEntityIteratorBase:
     def handshake(
         self,
         *,
-        endpoint: str = "/status.json",
+        endpoint: str | None = None,
         enabled: bool = True,
     ) -> Mapping[str, object]:
         """Выполнить handshake и кэшировать идентификатор release.
 
+        Если ``endpoint`` не указан, используется значение из
+        ``chembl.status_endpoint`` (при сохранении обратной совместимости
+        с legacy ``clients.chembl.status_endpoint``; fallback ``"/status.json"``).
+        Значение интерпретируется буквально; пути не нормализуются автоматически.
+
         Parameters
         ----------
         endpoint:
-            Endpoint для handshake. По умолчанию "/status.json".
+            Endpoint для handshake.
         enabled:
             Если False, handshake не выполняется. По умолчанию True.
 
@@ -118,23 +162,24 @@ class ChemblEntityIteratorBase:
         Mapping[str, object]:
             Payload ответа от handshake или пустой словарь, если disabled.
         """
+        resolved_endpoint = endpoint if endpoint is not None else _resolve_status_endpoint()
         if not enabled:
             self._log.info(  # pyright: ignore[reportUnknownMemberType]
                 f"{self._config.log_prefix}.handshake.skipped",
-                handshake_endpoint=endpoint,
+                handshake_endpoint=resolved_endpoint,
                 handshake_enabled=enabled,
                 phase="skip",
             )
             return {}
 
-        payload = self._chembl_client.handshake(endpoint)
+        payload = self._chembl_client.handshake(resolved_endpoint)
         release = payload.get("chembl_db_version")
         if isinstance(release, str):
             self._chembl_release = release
 
         self._log.info(  # pyright: ignore[reportUnknownMemberType]
             f"{self._config.log_prefix}.handshake",
-            handshake_endpoint=endpoint,
+            handshake_endpoint=resolved_endpoint,
             handshake_enabled=enabled,
             chembl_release=self._chembl_release,
         )

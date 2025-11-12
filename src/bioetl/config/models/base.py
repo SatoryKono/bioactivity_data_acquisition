@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import MISSING, fields, is_dataclass
-from typing import Any, Literal, Protocol, Type, TypeVar
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -22,18 +21,6 @@ from .source import SourceConfig
 from .telemetry import TelemetryConfig
 from .transform import TransformConfig
 from .validation import ValidationConfig
-
-SourceConfigModelT = TypeVar("SourceConfigModelT", bound=BaseModel)
-SourceParametersT = TypeVar("SourceParametersT", bound="SourceParametersProtocol")
-
-
-class SourceParametersProtocol(Protocol):
-    @classmethod
-    def from_mapping(
-        cls: Type[SourceParametersT], params: Mapping[str, Any]
-    ) -> SourceParametersT:
-        ...
-
 
 class PipelineMetadata(BaseModel):
     """Descriptive metadata for the pipeline itself."""
@@ -157,76 +144,3 @@ class PipelineCommonCompat:
 
     def __getattr__(self, item: str) -> Any:
         return getattr(self._cli, item)
-
-
-def _resolve_batch_field(cls: Type[Any]) -> str:
-    if hasattr(cls, "model_fields"):
-        model_fields = getattr(cls, "model_fields")
-        if "batch_size" in model_fields:
-            return "batch_size"
-        if "page_size" in model_fields:
-            return "page_size"
-    if is_dataclass(cls):
-        cls_fields = {field.name for field in fields(cls)}
-        if "batch_size" in cls_fields:
-            return "batch_size"
-        if "page_size" in cls_fields:
-            return "page_size"
-    return "batch_size"
-
-
-def _extract_int(value: object) -> int | None:
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        return value
-    return None
-
-
-def _default_batch_size(cls: Type[Any], field_name: str, fallback: int) -> int:
-    if hasattr(cls, "model_fields"):
-        field = getattr(cls, "model_fields").get(field_name)
-        if field is not None:
-            default = getattr(field, "default", None)
-            default_int = _extract_int(default)
-            if default_int is not None:
-                return default_int
-    if is_dataclass(cls):
-        for field in fields(cls):
-            if field.name == field_name:
-                default_raw = field.default
-                if default_raw is not MISSING:
-                    default_int = _extract_int(default_raw)
-                    if default_int is not None:
-                        return default_int
-                if field.default_factory is not MISSING:
-                    candidate_raw = field.default_factory()
-                    candidate_int = _extract_int(candidate_raw)
-                    if candidate_int is not None:
-                        return candidate_int
-    return fallback
-
-
-def build_source_config(
-    cls: Type[SourceConfigModelT],
-    params_cls: Type[SourceParametersT],
-    config: SourceConfig,
-) -> SourceConfigModelT:
-    batch_field = _resolve_batch_field(cls)
-    default_batch = _default_batch_size(cls, batch_field, fallback=25)
-    batch_value = getattr(config, "batch_size", None)
-    if batch_value is None:
-        batch_value = default_batch
-
-    parameters = params_cls.from_mapping(getattr(config, "parameters"))
-
-    payload: dict[str, Any] = {
-        "enabled": getattr(config, "enabled"),
-        "description": getattr(config, "description"),
-        "http_profile": getattr(config, "http_profile"),
-        "http": getattr(config, "http"),
-        "parameters": parameters,
-    }
-    payload[batch_field] = batch_value
-
-    return cls(**payload)

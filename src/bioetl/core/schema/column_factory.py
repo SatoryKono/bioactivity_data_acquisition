@@ -1,0 +1,186 @@
+"""Унифицированная фабрика столбцов Pandera для схем данных."""
+
+from __future__ import annotations
+
+from collections.abc import Collection
+from typing import Any, ClassVar
+
+import pandas as pd
+import pandera as pa
+from pandera import Check, Column
+
+
+class SchemaColumnFactory:
+    """Фабрика повторно используемых Pandera-столбцов."""
+
+    CHEMBL_ID_PATTERN: ClassVar[str] = r"^CHEMBL\d+$"
+    BAO_ID_PATTERN: ClassVar[str] = r"^BAO_\d{7}$"
+    DOI_PATTERN: ClassVar[str] = r"^10\.\d{4,9}/\S+$"
+    UUID_PATTERN: ClassVar[str] = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+
+    @classmethod
+    def string(
+        cls,
+        *,
+        nullable: bool = True,
+        unique: bool = False,
+        pattern: str | None = None,
+        isin: Collection[str] | None = None,
+        length: tuple[int, int] | None = None,
+    ) -> Column:
+        """Создать строковый столбец с набором проверок."""
+
+        checks: list[Check] = []
+        if pattern is not None:
+            checks.append(Check.str_matches(pattern))
+        if isin is not None:
+            checks.append(Check.isin(list(isin)))
+        if length is not None:
+            checks.append(Check.str_length(length[0], length[1]))
+
+        dtype: Any = pa.String
+        return Column(
+            dtype,
+            checks=checks or None,
+            nullable=nullable,
+            unique=unique,
+        )
+
+    @classmethod
+    def int64(
+        cls,
+        *,
+        nullable: bool = True,
+        ge: int | None = None,
+        le: int | None = None,
+        isin: Collection[int] | None = None,
+        unique: bool = False,
+        pandas_nullable: bool = False,
+    ) -> Column:
+        """Создать целочисленный столбец Int64."""
+
+        checks: list[Check] = []
+        if ge is not None:
+            checks.append(Check.ge(ge))
+        if le is not None:
+            checks.append(Check.le(le))
+        if isin is not None:
+            checks.append(Check.isin(list(isin)))
+
+        dtype: Any = pd.Int64Dtype() if pandas_nullable else pa.Int64
+        return Column(
+            dtype,
+            checks=checks or None,
+            nullable=nullable,
+            unique=unique,
+        )
+
+    @classmethod
+    def float64(
+        cls,
+        *,
+        nullable: bool = True,
+        ge: float | None = None,
+        le: float | None = None,
+    ) -> Column:
+        """Создать столбец Float64 с опциональными ограничениями."""
+
+        checks: list[Check] = []
+        if ge is not None:
+            checks.append(Check.ge(ge))
+        if le is not None:
+            checks.append(Check.le(le))
+
+        return Column(
+            pa.Float64,
+            checks=checks or None,
+            nullable=nullable,
+        )
+
+    @classmethod
+    def boolean_flag(cls, *, use_boolean_dtype: bool = True) -> Column:
+        """Создать булев флаг."""
+
+        if use_boolean_dtype:
+            return Column(pd.BooleanDtype(), nullable=True)
+        return Column(
+            pd.Int64Dtype(),
+            Check.isin([0, 1]),
+            nullable=True,
+        )
+
+    @classmethod
+    def object(cls, *, nullable: bool = True) -> Column:
+        """Создать object-столбец."""
+
+        return Column(pa.Object, nullable=nullable)
+
+    @classmethod
+    def row_metadata(cls) -> dict[str, Column]:
+        """Вернуть набор стандартных столбцов метаданных строки."""
+
+        return {
+            "row_subtype": cls.string(nullable=False),
+            "row_index": cls.int64(nullable=False, ge=0),
+        }
+
+    @classmethod
+    def chembl_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Столбец для идентификаторов ChEMBL."""
+
+        return cls.string(pattern=cls.CHEMBL_ID_PATTERN, nullable=nullable, unique=unique)
+
+    @classmethod
+    def bao_id(cls, *, nullable: bool = True) -> Column:
+        """Столбец для идентификаторов BAO."""
+
+        return cls.string(pattern=cls.BAO_ID_PATTERN, nullable=nullable)
+
+    @classmethod
+    def doi(cls, *, nullable: bool = True) -> Column:
+        """Столбец для DOI."""
+
+        return cls.string(pattern=cls.DOI_PATTERN, nullable=nullable)
+
+    @classmethod
+    def uuid(cls, *, nullable: bool = False, unique: bool = False) -> Column:
+        """Столбец UUID в каноническом формате."""
+
+        return cls.string(pattern=cls.UUID_PATTERN, nullable=nullable, unique=unique)
+
+    @classmethod
+    def chembl_molecule_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Алиас для идентификаторов молекул ChEMBL."""
+
+        return cls.chembl_id(nullable=nullable, unique=unique)
+
+    @classmethod
+    def chembl_assay_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Алиас для идентификаторов ассев ChEMBL."""
+
+        return cls.chembl_id(nullable=nullable, unique=unique)
+
+    @classmethod
+    def chembl_target_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Алиас для идентификаторов таргетов ChEMBL."""
+
+        return cls.chembl_id(nullable=nullable, unique=unique)
+
+    @classmethod
+    def chembl_document_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Алиас для идентификаторов документов ChEMBL."""
+
+        return cls.chembl_id(nullable=nullable, unique=unique)
+
+    @classmethod
+    def chembl_testitem_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
+        """Алиас для идентификаторов тестовых объектов ChEMBL."""
+
+        return cls.chembl_id(nullable=nullable, unique=unique)
+
+    @classmethod
+    def bao_term_id(cls, *, nullable: bool = True) -> Column:
+        """Алиас для идентификаторов терминов BAO."""
+
+        return cls.bao_id(nullable=nullable)
+

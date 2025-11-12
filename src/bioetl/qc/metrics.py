@@ -4,10 +4,11 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from decimal import Decimal, ROUND_HALF_UP
-from typing import TypedDict
+from decimal import ROUND_HALF_UP, Decimal
+from typing import TypedDict, cast
 
 import pandas as pd
+from pandas._typing import Scalar
 
 
 def _string_dtype_repr(self: pd.StringDtype) -> str:
@@ -90,7 +91,7 @@ class CategoricalDistributionEntry(TypedDict):
 CategoricalDistribution = dict[str, dict[str, CategoricalDistributionEntry]]
 
 
-def _default_value_normalizer(value: object) -> str:
+def _default_value_normalizer(value: Scalar | None) -> str:
     """Normalize raw categorical values to canonical textual keys."""
 
     if pd.isna(value):
@@ -144,7 +145,7 @@ def compute_categorical_distributions(
     df: pd.DataFrame,
     *,
     column_suffixes: Sequence[str],
-    value_normalizer: Callable[[object], str] | None = None,
+    value_normalizer: Callable[[Scalar | None], str] | None = None,
     top_n: int = 20,
     ratio_precision: int = 6,
     other_bucket_label: str = "__other__",
@@ -173,7 +174,7 @@ def compute_categorical_distributions(
         msg = "ratio_precision must be non-negative"
         raise ValueError(msg)
 
-    normalizer = value_normalizer or _default_value_normalizer
+    normalizer: Callable[[Scalar | None], str] = value_normalizer or _default_value_normalizer
 
     matched_columns = [
         column
@@ -191,7 +192,7 @@ def compute_categorical_distributions(
         raw_counts = series.astype("object").value_counts(dropna=False, sort=False)
         aggregated: dict[str, int] = defaultdict(int)
         for raw_value, raw_count in raw_counts.items():
-            normalized_value = normalizer(raw_value)
+            normalized_value = normalizer(cast(Scalar | None, raw_value))
             aggregated[normalized_value] += int(raw_count)
 
         # Determine priority order for top-N selection.
@@ -221,7 +222,7 @@ def compute_categorical_distributions(
         ]
         quantized = _ensure_ratio_sum(ratio_entries, precision=ratio_precision)
 
-        if pd.isna(column):
+        if pd.isna(cast(Scalar | None, column)):
             msg = f"Column key must not be NaN: {column!r}"
             raise ValueError(msg)
 
@@ -231,11 +232,13 @@ def compute_categorical_distributions(
             raise ValueError(msg)
 
         for value in inner_keys:
-            if pd.isna(value):
+            if pd.isna(cast(Scalar | None, value)):
                 msg = f"Category key must not be NaN in column {column}"
                 raise ValueError(msg)
 
-        inner = {value: {"count": count, "ratio": ratio} for value, count, ratio in quantized}
+        inner: dict[str, CategoricalDistributionEntry] = {
+            value: {"count": count, "ratio": ratio} for value, count, ratio in quantized
+        }
         distributions[column] = inner
 
     return distributions

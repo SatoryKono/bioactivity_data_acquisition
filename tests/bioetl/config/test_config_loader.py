@@ -18,6 +18,7 @@ _collect_env_overrides = config_loader._collect_env_overrides  # pyright: ignore
 _ensure_mapping = config_loader._ensure_mapping  # pyright: ignore[reportPrivateUsage]
 _load_yaml = config_loader._load_yaml  # pyright: ignore[reportPrivateUsage]
 _load_with_extends = config_loader._load_with_extends  # pyright: ignore[reportPrivateUsage]
+_migrate_legacy_sections = config_loader._migrate_legacy_sections  # pyright: ignore[reportPrivateUsage]
 _resolve_reference = config_loader._resolve_reference  # pyright: ignore[reportPrivateUsage]
 _stringify_profile = config_loader._stringify_profile  # pyright: ignore[reportPrivateUsage]
 load_config = config_loader.load_config
@@ -352,3 +353,54 @@ pipeline:
 
         assert config.pipeline.name == "override_pipeline"
         assert config.http.default.timeout_sec == 30.0
+
+    def test_migrate_legacy_clients_section(self) -> None:
+        """Ensure legacy `clients.chembl.status_endpoint` is migrated into `chembl`."""
+
+        payload: dict[str, Any] = {
+            "version": 1,
+            "pipeline": {
+                "name": "test",
+                "version": "1.0.0",
+            },
+            "http": {
+                "default": {
+                    "timeout_sec": 30.0,
+                    "connect_timeout_sec": 10.0,
+                    "read_timeout_sec": 30.0,
+                },
+            },
+            "clients": {
+                "chembl": {
+                    "status_endpoint": "/legacy-status.json",
+                },
+            },
+        }
+
+        migrated = _migrate_legacy_sections(payload)
+
+        assert "clients" not in migrated
+        chembl_section = migrated.get("chembl")
+        assert isinstance(chembl_section, dict)
+        assert chembl_section["status_endpoint"] == "/legacy-status.json"
+
+    def test_migrate_legacy_clients_section_preserves_existing(self) -> None:
+        """Existing `chembl.status_endpoint` must not be overwritten by legacy data."""
+
+        payload: dict[str, Any] = {
+            "chembl": {
+                "status_endpoint": "/modern.json",
+            },
+            "clients": {
+                "chembl": {
+                    "status_endpoint": "/legacy.json",
+                },
+            },
+        }
+
+        migrated = _migrate_legacy_sections(payload)
+
+        assert "clients" not in migrated
+        chembl_section = migrated.get("chembl")
+        assert isinstance(chembl_section, dict)
+        assert chembl_section["status_endpoint"] == "/modern.json"

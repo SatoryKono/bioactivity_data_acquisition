@@ -3,13 +3,7 @@
 from __future__ import annotations
 
 from bioetl.schemas.base_abstract_schema import create_schema
-from bioetl.schemas.common_column_factory import (
-    chembl_id_column,
-    nullable_pd_int64_column,
-    nullable_string_column,
-    string_column_with_check,
-    uuid_column,
-)
+from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 TARGET_TYPES = required_vocab_ids("target_type")
@@ -37,25 +31,27 @@ COLUMN_ORDER = (
     "load_meta_id",
 )
 
+CF = SchemaColumnFactory
+
 TargetSchema = create_schema(
     columns={
-        "target_chembl_id": chembl_id_column(nullable=False, unique=True),
-        "pref_name": nullable_string_column(),
-        "target_type": string_column_with_check(isin=TARGET_TYPES),
-        "organism": nullable_string_column(),
-        "tax_id": nullable_string_column(),
-        "species_group_flag": nullable_pd_int64_column(isin={0, 1}),
-        "cross_references__flat": nullable_string_column(),
-        "target_components__flat": nullable_string_column(),
-        "target_component_synonyms__flat": nullable_string_column(),
-        "uniprot_accessions": nullable_string_column(),
-        "protein_class_desc": nullable_string_column(),
-        "protein_class_list": nullable_string_column(),
-        "protein_class_top": nullable_string_column(),
-        "component_count": nullable_pd_int64_column(ge=0),
-        "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
-        "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=True),
-        "load_meta_id": uuid_column(nullable=False),
+        "target_chembl_id": CF.chembl_id(nullable=False, unique=True),
+        "pref_name": CF.string(),
+        "target_type": CF.string(isin=TARGET_TYPES),
+        "organism": CF.string(),
+        "tax_id": CF.string(),
+        "species_group_flag": CF.int64(pandas_nullable=True, isin={0, 1}),
+        "cross_references__flat": CF.string(),
+        "target_components__flat": CF.string(),
+        "target_component_synonyms__flat": CF.string(),
+        "uniprot_accessions": CF.string(),
+        "protein_class_desc": CF.string(),
+        "protein_class_list": CF.string(),
+        "protein_class_top": CF.string(),
+        "component_count": CF.int64(pandas_nullable=True, ge=0),
+        "hash_row": CF.string(length=(64, 64), nullable=False),
+        "hash_business_key": CF.string(length=(64, 64)),
+        "load_meta_id": CF.uuid(nullable=False),
     },
     version=SCHEMA_VERSION,
     name="TargetSchema",

@@ -5,17 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
+from pydantic import Field, PositiveInt, model_validator
 
-from ..models.base import build_source_config
+from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
+
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig
 
 
-class DocumentSourceParameters(BaseModel):
+class DocumentSourceParameters(BaseSourceParameters):
     """Free-form parameters specific to the document source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     base_url: str | None = Field(
         default=None,
@@ -54,10 +52,8 @@ class DocumentSourceParameters(BaseModel):
         )
 
 
-class DocumentSourceConfig(BaseModel):
+class DocumentSourceConfig(BaseSourceConfig[DocumentSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
@@ -68,6 +64,10 @@ class DocumentSourceConfig(BaseModel):
         description="Effective batch size for pagination requests (capped at 25).",
     )
     parameters: DocumentSourceParameters = Field(default_factory=DocumentSourceParameters)
+
+    parameters_model = DocumentSourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
 
     @model_validator(mode="after")
     def enforce_limits(self) -> DocumentSourceConfig:
@@ -81,19 +81,3 @@ class DocumentSourceConfig(BaseModel):
         if self.batch_size > 25:
             self.batch_size = 25
         return self
-
-    @classmethod
-    def from_source_config(cls, config: SourceConfig) -> DocumentSourceConfig:
-        """Create a :class:`DocumentSourceConfig` from the generic :class:`SourceConfig`.
-
-        Parameters
-        ----------
-        config
-            Generic source configuration.
-
-        Returns
-        -------
-        DocumentSourceConfig
-            Pipeline-specific configuration.
-        """
-        return build_source_config(cls, DocumentSourceParameters, config)

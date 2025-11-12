@@ -12,7 +12,7 @@ from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
 from bioetl.schemas.base_abstract_schema import create_schema
-from bioetl.schemas.common_column_factory import string_column_with_check, uuid_column
+from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 SCHEMA_VERSION = "1.0.0"
@@ -100,8 +100,10 @@ def _time_window_consistent(row: pd.Series, **_: Any) -> bool:
     return start <= finish <= ingested
 
 
+CF = SchemaColumnFactory
+
 columns: dict[str, Column] = {
-    "load_meta_id": uuid_column(nullable=False, unique=True),
+    "load_meta_id": CF.uuid(nullable=False, unique=True),
     "source_system": Column(
         pa.String,  # type: ignore[arg-type]
         checks=[Check.isin(ALLOWED_SOURCE_SYSTEMS)],
@@ -147,8 +149,8 @@ columns: dict[str, Column] = {
     "job_id": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "operator": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "notes": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
-    "hash_business_key": string_column_with_check(str_length=(64, 64), nullable=False),
-    "hash_row": string_column_with_check(str_length=(64, 64), nullable=False),
+    "hash_business_key": CF.string(length=(64, 64), nullable=False),
+    "hash_row": CF.string(length=(64, 64), nullable=False),
 }
 
 _BASE_SCHEMA = create_schema(

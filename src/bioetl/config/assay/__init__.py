@@ -5,18 +5,17 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
+from pydantic import Field, PositiveInt, model_validator
 
-from ..models.base import build_source_config
+from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
+
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 from ..utils import coerce_bool
 
 
-class AssaySourceParameters(BaseModel):
+class AssaySourceParameters(BaseSourceParameters):
     """Free-form parameters specific to the assay source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     base_url: str | None = Field(
         default=None,
@@ -32,30 +31,32 @@ class AssaySourceParameters(BaseModel):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> AssaySourceParameters:
+    def from_mapping(
+        cls,
+        params: Mapping[str, Any] | None = None,
+    ) -> AssaySourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
         ----------
         params
-            Raw mapping of parameters.
+            Raw mapping of parameters. ``None`` is treated as an empty mapping.
 
         Returns
         -------
         AssaySourceParameters
             Constructed parameters object.
         """
+        normalized = cls._normalize_mapping(params or {})
         return cls(
-            base_url=params.get("base_url"),
-            handshake_endpoint=params.get("handshake_endpoint", "/status.json"),
-            handshake_enabled=coerce_bool(params.get("handshake_enabled", True)),
+            base_url=normalized.get("base_url"),
+            handshake_endpoint=normalized.get("handshake_endpoint", "/status.json"),
+            handshake_enabled=coerce_bool(normalized.get("handshake_enabled", True)),
         )
 
 
-class AssaySourceConfig(BaseModel):
+class AssaySourceConfig(BaseSourceConfig[AssaySourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
@@ -70,6 +71,10 @@ class AssaySourceConfig(BaseModel):
         description="Upper bound for paginated URL length when building endpoints.",
     )
     parameters: AssaySourceParameters = Field(default_factory=AssaySourceParameters)
+
+    parameters_model = AssaySourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
 
     @model_validator(mode="after")
     def enforce_limits(self) -> AssaySourceConfig:
@@ -87,25 +92,20 @@ class AssaySourceConfig(BaseModel):
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> AssaySourceConfig:
-        """Create an :class:`AssaySourceConfig` from the generic :class:`SourceConfig`.
+    def _build_payload(
+        cls,
+        *,
+        config: SourceConfig,
+        parameters: AssaySourceParameters,
+    ) -> dict[str, Any]:
+        """Расширить базовый payload специфичными полями."""
 
-        Parameters
-        ----------
-        config
-            Generic source configuration.
-
-        Returns
-        -------
-        AssaySourceConfig
-            Pipeline-specific configuration.
-        """
-        max_url_length_raw = cls._extract_max_url_length(config.parameters)
-        base_config = build_source_config(cls, AssaySourceParameters, config)
-        return base_config.model_copy(update={"max_url_length": max_url_length_raw})
+        payload = super()._build_payload(config=config, parameters=parameters)
+        payload["max_url_length"] = cls._extract_max_url_length(config.parameters)
+        return payload
 
     @staticmethod
-    def _extract_max_url_length(parameters: Mapping[str, Any]) -> int:
+    def _extract_max_url_length(parameters: Mapping[str, Any] | None) -> int:
         """Extract max_url_length from parameters.
 
         Parameters
@@ -123,7 +123,8 @@ class AssaySourceConfig(BaseModel):
         ValueError
             If max_url_length is invalid.
         """
-        raw = parameters.get("max_url_length")
+        mapping = parameters or {}
+        raw = mapping.get("max_url_length")
         if raw is None:
             return 2000
         try:

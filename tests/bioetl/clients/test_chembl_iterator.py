@@ -11,6 +11,7 @@ from bioetl.clients.client_chembl_base import EntityConfig
 from bioetl.clients.client_chembl_iterator import (
     ChemblEntityIterator,
     ChemblEntityIteratorBase,
+    _resolve_status_endpoint,
 )
 
 
@@ -63,10 +64,11 @@ class TestChemblEntityIterator:
 
         assert payload == {"chembl_db_version": "34"}
         assert iterator.chembl_release == "34"
-        chembl_client.handshake.assert_called_once_with("/status.json")
+        default_endpoint = _resolve_status_endpoint()
+        chembl_client.handshake.assert_called_once_with(default_endpoint)
         mock_logger.info.assert_called_with(
             "entity.handshake",
-            handshake_endpoint="/status.json",
+            handshake_endpoint=default_endpoint,
             handshake_enabled=True,
             chembl_release="34",
         )
