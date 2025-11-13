@@ -240,10 +240,10 @@ def test_classify_role_variants() -> None:
     assert dup_finder._classify_role(Path("bioetl/cli/main.py"), "command") == "cli"
     assert dup_finder._classify_role(Path("bioetl/utils/logger.py"), "log_event") == "log"
     assert dup_finder._classify_role(Path("bioetl/pipelines/foo/run.py"), "process") == "run"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/extract/step.py"), "extract_dataset") == "extract"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/transform/step.py"), "transform_dataset") == "transform"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/validate/step.py"), "validate_dataset") == "validate"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/stage.py"), "write_output") == "write"
+    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "extract_dataset") == "extract"
+    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "transform_dataset") == "transform"
+    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "validate_dataset") == "validate"
+    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "write_output") == "write"
     assert dup_finder._classify_role(Path("bioetl/utils/misc.py"), "helper") == "util"
 
 
@@ -319,8 +319,8 @@ def test_render_to_stdout_with_clusters_and_pairs(capsys: pytest.CaptureFixture[
        rel_path=Path("src/pkg/module_copy.py"),
        start_line=5,
        end_line=7,
-       norm_src="def log_event_copy():\n    return True",
-       norm_loc=2,
+       norm_src="def log_event_copy():\n    value = 1\n    return value",
+       norm_loc=3,
        ast_hash="def456",
        tokens=("def", "log_event_copy"),
        token_multiset=dup_finder.Counter({"def": 1, "log_event_copy": 1}),
@@ -339,4 +339,55 @@ def test_render_to_stdout_with_clusters_and_pairs(capsys: pytest.CaptureFixture[
     assert "dup_map.md" in output
     assert "cluster123" in output
     assert "token_delta:1" in output
+
+
+def test_parse_code_units_handles_class_and_async(tmp_path: Path) -> None:
+    module_path = tmp_path / "src" / "pkg" / "complex.py"
+    _write_module(
+        module_path,
+        """
+class Handler:
+    \"\"\"Docstring.\"\"\"
+
+    async def load(self):
+        return await process()
+
+async def top_level():
+    return 42
+""",
+    )
+    units, errors = dup_finder._parse_code_units(module_path, tmp_path)
+    assert not errors
+    kinds = {unit.kind for unit in units}
+    assert kinds == {"class", "method", "func"}
+
+
+def test_collect_python_files_permission_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    src_dir = tmp_path / "src"
+    (src_dir / "pkg").mkdir(parents=True)
+
+    class RaisingList(list):
+        def __iter__(self):
+            raise PermissionError
+
+    def fake_walk(_: Path):
+        yield (str(src_dir / "pkg"), [], RaisingList(["sample.py"]))
+
+    monkeypatch.setattr(dup_finder.os, "walk", fake_walk)
+    paths, warnings = dup_finder._collect_python_files(tmp_path)
+    assert paths == []
+    assert any("pkg" in warning for warning in warnings)
+
+
+def test_parse_code_units_reports_os_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    file_path = tmp_path / "src" / "pkg" / "missing.py"
+    file_path.parent.mkdir(parents=True)
+
+    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:  # noqa: ARG001
+        raise OSError("boom")
+
+    monkeypatch.setattr(Path, "read_text", fake_read_text)
+    units, errors = dup_finder._parse_code_units(file_path, tmp_path)
+    assert not units
+    assert errors and errors[0].message == "boom"
 
