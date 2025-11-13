@@ -9,20 +9,21 @@ basic integrity checks to ensure the dictionaries remain well-formed.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, TypeGuard, cast
+from typing import Any, Final, cast
 
 import yaml
 
-from bioetl.core.errors import BioETLError
+from bioetl.core.validators import assert_list_of
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}
 
 
-class VocabStoreError(BioETLError):
+class VocabStoreError(RuntimeError):
     """Raised when the vocabulary store or a dictionary block fails validation."""
 
 
@@ -41,15 +42,22 @@ def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
     return cast(Mapping[str, Any], value)
 
 
-def _is_list_of_any(value: Any) -> TypeGuard[list[Any]]:
-    return isinstance(value, list)
-
-
 def _ensure_list(value: Any, *, context: str) -> list[Any]:
-    if not _is_list_of_any(value):
-        raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}")
+    try:
+        validated = assert_list_of(
+            value,
+            lambda _: True,
+            argument_name=context,
+            predicate_name="lambda _: True",
+        )
+    except TypeError as exc:
+        raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}") from exc
+    except ValueError as exc:
+        raise VocabStoreError(
+            f"List contents for {context} failed validation: {exc}"
+        ) from exc
 
-    copied_list: list[Any] = list(value)
+    copied_list: list[Any] = list(validated)
     return copied_list
 
 
@@ -135,8 +143,8 @@ def clear_vocab_store_cache() -> None:
     _load_vocab_store_cached.cache_clear()
 
 
-def load_vocab_store(path: str | Path) -> dict[str, Any]:
-    """Load a vocabulary store from a directory of YAML files or an aggregate file.
+def read_vocab_store(path: str | Path) -> dict[str, Any]:
+    """Read a vocabulary store from a directory of YAML files or an aggregate file.
 
     Parameters
     ----------
@@ -153,6 +161,18 @@ def load_vocab_store(path: str | Path) -> dict[str, Any]:
 
     normalized = _normalize_path(path)
     return _load_vocab_store_cached(str(normalized))
+
+
+def load_vocab_store(path: str | Path) -> dict[str, Any]:
+    """Deprecated wrapper for :func:`read_vocab_store`."""
+
+    warnings.warn(
+        "load_vocab_store() is deprecated and will be removed in a future release; "
+        "use read_vocab_store() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_vocab_store(path)
 
 
 def get_ids(
@@ -174,25 +194,7 @@ def get_ids(
         raise VocabStoreError(f"Dictionary '{name}' not found in vocabulary store") from exc
 
     block = _ensure_mapping(block_raw, context=f"dictionary block '{name}'")
-    values_raw = block.get("values")
-    values: list[Any]
-    if values_raw is None:
-        ids_raw = block.get("ids")
-        if ids_raw is None:
-            raise VocabStoreError(
-                f"Dictionary '{name}' must define either 'values' or 'ids' collection"
-            )
-        ids_list = _ensure_list(ids_raw, context=f"{name}.ids")
-        values = []
-        for index, entry_raw in enumerate(ids_list):
-            if not isinstance(entry_raw, str):
-                raise VocabStoreError(
-                    f"Dictionary '{name}' id at position {index} is not a string"
-                )
-            normalized_id = entry_raw.strip()
-            values.append({"id": normalized_id, "status": "active"})
-    else:
-        values = _ensure_list(values_raw, context=f"{name}.values")
+    values = _ensure_list(block.get("values"), context=f"{name}.values")
 
     if allowed_statuses is None:
         allowed_statuses_set = DEFAULT_ALLOWED_STATUSES
@@ -225,6 +227,6 @@ __all__ = [
     "VocabStoreError",
     "clear_vocab_store_cache",
     "get_ids",
+    "read_vocab_store",
     "load_vocab_store",
 ]
-

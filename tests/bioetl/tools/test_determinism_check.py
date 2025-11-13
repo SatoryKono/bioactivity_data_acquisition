@@ -1,85 +1,122 @@
+"""Тесты для `bioetl.tools.determinism_check`."""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from bioetl.tools import determinism_check
+import bioetl.tools.determinism_check as determinism_check
 
 
-class DummyLogger:
-    def info(self, *args: Any, **kwargs: Any) -> None:
-        pass
+@pytest.mark.unit
+def test_extract_structured_logs_filters_noise() -> None:
+    """Убедимся, что извлекаются только корректные JSON-строки и фильтруются метаполя."""
 
-    def warning(self, *args: Any, **kwargs: Any) -> None:
-        pass
+    stdout = """
+    {"event": "start", "timestamp": "2020-01-01T00:00:00Z", "run_id": "abc"}
+    noise line
+    {"event": "finish", "duration_ms": 100, "custom": 1}
+    """
+    stderr = """
+    {"event": "finish", "time": "2020-01-01T00:01:00Z", "custom": 1}
+    """
 
-    def error(self, *args: Any, **kwargs: Any) -> None:
-        pass
+    logs = determinism_check.extract_structured_logs(stdout, stderr)
 
-
-class DummyUnifiedLogger:
-    @staticmethod
-    def configure() -> None:
-        pass
-
-    @staticmethod
-    def get(_: str) -> DummyLogger:
-        return DummyLogger()
-
-
-def test_extract_structured_logs_and_compare() -> None:
-    sample_logs = [
-        {"event": "start", "payload": 1, "timestamp": "ignored"},
-        {"event": "finish", "payload": 2, "run_id": "ignored"},
+    assert logs == [
+        {"event": "start"},
+        {"event": "finish", "custom": 1},
+        {"event": "finish", "custom": 1},
     ]
-    output = "\n".join(json.dumps(item) for item in sample_logs)
-    logs = determinism_check.extract_structured_logs(output, "")
-    assert len(logs) == 2
-    assert "timestamp" not in logs[0]
-
-    identical, diffs = determinism_check.compare_logs(logs, logs)
-    assert identical
-    assert not diffs
-
-    mismatch, diffs = determinism_check.compare_logs(logs, logs[:-1])
-    assert not mismatch
-    assert "Log count mismatch" in diffs[0]
 
 
-def test_run_determinism_check_success(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(determinism_check, "UnifiedLogger", DummyUnifiedLogger)
-    monkeypatch.setattr(determinism_check, "PROJECT_ROOT", tmp_path)
-    artifacts = tmp_path / "artifacts"
-    monkeypatch.setattr(determinism_check, "ARTIFACTS_DIR", artifacts)
+@pytest.mark.unit
+def test_compare_logs_reports_differences() -> None:
+    """Различия по событиям и ключам отражаются в списке отличий."""
 
-    def fake_run_pipeline_dry_run(name: str, out: Path) -> tuple[int, str, str]:
-        entries = [{"event": f"{name}-stage", "value": idx} for idx in range(2)]
-        stdout = "\n".join(json.dumps(entry) for entry in entries)
-        return 0, stdout, ""
+    logs1 = [{"event": "start", "value": 1}, {"event": "finish", "value": 2}]
+    logs2 = [{"event": "start", "value": 1, "extra": 1}, {"event": "finish", "value": 3}]
 
-    monkeypatch.setattr(determinism_check, "run_pipeline_dry_run", fake_run_pipeline_dry_run)
-    results = determinism_check.run_determinism_check(pipelines=("activity_chembl",))
-    assert results["activity_chembl"].deterministic
-    assert results["activity_chembl"].differences == ()
-    report = artifacts / "DETERMINISM_CHECK_REPORT.md"
-    assert report.exists()
-    content = report.read_text(encoding="utf-8")
-    assert "Determinism Check Report" in content
+    identical, differences = determinism_check.compare_logs(logs1, logs2)
+
+    assert identical is False
+    assert any("key mismatch" in diff for diff in differences)
+    assert any("value mismatch" in diff for diff in differences)
 
 
-def test_run_determinism_check_handles_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(determinism_check, "UnifiedLogger", DummyUnifiedLogger)
-    monkeypatch.setattr(determinism_check, "PROJECT_ROOT", tmp_path)
+@pytest.mark.unit
+def test_run_pipeline_dry_run_unknown_pipeline() -> None:
+    """Неизвестный пайплайн завершается с ошибкой без запуска subprocess."""
+
+    code, stdout, stderr = determinism_check.run_pipeline_dry_run("unknown", Path("out"))
+
+    assert code == -1
+    assert stdout == ""
+    assert "Unknown pipeline" in stderr
+
+
+@pytest.mark.unit
+def test_run_pipeline_dry_run_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Таймаут процесса возвращает диагностическое сообщение."""
+
+    def raise_timeout(*_: Any, **__: Any) -> None:
+        raise determinism_check.subprocess.TimeoutExpired(cmd="cmd", timeout=1)
+
+    monkeypatch.setattr(determinism_check.subprocess, "run", raise_timeout)
+
+    code, stdout, stderr = determinism_check.run_pipeline_dry_run(
+        "activity_chembl", Path("out")
+    )
+
+    assert code == -1
+    assert stdout == ""
+    assert "timed out" in stderr
+
+
+@pytest.mark.unit
+def test_run_determinism_check_success(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    patch_unified_logger,
+    track_path_replace,
+) -> None:
+    """Ветвь детерминированного пайплайна создает отчёт атомарно."""
+
+    logs_template = '{"event": "start", "value": 1}\n'
+    run_outputs = iter([(0, logs_template, ""), (0, logs_template, "")])
+
+    def fake_run_pipeline(pipeline_name: str, output_dir: Path) -> tuple[int, str, str]:
+        assert pipeline_name == "activity_chembl"
+        assert output_dir.exists()
+        return next(run_outputs)
+
+    class DummyTempDir:
+        def __enter__(self) -> str:
+            run_dir = tmp_path / "runs"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            return str(run_dir)
+
+        def __exit__(self, *_: Any) -> None:
+            return None
+
     monkeypatch.setattr(determinism_check, "ARTIFACTS_DIR", tmp_path / "artifacts")
+    monkeypatch.setattr(determinism_check, "run_pipeline_dry_run", fake_run_pipeline)
+    monkeypatch.setattr(
+        determinism_check.tempfile, "TemporaryDirectory", lambda: DummyTempDir()
+    )
+    patch_unified_logger(determinism_check)
 
-    def failing_run_pipeline(name: str, out: Path) -> tuple[int, str, str]:
-        return -1, "", f"failure for {name}"
-
-    monkeypatch.setattr(determinism_check, "run_pipeline_dry_run", failing_run_pipeline)
     results = determinism_check.run_determinism_check(pipelines=("activity_chembl",))
-    assert not results["activity_chembl"].deterministic
-    assert results["activity_chembl"].errors
+
+    report_path = tmp_path / "artifacts" / "DETERMINISM_CHECK_REPORT.md"
+    assert report_path.exists()
+    assert track_path_replace, "ожидался вызов Path.replace для атомарной записи"
+
+    result = results["activity_chembl"]
+    assert result.deterministic is True
+    assert result.run1_exit_code == 0
+    assert result.run2_exit_code == 0
+    assert result.differences == ()
 

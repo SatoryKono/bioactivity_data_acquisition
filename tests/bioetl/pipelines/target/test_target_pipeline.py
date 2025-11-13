@@ -4,14 +4,16 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from collections.abc import Iterator
+from typing import Any
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.chembl.target import run as target_run
+from bioetl.pipelines.target.target import ChemblTargetPipeline
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
 
@@ -21,7 +23,7 @@ class TestChemblTargetPipeline:
 
     def test_init(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test ChemblTargetPipeline initialization."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
@@ -32,7 +34,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test chembl_release property."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         assert pipeline.chembl_release is None
         pipeline._chembl_release = "33"  # noqa: SLF001  # type: ignore[attr-defined]
@@ -42,7 +44,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test fetching ChEMBL release version."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         mock_client = Mock(spec=ChemblClient)
         mock_client.handshake.return_value = {"chembl_db_version": "31"}
@@ -60,7 +62,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test harmonization of identifier column names."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -84,7 +86,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of ChEMBL identifiers."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -106,7 +108,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of string fields."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -131,7 +133,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of data types."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -157,7 +159,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test adding missing schema columns."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -183,7 +185,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test reordering columns to match schema order."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -203,24 +205,9 @@ class TestChemblTargetPipeline:
     ) -> None:
         """Test extract_all in dry-run mode."""
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        chembl_client_mock = Mock()
-        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
-
-        with (
-            patch.object(
-                pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), "https://chembl.test"),
-            ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
-            ),
-            patch("bioetl.pipelines.chembl.target.run.ChemblTargetClient", return_value=Mock()),
-        ):
-            result = pipeline.extract_all()  # type: ignore[misc]
+        result = pipeline.extract_all()  # type: ignore[misc]
 
         assert result.empty
 
@@ -229,23 +216,9 @@ class TestChemblTargetPipeline:
     ) -> None:
         """Test extract_by_ids in dry-run mode."""
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        chembl_client_mock = Mock()
-        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
-
-        with (
-            patch.object(
-                pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), "https://chembl.test"),
-            ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
-            ),
-        ):
-            result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
+        result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
 
         assert result.empty
 
@@ -253,7 +226,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test enrich_protein_classifications with empty DataFrame."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame()
 
@@ -270,7 +243,7 @@ class TestChemblTargetPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test enrich_protein_classifications with missing target_chembl_id column."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({"pref_name": ["Target 1"]})
 
@@ -285,10 +258,13 @@ class TestChemblTargetPipeline:
         assert "pref_name" in result.columns
 
     def test_enrich_protein_classifications_initializes_columns(
-        self, pipeline_config_fixture: PipelineConfig, run_id: str
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         """Test that enrich_protein_classifications initializes new columns."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -296,35 +272,34 @@ class TestChemblTargetPipeline:
             }
         )
 
+        class _StubChemblClient:
+            def __init__(self, *args: Any, **kwargs: Any) -> None:
+                return None
+
+            def paginate(
+                self, *_: Any, **__: Any
+            ) -> Iterator[dict[str, Any]]:
+                return iter(())
+
+        monkeypatch.setattr("bioetl.pipelines.target.target.ChemblClient", _StubChemblClient)
+
         from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
-        chembl_client_mock = Mock()
-        chembl_client_mock.paginate.return_value = []
-
-        with (
-            patch.object(
-                pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), {}),
-            ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
-            ),
-        ):
-            result = pipeline._enrich_protein_classifications(
-                df, log
-            )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._enrich_protein_classifications(
+            df, log
+        )  # noqa: SLF001  # type: ignore[arg-type]
 
         assert "protein_class_list" in result.columns
         assert "protein_class_top" in result.columns
+        assert pd.isna(result.loc[0, "protein_class_list"])
+        assert pd.isna(result.loc[0, "protein_class_top"])
 
     def test_enrich_protein_classifications_skips_when_data_present(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that enrich_protein_classifications skips when data is already present."""
-        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {

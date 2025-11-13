@@ -1,79 +1,38 @@
-"""CLI command ``bioetl-determinism-check``."""
+"""CLI для проверки детерминизма пайплайнов."""
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+import typer
 
-from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.tools.determinism_check import DeterminismRunResult
-from bioetl.tools.determinism_check import (
-    run_determinism_check as run_determinism_check_sync,
-)
+from bioetl.cli.tools import create_app, run_app
+from bioetl.tools.determinism_check import run_determinism_check
 
-typer = cast(Any, importlib.import_module("typer"))
-
-__all__ = ["app", "main", "run", "run_determinism_check", "DeterminismRunResult"]
-
-run_determinism_check = run_determinism_check_sync
-
-app: TyperApp = create_app(
+app = create_app(
     name="bioetl-determinism-check",
-    help_text="Execute two runs and compare their logs",
+    help_text="Запуск двух прогонов пайплайнов и сравнение логов",
 )
 
 
 @app.command()
 def main(
-    pipeline: list[str] | None = typer.Option(
+    pipeline: str | None = typer.Option(
         None,
-        "--pipeline",
-        "-p",
-        help="Pipeline to verify (can be repeated). Defaults to activity_chembl and assay_chembl.",
+        help="Ограничить проверку конкретным пайплайном (по умолчанию два основных)",
     ),
 ) -> None:
-    """Run determinism checks for the selected pipelines."""
+    """Выполнить проверку детерминизма."""
 
-    targets = tuple(pipeline) if pipeline else None
-
-    try:
-        results = run_determinism_check(pipelines=targets)
-    except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-
-    if not results:
-        typer.secho("No pipelines found for determinism check", err=True, fg=typer.colors.RED)
-        exit_with_code(1)
-
-    non_deterministic = [
-        name for name, item in results.items() if not item.deterministic
-    ]
-    first_result = next(iter(results.values()))
-
+    pipelines = (pipeline,) if pipeline else None
+    results = run_determinism_check(pipelines=pipelines)
+    non_deterministic = [name for name, item in results.items() if not item.deterministic]
     if non_deterministic:
         typer.secho(
-            "Non-deterministic pipelines detected: " + ", ".join(non_deterministic),
-            err=True,
+            "Обнаружены недетерминированные пайплайны: " + ", ".join(non_deterministic),
             fg=typer.colors.RED,
         )
-        typer.echo(f"See report for details: {first_result.report_path.resolve()}")
-        exit_with_code(1)
-
-    typer.echo(
-        "All inspected pipelines are deterministic. "
-        f"Report: {first_result.report_path.resolve()}"
-    )
-    exit_with_code(0)
+        raise typer.Exit(code=1)
+    typer.echo("Все проверенные пайплайны детерминированы")
 
 
 def run() -> None:
-    """Execute the Typer application."""
-
     run_app(app)
-
-
-if __name__ == "__main__":
-    run()
-

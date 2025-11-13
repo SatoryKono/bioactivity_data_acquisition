@@ -1,21 +1,19 @@
-"""Activity-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl_common`."""
+"""Activity-specific HTTP client helpers built on top of :mod:`bioetl.clients.chembl`."""
 
 from __future__ import annotations
 
-from typing import Any
-
-from bioetl.clients.client_chembl_base import EntityConfig
-from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
+from bioetl.clients.chembl_base import ChemblClientProtocol, EntityConfig
+from bioetl.clients.chembl_iterator import ChemblEntityIterator
 
 __all__ = ["ChemblActivityClient"]
 
 
-class ChemblActivityClient(ChemblEntityIteratorBase):
+class ChemblActivityClient(ChemblEntityIterator):
     """High level helper focused on retrieving activity payloads."""
 
     def __init__(
         self,
-        chembl_client: Any,  # ChemblClient
+        chembl_client: ChemblClientProtocol,
         *,
         batch_size: int = 25,
         max_url_length: int | None = None,
@@ -49,4 +47,3 @@ class ChemblActivityClient(ChemblEntityIteratorBase):
             batch_size=batch_size,
             max_url_length=max_url_length,
         )
-

@@ -1,18 +1,23 @@
-"""Public types and factories for BioETL CLI tools."""
+"""Typer-приложения для служебных утилит BioETL."""
 
 from __future__ import annotations
 
-from typing import NoReturn
+import typer
 
-from ._typer import TyperApp, TyperModule, create_app
+from bioetl.cli.common import run as run_cli
 
-__all__ = ["TyperApp", "TyperModule", "create_app", "exit_with_code"]
+__all__ = ["create_app", "run_app"]
 
 
-def exit_with_code(code: int, *, cause: Exception | None = None) -> NoReturn:
-    """Thin wrapper around CliCommandBase.exit for CLI tool commands."""
+def create_app(name: str, help_text: str) -> typer.Typer:
+    """Создаёт Typer-приложение без автодополнения."""
 
-    from bioetl.core.cli_base import CliCommandBase
+    return typer.Typer(name=name, help=help_text, add_completion=False)
 
-    CliCommandBase.exit(code, cause=cause)
 
+def run_app(app: typer.Typer, *, setup_logging: bool = True) -> None:
+    """Запускает Typer-приложение через общий раннер."""
+
+    exit_code = run_cli(app, setup_logging=setup_logging)
+    if exit_code != 0:
+        raise SystemExit(exit_code)

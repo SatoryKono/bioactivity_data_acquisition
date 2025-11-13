@@ -1,68 +1,38 @@
-"""CLI command ``bioetl-catalog-code-symbols``."""
+"""CLI для каталогизации сигнатур ключевых сущностей."""
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
 
-from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.core.errors import BioETLError
-from bioetl.tools.catalog_code_symbols import CodeCatalog
-from bioetl.tools.catalog_code_symbols import (
-    catalog_code_symbols as catalog_code_symbols_sync,
-)
+import typer
 
-typer = cast(Any, importlib.import_module("typer"))
+from bioetl.cli.tools import create_app, run_app
+from bioetl.tools.catalog_code_symbols import catalog_code_symbols
 
-__all__ = ["app", "main", "run", "catalog_code_symbols", "CodeCatalog"]
-
-catalog_code_symbols = catalog_code_symbols_sync
-
-app: TyperApp = create_app(
+app = create_app(
     name="bioetl-catalog-code-symbols",
-    help_text="Build the code entity catalog and related reports",
+    help_text="Сбор сигнатур PipelineBase, конфигов и CLI-команд",
 )
 
 
 @app.command()
 def main(
-    artifacts: Path | None = typer.Option(
-        None,
-        "--artifacts",
-        help="Directory where catalog artifacts will be stored.",
-        exists=False,
-        file_okay=False,
-        dir_okay=True,
-        writable=True,
+    artifacts: Path = typer.Option(
+        Path("artifacts"),
+        help="Каталог для сохранения отчётов",
     ),
 ) -> None:
-    """Run the code catalog collection routine."""
+    """Собрать каталог кодовых сущностей и записать артефакты."""
 
-    try:
-        result = catalog_code_symbols(artifacts_dir=artifacts.resolve() if artifacts else None)
-    except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-    except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-
+    result = catalog_code_symbols(artifacts_dir=artifacts.resolve())
     typer.echo(
-        f"Catalog updated: {result.json_path.resolve()} and {result.cli_path.resolve()}"
+        "Сигнатуры сохранены: "
+        f"pipeline методы={len(result.pipeline_signatures)}, "
+        f"CLI команды={len(result.cli_commands)}"
     )
-    exit_with_code(0)
 
 
 def run() -> None:
-    """Execute the Typer application."""
+    """Запуск Typer-приложения."""
 
     run_app(app)
-
-
-if __name__ == "__main__":
-    run()
-

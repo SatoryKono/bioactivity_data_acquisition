@@ -1,65 +1,52 @@
-"""HTTP clients for specific upstream APIs.
+"""HTTP clients for specific upstream APIs."""
 
-The public surface of the ``bioetl.clients`` package is currently being refactored.
-To avoid importing partially migrated modules during CLI bootstrap, this package
-deliberately refrains from loading any submodules on import.
-"""
+import importlib.util
+from pathlib import Path
 
-from __future__ import annotations
+from .activity.chembl_activity import ChemblActivityClient
+from .assay.chembl_assay import ChemblAssayClient
+from .assay.chembl_assay_entity import ChemblAssayEntityClient
+from .chembl_base import ChemblEntityFetcher, EntityConfig
+from .chembl_entities import (
+    ChemblAssayClassificationEntityClient,
+    ChemblAssayClassMapEntityClient,
+    ChemblAssayParametersEntityClient,
+    ChemblCompoundRecordEntityClient,
+    ChemblDataValidityEntityClient,
+    ChemblMoleculeEntityClient,
+)
+from .chembl_iterator import ChemblEntityIterator
+from .types import EntityClient
+from .document.chembl_document import ChemblDocumentClient
+from .document.chembl_document_entity import ChemblDocumentTermEntityClient
+from .target.chembl_target import ChemblTargetClient
+from .testitem.chembl_testitem import ChemblTestitemClient
 
-from importlib import import_module
-from typing import TYPE_CHECKING, Any, Final
-
-if TYPE_CHECKING:
-    from bioetl.clients.client_chembl_base import (
-        ChemblEntityFetcherBase,
-        EntityConfig,
-    )
-    from bioetl.clients.client_chembl_common import ChemblClient
-    from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
-    from bioetl.clients.client_chembl_iterator import (
-        ChemblEntityIterator,
-        ChemblEntityIteratorBase,
-    )
-    from bioetl.clients.entities.client_activity import ChemblActivityClient
-    from bioetl.clients.entities.client_assay import ChemblAssayClient
-    from bioetl.clients.entities.client_assay_class_map import (
-        ChemblAssayClassMapEntityClient,
-    )
-    from bioetl.clients.entities.client_assay_classification import (
-        ChemblAssayClassificationEntityClient,
-    )
-    from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
-    from bioetl.clients.entities.client_assay_parameters import (
-        ChemblAssayParametersEntityClient,
-    )
-    from bioetl.clients.entities.client_compound_record import (
-        ChemblCompoundRecordEntityClient,
-    )
-    from bioetl.clients.entities.client_data_validity import (
-        ChemblDataValidityEntityClient,
-    )
-    from bioetl.clients.entities.client_document import ChemblDocumentClient
-    from bioetl.clients.entities.client_document_term import (
-        ChemblDocumentTermEntityClient,
-    )
-    from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
-    from bioetl.clients.entities.client_target import ChemblTargetClient
-    from bioetl.clients.entities.client_testitem import ChemblTestitemClient
+# Импорт ChemblClient из модуля chembl.py (не из пакета chembl/)
+# Используем importlib для импорта из файла напрямую, чтобы избежать циклических зависимостей
+# Это должно быть после обычных импортов, поэтому используем noqa для подавления предупреждения
+_chembl_module_path = Path(__file__).parent / "chembl.py"  # noqa: E402
+_spec = importlib.util.spec_from_file_location("bioetl.clients.chembl_client", _chembl_module_path)  # noqa: E402
+if _spec is None or _spec.loader is None:  # noqa: E402
+    msg = f"Failed to load module from {_chembl_module_path}"
+    raise ImportError(msg)
+_chembl_module = importlib.util.module_from_spec(_spec)  # noqa: E402
+_spec.loader.exec_module(_chembl_module)  # noqa: E402
+ChemblClient = _chembl_module.ChemblClient  # noqa: E402
 
 __all__ = [
     "ChemblClient",
     "ChemblAssayClient",
-    "ChemblAssayEntityClient",
     "ChemblActivityClient",
     "ChemblDocumentClient",
     "ChemblTargetClient",
     "ChemblTestitemClient",
-    "ChemblEntityFetcherBase",
-    "ChemblEntityIteratorBase",
+    # Новые специализированные клиенты (для расширенного использования)
+    "EntityClient",
+    "ChemblEntityFetcher",
     "ChemblEntityIterator",
-    "ChemblEntityClientBase",
     "EntityConfig",
+    "ChemblAssayEntityClient",
     "ChemblMoleculeEntityClient",
     "ChemblDataValidityEntityClient",
     "ChemblDocumentTermEntityClient",
@@ -68,71 +55,3 @@ __all__ = [
     "ChemblAssayClassificationEntityClient",
     "ChemblCompoundRecordEntityClient",
 ]
-
-_ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
-    "ChemblClient": ("bioetl.clients.client_chembl_common", "ChemblClient"),
-    "ChemblAssayClient": ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
-    "ChemblAssayEntityClient": (
-        "bioetl.clients.entities.client_assay_entity",
-        "ChemblAssayEntityClient",
-    ),
-    "ChemblEntityFetcherBase": (
-        "bioetl.clients.client_chembl_base",
-        "ChemblEntityFetcherBase",
-    ),
-    "ChemblEntityIteratorBase": (
-        "bioetl.clients.client_chembl_iterator",
-        "ChemblEntityIteratorBase",
-    ),
-    "ChemblEntityIterator": ("bioetl.clients.client_chembl_iterator", "ChemblEntityIterator"),
-    "ChemblEntityClientBase": (
-        "bioetl.clients.client_chembl_entity",
-        "ChemblEntityClientBase",
-    ),
-    "EntityConfig": ("bioetl.clients.client_chembl_base", "EntityConfig"),
-    "ChemblActivityClient": ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
-    "ChemblDocumentClient": ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),
-    "ChemblTargetClient": ("bioetl.clients.entities.client_target", "ChemblTargetClient"),
-    "ChemblTestitemClient": ("bioetl.clients.entities.client_testitem", "ChemblTestitemClient"),
-    "ChemblMoleculeEntityClient": (
-        "bioetl.clients.entities.client_molecule",
-        "ChemblMoleculeEntityClient",
-    ),
-    "ChemblDataValidityEntityClient": (
-        "bioetl.clients.entities.client_data_validity",
-        "ChemblDataValidityEntityClient",
-    ),
-    "ChemblDocumentTermEntityClient": (
-        "bioetl.clients.entities.client_document_term",
-        "ChemblDocumentTermEntityClient",
-    ),
-    "ChemblAssayClassMapEntityClient": (
-        "bioetl.clients.entities.client_assay_class_map",
-        "ChemblAssayClassMapEntityClient",
-    ),
-    "ChemblAssayParametersEntityClient": (
-        "bioetl.clients.entities.client_assay_parameters",
-        "ChemblAssayParametersEntityClient",
-    ),
-    "ChemblAssayClassificationEntityClient": (
-        "bioetl.clients.entities.client_assay_classification",
-        "ChemblAssayClassificationEntityClient",
-    ),
-    "ChemblCompoundRecordEntityClient": (
-        "bioetl.clients.entities.client_compound_record",
-        "ChemblCompoundRecordEntityClient",
-    ),
-}
-
-
-def __getattr__(name: str) -> Any:
-    """Lazily resolve client symbols to avoid import-time side effects."""
-    try:
-        module_path, attr_name = _ATTR_MAP[name]
-    except KeyError as exc:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
-
-    module = import_module(module_path)
-    value = getattr(module, attr_name)
-    globals()[name] = value
-    return value

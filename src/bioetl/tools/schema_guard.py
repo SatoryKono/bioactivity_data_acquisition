@@ -20,9 +20,9 @@ CONFIGS = PROJECT_ROOT / "configs" / "pipelines" / "chembl"
 
 def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
     try:
-        from bioetl.config.loader import load_config
+        from bioetl.config.loader import read_pipeline_config
 
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
         return True, {
             "config": config,
             "pipeline_name": getattr(getattr(config, "pipeline", None), "name", None),

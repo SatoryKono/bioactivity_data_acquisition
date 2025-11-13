@@ -102,3 +102,12 @@ format.
 | **Metric: `duplicate_rate`**| ✅ PASS | `0.0 <= 0.01` |
 | **Metric: `http_error_rate`** | ⚠️ WARN | `0.03 > 0.02` |
 ```
+
+## 4. Coverage profiles and local workflows
+
+- **Порог покрытия** в CI остаётся **85%**. Каждый подсистемный прогон (CLI, инструменты, пайплайны) должен подтверждать соблюдение порога перед запуском полного набора.
+- Для ускорения локальных проверок **РЕКОМЕНДУЕТСЯ** поддерживать лёгкие профили:
+  - CLI/Tools: `pytest --cov=src/bioetl/cli --cov=src/bioetl/tools tests/bioetl/cli tests/bioetl/tools`
+  - Обогащения пайплайнов: `pytest --cov=src/bioetl/pipelines/activity tests/bioetl/pipelines/activity/test_activity_enrichment_light.py`
+- При добавлении новых подсистем создавайте аналогичные профили и фиксируйте команды в README соответствующего модуля.
+- В CI job `coverage` публикуйте агрегированный отчёт (`coverage.xml`, `htmlcov/`) и артефакт с метаданными (commit SHA, дата, запущенный профиль) для трассируемости.

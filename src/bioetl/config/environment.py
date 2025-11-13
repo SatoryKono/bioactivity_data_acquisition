@@ -8,12 +8,15 @@ single source of truth and simplifying 12-Factor Config adoption.
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Any
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .utils import coerce_bool
 
 
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
@@ -62,17 +65,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("offline_chembl_client", mode="before")
     @classmethod
     def _coerce_bool(cls, value: Any) -> bool:
-        if isinstance(value, bool):
-            return value
-        if value is None:
-            return False
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"1", "true", "yes", "on"}:
-                return True
-            if normalized in {"0", "false", "no", "off"}:
-                return False
-        return bool(value)
+        return coerce_bool(value)
 
     @field_validator("pubmed_tool")
     @classmethod
@@ -96,8 +89,8 @@ class EnvironmentSettings(BaseSettings):
         return normalized
 
 
-def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
-    """Load and validate BioETL environment settings.
+def read_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
+    """Read and validate BioETL environment settings.
 
     Parameters
     ----------
@@ -110,6 +103,18 @@ def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSet
     if env_file is not None:
         init_kwargs["_env_file"] = env_file
     return EnvironmentSettings(**init_kwargs)
+
+
+def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSettings:
+    """Deprecated wrapper for :func:`read_environment_settings`."""
+
+    warnings.warn(
+        "load_environment_settings() is deprecated and will be removed in a future "
+        "release; use read_environment_settings() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_environment_settings(env_file=env_file)
 
 
 def apply_runtime_overrides(
@@ -183,6 +188,7 @@ def apply_runtime_overrides(
 __all__ = [
     "EnvironmentSettings",
     "apply_runtime_overrides",
+    "read_environment_settings",
     "load_environment_settings",
 ]
 

@@ -1,65 +1,48 @@
-"""CLI command ``bioetl-build-vocab-store``."""
+"""CLI для сборки словаря ChEMBL."""
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
 
-from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.tools.build_vocab_store import build_vocab_store as build_vocab_store_sync
+import typer
 
-typer = cast(Any, importlib.import_module("typer"))
+from bioetl.cli.tools import create_app, run_app
+from bioetl.etl.vocab_store import VocabStoreError
+from bioetl.tools.build_vocab_store import build_vocab_store
 
-__all__ = ["app", "build_vocab_store", "main", "run"]
-build_vocab_store = build_vocab_store_sync
-
-app: TyperApp = create_app(
+app = create_app(
     name="bioetl-build-vocab-store",
-    help_text="Assemble the aggregated ChEMBL vocabulary and export YAML",
+    help_text="Агрегирует YAML-словарь ChEMBL",
 )
 
 
 @app.command()
 def main(
     src: Path = typer.Option(
-        ...,
-        "--src",
-        help="Directory containing source vocabularies (YAML).",
+        Path("configs/dictionaries"),
+        help="Каталог с отдельными словарями",
         exists=True,
         file_okay=False,
         dir_okay=True,
         readable=True,
     ),
     output: Path = typer.Option(
-        ...,
-        "--output",
-        help="Path to the output YAML file for the aggregated vocabulary.",
-        exists=False,
+        Path("artifacts/chembl_dictionaries.yaml"),
+        help="Итоговый YAML-файл",
         file_okay=True,
         dir_okay=False,
         writable=True,
     ),
 ) -> None:
-    """Aggregate vocabulary files and write the combined YAML."""
+    """Построить агрегированный словарь."""
 
     try:
-        result_path = build_vocab_store(src=src, output=output)
-    except Exception as exc:  # noqa: BLE001
+        result = build_vocab_store(src=src, output=output)
+        typer.echo(f"Aggregated vocab store written to {result}")
+    except VocabStoreError as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-
-    typer.echo(f"Aggregated vocabulary written to {result_path}")
-    exit_with_code(0)
+        raise typer.Exit(code=1) from exc
 
 
 def run() -> None:
-    """Execute the Typer application."""
-
     run_app(app)
-
-
-if __name__ == "__main__":
-    run()
-

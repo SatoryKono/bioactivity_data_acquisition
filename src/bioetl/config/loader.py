@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
+import warnings
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 import yaml
 from yaml.nodes import ScalarNode
 
+from bioetl.core.validators import is_iterable
 from .models.base import PipelineConfig
 
 DEFAULTS_DIR = Path("configs/defaults")
@@ -19,15 +21,7 @@ VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 
 
-def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
-    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
-
-
-def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
-    return isinstance(value, list)
-
-
-def load_config(
+def read_pipeline_config(
     config_path: str | Path,
     *,
     profiles: Sequence[str | Path] | None = None,
@@ -36,7 +30,7 @@ def load_config(
     env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
     include_default_profiles: bool = False,
 ) -> PipelineConfig:
-    """Load, merge, and validate a pipeline configuration.
+    """Read, merge, and validate a pipeline configuration.
 
     The loader performs the following steps:
 
@@ -156,6 +150,33 @@ def load_config(
 
     normalized = _migrate_legacy_sections(merged)
     return PipelineConfig.model_validate(normalized)
+
+
+def load_config(
+    config_path: str | Path,
+    *,
+    profiles: Sequence[str | Path] | None = None,
+    cli_overrides: Mapping[str, Any] | None = None,
+    env: Mapping[str, str] | None = None,
+    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+    include_default_profiles: bool = False,
+) -> PipelineConfig:
+    """Deprecated wrapper for :func:`read_pipeline_config`."""
+
+    warnings.warn(
+        "load_config() is deprecated and will be removed in a future release; "
+        "use read_pipeline_config() instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return read_pipeline_config(
+        config_path,
+        profiles=profiles,
+        cli_overrides=cli_overrides,
+        env=env,
+        env_prefixes=env_prefixes,
+        include_default_profiles=include_default_profiles,
+    )
 
 
 def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
@@ -278,7 +299,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
                 typed_sources: tuple[Mapping[str, Any], ...] = (
                     _normalize_merge_source(merge_value),
                 )
-            elif _is_non_string_iterable(merge_value):
+            elif is_iterable(merge_value):
                 merge_iterable: Iterable[Any] = merge_value
                 typed_sources = tuple(
                     _normalize_merge_source(source_any) for source_any in merge_iterable
@@ -308,7 +329,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         return result
 
-    if _is_any_list(payload):
+    if isinstance(payload, list):
         payload_list: list[Any] = payload
         return [
             _apply_yaml_merge(element_any)

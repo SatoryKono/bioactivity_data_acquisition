@@ -16,8 +16,7 @@ from typing import Any, Protocol, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
-from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
+from bioetl.etl.vocab_store import VocabStoreError, read_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
 _chembl_new_client: Any | None = None
@@ -88,11 +87,12 @@ def _resolve_chembl_client() -> _ChemblClientProtocol:
 
     log = UnifiedLogger.get(__name__)
     if _chembl_import_error is not None:
-        log.warning(LogEvents.CHEMBL_CLIENT_OFFLINE_STUB_ACTIVATED,
+        log.warning(
+            "chembl_client.offline_stub_activated",
             reason=str(_chembl_import_error),
         )
     else:
-        log.info(LogEvents.CHEMBL_CLIENT_OFFLINE_STUB_FORCED)
+        log.info("chembl_client.offline_stub_forced")
     return cast(_ChemblClientProtocol, get_offline_new_client())
 
 
@@ -147,7 +147,7 @@ def _resolve_store_path(store: Path | None) -> Path:
 
 def _load_store(path: Path) -> Mapping[str, object]:
     try:
-        store = load_vocab_store(path)
+        store = read_vocab_store(path)
     except VocabStoreError as exc:
         raise RuntimeError(f"Failed to load vocabulary store at {path}: {exc}") from exc
     return cast(Mapping[str, object], store)
@@ -329,7 +329,8 @@ def audit_vocabularies(
             continue
         block = vocab_store.get(spec.dictionary)
         if not isinstance(block, Mapping):
-            log.warning(LogEvents.DICTIONARY_MISSING,
+            log.warning(
+                "dictionary_missing",
                 dictionary=spec.dictionary,
                 store=str(resolved_store),
             )
@@ -395,7 +396,8 @@ def audit_vocabularies(
         os.fsync(handle.fileno())
     os.replace(tmp_meta, meta_path)
 
-    log.info(LogEvents.VOCAB_AUDIT_COMPLETED,
+    log.info(
+        "vocab_audit_completed",
         rows=len(audit_rows),
         output=str(output_path),
         meta=str(meta_path),

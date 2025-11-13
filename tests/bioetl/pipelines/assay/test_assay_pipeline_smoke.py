@@ -9,8 +9,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bioetl.config import load_config
-from bioetl.pipelines.chembl.assay import run as assay_run
+from bioetl.config import read_pipeline_config
+from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
 
 def create_mock_assay_data(count: int = 5) -> list[dict[str, object]]:
@@ -88,9 +88,7 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
     class_map_records: list[dict[str, object]] = []
     for assay in mock_assays:
         assay_id = cast(str, assay["assay_chembl_id"])
-        raw_classifications = cast(
-            list[dict[str, object]] | None, assay.get("assay_classifications")
-        )
+        raw_classifications = cast(list[dict[str, object]] | None, assay.get("assay_classifications"))
         classification_items: list[dict[str, object]] = []
         if raw_classifications is not None:
             for item in raw_classifications:
@@ -198,7 +196,7 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
             return mock_class_map_response
         elif "/assay_classification.json" in url:
             return mock_classification_response
-        elif "/assay_parameter.json" in url:
+        elif "/assay_parameters.json" in url:
             return mock_parameters_response
         # Default fallback
         return mock_assay_response
@@ -220,7 +218,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -228,7 +226,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
             config.cli.limit = 5
@@ -236,35 +234,35 @@ class TestAssayPipelineSmoke:
             df = pipeline.transform(df)
 
         # Check that array fields are present
-        assert "assay_classifications" in df.columns or "assay_parameters" in df.columns, (
-            "Array fields missing"
-        )
+        assert (
+            "assay_classifications" in df.columns or "assay_parameters" in df.columns
+        ), "Array fields missing"
 
         # Check that array fields are strings (not lists)
         if "assay_classifications" in df.columns:
             classifications = df["assay_classifications"]
             for value in classifications.dropna():
-                assert isinstance(value, str), (
-                    f"assay_classifications should be string, got {type(value)}"
-                )
+                assert isinstance(
+                    value, str
+                ), f"assay_classifications should be string, got {type(value)}"
                 # Check pattern: header+rows format (header/row1/row2/...)
                 # Empty string is valid, or should match pattern ^[^/]+(/.+)?$
                 if value:
-                    assert re.match(r"^[^/]+(/.+)?$", value), (
-                        f"assay_classifications should match header+rows pattern, got: {value[:100]}"
-                    )
+                    assert re.match(
+                        r"^[^/]+(/.+)?$", value
+                    ), f"assay_classifications should match header+rows pattern, got: {value[:100]}"
 
         if "assay_parameters" in df.columns:
             parameters = df["assay_parameters"]
             for value in parameters.dropna():
-                assert isinstance(value, str), (
-                    f"assay_parameters should be string, got {type(value)}"
-                )
+                assert isinstance(
+                    value, str
+                ), f"assay_parameters should be string, got {type(value)}"
                 # Check pattern: header+rows format
                 if value:
-                    assert re.match(r"^[^/]+(/.+)?$", value), (
-                        f"assay_parameters should match header+rows pattern, got: {value[:100]}"
-                    )
+                    assert re.match(
+                        r"^[^/]+(/.+)?$", value
+                    ), f"assay_parameters should match header+rows pattern, got: {value[:100]}"
 
     def test_assay_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that assay pipeline extracts all required scalar fields."""
@@ -275,7 +273,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
@@ -283,7 +281,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
             config.cli.limit = 5
@@ -328,7 +326,7 @@ class TestAssayPipelineSmoke:
             / "assay"
             / "assay_chembl.yaml"
         )
-        config = load_config(config_path)
+        config = read_pipeline_config(config_path)
 
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=10)
@@ -336,7 +334,7 @@ class TestAssayPipelineSmoke:
         with patch(
             "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
         ):
-            pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
+            pipeline = ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
             config.cli.limit = 10

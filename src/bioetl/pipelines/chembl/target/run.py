@@ -5,35 +5,28 @@ from __future__ import annotations
 import json
 import math
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
 from typing import Any, cast
 
 import pandas as pd
-from pandas._libs import missing as libmissing
-from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.clients.entities.client_target import ChemblTargetClient
+from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.target.chembl_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.log_events import LogEvents
 from bioetl.core.normalizers import (
     IdentifierRule,
     StringRule,
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
+from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
-from ...chembl_descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
-from .transform import serialize_target_arrays
+from ..chembl_base import ChemblPipelineBase
+from .target_transform import serialize_target_arrays
 
 
 class ChemblTargetPipeline(ChemblPipelineBase):
@@ -56,89 +49,95 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        return self._dispatch_extract_mode(
-            log,
-            event_name="chembl_target.extract_mode",
-            batch_callback=self.extract_by_ids,
-            full_callback=self.extract_all,
-            id_column_name="target_chembl_id",
-        )
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_target.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        log.info("chembl_target.extract_mode", mode="full")
+        return self.extract_all()
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all target records from ChEMBL using pagination."""
 
-        descriptor = self._build_target_descriptor()
-        return self.run_extract_all(descriptor)
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        stage_start = time.perf_counter()
 
-    def _build_target_descriptor(self) -> ChemblExtractionDescriptor["ChemblTargetPipeline"]:
-        """Return the descriptor powering target extraction."""
+        source_raw = self._resolve_source_config("chembl")
+        source_config = TargetSourceConfig.from_source(source_raw)
+        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_target_http"
+        )
 
-        def build_context(
-            pipeline: "ChemblTargetPipeline",
-            source_config: TargetSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_target_http",
-            )
-            chembl_client = ChemblClient(http_client)
-            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
-            target_client = ChemblTargetClient(
-                chembl_client,
-                batch_size=min(source_config.batch_size, 25),
-            )
-            select_fields = source_config.parameters.select_fields
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=target_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
-                extra_filters={"batch_size": source_config.batch_size},
-            )
+        chembl_client = ChemblClient(http_client)
+        self.fetch_chembl_release(chembl_client, log)
 
-        def empty_frame(
-            _: "ChemblTargetPipeline",
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
-
-        def dry_run_handler(
-            pipeline: "ChemblTargetPipeline",
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
+        if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
+            log.info(
+                "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=pipeline._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
-        def summary_extra(
-            pipeline: "ChemblTargetPipeline",
-            _: pd.DataFrame,
-            __: ChemblExtractionContext,
-        ) -> Mapping[str, Any]:
-            return {"limit": pipeline.config.cli.limit}
+        batch_size = source_config.batch_size
+        limit = self.config.cli.limit
+        page_size = min(batch_size, 25)
+        if limit is not None:
+            page_size = min(page_size, limit)
+        page_size = max(page_size, 1)
 
-        return ChemblExtractionDescriptor[ChemblTargetPipeline](
-            name="chembl_target",
-            source_name="chembl",
-            source_config_factory=TargetSourceConfig.from_source_config,
-            build_context=build_context,
-            id_column="target_chembl_id",
-            summary_event="chembl_target.extract_summary",
-            sort_by=("target_chembl_id",),
-            empty_frame_factory=empty_frame,
-            dry_run_handler=dry_run_handler,
-            summary_extra=summary_extra,
+        select_fields = source_config.parameters.select_fields
+        records: list[Mapping[str, Any]] = []
+
+        filters_payload = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "batch_size": batch_size,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
+
+        # Используем специализированный клиент для target
+        target_client = ChemblTargetClient(chembl_client, batch_size=min(page_size, 25))
+        for item in target_client.iterate_all(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
+        ):
+            records.append(item)
+
+        dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
+        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        log.info(
+            "chembl_target.extract_summary",
+            rows=int(dataframe.shape[0]),
+            duration_ms=duration_ms,
+            chembl_release=self.chembl_release,
+            limit=limit,
+        )
+        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract target records by a specific list of IDs using batch extraction.
@@ -157,21 +156,22 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
+        source_config = TargetSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_target_http"
         )
 
         chembl_client = ChemblClient(http_client)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
+            log.info(
+                "chembl_target.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -179,43 +179,65 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
 
-        target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
-
-        def fetch_targets(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = target_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="target_chembl_id",
-            fetcher=fetch_targets,
-            select_fields=select_fields,
-            batch_size=batch_size,
-            chunk_size=min(batch_size, 100),
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(select_fields) if select_fields else None,
-            },
-            chembl_release=self._chembl_release,
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(value) for value in ids],
+            "limit": int(limit) if limit is not None else None,
+            "batch_size": batch_size,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
 
+        # Process IDs in chunks to avoid URL length limits
+        chunk_size = min(batch_size, 100)  # Conservative limit for target_chembl_id__in
+        all_records: list[Mapping[str, Any]] = []
+        ids_list = list(ids)
+
+        for i in range(0, len(ids_list), chunk_size):
+            chunk = ids_list[i : i + chunk_size]
+            params: dict[str, Any] = {
+                "target_chembl_id__in": ",".join(chunk),
+                "limit": min(batch_size, 25),
+            }
+            if select_fields:
+                params["only"] = ",".join(select_fields)
+
+            try:
+                # Используем специализированный клиент для target
+                target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
+                for item in target_client.iterate_by_ids(chunk, select_fields=select_fields):
+                    all_records.append(item)
+                    if limit is not None and len(all_records) >= limit:
+                        break
+            except Exception as exc:
+                log.warning(
+                    "chembl_target.fetch_error",
+                    target_count=len(chunk),
+                    error=str(exc),
+                    exc_info=True,
+                )
+
+            if limit is not None and len(all_records) >= limit:
+                break
+
+        records_for_frame: list[dict[str, Any]] = [dict(record) for record in all_records]
+        dataframe = pd.DataFrame(records_for_frame)
+        if not dataframe.empty and "target_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("target_chembl_id").reset_index(drop=True)
+
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
+        log.info(
+            "chembl_target.extract_by_ids_summary",
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
         )
         return dataframe
 
@@ -230,10 +252,10 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
 
         if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
+            log.debug("transform_empty_dataframe")
             return df
 
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
+        log.info("transform_started", rows=len(df))
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
@@ -260,7 +282,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
+        log.info("transform_completed", rows=len(df))
         return df
 
     # ------------------------------------------------------------------
@@ -282,7 +304,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             actions.append(f"dropped_aliases:{','.join(alias_columns)}")
 
         if actions:
-            log.debug(LogEvents.IDENTIFIER_HARMONIZATION, actions=actions)
+            log.debug("identifier_harmonization", actions=actions)
 
         return df
 
@@ -300,7 +322,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         invalid_info = stats.per_column.get("target_chembl_id")
         if invalid_info and invalid_info["invalid"] > 0:
-            log.warning(LogEvents.INVALID_TARGET_CHEMBL_ID,
+            log.warning(
+                "invalid_target_chembl_id",
                 count=invalid_info["invalid"],
             )
 
@@ -337,7 +360,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         if not target_ids_to_enrich:
-            log.debug(LogEvents.ENRICH_TARGET_COMPONENTS_SKIPPED, reason="all_data_present")
+            log.debug("enrich_target_components_skipped", reason="all_data_present")
             return df
 
         # Reuse existing client if available, otherwise create new one
@@ -365,7 +388,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         target_membership = df["target_chembl_id"].map(_is_target)
 
-        log.info(LogEvents.ENRICH_TARGET_COMPONENTS_START, target_count=len(target_ids_to_enrich))
+        log.info("enrich_target_components_start", target_count=len(target_ids_to_enrich))
 
         for target_id in target_ids_to_enrich:
             try:
@@ -383,7 +406,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 if components:
                     component_map[target_id] = components
             except Exception as exc:
-                log.warning(LogEvents.TARGET_COMPONENT_FETCH_ERROR,
+                log.warning(
+                    "target_component_fetch_error",
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -408,7 +432,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
                 )
 
-        log.info(LogEvents.ENRICH_TARGET_COMPONENTS_COMPLETE, enriched_count=len(component_map))
+        log.info("enrich_target_components_complete", enriched_count=len(component_map))
         return df
 
     def _enrich_protein_classifications(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
@@ -448,7 +472,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         )
 
         if not target_ids_to_enrich:
-            log.debug(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_SKIPPED, reason="all_data_present")
+            log.debug("enrich_protein_classifications_skipped", reason="all_data_present")
             return df
 
         source_raw = self._resolve_source_config("chembl")
@@ -483,7 +507,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         target_membership = df["target_chembl_id"].map(_is_target)
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
+        log.info("enrich_protein_classifications_start", target_count=len(target_ids_to_enrich))
 
         for target_id in target_ids_to_enrich:
             try:
@@ -521,7 +545,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                 protein_component_ids.append(component_id)
                                 break
                     except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                        log.debug(
+                            "component_sequence_fetch_error",
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -544,7 +569,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             if protein_class_id is not None:
                                 protein_class_ids.add(str(protein_class_id))
                     except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_CLASS_FETCH_ERROR,
+                        log.debug(
+                            "component_class_fetch_error",
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -598,7 +624,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                             path_levels[i - 1] = str(level_value)
                                 break
                         except Exception as exc:
-                            log.debug(LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
+                            log.debug(
+                                "protein_family_classification_fetch_error",
                                 target_chembl_id=target_id,
                                 protein_class_id=protein_class_id,
                                 error=str(exc),
@@ -617,7 +644,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             }
                             protein_classes.append(class_obj)
                     except Exception as exc:
-                        log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                        log.warning(
+                            "protein_classification_fetch_error",
                             target_chembl_id=target_id,
                             protein_class_id=protein_class_id,
                             error=str(exc),
@@ -658,7 +686,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         classification_top_map[target_id] = top_class
 
             except Exception as exc:
-                log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                log.warning(
+                    "protein_classification_fetch_error",
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -691,7 +720,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     else pd.NA
                 )
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
+        log.info(
+            "enrich_protein_classifications_complete",
             enriched_list_count=len(classification_list_map),
             enriched_top_count=len(classification_top_map),
         )
@@ -711,7 +741,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
+            log.debug(
+                "string_fields_normalized",
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -727,7 +758,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """
         df = super()._normalize_data_types(df, schema, log)
 
-        def _coerce_nullable_int(value: object) -> int | libmissing.NAType:
+        def _coerce_nullable_int(value: object) -> object:
             if value is None or value is pd.NA:
                 return pd.NA
             if isinstance(value, bool):
@@ -767,6 +798,6 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 coerced_species_group_flag = df["species_group_flag"].map(_coerce_nullable_int)
                 df["species_group_flag"] = coerced_species_group_flag.astype("Int64")
             except (ValueError, TypeError) as exc:
-                log.warning(LogEvents.SPECIES_GROUP_FLAG_CONVERSION_FAILED, error=str(exc))
+                log.warning("species_group_flag_conversion_failed", error=str(exc))
 
         return df

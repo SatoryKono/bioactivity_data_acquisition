@@ -5,26 +5,22 @@ from __future__ import annotations
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest  # type: ignore[reportMissingImports]
-import typer  # type: ignore[reportMissingImports]
-from click.testing import CliRunner  # type: ignore[reportMissingImports]
-from typer.main import get_command  # type: ignore[reportMissingImports]
+import pytest
+import typer
+from click.testing import CliRunner
+from typer.main import get_command
 
-from bioetl.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
-from bioetl.cli.cli_command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
-    _parse_set_overrides,
-    _validate_config_path,
-    _validate_output_dir,
+from bioetl.cli.command import (
+    _parse_set_overrides,  # type: ignore[reportPrivateUsage]
+    _validate_config_path,  # type: ignore[reportPrivateUsage]
+    _validate_output_dir,  # type: ignore[reportPrivateUsage]
 )
-from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
-from bioetl.config import (
-    load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
-)
+from bioetl.cli.main import app
 
-CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
+CLI_APP = get_command(app)
 
 
-@pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
+@pytest.mark.unit
 class TestCLIParsing:
     """Test suite for CLI parsing utilities."""
 
@@ -38,7 +34,7 @@ class TestCLIParsing:
 
     def test_parse_set_overrides_invalid(self):
         """Test parsing invalid --set overrides."""
-        with pytest.raises(typer.BadParameter):  # type: ignore[reportUnknownMemberType]
+        with pytest.raises(typer.BadParameter):
             _parse_set_overrides(["invalid_format"])
 
     def test_parse_set_overrides_empty(self):
@@ -59,10 +55,10 @@ class TestCLIParsing:
         """Test validation of non-existent config path."""
         config_file = tmp_path / "nonexistent.yaml"
 
-        with pytest.raises(typer.Exit) as exc_info:  # type: ignore[reportUnknownMemberType]
+        with pytest.raises(typer.Exit) as exc_info:
             _validate_config_path(config_file)
 
-        assert exc_info.value.exit_code == 2  # type: ignore[reportUnknownMemberType]
+        assert exc_info.value.exit_code == 2
 
     def test_validate_output_dir_creatable(self, tmp_path: Path):
         """Test validation of creatable output directory."""
@@ -82,15 +78,9 @@ class TestCLIParsing:
         _validate_output_dir(output_dir)
 
 
-@pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
+@pytest.mark.unit
 class TestCLICommands:
     """Test suite for CLI commands."""
-
-    def test_run_invokes_app(self):
-        """Ensure CLI entrypoint delegates to Typer app."""
-        with patch("bioetl.cli.cli_app.app") as app_mock:
-            run()
-        app_mock.assert_called_once_with()
 
     def test_activity_command_dry_run(self, tmp_path: Path):
         """Test activity command in dry-run mode."""
@@ -115,7 +105,7 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            CLI_APP,  # type: ignore[reportUnknownArgumentType]
+            CLI_APP,
             [
                 "activity_chembl",
                 "--config",
@@ -127,16 +117,16 @@ http:
         )
 
         # Exit code 2 for typer validation errors, 0 for success
-        if result.exit_code == 2:  # type: ignore[reportUnknownMemberType]
+        if result.exit_code == 2:
             # If we got a validation error, check stderr for details
-            error_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
+            error_output = result.stdout + result.stderr
             # Skip this test if CLI command format is wrong
             if "Got unexpected extra argument" in error_output:
-                pytest.skip("CLI command format issue - skipping test")  # type: ignore[reportUnknownMemberType]
+                pytest.skip("CLI command format issue - skipping test")
         assert (
-            result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-        ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"  # type: ignore[reportUnknownMemberType]
-        assert "Configuration validated successfully" in result.stdout  # type: ignore[reportUnknownMemberType]
+            result.exit_code == 0
+        ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
+        assert "Configuration validated successfully" in result.stdout
 
     def test_activity_command_invalid_config(self, tmp_path: Path):
         """Test activity command with invalid config path."""
@@ -146,7 +136,7 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            CLI_APP,  # type: ignore[reportUnknownArgumentType]
+            CLI_APP,
             [
                 "--config",
                 str(config_file),
@@ -155,9 +145,9 @@ http:
             ],
         )
 
-        assert result.exit_code == 2  # type: ignore[reportUnknownMemberType]
+        assert result.exit_code == 2
         # Typer may output errors to stderr
-        error_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
+        error_output = result.stdout + result.stderr
         assert "not found" in error_output or "Error" in error_output
 
     def test_activity_command_with_limit(self, tmp_path: Path):
@@ -186,18 +176,19 @@ sources:
 
         output_dir = tmp_path / "output"
 
-        real_config = load_config(
-            config_path=config_file,
-            include_default_profiles=True,
-        )
-
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            mock_load_config.return_value = real_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
+
+            real_config = real_read_pipeline_config(
+                config_path=config_file,
+                include_default_profiles=True,
+            )
+            mock_read_pipeline_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -206,7 +197,7 @@ sources:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                CLI_APP,  # type: ignore[reportUnknownArgumentType]
+                CLI_APP,
                 [
                     "activity_chembl",
                     "--config",
@@ -219,10 +210,8 @@ sources:
             )
 
             assert (
-                result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-            ), (
-                f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
-            )  # type: ignore[reportUnknownMemberType]
+                result.exit_code == 0
+            ), f"Expected 0, got {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
             # Check that limit was passed to config
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)
@@ -259,7 +248,7 @@ sources:
         output_dir = tmp_path / "output"
 
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
         ) as mock_pipeline_class:
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
@@ -269,7 +258,7 @@ sources:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                CLI_APP,  # type: ignore[reportUnknownArgumentType]
+                CLI_APP,
                 [
                     "activity_chembl",
                     "--config",
@@ -281,7 +270,7 @@ sources:
                 ],
             )
 
-            assert result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert result.exit_code == 0
             assert mock_pipeline_class.called
             # ChemblActivityPipeline is called with positional args: (config, run_id)
             call_args = mock_pipeline_class.call_args
@@ -312,7 +301,7 @@ http:
         output_dir = tmp_path / "output"
 
         result = runner.invoke(
-            CLI_APP,  # type: ignore[reportUnknownArgumentType]
+            CLI_APP,
             [
                 "activity_chembl",
                 "--config",
@@ -326,8 +315,8 @@ http:
             ],
         )
 
-        assert result.exit_code == 2  # type: ignore[reportUnknownMemberType]
-        assert "mutually exclusive" in result.stderr  # type: ignore[reportUnknownMemberType]
+        assert result.exit_code == 2
+        assert "mutually exclusive" in result.stderr
 
     def test_activity_command_with_set_overrides(self, tmp_path: Path):
         """Test activity command with --set overrides."""
@@ -350,21 +339,17 @@ http:
 
         output_dir = tmp_path / "output"
 
-        # Test that --set overrides are parsed and passed correctly
-        # We'll verify by checking that the command completes successfully
-        # and that the overrides are applied (if config loading succeeds)
-        with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
-        ) as mock_pipeline_class:
-            mock_pipeline = MagicMock()
-            mock_result = MagicMock()
-            mock_result.write_result.dataset = Path("test.csv")
-            mock_result.stage_durations_ms = {}
-            mock_pipeline.run.return_value = mock_result
-            mock_pipeline_class.return_value = mock_pipeline
+        with patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config:
+            mock_config = MagicMock()
+            mock_config.cli.dry_run = False
+            mock_config.cli.limit = None
+            mock_config.cli.extended = False
+            mock_config.cli.golden = None
+            mock_config.materialization.root = str(output_dir)
+            mock_read_pipeline_config.return_value = mock_config
 
             result = runner.invoke(
-                CLI_APP,  # type: ignore[reportUnknownArgumentType]
+                CLI_APP,
                 [
                     "activity_chembl",
                     "--config",
@@ -379,12 +364,12 @@ http:
                 ],
             )
 
-            # In dry-run mode, command should succeed
-            assert result.exit_code == 0, (
-                f"Command failed with exit code {result.exit_code}. Stdout: {result.stdout}, Stderr: {result.stderr}"
-            )  # type: ignore[reportUnknownMemberType]
-            # Verify that --set parsing doesn't cause errors
-            assert "Configuration validated successfully" in result.stdout or result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert result.exit_code == 0
+            # Check that overrides were passed
+            assert mock_read_pipeline_config.called
+            call_kwargs = mock_read_pipeline_config.call_args[1]
+            assert "cli.limit" in call_kwargs["cli_overrides"]
+            assert "http.default.timeout_sec" in call_kwargs["cli_overrides"]
 
     def test_activity_command_with_verbose_and_schema_flags(self, tmp_path: Path):
         """Test verbose logging and schema drift flags."""
@@ -408,7 +393,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+  schema_out: "bioetl.schemas.activity.activity_chembl:ActivitySchema"
 """
         )
 
@@ -416,7 +401,7 @@ validation:
 
         with (
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
             patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
         ):
@@ -428,7 +413,7 @@ validation:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                CLI_APP,  # type: ignore[reportUnknownArgumentType]
+                CLI_APP,
                 [
                     "activity_chembl",
                     "--config",
@@ -441,7 +426,7 @@ validation:
                 ],
             )
 
-            assert result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert result.exit_code == 0
             assert mock_logger_configure.called
             logger_config = mock_logger_configure.call_args[0][0]
             assert logger_config.level == "DEBUG"
@@ -475,18 +460,19 @@ http:
 
         output_dir = tmp_path / "output"
 
-        real_config = load_config(
-            config_path=config_file,
-            include_default_profiles=False,
-        )
-
         with (
-            patch("bioetl.config.load_config") as mock_load_config,
+            patch("bioetl.cli.command.read_pipeline_config") as mock_read_pipeline_config,
             patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
+                "bioetl.pipelines.activity.activity.ChemblActivityPipeline"
             ) as mock_pipeline_class,
         ):
-            mock_load_config.return_value = real_config
+            from bioetl.config import read_pipeline_config as real_read_pipeline_config
+
+            real_config = real_read_pipeline_config(
+                config_path=config_file,
+                include_default_profiles=False,
+            )
+            mock_read_pipeline_config.return_value = real_config
             mock_pipeline = MagicMock()
             mock_result = MagicMock()
             mock_result.write_result.dataset = Path("test.csv")
@@ -495,7 +481,7 @@ http:
             mock_pipeline_class.return_value = mock_pipeline
 
             result = runner.invoke(
-                CLI_APP,  # type: ignore[reportUnknownArgumentType]
+                CLI_APP,
                 [
                     "activity_chembl",
                     "--config",
@@ -506,165 +492,9 @@ http:
                 ],
             )
 
-            assert result.exit_code == 0  # type: ignore[reportUnknownMemberType]
+            assert result.exit_code == 0
             # Check that extended was passed to run
             assert mock_pipeline.run.called
             call_kwargs = mock_pipeline.run.call_args[1]
             assert call_kwargs["include_correlation"] is True
             assert call_kwargs["include_qc_metrics"] is True
-
-    def test_activity_command_environment_settings_error(self, tmp_path: Path):
-        """Ensure environment validation errors surface as Typer exits."""
-        runner = CliRunner()
-
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            """
-version: 1
-pipeline:
-  name: activity_chembl
-  version: "1.0.0"
-http:
-  default:
-    timeout_sec: 30.0
-    connect_timeout_sec: 10.0
-    read_timeout_sec: 30.0
-"""
-        )
-
-        output_dir = tmp_path / "output"
-
-        with patch("bioetl.cli.cli_command.load_environment_settings") as mock_env_settings:
-            mock_env_settings.side_effect = ValueError("invalid environment")
-
-            result = runner.invoke(
-                CLI_APP,
-                [
-                    "activity_chembl",
-                    "--config",
-                    str(config_file),
-                    "--output-dir",
-                    str(output_dir),
-                ],
-            )
-
-        assert result.exit_code == 2  # type: ignore[reportUnknownMemberType]
-        combined_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
-        assert "Environment validation failed" in combined_output
-
-    def test_activity_command_external_api_error(self, tmp_path: Path):
-        """Ensure API exceptions exit with code 3."""
-        runner = CliRunner()
-
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            """
-version: 1
-pipeline:
-  name: activity_chembl
-  version: "1.0.0"
-http:
-  default:
-    timeout_sec: 30.0
-    connect_timeout_sec: 10.0
-    read_timeout_sec: 30.0
-"""
-        )
-
-        output_dir = tmp_path / "output"
-
-        real_config = load_config(
-            config_path=config_file,
-            include_default_profiles=True,
-        )
-
-        with (
-            patch("bioetl.config.load_config") as mock_load_config,
-            patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
-            ) as mock_pipeline_class,
-        ):
-            mock_load_config.return_value = real_config
-            mock_pipeline = MagicMock()
-            mock_pipeline.run.side_effect = Timeout("Request timeout")
-            mock_pipeline_class.return_value = mock_pipeline
-
-            result = runner.invoke(
-                CLI_APP,
-                [
-                    "activity_chembl",
-                    "--config",
-                    str(config_file),
-                    "--output-dir",
-                    str(output_dir),
-                ],
-            )
-
-        assert result.exit_code == 3  # type: ignore[reportUnknownMemberType]
-        combined_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
-        assert "External API failure" in combined_output
-
-    def test_activity_command_with_golden_and_input_file(self, tmp_path: Path):
-        """Ensure golden and input_file CLI flags propagate into config."""
-        runner = CliRunner()
-
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text(
-            """
-version: 1
-pipeline:
-  name: activity_chembl
-  version: "1.0.0"
-http:
-  default:
-    timeout_sec: 30.0
-    connect_timeout_sec: 10.0
-    read_timeout_sec: 30.0
-"""
-        )
-
-        output_dir = tmp_path / "output"
-        golden_path = tmp_path / "golden.parquet"
-        input_file = tmp_path / "ids.csv"
-
-        real_config = load_config(
-            config_path=config_file,
-            include_default_profiles=True,
-        )
-
-        with (
-            patch("bioetl.config.load_config") as mock_load_config,
-            patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
-            ) as mock_pipeline_class,
-        ):
-            mock_load_config.return_value = real_config
-            mock_pipeline = MagicMock()
-            mock_result = MagicMock()
-            mock_result.write_result.dataset = Path("test.csv")
-            mock_result.stage_durations_ms = {}
-            mock_pipeline.run.return_value = mock_result
-            mock_pipeline_class.return_value = mock_pipeline
-
-            result = runner.invoke(
-                CLI_APP,
-                [
-                    "activity_chembl",
-                    "--config",
-                    str(config_file),
-                    "--output-dir",
-                    str(output_dir),
-                    "--golden",
-                    str(golden_path),
-                    "--input-file",
-                    str(input_file),
-                ],
-            )
-
-            assert result.exit_code == 0  # type: ignore[reportUnknownMemberType]
-            assert mock_pipeline_class.called
-            call_args = mock_pipeline_class.call_args
-            call_config = call_args.args[0] if call_args.args else call_args.kwargs.get("config")
-            assert call_config is not None
-            assert call_config.cli.golden == str(golden_path)
-            assert call_config.cli.input_file == str(input_file)

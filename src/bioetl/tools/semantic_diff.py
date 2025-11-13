@@ -95,7 +95,7 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 
 def extract_config_fields_from_code() -> dict[str, Any]:
     try:
-        from bioetl.config.models import PipelineConfig
+        from bioetl.config.models.base import PipelineConfig
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 

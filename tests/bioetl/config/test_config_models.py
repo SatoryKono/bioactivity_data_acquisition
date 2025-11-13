@@ -2,18 +2,24 @@
 
 from __future__ import annotations
 
-import pytest
+import math
 
-from bioetl.config.activity import ActivitySourceConfig
-from bioetl.config.assay import AssaySourceConfig
-from bioetl.config.document import DocumentSourceConfig
-from bioetl.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
-from bioetl.config.models.logging import LoggingConfig
-from bioetl.config.models.runtime import RuntimeConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.config.models.telemetry import TelemetryConfig
-from bioetl.config.target import TargetSourceConfig
-from bioetl.config.testitem import TestItemSourceConfig
+import pytest
+from pydantic import ValidationError
+
+from bioetl.config.models.models import (
+    IOConfig,
+    IOInputConfig,
+    IOOutputConfig,
+    LoggingConfig,
+    RuntimeConfig,
+    TelemetryConfig,
+)
+from bioetl.config.models.policies import (
+    DeterminismConfig,
+    DeterminismSortingConfig,
+    HTTPClientConfig,
+)
 
 
 @pytest.mark.unit
@@ -61,90 +67,35 @@ def test_telemetry_config_sampling() -> None:
     assert config.enabled is True
     assert config.exporter == "jaeger"
     assert config.endpoint == "http://localhost:14268"
-    assert pytest.approx(config.sampling_ratio) == 0.5
+    assert math.isclose(config.sampling_ratio, 0.5, rel_tol=1e-12)
 
 
 @pytest.mark.unit
-def test_target_source_config_from_source_config() -> None:
-    source = SourceConfig(
-        enabled=True,
-        description="targets",
-        batch_size=None,
-        parameters={"select_fields": ["target_chembl_id", "pref_name"]},
-    )
-
-    result = TargetSourceConfig.from_source_config(source)
-
-    assert result.enabled is True
-    assert result.batch_size == 25
-    assert result.description == "targets"
-    assert list(result.parameters.select_fields or ()) == ["target_chembl_id", "pref_name"]
+def test_determinism_config_validates_sort_lengths() -> None:
+    with pytest.raises(
+        ValueError, match="determinism.sort.ascending must be empty or match determinism.sort.by length"
+    ):
+        DeterminismConfig(
+            sort=DeterminismSortingConfig(by=["id"], ascending=[True, False])
+        )
 
 
 @pytest.mark.unit
-def test_activity_source_config_respects_batch_size() -> None:
-    source = SourceConfig(
-        enabled=True,
-        batch_size=15,
-        parameters={"select_fields": ["activity_id"]},
-    )
+def test_determinism_config_detects_duplicate_columns() -> None:
+    with pytest.raises(ValueError, match="determinism.sort.by must not contain duplicate columns"):
+        DeterminismConfig(sort=DeterminismSortingConfig(by=["id", "id"]))
 
-    result = ActivitySourceConfig.from_source_config(source)
-
-    assert result.batch_size == 15
-    assert list(result.parameters.select_fields or ()) == ["activity_id"]
+    with pytest.raises(ValueError, match="determinism.column_order must not contain duplicate columns"):
+        DeterminismConfig(column_order=("id", "id"))
 
 
 @pytest.mark.unit
-def test_document_source_config_defaults_batch_size() -> None:
-    source = SourceConfig(
-        enabled=True,
-        parameters={},
-    )
+def test_http_client_config_defaults_and_extra_fields() -> None:
+    config = HTTPClientConfig()
 
-    result = DocumentSourceConfig.from_source_config(source)
+    assert config.timeout_sec == 60.0
+    assert config.headers["User-Agent"] == "BioETL/1.0 (UnifiedAPIClient)"
+    assert config.rate_limit.max_calls == 10
 
-    assert result.batch_size == 25
-    assert result.parameters.select_fields is None
-
-
-@pytest.mark.unit
-def test_assay_source_config_applies_max_url_length() -> None:
-    source = SourceConfig(
-        enabled=True,
-        batch_size=30,
-        parameters={"max_url_length": 1500, "handshake_enabled": False},
-    )
-
-    result = AssaySourceConfig.from_source_config(source)
-
-    assert result.batch_size == 25
-    assert result.max_url_length == 1500
-    assert result.parameters.handshake_enabled is False
-
-
-@pytest.mark.unit
-def test_testitem_source_config_uses_custom_page_size() -> None:
-    source = SourceConfig(
-        enabled=True,
-        batch_size=None,
-        parameters={"batch_size": 120, "select_fields": ["chembl_id"]},
-    )
-
-    result = TestItemSourceConfig.from_source_config(source)
-
-    assert result.page_size == 120
-    assert list(result.parameters.select_fields or ()) == ["chembl_id"]
-
-
-@pytest.mark.unit
-def test_testitem_source_config_prefers_batch_size_field() -> None:
-    source = SourceConfig(
-        enabled=True,
-        batch_size=180,
-        parameters={"batch_size": 50},
-    )
-
-    result = TestItemSourceConfig.from_source_config(source)
-
-    assert result.page_size == 180
+    with pytest.raises(ValidationError):
+        HTTPClientConfig(unknown_option=True)  # type: ignore[arg-type]

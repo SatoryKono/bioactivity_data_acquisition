@@ -1,47 +1,25 @@
-"""CLI command ``bioetl-semantic-diff``."""
+"""CLI для семантического diff документации и кода."""
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+import typer
 
-from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.tools.semantic_diff import run_semantic_diff as run_semantic_diff_sync
+from bioetl.cli.tools import create_app, run_app
+from bioetl.tools.semantic_diff import run_semantic_diff
 
-typer = cast(Any, importlib.import_module("typer"))
-
-__all__ = ["app", "main", "run", "run_semantic_diff"]
-
-run_semantic_diff = run_semantic_diff_sync
-
-
-app: TyperApp = create_app(
+app = create_app(
     name="bioetl-semantic-diff",
-    help_text="Compare documentation and code to produce a diff",
+    help_text="Сравнение сигнатур и флагов между документацией и кодом",
 )
 
 
 @app.command()
 def main() -> None:
-    """Run the semantic diff workflow."""
+    """Сформировать отчёт семантического diff."""
 
-    try:
-        report_path = run_semantic_diff()
-    except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-
-    typer.echo(f"Semantic diff report written to: {report_path.resolve()}")
-    exit_with_code(0)
+    report_path = run_semantic_diff()
+    typer.echo(f"Семантический diff записан в {report_path}")
 
 
 def run() -> None:
-    """Execute the Typer application."""
-
     run_app(app)
-
-
-if __name__ == "__main__":
-    run()
-

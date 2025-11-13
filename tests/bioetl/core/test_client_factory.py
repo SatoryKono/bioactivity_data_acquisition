@@ -7,9 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.models import PipelineMetadata, SourceConfig
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig, RetryConfig
 from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.client_factory import APIClientFactory
 
@@ -60,7 +59,7 @@ class TestAPIClientFactory:
     def test_init(self, pipeline_config: PipelineConfig) -> None:
         """Test APIClientFactory initialization."""
         factory = APIClientFactory(pipeline_config)
-        assert factory._config == pipeline_config
+        assert factory.config == pipeline_config
 
     def test_build_with_default_config(self, pipeline_config: PipelineConfig) -> None:
         """Test building a client with default configuration."""
@@ -164,8 +163,9 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         # Add max_url_length to source parameters
         source_config = pipeline_config.sources["chembl"]
-        source_config.parameters = source_config.parameters or {}
-        source_config.parameters["max_url_length"] = 2000
+        parameters = dict(source_config.parameters or {})
+        parameters["max_url_length"] = 2000
+        source_config.parameters = parameters
 
         with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
@@ -184,8 +184,9 @@ class TestAPIClientFactory:
         # Add HTTP overrides to source config
         source_config = pipeline_config.sources["chembl"]
         source_config.http = HTTPClientConfig(timeout_sec=45.0)
-        source_config.parameters = source_config.parameters or {}
-        source_config.parameters["max_url_length"] = 2000
+        parameters = dict(source_config.parameters or {})
+        parameters["max_url_length"] = 2000
+        source_config.parameters = parameters
 
         with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)

@@ -14,18 +14,18 @@ import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.cli import CLIConfig
-from bioetl.config.models.determinism import (
+from bioetl.config.models.models import PipelineMetadata
+from bioetl.config.models.models import CLIConfig
+from bioetl.config.models.policies import (
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSortingConfig,
 )
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.postprocess import PostprocessConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.config.models.validation import ValidationConfig
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import MaterializationConfig
+from bioetl.config.models.models import PostprocessConfig
+from bioetl.config.models.models import SourceConfig
+from bioetl.config.models.models import ValidationConfig
 from bioetl.core.api_client import UnifiedAPIClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -304,3 +304,62 @@ def mock_chembl_responses_for_endpoint() -> (
         return mock_status_response, mock_data_response
 
     return _create_responses
+
+
+class _DummyLogger:
+    """Лёгкий логгер для подмены UnifiedLogger."""
+
+    def bind(self, *_: Any, **__: Any) -> "_DummyLogger":
+        return self
+
+    def info(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def debug(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def warning(self, *_: Any, **__: Any) -> None:
+        return None
+
+    def error(self, *_: Any, **__: Any) -> None:
+        return None
+
+
+@pytest.fixture  # type: ignore[misc]
+def dummy_logger() -> _DummyLogger:
+    """Возвращает мок-логгер с методами info/warning."""
+
+    return _DummyLogger()
+
+
+@pytest.fixture  # type: ignore[misc]
+def patch_unified_logger(
+    monkeypatch: pytest.MonkeyPatch, dummy_logger: _DummyLogger
+) -> Callable[[Any], _DummyLogger]:
+    """Подменяет `UnifiedLogger` в целевом модуле и возвращает используемый мок."""
+
+    def _apply(module: Any) -> _DummyLogger:
+        monkeypatch.setattr(
+            module.UnifiedLogger,
+            "configure",
+            staticmethod(lambda *args, **kwargs: None),
+        )
+        monkeypatch.setattr(module.UnifiedLogger, "get", staticmethod(lambda *_: dummy_logger))
+        return dummy_logger
+
+    return _apply
+
+
+@pytest.fixture  # type: ignore[misc]
+def track_path_replace(monkeypatch: pytest.MonkeyPatch) -> list[tuple[Path, Path]]:
+    """Отслеживает вызовы `Path.replace` и восстанавливает оригинал по завершении."""
+
+    calls: list[tuple[Path, Path]] = []
+    original_replace = Path.replace
+
+    def _tracking_replace(self: Path, target: Path) -> Path:
+        calls.append((self, target))
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", _tracking_replace, raising=False)
+    return calls

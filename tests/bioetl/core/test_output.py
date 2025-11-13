@@ -8,17 +8,17 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.determinism import (
+from bioetl.config.models.models import PipelineMetadata
+from bioetl.config.models.policies import (
     DeterminismConfig,
     DeterminismHashingConfig,
     DeterminismSerializationConfig,
     DeterminismSerializationCSVConfig,
     DeterminismSortingConfig,
 )
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.validation import ValidationConfig
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import MaterializationConfig
+from bioetl.config.models.models import ValidationConfig
 from bioetl.core.output import (
     DeterministicWriteArtifacts,
     ensure_hash_columns,

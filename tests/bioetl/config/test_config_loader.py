@@ -21,7 +21,7 @@ _load_with_extends = config_loader._load_with_extends  # pyright: ignore[reportP
 _migrate_legacy_sections = config_loader._migrate_legacy_sections  # pyright: ignore[reportPrivateUsage]
 _resolve_reference = config_loader._resolve_reference  # pyright: ignore[reportPrivateUsage]
 _stringify_profile = config_loader._stringify_profile  # pyright: ignore[reportPrivateUsage]
-load_config = config_loader.load_config
+read_pipeline_config = config_loader.read_pipeline_config
 
 
 @pytest.mark.unit
@@ -247,7 +247,7 @@ class TestConfigLoader:
         with pytest.raises(ValueError, match="Circular extends"):
             _load_with_extends(config_file, stack=())
 
-    def test_load_config_basic(self, tmp_path: Path) -> None:
+    def test_read_pipeline_config_basic(self, tmp_path: Path) -> None:
         """Test loading basic configuration."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -264,12 +264,12 @@ http:
 """
         )
 
-        config = load_config(config_file, include_default_profiles=False)
+        config = read_pipeline_config(config_file, include_default_profiles=False)
 
         assert config.pipeline.name == "test_pipeline"
         assert config.pipeline.version == "1.0.0"
 
-    def test_load_config_with_cli_overrides(self, tmp_path: Path) -> None:
+    def test_read_pipeline_config_with_cli_overrides(self, tmp_path: Path) -> None:
         """Test loading configuration with CLI overrides."""
         config_file = tmp_path / "config.yaml"
         config_file.write_text(
@@ -284,7 +284,7 @@ http:
 """
         )
 
-        config = load_config(
+        config = read_pipeline_config(
             config_file,
             cli_overrides={"pipeline.name": "overridden"},
             include_default_profiles=False,
@@ -292,12 +292,12 @@ http:
 
         assert config.pipeline.name == "overridden"
 
-    def test_load_config_not_found(self) -> None:
+    def test_read_pipeline_config_not_found(self) -> None:
         """Test loading non-existent configuration raises error."""
         with pytest.raises(FileNotFoundError, match="not found"):
-            load_config(Path("nonexistent.yaml"), include_default_profiles=False)
+            read_pipeline_config(Path("nonexistent.yaml"), include_default_profiles=False)
 
-    def test_load_config_with_merge_key(self, tmp_path: Path) -> None:
+    def test_read_pipeline_config_with_merge_key(self, tmp_path: Path) -> None:
         """Ensure YAML merge key ``<<`` is honoured during validation."""
 
         config_file = tmp_path / "config.yaml"
@@ -319,12 +319,12 @@ http:
 """
         )
 
-        config = load_config(config_file, include_default_profiles=False)
+        config = read_pipeline_config(config_file, include_default_profiles=False)
 
         assert config.pipeline.name == "merged_pipeline"
         assert config.http.default.timeout_sec == 25.0
 
-    def test_load_config_with_include_and_merge(self, tmp_path: Path) -> None:
+    def test_read_pipeline_config_with_include_and_merge(self, tmp_path: Path) -> None:
         """YAML ``!include`` combined with merge key should produce full mapping."""
 
         base_profile = tmp_path / "base.yaml"
@@ -349,7 +349,7 @@ pipeline:
 """
         )
 
-        config = load_config(config_file, include_default_profiles=False)
+        config = read_pipeline_config(config_file, include_default_profiles=False)
 
         assert config.pipeline.name == "override_pipeline"
         assert config.http.default.timeout_sec == 30.0

@@ -1,83 +1,46 @@
-"""CLI command ``bioetl-inventory-docs``."""
+"""CLI-интерфейс для инвентаризации документации."""
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
 
-from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
-from bioetl.tools.inventory_docs import InventoryResult, collect_markdown_files
-from bioetl.tools.inventory_docs import (
-    write_inventory as write_inventory_sync,
-)
+import typer
 
-typer = cast(Any, importlib.import_module("typer"))
+from bioetl.cli.tools import create_app, run_app
+from bioetl.tools.inventory_docs import collect_markdown_files, write_inventory
 
-__all__ = [
-    "app",
-    "main",
-    "run",
-    "write_inventory",
-    "collect_markdown_files",
-    "InventoryResult",
-]
-
-write_inventory = write_inventory_sync
-
-app: TyperApp = create_app(
+app = create_app(
     name="bioetl-inventory-docs",
-    help_text="Collect a Markdown document inventory and compute hashes",
+    help_text="Инвентаризация markdown-файлов и расчёт хешей",
 )
 
 
 @app.command()
 def main(
-    inventory_path: Path = typer.Option(
+    inventory: Path = typer.Option(
         Path("artifacts/docs_inventory.txt"),
-        "--inventory",
-        help="Destination for the Markdown document inventory (text file).",
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        writable=True,
+        help="Путь к итоговому списку файлов",
     ),
-    hashes_path: Path = typer.Option(
+    hashes: Path = typer.Option(
         Path("artifacts/docs_hashes.txt"),
-        "--hashes",
-        help="Destination for the Markdown document SHA256 hashes.",
-        exists=False,
-        file_okay=True,
-        dir_okay=False,
-        writable=True,
+        help="Путь к файлу с SHA256 хешами",
+    ),
+    docs_root: Path | None = typer.Option(
+        None,
+        help="Необязательный корень документации (по умолчанию docs/)",
     ),
 ) -> None:
-    """Run the documentation inventory routine."""
+    """Собрать список markdown-файлов и записать их хеши."""
 
-    try:
-        result = write_inventory(
-            inventory_path=inventory_path.resolve(),
-            hashes_path=hashes_path.resolve(),
-        )
-    except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
-
+    files = collect_markdown_files(docs_root=docs_root)
+    result = write_inventory(inventory_path=inventory, hashes_path=hashes, files=files)
     typer.echo(
-        f"Inventory completed: {len(result.files)} files, "
-        f"inventory {result.inventory_path.resolve()}, "
-        f"hashes {result.hashes_path.resolve()}"
+        f"Инвентаризация завершена: {len(result.files)} файлов. "
+        f"Список -> {result.inventory_path}, хеши -> {result.hashes_path}"
     )
-    exit_with_code(0)
 
 
 def run() -> None:
-    """Execute the Typer application."""
+    """Запуск Typer-приложения."""
 
     run_app(app)
-
-
-if __name__ == "__main__":
-    run()
-

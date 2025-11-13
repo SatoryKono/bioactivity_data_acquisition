@@ -6,11 +6,11 @@ import pandas as pd
 import pytest
 
 from bioetl.config import PipelineConfig
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
-from bioetl.config.models.transform import TransformConfig
-from bioetl.config.models.validation import ValidationConfig
-from bioetl.pipelines.chembl.assay import run as assay_run
+from bioetl.config.models.models import PipelineMetadata
+from bioetl.config.models.policies import HTTPClientConfig, HTTPConfig
+from bioetl.config.models.models import TransformConfig
+from bioetl.config.models.models import ValidationConfig
+from bioetl.pipelines.assay.assay import ChemblAssayPipeline
 
 
 def _create_minimal_config() -> PipelineConfig:
@@ -19,11 +19,11 @@ def _create_minimal_config() -> PipelineConfig:
         version=1,
         pipeline=PipelineMetadata(name="assay_chembl", version="1.0.0"),
         transform=TransformConfig(
-            arrays_to_header_rows=["client_assay_classifications", "client_assay_parameters"]
+            arrays_to_header_rows=["assay_classifications", "assay_parameters"]
         ),
         sources={},
         http=HTTPConfig(default=HTTPClientConfig()),
-        validation=ValidationConfig(schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema"),
+        validation=ValidationConfig(schema_out="bioetl.schemas.assay.assay_chembl.AssaySchema"),
     )
 
 
@@ -34,7 +34,7 @@ class TestAssayFieldMapping:
     def test_direct_fields_extracted_from_api(self) -> None:
         """Test that direct fields are extracted directly from API response."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with direct fields from API
         df = pd.DataFrame(
@@ -65,7 +65,7 @@ class TestAssayFieldMapping:
     def test_no_surrogate_extraction(self) -> None:
         """Test that fields are NOT computed from surrogates."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with surrogates but missing direct fields
         df = pd.DataFrame(
@@ -90,7 +90,7 @@ class TestAssayFieldMapping:
     def test_curation_level_handling(self) -> None:
         """Test that curation_level is handled correctly."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Test 1: curation_level present in API
         df1 = pd.DataFrame(
@@ -114,7 +114,7 @@ class TestAssayFieldMapping:
     def test_missing_columns_handling(self) -> None:
         """Test handling of missing columns for ChEMBL versioning (v34/v35)."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # DataFrame without optional columns
         df = pd.DataFrame(
@@ -138,7 +138,7 @@ class TestAssayFieldMapping:
     def test_no_bao_format_surrogate(self) -> None:
         """Test that assay_class_id is NOT extracted from bao_format surrogate."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with bao_format but no assay_class_id
         df = pd.DataFrame(
@@ -158,7 +158,7 @@ class TestAssayFieldMapping:
     def test_src_id_and_src_assay_id_preserved(self) -> None:
         """Test that both src_id and src_assay_id are preserved for traceability."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         df = pd.DataFrame(
             {
@@ -178,7 +178,7 @@ class TestAssayFieldMapping:
     def test_assay_classifications_not_from_surrogates(self) -> None:
         """Test that assay_classifications are NOT extracted from surrogate sources."""
         config = _create_minimal_config()
-        pipeline = assay_run.ChemblAssayPipeline(config, "test_run_id")
+        pipeline = ChemblAssayPipeline(config, "test_run_id")
 
         # Mock data with surrogates but no classifications
         df = pd.DataFrame(

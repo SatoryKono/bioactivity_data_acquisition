@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from bioetl.config import load_config
+from bioetl.config import read_pipeline_config
 
 
 @pytest.mark.integration
@@ -39,7 +39,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out: "bioetl.schemas.activity.activity_chembl.ActivitySchema"
   strict: true
   coerce: true
 determinism:
@@ -97,19 +97,19 @@ cli:
         }
 
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
         ) as mock_extract:
             mock_extract.return_value = sample_data
             with patch(
-                "bioetl.clients.client_chembl_common.ChemblClient.fetch_compound_records_by_pairs"
+                "bioetl.clients.chembl.ChemblClient.fetch_compound_records_by_pairs"
             ) as mock_fetch:
                 mock_fetch.return_value = mock_records
 
                 # Load config
-                config = load_config(config_path)
+                config = read_pipeline_config(config_path)
 
                 # Run pipeline (this will call transform which includes enrichment)
-                from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+                from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
                 pipeline = ChemblActivityPipeline(config, run_id="test_run")
                 df_extracted = pipeline.extract()
@@ -157,7 +157,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out: "bioetl.schemas.activity.activity_chembl.ActivitySchema"
   strict: false
   coerce: true
 determinism:
@@ -190,12 +190,12 @@ cli:
         )
 
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
+            "bioetl.pipelines.activity.activity.ChemblActivityPipeline.extract"
         ) as mock_extract:
             mock_extract.return_value = sample_data
 
-            config = load_config(config_path)
-            from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+            config = read_pipeline_config(config_path)
+            from bioetl.pipelines.activity.activity import ChemblActivityPipeline
 
             pipeline = ChemblActivityPipeline(config, run_id="test_run")
             df_extracted = pipeline.extract()

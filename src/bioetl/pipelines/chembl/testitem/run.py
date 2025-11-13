@@ -3,36 +3,29 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.clients.entities.client_testitem import ChemblTestitemClient
+from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.testitem.chembl_testitem import ChemblTestitemClient
+from bioetl.clients.types import EntityClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
+from bioetl.config.pipeline_source import ChemblPipelineSourceConfig
+from bioetl.config.testitem import TestItemSourceParameters
 from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.log_events import LogEvents
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
-from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
+from bioetl.schemas.testitem import COLUMN_ORDER
 
-from ...chembl_descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
-from .transform import transform as transform_testitem
-
-SelfTestitemChemblPipeline = TypeVar(
-    "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
-)
+from ..chembl_base import ChemblPipelineBase
+from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS: tuple[str, ...] = (
+MUST_HAVE_FIELDS = {
     # Скаляры
     "molecule_chembl_id",
     "pref_name",
@@ -47,7 +40,7 @@ MUST_HAVE_FIELDS: tuple[str, ...] = (
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
-)
+}
 
 
 class TestItemChemblPipeline(ChemblPipelineBase):
@@ -74,8 +67,14 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         self,
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
+        *,
+        source_config: (
+            ChemblPipelineSourceConfig[TestItemSourceParameters]
+            | TestItemSourceConfig
+            | None
+        ) = None,
     ) -> str | None:
-        """Capture ChEMBL release and API version from status endpoint."""
+        """Выполнить handshake и закешировать версии ChEMBL/API для пайплайна."""
 
         if log is None:
             bound_log: BoundLogger = UnifiedLogger.get(__name__).bind(
@@ -84,41 +83,36 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         else:
             bound_log = log
 
-        request_timestamp = datetime.now(timezone.utc)
-        release_value: str | None = None
+        resolved_source_config = source_config
+        if resolved_source_config is None:
+            source_raw = self._resolve_source_config("chembl")
+            resolved_source_config = TestItemSourceConfig.from_source(source_raw)
+
+        handshake_result = self.perform_source_handshake(
+            client,
+            source_config=resolved_source_config,
+            log=bound_log,
+            event="chembl_testitem.handshake",
+        )
+        payload: Mapping[str, Any] = handshake_result.payload
+
+        release_value = handshake_result.release
         api_version: str | None = None
+        api_candidate = payload.get("api_version")
+        if isinstance(api_candidate, str) and api_candidate.strip():
+            api_version = api_candidate
+        if release_value is None:
+            extracted_release = self._extract_chembl_release(payload)
+            if extracted_release:
+                release_value = extracted_release
+                self._update_release(extracted_release)
 
-        try:
-            status_payload: dict[str, Any] = {}
-            handshake_candidate = getattr(client, "handshake", None)
-            if callable(handshake_candidate):
-                status_payload = self._coerce_mapping(handshake_candidate("/status"))
-            else:
-                get_candidate = getattr(client, "get", None)
-                if callable(get_candidate):
-                    response = get_candidate("/status.json")
-                    json_candidate = getattr(response, "json", None)
-                    if callable(json_candidate):
-                        status_payload = self._coerce_mapping(json_candidate())
-
-            if status_payload:
-                release_value = self._extract_chembl_release(status_payload)
-                api_candidate = status_payload.get("api_version")
-                if isinstance(api_candidate, str) and api_candidate.strip():
-                    api_version = api_candidate
-                bound_log.info(LogEvents.CHEMBL_TESTITEM_STATUS,
-                    chembl_db_version=release_value,
-                    api_version=api_version,
-                )
-        except Exception as exc:  # noqa: BLE001
-            bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
-        finally:
-            self._chembl_db_version = release_value
-            self._api_version = api_version
-            self.record_extract_metadata(
-                chembl_release=release_value,
-                requested_at_utc=request_timestamp,
-            )
+        self._chembl_db_version = release_value
+        self._api_version = api_version
+        self.record_extract_metadata(
+            chembl_release=release_value,
+            requested_at_utc=handshake_result.requested_at_utc,
+        )
 
         return release_value
 
@@ -134,103 +128,108 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
 
-        return self._dispatch_extract_mode(
-            log,
-            event_name="chembl_testitem.extract_mode",
-            batch_callback=self.extract_by_ids,
-            full_callback=self.extract_all,
-            id_column_name="molecule_chembl_id",
-        )
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_testitem.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        log.info("chembl_testitem.extract_mode", mode="full")
+        return self.extract_all()
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all molecule records from ChEMBL using pagination."""
 
-        descriptor = self._build_testitem_descriptor()
-        return self.run_extract_all(descriptor)
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        stage_start = time.perf_counter()
 
-    def _build_testitem_descriptor(
-        self: SelfTestitemChemblPipeline,
-    ) -> ChemblExtractionDescriptor[SelfTestitemChemblPipeline]:
-        """Return the descriptor powering testitem extraction."""
+        source_raw = self._resolve_source_config("chembl")
+        source_config = TestItemSourceConfig.from_source(source_raw)
+        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_testitem_http"
+        )
 
-        def build_context(
-            pipeline: SelfTestitemChemblPipeline,
-            source_config: TestItemSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_testitem_http",
-            )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
-            )
-            pipeline._fetch_chembl_release(chembl_client, log)
-            select_fields = source_config.parameters.select_fields
-            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-            testitem_client = ChemblTestitemClient(
-                chembl_client,
-                batch_size=min(source_config.page_size, 25),
-            )
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=testitem_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                page_size=source_config.page_size,
-                chembl_release=pipeline._chembl_db_version,
-                metadata={"api_version": pipeline._api_version},
-            )
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
-        def empty_frame(_: SelfTestitemChemblPipeline, __: ChemblExtractionContext) -> pd.DataFrame:
-            return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
-
-        def dry_run_handler(
-            pipeline: SelfTestitemChemblPipeline,
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
+        if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            log.info(
+                "chembl_testitem.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_db_version=pipeline._chembl_db_version,
-                api_version=pipeline._api_version,
+                chembl_db_version=self._chembl_db_version,
+                api_version=self._api_version,
             )
             return pd.DataFrame()
 
-        def summary_extra(
-            pipeline: SelfTestitemChemblPipeline,
-            _: pd.DataFrame,
-            __: ChemblExtractionContext,
-        ) -> Mapping[str, Any]:
-            return {
-                "chembl_db_version": pipeline._chembl_db_version,
-                "api_version": pipeline._api_version,
-                "limit": pipeline.config.cli.limit,
-            }
+        limit = self.config.cli.limit
+        page_size = self._resolve_page_size(source_config.page_size, limit)
+        select_fields = source_config.parameters.select_fields
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        log.debug("chembl_testitem.select_fields", fields=select_fields)
+        records: list[Mapping[str, Any]] = []
 
-        return ChemblExtractionDescriptor[SelfTestitemChemblPipeline](
-            name="chembl_testitem",
-            source_name="chembl",
-            source_config_factory=TestItemSourceConfig.from_source_config,
-            build_context=build_context,
-            id_column="molecule_chembl_id",
-            summary_event="chembl_testitem.extract_summary",
-            must_have_fields=tuple(MUST_HAVE_FIELDS),
-            default_select_fields=MUST_HAVE_FIELDS,
-            sort_by=("molecule_chembl_id",),
-            empty_frame_factory=empty_frame,
-            dry_run_handler=dry_run_handler,
-            summary_extra=summary_extra,
-            hard_page_size_cap=None,
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields) if select_fields else None,
+            "max_url_length": source_config.max_url_length,
+        }
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
+
+        # Используем специализированный клиент для testitem (molecule)
+        testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
+        for item in testitem_client.iter(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields,
+        ):
+            records.append(item)
+
+        dataframe = pd.DataFrame(records)
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+        elif "molecule_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("molecule_chembl_id").reset_index(drop=True)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        log.info(
+            "chembl_testitem.extract_summary",
+            rows=int(dataframe.shape[0]),
+            duration_ms=duration_ms,
+            chembl_db_version=self._chembl_db_version,
+            api_version=self._api_version,
+            limit=limit,
+        )
+        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract molecule records by a specific list of IDs using batch extraction.
@@ -249,7 +248,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
+        source_config = TestItemSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_testitem_http"
@@ -261,11 +260,16 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             job_id=self.run_id,
             operator=self.pipeline_code,
         )
-        self._fetch_chembl_release(chembl_client, log)
+        self._fetch_chembl_release(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+        )
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            log.info(
+                "chembl_testitem.extract_skipped",
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=self._chembl_db_version,
@@ -273,50 +277,55 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             )
             return pd.DataFrame()
 
-        page_size = min(source_config.page_size, 25)
+        page_size = source_config.page_size
         limit = self.config.cli.limit
-        resolved_select_fields = source_config.parameters.select_fields
-        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
-        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
+        select_fields = source_config.parameters.select_fields
+        if select_fields is not None:
+            select_fields = list(dict.fromkeys([*select_fields, *MUST_HAVE_FIELDS]))
+        log.debug("chembl_testitem.select_fields", fields=select_fields)
 
-        testitem_client = ChemblTestitemClient(chembl_client, batch_size=page_size)
-
-        def fetch_testitems(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = testitem_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="molecule_chembl_id",
-            fetcher=fetch_testitems,
-            select_fields=merged_select_fields or None,
-            batch_size=page_size,
-            chunk_size=min(page_size, 25),
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(merged_select_fields) if merged_select_fields else None,
-            },
-            chembl_release=self._chembl_release,
+        filters_payload = {
+            "mode": "ids",
+            "requested_ids": [str(identifier) for identifier in ids],
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "max_url_length": source_config.max_url_length,
+            "select_fields": list(select_fields) if select_fields else None,
+        }
+        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
 
+        records: list[Mapping[str, Any]] = []
+        testitem_client: EntityClient[Mapping[str, object]] = ChemblTestitemClient(
+            chembl_client,
+            batch_size=page_size,
+            max_url_length=source_config.max_url_length,
+        )
+        for item in testitem_client.fetch(ids, select_fields=select_fields):
+            records.append(item)
+            if limit is not None and len(records) >= limit:
+                records = records[: int(limit)]
+                break
+
+        dataframe = pd.DataFrame(records)
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+        elif "molecule_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("molecule_chembl_id").reset_index(drop=True)
+
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
+        log.info(
+            "chembl_testitem.extract_by_ids_summary",
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
             chembl_db_version=self._chembl_db_version,
             api_version=self._api_version,
             limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
         )
         return dataframe
 
@@ -330,10 +339,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         df = df.copy()
 
         if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
+            log.debug("transform_empty_dataframe")
             return df
 
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
+        log.info("transform_started", rows=len(df))
 
         # Apply transform module: flatten nested objects and serialize arrays
         df = transform_testitem(df, self.config)
@@ -370,7 +379,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         # Reorder columns according to schema COLUMN_ORDER
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
+        log.info("transform_completed", rows=len(df))
         return df
 
     def augment_metadata(
@@ -427,7 +436,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 if col in properties_df.columns:
                     df[col] = properties_df[col]
 
-        log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
+        log.debug("flatten_nested_structures_completed", columns=list(df.columns))
         return df
 
     def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
@@ -457,12 +466,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             stats = StringStats()
 
         if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
+            log.debug(
+                "normalize_identifiers_completed",
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
+            log.debug("normalize_identifiers_completed")
 
         return normalized_df
 
@@ -484,12 +494,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
+            log.debug(
+                "normalize_string_fields_completed",
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
-            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED)
+            log.debug("normalize_string_fields_completed")
 
         return normalized_df
 
@@ -653,7 +664,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                     numeric_series = numeric_series.where(numeric_series >= 0)
                     df[col] = numeric_series.astype("Int64")
 
-        log.debug(LogEvents.NORMALIZE_NUMERIC_FIELDS_COMPLETED)
+        log.debug("normalize_numeric_fields_completed")
         return df
 
     def _check_empty_columns(self, df: pd.DataFrame, log: Any) -> None:
@@ -709,7 +720,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:
-            log.warning(LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
+            log.warning(
+                "highly_empty_columns_detected",
                 empty_fields=highly_empty_fields,
                 message=(
                     f"Fields with >95% empty values detected: {highly_empty_fields}. "
@@ -723,7 +735,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
+        from bioetl.schemas.testitem import COLUMN_ORDER
 
         schema_columns = set(COLUMN_ORDER)
         existing_columns = set(df.columns)
@@ -731,7 +743,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         if extra_columns:
             df = df.drop(columns=list(extra_columns))
-            log.debug(LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
+            log.debug(
+                "remove_extra_columns_completed",
                 removed_columns=list(extra_columns),
                 remaining_columns=list(df.columns),
             )
@@ -790,7 +803,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         rows_after = len(df)
         dropped = rows_before - rows_after
         if dropped > 0:
-            log.info(LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
+            log.info(
+                "deduplicate_molecules_completed",
                 rows_before=rows_before,
                 rows_after=rows_after,
                 dropped=dropped,

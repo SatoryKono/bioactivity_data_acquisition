@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
-from bioetl.config.models.base import PipelineConfig
-from bioetl.config.models.http import HTTPClientConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.core.log_events import LogEvents
+from bioetl.config.models.models import PipelineConfig
+from bioetl.config.models.policies import HTTPClientConfig
+from bioetl.config.models.models import SourceConfig
 
 from .api_client import UnifiedAPIClient, merge_http_configs
 from .logger import UnifiedLogger
@@ -20,6 +19,11 @@ class APIClientFactory:
         self._config = config
         self._log = UnifiedLogger.get(__name__).bind(component="client_factory")
 
+    @property
+    def config(self) -> PipelineConfig:
+        """Return конфигурацию пайплайна, использующуюся фабрикой."""
+        return self._config
+
     def build(
         self,
         *,
@@ -33,7 +37,8 @@ class APIClientFactory:
 
         http_config = self._resolve_http_config(profile=profile, overrides=overrides)
         client_name = name or source or profile or "default"
-        self._log.debug(LogEvents.CLIENT_FACTORY_BUILD,
+        self._log.debug(
+            "client_factory.build",
             client=client_name,
             profile=profile or "default",
             base_url=base_url,

@@ -4,33 +4,21 @@ from __future__ import annotations
 
 import re
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from numbers import Integral, Real
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 import pandas as pd
-from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.clients.entities.client_document import ChemblDocumentClient
+from bioetl.clients.chembl import ChemblClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
-from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.log_events import LogEvents
 from bioetl.core.normalizers import StringRule, normalize_string_columns
-from bioetl.schemas.chembl_document_schema import COLUMN_ORDER
+from bioetl.schemas.document import COLUMN_ORDER
 
-from ...chembl_descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
-from .normalize import enrich_with_document_terms
-
-SelfChemblDocumentPipeline = TypeVar(
-    "SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline"
-)
+from ..chembl_base import ChemblPipelineBase
+from .document_enrich import enrich_with_document_terms
 
 API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "document_chembl_id",
@@ -51,11 +39,7 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
 )
 
 # Обязательные поля, которые всегда должны быть в запросе к API
-MUST_HAVE_FIELDS: tuple[str, ...] = (
-    "document_chembl_id",
-    "doi",
-    "issue",
-)
+MUST_HAVE_FIELDS = {"document_chembl_id", "doi", "issue"}
 
 
 class ChemblDocumentPipeline(ChemblPipelineBase):
@@ -75,108 +59,140 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        return self._dispatch_extract_mode(
-            log,
-            event_name="chembl_document.extract_mode",
-            batch_callback=self.extract_by_ids,
-            full_callback=self.extract_all,
-            id_column_name="document_chembl_id",
-        )
+        # Check for input file and extract IDs if present
+        if self.config.cli.input_file:
+            id_column_name = self._get_id_column_name()
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=self.config.cli.limit,
+                sample=self.config.cli.sample,
+            )
+            if ids:
+                log.info("chembl_document.extract_mode", mode="batch", ids_count=len(ids))
+                return self.extract_by_ids(ids)
+
+        log.info("chembl_document.extract_mode", mode="full")
+        return self.extract_all()
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all document records from ChEMBL using pagination."""
 
-        return self.run_extract_all(self._build_document_descriptor())
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        stage_start = time.perf_counter()
 
-    def _build_document_descriptor(
-        self: SelfChemblDocumentPipeline,
-    ) -> ChemblExtractionDescriptor[SelfChemblDocumentPipeline]:
-        """Return the descriptor powering the shared extraction routine."""
-
-        def _require_document_pipeline(
-            pipeline: ChemblPipelineBase,
-        ) -> ChemblDocumentPipeline:
-            if isinstance(pipeline, ChemblDocumentPipeline):
-                return pipeline
-            msg = "ChemblDocumentPipeline instance required"
-            raise TypeError(msg)
-
-        def build_context(
-            pipeline: SelfChemblDocumentPipeline,
-            source_config: Any,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            document_pipeline = _require_document_pipeline(pipeline)
-            typed_source_config = (
-                source_config
-                if isinstance(source_config, DocumentSourceConfig)
-                else DocumentSourceConfig.from_source_config(cast(Any, source_config))
-            )
-
-            base_url = document_pipeline._resolve_base_url(typed_source_config.parameters)
-            http_client, _ = document_pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_document_client",
-            )
-            chembl_client = ChemblClient(http_client)
-            document_client = ChemblDocumentClient(
-                chembl_client,
-                batch_size=min(typed_source_config.batch_size, 25),
-            )
-            document_pipeline._chembl_release = document_pipeline.fetch_chembl_release(chembl_client, log)
-            select_fields = document_pipeline._resolve_select_fields(
-                cast(SourceConfig, cast(Any, typed_source_config)),
-                default_fields=API_DOCUMENT_FIELDS,
-            )
-
-            context = ChemblExtractionContext(typed_source_config, document_client)
-            context.chembl_client = chembl_client
-            context.select_fields = tuple(select_fields) if select_fields else None
-            context.chembl_release = document_pipeline._chembl_release
-            return context
-
-        def empty_frame(
-            _: SelfChemblDocumentPipeline,
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
-
-        def record_transform(
-            pipeline: SelfChemblDocumentPipeline,
-            payload: Mapping[str, Any],
-            _: ChemblExtractionContext,
-        ) -> Mapping[str, Any]:
-            document_pipeline = _require_document_pipeline(pipeline)
-            return document_pipeline._extract_nested_fields(dict(payload))
-
-        def summary_extra(
-            pipeline: SelfChemblDocumentPipeline,
-            df: pd.DataFrame,
-            context: ChemblExtractionContext,
-        ) -> Mapping[str, Any]:
-            _require_document_pipeline(pipeline)
-            page_size = context.page_size or 0
-            pages = 0
-            if page_size > 0:
-                total_rows = int(df.shape[0])
-                pages = (total_rows + page_size - 1) // page_size
-            return {"pages": pages}
-
-        return ChemblExtractionDescriptor[SelfChemblDocumentPipeline](
-            name="chembl_document",
-            source_name="chembl",
-            source_config_factory=DocumentSourceConfig.from_source_config,
-            build_context=build_context,
-            id_column="document_chembl_id",
-            summary_event="chembl_document.extract_summary",
-            must_have_fields=MUST_HAVE_FIELDS,
-            default_select_fields=API_DOCUMENT_FIELDS,
-            record_transform=record_transform,
-            sort_by=("document_chembl_id",),
-            empty_frame_factory=empty_frame,
-            summary_extra=summary_extra,
+        source_raw = self._resolve_source_config("chembl")
+        source_config = DocumentSourceConfig.from_source(source_raw)
+        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
+        http_client, _ = self.prepare_chembl_client(
+            "chembl", base_url=base_url, client_name="chembl_document_client"
         )
+
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        self.perform_source_handshake(
+            chembl_client,
+            source_config=source_config,
+            log=log,
+            event="chembl_document.handshake",
+        )
+
+        limit = self.config.cli.limit
+        page_size = self._resolve_page_size(source_config.page_size, limit)
+
+        select_fields_tuple = source_config.parameters.select_fields
+        if select_fields_tuple:
+            select_fields = list(select_fields_tuple)
+        else:
+            select_fields = list(API_DOCUMENT_FIELDS)
+        # Защита: добавить обязательные поля, если их нет
+        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+        records: list[dict[str, Any]] = []
+        next_endpoint: str | None = "/document.json"
+        params: Mapping[str, Any] | None = {
+            "limit": page_size,
+            "only": ",".join(select_fields),
+        }
+        parameter_filters = source_config.parameters.model_dump()
+        filters_payload: dict[str, Any] = {
+            "mode": "all",
+            "limit": int(limit) if limit is not None else None,
+            "page_size": page_size,
+            "select_fields": list(select_fields),
+            "max_url_length": source_config.max_url_length,
+        }
+        if parameter_filters:
+            filters_payload["parameters"] = parameter_filters
+        compact_filters = {
+            key: value for key, value in filters_payload.items() if value is not None
+        }
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_filters,
+            requested_at_utc=datetime.now(timezone.utc),
+        )
+        pages = 0
+
+        while next_endpoint:
+            page_start = time.perf_counter()
+            response = http_client.get(next_endpoint, params=params)
+            payload = self._coerce_mapping(response.json())
+            page_items = self._extract_page_items(
+                payload, items_keys=("documents", "data", "items", "results")
+            )
+
+            # Process nested fields for each item
+            processed_items: list[dict[str, Any]] = []
+            for item in page_items:
+                processed_item = self._extract_nested_fields(dict(item))
+                processed_items.append(processed_item)
+
+            if limit is not None:
+                remaining = max(limit - len(records), 0)
+                if remaining == 0:
+                    break
+                processed_items = processed_items[:remaining]
+
+            records.extend(processed_items)
+            pages += 1
+            page_duration_ms = (time.perf_counter() - page_start) * 1000.0
+            log.debug(
+                "chembl_document.page_fetched",
+                endpoint=next_endpoint,
+                batch_size=len(processed_items),
+                total_records=len(records),
+                duration_ms=page_duration_ms,
+            )
+
+            next_link = self._next_link(payload, base_url)
+            if not next_link or (limit is not None and len(records) >= limit):
+                break
+            log.info(
+                "chembl_document.next_link_resolved",
+                next_link=next_link,
+                base_url=base_url,
+            )
+            next_endpoint = next_link
+            params = None
+
+        dataframe: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        if dataframe.empty:
+            dataframe = pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
+        elif "document_chembl_id" in dataframe.columns:
+            dataframe = dataframe.sort_values("document_chembl_id").reset_index(drop=True)
+
+        duration_ms = (time.perf_counter() - stage_start) * 1000.0
+        log.info(
+            "chembl_document.extract_summary",
+            rows=int(dataframe.shape[0]),
+            duration_ms=duration_ms,
+            chembl_release=self.chembl_release,
+            pages=pages,
+        )
+        return dataframe
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract document records by a specific list of IDs using batch extraction.
@@ -195,89 +211,75 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         stage_start = time.perf_counter()
 
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
         http_client, _ = self.prepare_chembl_client(
             "chembl", base_url=base_url, client_name="chembl_document_client"
         )
 
-        chembl_client = ChemblClient(http_client)
-        document_client = ChemblDocumentClient(
+        chembl_client = ChemblClient(
+            http_client,
+            load_meta_store=self.load_meta_store,
+            job_id=self.run_id,
+            operator=self.pipeline_code,
+        )
+        self.perform_source_handshake(
             chembl_client,
-            batch_size=min(source_config.batch_size, 25),
+            source_config=source_config,
+            log=log,
+            event="chembl_document.handshake",
         )
 
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
-
-        resolved_select_fields = self._resolve_select_fields(
+        source_raw = self._resolve_source_config("chembl")
+        source_config = DocumentSourceConfig.from_source(source_raw)
+        select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
         )
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields,
-            MUST_HAVE_FIELDS,
+        # Защита: добавить обязательные поля, если их нет
+        select_fields = list(dict.fromkeys(list(select_fields) + list(MUST_HAVE_FIELDS)))
+
+        id_filters = {
+            "mode": "ids",
+            "requested_ids": [str(value) for value in ids],
+            "limit": int(self.config.cli.limit) if self.config.cli.limit is not None else None,
+            "page_size": source_config.page_size,
+            "max_url_length": source_config.max_url_length,
+            "select_fields": list(select_fields),
+        }
+        compact_id_filters = {key: value for key, value in id_filters.items() if value is not None}
+        self.record_extract_metadata(
+            chembl_release=self.chembl_release,
+            filters=compact_id_filters,
+            requested_at_utc=datetime.now(timezone.utc),
         )
 
-        limit = self.config.cli.limit
-
-        def fetch_documents(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            if "original_paginate" not in context.extra:
-                original_paginate = chembl_client.paginate
-
-                def counted_paginate(*args: Any, **kwargs: Any) -> Any:
-                    context.increment_api_calls()
-                    return original_paginate(*args, **kwargs)
-
-                chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
-                context.extra["original_paginate"] = original_paginate
-
-            iterator = document_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield self._extract_nested_fields(dict(item))
-
-        def finalize_context(context: BatchExtractionContext) -> None:
-            original = context.extra.pop("original_paginate", None)
-            if original is not None:
-                chembl_client.paginate = original  # type: ignore[method-assign]
-
-            api_calls_value = context.stats.api_calls if context.stats.api_calls is not None else 0
-            override = {
-                "batches": context.stats.batches,
-                "api_calls": api_calls_value,
-                "cache_hits": context.stats.cache_hits,
-            }
-            context.extra["stats_attribute_override"] = override
-
-        dataframe, stats = self.run_batched_extraction(
+        batch_dataframe: pd.DataFrame = self.extract_ids_paginated(
             ids,
+            endpoint="/document.json",
             id_column="document_chembl_id",
-            fetcher=fetch_documents,
-            select_fields=merged_select_fields or None,
-            batch_size=document_client.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={"select_fields": merged_select_fields} if merged_select_fields else None,
-            chembl_release=self._chembl_release,
-            finalize_context=finalize_context,
-            stats_attribute="_last_batch_extract_stats",
+            id_param_name="document_chembl_id__in",
+            client=http_client,
+            page_size=source_config.page_size,
+            max_url_length=source_config.max_url_length,
+            limit=self.config.cli.limit,
+            select_fields=select_fields,
+            items_keys=("documents", "data", "items", "results"),
+            process_item=self._extract_nested_fields,
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
+        batch_stats = self._last_batch_extract_stats or {}
+        log.info(
+            "chembl_document.extract_by_ids_summary",
+            rows=int(batch_dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-            cache_hits=stats.cache_hits,
+            chembl_release=self.chembl_release,
+            batches=batch_stats.get("batches"),
+            api_calls=batch_stats.get("api_calls"),
+            cache_hits=batch_stats.get("cache_hits"),
         )
-        return dataframe
+        return batch_dataframe
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw document data by normalizing fields and identifiers."""
@@ -287,10 +289,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         df = df.copy()
 
         if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
+            log.debug("transform_empty_dataframe")
             return df
 
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
+        log.info("transform_started", rows=len(df))
 
         # Normalize identifiers
         df = self._normalize_identifiers(df, log)
@@ -322,7 +324,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             )
             deduped_count = len(df)
             if deduped_count < initial_count:
-                log.warning(LogEvents.DOCUMENT_DEDUPLICATION_APPLIED,
+                log.warning(
+                    "document_deduplication_applied",
                     initial_count=initial_count,
                     deduped_count=deduped_count,
                     removed_count=initial_count - deduped_count,
@@ -331,7 +334,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # Order columns according to schema
         df = self._order_schema_columns(df, COLUMN_ORDER)
 
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
+        log.info("transform_completed", rows=len(df))
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -340,26 +343,28 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
         if df.empty:
-            log.debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
+            log.debug("validate_empty_dataframe")
             return df
 
         if self.config.validation.strict:
             allowed_columns = set(COLUMN_ORDER)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
-                log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
+                log.debug(
+                    "drop_extra_columns_before_validation",
                     extras=extra_columns,
                 )
                 df = df.drop(columns=extra_columns)
 
-        log.info(LogEvents.STAGE_VALIDATE_START, rows=len(df))
+        log.info("validate_started", rows=len(df))
 
         # Pre-validation checks
         self._check_document_id_uniqueness(df, log)
 
         # Call base validation
         validated = super().validate(df)
-        log.info(LogEvents.STAGE_VALIDATE_FINISH,
+        log.info(
+            "validate_completed",
             rows=len(validated),
             schema=self.config.validation.schema_out,
             strict=self.config.validation.strict,
@@ -416,7 +421,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
+            log.debug(
+                "string_fields_normalized",
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -460,10 +466,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 return data[1] if data is not None else 0
 
             authors_series: pd.Series[Any] = normalized_df["authors"]
-            normalized_result = authors_series.apply(self._normalize_authors)
-            normalized_tuples = normalized_result.apply(_to_author_tuple)
-            normalized_df["authors"] = normalized_tuples.apply(_author_name_from_tuple)
-            normalized_df["authors_count"] = normalized_tuples.apply(_author_count_from_tuple)
+            normalized_result = authors_series.map(self._normalize_authors)
+            normalized_tuples = normalized_result.map(_to_author_tuple)
+            normalized_df["authors"] = normalized_tuples.map(_author_name_from_tuple)
+            normalized_df["authors_count"] = normalized_tuples.map(_author_count_from_tuple)
 
         return normalized_df
 
@@ -520,7 +526,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                     return year_int
                 return None
 
-            normalized_year = df["year"].apply(_coerce_year)
+            normalized_year = df["year"].map(_coerce_year)
             df["year"] = normalized_year.astype("Int64")
 
         return df
@@ -561,7 +567,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             duplicate_ids = (
                 df[df["document_chembl_id"].duplicated()]["document_chembl_id"].unique().tolist()
             )
-            log.warning(LogEvents.DOCUMENT_ID_DUPLICATES,
+            log.warning(
+                "document_id_duplicates",
                 duplicate_count=duplicates.sum(),
                 duplicate_ids=duplicate_ids[:10],  # Limit to first 10
             )
@@ -609,14 +616,15 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                             document_term_section = cast(Mapping[str, Any], document_term_section)
                             enrich_cfg = dict(document_term_section)
         except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
+            log.warning(
+                "enrichment_config_error",
                 error=str(exc),
                 message="Using default enrichment config",
             )
 
         # Создать или переиспользовать клиент ChEMBL
         source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        source_config = DocumentSourceConfig.from_source(source_raw)
         api_client, _ = self.prepare_chembl_client(
             "chembl",
             base_url=self._resolve_base_url(
@@ -640,9 +648,3 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # But we keep this method for consistency with other pipelines
         return record
 
-    @staticmethod
-    def _coerce_mapping(payload: Any) -> dict[str, Any]:
-        """Coerce payload to dictionary mapping."""
-        if isinstance(payload, Mapping):
-            return cast(dict[str, Any], payload)
-        return {}

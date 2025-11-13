@@ -64,23 +64,22 @@ dev = [
 ]
 
 [project.scripts]
-bioetl = "bioetl.cli.cli_app:run"
-bioetl-audit-docs = "tools.audit_docs:app"
-bioetl-build-vocab-store = "tools.build_vocab_store:app"
-bioetl-catalog-code-symbols = "tools.catalog_code_symbols:app"
-bioetl-check-comments = "tools.check_comments:app"
-bioetl-check-output-artifacts = "tools.check_output_artifacts:app"
-bioetl-create-matrix-doc-code = "tools.create_matrix_doc_code:app"
-bioetl-determinism-check = "tools.determinism_check:app"
-bioetl-doctest-cli = "tools.doctest_cli:app"
-bioetl-inventory-docs = "tools.inventory_docs:app"
-bioetl-link-check = "tools.link_check:app"
-bioetl-remove-type-ignore = "tools.remove_type_ignore:app"
-bioetl-run-test-report = "tools.run_test_report:app"
-bioetl-schema-guard = "tools.schema_guard:app"
-bioetl-semantic-diff = "tools.semantic_diff:app"
-bioetl-vocab-audit = "tools.vocab_audit:app"
-bioetl-qc-boundary-check = "bioetl.cli.tools.qc_boundary_check:app"
+bioetl = "bioetl.cli.main:app"
+bioetl-audit-docs = "bioetl.cli.tools.audit_docs:app"
+bioetl-build-vocab-store = "bioetl.cli.tools.build_vocab_store:app"
+bioetl-catalog-code-symbols = "bioetl.cli.tools.catalog_code_symbols:app"
+bioetl-check-comments = "bioetl.cli.tools.check_comments:app"
+bioetl-check-output-artifacts = "bioetl.cli.tools.check_output_artifacts:app"
+bioetl-create-matrix-doc-code = "bioetl.cli.tools.create_matrix_doc_code:app"
+bioetl-determinism-check = "bioetl.cli.tools.determinism_check:app"
+bioetl-doctest-cli = "bioetl.cli.tools.doctest_cli:app"
+bioetl-inventory-docs = "bioetl.cli.tools.inventory_docs:app"
+bioetl-link-check = "bioetl.cli.tools.link_check:app"
+bioetl-remove-type-ignore = "bioetl.cli.tools.remove_type_ignore:app"
+bioetl-run-test-report = "bioetl.cli.tools.run_test_report:app"
+bioetl-schema-guard = "bioetl.cli.tools.schema_guard:app"
+bioetl-semantic-diff = "bioetl.cli.tools.semantic_diff:app"
+bioetl-vocab-audit = "bioetl.cli.tools.vocab_audit:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -91,20 +90,22 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 # На время рефакторинга проверяем только основные каталоги.
 src = [
     "src/bioetl",
-    "src/tools",
     "tests",
 ]
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
-    "N",
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+    "UP", # pyupgrade
 ]
 ignore = [
     "E501",  # line too long, handled by formatter
@@ -115,22 +116,16 @@ ignore = [
 [tool.ruff.lint.isort]
 known-first-party = [
     "bioetl",
+    "bioetl.sources",
 ]
 
 [tool.mypy]
-python_version = "3.11"
-packages = [
-    "bioetl",
-    "tools",
-]
+python_version = "3.10"
 strict = true
-warn_unused_ignores = true
-warn_return_any = true
-no_implicit_optional = true
-show_error_codes = true
-mypy_path = [
-    "src",
-    "src/typecheck/stubs",
+mypy_path = ["tools/typecheck/stubs"]
+files = [
+    "src/bioetl",
+    "tests",
 ]
 
 [[tool.mypy.overrides]]
@@ -142,6 +137,7 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [
+    "bioetl.sources.*",
     "bioetl.schemas.*",
 ]
 ignore_errors = true
@@ -150,6 +146,8 @@ ignore_errors = true
 module = [
     "bioetl.normalizers.*",
     "bioetl.pandera_pandas",
+    "bioetl.utils.column_validator",
+    "bioetl.utils",
 ]
 ignore_errors = true
 
@@ -164,11 +162,10 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/bioetl"]
+testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-pythonpath = ["src", "tests"]
 addopts = [
     "-v",
     "--strict-markers",
@@ -177,7 +174,7 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-"--cov-fail-under=65",
+    "--cov-fail-under=70",
     "--tb=short",
     "--durations=10",
     "--maxfail=5",
@@ -188,14 +185,12 @@ markers = [
     "integration: Integration tests",
     "golden: Golden tests for deterministic output verification",
     "determinism: Bit-identical determinism verification tests",
-    "smoke: Fast smoke checks for import and wiring validation",
     "slow: Slow tests (>5s)",
     "property: Property-based tests",
     "qc: Quality control tests",
     "schema: Schema validation tests",
     "api: External API tests",
     "benchmark: Performance benchmark tests",
-    "cli: CLI tests",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning",
@@ -207,7 +202,7 @@ filterwarnings = [
 [tool.coverage.run]
 source = ["src/bioetl"]
 omit = [
-    "*/tests/bioetl/*",
+    "*/tests/*",
     "*/__pycache__/*",
 ]
 
@@ -230,7 +225,7 @@ target-version = ['py310', 'py311', 'py312']
 profile = "black"
 line_length = 100
 known_first_party = ["bioetl"]
-src_paths = ["src/bioetl", "tests/bioetl"]
+src_paths = ["src/bioetl", "tests"]
 combine_as_imports = true
 
 [tool.flake8]
@@ -275,10 +270,5 @@ reportUntypedFunctionDecorator = false
 
 [[tool.pyright.overrides]]
 include = ["src/bioetl/pipelines/assay/**"]
-reportMissingImports = false
-reportUnknownVariableType = false
-
-[[tool.pyright.overrides]]
-include = ["src/bioetl/clients/chembl_iterator.py"]
 reportMissingImports = false
 reportUnknownVariableType = false

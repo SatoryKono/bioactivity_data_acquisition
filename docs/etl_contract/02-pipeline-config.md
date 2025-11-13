@@ -1,28 +1,21 @@
 # 2. Pipeline Configuration
 
-> **Note**: Implementation status: **planned**. All file paths referencing
-> `src/bioetl/` in this document describe the intended architecture and are not
-> yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
 
 ## Overview
 
-Every pipeline in the `bioetl` framework is driven by a declarative YAML
-configuration file. This approach separates the pipeline's logic (defined in its
-Python class) from its behavior (defined in the YAML), making pipelines
-flexible, reusable, and easy to manage.
+Every pipeline in the `bioetl` framework is driven by a declarative YAML configuration file. This approach separates the pipeline's logic (defined in its Python class) from its behavior (defined in the YAML), making pipelines flexible, reusable, and easy to manage.
 
-All configuration files are validated at runtime against a set of strongly-typed
-Pydantic models located in `src/bioetl/config/models/`. The models are organized
-into logical modules (base, http, cache, paths, determinism, validation,
-transform, postprocess, source, cli, fallbacks) and are all re-exported through
-`src/bioetl/config/models/__init__.py` for backward compatibility. This ensures
-that all configurations are well-formed and contain all necessary parameters
-before the pipeline begins execution.
+All configuration files are validated at runtime against a set of strongly-typed Pydantic models located in `src/bioetl/config/models/`. The package now follows a simplified two-module layout:
+
+- `models.py` — core configuration sections (pipeline metadata, runtime, IO, paths, transforms, etc.).
+- `policies.py` — behavioural policies such as HTTP retries/rate limits, determinism controls and fallback toggles.
+
+For backward compatibility the former fine-grained modules (e.g. `base`, `http`, `determinism`) remain available as deprecated re-exports until **bioetl 2.0**. Importing from them will raise a `DeprecationWarning`. This structure keeps the public surface compact while ensuring all configurations remain validated before execution.
 
 ## Configuration Skeleton
 
-Below is a complete skeleton of a pipeline configuration file. It includes all
-the primary sections and common parameters that a developer will need.
+Below is a complete skeleton of a pipeline configuration file. It includes all the primary sections and common parameters that a developer will need.
 
 ```yaml
 # src/bioetl/configs/pipelines/<source>/<pipeline>.yaml
@@ -131,23 +124,10 @@ runtime:
 
 ## Section Details
 
-- **`extends`**: Allows for the composition of configurations. Common settings
-  can be placed in base files (like `base.yaml`) and included in multiple
-  pipeline configurations to avoid repetition.
-- **`source`**: Contains everything needed to connect and communicate with the
-  data source, including its location and policies for safe and reliable
-  interaction (rate limiting, retries).
-- **`extract`**: Governs how data is retrieved. This includes defining the
-  pagination method, which is crucial for handling large datasets from APIs.
-- **`transform`**: Provides a declarative way to perform common data
-  transformation tasks. `normalizers` can be used for simple, reusable cleaning
-  operations, while `dtypes` ensures that data is cast to the correct types
-  before validation.
-- **`validate`**: The cornerstone of data quality. This section links the
-  pipeline to its Pandera schemas. `schema_out` is mandatory, as all data must
-  be validated before it is written.
-- **`write`**: Defines the properties of the final output. The `sort_by`,
-  `hash_row`, and `hash_business_key` parameters are essential for the
-  framework's determinism and reproducibility guarantees.
-- **`runtime`**: Configures the execution environment. This allows for tuning
-  performance (`parallelism`, `chunk_size`) and setting the verbosity of logs.
+- **`extends`**: Allows for the composition of configurations. Common settings can be placed in base files (like `base.yaml`) and included in multiple pipeline configurations to avoid repetition.
+- **`source`**: Contains everything needed to connect and communicate with the data source, including its location and policies for safe and reliable interaction (rate limiting, retries).
+- **`extract`**: Governs how data is retrieved. This includes defining the pagination method, which is crucial for handling large datasets from APIs.
+- **`transform`**: Provides a declarative way to perform common data transformation tasks. `normalizers` can be used for simple, reusable cleaning operations, while `dtypes` ensures that data is cast to the correct types before validation.
+- **`validate`**: The cornerstone of data quality. This section links the pipeline to its Pandera schemas. `schema_out` is mandatory, as all data must be validated before it is written.
+- **`write`**: Defines the properties of the final output. The `sort_by`, `hash_row`, and `hash_business_key` parameters are essential for the framework's determinism and reproducibility guarantees.
+- **`runtime`**: Configures the execution environment. This allows for tuning performance (`parallelism`, `chunk_size`) and setting the verbosity of logs.

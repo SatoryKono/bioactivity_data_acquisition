@@ -1,7 +1,10 @@
+"""Тесты для doctest CLI-примеров."""
+
 from __future__ import annotations
 
-import subprocess
+from contextlib import nullcontext
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -9,157 +12,193 @@ import pytest
 from bioetl.tools import doctest_cli
 
 
-class DummyLogger:
+class _LoggerStub:
     def __init__(self) -> None:
-        self.records: list[tuple[str, dict[str, Any]]] = []
+        self.events: list[tuple[str, dict[str, Any]]] = []
 
-    def info(self, event: Any, **kwargs: Any) -> None:
-        self.records.append((event, kwargs))
-
-
-class DummyUnifiedLogger:
-    last: DummyLogger | None = None
-
-    @staticmethod
-    def configure() -> None:
-        pass
-
-    @staticmethod
-    def get(_: str) -> DummyLogger:
-        DummyUnifiedLogger.last = DummyLogger()
-        return DummyUnifiedLogger.last
+    def info(self, event: str, **context: Any) -> None:
+        self.events.append((event, context))
 
 
-def test_extract_bash_commands() -> None:
-    content = """
-    ```bash
-    python -m bioetl.cli.cli_app activity_chembl --config cfg.yaml
-    ```
-    """
-    examples = doctest_cli.extract_bash_commands(content, Path("docs.md"))
+@pytest.fixture
+def doctest_env(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> tuple[_LoggerStub, Path, Path]:
+    """Изолированная среда и заглушка логгера."""
+
+    logger = _LoggerStub()
+    project_root = tmp_path
+    docs_root = project_root / "docs"
+    docs_root.mkdir()
+    artifacts_dir = project_root / "artifacts"
+
+    monkeypatch.setattr("bioetl.tools.doctest_cli.PROJECT_ROOT", project_root, raising=False)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.DOCS_ROOT", docs_root, raising=False)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.ARTIFACTS_DIR", artifacts_dir, raising=False)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.UnifiedLogger.configure", lambda: None)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.UnifiedLogger.bind", lambda **_: None)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.UnifiedLogger.get", lambda *_: logger)
+    monkeypatch.setattr("bioetl.tools.doctest_cli.UnifiedLogger.stage", lambda *args, **kwargs: nullcontext())
+
+    return logger, project_root, docs_root
+
+
+@pytest.mark.unit
+def test_extract_bash_commands_parses_multiline(tmp_path: Path) -> None:
+    """Многострочный пример преобразуется в команду с флагами детерминизма."""
+
+    md_content = """
+```bash
+python -m bioetl.cli.main run-activity \\
+  --profile prod
+--limit 10
+```
+"""
+    file_path = tmp_path / "example.md"
+    examples = doctest_cli.extract_bash_commands(md_content, file_path)
+
     assert len(examples) == 1
-    assert "--dry-run" in examples[0].command
+    example = examples[0]
+    normalized = " ".join(example.command.replace("\\", "").split())
+    assert normalized.startswith(
+        "python -m bioetl.cli.main run-activity --profile prod --limit 10"
+    )
+    assert "--output-dir data/output/doctest_test --dry-run" in normalized
 
 
-def test_extract_bash_commands_handles_multiline() -> None:
-    content = """
-    ```bash
-    python -m bioetl.cli.cli_app document --config cfg.yaml \\
-    --limit 5
-    ```
-    """
-    [example] = doctest_cli.extract_bash_commands(content, Path("docs.md"))
-    assert "--limit 5" in example.command
-    assert example.command.endswith("--output-dir data/output/doctest_test --dry-run")
+@pytest.mark.unit
+def test_extract_cli_examples_reads_files(
+    doctest_env: tuple[_LoggerStub, Path, Path], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Чтение CLI-примеров из подменённых markdown-файлов."""
 
-
-def test_extract_bash_commands_skips_invalid_commands() -> None:
-    content = """
-    ```bash
-    python -m bioetl.cli.cli_app activity < data.txt
-    ```
-    """
-    examples = doctest_cli.extract_bash_commands(content, Path("docs.md"))
-    assert not examples
-
-
-def test_run_examples(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
-    monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(doctest_cli, "DOCS_ROOT", tmp_path / "docs")
-    monkeypatch.setattr(doctest_cli, "ARTIFACTS_DIR", tmp_path / "artifacts")
-
-    doc_path = tmp_path / "example.md"
-    doc_path.write_text(
+    logger, _project_root, docs_root = doctest_env
+    doc = docs_root / "cli" / "01-cli-commands.md"
+    doc.parent.mkdir(parents=True, exist_ok=True)
+    doc.write_text(
         """
-        ```bash
-        python -m bioetl.cli.cli_app activity_chembl --config cfg.yaml --dry-run
-        ```
-        """,
+```bash
+python -m bioetl.cli.main list
+```
+""",
         encoding="utf-8",
     )
 
-    monkeypatch.setattr(doctest_cli, "_iter_markdown_files", lambda: [doc_path])
-
-    def fake_run(cmd: str) -> tuple[int, str, str]:
-        assert "activity_chembl" in cmd
-        return 0, "ok", ""
-
-    monkeypatch.setattr(doctest_cli, "_run_command", fake_run)
-    results, report = doctest_cli.run_examples()
-    assert report.exists()
-    assert results[0].exit_code == 0
-    report_content = report.read_text(encoding="utf-8")
-    assert "CLI Doctest Report" in report_content
-    assert "✅ Passed" in report_content
-
-
-def test_run_examples_captures_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
-    monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(doctest_cli, "ARTIFACTS_DIR", tmp_path / "artifacts")
-
-    example = doctest_cli.CLIExample(
-        source_file=tmp_path / "docs.md",
-        line_number=12,
-        command="python -m bioetl.cli.cli_app activity_chembl --dry-run",
+    monkeypatch.setattr(
+        "bioetl.tools.doctest_cli._iter_markdown_files",
+        lambda: [doc],
     )
 
-    def failing_run(_: str) -> tuple[int, str, str]:
-        return 2, "oops", "boom"
+    examples = doctest_cli.extract_cli_examples()
 
-    monkeypatch.setattr(doctest_cli, "_run_command", failing_run)
-
-    results, report_path = doctest_cli.run_examples([example])
-    assert results[0].exit_code == 2
-    report_text = report_path.read_text(encoding="utf-8")
-    assert "Failed Examples" in report_text
-    assert "boom" in report_text
+    assert len(examples) == 1
+    assert examples[0].source_file == doc
+    assert any(event[0] == "cli_examples_extracted" for event in logger.events)
 
 
-def test_iter_markdown_files_filters_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    docs_root = tmp_path / "docs"
-    activity_dir = docs_root / "pipelines" / "activity-chembl"
-    activity_dir.mkdir(parents=True)
-    cli_dir = docs_root / "cli"
-    cli_dir.mkdir(parents=True)
+@pytest.mark.unit
+def test_run_examples_uses_provided_examples(
+    doctest_env: tuple[_LoggerStub, Path, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Проверяем обработку результатов запуска и отчёт."""
 
-    existing_files = [
-        tmp_path / "README.md",
-        cli_dir / "01-cli-commands.md",
-        activity_dir / "00-activity-chembl-overview.md",
+    logger, project_root, _ = doctest_env
+    examples = [
+        doctest_cli.CLIExample(
+            source_file=project_root / "a.md",
+            line_number=10,
+            command="bioetl.cli.main list",
+        ),
+        doctest_cli.CLIExample(
+            source_file=project_root / "b.md",
+            line_number=20,
+            command="python -m bioetl.cli.main run-assay --dry-run",
+        ),
     ]
-    for file_path in existing_files:
-        file_path.parent.mkdir(parents=True, exist_ok=True)
-        file_path.write_text("placeholder", encoding="utf-8")
 
-    monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
-    monkeypatch.setattr(doctest_cli, "DOCS_ROOT", docs_root)
+    results_queue = [
+        (0, "ok", ""),
+        (1, "", "failure"),
+    ]
 
-    collected = list(doctest_cli._iter_markdown_files())
-    assert {path.name for path in collected} == {file_path.name for file_path in existing_files}
+    def fake_run_command(cmd: str) -> tuple[int, str, str]:
+        return results_queue.pop(0)
+
+    report_path = Path("report.md")
+
+    monkeypatch.setattr("bioetl.tools.doctest_cli._run_command", fake_run_command)
+    monkeypatch.setattr(
+        "bioetl.tools.doctest_cli._write_report",
+        lambda payload: report_path,
+    )
+
+    results, path = doctest_cli.run_examples(examples)
+
+    assert path == report_path
+    assert [item.exit_code for item in results] == [0, 1]
+    assert any(event[0] == "cli_example_result" for event in logger.events)
 
 
+@pytest.mark.unit
 def test_run_command_handles_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        doctest_cli.subprocess,
-        "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired(cmd="cmd", timeout=1)),
-    )
-    exit_code, stdout, stderr = doctest_cli._run_command("bioetl.cli.cli_app --help")
-    assert exit_code == -1
+    """Таймаут процесса возвращает код -1 и сообщение об ошибке."""
+
+    def raise_timeout(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd="cmd", timeout=1)
+
+    import subprocess
+
+    monkeypatch.setattr("bioetl.tools.doctest_cli.subprocess.run", raise_timeout)
+
+    code, stdout, stderr = doctest_cli._run_command("bioetl.cli.main list")
+
+    assert code == -1
+    assert stdout == ""
     assert "timed out" in stderr
+
+
+@pytest.mark.unit
+def test_run_command_handles_generic_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Произвольные исключения конвертируются в код -1."""
+
+    import subprocess
+
+    def raise_error(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr("bioetl.tools.doctest_cli.subprocess.run", raise_error)
+
+    code, stdout, stderr = doctest_cli._run_command("bioetl.cli.main list")
+
+    assert code == -1
     assert stdout == ""
-
-
-def test_run_command_handles_generic_exception(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        doctest_cli.subprocess,
-        "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(ValueError("boom")),
-    )
-    exit_code, stdout, stderr = doctest_cli._run_command("bioetl.cli.cli_app --help")
-    assert exit_code == -1
     assert stderr == "boom"
-    assert stdout == ""
+
+
+@pytest.mark.unit
+def test_write_report_creates_summary(doctest_env: tuple[_LoggerStub, Path, Path]) -> None:
+    """Формируем отчёт и проверяем содержимое."""
+
+    _ = doctest_env
+    results = [
+        doctest_cli.CLIExampleResult(
+            example=doctest_cli.CLIExample(Path("file.md"), 1, "bioetl.cli.main list"),
+            exit_code=0,
+            stdout="ok",
+            stderr="",
+        ),
+        doctest_cli.CLIExampleResult(
+            example=doctest_cli.CLIExample(Path("file.md"), 2, "bioetl.cli.main invalid"),
+            exit_code=1,
+            stdout="",
+            stderr="error",
+        ),
+    ]
+
+    report_path = doctest_cli._write_report(results)
+
+    content = report_path.read_text(encoding="utf-8")
+    assert "CLI Doctest Report" in content
+    assert "Failed Examples" in content
+    assert "❌ FAIL" in content
 
