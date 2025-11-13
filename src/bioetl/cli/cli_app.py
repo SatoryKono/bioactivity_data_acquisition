@@ -36,6 +36,8 @@ def create_app(
     registry = dict(command_registry or COMMAND_REGISTRY)
     tools = dict(tool_commands or TOOL_COMMANDS)
 
+    warning_messages: list[str] = []
+
     app = create_typer_app(
         name="bioetl",
         help_text="BioETL command-line interface for executing ETL pipelines.",
@@ -68,6 +70,9 @@ def create_app(
             for tool_name, tool_config in sorted(tools.items()):
                 typer.echo(f"  {tool_name:<20} - {tool_config.description}")
 
+        for message in warning_messages:
+            typer.echo(message)
+
     for command_name, build_config_func in registry.items():
         try:
             command_config = build_config_func()
@@ -85,10 +90,10 @@ def create_app(
                 error=str(exc),
                 exc_info=True,
             )
-            typer.echo(
-                f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})",
-                err=True,
-            )
+            warning_message = f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})"
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
 
     for tool_name, tool_config in tools.items():
         try:
@@ -101,10 +106,10 @@ def create_app(
                 error=str(exc),
                 exc_info=True,
             )
-            typer.echo(
-                f"[bioetl-cli] WARN: Tool '{tool_name}' not loaded ({exc})",
-                err=True,
-            )
+            warning_message = f"[bioetl-cli] WARN: Tool '{tool_name}' not loaded ({exc})"
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
 
     return app
 

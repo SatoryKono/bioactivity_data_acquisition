@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Mapping
 from numbers import Number
-from typing import cast
+from typing import Any, cast
 
 import pandas as pd
 import pandera as pa
@@ -146,13 +147,27 @@ def _is_valid_activity_properties(value: object) -> bool:
     except (TypeError, ValueError):
         return False
 
-    if not isinstance(payload, list):
+    candidate_items: list[Mapping[str, Any]]
+    if isinstance(payload, list):
+        candidate_items = []
+        for item_raw in payload:  # pyright: ignore[reportUnknownVariableType]
+            item = cast(object, item_raw)
+            if isinstance(item, Mapping):
+                candidate_items.append(item)
+            else:
+                return False
+    elif isinstance(payload, Mapping):
+        candidate_items = []
+        for item_raw in payload.values():
+            if isinstance(item_raw, Mapping):
+                candidate_items.append(item_raw)
+            else:
+                return False
+    else:
         return False
 
-    # Явная типизация для mypy
-    payload_list: list[dict[str, object]] = cast(list[dict[str, object]], payload)
-    for item in payload_list:
-        if not _is_valid_activity_property_item(item):
+    for item in candidate_items:
+        if not _is_valid_activity_property_item(dict(item)):
             return False
 
     return True
@@ -206,8 +221,8 @@ ActivitySchema = create_schema(
         "target_organism": CF.string(),
         "target_tax_id": CF.int64(ge=1),
         "data_validity_comment": CF.string(),
-        # Soft enum: валидация через whitelist в pipeline.validate(), не через Check
-        # Неизвестные значения логируются как warning, но не блокируют валидацию
+        # Soft enum: validated via whitelist in pipeline.validate(), not via Check.
+        # Unknown values are logged as warnings but do not block validation.
         "data_validity_description": CF.string(),
         "potential_duplicate": CF.boolean_flag(),
         "activity_properties": Column(  # type: ignore[assignment]

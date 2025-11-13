@@ -1,4 +1,4 @@
-"""Базовые модели конфигурации источников данных."""
+"""Base configuration models for data sources."""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -12,13 +12,13 @@ from bioetl.config.models.source import SourceConfig
 
 
 class BaseSourceParameters(BaseModel):
-    """Базовый класс параметров источника с запретом на лишние поля."""
+    """Base parameter model for a source with strict field validation."""
 
     model_config = ConfigDict(extra="forbid")
 
     @classmethod
     def from_mapping(cls: type[ParametersT], params: Mapping[str, Any] | None) -> ParametersT:
-        """Создать параметры из произвольного отображения."""
+        """Create parameters from an arbitrary mapping."""
 
         if params is None:
             return cls()
@@ -27,7 +27,7 @@ class BaseSourceParameters(BaseModel):
 
     @staticmethod
     def _normalize_mapping(params: Mapping[str, Any]) -> dict[str, Any]:
-        """Вернуть копию mapping с приведением ключей к строкам."""
+        """Return a copy of the mapping with keys coerced to strings."""
 
         return {str(key): value for key, value in params.items()}
 
@@ -37,7 +37,7 @@ SelfConfigT = TypeVar("SelfConfigT", bound="BaseSourceConfig[Any]")
 
 
 class BaseSourceConfig(BaseModel, Generic[ParametersT]):
-    """Базовая модель конфигурации источника."""
+    """Base configuration model for external data sources."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -47,11 +47,11 @@ class BaseSourceConfig(BaseModel, Generic[ParametersT]):
     http: HTTPClientConfig | None = Field(default=None)
     parameters: ParametersT
 
-    #: Тип параметров, используемый при построении конфигурации.
+    #: Parameter model type used when building configurations.
     parameters_model: ClassVar[type[BaseSourceParameters]] = BaseSourceParameters
-    #: Имя поля для размера батча. ``None`` — поле не используется.
+    #: Field name that stores batch size; ``None`` disables batch handling.
     batch_field: ClassVar[str | None] = "batch_size"
-    #: Жестко заданный дефолт для размера батча (при отсутствии в модели).
+    #: Hard default for batch size when the model omits an explicit default.
     default_batch_size: ClassVar[int | None] = None
 
     @classmethod
@@ -59,7 +59,7 @@ class BaseSourceConfig(BaseModel, Generic[ParametersT]):
         cls: type[SelfConfigT],
         config: SourceConfig,
     ) -> SelfConfigT:
-        """Построить специализированную конфигурацию из базовой."""
+        """Build a specialized configuration object from the generic source config."""
 
         parameters = cls._build_parameters(config.parameters)
         payload = cls._build_payload(config=config, parameters=parameters)
@@ -68,7 +68,7 @@ class BaseSourceConfig(BaseModel, Generic[ParametersT]):
     @classmethod
     def _build_parameters(cls, params: Mapping[str, Any] | None) -> ParametersT:
         if not hasattr(cls, "parameters_model"):
-            msg = f"{cls.__name__}.parameters_model не указан"
+            msg = f"{cls.__name__}.parameters_model is not configured"
             raise TypeError(msg)
         parameters_cls = cast(type[ParametersT], cls.parameters_model)
         return parameters_cls.from_mapping(params or {})
@@ -101,7 +101,7 @@ class BaseSourceConfig(BaseModel, Generic[ParametersT]):
         cls,
         *,
         config: SourceConfig,
-        parameters: ParametersT,  # noqa: ARG003 - используется переопределениями
+        parameters: ParametersT,  # noqa: ARG003 - consumed by subclass overrides
     ) -> int | None:
         if config.batch_size is not None:
             return int(config.batch_size)

@@ -28,7 +28,7 @@ def test_check_comments_success(
     )
 
     assert result.exit_code == 0
-    assert "Проверка комментариев завершена" in result.stdout
+    assert "Comment check completed without errors" in result.stdout
     assert captured["root"] == project_root.resolve()
 
 

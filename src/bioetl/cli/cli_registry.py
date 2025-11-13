@@ -147,6 +147,7 @@ def _build_config(
 
 
 def _load_pipeline_class(path: str) -> type[Any]:
+    """Import and return the pipeline class referenced by the dotted path."""
     module_path, class_name = path.rsplit(".", 1)
     module = import_module(module_path)
     pipeline_cls = getattr(module, class_name)
@@ -180,8 +181,7 @@ TOOL_COMMANDS: dict[str, ToolCommandConfig] = {
     "qc_boundary_check": ToolCommandConfig(
         name="bioetl-qc-boundary-check",
         description=(
-            "Статическая проверка, гарантирующая отсутствие прямых и косвенных импорта "
-            "bioetl.qc из слоя CLI."
+            "Static verification that prevents direct or indirect imports of bioetl.qc from the CLI layer."
         ),
         module="bioetl.cli.tools.qc_boundary_check",
         attribute="main",

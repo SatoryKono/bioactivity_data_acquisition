@@ -1,4 +1,4 @@
-"""Вспомогательные типы и фабрики для CLI-приложений Typer."""
+"""Helper types and factories for Typer-based CLI applications."""
 
 from __future__ import annotations
 
@@ -12,41 +12,43 @@ _F = TypeVar("_F", bound=Callable[..., Any])
 
 
 class TyperApp(Protocol):
-    """Интерфейс приложения Typer, необходимый для локальных утилит."""
+    """Typer application interface exposed to local utilities."""
 
     def __call__(self, *args: Any, **kwargs: Any) -> None:
+        """Invoke the Typer application entrypoint."""
         ...
 
     def command(self, *args: Any, **kwargs: Any) -> Callable[[_F], _F]:
+        """Register a Typer command callback."""
         ...
 
 
 class TyperModule(Protocol):
-    """Минимальный контракт модуля `typer`, требуемый в этом пакете."""
+    """Minimal contract of the ``typer`` module required by this package."""
 
     Typer: Callable[..., TyperApp]
 
 
 def _load_typer() -> TyperModule:
-    """Возвращает модуль `typer`, проверяя наличие зависимости."""
+    """Import ``typer`` and raise a descriptive error when the dependency is missing."""
 
     try:
         module = importlib.import_module("typer")
     except ModuleNotFoundError as exc:  # noqa: PERF203
-        msg = "Зависимость `typer` недоступна. Установите extras `bioetl[cli]`."
+        msg = "The `typer` dependency is unavailable. Install the `bioetl[cli]` extra."
         raise RuntimeError(msg) from exc
     return cast(TyperModule, module)
 
 
 def create_app(name: str, help_text: str) -> TyperApp:
-    """Создаёт Typer-приложение без автодополнения."""
+    """Create a Typer application with completion disabled."""
 
     typer = _load_typer()
     return typer.Typer(name=name, help=help_text, add_completion=False)
 
 
 def run_app(app: TyperApp) -> None:
-    """Единая точка входа для CLI-утилит."""
+    """Invoke a Typer application entrypoint."""
 
     app()
 

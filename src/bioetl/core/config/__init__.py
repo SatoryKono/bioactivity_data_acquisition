@@ -1,4 +1,4 @@
-"""Базовые компоненты конфигурации, разделяемые между пайплайнами."""
+"""Shared configuration components reused across pipelines."""
 
 from .base_source import BaseSourceConfig, BaseSourceParameters
 

@@ -22,7 +22,7 @@ def test_qc_boundary_check_success(
     result = runner.invoke(qc_boundary_check_cli.app, [])
 
     assert result.exit_code == 0
-    assert "Граница CLI↔QC соблюдена" in result.stdout
+    assert "CLI↔QC boundary is respected" in result.stdout
 
 
 def test_qc_boundary_check_failure(
@@ -45,7 +45,7 @@ def test_qc_boundary_check_failure(
     result = runner.invoke(qc_boundary_check_cli.app, [])
 
     assert result.exit_code == 1
-    assert "Обнаружены нарушения" in result.stderr
+    assert "CLI↔QC boundary violations detected" in result.stderr
     assert "fake.py" in result.stderr
 
 

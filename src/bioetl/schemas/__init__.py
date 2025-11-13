@@ -55,6 +55,55 @@ ChemblTestItemSchema = chembl_testitem_schema.TestItemSchema
 CHEMBL_TESTITEM_COLUMN_ORDER = chembl_testitem_schema.COLUMN_ORDER
 
 
+def _clone_schema_with_metadata(
+    schema: pa.DataFrameSchema,
+    extra_metadata: Mapping[str, object],
+) -> pa.DataFrameSchema:
+    merged_metadata: dict[str, object] = {}
+    if schema.metadata:
+        merged_metadata.update(schema.metadata)
+    merged_metadata.update(dict(extra_metadata))
+
+    unique_value = schema.unique
+    if isinstance(unique_value, list):
+        unique_arg: object = list(unique_value)
+    else:
+        unique_arg = unique_value
+
+    return pa.DataFrameSchema(
+        columns=dict(schema.columns),
+        checks=list(schema.checks),
+        index=schema.index,
+        dtype=schema.dtype,
+        coerce=schema.coerce,
+        strict=schema.strict,
+        ordered=schema.ordered,
+        unique=unique_arg,
+        report_duplicates=schema.report_duplicates,
+        unique_column_names=schema.unique_column_names,
+        add_missing_columns=schema.add_missing_columns,
+        drop_invalid_rows=schema.drop_invalid_rows,
+        name=schema.name,
+        title=schema.title,
+        description=schema.description,
+        parsers=list(schema.parsers),
+        metadata=merged_metadata,
+    )
+
+
+if not hasattr(pa.DataFrameSchema, "set_metadata"):
+    def _set_metadata(  # type: ignore[override]
+        self: pa.DataFrameSchema,
+        metadata: Mapping[str, object],
+    ) -> pa.DataFrameSchema:
+        if not isinstance(metadata, Mapping):
+            msg = "metadata must be a mapping"
+            raise TypeError(msg)
+        return _clone_schema_with_metadata(self, metadata)
+
+    pa.DataFrameSchema.set_metadata = _set_metadata  # type: ignore[attr-defined]
+
+
 @dataclass(frozen=True, slots=True)
 class SchemaRegistryEntry:
     """Resolved Pandera schema metadata."""
@@ -99,6 +148,12 @@ class SchemaRegistry:
         effective_column_order: Sequence[str] | None = column_order
         if effective_column_order is None and metadata_column_order:
             effective_column_order = tuple(metadata_column_order)
+            schema_columns_tuple = tuple(schema.columns.keys())
+            if tuple(metadata_column_order) != schema_columns_tuple:
+                msg = (
+                    f"Schema '{identifier}' metadata column_order does not match schema columns."
+                )
+                raise ValueError(msg)
 
         normalized_order = tuple(effective_column_order or tuple(schema.columns.keys()))
         if len(set(normalized_order)) != len(normalized_order):

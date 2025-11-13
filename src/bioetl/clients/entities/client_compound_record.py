@@ -13,19 +13,20 @@ __all__ = ["ChemblCompoundRecordEntityClient"]
 
 
 class ChemblCompoundRecordEntityClient:
-    """Клиент для получения compound_record записей из ChEMBL API.
+    """Client for retrieving ``compound_record`` entries from the ChEMBL API.
 
-    Особенность: использует пары (molecule_chembl_id, document_chembl_id)
-    вместо простых ID, поэтому не наследуется от ChemblEntityFetcherBase.
+    The API requires pairs of ``(molecule_chembl_id, document_chembl_id)`` instead of
+    single identifiers, therefore this client does not inherit from
+    ``ChemblEntityFetcherBase``.
     """
 
     def __init__(self, chembl_client: ChemblClientProtocol) -> None:
-        """Инициализировать клиент для compound_record.
+        """Initialise the compound_record client.
 
         Parameters
         ----------
         chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
+            ChemblClient instance used for API requests.
         """
         self._chembl_client = chembl_client
         self._log = UnifiedLogger.get(__name__).bind(component="compound_record")
@@ -38,23 +39,23 @@ class ChemblCompoundRecordEntityClient:
         *,
         chunk_size: int = 100,
     ) -> dict[tuple[str, str], dict[str, Any]]:
-        """Получить compound_record записи по парам (molecule_chembl_id, document_chembl_id).
+        """Fetch ``compound_record`` entries keyed by molecule/document pairs.
 
         Parameters
         ----------
         pairs:
-            Итерируемый объект с парами (molecule_chembl_id, document_chembl_id).
+            Iterable of ``(molecule_chembl_id, document_chembl_id)`` pairs.
         fields:
-            Список полей для получения из API.
+            List of fields to request from the API.
         page_limit:
-            Размер страницы для пагинации.
+            Page size used for pagination.
         chunk_size:
-            Максимальное количество molecule_chembl_id в одном запросе.
+            Maximum number of ``molecule_chembl_id`` values per request.
 
         Returns
         -------
         dict[tuple[str, str], dict[str, Any]]:
-            Словарь (molecule_chembl_id, document_chembl_id) -> запись.
+            Mapping from ``(molecule_chembl_id, document_chembl_id)`` to records.
         """
         import pandas as pd
 
@@ -62,7 +63,7 @@ class ChemblCompoundRecordEntityClient:
             msg = f"chunk_size must be positive, got {chunk_size}"
             raise ValueError(msg)
 
-        # Сбор уникальных пар, фильтрация None/NA значений
+        # Collect unique pairs while filtering ``None`` and NA values.
         unique_pairs: set[tuple[str, str]] = set()
         for mol_id, doc_id in pairs:
             if (
@@ -77,16 +78,16 @@ class ChemblCompoundRecordEntityClient:
             self._log.debug(LogEvents.COMPOUND_RECORD_NO_PAIRS, message="No valid pairs to fetch")
             return {}
 
-        # Группировка пар по document_chembl_id
+        # Group collected pairs by document identifier.
         doc_to_molecules: dict[str, list[str]] = {}
         for mol_id, doc_id in unique_pairs:
             doc_to_molecules.setdefault(doc_id, []).append(mol_id)
 
-        # Получение записей, сгруппированных по документу
+        # Fetch records for each document chunk.
         all_records: list[dict[str, Any]] = []
         for doc_id, mol_ids in doc_to_molecules.items():
-            # ChEMBL API поддерживает molecule_chembl_id__in фильтр
-            # Обработка чанками для избежания ограничений длины URL
+            # ChEMBL API supports ``molecule_chembl_id__in`` filtering.
+            # Chunk requests to avoid URL length limits.
             for i in range(0, len(mol_ids), chunk_size):
                 chunk = mol_ids[i : i + chunk_size]
                 params: dict[str, Any] = {
@@ -94,7 +95,7 @@ class ChemblCompoundRecordEntityClient:
                     "molecule_chembl_id__in": ",".join(chunk),
                     "limit": page_limit,
                 }
-                # Параметр only для выбора полей
+                # Use the ``only`` parameter to reduce payload size.
                 if fields:
                     params["only"] = ",".join(sorted(fields))
 
@@ -115,8 +116,8 @@ class ChemblCompoundRecordEntityClient:
                         exc_info=True,
                     )
 
-        # Дедупликация записей по (molecule_chembl_id, document_chembl_id)
-        # Приоритет: curated=True > False; removed=False > True; min record_id
+        # Deduplicate records per (molecule_chembl_id, document_chembl_id).
+        # Priority: curated=True > False; removed=False > True; minimal record_id.
         result: dict[tuple[str, str], dict[str, Any]] = {}
         for record in all_records:
             mol_id_raw = record.get("molecule_chembl_id")
@@ -149,24 +150,24 @@ def _compound_record_dedup_priority(
     existing: dict[str, Any],
     new: dict[str, Any],
 ) -> dict[str, Any]:
-    """Функция приоритета для дедупликации compound_record.
+    """Deduplication priority function for ``compound_record`` entries.
 
-    Приоритет:
-    1. curated=True > False
-    2. removed=False > True
-    3. min record_id
+    Priority order:
+    1. ``curated=True`` over ``False``
+    2. ``removed=False`` over ``True``
+    3. Lower ``record_id`` wins
 
     Parameters
     ----------
     existing:
-        Существующая запись.
+        Current record in the aggregation.
     new:
-        Новая запись.
+        Candidate record to compare.
 
     Returns
     -------
     dict[str, Any]:
-        Выбранная запись.
+        Record selected according to priority rules.
     """
     existing_curated = _safe_bool(existing.get("curated"))
     new_curated = _safe_bool(new.get("curated"))
@@ -199,19 +200,19 @@ def _compound_record_dedup_priority(
 
 
 def _safe_bool(value: Any) -> bool:
-    """Преобразовать значение в bool безопасно.
+    """Convert an arbitrary value to ``bool`` safely.
 
-    Обрабатывает 0/1, None и boolean значения.
+    Handles ``0/1``, ``None`` and boolean values explicitly.
 
     Parameters
     ----------
     value:
-        Значение для преобразования.
+        Value to coerce.
 
     Returns
     -------
     bool:
-        Преобразованное значение.
+        Coerced boolean value.
     """
     if value is None:
         return False

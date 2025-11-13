@@ -1,3 +1,3 @@
-"""Пакет с smoke-тестами CLI утилит."""
+"""Package containing smoke tests for CLI utilities."""
 
 

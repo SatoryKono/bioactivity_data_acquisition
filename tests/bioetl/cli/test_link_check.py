@@ -19,7 +19,7 @@ def test_link_check_success(
     result = runner.invoke(link_check_cli.app, [])
 
     assert result.exit_code == 0
-    assert "Проверка ссылок завершена успешно" in result.stdout
+    assert "Link check completed successfully" in result.stdout
 
 
 def test_link_check_failure(
@@ -34,6 +34,6 @@ def test_link_check_failure(
     result = runner.invoke(link_check_cli.app, [])
 
     assert result.exit_code == 2
-    assert "завершилась с ошибками" in result.stderr
+    assert "Link check failed with errors" in result.stderr
 
 

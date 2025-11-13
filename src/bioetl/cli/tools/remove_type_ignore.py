@@ -1,4 +1,4 @@
-"""CLI-команда `bioetl-remove-type-ignore`."""
+"""CLI command ``bioetl-remove-type-ignore``."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Any, cast
 
+from bioetl.cli.tools import exit_with_code
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.remove_type_ignore import remove_type_ignore as remove_type_ignore_sync
 
@@ -17,7 +18,7 @@ remove_type_ignore = remove_type_ignore_sync
 
 app: TyperApp = create_app(
     name="bioetl-remove-type-ignore",
-    help_text="Удаляй директивы type ignore из исходников",
+    help_text="Remove type ignore directives from source files",
 )
 
 
@@ -26,7 +27,7 @@ def main(
     root: Path | None = typer.Option(
         None,
         "--root",
-        help="Каталог для обработки (по умолчанию корень репозитория).",
+        help="Project directory to process (defaults to the repository root).",
         exists=True,
         file_okay=False,
         dir_okay=True,
@@ -34,21 +35,21 @@ def main(
         writable=True,
     ),
 ) -> None:
-    """Удаляет директивы `type: ignore`."""
+    """Remove ``type: ignore`` directives from the selected tree."""
 
     try:
         resolved_root = root.resolve() if root is not None else None
         removed = remove_type_ignore(root=resolved_root)
     except Exception as exc:  # noqa: BLE001
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
 
-    typer.echo(f"Удалено директив `type: ignore`: {removed}")
-    raise typer.Exit(code=0)
+    typer.echo(f"Removed type ignore directives: {removed}")
+    exit_with_code(0)
 
 
 def run() -> None:
-    """Запускает Typer-приложение."""
+    """Execute the Typer application."""
 
     run_app(app)
 

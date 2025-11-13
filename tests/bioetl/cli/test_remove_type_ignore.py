@@ -24,7 +24,7 @@ def test_remove_type_ignore_success(
     )
 
     assert result.exit_code == 0
-    assert "Удалено директив `type: ignore`: 5" in result.stdout
+    assert "Removed type ignore directives: 5" in result.stdout
 
 
 def test_remove_type_ignore_failure(

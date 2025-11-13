@@ -1,4 +1,4 @@
-"""Проверка детерминизма пайплайнов."""
+"""Pipeline determinism verification utilities."""
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 
 def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
-    """Извлекает структурированные JSON-логи из stdout/stderr."""
+    """Extract structured JSON logs emitted to stdout and stderr."""
 
     logs: list[dict[str, Any]] = []
     all_output = stdout + "\n" + stderr
@@ -47,7 +47,7 @@ def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
 
 
 def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str, str]:
-    """Запускает пайплайн с --dry-run и возвращает код выхода, stdout, stderr."""
+    """Execute a pipeline using ``--dry-run`` and capture exit code and output."""
 
     config_map = {
         "activity_chembl": "configs/pipelines/activity/activity_chembl.yaml",
@@ -89,7 +89,7 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
 def compare_logs(
     logs1: list[dict[str, Any]], logs2: list[dict[str, Any]]
 ) -> tuple[bool, list[str]]:
-    """Сравнивает наборы логов и возвращает (идентичны, список отличий)."""
+    """Compare two log sequences and return ``(identical, differences)``."""
 
     differences: list[str] = []
 
@@ -126,7 +126,7 @@ def compare_logs(
 
 @dataclass(frozen=True)
 class DeterminismRunResult:
-    """Результат проверки детерминизма."""
+    """Result payload of a single determinism verification run."""
 
     pipeline_name: str
     deterministic: bool
@@ -140,6 +140,7 @@ class DeterminismRunResult:
 
 
 def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -> None:
+    """Persist a determinism summary report to ``report_path``."""
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
 
     total_deterministic = sum(1 for item in results.values() if item.deterministic)
@@ -183,7 +184,7 @@ def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -
 def run_determinism_check(
     pipelines: tuple[str, ...] | None = None,
 ) -> dict[str, DeterminismRunResult]:
-    """Запускает проверку детерминизма и возвращает результаты."""
+    """Run determinism checks for selected pipelines and return their results."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

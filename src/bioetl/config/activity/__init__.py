@@ -54,9 +54,9 @@ class ActivitySourceParameters(BaseSourceParameters):
                 select_fields_raw, (str, bytes)
             ):
                 # Type narrowing: after isinstance check, select_fields_raw is Sequence[Any]
-                # Явно типизируем элементы для избежания предупреждений типизации
-                # basedpyright не может вывести тип field из Sequence[Any]
-                # Используем генератор списка с явной типизацией через cast
+                # Explicitly cast elements to silence type checking warnings.
+                # basedpyright cannot infer the field type from Sequence[Any].
+                # Use a generator expression with explicit string conversion.
                 select_fields = tuple(
                     str(cast(Any, field)) for field in select_fields_raw
                 )  # pyright: ignore[reportUnknownVariableType]

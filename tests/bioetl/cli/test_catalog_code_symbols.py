@@ -27,7 +27,7 @@ def test_catalog_code_symbols_success(
     )
 
     assert result.exit_code == 0
-    assert "Каталог обновлён" in result.stdout
+    assert "Catalog updated" in result.stdout
 
 
 def test_catalog_code_symbols_failure(

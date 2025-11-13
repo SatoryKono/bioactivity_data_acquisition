@@ -1,10 +1,11 @@
-"""CLI-команда `bioetl-qc-boundary-check` для статической проверки импорта QC из CLI."""
+"""CLI command ``bioetl-qc-boundary-check`` for static QC import boundary checks."""
 
 from __future__ import annotations
 
 import importlib
 from typing import Any, cast
 
+from bioetl.cli.tools import exit_with_code
 from bioetl.cli.tools._qc_boundary import collect_qc_boundary_violations
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 
@@ -14,21 +15,21 @@ __all__ = ["app", "main", "run"]
 
 app: TyperApp = create_app(
     name="bioetl-qc-boundary-check",
-    help_text="Проверяет, что модули bioetl.cli не импортируют bioetl.qc напрямую или через реэкспорт.",
+    help_text="Ensure bioetl.cli modules do not import bioetl.qc directly or via re-export.",
 )
 
 
 @app.command()
 def main() -> None:
-    """Запустить проверку статических импортов CLI против границы QC."""
+    """Run the static import analysis for the CLI↔QC boundary."""
 
     violations = collect_qc_boundary_violations()
     if not violations:
-        typer.echo("Граница CLI↔QC соблюдена, нарушений не обнаружено.")
-        raise typer.Exit(code=0)
+        typer.echo("CLI↔QC boundary is respected, no violations found.")
+        exit_with_code(0)
 
     typer.secho(
-        "Обнаружены нарушения границы CLI↔QC:",
+        "CLI↔QC boundary violations detected:",
         err=True,
         fg=typer.colors.RED,
     )
@@ -38,11 +39,11 @@ def main() -> None:
             err=True,
             fg=typer.colors.RED,
         )
-    raise typer.Exit(code=1)
+    exit_with_code(1)
 
 
 def run() -> None:
-    """Запустить Typer-приложение."""
+    """Execute the Typer application."""
 
     run_app(app)
 

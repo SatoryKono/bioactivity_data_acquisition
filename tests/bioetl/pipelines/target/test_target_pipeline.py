@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
@@ -205,7 +205,22 @@ class TestChemblTargetPipeline:
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
         pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        result = pipeline.extract_all()  # type: ignore[misc]
+        chembl_client_mock = Mock()
+        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
+
+        with (
+            patch.object(
+                pipeline,
+                "prepare_chembl_client",
+                return_value=(Mock(), "https://chembl.test"),
+            ),
+            patch(
+                "bioetl.pipelines.chembl.target.run.ChemblClient",
+                return_value=chembl_client_mock,
+            ),
+            patch("bioetl.pipelines.chembl.target.run.ChemblTargetClient", return_value=Mock()),
+        ):
+            result = pipeline.extract_all()  # type: ignore[misc]
 
         assert result.empty
 
@@ -216,7 +231,21 @@ class TestChemblTargetPipeline:
         pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
         pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
-        result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
+        chembl_client_mock = Mock()
+        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
+
+        with (
+            patch.object(
+                pipeline,
+                "prepare_chembl_client",
+                return_value=(Mock(), "https://chembl.test"),
+            ),
+            patch(
+                "bioetl.pipelines.chembl.target.run.ChemblClient",
+                return_value=chembl_client_mock,
+            ),
+        ):
+            result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
 
         assert result.empty
 
@@ -270,9 +299,23 @@ class TestChemblTargetPipeline:
         from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._enrich_protein_classifications(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        chembl_client_mock = Mock()
+        chembl_client_mock.paginate.return_value = []
+
+        with (
+            patch.object(
+                pipeline,
+                "prepare_chembl_client",
+                return_value=(Mock(), {}),
+            ),
+            patch(
+                "bioetl.pipelines.chembl.target.run.ChemblClient",
+                return_value=chembl_client_mock,
+            ),
+        ):
+            result = pipeline._enrich_protein_classifications(
+                df, log
+            )  # noqa: SLF001  # type: ignore[arg-type]
 
         assert "protein_class_list" in result.columns
         assert "protein_class_top" in result.columns

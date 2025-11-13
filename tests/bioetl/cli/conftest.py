@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 @pytest.fixture()
 def runner() -> CliRunner:
-    """Возвращает экземпляр CliRunner для тестов Typer."""
+    """Return a CliRunner instance for Typer tests."""
     return CliRunner()
 
 

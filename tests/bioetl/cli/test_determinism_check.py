@@ -27,7 +27,7 @@ def test_determinism_check_success(
     result = runner.invoke(determinism_cli.app, [])
 
     assert result.exit_code == 0
-    assert "Все проверенные пайплайны детерминированы" in result.stdout
+    assert "All inspected pipelines are deterministic" in result.stdout
 
 
 def test_determinism_check_failure_no_results(
@@ -42,6 +42,6 @@ def test_determinism_check_failure_no_results(
     result = runner.invoke(determinism_cli.app, [])
 
     assert result.exit_code == 1
-    assert "Не найдены пайплайны для проверки" in result.stderr
+    assert "No pipelines found for determinism check" in result.stderr
 
 

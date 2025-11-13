@@ -1,4 +1,4 @@
-"""CLI-команда `bioetl-vocab-audit`."""
+"""CLI command ``bioetl-vocab-audit``."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Any, cast
 
+from bioetl.cli.tools import exit_with_code
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -32,7 +33,7 @@ audit_vocabularies = audit_vocabularies_sync
 
 app: TyperApp = create_app(
     name="bioetl-vocab-audit",
-    help_text="Проверь словари ChEMBL и сформируй отчёт",
+    help_text="Audit ChEMBL vocabularies and generate a report",
 )
 
 
@@ -41,7 +42,7 @@ def main(
     store: Path | None = typer.Option(
         None,
         "--store",
-        help="Каталог или YAML со словарями ChEMBL.",
+        help="Directory or YAML file containing ChEMBL vocabularies.",
         exists=True,
         file_okay=True,
         dir_okay=True,
@@ -50,7 +51,7 @@ def main(
     output: Path = typer.Option(
         DEFAULT_OUTPUT,
         "--output",
-        help="Путь к CSV-отчёту аудита словарей.",
+        help="Path to the CSV report with vocabulary audit results.",
         exists=False,
         file_okay=True,
         dir_okay=False,
@@ -59,7 +60,7 @@ def main(
     meta: Path = typer.Option(
         DEFAULT_META,
         "--meta",
-        help="Путь к meta.yaml отчёта.",
+        help="Path to the audit meta.yaml file.",
         exists=False,
         file_okay=True,
         dir_okay=False,
@@ -68,15 +69,15 @@ def main(
     pages: int = typer.Option(
         10,
         "--pages",
-        help="Количество страниц Chembl API для выборки значений.",
+        help="Number of ChEMBL API pages to sample values from.",
     ),
     page_size: int = typer.Option(
         1000,
         "--page-size",
-        help="Размер страницы Chembl API.",
+        help="Page size to use for ChEMBL API pagination.",
     ),
 ) -> None:
-    """Запускает аудит словарей."""
+    """Run the vocabulary audit pipeline."""
 
     try:
         result = audit_vocabularies(
@@ -88,20 +89,20 @@ def main(
         )
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
     except Exception as exc:  # noqa: BLE001
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
 
     typer.echo(
-        "Аудит словарей завершён: "
-        f"{len(result.rows)} записей, CSV {result.output.resolve()}, meta {result.meta.resolve()}"
+        "Vocabulary audit completed: "
+        f"{len(result.rows)} records, CSV {result.output.resolve()}, meta {result.meta.resolve()}"
     )
-    raise typer.Exit(code=0)
+    exit_with_code(0)
 
 
 def run() -> None:
-    """Точка входа для Typer-приложения."""
+    """Execute the Typer application."""
     run_app(app)
 
 

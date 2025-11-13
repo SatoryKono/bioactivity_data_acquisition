@@ -89,8 +89,7 @@ class TestChemblClient:
 
         configured_endpoint = "/configured-status.json"
         monkeypatch.setattr(
-            "bioetl.clients.client_chembl_common",
-            "_resolve_status_endpoint",
+            "bioetl.clients.client_chembl_common._resolve_status_endpoint",
             lambda: configured_endpoint,
         )
 

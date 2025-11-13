@@ -1,4 +1,4 @@
-"""Поиск дубликатов и схожих участков кода в `src/` проекта BioETL."""
+"""Detect duplicate and similar code fragments within the BioETL `src/` tree."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from typing import Any, Literal, Protocol, cast
 
 import typer
 
+from bioetl.core.cli_base import CliCommandBase
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 from bioetl.tools import get_project_root
@@ -33,7 +34,7 @@ Role = Literal["extract", "transform", "validate", "write", "run", "client", "sc
 
 @dataclass(frozen=True, slots=True)
 class ParseError:
-    """Ошибка разбора исходного файла."""
+    """Parsing error for a source file."""
 
     path: Path
     message: str
@@ -41,7 +42,7 @@ class ParseError:
 
 @dataclass(frozen=True, slots=True)
 class CodeUnit:
-    """Фрагмент кода (функция, метод или класс) после нормализации."""
+    """Normalized code fragment such as a function, method, or class."""
 
     symbol: str
     kind: Kind
@@ -64,7 +65,7 @@ class CodeUnit:
 
 @dataclass(frozen=True, slots=True)
 class DuplicateCluster:
-    """Группа полностью совпадающих фрагментов."""
+    """Group of identical code fragments."""
 
     ast_hash: str
     members: tuple[CodeUnit, ...]
@@ -72,7 +73,7 @@ class DuplicateCluster:
 
 @dataclass(frozen=True, slots=True)
 class NearDuplicatePair:
-    """Пара близких по структуре фрагментов."""
+    """Pair of structurally similar code fragments."""
 
     unit_a: CodeUnit
     unit_b: CodeUnit
@@ -91,7 +92,7 @@ class _SupportsReadline(Protocol):
 
 
 class _ASTNormalizer(ast.NodeTransformer):
-    """Канонизация AST: удаление шумов, сортировка и нормализация литералов."""
+    """Canonicalise AST nodes by stripping noise, sorting inputs, and normalising literals."""
 
     _LOG_ATTRS = {"debug", "info", "warning", "error", "exception", "critical", "trace", "log"}
 
@@ -256,7 +257,7 @@ def _normalise_node(node: ast.AST) -> tuple[str, str, tuple[str, ...], Counter[s
 
 
 class _CodeUnitVisitor(ast.NodeVisitor):
-    """Сбор функциональных единиц из AST."""
+    """Collect functional units from the AST."""
 
     def __init__(self, *, file_path: Path, rel_path: Path, source_lines: Sequence[str]) -> None:
         self._file_path = file_path
@@ -361,7 +362,7 @@ def _classify_role(rel_path: Path, symbol: str) -> Role:
 def _collect_python_files(root: Path) -> tuple[list[Path], list[str]]:
     src_dir = root / "src"
     if not src_dir.exists():
-        return [], [f"Каталог {src_dir} недоступен"]
+        return [], [f"Directory {src_dir} is not accessible"]
     python_files: list[Path] = []
     warnings: list[str] = []
     for dirpath, dirnames, filenames in os.walk(src_dir):
@@ -372,7 +373,7 @@ def _collect_python_files(root: Path) -> tuple[list[Path], list[str]]:
                 if filename.endswith(".py"):
                     python_files.append(current / filename)
         except PermissionError:
-            warnings.append(f"Недоступен каталог {current}")
+            warnings.append(f"Directory {current} is not accessible")
             continue
     python_files.sort()
     return python_files, warnings
@@ -432,7 +433,7 @@ def _build_near_duplicates(units: Sequence[CodeUnit]) -> list[NearDuplicatePair]
         sym_diff = sum((counter_a - counter_b).values()) + sum((counter_b - counter_a).values())
         if sym_diff:
             divergences.append(f"token_delta:{sym_diff}")
-        divergence_str = ", ".join(sorted(divergences)) if divergences else "равны"
+        divergence_str = ", ".join(sorted(divergences)) if divergences else "equal"
         pairs.append(
             NearDuplicatePair(
                 unit_a=left,
@@ -492,9 +493,9 @@ def _write_markdown(path: Path, units: Sequence[CodeUnit], clusters: Sequence[Du
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as handle:
-        handle.write("# Карта общих единиц\n\n")
+        handle.write("# Shared code map\n\n")
         if not tests_present:
-            handle.write("> ARCHIVE_TESTS: нет в ветке\n\n")
+            handle.write("> ARCHIVE_TESTS: missing in branch\n\n")
         handle.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
         handle.write("| --- | --- | --- | --- | --- | --- | --- |\n")
         for unit in units:
@@ -503,12 +504,12 @@ def _write_markdown(path: Path, units: Sequence[CodeUnit], clusters: Sequence[Du
                 f"| `{unit.symbol}` | {unit.kind} | {unit.role} | "
                 f"L{unit.start_line}-L{unit.end_line} | {unit.norm_loc} | `{unit.ast_hash}` | {reference_cell} |\n"
             )
-        handle.write("\n## Кластеры дубликатов\n\n")
+        handle.write("\n## Duplicate clusters\n\n")
         if not clusters:
-            handle.write("Дубликаты не обнаружены.\n\n")
+            handle.write("No duplicates found.\n\n")
         else:
             for cluster in clusters:
-                handle.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} единицы\n\n")
+                handle.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
                 for cluster_member in cluster.members:
                     handle.write(
                         f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
@@ -517,9 +518,9 @@ def _write_markdown(path: Path, units: Sequence[CodeUnit], clusters: Sequence[Du
                 handle.write("\n")
         handle.write("## Near-duplicates\n\n")
         if not pairs:
-            handle.write("Похожих фрагментов не найдено.\n")
+            handle.write("No similar fragments found.\n")
         else:
-            handle.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | Refs + цитаты |\n")
+            handle.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
             handle.write("| --- | --- | --- | --- | --- | --- |\n")
             for pair in pairs:
                 pair_label = pair.pair_label
@@ -577,9 +578,9 @@ def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], cluster
         typer.echo(output.getvalue().rstrip())
     if "md" in formats:
         buffer = io.StringIO()
-        buffer.write("# Карта общих единиц\n\n")
+        buffer.write("# Shared code map\n\n")
         if not tests_present:
-            buffer.write("> ARCHIVE_TESTS: нет в ветке\n\n")
+            buffer.write("> ARCHIVE_TESTS: missing in branch\n\n")
         buffer.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
         buffer.write("| --- | --- | --- | --- | --- | --- | --- |\n")
         for unit in units:
@@ -588,12 +589,12 @@ def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], cluster
                 f"| `{unit.symbol}` | {unit.kind} | {unit.role} | "
                 f"L{unit.start_line}-L{unit.end_line} | {unit.norm_loc} | `{unit.ast_hash}` | {reference_cell} |\n"
             )
-        buffer.write("\n## Кластеры дубликатов\n\n")
+        buffer.write("\n## Duplicate clusters\n\n")
         if not clusters:
-            buffer.write("Дубликаты не обнаружены.\n\n")
+            buffer.write("No duplicates found.\n\n")
         else:
             for cluster in clusters:
-                buffer.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} единицы\n\n")
+                buffer.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
                 for cluster_member in cluster.members:
                     buffer.write(
                         f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
@@ -602,9 +603,9 @@ def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], cluster
                 buffer.write("\n")
         buffer.write("## Near-duplicates\n\n")
         if not pairs:
-            buffer.write("Похожих фрагментов не найдено.\n")
+            buffer.write("No similar fragments found.\n")
         else:
-            buffer.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | Refs + цитаты |\n")
+            buffer.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
             buffer.write("| --- | --- | --- | --- | --- | --- |\n")
             for pair in pairs:
                 pair_label = pair.pair_label
@@ -679,36 +680,36 @@ def main(
     root: Path = typer.Option(
         get_project_root(),
         "--root",
-        help="Корень репозитория, будет использован подкаталог `src`.",
+        help="Repository root; the `src` subdirectory is used for analysis.",
         show_default=True,
     ),
     out: Path | None = typer.Option(
         get_project_root() / "artifacts" / "dup_finder",
         "--out",
-        help="Каталог для артефактов или '-' для STDOUT.",
+        help="Directory for artifacts or '-' to stream to STDOUT.",
         show_default=True,
     ),
     fmt: str = typer.Option(
         "md,csv",
         "--format",
-        help="Список форматов через запятую: md,csv.",
+        help="Comma-separated list of formats: md,csv.",
         show_default=True,
     ),
 ) -> None:
-    """CLI-оболочка для dup_finder."""
+    """CLI wrapper for the duplicate finder."""
 
     formats = tuple(
         dict.fromkeys(item.strip().lower() for item in fmt.split(",") if item.strip())
     )
     invalid = [item for item in formats if item not in {"md", "csv"}]
     if invalid:
-        raise typer.BadParameter(f"Недопустимые форматы: {', '.join(sorted(invalid))}")
+        raise typer.BadParameter(f"Invalid formats: {', '.join(sorted(invalid))}")
     try:
         run_dup_finder(root, out, formats)
     except Exception as exc:  # noqa: BLE001
         log = UnifiedLogger.get(__name__)
         log.error(LogEvents.DUP_FINDER_FAILED, error=str(exc), exception_type=type(exc).__name__)
-        raise typer.Exit(code=1) from exc
+        CliCommandBase.exit(1, cause=exc)
 
 
 if __name__ == "__main__":

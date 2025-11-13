@@ -1,4 +1,4 @@
-"""CLI-команда `bioetl-create-matrix-doc-code`."""
+"""CLI command ``bioetl-create-matrix-doc-code``."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ import importlib
 from pathlib import Path
 from typing import Any, cast
 
+from bioetl.cli.tools import exit_with_code
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.api_client import CircuitBreakerOpenError
@@ -23,7 +24,7 @@ write_matrix = write_matrix_sync
 
 app: TyperApp = create_app(
     name="bioetl-create-matrix-doc-code",
-    help_text="Сгенерируй матрицу Doc↔Code и экспортируй артефакты",
+    help_text="Generate the Doc↔Code matrix and export artifacts",
 )
 
 
@@ -32,33 +33,33 @@ def main(
     artifacts: Path = typer.Option(
         Path("artifacts"),
         "--artifacts",
-        help="Каталог для сохранения матрицы Doc↔Code.",
+        help="Directory for storing the Doc↔Code matrix artifacts.",
         exists=False,
         file_okay=False,
         dir_okay=True,
         writable=True,
     ),
 ) -> None:
-    """Формирует матрицу соответствия документации и кода."""
+    """Produce the documentation-to-code correspondence matrix."""
 
     try:
         result = write_matrix(artifacts_dir=artifacts.resolve())
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
     except Exception as exc:  # noqa: BLE001
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
 
     typer.echo(
-        f"Матрица с {len(result.rows)} строками записана в "
-        f"{result.csv_path.resolve()} и {result.json_path.resolve()}"
+        f"Matrix with {len(result.rows)} rows saved to "
+        f"{result.csv_path.resolve()} and {result.json_path.resolve()}"
     )
-    raise typer.Exit(code=0)
+    exit_with_code(0)
 
 
 def run() -> None:
-    """Запускает Typer-приложение."""
+    """Execute the Typer application."""
 
     run_app(app)
 

@@ -1,6 +1,7 @@
 """Core utilities for configuring the BioETL runtime."""
 
 from .api_client import TokenBucketLimiter, UnifiedAPIClient, merge_http_configs
+from .cli_base import CliCommandBase, CliEntrypoint
 from .client_factory import APIClientFactory
 from .errors import BioETLError
 from .logger import (
@@ -24,6 +25,8 @@ __all__ = [
     "LogFormat",
     "MANDATORY_FIELDS",
     "LoggerConfig",
+    "CliCommandBase",
+    "CliEntrypoint",
     "TokenBucketLimiter",
     "UnifiedAPIClient",
     "UnifiedLogger",

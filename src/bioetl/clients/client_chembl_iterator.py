@@ -18,8 +18,8 @@ from bioetl.clients.client_chembl_base import EntityConfig
 from bioetl.config.loader import _load_yaml
 from bioetl.core.logger import UnifiedLogger
 
-# ChemblClient is dynamically loaded in __init__.py, so we use Any for type checking
-# Import is done at runtime to avoid circular dependencies
+# ChemblClient is dynamically loaded in __init__.py, so we use Any for type checking.
+# Import happens at runtime to avoid circular dependencies.
 
 __all__ = ["ChemblEntityIteratorBase", "ChemblEntityIterator"]
 
@@ -61,12 +61,7 @@ def _resolve_status_endpoint() -> str:
 
 
 class ChemblEntityIteratorBase:
-    """Базовый класс для итерации по сущностям ChEMBL.
-
-    Предоставляет унифицированный интерфейс для итерации по записям
-    различных типов сущностей ChEMBL API с поддержкой пагинации,
-    чанкинга и проверки длины URL.
-    """
+    """Provide a unified iterator over ChEMBL entities with pagination and chunking."""
 
     def __init__(
         self,
@@ -76,18 +71,18 @@ class ChemblEntityIteratorBase:
         batch_size: int,
         max_url_length: int | None = None,
     ) -> None:
-        """Инициализировать итератор для сущности.
+        """Initialise the iterator for a particular entity type.
 
         Parameters
         ----------
         chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
+            ChemblClient instance responsible for HTTP calls.
         config:
-            Конфигурация сущности.
+            Entity configuration.
         batch_size:
-            Размер батча для пагинации (максимум 25 для ChEMBL API).
+            Batch size for pagination (capped at 25 by the ChEMBL API).
         max_url_length:
-            Максимальная длина URL для проверки. Если None, проверка отключена.
+            Optional URL length constraint; disables the check when ``None``.
         """
         if batch_size <= 0:
             msg = "batch_size must be a positive integer"
@@ -97,7 +92,7 @@ class ChemblEntityIteratorBase:
             raise ValueError(msg)
 
         self._chembl_client = chembl_client
-        # Backwards compatibility for client attribute expected by legacy code/tests
+        # Backwards compatibility for client attribute expected by legacy code/tests.
         self._client = chembl_client
         self._config = config
         self._batch_size = min(batch_size, 25)
@@ -110,30 +105,30 @@ class ChemblEntityIteratorBase:
 
     @property
     def chembl_release(self) -> str | None:
-        """Вернуть ChEMBL release, полученный во время handshake.
+        """Return the ChEMBL release identifier captured during handshake.
 
         Returns
         -------
         str | None:
-            Версия ChEMBL release или None, если handshake не выполнялся.
+            ChEMBL release version or ``None`` if handshake has not run.
         """
         return self._chembl_release
 
     @property
     def chembl_client(self) -> Any:
-        """Вернуть обёрнутый ChemblClient."""
+        """Return the wrapped ChemblClient instance."""
 
         return self._chembl_client
 
     @property
     def batch_size(self) -> int:
-        """Вернуть текущий размер батча для пагинации."""
+        """Return the effective batch size for pagination."""
 
         return self._batch_size
 
     @property
     def max_url_length(self) -> int | None:
-        """Вернуть ограничение длины URL (если задано)."""
+        """Return the enforced URL length limit, if any."""
 
         return self._max_url_length
 
@@ -143,24 +138,24 @@ class ChemblEntityIteratorBase:
         endpoint: str | None = None,
         enabled: bool = True,
     ) -> Mapping[str, object]:
-        """Выполнить handshake и кэшировать идентификатор release.
+        """Perform the status handshake and cache the release identifier.
 
-        Если ``endpoint`` не указан, используется значение из
-        ``chembl.status_endpoint`` (при сохранении обратной совместимости
-        с legacy ``clients.chembl.status_endpoint``; fallback ``"/status.json"``).
-        Значение интерпретируется буквально; пути не нормализуются автоматически.
+        When ``endpoint`` is omitted, the value is resolved from ``chembl.status_endpoint``
+        (preserving compatibility with legacy ``clients.chembl.status_endpoint``;
+        fallback ``"/status.json"``). The resolved endpoint is used verbatim without
+        additional normalisation.
 
         Parameters
         ----------
         endpoint:
-            Endpoint для handshake.
+            Endpoint used for the handshake request.
         enabled:
-            Если False, handshake не выполняется. По умолчанию True.
+            Set to ``False`` to skip the handshake. Defaults to ``True``.
 
         Returns
         -------
         Mapping[str, object]:
-            Payload ответа от handshake или пустой словарь, если disabled.
+            Response payload from the handshake or an empty mapping when skipped.
         """
         resolved_endpoint = endpoint if endpoint is not None else _resolve_status_endpoint()
         if not enabled:
@@ -193,21 +188,21 @@ class ChemblEntityIteratorBase:
         page_size: int | None = None,
         select_fields: Sequence[str] | None = None,
     ) -> Iterator[Mapping[str, object]]:
-        """Итерировать по всем записям сущности с поддержкой лимитов.
+        """Iterate over all entity records with optional limits.
 
         Parameters
         ----------
         limit:
-            Максимальное количество записей для возврата.
+            Maximum number of records to return.
         page_size:
-            Размер страницы для пагинации. Если None, используется batch_size.
+            Page size override; defaults to the configured batch size.
         select_fields:
-            Опциональный список полей для получения через параметр `only`.
+            Optional list of fields requested via the ``only`` parameter.
 
         Yields
         ------
         Mapping[str, object]:
-            Записи сущности.
+            Entity records yielded from the API.
         """
         effective_page_size = self._coerce_page_size(page_size)
         yielded = 0
@@ -239,19 +234,19 @@ class ChemblEntityIteratorBase:
         *,
         select_fields: Sequence[str] | None = None,
     ) -> Iterator[Mapping[str, object]]:
-        """Итерировать по записям сущности по конкретным ID с умным чанкингом.
+        """Iterate over entity records for explicit identifiers with smart chunking.
 
         Parameters
         ----------
         ids:
-            Последовательность ID для получения.
+            Sequence of identifiers to fetch.
         select_fields:
-            Опциональный список полей для получения через параметр `only`.
+            Optional list of fields requested via the ``only`` parameter.
 
         Yields
         ------
         Mapping[str, object]:
-            Записи сущности.
+            Entity records emitted for the requested identifiers.
         """
         for chunk in self._chunk_identifiers(ids, select_fields=select_fields):
             params: dict[str, object] = {self._config.filter_param: ",".join(chunk)}
@@ -270,17 +265,17 @@ class ChemblEntityIteratorBase:
     # ------------------------------------------------------------------
 
     def _coerce_page_size(self, requested: int | None) -> int:
-        """Привести размер страницы к допустимому значению.
+        """Normalize the requested page size to a valid value.
 
         Parameters
         ----------
         requested:
-            Запрошенный размер страницы. Если None, используется batch_size.
+            Requested page size; falls back to ``batch_size`` when ``None``.
 
         Returns
         -------
         int:
-            Эффективный размер страницы.
+            Effective page size used for requests.
         """
         if requested is None:
             return self._batch_size
@@ -294,19 +289,19 @@ class ChemblEntityIteratorBase:
         *,
         select_fields: Sequence[str] | None = None,
     ) -> Iterable[Sequence[str]]:
-        """Разбить идентификаторы на чанки с учетом длины URL.
+        """Split identifiers into chunks while honouring the URL length limits.
 
         Parameters
         ----------
         ids:
-            Последовательность идентификаторов (любые объекты) для разбиения.
+            Sequence of identifiers (any objects) to be chunked.
         select_fields:
-            Опциональный список полей для расчета длины URL.
+            Optional list of fields used to compute URL length.
 
         Yields
         ------
         Sequence[str]:
-            Чанки идентификаторов.
+            Chunks of identifiers suitable for a single request.
         """
         chunk: deque[str] = deque()
 
@@ -322,7 +317,7 @@ class ChemblEntityIteratorBase:
 
             candidate_size = len(chunk) + 1
 
-            # Проверка длины URL, если включена
+            # Enforce URL length check when enabled.
             if self._config.enable_url_length_check and self._max_url_length is not None:
                 candidate_param_length = self._encode_in_query(
                     tuple(list(chunk) + [candidate_identifier]),
@@ -338,7 +333,7 @@ class ChemblEntityIteratorBase:
                     chunk.append(candidate_identifier)
                     continue
             elif candidate_size > self._batch_size:
-                # Простая проверка размера чанка без проверки длины URL
+                # Fallback to chunk size validation when URL checks are disabled.
                 if chunk:
                     yield tuple(chunk)
                     chunk.clear()
@@ -356,32 +351,32 @@ class ChemblEntityIteratorBase:
         *,
         select_fields: Sequence[str] | None = None,
     ) -> int:
-        """Вычислить длину параметров запроса в URL.
+        """Compute the URL query length for the provided identifiers.
 
         Parameters
         ----------
         identifiers:
-            Последовательность идентификаторов.
+            Sequence of identifiers for encoding.
         select_fields:
-            Опциональный список полей.
+            Optional list of fields to include in the request.
 
         Returns
         -------
         int:
-            Приблизительная длина параметров запроса в URL.
+            Approximate length of the query component in the URL.
         """
         params_dict: dict[str, str] = {self._config.filter_param: ",".join(identifiers)}
         if select_fields:
             params_dict["only"] = ",".join(sorted(select_fields))
 
         params = urlencode(params_dict)
-        # Учитываем базовую длину endpoint для приблизительной оценки финальной длины URL
+        # Include the base endpoint length to approximate the final URL length.
         base_length = self._config.base_endpoint_length or len(self._config.endpoint)
         return base_length + len("?") + len(params)
 
 
 class ChemblEntityIterator(ChemblEntityIteratorBase):
-    """Устаревший алиас для :class:`ChemblEntityIteratorBase`."""
+    """Deprecated alias for :class:`ChemblEntityIteratorBase`."""
 
     def __init__(
         self,
@@ -392,8 +387,8 @@ class ChemblEntityIterator(ChemblEntityIteratorBase):
         max_url_length: int | None = None,
     ) -> None:
         warnings.warn(
-            "ChemblEntityIterator устарел и будет удалён в будущих версиях. "
-            "Используйте ChemblEntityIteratorBase.",
+            "ChemblEntityIterator is deprecated and will be removed in a future version. "
+            "Use ChemblEntityIteratorBase instead.",
             DeprecationWarning,
             stacklevel=2,
         )

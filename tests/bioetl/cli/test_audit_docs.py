@@ -27,7 +27,7 @@ def test_audit_docs_success(
     )
 
     assert result.exit_code == 0
-    assert "Аудит завершён" in result.stdout
+    assert "Audit completed" in result.stdout
     assert captured["artifacts_dir"] == target_dir.resolve()
 
 

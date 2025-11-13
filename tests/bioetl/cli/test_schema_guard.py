@@ -27,7 +27,7 @@ def test_schema_guard_success(
     result = runner.invoke(schema_guard_cli.app, [])
 
     assert result.exit_code == 0
-    assert "Все конфигурации валидны" in result.stdout
+    assert "All configurations are valid" in result.stdout
     assert str(report_path.resolve()) in result.stdout
 
 

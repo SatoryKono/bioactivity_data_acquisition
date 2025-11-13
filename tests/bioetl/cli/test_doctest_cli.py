@@ -24,7 +24,7 @@ def test_doctest_cli_success(
     result = runner.invoke(doctest_cli_app.app, [])
 
     assert result.exit_code == 0
-    assert "Все 1 CLI-примеров выполнены успешно" in result.stdout
+    assert "All 1 CLI examples completed successfully" in result.stdout
 
 
 def test_doctest_cli_failure(
@@ -42,7 +42,7 @@ def test_doctest_cli_failure(
     result = runner.invoke(doctest_cli_app.app, [])
 
     assert result.exit_code == 1
-    assert "Не все CLI-примеры прошли успешно" in result.stderr
+    assert "Not all CLI examples succeeded" in result.stderr
     assert str(report_path.resolve()) in result.stdout
 
 

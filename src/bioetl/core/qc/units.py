@@ -1,4 +1,4 @@
-"""Детерминированные распределения для QC-отчетов."""
+"""Deterministic distributions for QC reports."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from bioetl.qc.metrics import (
 
 
 class QCUnits:
-    """Утилиты для расчета распределений ``*_units`` и ``*_relation``."""
+    """Utilities for computing ``*_units`` and ``*_relation`` distributions."""
 
     UNITS_SUFFIXES: ClassVar[tuple[str, ...]] = ("units",)
     RELATION_SUFFIXES: ClassVar[tuple[str, ...]] = ("relation",)
@@ -23,13 +23,13 @@ class QCUnits:
 
     @classmethod
     def for_units(cls, df: pd.DataFrame) -> CategoricalDistribution:
-        """Вернуть распределения значений для всех ``*_units`` столбцов."""
+        """Return value distributions for all columns ending with ``*_units``."""
 
         return cls._compute(df, column_suffixes=cls.UNITS_SUFFIXES)
 
     @classmethod
     def for_relation(cls, df: pd.DataFrame) -> CategoricalDistribution:
-        """Вернуть распределения значений для всех ``*_relation`` столбцов."""
+        """Return value distributions for all columns ending with ``*_relation``."""
 
         return cls._compute(df, column_suffixes=cls.RELATION_SUFFIXES)
 

@@ -21,7 +21,7 @@ def test_semantic_diff_success(
     result = runner.invoke(semantic_diff_cli.app, [])
 
     assert result.exit_code == 0
-    assert "Отчёт семантического diff записан" in result.stdout
+    assert "Semantic diff report written to" in result.stdout
 
 
 def test_semantic_diff_failure(

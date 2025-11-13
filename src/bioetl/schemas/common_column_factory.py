@@ -1,4 +1,4 @@
-"""Новый интерфейс фабрики столбцов Pandera."""
+"""Public alias for the shared Pandera column factory."""
 
 from bioetl.core.schema.column_factory import SchemaColumnFactory
 

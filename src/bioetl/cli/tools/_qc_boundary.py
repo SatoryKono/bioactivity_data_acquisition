@@ -81,6 +81,7 @@ def collect_qc_boundary_violations(
 
 
 def _discover_modules(*, root: Path, package: str) -> dict[str, ModuleRecord]:
+    """Scan the CLI package tree and collect module metadata."""
     module_records: dict[str, ModuleRecord] = {}
 
     for path in sorted(root.rglob("*.py")):
@@ -108,6 +109,7 @@ def _discover_modules(*, root: Path, package: str) -> dict[str, ModuleRecord]:
 
 
 def _analyze_module(record: ModuleRecord, module_records: dict[str, ModuleRecord]) -> ModuleAnalysis:
+    """Parse a module AST and extract QC references and CLI dependencies."""
     source = record.path.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(record.path))
 
@@ -149,6 +151,7 @@ def _collect_chains(
     cache: dict[str, list[tuple[str, ...]]],
     stack: tuple[str, ...],
 ) -> Iterable[tuple[str, ...]]:
+    """Traverse dependency graph and return QC import chains for a module."""
     if module_name in cache:
         return cache[module_name]
 
@@ -175,6 +178,7 @@ def _collect_chains(
 
 
 def _resolve_import_from(*, current: ModuleRecord, module: str | None, level: int) -> str | None:
+    """Resolve the absolute module name for a ``from ... import`` statement."""
     if level == 0:
         return module
 
@@ -198,6 +202,7 @@ def _resolve_import_from(*, current: ModuleRecord, module: str | None, level: in
 
 
 def _resolve_import_targets(base: str | None, aliases: list[ast.alias]) -> set[str]:
+    """Normalize import targets into fully qualified module names."""
     targets: set[str] = set()
     if base is not None:
         targets.add(base)
@@ -216,15 +221,18 @@ def _resolve_import_targets(base: str | None, aliases: list[ast.alias]) -> set[s
 
 
 def _iter_cli_candidates(name: str, module_records: dict[str, ModuleRecord]) -> Iterable[str]:
+    """Yield CLI module names that match the imported module."""
     if name in module_records:
         yield name
 
 
 def _is_qc_module(module_name: str) -> bool:
+    """Return True when the module name belongs to the QC package."""
     return module_name == QC_MODULE_PREFIX or module_name.startswith(f"{QC_MODULE_PREFIX}.")
 
 
 def _normalize_qc_name(module_name: str) -> str:
+    """Reduce QC module names to the top-level QC package and first submodule."""
     parts = module_name.split(".")
     prefix_parts = QC_MODULE_PREFIX.split(".")
     suffix_parts = parts[len(prefix_parts) :]

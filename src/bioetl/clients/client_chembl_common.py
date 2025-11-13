@@ -26,7 +26,7 @@ from bioetl.core.load_meta_store import LoadMetaStore
 from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 
-__all__ = ["ChemblClient"]
+__all__ = ["ChemblClient", "_resolve_status_endpoint"]
 
 _DEFAULT_STATUS_ENDPOINT = "/status.json"
 _CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defaults" / "chembl.yaml"
@@ -86,7 +86,7 @@ class ChemblClient:
         self._operator = operator
         self._chembl_release: str | None = None
         self._api_version: str | None = None
-        # Инициализация специализированных клиентов для сущностей
+        # Initialize specialized entity clients.
         self._assay_entity = ChemblAssayEntityClient(self)
         self._molecule_entity = ChemblMoleculeEntityClient(self)
         self._data_validity_entity = ChemblDataValidityEntityClient(self)
@@ -230,10 +230,10 @@ class ChemblClient:
         payload: Mapping[str, Any],
         items_key: str | None,
     ) -> Iterable[Mapping[str, Any]]:
-        """Извлечь элементы ответа ChEMBL.
+        """Extract entity items from the ChEMBL response payload.
 
-        Эвристика поиска без явного items_key будет удалена в будущих версиях —
-        передавайте явный ключ (см. EntityConfig.items_key).
+        The implicit lookup heuristic without ``items_key`` is deprecated and will be
+        removed in a future release—pass an explicit key (see ``EntityConfig.items_key``).
         """
         if items_key:
             items = payload.get(items_key)
@@ -246,8 +246,8 @@ class ChemblClient:
                 return result
             return []
         warnings.warn(
-            "Эвристика items_key=None будет удалена в будущих версиях; "
-            "передавайте явный items_key (например, через EntityConfig.items_key).",
+            "The items_key=None heuristic will be removed in a future version; "
+            "pass an explicit items_key (for example, via EntityConfig.items_key).",
             PendingDeprecationWarning,
             stacklevel=2,
         )
@@ -266,6 +266,7 @@ class ChemblClient:
 
     @staticmethod
     def _next_link(payload: Mapping[str, Any]) -> str | None:
+        """Return the pagination link from ``page_meta`` if available."""
         page_meta = payload.get("page_meta")
         if isinstance(page_meta, Mapping):
             page_meta_mapping = cast(Mapping[str, Any], page_meta)
@@ -275,6 +276,7 @@ class ChemblClient:
         return None
 
     def _normalize_endpoint(self, endpoint: str) -> str:
+        """Normalise the endpoint to be relative when base URL is applied."""
         normalized_url = endpoint
         if not normalized_url.startswith(("http://", "https://")):
             if normalized_url.startswith("/chembl/api/data/"):
@@ -284,6 +286,7 @@ class ChemblClient:
         return normalized_url
 
     def _resolve_request_base_url(self, endpoint: str) -> str:
+        """Combine the client base URL with the endpoint for metadata recording."""
         if endpoint.startswith(("http://", "https://")):
             return endpoint.split("?", 1)[0]
         base = self._client.base_url or ""
@@ -297,6 +300,7 @@ class ChemblClient:
         fields: Sequence[str],
         page_limit: int = 1000,
     ) -> dict[str, dict[str, Any]]:
+        """Fetch entity records by identifiers using the provided client."""
         result = entity.fetch_by_ids(ids, fields, page_limit)
         return cast(dict[str, dict[str, Any]], result)
 

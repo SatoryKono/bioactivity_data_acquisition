@@ -675,10 +675,10 @@ class ChemblPipelineBase(PipelineBase):
         # Check if client is ChemblClient by checking for handshake method
         handshake_candidate = getattr(client, "handshake", None)
         if callable(handshake_candidate):
-            handshake = cast(Callable[[str], Any], handshake_candidate)
+            handshake = cast(Callable[..., Any], handshake_candidate)
             request_timestamp = datetime.now(timezone.utc)
             try:
-                status = handshake("/status")
+                status = handshake()
                 if isinstance(status, Mapping):
                     status_mapping = cast(Mapping[str, Any], status)
                     candidate = status_mapping.get("chembl_db_version") or status_mapping.get("chembl_release")

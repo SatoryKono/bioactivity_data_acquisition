@@ -1,4 +1,4 @@
-"""Базовые компоненты для построения CLI-слоя."""
+"""Base components for constructing the CLI layer."""
 
 from __future__ import annotations
 
@@ -17,77 +17,86 @@ CommandCallable: TypeAlias = Callable[..., None]
 
 @dataclass(frozen=True)
 class CliEntrypoint:
-    """Унифицированный запуск Typer-приложения."""
+    """Unified runner wrapper for Typer applications."""
 
     app: TyperApp
 
     def run(self) -> None:
-        """Запустить приложение."""
+        """Execute the configured Typer application."""
 
         typer_run_app(self.app)
 
     @staticmethod
     def run_app(app: TyperApp) -> None:
-        """Запустить произвольное Typer-приложение без создания объекта."""
+        """Execute an arbitrary Typer application without instantiating the wrapper."""
 
         typer_run_app(app)
 
 
 class CliCommandBase:
-    """Базовый класс команд CLI с единым контуром обработки ошибок."""
+    """Base class for CLI commands with consistent error handling."""
 
     exit_code_error: ClassVar[int] = 1
 
     def __init__(self, *, logger: BoundLogger | None = None) -> None:
+        """Initialize the command base with a bound logger."""
         self._logger = logger or UnifiedLogger.get(__name__)
 
     @property
     def logger(self) -> BoundLogger:
-        """Вернуть привязанный логгер команды."""
+        """Return the bound logger for the command."""
 
         return self._logger
 
     def __call__(self, *args: Any, **kwargs: Any) -> None:
+        """Invoke the command runner with the provided arguments."""
         self.invoke(*args, **kwargs)
 
     def invoke(self, *args: Any, **kwargs: Any) -> None:
-        """Выполнить команду с единым обработчиком ошибок."""
+        """Execute the command with unified error handling."""
 
         try:
             self.handle(*args, **kwargs)
         except typer.Exit:
             raise
-        except Exception as exc:  # noqa: BLE001 - управляем обработкой ниже
+        except typer.BadParameter:
+            raise
+        except Exception as exc:  # noqa: BLE001 - manual handling below
             self.handle_exception(exc)
 
     def handle(self, *args: Any, **kwargs: Any) -> None:
-        """Реализация команды. Должна быть переопределена."""
+        """Implement the command logic; must be overridden in subclasses."""
 
         raise NotImplementedError
 
     def handle_exception(self, exc: Exception) -> NoReturn:
-        """Обработать необработанное исключение и завершить процесс."""
+        """Handle unexpected exceptions and terminate the process."""
 
         self.emit_error("E001", f"Unhandled CLI exception: {exc}")
-        self.exit(self.exit_code_error)  # pragma: no cover - завершение процесса
+        self.exit(self.exit_code_error)  # pragma: no cover - process termination path
 
     @staticmethod
     def emit_error(code: str, message: str) -> None:
-        """Вывести сообщение об ошибке в единообразном формате."""
+        """Emit a structured error message in a deterministic format."""
 
         typer.echo(f"[bioetl-cli] ERROR {code}: {message}", err=True)
 
     @staticmethod
-    def exit(code: int) -> NoReturn:
-        """Завершить выполнение команды с переданным кодом."""
+    def exit(code: int, *, cause: Exception | None = None) -> NoReturn:
+        """Terminate the command with the provided exit code."""
 
-        raise typer.Exit(code=code)
+        exit_exc = typer.Exit(code=code)
+        setattr(exit_exc, "code", code)
+        if cause is not None:
+            raise exit_exc from cause
+        raise exit_exc
 
     @classmethod
     def build(cls, *init_args: Any, **init_kwargs: Any) -> CommandCallable:
-        """Создать адаптер, совместимый с Typer."""
+        """Create a Typer-compatible callable adapter."""
 
         def _command(*args: Any, **kwargs: Any) -> None:
+            """Instantiate the command and delegate execution."""
             runner = cls(*init_args, **init_kwargs)
             runner.invoke(*args, **kwargs)
 

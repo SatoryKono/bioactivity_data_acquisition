@@ -1,4 +1,4 @@
-"""Аудит документации BioETL."""
+"""BioETL documentation audit utilities."""
 
 from __future__ import annotations
 
@@ -83,18 +83,18 @@ class PipelineInfo(TypedDict):
 
 
 def read_md_file(path: Path) -> str:
-    """Читает markdown файл."""
+    """Read a markdown file from disk."""
 
     try:
         return path.read_text(encoding="utf-8")
-    except Exception as exc:  # noqa: BLE001 - логируем и возвращаем пустой текст
+    except Exception as exc:  # noqa: BLE001 - log and return empty content
         log = UnifiedLogger.get(__name__)
         log.error(LogEvents.MARKDOWN_READ_FAILED, path=str(path), error=str(exc))
         return ""
 
 
 def extract_markdown_links(content: str) -> list[MarkdownLink]:
-    """Извлекает все markdown ссылки из содержимого."""
+    """Extract all markdown links from the provided content."""
 
     pattern = r"\[([^\]]+)\]\(([^)]+)\)"
     links: list[MarkdownLink] = re.findall(pattern, content)
@@ -103,7 +103,7 @@ def extract_markdown_links(content: str) -> list[MarkdownLink]:
 
 
 def check_file_exists(link_path: str, base_path: Path) -> tuple[bool, Path | None]:
-    """Проверяет существование файла по ссылке."""
+    """Verify that a link target exists relative to the given base path."""
 
     clean_path = link_path.split("#")[0].split("?")[0]
 
@@ -127,7 +127,7 @@ def check_file_exists(link_path: str, base_path: Path) -> tuple[bool, Path | Non
 
 
 def audit_broken_links() -> list[BrokenLink]:
-    """Проверяет битые ссылки во всех .md файлах."""
+    """Detect broken links across all markdown files."""
 
     log = UnifiedLogger.get(__name__)
 
@@ -165,7 +165,7 @@ def audit_broken_links() -> list[BrokenLink]:
 
 
 def find_lychee_missing() -> list[LycheeMissing]:
-    """Находит файлы, объявленные в .lychee.toml, но отсутствующие."""
+    """Locate files declared in ``.lychee.toml`` that are missing on disk."""
 
     missing: list[LycheeMissing] = []
 
@@ -185,7 +185,7 @@ def find_lychee_missing() -> list[LycheeMissing]:
 
 
 def extract_pipeline_info(pipeline_name: str) -> PipelineInfo:
-    """Извлекает информацию о пайплайне из документации."""
+    """Collect pipeline documentation coverage details."""
 
     info: PipelineInfo = {
         "pipeline": pipeline_name,
@@ -238,12 +238,14 @@ def extract_pipeline_info(pipeline_name: str) -> PipelineInfo:
 
 
 def _ensure_parent_directory(path: Path) -> None:
+    """Create parent directories for ``path`` if they are missing."""
     path.parent.mkdir(parents=True, exist_ok=True)
 
 
 def _write_csv_atomic(
     path: Path, fieldnames: Sequence[str], rows: Sequence[Mapping[str, str]]
 ) -> None:
+    """Write CSV content atomically using a temporary file."""
     _ensure_parent_directory(path)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", newline="", encoding="utf-8") as handle:
@@ -257,6 +259,7 @@ def _write_csv_atomic(
 
 
 def _write_markdown_atomic(path: Path, lines: Sequence[str]) -> None:
+    """Write markdown content atomically with newline termination."""
     _ensure_parent_directory(path)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     content = "\n".join(lines)
@@ -270,7 +273,7 @@ def _write_markdown_atomic(path: Path, lines: Sequence[str]) -> None:
 
 
 def run_audit(artifacts_dir: Path | None = None) -> None:
-    """Запускает аудит документации и формирует артефакты."""
+    """Run the documentation audit workflow and persist artifacts."""
 
     UnifiedLogger.configure()
 

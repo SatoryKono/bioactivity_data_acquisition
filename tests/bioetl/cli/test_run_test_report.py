@@ -25,7 +25,7 @@ def test_run_test_report_success(
     )
 
     assert result.exit_code == 0
-    assert "Тестовый отчёт сформирован успешно" in result.stdout
+    assert "Test report generated successfully" in result.stdout
 
 
 def test_run_test_report_failure(
@@ -44,6 +44,6 @@ def test_run_test_report_failure(
     )
 
     assert result.exit_code == 3
-    assert "pytest завершился с кодом 3" in result.stderr
+    assert "pytest exited with code 3" in result.stderr
 
 

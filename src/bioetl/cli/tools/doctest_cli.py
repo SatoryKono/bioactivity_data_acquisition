@@ -1,10 +1,11 @@
-"""CLI-команда `bioetl-doctest-cli`."""
+"""CLI command ``bioetl-doctest-cli``."""
 
 from __future__ import annotations
 
 import importlib
 from typing import Any, cast
 
+from bioetl.cli.tools import exit_with_code
 from bioetl.cli.tools._typer import TyperApp, create_app, run_app
 from bioetl.tools.doctest_cli import (
     CLIExample,
@@ -31,39 +32,39 @@ run_examples = run_examples_sync
 
 app: TyperApp = create_app(
     name="bioetl-doctest-cli",
-    help_text="Запусти CLI-примеры и сформируй отчёт",
+    help_text="Execute CLI examples and generate a report",
 )
 
 
 @app.command()
 def main() -> None:
-    """Запускает CLI-doctest и анализирует результаты."""
+    """Execute CLI doctests and analyze outcomes."""
 
     try:
         results, report_path = run_examples()
     except Exception as exc:  # noqa: BLE001
         typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        raise typer.Exit(code=1) from exc
+        exit_with_code(1, cause=exc)
 
     failed = [item for item in results if item.exit_code != 0]
     if failed:
         typer.secho(
-            f"Не все CLI-примеры прошли успешно ({len(failed)} из {len(results)}).",
+            f"Not all CLI examples succeeded ({len(failed)} of {len(results)}).",
             err=True,
             fg=typer.colors.RED,
         )
-        typer.echo(f"Отчёт доступен по пути: {report_path.resolve()}")
-        raise typer.Exit(code=1)
+        typer.echo(f"Report available at: {report_path.resolve()}")
+        exit_with_code(1)
 
     typer.echo(
-        f"Все {len(results)} CLI-примеров выполнены успешно. "
-        f"Отчёт: {report_path.resolve()}"
+        f"All {len(results)} CLI examples completed successfully. "
+        f"Report: {report_path.resolve()}"
     )
-    raise typer.Exit(code=0)
+    exit_with_code(0)
 
 
 def run() -> None:
-    """Запускает Typer-приложение."""
+    """Execute the Typer application."""
 
     run_app(app)
 

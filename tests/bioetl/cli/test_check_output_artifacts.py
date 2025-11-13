@@ -24,7 +24,7 @@ def test_check_output_artifacts_success(
     )
 
     assert result.exit_code == 0
-    assert "Каталог data/output чистый" in result.stdout
+    assert "data/output directory is clean" in result.stdout
     assert captured["max_bytes"] == 2048
 
 

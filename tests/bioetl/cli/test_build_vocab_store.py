@@ -46,7 +46,7 @@ def test_build_vocab_store_success(
     )
 
     assert result.exit_code == 0
-    assert "Агрегированный словарь записан" in result.stdout
+    assert "Aggregated vocabulary written to" in result.stdout
     assert captured["src"] == tmp_path.resolve()
     assert captured["output"] == output_path.resolve()
 

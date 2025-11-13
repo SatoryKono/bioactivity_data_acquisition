@@ -174,7 +174,25 @@ def get_ids(
         raise VocabStoreError(f"Dictionary '{name}' not found in vocabulary store") from exc
 
     block = _ensure_mapping(block_raw, context=f"dictionary block '{name}'")
-    values = _ensure_list(block.get("values"), context=f"{name}.values")
+    values_raw = block.get("values")
+    values: list[Any]
+    if values_raw is None:
+        ids_raw = block.get("ids")
+        if ids_raw is None:
+            raise VocabStoreError(
+                f"Dictionary '{name}' must define either 'values' or 'ids' collection"
+            )
+        ids_list = _ensure_list(ids_raw, context=f"{name}.ids")
+        values = []
+        for index, entry_raw in enumerate(ids_list):
+            if not isinstance(entry_raw, str):
+                raise VocabStoreError(
+                    f"Dictionary '{name}' id at position {index} is not a string"
+                )
+            normalized_id = entry_raw.strip()
+            values.append({"id": normalized_id, "status": "active"})
+    else:
+        values = _ensure_list(values_raw, context=f"{name}.values")
 
     if allowed_statuses is None:
         allowed_statuses_set = DEFAULT_ALLOWED_STATUSES

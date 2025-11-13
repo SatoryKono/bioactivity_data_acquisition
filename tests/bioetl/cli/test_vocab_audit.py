@@ -44,7 +44,7 @@ def test_vocab_audit_success(
     )
 
     assert result.exit_code == 0
-    assert "Аудит словарей завершён" in result.stdout
+    assert "Vocabulary audit completed" in result.stdout
 
 
 def test_vocab_audit_failure(

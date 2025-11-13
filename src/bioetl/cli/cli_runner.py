@@ -1,4 +1,4 @@
-"""Унифицированный раннер Typer-приложений."""
+"""Unified runner utilities for Typer-based applications."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ __all__ = ["run_app"]
 
 
 def run_app(app: TyperApp) -> None:
-    """Единая точка входа для Typer-приложений."""
+    """Delegate execution to the shared CLI entrypoint runner."""
     CliEntrypoint.run_app(app)
 
 

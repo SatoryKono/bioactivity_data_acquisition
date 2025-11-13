@@ -27,7 +27,7 @@ def test_create_matrix_doc_code_success(
     result = runner.invoke(matrix_cli.app, ["--artifacts", str(artifacts_dir)])
 
     assert result.exit_code == 0
-    assert "Матрица с 1 строками" in result.stdout
+    assert "Matrix with 1 rows saved to" in result.stdout
 
 
 def test_create_matrix_doc_code_failure(

@@ -98,7 +98,7 @@ class AssaySourceConfig(BaseSourceConfig[AssaySourceParameters]):
         config: SourceConfig,
         parameters: AssaySourceParameters,
     ) -> dict[str, Any]:
-        """Расширить базовый payload специфичными полями."""
+        """Extend the base payload with assay-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
         payload["max_url_length"] = cls._extract_max_url_length(config.parameters)

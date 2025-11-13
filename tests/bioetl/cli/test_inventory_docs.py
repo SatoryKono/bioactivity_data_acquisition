@@ -37,7 +37,7 @@ def test_inventory_docs_success(
     )
 
     assert result.exit_code == 0
-    assert "Инвентарь сформирован" in result.stdout
+    assert "Inventory completed" in result.stdout
 
 
 def test_inventory_docs_failure(
