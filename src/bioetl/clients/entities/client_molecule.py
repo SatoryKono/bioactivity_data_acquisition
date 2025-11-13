@@ -11,7 +11,7 @@ __all__ = ["ChemblMoleculeEntityClient"]
 
 
 class ChemblMoleculeEntityClient(ChemblEntityClientBase):
-    """Клиент для получения molecule записей из ChEMBL API."""
+    """Client for retrieving ``molecule`` records from the ChEMBL API."""
 
     CONFIG: ClassVar[EntityConfig] = make_entity_config(
         endpoint="/molecule.json",

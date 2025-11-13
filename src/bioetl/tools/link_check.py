@@ -1,12 +1,12 @@
-"""Проверка ссылок в документации с помощью lychee."""
+"""Run documentation link checks using the lychee CLI."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["run_link_check"]
@@ -17,6 +17,7 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 
 def _write_stub_report(output_file: Path) -> None:
+    """Write a placeholder report when lychee is unavailable."""
     output_file.parent.mkdir(parents=True, exist_ok=True)
     tmp = output_file.with_suffix(output_file.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as handle:
@@ -35,7 +36,7 @@ def _write_stub_report(output_file: Path) -> None:
 
 
 def run_link_check(timeout_seconds: int = 300) -> int:
-    """Запускает lychee и возвращает код выхода."""
+    """Execute lychee and return its exit code."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

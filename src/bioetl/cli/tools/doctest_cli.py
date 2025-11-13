@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.doctest_cli import (
     CLIExample,
     CLIExampleResult,
@@ -16,7 +20,7 @@ from bioetl.tools.doctest_cli import (
     run_examples as run_examples_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = [
     "app",
@@ -30,13 +34,6 @@ __all__ = [
 
 run_examples = run_examples_sync
 
-app: TyperApp = create_app(
-    name="bioetl-doctest-cli",
-    help_text="Execute CLI examples and generate a report",
-)
-
-
-@app.command()
 def main() -> None:
     """Execute CLI doctests and analyze outcomes."""
 
@@ -61,6 +58,13 @@ def main() -> None:
         f"Report: {report_path.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-doctest-cli",
+    help_text="Execute CLI examples and generate a report",
+    main_fn=main,
+)
 
 
 def run() -> None:

@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from bioetl.core.serialization import header_rows_serialize
+from bioetl.core.io import header_rows_serialize
 
 __all__ = [
     "serialize_target_arrays",

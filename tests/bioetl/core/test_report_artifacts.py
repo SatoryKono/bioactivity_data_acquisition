@@ -1,4 +1,4 @@
-"""Проверки утилит формирования артефактов отчётов тестирования."""
+"""Tests for utilities that build test-report artifacts."""
 
 from __future__ import annotations
 

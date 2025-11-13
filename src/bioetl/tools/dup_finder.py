@@ -20,9 +20,8 @@ from typing import Any, Literal, Protocol, cast
 
 import typer
 
-from bioetl.core.cli_base import CliCommandBase
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.tools import get_project_root
 
 __all__ = ["main", "run_dup_finder"]

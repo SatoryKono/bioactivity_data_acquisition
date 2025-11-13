@@ -16,8 +16,8 @@ from uuid import uuid4
 import pandas as pd
 import pandera as pa
 
-from bioetl.core.hashing import hash_from_mapping
-from bioetl.core.log_events import LogEvents
+from bioetl.core.io import hash_from_mapping
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     COLUMN_ORDER,
@@ -25,7 +25,6 @@ from bioetl.schemas.chembl_metadata_schema import (
     LoadMetaSchema,
 )
 
-from .logger import UnifiedLogger
 
 __all__ = ["LoadMetaStore"]
 

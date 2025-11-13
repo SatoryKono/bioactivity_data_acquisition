@@ -22,7 +22,7 @@ system.
 All external API calls **MUST** use `UnifiedAPIClient`:
 
 ```python
-from bioetl.core.api_client import UnifiedAPIClient, APIConfig
+from bioetl.core.http.api_client import UnifiedAPIClient, APIConfig
 
 # Configuration
 config = APIConfig(
@@ -48,7 +48,7 @@ client = UnifiedAPIClient(config)
 Retries **MUST** use exponential backoff with jitter:
 
 ```python
-from bioetl.core.api_client import RetryPolicy
+from bioetl.core.http.api_client import RetryPolicy
 
 retry_policy = RetryPolicy(
     max_attempts=3,
@@ -66,10 +66,10 @@ Retries **SHOULD** give up on:
 - Timeout errors after max attempts
 - Authentication errors (401, 403)
 
-### Valid Examples
+### Valid Example: Rate-Limited Fetch Loop
 
 ```python
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 client = UnifiedAPIClient(
     APIConfig(
@@ -92,7 +92,7 @@ response = client.get("/compound/cid/123/json")
 Rate limiting **MUST** use token bucket algorithm with jitter:
 
 ```python
-from bioetl.core.api_client import APIConfig
+from bioetl.core.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -110,7 +110,7 @@ When receiving `429 Too Many Requests`:
 1. Use exponential backoff with jitter
 1. Reduce rate limit if sustained 429s occur
 
-### Valid Examples
+### Valid Example: TTL Cache Hit
 
 ```python
 # Client automatically throttles requests
@@ -123,7 +123,7 @@ for i in range(100):
 Circuit breaker **MUST** protect against cascading failures:
 
 ```python
-from bioetl.core.api_client import CircuitBreakerConfig
+from bioetl.core.http.api_client import CircuitBreakerConfig
 
 circuit_breaker = CircuitBreakerConfig(
     failure_threshold=5,  # Open after 5 failures
@@ -145,7 +145,7 @@ circuit_breaker = CircuitBreakerConfig(
 Expensive API calls **SHOULD** use TTL-based caching:
 
 ```python
-from bioetl.core.api_client import APIConfig
+from bioetl.core.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -163,7 +163,7 @@ Cache keys **MUST** include:
 - URL path and query parameters
 - Request headers (if relevant)
 
-### Valid Examples
+### Valid Example: Timeout Handling
 
 ```python
 # First call: API request
@@ -180,7 +180,7 @@ response2 = client.get("/compound/cid/123")  # Cache hit (no API call)
 All requests **MUST** have strict timeouts:
 
 ```python
-from bioetl.core.api_client import APIConfig
+from bioetl.core.http.api_client import APIConfig
 
 config = APIConfig(
     name="pubchem",
@@ -189,7 +189,7 @@ config = APIConfig(
 )
 ```
 
-### Valid Examples
+### Valid Example: Paging Helper
 
 ```python
 # Request with timeout
@@ -207,7 +207,7 @@ except TimeoutError:
 All requests **MUST** include proper User-Agent header:
 
 ```python
-from bioetl.core.api_client import APIConfig
+from bioetl.core.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -236,10 +236,10 @@ config = APIConfig(
 
 Pagination **MUST** be handled consistently:
 
-### Valid Examples
+### Valid Example: API Error Handling
 
 ```python
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 
 def fetch_all_pages(client: UnifiedAPIClient, endpoint: str):
@@ -285,7 +285,7 @@ The following errors **SHOULD NOT** trigger retries:
 ### Valid Examples
 
 ```python
-from bioetl.core.api_client import APIError
+from bioetl.core.http.api_client import APIError
 
 try:
     response = client.get("/data/123")

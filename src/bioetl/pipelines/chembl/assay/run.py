@@ -15,8 +15,8 @@ from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.log_events import LogEvents
-from bioetl.core.normalizers import (
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
     normalize_identifier_columns,
@@ -24,7 +24,7 @@ from bioetl.core.normalizers import (
 )
 from bioetl.schemas.chembl_assay_schema import COLUMN_ORDER, AssaySchema
 
-from ...chembl_descriptor import (
+from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
@@ -114,7 +114,7 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
     return identifiers
 
-# Обязательные поля, которые всегда должны быть в запросе к API
+# Required fields that must always be requested from the API.
 MUST_HAVE_FIELDS: tuple[str, ...] = (
     "assay_chembl_id",
     #   "assay_category",
@@ -568,12 +568,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Normalize string fields (assay_type, assay_category, assay_organism, curation_level).
 
-        ВАЖНО: Все поля извлекаются напрямую из API-ответа, без вычислений из суррогатов.
-        - assay_category: из ASSAYS.ASSAY_CATEGORY (не из assay_type или BAO)
-        - assay_strain: из ASSAYS.ASSAY_STRAIN (не из target/organism)
-        - src_assay_id: из ASSAYS.SRC_ASSAY_ID (не из других источников)
-        - assay_group: из ASSAYS.ASSAY_GROUP
-        - curation_level: из явной колонки (если есть), иначе NULL
+        Important: all fields are sourced directly from the API payload—no surrogate computations.
+        - assay_category: pulled from ASSAYS.ASSAY_CATEGORY (not assay_type or BAO).
+        - assay_strain: sourced from ASSAYS.ASSAY_STRAIN (not target/organism).
+        - src_assay_id: sourced from ASSAYS.SRC_ASSAY_ID (not alternative sources).
+        - assay_group: sourced from ASSAYS.ASSAY_GROUP.
+        - curation_level: taken from an explicit column when available, otherwise NULL.
         """
 
         working_df = df.copy()
@@ -592,7 +592,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
-        # Проверка curation_level: если поле отсутствует в исходных данных, выставляем NULL
+        # Ensure curation_level defaults to NULL when absent in the payload.
         if "curation_level" not in normalized_df.columns:
             normalized_df["curation_level"] = pd.NA
             log.warning(LogEvents.CURATION_LEVEL_MISSING,
@@ -610,18 +610,17 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Process nested structures (assay_parameters, assay_classifications).
 
-        ВАЖНО: Не используем суррогаты для извлечения assay_class_id.
-        assay_class_id должен извлекаться из ASSAY_CLASS_MAP через enrichment.
-        Если enrichment не выполнен, оставляем NULL.
+        Important: do not derive assay_class_id from surrogates. It must come from ASSAY_CLASS_MAP
+        via enrichment, otherwise remain NULL.
         """
 
         df = df.copy()
 
-        # ВАЖНО: Не извлекаем assay_class_id из bao_format или других суррогатов.
-        # assay_class_id должен заполняться через enrichment из ASSAY_CLASS_MAP.
-        # Если enrichment не был выполнен и поле пустое, оставляем NULL.
+        # Important: never derive assay_class_id from bao_format or other surrogates.
+        # assay_class_id must be filled via enrichment from ASSAY_CLASS_MAP.
+        # When enrichment was not executed and the field is empty, keep it NULL.
 
-        # Валидация TRUV-инвариантов для assay_parameters (fail-fast)
+        # Validate TRUV invariants for assay_parameters (fail-fast).
         if "assay_parameters" in df.columns:
             log.debug(LogEvents.VALIDATING_ASSAY_PARAMETERS_TRUV)
             df = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
@@ -639,7 +638,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 if isinstance(value, float) and pd.isna(value):
                     continue
                 if isinstance(value, str):
-                    # Уже сериализовано, обогащение выполняется позже.
+                    # Already serialized; enrichment happens later.
                     continue
 
                 extracted_ids = _extract_bao_ids_from_classifications(value)
@@ -659,8 +658,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     rows_updated=updated_rows,
                 )
 
-        # Note: assay_parameters and assay_classifications сериализуются
-        # в _serialize_array_fields() и сохраняются в финальной схеме
+        # Note: assay_parameters and assay_classifications are serialized in
+        # _serialize_array_fields() and preserved in the final schema.
 
         return df
 
@@ -706,36 +705,36 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def _check_missing_columns(
         self, df: pd.DataFrame, log: Any, select_fields: list[str] | None = None
     ) -> pd.DataFrame:
-        """Проверка отсутствующих колонок для версионности ChEMBL (v34/v35).
+        """Check for missing columns across ChEMBL releases (v34/v35).
 
-        Добавляет отсутствующие опциональные колонки с NULL значениями и логирует предупреждения.
-        Если поле отсутствует в select_fields, логирует WARN о том, что поле не было запрошено из API.
-        Также проверяет все поля из схемы, которые должны быть запрошены из API.
+        Adds missing optional columns with NULL values and logs warnings.
+        Warns when select_fields did not request a missing column and verifies all schema-required
+        columns that should originate from the API.
 
         Parameters
         ----------
         df:
-            DataFrame с данными assay.
+            Assay DataFrame to inspect.
         log:
-            UnifiedLogger для логирования.
+            Logger used to emit diagnostics.
         select_fields:
-            Список полей, которые были запрошены из API через параметр only=.
+            Fields requested from the API via the ``only=`` parameter.
 
         Returns
         -------
         pd.DataFrame:
-            DataFrame с добавленными отсутствующими колонками.
+            DataFrame with missing columns added as needed.
         """
         df = df.copy()
 
-        # Опциональные колонки, которые могут отсутствовать в разных версиях ChEMBL
+        # Optional columns that may be absent in different ChEMBL releases.
         optional_columns = {
-            "assay_strain": "v34",  # Добавлено в v34
-            "assay_group": "v35",  # Добавлено в v35
-            "curation_level": "unknown",  # Может отсутствовать в некоторых релизах
+            "assay_strain": "v34",  # Introduced in v34.
+            "assay_group": "v35",  # Introduced in v35.
+            "curation_level": "unknown",  # May be missing in some releases.
         }
 
-        # Поля из схемы, которые должны быть запрошены из API (исключая метаданные и поля из enrichment)
+        # Schema fields that must be requested from the API (excluding metadata and enrichment outputs).
         expected_api_fields = {
             "assay_category",
             "assay_cell_type",
@@ -750,20 +749,20 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             "tissue_chembl_id",
             "variant_sequence",
         }
-        # Примечание: assay_category и src_assay_id уже включены в expected_api_fields
+        # Note: assay_category and src_assay_id are already present in expected_api_fields.
 
-        # Преобразуем select_fields в set для быстрой проверки
+        # Convert select_fields to a set for quick lookups.
         select_fields_set: set[str] = set()
         if select_fields is not None:
             select_fields_set = set(select_fields)
 
-        # Проверка полей из expected_api_fields
+        # Inspect required fields from expected_api_fields.
         missing_in_response: list[str] = []
         missing_in_select_fields: list[str] = []
         for column in expected_api_fields:
             if column not in df.columns:
                 missing_in_response.append(column)
-                # Проверяем, было ли поле запрошено в select_fields
+                # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
                     log.warning(LogEvents.MISSING_FIELD_NOT_REQUESTED,
@@ -778,15 +777,15 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                         message=f"Field {column} was requested but not found in API response",
                     )
 
-        # Проверка опциональных колонок
+        # Inspect optional columns.
         missing_columns: list[str] = []
         for column, version in optional_columns.items():
             if column not in df.columns:
-                # Добавляем колонку с NULL значениями
+                # Add column initialized with NULL values.
                 df[column] = pd.NA
                 missing_columns.append(column)
 
-                # Проверяем, было ли поле запрошено в select_fields
+                # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
                     log.warning(LogEvents.MISSING_COLUMN_NOT_REQUESTED,
@@ -816,25 +815,11 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         return df
 
     def _enrich_with_related_data(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Обогатить DataFrame данными из связанных таблиц (ASSAY_CLASS_MAP, ASSAY_PARAMETERS).
-
-        Parameters
-        ----------
-        df:
-            DataFrame с данными assay.
-        log:
-            UnifiedLogger для логирования.
-
-        Returns
-        -------
-        pd.DataFrame:
-            Обогащенный DataFrame с данными из связанных таблиц.
-        """
+        """Enrich the DataFrame with related tables (ASSAY_CLASS_MAP, ASSAY_PARAMETERS)."""
         if df.empty:
             return df
 
-        # Создать HTTP клиент для запросов к API
-        # Используем тот же источник что и в extract
+        # Create an HTTP client for API requests using the same source as extract.
         try:
             source_raw = self._resolve_source_config("chembl")
         except KeyError as exc:
@@ -850,7 +835,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         http_client = self._client_factory.for_source("chembl", base_url=base_url)
 
-        # Создать ChemblClient
+        # Instantiate the ChemblClient.
         chembl_client = ChemblClient(
             http_client,
             load_meta_store=self.load_meta_store,
@@ -858,7 +843,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Получить конфигурацию enrichment из config.chembl.assay.enrich
+        # Retrieve enrichment configuration from config.chembl.assay.enrich.
         chembl_config = getattr(self.config, "chembl", None)
         if chembl_config is None:
             log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config not found")
@@ -879,7 +864,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG, message="Enrich config not found")
             return df
 
-        # Обогатить классификациями
+        # Enrich with classification data.
         classifications_cfg = cast(Mapping[str, Any], enrich_config).get("classifications")
         if classifications_cfg is not None:
             log.info(LogEvents.ENRICHMENT_CLASSIFICATIONS_STARTED)
@@ -889,7 +874,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             df = df_with_classifications
             log.info(LogEvents.ENRICHMENT_CLASSIFICATIONS_COMPLETED)
 
-            # Диагностическая проверка заполнения assay_class_id после enrichment
+            # Diagnostic check to ensure assay_class_id is filled after enrichment.
             if "assay_class_id" in df.columns:
                 filled_count = int(df["assay_class_id"].notna().sum())
                 total_count = len(df)
@@ -915,7 +900,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 message="Enrichment for classifications is not configured. assay_class_id will remain NULL.",
             )
 
-        # Обогатить параметрами
+        # Enrich with assay parameter data.
         parameters_cfg = cast(Mapping[str, Any], enrich_config).get("parameters")
         if parameters_cfg is not None:
             log.info(LogEvents.ENRICHMENT_PARAMETERS_STARTED)

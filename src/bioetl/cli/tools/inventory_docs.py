@@ -2,18 +2,22 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.inventory_docs import InventoryResult, collect_markdown_files
 from bioetl.tools.inventory_docs import (
     write_inventory as write_inventory_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = [
     "app",
@@ -26,13 +30,6 @@ __all__ = [
 
 write_inventory = write_inventory_sync
 
-app: TyperApp = create_app(
-    name="bioetl-inventory-docs",
-    help_text="Collect a Markdown document inventory and compute hashes",
-)
-
-
-@app.command()
 def main(
     inventory_path: Path = typer.Option(
         Path("artifacts/docs_inventory.txt"),
@@ -70,6 +67,13 @@ def main(
         f"hashes {result.hashes_path.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-inventory-docs",
+    help_text="Collect a Markdown document inventory and compute hashes",
+    main_fn=main,
+)
 
 
 def run() -> None:

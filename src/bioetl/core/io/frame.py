@@ -5,14 +5,14 @@ from pandas import Series
 
 
 def ensure_columns(df: pd.DataFrame, columns: tuple[tuple[str, str], ...]) -> pd.DataFrame:
-    """Обеспечить наличие колонок с заданными типами данных.
+    """Ensure that columns with the specified data types exist in the DataFrame.
 
     Args:
-        df: Входной DataFrame.
-        columns: Кортеж пар (имя колонки, pandas dtype).
+        df: Input DataFrame.
+        columns: Tuple of pairs ``(column name, pandas dtype)``.
 
     Returns:
-        Копия DataFrame с добавленными отсутствующими колонками.
+        Copy of the DataFrame with missing columns added.
     """
     out = df.copy()
 

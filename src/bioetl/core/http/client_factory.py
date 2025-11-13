@@ -5,10 +5,10 @@ from __future__ import annotations
 from bioetl.config.models.base import PipelineConfig
 from bioetl.config.models.http import HTTPClientConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import LogEvents
 
 from .api_client import UnifiedAPIClient, merge_http_configs
-from .logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 __all__ = ["APIClientFactory"]
 

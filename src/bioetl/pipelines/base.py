@@ -29,19 +29,23 @@ from structlog.stdlib import BoundLogger
 from bioetl.clients import client_exceptions
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
-from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.load_meta_store import LoadMetaStore
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.output import (
+from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.core.io import (
     DeterministicWriteArtifacts,
+    RunArtifacts,
+    WriteResult,
     build_write_artifacts,
     emit_qc_artifact,
     ensure_hash_columns,
     write_dataset_atomic,
     write_yaml_atomic,
 )
-from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
+from bioetl.core.io import (
+    plan_run_artifacts as io_plan_run_artifacts,
+)
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.load_meta_store import LoadMetaStore
+from bioetl.core.schema import format_failure_cases, summarize_schema_errors
 from bioetl.pipelines.errors import PipelineError, map_client_exc
 from bioetl.qc.report import build_correlation_report as build_default_correlation_report
 from bioetl.qc.report import build_qc_metrics_payload
@@ -57,48 +61,6 @@ _NETWORK_ERROR_TYPES = (
     BuiltinTimeoutError,
     CircuitBreakerOpenError,
 )
-
-
-@dataclass(frozen=True)
-class WriteArtifacts:
-    """Collection of files emitted by the write stage of a pipeline run."""
-
-    dataset: Path
-    metadata: Path | None = None
-    quality_report: Path | None = None
-    correlation_report: Path | None = None
-    qc_metrics: Path | None = None
-
-
-@dataclass(frozen=True)
-class RunArtifacts:
-    """All artifacts tracked for a completed run."""
-
-    write: WriteArtifacts
-    run_directory: Path
-    manifest: Path | None
-    log_file: Path
-    extras: dict[str, Path] = field(default_factory=dict)
-
-
-@dataclass(frozen=True)
-class WriteResult:
-    """Materialised artifacts produced by the write stage.
-
-    According to documentation, this should contain:
-    - dataset: Path
-    - quality_report: Path
-    - metadata: Path
-
-    Additional fields are kept for backward compatibility.
-    """
-
-    dataset: Path
-    quality_report: Path | None = None
-    metadata: Path | None = None
-    correlation_report: Path | None = None
-    qc_metrics: Path | None = None
-    extras: dict[str, Path] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -284,33 +246,19 @@ class PipelineBase(ABC):
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
         run_dir = run_directory if run_directory is not None else self.pipeline_directory
-        dataset = run_dir / f"{stem}.{self.dataset_extension}"
-        quality = run_dir / f"{stem}_quality_report.{self.qc_extension}"
-        correlation = (
-            run_dir / f"{stem}_correlation_report.{self.qc_extension}"
-            if include_correlation
-            else None
-        )
-        qc_metrics = run_dir / f"{stem}_qc.{self.qc_extension}" if include_qc_metrics else None
-        metadata = run_dir / f"{stem}_meta.yaml" if include_metadata else None
-        manifest = (
-            run_dir / f"{stem}_run_manifest.{self.manifest_extension}" if include_manifest else None
-        )
-        log_file = self.logs_directory / f"{stem}.{self.log_extension}"
-
-        write_artifacts = WriteArtifacts(
-            dataset=dataset,
-            metadata=metadata,
-            quality_report=quality,
-            correlation_report=correlation,
-            qc_metrics=qc_metrics,
-        )
-        return RunArtifacts(
-            write=write_artifacts,
+        return io_plan_run_artifacts(
+            stem=stem,
             run_directory=run_dir,
-            manifest=manifest,
-            log_file=log_file,
-            extras=extras or {},
+            logs_directory=self.logs_directory,
+            dataset_extension=self.dataset_extension,
+            qc_extension=self.qc_extension,
+            manifest_extension=self.manifest_extension,
+            log_extension=self.log_extension,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+            include_metadata=include_metadata,
+            include_manifest=include_manifest,
+            extras=extras,
         )
 
     def list_run_stems(self) -> Sequence[str]:

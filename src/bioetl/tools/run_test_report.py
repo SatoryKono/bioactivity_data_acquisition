@@ -1,4 +1,4 @@
-"""Генерация артефактов отчёта pytest/coverage."""
+"""Generate pytest and coverage report artifacts with metadata."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from uuid import uuid4
 
 import yaml
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
     TestReportMeta,
@@ -31,6 +31,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _blake2_digest(parts: Iterable[bytes], *, digest_size: int = 32) -> str:
+    """Compute a deterministic BLAKE2 hash from byte chunks."""
     hasher = blake2b(digest_size=digest_size)
     for part in parts:
         hasher.update(part)
@@ -38,6 +39,7 @@ def _blake2_digest(parts: Iterable[bytes], *, digest_size: int = 32) -> str:
 
 
 def _load_pytest_summary(path: Path) -> tuple[int, dict[str, int]]:
+    """Load pytest JSON report and extract collected count and summary stats."""
     data = json.loads(path.read_text(encoding="utf-8"))
     summary = data.get("summary", {})
     collected = int(summary.get("collected", 0))
@@ -45,6 +47,7 @@ def _load_pytest_summary(path: Path) -> tuple[int, dict[str, int]]:
 
 
 def _compute_pipeline_version() -> str:
+    """Resolve the BioETL package version for report metadata."""
     try:
         import importlib.metadata
 
@@ -54,6 +57,7 @@ def _compute_pipeline_version() -> str:
 
 
 def _read_git_commit() -> str:
+    """Read the current Git commit SHA for inclusion in metadata."""
     try:
         completed = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -68,6 +72,7 @@ def _read_git_commit() -> str:
 
 
 def _iter_config_sources() -> Iterable[Path]:
+    """Yield configuration files that contribute to the config hash."""
     configs_root = REPO_ROOT / "configs"
     if configs_root.exists():
         yield from sorted(configs_root.rglob("*.yaml"))
@@ -75,6 +80,7 @@ def _iter_config_sources() -> Iterable[Path]:
 
 
 def _compute_config_hash() -> str:
+    """Compute a BLAKE2 hash over config sources and pyproject."""
     parts: list[bytes] = []
     for source in _iter_config_sources():
         if not source.exists():
@@ -88,6 +94,7 @@ def _compute_config_hash() -> str:
 
 
 def _write_yaml_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    """Write YAML payload atomically to ``path``."""
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as handle:
         yaml.safe_dump(payload, handle, sort_keys=False, allow_unicode=True)
@@ -97,7 +104,7 @@ def _write_yaml_atomic(path: Path, payload: Mapping[str, object]) -> None:
 
 
 def generate_test_report(output_root: Path | None = None) -> int:
-    """Генерирует отчёты pytest/coverage и возвращает код выхода pytest."""
+    """Generate pytest/coverage artifacts and return the pytest exit code."""
 
     UnifiedLogger.configure()
     run_id = uuid4().hex

@@ -1,4 +1,4 @@
-"""Каталогизация сигнатур ключевых объектов кодовой базы."""
+"""Catalogue signatures of key codebase entities."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import LogEvents
+from bioetl.core.logging import UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -22,10 +22,12 @@ PROJECT_ROOT = get_project_root()
 
 
 def _ensure_dir(path: Path) -> None:
+    """Create the directory at ``path`` if it does not exist."""
     path.mkdir(parents=True, exist_ok=True)
 
 
 def _write_text_atomic(path: Path, content: str) -> None:
+    """Write text content atomically to the specified path."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as handle:
         handle.write(content)
@@ -34,6 +36,7 @@ def _write_text_atomic(path: Path, content: str) -> None:
 
 
 def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    """Write JSON payload atomically preserving Unicode characters."""
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
@@ -42,7 +45,7 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
 
 
 def extract_method_signature(method: Any) -> dict[str, Any]:
-    """Извлекает сигнатуру метода."""
+    """Extract a method signature description."""
 
     sig = inspect.signature(method)
     params: list[dict[str, Any]] = []
@@ -71,7 +74,7 @@ def extract_method_signature(method: Any) -> dict[str, Any]:
 
 
 def extract_pipeline_base_signatures() -> dict[str, Any]:
-    """Извлекает сигнатуры методов PipelineBase."""
+    """Collect PipelineBase method signatures."""
 
     from bioetl.pipelines.base import PipelineBase
 
@@ -97,11 +100,11 @@ def extract_pipeline_base_signatures() -> dict[str, Any]:
 
 
 def extract_config_models() -> dict[str, Any]:
-    """Извлекает модели конфигов из Pydantic."""
+    """Collect Pydantic config model metadata."""
 
     try:
         from bioetl.config.models import DeterminismConfig, PipelineConfig, PipelineMetadata
-    except ImportError as exc:  # pragma: no cover - инфраструктурная ошибка
+    except ImportError as exc:  # pragma: no cover - infrastructure failure
         return {"error": f"Failed to import config models: {exc}"}
 
     def _model_fields(model: Any) -> dict[str, Any]:
@@ -129,18 +132,18 @@ def extract_config_models() -> dict[str, Any]:
 
 
 def extract_cli_commands() -> list[str]:
-    """Извлекает CLI-команды из реестра."""
+    """Collect CLI command names from the registry."""
 
     try:
-        from bioetl.cli.cli_registry import COMMAND_REGISTRY
+        from bioetl.cli.cli_registry import PIPELINE_REGISTRY
     except ImportError as exc:  # pragma: no cover
         return [f"Error: {exc}"]
-    return sorted(COMMAND_REGISTRY.keys())
+    return sorted(spec.code for spec in PIPELINE_REGISTRY)
 
 
 @dataclass(frozen=True)
 class CodeCatalog:
-    """Результат каталогизации кодовых сущностей."""
+    """Container describing collected code entities."""
 
     pipeline_signatures: dict[str, Any]
     config_models: dict[str, Any]
@@ -150,7 +153,7 @@ class CodeCatalog:
 
 
 def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
-    """Извлекает сущности и формирует артефакты в каталоге."""
+    """Extract code entities and write catalog artifacts."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

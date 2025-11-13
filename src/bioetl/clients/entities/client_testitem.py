@@ -20,16 +20,16 @@ class ChemblTestitemClient(ChemblEntityIteratorBase):
         batch_size: int = 25,
         max_url_length: int | None = None,
     ) -> None:
-        """Инициализировать клиент для molecule (testitem).
+        """Initialize the molecule (test item) client wrapper.
 
         Parameters
         ----------
         chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
+            Instance of ChemblClient used to perform API calls.
         batch_size:
-            Размер батча для пагинации (максимум 25 для ChEMBL API).
+            Batch size for pagination (max 25 for the ChEMBL API).
         max_url_length:
-            Максимальная длина URL для проверки. Если None, проверка отключена.
+            Optional URL length limit; disables the check when None.
         """
         config = EntityConfig(
             endpoint="/molecule.json",

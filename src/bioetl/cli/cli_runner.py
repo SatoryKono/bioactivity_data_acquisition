@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from bioetl.cli.tools._typer import TyperApp
-from bioetl.core.cli_base import CliEntrypoint
+from bioetl.cli.tools.typer_helpers import TyperApp
+from bioetl.core.runtime.cli_base import CliEntrypoint
 
 __all__ = ["run_app"]
 

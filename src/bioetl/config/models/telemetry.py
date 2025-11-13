@@ -6,20 +6,20 @@ from pydantic import BaseModel, ConfigDict, Field, PositiveFloat
 
 
 class TelemetryConfig(BaseModel):
-    """Настройки экспорта метрик и трейсов (OpenTelemetry)."""
+    """Telemetry export configuration (OpenTelemetry)."""
 
     model_config = ConfigDict(extra="forbid")
 
-    enabled: bool = Field(default=False, description="Включить экспорт телеметрии.")
+    enabled: bool = Field(default=False, description="Enable telemetry export.")
     exporter: str | None = Field(
         default=None,
-        description="Тип экспортера (jaeger, otlp, console).",
+        description="Exporter type (jaeger, otlp, console).",
     )
     endpoint: str | None = Field(
         default=None,
-        description="URL или адрес экспортера, если требуется.",
+        description="Exporter URL or address, when required.",
     )
     sampling_ratio: PositiveFloat = Field(
         default=1.0,
-        description="Доля выборки трасс (1.0 = 100%).",
+        description="Sampling ratio for traces (1.0 = 100%).",
     )

@@ -9,9 +9,8 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.core.frame import ensure_columns
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.io import ensure_columns
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_assay_enrichment import (
     ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA,
     ASSAY_PARAMETERS_ENRICHMENT_SCHEMA,
@@ -35,7 +34,7 @@ _PARAMETERS_COLUMNS: tuple[tuple[str, str], ...] = (("assay_parameters", "string
 
 
 def _should_nullify_string_value(value: Any) -> bool:
-    """Определить, нужно ли заменить значение на NA в строковой колонке."""
+    """Return True when a value in a string column should be replaced with NA."""
     if value is None:
         return False
     if value is pd.NA:
@@ -50,23 +49,23 @@ def enrich_with_assay_classifications(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame assay данными из ASSAY_CLASS_MAP и ASSAY_CLASSIFICATION.
+    """Enrich the assay DataFrame with ASSAY_CLASS_MAP and ASSAY_CLASSIFICATION data.
 
     Parameters
     ----------
     df_assay:
-        DataFrame с данными assay, должен содержать assay_chembl_id.
+        Assay DataFrame; must contain `assay_chembl_id`.
     client:
-        ChemblClient для запросов к ChEMBL API.
+        ChemblClient used for ChEMBL API requests.
     cfg:
-        Конфигурация обогащения из config.chembl.assay.enrich.classifications.
+        Enrichment configuration from `config.chembl.assay.enrich.classifications`.
 
     Returns
     -------
     pd.DataFrame:
-        Обогащенный DataFrame с добавленными/обновленными колонками:
-        - assay_classifications (string, nullable) - сериализованный массив классификаций
-        - assay_class_id (string, nullable) - список assay_class_id через ";"
+        Enriched DataFrame with added or updated columns:
+        - `assay_classifications` (string, nullable) — serialized classification array.
+        - `assay_class_id` (string, nullable) — semicolon-delimited list of assay_class_id.
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
@@ -84,7 +83,7 @@ def enrich_with_assay_classifications(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
-    # Проверка наличия необходимых колонок
+    # Ensure required columns are present.
     required_cols = ["assay_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_assay.columns]
     if missing_cols:
@@ -93,16 +92,16 @@ def enrich_with_assay_classifications(
         )
         return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
-    # Собрать уникальные assay_chembl_id, dropna
+    # Collect unique assay_chembl_id values, dropping NA.
     assay_ids: list[str] = []
     for _, row in df_assay.iterrows():
         assay_id = row.get("assay_chembl_id")
 
-        # Пропускаем NaN/None значения
+        # Skip NaN/None values.
         if pd.isna(assay_id) or assay_id is None:
             continue
 
-        # Преобразуем в строку
+        # Convert to string.
         assay_id_str = str(assay_id).strip()
 
         if assay_id_str:
@@ -112,7 +111,7 @@ def enrich_with_assay_classifications(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
-    # Получить конфигурацию
+    # Retrieve configuration.
     class_map_fields = cfg.get("class_map_fields", ["assay_chembl_id", "assay_class_id"])
     classification_fields = cfg.get(
         "classification_fields",
@@ -120,7 +119,7 @@ def enrich_with_assay_classifications(
     )
     page_limit = cfg.get("page_limit", 1000)
 
-    # Шаг 1: Получить ASSAY_CLASS_MAP по assay_chembl_id
+    # Step 1: fetch ASSAY_CLASS_MAP by assay_chembl_id.
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASS_MAP, ids_count=len(set(assay_ids)))
     class_map_dict = client.fetch_assay_class_map_by_assay_ids(
         assay_ids,
@@ -128,7 +127,7 @@ def enrich_with_assay_classifications(
         page_limit,
     )
 
-    # Собрать все уникальные assay_class_id
+    # Collect unique assay_class_id values.
     all_class_ids: set[str] = set()
     for mappings in class_map_dict.values():
         for mapping in mappings:
@@ -136,7 +135,7 @@ def enrich_with_assay_classifications(
             if class_id and not (isinstance(class_id, float) and pd.isna(class_id)):
                 all_class_ids.add(str(class_id).strip())
 
-    # Шаг 2: Получить ASSAY_CLASSIFICATION по assay_class_id
+    # Step 2: fetch ASSAY_CLASSIFICATION by assay_class_id.
     classification_dict: dict[str, dict[str, Any]] = {}
     if all_class_ids:
         log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS, class_ids_count=len(all_class_ids))
@@ -146,16 +145,16 @@ def enrich_with_assay_classifications(
             page_limit,
         )
 
-    # Шаг 3: Объединить данные и создать структуры для каждого assay
+    # Step 3: combine data and build structures per assay.
     df_assay = df_assay.copy()
 
-    # Инициализируем колонки если их нет
+    # Initialize columns when missing.
     if "assay_classifications" not in df_assay.columns:
         df_assay["assay_classifications"] = pd.NA
     if "assay_class_id" not in df_assay.columns:
         df_assay["assay_class_id"] = pd.NA
 
-    # Обработать каждую запись assay
+    # Process each assay record.
     for idx, row in df_assay.iterrows():
         row_key: Any = idx
         assay_id = row.get("assay_chembl_id")
@@ -163,16 +162,16 @@ def enrich_with_assay_classifications(
             continue
         assay_id_str = str(assay_id).strip()
 
-        # Получить mappings для этого assay
+        # Retrieve mappings for this assay.
         mappings = class_map_dict.get(assay_id_str, [])
 
         if not mappings:
-            # Нет классификаций - оставляем NULL
+            # No classifications — keep NULL.
             df_assay.at[row_key, "assay_classifications"] = pd.NA
             df_assay.at[row_key, "assay_class_id"] = pd.NA
             continue
 
-        # Собрать данные классификаций
+        # Collect classification data.
         classifications: list[dict[str, Any]] = []
         class_ids: list[str] = []
 
@@ -185,26 +184,26 @@ def enrich_with_assay_classifications(
             if not class_id_str:
                 continue
 
-            # Получить данные классификации
+            # Retrieve classification data.
             classification_data = classification_dict.get(class_id_str)
             if classification_data:
-                # Создать объединенную структуру
+                # Create combined record.
                 class_record: dict[str, Any] = {
                     "assay_class_id": class_id_str,
                 }
-                # Добавить поля из classification_data
+                # Populate fields from classification_data.
                 for field in classification_fields:
                     if field != "assay_class_id":
                         class_record[field] = classification_data.get(field)
                 classifications.append(class_record)
             else:
-                # Если нет данных классификации, создаем минимальную запись
+                # No classification detail available; create minimal record.
                 class_record = {"assay_class_id": class_id_str}
                 classifications.append(class_record)
 
             class_ids.append(class_id_str)
 
-        # Сохранить результаты
+        # Persist results.
         if classifications:
             serialized = json.dumps(classifications, ensure_ascii=False)
             class_id_joined = ";".join(class_ids)
@@ -222,36 +221,35 @@ def enrich_with_assay_parameters(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame assay данными из ASSAY_PARAMETERS.
+    """Enrich the assay DataFrame with ASSAY_PARAMETERS data.
 
-    Извлекает полный TRUV-набор полей (TYPE, RELATION, VALUE, UNITS, TEXT_VALUE),
-    стандартизованные поля (standard_*), служебные поля (active) и опциональные
-    поля нормализации (type_normalized, type_fixed).
+    Extracts the full TRUV set (TYPE, RELATION, VALUE, UNITS, TEXT_VALUE),
+    standardized fields (standard_*), operational fields (active), and optional
+    normalization fields (type_normalized, type_fixed).
 
     Parameters
     ----------
     df_assay:
-        DataFrame с данными assay, должен содержать assay_chembl_id.
+        Assay DataFrame; must contain `assay_chembl_id`.
     client:
-        ChemblClient для запросов к ChEMBL API.
+        ChemblClient used for ChEMBL API requests.
     cfg:
-        Конфигурация обогащения из config.chembl.assay.enrich.parameters.
-        Должна содержать fields (список полей для извлечения), page_limit и active_only.
+        Enrichment configuration from `config.chembl.assay.enrich.parameters`.
+        Must provide fields (list to extract), page_limit, and active_only flag.
 
     Returns
     -------
     pd.DataFrame:
-        Обогащенный DataFrame с добавленной/обновленной колонкой:
-        - assay_parameters (string, nullable) - сериализованный JSON-массив параметров
-          с полями: type, relation, value, units, text_value, standard_*,
-          active, type_normalized, type_fixed (если присутствуют в дампе)
+        Enriched DataFrame with an added or updated column:
+        - `assay_parameters` (string, nullable) — serialized JSON array of parameters
+          with fields: type, relation, value, units, text_value, standard_*,
+          active, type_normalized, type_fixed (when present in the payload).
 
     Notes
     -----
-    - Исходные значения сохраняются как есть, не копируются в standard_* автоматически
-    - Опциональные поля (type_normalized, type_fixed) извлекаются только если
-      присутствуют в дампе ChEMBL
-    - Параметры фильтруются по active=1, если active_only=True в конфигурации
+    - Original values remain unchanged; they are not copied into standard_* automatically.
+    - Optional fields (type_normalized, type_fixed) are extracted only when present in the payload.
+    - Parameters are filtered by active=1 when active_only=True in the configuration.
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_enrichment")
 
@@ -272,7 +270,7 @@ def enrich_with_assay_parameters(
             df_assay.loc[invalid_mask, "assay_parameters"] = pd.NA
         df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("string")
 
-    # Проверка наличия необходимых колонок
+    # Validate presence of required columns
     required_cols = ["assay_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_assay.columns]
     if missing_cols:
@@ -281,16 +279,16 @@ def enrich_with_assay_parameters(
         )
         return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
-    # Собрать уникальные assay_chembl_id, dropna
+    # Collect unique assay_chembl_id values and drop missing entries
     assay_ids: list[str] = []
     for _, row in df_assay.iterrows():
         assay_id = row.get("assay_chembl_id")
 
-        # Пропускаем NaN/None значения
+        # Skip NaN / None values
         if pd.isna(assay_id) or assay_id is None:
             continue
 
-        # Преобразуем в строку
+        # Convert identifier to string
         assay_id_str = str(assay_id).strip()
 
         if assay_id_str:
@@ -300,8 +298,8 @@ def enrich_with_assay_parameters(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
 
-    # Получить конфигурацию
-    # Значения по умолчанию включают полный TRUV-набор и стандартизованные поля
+    # Retrieve configuration defaults
+    # Defaults include the full TRUV set and standardized fields
     fields = cfg.get(
         "fields",
         [
@@ -322,7 +320,7 @@ def enrich_with_assay_parameters(
     page_limit = cfg.get("page_limit", 1000)
     active_only = cfg.get("active_only", True)
 
-    # Получить ASSAY_PARAMETERS по assay_chembl_id
+    # Fetch ASSAY_PARAMETERS by assay_chembl_id
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_PARAMETERS, ids_count=len(set(assay_ids)))
     parameters_dict = client.fetch_assay_parameters_by_assay_ids(
         assay_ids,
@@ -331,28 +329,28 @@ def enrich_with_assay_parameters(
         active_only,
     )
 
-    # Обработать каждую запись assay
+    # Iterate over each assay record
     df_assay = df_assay.copy()
 
-    # Инициализируем колонку если её нет
+    # Initialize the column when missing
     if "assay_parameters" not in df_assay.columns:
         df_assay["assay_parameters"] = pd.NA
 
-    # Обработать каждую запись assay
+    # Process each assay entry
     for row_position, (_, row) in enumerate(df_assay.iterrows()):
         assay_id = row.get("assay_chembl_id")
         if pd.isna(assay_id) or assay_id is None:
             continue
         assay_id_str = str(assay_id).strip()
 
-        # Получить параметры для этого assay
+        # Retrieve parameters for the current assay
         parameters = parameters_dict.get(assay_id_str, [])
 
         if not parameters:
-            # Нет параметров - оставляем NULL
+            # No parameters found; keep NULL
             continue
 
-        # Создать список параметров с нужными полями
+        # Build a list containing the requested fields
         params_list: list[dict[str, Any]] = []
         for param in parameters:
             param_record: dict[str, Any] = {}
@@ -361,7 +359,7 @@ def enrich_with_assay_parameters(
                     param_record[field] = param.get(field)
             params_list.append(param_record)
 
-        # Сериализовать массив в JSON-строку
+        # Serialize the array into a JSON string
         if params_list:
             index_label = df_assay.index[row_position]
             df_assay.loc[index_label, "assay_parameters"] = json.dumps(

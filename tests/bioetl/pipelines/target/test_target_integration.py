@@ -28,7 +28,7 @@ class TestChemblTargetPipelineIntegration:
         pipeline_config_fixture.materialization.root = str(tmp_path)  # type: ignore[attr-defined]
 
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source",
+            "bioetl.core.APIClientFactory.for_source",
             return_value=mock_chembl_api_client,
         ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
@@ -53,7 +53,7 @@ class TestChemblTargetPipelineIntegration:
     ) -> None:
         """Test transform with empty DataFrame."""
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source",
+            "bioetl.core.APIClientFactory.for_source",
             return_value=mock_chembl_api_client,
         ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
@@ -71,7 +71,7 @@ class TestChemblTargetPipelineIntegration:
     ) -> None:
         """Test transform with minimal valid DataFrame."""
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source",
+            "bioetl.core.APIClientFactory.for_source",
             return_value=mock_chembl_api_client,
         ):
             pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]

@@ -7,9 +7,9 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
-from bioetl.core.serialization import header_rows_serialize, serialize_array_fields
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
+from bioetl.core.io import header_rows_serialize, serialize_array_fields
 
 __all__ = [
     "header_rows_serialize",
@@ -21,7 +21,7 @@ AssayParam = dict[str, Any]
 
 
 def _is_null_like(value: Any) -> bool:
-    """Определить, можно ли трактовать значение как отсутствующее."""
+    """Return True when a value should be treated as missing."""
 
     if value is None:
         return True
@@ -45,39 +45,39 @@ def validate_assay_parameters_truv(
     column: str = "assay_parameters",
     fail_fast: bool = True,
 ) -> pd.DataFrame:
-    """Валидировать TRUV-инварианты для assay_parameters.
+    """Validate TRUV invariants for assay parameter payloads.
 
-    Проверяет следующие инварианты:
-    - value IS NOT NULL XOR text_value IS NOT NULL (не оба одновременно не NULL)
+    Verifies the following invariants:
+    - value IS NOT NULL XOR text_value IS NOT NULL
     - standard_value IS NOT NULL XOR standard_text_value IS NOT NULL
     - active ∈ {0, 1, NULL}
-    - relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL} (с предупреждением для нестандартных)
+    - relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL} (non-standard values produce warnings)
 
     Parameters
     ----------
     df:
-        DataFrame с колонкой assay_parameters (JSON-строка с массивом параметров).
+        DataFrame containing the ``assay_parameters`` column (JSON array payload).
     column:
-        Имя колонки с параметрами (по умолчанию "assay_parameters").
+        Name of the column with parameters (defaults to ``"assay_parameters"``).
     fail_fast:
-        Если True, выбрасывает ValueError при нарушении инвариантов.
-        Если False, логирует предупреждения и продолжает.
+        When True, raises ``ValueError`` on invariant violation.
+        When False, logs warnings and continues.
 
     Returns
     -------
     pd.DataFrame:
-        Исходный DataFrame (валидация не изменяет данные).
+        Original DataFrame (the validation step does not mutate data).
 
     Raises
     ------
     ValueError:
-        Если fail_fast=True и обнаружено нарушение инвариантов.
+        If ``fail_fast`` is True and an invariant violation is detected.
 
     Notes
     -----
-    - Валидация выполняется на этапе transform для fail-fast подхода
-    - Стандартные операторы relation: '=', '<', '≤', '>', '≥', '~'
-    - Нестандартные операторы логируются как предупреждения, но не блокируют выполнение
+    - Validation runs during the transform stage to support fail-fast behavior.
+    - Standard relation operators: '=', '<', '≤', '>', '≥', '~'.
+    - Non-standard operators produce warnings but do not block execution.
     """
     log = UnifiedLogger.get(__name__).bind(component="assay_transform")
 
@@ -85,7 +85,7 @@ def validate_assay_parameters_truv(
         log.debug(LogEvents.TRUV_VALIDATION_SKIPPED_MISSING_COLUMN, column=column)
         return df
 
-    # Стандартные операторы relation
+    # Collection of supported relation operators
     STANDARD_RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
 
     errors: list[str] = []
@@ -113,7 +113,7 @@ def validate_assay_parameters_truv(
             )
             continue
 
-        # Валидируем каждый параметр
+        # Validate each parameter entry
         params_candidates = cast(list[object], params_raw)
 
         for param_idx, param_raw in enumerate(params_candidates):
@@ -125,16 +125,16 @@ def validate_assay_parameters_truv(
 
             param_dict: AssayParam = cast(AssayParam, param_raw)
 
-            # Проверка TRUV-инварианта: value XOR text_value
+            # Enforce TRUV invariant: value XOR text_value
             value: Any = param_dict.get("value")
             text_value: Any = param_dict.get("text_value")
-            # value считается NULL если None, NaN или пустая строка
+            # Treat value as NULL when None, NaN, or an empty string
             value_is_null = (
                 value is None
                 or (isinstance(value, float) and pd.isna(value))
                 or (isinstance(value, str) and value.strip() == "")
             )
-            # text_value считается NULL если None, NaN или пустая строка
+            # Treat text_value as NULL when None, NaN, or an empty string
             text_value_is_null = (
                 text_value is None
                 or (isinstance(text_value, float) and pd.isna(text_value))
@@ -148,16 +148,16 @@ def validate_assay_parameters_truv(
                     "value and text_value must be mutually exclusive.",
                 )
 
-            # Проверка standard_TRUV-инварианта: standard_value XOR standard_text_value
+            # Enforce standard TRUV invariant: standard_value XOR standard_text_value
             standard_value: Any = param_dict.get("standard_value")
             standard_text_value: Any = param_dict.get("standard_text_value")
-            # standard_value считается NULL если None, NaN или пустая строка
+            # Treat standard_value as NULL when None, NaN, or an empty string
             standard_value_is_null = (
                 standard_value is None
                 or (isinstance(standard_value, float) and pd.isna(standard_value))
                 or (isinstance(standard_value, str) and standard_value.strip() == "")
             )
-            # standard_text_value считается NULL если None, NaN или пустая строка
+            # Treat standard_text_value as NULL when None, NaN, or an empty string
             standard_text_value_is_null = (
                 standard_text_value is None
                 or (isinstance(standard_text_value, float) and pd.isna(standard_text_value))
@@ -172,11 +172,11 @@ def validate_assay_parameters_truv(
                     "standard_value and standard_text_value must be mutually exclusive.",
                 )
 
-            # Проверка active ∈ {0, 1, NULL}
+            # Enforce active ∈ {0, 1, NULL}
             active: Any = param_dict.get("active")
             if active is not None:
                 if isinstance(active, bool):
-                    # Преобразуем bool в int для проверки
+                    # Convert bool into int for validation
                     active_int = 1 if active else 0
                 elif isinstance(active, (int, float)):
                     active_int = int(active)
@@ -202,7 +202,7 @@ def validate_assay_parameters_truv(
                         "Must be 0, 1, or NULL.",
                     )
 
-            # Проверка relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}
+            # Enforce relation ∈ {'=', '<', '≤', '>', '≥', '~', NULL}
             relation: Any = param_dict.get("relation")
             if relation is not None and not (isinstance(relation, float) and pd.isna(relation)):
                 relation_str = str(relation).strip()
@@ -212,12 +212,12 @@ def validate_assay_parameters_truv(
                         f"Standard operators: {', '.join(sorted(STANDARD_RELATIONS))}.",
                     )
 
-    # Логируем предупреждения
+    # Emit warnings
     if warnings:
         for warning in warnings:
             log.warning(LogEvents.TRUV_VALIDATION_WARNING, message=warning)
 
-    # Обрабатываем ошибки
+    # Handle validation errors
     if errors:
         error_msg = f"TRUV validation failed for {column}:\n" + "\n".join(errors)
         if fail_fast:

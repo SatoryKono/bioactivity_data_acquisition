@@ -1,9 +1,11 @@
-"""Shared configuration components reused across pipelines."""
+"""Compatibility wrapper for configuration primitives.
 
-from .base_source import BaseSourceConfig, BaseSourceParameters
+Deprecated: import from ``bioetl.core.runtime`` instead.
+"""
+
+from bioetl.core.runtime.base_source import BaseSourceConfig, BaseSourceParameters
 
 __all__ = [
     "BaseSourceConfig",
     "BaseSourceParameters",
 ]
-

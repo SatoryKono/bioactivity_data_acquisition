@@ -17,7 +17,7 @@ from bioetl.config.models.http import (
     RateLimitConfig,
     RetryConfig,
 )
-from bioetl.core.api_client import (
+from bioetl.core.http.api_client import (
     CircuitBreaker,
     CircuitBreakerOpenError,
     TokenBucketLimiter,
@@ -107,7 +107,7 @@ class TestUnifiedAPIClient:
         # Should not raise
         client.close()
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_success(self, mock_session_class: Any) -> None:
         """Test successful GET request."""
         config = HTTPClientConfig()
@@ -126,7 +126,7 @@ class TestUnifiedAPIClient:
         assert response.json() == {"data": "test"}
         mock_session.request.assert_called_once()
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_with_params(self, mock_session_class: Any) -> None:
         """Test GET request with parameters."""
         config = HTTPClientConfig()
@@ -145,7 +145,7 @@ class TestUnifiedAPIClient:
         call_kwargs = mock_session.request.call_args[1]
         assert call_kwargs["params"] == {"key": "value"}
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_with_headers(self, mock_session_class: Any) -> None:
         """Test GET request with custom headers."""
         config = HTTPClientConfig()
@@ -162,7 +162,7 @@ class TestUnifiedAPIClient:
 
         assert response.status_code == 200
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_switches_to_post_when_url_too_long(self, mock_session_class: Any) -> None:
         """GET requests exceeding the max URL length should fallback to POST."""
 
@@ -191,7 +191,7 @@ class TestUnifiedAPIClient:
         assert headers.get("X-HTTP-Method-Override") == "GET"
         assert kwargs.get("params") in (None, {})
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_retry_on_429(self, mock_session_class: Any) -> None:
         """Test retry on 429 status code."""
         config = HTTPClientConfig(
@@ -214,7 +214,7 @@ class TestUnifiedAPIClient:
         assert response.status_code == 200
         assert mock_session.request.call_count == 2
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_retry_on_500(self, mock_session_class: Any) -> None:
         """Test retry on 500 status code."""
         config = HTTPClientConfig(
@@ -237,7 +237,7 @@ class TestUnifiedAPIClient:
         assert response.status_code == 200
         assert mock_session.request.call_count == 2
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_retry_exhausted(self, mock_session_class: Any) -> None:
         """Test retry exhaustion."""
         config = HTTPClientConfig(
@@ -258,7 +258,7 @@ class TestUnifiedAPIClient:
 
         assert mock_session.request.call_count == 3  # Initial + 2 retries
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_connection_error_with_retry(self, mock_session_class: Any) -> None:
         """Test retry on connection error."""
         config = HTTPClientConfig(
@@ -282,7 +282,7 @@ class TestUnifiedAPIClient:
         assert response.status_code == 200
         assert mock_session.request.call_count == 2
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_timeout_error(self, mock_session_class: Any) -> None:
         """Test timeout error handling."""
         config = HTTPClientConfig(
@@ -297,7 +297,7 @@ class TestUnifiedAPIClient:
         with pytest.raises(Timeout, match="Request timeout"):
             client.get("/endpoint")
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_get_400_error(self, mock_session_class: Any) -> None:
         """Test that 400 errors are not retried."""
         config = HTTPClientConfig()
@@ -318,7 +318,7 @@ class TestUnifiedAPIClient:
 
         assert mock_session.request.call_count == 1  # No retry for 400
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_request_json(self, mock_session_class: Any) -> None:
         """Test request_json method."""
         config = HTTPClientConfig()
@@ -335,7 +335,7 @@ class TestUnifiedAPIClient:
 
         assert result == {"data": "test"}
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_request_with_absolute_url(self, mock_session_class: Any) -> None:
         """Test request with absolute URL."""
         config = HTTPClientConfig()
@@ -355,7 +355,7 @@ class TestUnifiedAPIClient:
         call_args = mock_session.request.call_args
         assert "https://other.example.com/endpoint" in str(call_args)
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_request_with_relative_url(self, mock_session_class: Any) -> None:
         """Test request with relative URL."""
         config = HTTPClientConfig()
@@ -374,7 +374,7 @@ class TestUnifiedAPIClient:
         call_args = mock_session.request.call_args
         assert "https://api.example.com/endpoint" in str(call_args)
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_rate_limiting(self, mock_session_class: Any) -> None:
         """Test rate limiting."""
         config = HTTPClientConfig(rate_limit=RateLimitConfig(max_calls=2, period=1.0))
@@ -417,7 +417,7 @@ class TestUnifiedAPIClient:
         )
         client = UnifiedAPIClient(config=config)
 
-        from bioetl.core.api_client import _RetryState  # type: ignore[reportPrivateUsage]
+        from bioetl.core.http.api_client import _RetryState  # type: ignore[reportPrivateUsage]
 
         # First attempt (index 0)
         backoff = client._compute_backoff(_RetryState(attempt=1, response=None))  # type: ignore[reportPrivateUsage]
@@ -436,7 +436,7 @@ class TestUnifiedAPIClient:
         config = HTTPClientConfig()
         client = UnifiedAPIClient(config=config)
 
-        from bioetl.core.api_client import _RetryState  # type: ignore[reportPrivateUsage]
+        from bioetl.core.http.api_client import _RetryState  # type: ignore[reportPrivateUsage]
 
         backoff = client._compute_backoff(_RetryState(attempt=2, response=None, retry_after=5.0))  # type: ignore[reportPrivateUsage]
         assert backoff == 5.0  # Should use Retry-After value
@@ -616,7 +616,7 @@ class TestCircuitBreaker:
 class TestUnifiedAPIClientCircuitBreaker:
     """Test suite for UnifiedAPIClient with Circuit Breaker."""
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_circuit_breaker_opens_on_failures(self, mock_session_class: Any) -> None:
         """Test circuit breaker opens after threshold failures."""
         config = HTTPClientConfig(
@@ -646,7 +646,7 @@ class TestUnifiedAPIClientCircuitBreaker:
 
         assert client._circuit_breaker.state == "open"  # type: ignore[reportPrivateUsage]
 
-    @patch("bioetl.core.api_client.requests.Session")
+    @patch("bioetl.core.http.api_client.requests.Session")
     def test_circuit_breaker_recovers_after_timeout(self, mock_session_class: Any) -> None:
         """Test circuit breaker recovers after timeout."""
         config = HTTPClientConfig(

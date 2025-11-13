@@ -14,12 +14,12 @@ from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.log_events import LogEvents
-from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
+from bioetl.core.http import UnifiedAPIClient
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
 
-from ...chembl_descriptor import (
+from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
@@ -31,9 +31,9 @@ SelfTestitemChemblPipeline = TypeVar(
     "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
 )
 
-# Обязательные поля, которые всегда должны быть в запросе к API
+# Required fields that must always be requested from the API.
 MUST_HAVE_FIELDS: tuple[str, ...] = (
-    # Скаляры
+    # Scalar fields.
     "molecule_chembl_id",
     "pref_name",
     "molecule_type",
@@ -43,7 +43,7 @@ MUST_HAVE_FIELDS: tuple[str, ...] = (
     "first_in_class",
     "indication_class",
     "helm_notation",
-    # Вложенные корни, чтобы сервер вернул объекты
+    # Nested roots to ensure the server returns objects.
     "molecule_properties",
     "molecule_structures",
     "molecule_hierarchy",
@@ -657,22 +657,22 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         return df
 
     def _check_empty_columns(self, df: pd.DataFrame, log: Any) -> None:
-        """Проверка пустых колонок после трансформации.
+        """Check for mostly empty columns after transformation.
 
-        Логирует предупреждение, если процент пустых значений по ключевым полям > 95%.
-        Это может указывать на проблему с select_fields или flatten_objects.
+        Logs a warning when more than 95% of values in key fields are empty.
+        This often indicates missing select_fields or improper flatten_objects configuration.
 
         Parameters
         ----------
         df:
-            DataFrame после трансформации.
+            DataFrame produced by the transform stage.
         log:
-            UnifiedLogger для логирования.
+            Logger used for emitting warnings.
         """
         if df.empty:
             return
 
-        # Ключевые поля для проверки (скаляры и расплющенные из molecule_properties)
+        # Key fields to inspect (scalar and flattened molecule_properties).
         key_fields = [
             "molecule_chembl_id",
             "pref_name",
@@ -692,12 +692,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             "molecule_properties__num_lipinski_ro5_violations",
         ]
 
-        # Проверяем только те поля, которые есть в DataFrame
+        # Evaluate only fields present in the DataFrame.
         available_key_fields = [col for col in key_fields if col in df.columns]
         if not available_key_fields:
             return
 
-        # Вычисляем процент пустых значений для каждого ключевого поля
+        # Calculate the percentage of empty values for each key field.
         empty_percentages: dict[str, float] = {}
         for col in available_key_fields:
             if len(df) > 0:
@@ -705,7 +705,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 empty_percentage = (empty_count / len(df)) * 100.0
                 empty_percentages[col] = empty_percentage
 
-        # Находим поля с > 95% пустых значений
+        # Collect fields with more than 95% empty values.
         highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:

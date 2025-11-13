@@ -2,29 +2,26 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.check_output_artifacts import MAX_BYTES
 from bioetl.tools.check_output_artifacts import (
     check_output_artifacts as check_output_artifacts_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "check_output_artifacts", "MAX_BYTES"]
 
 check_output_artifacts = check_output_artifacts_sync
 
-app: TyperApp = create_app(
-    name="bioetl-check-output-artifacts",
-    help_text="Inspect the data/output directory and flag artifacts",
-)
-
-
-@app.command()
 def main(
     max_bytes: int = typer.Option(
         MAX_BYTES,
@@ -47,6 +44,13 @@ def main(
 
     typer.echo("data/output directory is clean")
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-check-output-artifacts",
+    help_text="Inspect the data/output directory and flag artifacts",
+    main_fn=main,
+)
 
 
 def run() -> None:

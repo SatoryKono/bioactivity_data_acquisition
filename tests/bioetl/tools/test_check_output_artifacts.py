@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 
+import bioetl.tools.check_output_artifacts as check_output_mod
 from bioetl.tools.check_output_artifacts import check_output_artifacts
 
 
@@ -83,3 +84,19 @@ def test_check_output_artifacts_passes_when_clean(
     assert errors == []
     assert facade.logger.records[-1][0] == "info"
 
+
+def test_git_helpers_parse_output(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Result:
+        def __init__(self, stdout: str) -> None:
+            self.stdout = stdout
+
+    def fake_run(args: list[str], **kwargs: Any) -> Result:
+        if "--name-only" in args:
+            return Result("data/output/new.csv\n\n")
+        return Result("data/output/tracked.csv\n")
+
+    monkeypatch.setattr("bioetl.tools.check_output_artifacts.subprocess.run", fake_run)
+    tracked = check_output_mod._git_ls_files("data/output")
+    staged = check_output_mod._git_diff_cached("data/output")
+    assert tracked == [Path("data/output/tracked.csv")]
+    assert staged == [Path("data/output/new.csv")]

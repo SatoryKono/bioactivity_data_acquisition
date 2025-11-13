@@ -21,7 +21,7 @@ setting a single parameter in the `LoggerConfig`:
 
 ```python
 # In your main application entry point
-from bioetl.core.logger import UnifiedLogger, LoggerConfig
+from bioetl.core.logging import UnifiedLogger, LoggerConfig
 
 config = LoggerConfig(
     # ... other settings ...
@@ -63,7 +63,7 @@ Once the tracer is configured, you can create spans to trace the execution of
 your code.
 
 ```python
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 

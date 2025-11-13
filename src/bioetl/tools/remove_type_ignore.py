@@ -1,4 +1,4 @@
-"""Удаление директив `type: ignore` из исходников."""
+"""Strip `type: ignore` directives from source files."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import re
 from collections.abc import Iterable
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["remove_type_ignore"]
@@ -17,6 +17,7 @@ TYPE_IGNORE_PATTERN = re.compile(r"\s+#\s*type:\s*ignore(?::[^\n]*)?")
 
 
 def _iter_python_files(root: Path) -> Iterable[Path]:
+    """Yield Python files under ``root`` excluding virtual environment directories."""
     for path in root.rglob("*.py"):
         if "/.venv/" in path.as_posix():
             continue
@@ -24,6 +25,7 @@ def _iter_python_files(root: Path) -> Iterable[Path]:
 
 
 def _cleanse_file(path: Path) -> int:
+    """Remove ``type: ignore`` directives from a file and return the count removed."""
     content = path.read_text(encoding="utf-8")
     new_content, count = TYPE_IGNORE_PATTERN.subn("", content)
     if count:
@@ -32,7 +34,7 @@ def _cleanse_file(path: Path) -> int:
 
 
 def remove_type_ignore(root: Path | None = None) -> int:
-    """Удаляет директивы `type: ignore` и возвращает их количество."""
+    """Remove ``type: ignore`` directives and return the number stripped."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

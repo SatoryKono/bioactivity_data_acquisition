@@ -8,7 +8,7 @@ import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _build_env(extra_env: Mapping[str, str] | None = None) -> dict[str, str]:
@@ -40,3 +40,4 @@ def run_cli_command(
         timeout=timeout,
         check=False,
     )
+

@@ -14,9 +14,9 @@ from structlog.stdlib import (
     BoundLogger,  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 )
 
-from bioetl.clients.client_chembl_base import EntityConfig
+from bioetl.clients.chembl_config import EntityConfig
 from bioetl.config.loader import _load_yaml
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 # ChemblClient is dynamically loaded in __init__.py, so we use Any for type checking.
 # Import happens at runtime to avoid circular dependencies.
@@ -29,6 +29,7 @@ _CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defau
 
 @lru_cache(maxsize=1)
 def _load_chembl_client_defaults() -> Mapping[str, Any]:
+    """Load cached Chembl client defaults from the shared YAML profile."""
     try:
         payload = _load_yaml(_CHEMBL_DEFAULTS_PATH)
     except FileNotFoundError:
@@ -51,6 +52,7 @@ def _load_chembl_client_defaults() -> Mapping[str, Any]:
 
 
 def _resolve_status_endpoint() -> str:
+    """Resolve the status endpoint based on defaults with a static fallback."""
     chembl_defaults = _load_chembl_client_defaults()
     candidate: Any = chembl_defaults.get("status_endpoint")
     if isinstance(candidate, str):
@@ -386,6 +388,7 @@ class ChemblEntityIterator(ChemblEntityIteratorBase):
         batch_size: int,
         max_url_length: int | None = None,
     ) -> None:
+        """Initialise the deprecated iterator alias while emitting a warning."""
         warnings.warn(
             "ChemblEntityIterator is deprecated and will be removed in a future version. "
             "Use ChemblEntityIteratorBase instead.",

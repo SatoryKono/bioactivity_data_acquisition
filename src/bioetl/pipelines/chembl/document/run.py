@@ -16,11 +16,11 @@ from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.log_events import LogEvents
-from bioetl.core.normalizers import StringRule, normalize_string_columns
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import StringRule, normalize_string_columns
 from bioetl.schemas.chembl_document_schema import COLUMN_ORDER
 
-from ...chembl_descriptor import (
+from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
@@ -50,7 +50,7 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "authors",
 )
 
-# Обязательные поля, которые всегда должны быть в запросе к API
+# Required fields that must always be requested from the API.
 MUST_HAVE_FIELDS: tuple[str, ...] = (
     "document_chembl_id",
     "doi",
@@ -567,7 +567,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             )
 
     def _should_enrich_document_terms(self) -> bool:
-        """Проверить, включено ли обогащение document_term в конфиге."""
+        """Return True when document_term enrichment is enabled in the config."""
         if not self.config.chembl:
             return False
         try:
@@ -590,10 +590,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return False
 
     def _enrich_document_terms(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из document_term."""
+        """Apply document_term enrichment to the DataFrame."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
+        # Retrieve enrichment configuration.
         enrich_cfg: dict[str, Any] = {}
         try:
             if self.config.chembl:
@@ -614,7 +614,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать или переиспользовать клиент ChEMBL
+        # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
         api_client, _ = self.prepare_chembl_client(
@@ -631,7 +631,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Вызвать функцию обогащения
+        # Invoke the enrichment routine.
         return enrich_with_document_terms(df, chembl_client, enrich_cfg)
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:

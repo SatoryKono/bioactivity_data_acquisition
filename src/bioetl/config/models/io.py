@@ -8,41 +8,41 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class IOInputConfig(BaseModel):
-    """Настройки чтения входных ресурсов."""
+    """Configuration for reading input resources."""
 
     model_config = ConfigDict(extra="forbid")
 
-    format: str = Field(default="csv", description="Формат входного файла (csv, parquet, json).")
-    encoding: str = Field(default="utf-8", description="Кодировка входных файлов.")
-    header: bool = Field(default=True, description="Наличие строки заголовков во входном файле.")
+    format: str = Field(default="csv", description="Input file format (csv, parquet, json).")
+    encoding: str = Field(default="utf-8", description="Encoding for input files.")
+    header: bool = Field(default=True, description="Whether the input file contains a header row.")
     path: str | None = Field(
         default=None,
-        description="Явный путь к локальному входному файлу, если он задан.",
+        description="Explicit path to the local input file, when provided.",
     )
 
 
 class IOOutputConfig(BaseModel):
-    """Настройки сериализации итоговых артефактов."""
+    """Serialization settings for output artifacts."""
 
     model_config = ConfigDict(extra="forbid")
 
-    format: str = Field(default="parquet", description="Формат итоговых данных (parquet, csv).")
+    format: str = Field(default="parquet", description="Output data format (parquet, csv).")
     partition_by: Sequence[str] = Field(
         default_factory=tuple,
-        description="Список колонок для партиционирования набора данных.",
+        description="Columns used to partition the dataset.",
     )
     overwrite: bool = Field(
         default=True,
-        description="Разрешить перезапись ранее существующих артефактов.",
+        description="Allow overwriting previously existing artifacts.",
     )
     path: str | None = Field(
         default=None,
-        description="Явный путь к выходному файлу или директории.",
+        description="Explicit path to the output file or directory.",
     )
 
 
 class IOConfig(BaseModel):
-    """Единая конфигурация ввода/вывода для пайплайна."""
+    """Unified input/output configuration for a pipeline."""
 
     model_config = ConfigDict(extra="forbid")
 

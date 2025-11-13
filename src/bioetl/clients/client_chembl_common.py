@@ -1,4 +1,4 @@
-"""ChEMBL-specific API helpers built on top of :mod:`bioetl.core.api_client`."""
+"""ChEMBL-specific API helpers built on top of :mod:`bioetl.core.http`."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import warnings
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
@@ -21,10 +21,12 @@ from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntit
 from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.config.loader import _load_yaml
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.load_meta_store import LoadMetaStore
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.http import UnifiedAPIClient
+from bioetl.core.logging import LogEvents
+from bioetl.core.logging import UnifiedLogger
+
+if TYPE_CHECKING:
+    from bioetl.core.runtime.load_meta_store import LoadMetaStore
 
 __all__ = ["ChemblClient", "_resolve_status_endpoint"]
 
@@ -34,6 +36,7 @@ _CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defau
 
 @lru_cache(maxsize=1)
 def _load_chembl_client_defaults() -> Mapping[str, Any]:
+    """Load cached Chembl client defaults from the YAML profile."""
     try:
         payload = _load_yaml(_CHEMBL_DEFAULTS_PATH)
     except FileNotFoundError:
@@ -58,6 +61,7 @@ def _load_chembl_client_defaults() -> Mapping[str, Any]:
 
 
 def _resolve_status_endpoint() -> str:
+    """Resolve the status endpoint from defaults or fall back to the constant."""
     chembl_defaults = _load_chembl_client_defaults()
     candidate: Any = chembl_defaults.get("status_endpoint")
     if isinstance(candidate, str):
@@ -74,10 +78,11 @@ class ChemblClient:
         self,
         client: UnifiedAPIClient,
         *,
-        load_meta_store: LoadMetaStore | None = None,
+        load_meta_store: "LoadMetaStore | None" = None,
         job_id: str | None = None,
         operator: str | None = None,
     ) -> None:
+        """Initialise the high-level client and supporting entity adapters."""
         self._client = client
         self._log = UnifiedLogger.get(__name__).bind(component="chembl_client")
         self._status_cache: dict[str, Mapping[str, Any]] = {}

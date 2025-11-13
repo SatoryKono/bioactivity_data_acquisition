@@ -1,4 +1,4 @@
-"""Doctest CLI-примеров из документации."""
+"""Run doctest-style checks for CLI examples documented in markdown."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -26,7 +26,7 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 @dataclass(frozen=True)
 class CLIExample:
-    """Определение CLI-примера."""
+    """Describe a CLI example extracted from documentation."""
 
     source_file: Path
     line_number: int
@@ -35,6 +35,7 @@ class CLIExample:
 
 
 def _iter_markdown_files() -> Iterable[Path]:
+    """Yield markdown files that should be scanned for CLI examples."""
     sources = [
         PROJECT_ROOT / "README.md",
         DOCS_ROOT / "cli" / "01-cli-commands.md",
@@ -49,7 +50,7 @@ def _iter_markdown_files() -> Iterable[Path]:
 
 
 def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
-    """Извлекает bash-команды из markdown-содержимого."""
+    """Extract bash commands from markdown content."""
 
     examples: list[CLIExample] = []
     lines = content.split("\n")
@@ -75,7 +76,7 @@ def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
             continue
 
         cmd_lines = [stripped]
-        # Собираем продолжения
+        # Collect continuation lines for multi-line commands.
         next_index = index
         while next_index < len(lines):
             candidate = lines[next_index].strip()
@@ -116,7 +117,7 @@ def extract_bash_commands(content: str, file_path: Path) -> list[CLIExample]:
 
 
 def extract_cli_examples() -> list[CLIExample]:
-    """Извлекает все CLI-примеры из документации."""
+    """Extract all CLI examples from documentation sources."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)
@@ -144,6 +145,7 @@ class CLIExampleResult:
 
 
 def _run_command(cmd: str) -> tuple[int, str, str]:
+    """Execute the provided CLI command and capture outputs."""
     parts = cmd.split()
     try:
         result = subprocess.run(
@@ -161,6 +163,7 @@ def _run_command(cmd: str) -> tuple[int, str, str]:
 
 
 def _write_report(results: list[CLIExampleResult]) -> Path:
+    """Persist CLI doctest results as a markdown report."""
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "CLI_DOCTEST_REPORT.md"
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
@@ -207,7 +210,7 @@ def _write_report(results: list[CLIExampleResult]) -> Path:
 
 
 def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExampleResult], Path]:
-    """Запускает CLI-примеры и возвращает результаты и путь к отчёту."""
+    """Run CLI examples and return their results alongside the report path."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

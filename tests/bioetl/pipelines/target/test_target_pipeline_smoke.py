@@ -122,7 +122,7 @@ class TestTargetPipelineSmoke:
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
         ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
@@ -170,7 +170,7 @@ class TestTargetPipelineSmoke:
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
         ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
@@ -218,7 +218,7 @@ class TestTargetPipelineSmoke:
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
         ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
@@ -296,7 +296,7 @@ class TestTargetPipelineSmoke:
 
         mock_client = setup_mock_api_client(mock_targets)
         with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
+            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
         ):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 

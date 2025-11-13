@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.core.serialization import serialize_objects, serialize_simple_list
+from bioetl.core.io import serialize_objects, serialize_simple_list
 
 __all__ = [
     "serialize_simple_list",

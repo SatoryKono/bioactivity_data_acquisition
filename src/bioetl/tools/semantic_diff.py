@@ -1,4 +1,4 @@
-"""Семантический diff документации и кода."""
+"""Perform semantic diffing between documentation and code contracts."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ import re
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["run_semantic_diff"]
@@ -21,6 +21,7 @@ DOCS_ROOT = PROJECT_ROOT / "docs"
 
 
 def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
+    """Serialize a function signature from live code."""
     try:
         sig = inspect.signature(method)
         params = []
@@ -48,11 +49,12 @@ def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
                 else "Any"
             ),
         }
-    except Exception as exc:  # noqa: BLE001 - отражаем ошибку
+    except Exception as exc:  # noqa: BLE001 - surface the failure
         return {"error": str(exc)}
 
 
 def extract_pipeline_base_methods() -> dict[str, Any]:
+    """Extract PipelineBase method signatures from code."""
     from bioetl.pipelines.base import PipelineBase
 
     methods = {}
@@ -65,6 +67,7 @@ def extract_pipeline_base_methods() -> dict[str, Any]:
 
 
 def extract_pipeline_base_from_docs() -> dict[str, Any]:
+    """Parse PipelineBase method definitions from documentation."""
     doc_file = DOCS_ROOT / "pipelines" / "00-pipeline-base.md"
     if not doc_file.exists():
         return {"error": f"Documentation file not found: {doc_file}"}
@@ -94,6 +97,7 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 
 
 def extract_config_fields_from_code() -> dict[str, Any]:
+    """Load typed config field definitions from the codebase."""
     try:
         from bioetl.config.models import PipelineConfig
     except Exception as exc:  # noqa: BLE001
@@ -117,6 +121,7 @@ def extract_config_fields_from_code() -> dict[str, Any]:
 
 
 def extract_config_fields_from_docs() -> dict[str, Any]:
+    """Parse documented config field definitions."""
     doc_file = DOCS_ROOT / "configs" / "00-typed-configs-and-profiles.md"
     if not doc_file.exists():
         return {"error": f"Documentation file not found: {doc_file}"}
@@ -132,7 +137,7 @@ def extract_config_fields_from_docs() -> dict[str, Any]:
         description = match.group(5).strip()
         fields[key] = {
             "type": field_type,
-            "required": required.lower() in ["yes", "required", "обязательный", "**yes**"],
+            "required": required.lower() in ["yes", "required", "mandatory", "**yes**"],
             "default": None if default.lower() in ["—", "n/a", "none"] else default,
             "description": description,
         }
@@ -140,8 +145,9 @@ def extract_config_fields_from_docs() -> dict[str, Any]:
 
 
 def extract_cli_flags_from_code() -> list[dict[str, Any]]:
+    """Return a curated list of known CLI flags."""
     try:
-        # Извлечь флаги автоматически сложно, возвращаем известные.
+        # Automatic extraction is complex; return curated defaults.
         return [
             {"name": "--config", "required": True, "description": "Path to config file"},
             {"name": "--output-dir", "required": True, "description": "Output directory"},
@@ -155,6 +161,7 @@ def extract_cli_flags_from_code() -> list[dict[str, Any]]:
 
 
 def extract_cli_flags_from_docs() -> list[dict[str, Any]]:
+    """Parse CLI flag definitions from documentation tables."""
     doc_file = DOCS_ROOT / "cli" / "01-cli-commands.md"
     if not doc_file.exists():
         return [{"error": f"Documentation file not found: {doc_file}"}]
@@ -179,6 +186,7 @@ def extract_cli_flags_from_docs() -> list[dict[str, Any]]:
 
 
 def compare_methods(code_methods: dict[str, Any], doc_methods: dict[str, Any]) -> dict[str, Any]:
+    """Compare code signatures against documented signatures."""
     differences: dict[str, Any] = {}
     all_methods = set(code_methods.keys()) | set(doc_methods.keys())
     for method_name in all_methods:
@@ -231,7 +239,7 @@ def compare_methods(code_methods: dict[str, Any], doc_methods: dict[str, Any]) -
 
 
 def run_semantic_diff() -> Path:
-    """Выполняет семантический diff и возвращает путь к отчёту."""
+    """Run semantic diff and return the path to the generated report."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

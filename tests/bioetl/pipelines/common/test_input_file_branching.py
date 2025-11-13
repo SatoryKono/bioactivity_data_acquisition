@@ -1,4 +1,4 @@
-"""Совместимость с прежним путём теста `test_chembl_input_file_branching`."""
+"""Compatibility shim for the legacy `test_chembl_input_file_branching` path."""
 
 from __future__ import annotations
 

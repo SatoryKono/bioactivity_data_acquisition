@@ -418,7 +418,7 @@ validation:
             patch(
                 "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
-            patch("bioetl.core.logger.UnifiedLogger.configure") as mock_logger_configure,
+            patch("bioetl.core.logging.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
             mock_result = MagicMock()

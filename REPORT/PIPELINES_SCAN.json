@@ -19,7 +19,7 @@
         {"name": "ChemblActivityPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/activity/run.py:106-3477"}
       ],
       "mixins": [
-        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl/common/descriptor.py:162-324"},
         {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
       ],
       "cli_entrypoints": [
@@ -56,7 +56,7 @@
         {"name": "ChemblAssayPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/assay/run.py:126-953"}
       ],
       "mixins": [
-        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl/common/descriptor.py:162-324"},
         {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
       ],
       "cli_entrypoints": [
@@ -92,7 +92,7 @@
         {"name": "TestItemChemblPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/testitem/run.py:52-808"}
       ],
       "mixins": [
-        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl/common/descriptor.py:162-324"},
         {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
       ],
       "cli_entrypoints": [
@@ -128,7 +128,7 @@
         {"name": "ChemblTargetPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/target/run.py:38-784"}
       ],
       "mixins": [
-        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl/common/descriptor.py:162-324"},
         {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
       ],
       "cli_entrypoints": [
@@ -164,7 +164,7 @@
         {"name": "ChemblDocumentPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/document/run.py:60-655"}
       ],
       "mixins": [
-        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl/common/descriptor.py:162-324"},
         {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
       ],
       "cli_entrypoints": [

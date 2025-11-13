@@ -30,7 +30,7 @@ pipelines.
 
 ### Event Identifiers
 
-All event identifiers are sourced from `bioetl.core.log_events.LogEvents` and
+All event identifiers are sourced from `bioetl.core.logging.log_events.LogEvents` and
 follow the deterministic naming pattern `namespace.action.suffix`. Dots separate
 the hierarchy, and only lowercase ASCII, digits, `_` and `-` are permitted.
 Dedicated helper factories `stage_event()` and `client_event()` produce

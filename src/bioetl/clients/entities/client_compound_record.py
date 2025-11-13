@@ -6,8 +6,7 @@ from collections.abc import Iterable, Sequence
 from typing import Any
 
 from bioetl.clients.client_chembl_base import ChemblClientProtocol
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = ["ChemblCompoundRecordEntityClient"]
 

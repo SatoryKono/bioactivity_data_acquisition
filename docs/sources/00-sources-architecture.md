@@ -54,7 +54,7 @@ stack.
 ### 2.1. HTTP Client
 
 - **Interface**: `request(method, endpoint, **kwargs) -> Response`
-- **Implementation**: `bioetl.core.api_client.UnifiedAPIClient`
+- **Implementation**: `bioetl.core.http.api_client.UnifiedAPIClient`
   (`[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`)
 - **Invariants**:
   - MUST use strict, configurable timeouts (`connect` and `read`).

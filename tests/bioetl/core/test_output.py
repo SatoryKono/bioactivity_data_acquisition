@@ -19,7 +19,7 @@ from bioetl.config.models.determinism import (
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
 from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.output import (
+from bioetl.core import (
     DeterministicWriteArtifacts,
     ensure_hash_columns,
     prepare_dataframe,

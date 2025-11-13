@@ -7,7 +7,7 @@ logging **MUST** use the centralized `UnifiedLogger` system based on
 ## Principles
 
 - **Centralization**: All logging **MUST** use `UnifiedLogger` from
-  `bioetl.core.logger`.
+  `bioetl.core.logging`.
 - **Structured Logging**: All logs **MUST** be structured (JSON or key-value
   format).
 - **No Print Statements**: Direct `print()` calls **SHALL NOT** be used in
@@ -24,7 +24,7 @@ The logger **MUST** be configured once at the application entry point (e.g., CLI
 main function):
 
 ```python
-from bioetl.core.logger import UnifiedLogger, LoggerConfig
+from bioetl.core.logging import UnifiedLogger, LoggerConfig
 from pathlib import Path
 
 
@@ -45,7 +45,7 @@ def main():
 Get a logger instance at the module level using `__name__`:
 
 ```python
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 
@@ -60,7 +60,7 @@ class MyPipeline:
 Set execution context at the start of each pipeline run:
 
 ```python
-from bioetl.core.logger import set_run_context
+from bioetl.core.logging import set_run_context
 
 
 def run_pipeline():
@@ -205,7 +205,7 @@ Use `console_format="json"` for machine-readable JSON output:
 ### Valid Example: Run Context
 
 ```python
-from bioetl.core.logger import UnifiedLogger, set_run_context
+from bioetl.core.logging import UnifiedLogger, set_run_context
 
 log = UnifiedLogger.get(__name__)
 

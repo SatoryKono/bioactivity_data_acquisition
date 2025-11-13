@@ -1,4 +1,4 @@
-"""Вспомогательные утилиты BioETL для CLI-команд."""
+"""Shared helper utilities for BioETL CLI tools."""
 
 from __future__ import annotations
 
@@ -16,20 +16,20 @@ __all__ = [
 
 
 def get_project_root() -> Path:
-    """Возвращает корень репозитория."""
+    """Return the absolute repository root."""
 
     return Path(__file__).resolve().parents[3]
 
 
 class ToolRunnable(Protocol):
-    """Контракт для функций, исполняющих бизнес-логику CLI-утилиты."""
+    """Protocol for callables that implement CLI tool business logic."""
 
     def __call__(self, *args: object, **kwargs: object) -> object:
         ...
 
 
 def load_typer_app(module_path: str, app_name: str = "app") -> typer.Typer:
-    """Динамически загружает Typer-приложение из модуля."""
+    """Load a Typer application object by module path."""
 
     module = import_module(module_path)
     app = getattr(module, app_name, None)

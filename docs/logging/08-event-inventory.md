@@ -2,7 +2,7 @@
 
 ## Overview
 
-All log identifiers are defined in `bioetl.core.log_events.LogEvents` and now
+All log identifiers are defined in `bioetl.core.logging.log_events.LogEvents` and now
 adhere to a strict `namespace.action.suffix` structure. Only lowercase ASCII
 letters, digits, underscores and dashes are permitted inside individual
 segments. Helper factories `stage_event()` and `client_event()` produce

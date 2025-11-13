@@ -1,4 +1,4 @@
-"""Сборка агрегированного словаря ChEMBL."""
+"""Assemble the aggregated ChEMBL vocabulary store."""
 
 from __future__ import annotations
 
@@ -10,19 +10,21 @@ from typing import Any, cast
 
 import yaml
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
 
 __all__ = ["build_vocab_store"]
 
 
 def _utc_timestamp() -> str:
+    """Return current UTC timestamp truncated to seconds in ISO-8601 format."""
     now = datetime.now(timezone.utc)
     return now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 def _atomic_write_yaml(payload: Mapping[str, Any], path: Path) -> None:
+    """Write YAML payload atomically to disk."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as handle:
@@ -38,6 +40,7 @@ def _extract_release(
     name: str,
     current: str | None,
 ) -> str | None:
+    """Extract consistent ``chembl_release`` value from dictionary metadata."""
     if meta is None:
         return current
     if not isinstance(meta, Mapping):
@@ -63,7 +66,7 @@ def build_vocab_store(
     src: Path,
     output: Path,
 ) -> Path:
-    """Агрегирует отдельные словари в единый YAML-файл."""
+    """Aggregate individual vocabularies into a single YAML document."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

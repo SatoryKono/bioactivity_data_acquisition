@@ -1,4 +1,4 @@
-"""Пакет с тестовыми сценариями и вспомогательными модулями."""
+"""Package containing test scenarios and auxiliary modules."""
 
 from __future__ import annotations
 

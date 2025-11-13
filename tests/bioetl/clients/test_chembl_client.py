@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient, _resolve_status_endpoint
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture

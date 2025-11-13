@@ -26,7 +26,7 @@ from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -38,7 +38,7 @@ DATA_DIR = Path(__file__).parent / "data"
 
 
 def _load_json(relative_path: str) -> Any:
-    """Загружает JSON из каталога ``tests/bioetl/data`` с каноничными параметрами."""
+    """Load JSON from ``tests/bioetl/data`` using canonical parameters."""
 
     data_path = DATA_DIR / relative_path
     with data_path.open("r", encoding="utf-8") as stream:
@@ -217,7 +217,7 @@ def mock_api_client_factory_patch(
 
     def _factory(mock_client: MagicMock | None = None) -> Generator[MagicMock, None, None]:
         client = mock_client or mock_chembl_api_client
-        with patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory:
+        with patch("bioetl.core.APIClientFactory.for_source") as mock_factory:
             mock_factory.return_value = client
             yield mock_factory
 

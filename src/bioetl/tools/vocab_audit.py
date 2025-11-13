@@ -1,4 +1,4 @@
-"""Аудит словарей ChEMBL против локальных определений."""
+"""Audit ChEMBL vocabularies against local definitions."""
 
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ from typing import Any, Protocol, cast
 
 import yaml
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
@@ -64,6 +64,7 @@ class _ChemblClientProtocol(Protocol):
 
 @dataclass(frozen=True)
 class FieldSpec:
+    """Describe a dictionary entry and its corresponding API resource field."""
     dictionary: str
     resource: str
     field: str
@@ -75,6 +76,7 @@ OFFLINE_CLIENT_ENV = "BIOETL_OFFLINE_CHEMBL_CLIENT"
 
 
 def _is_truthy(value: str | None) -> bool:
+    """Return ``True`` if the string value represents a truthy flag."""
     if value is None:
         return False
     normalized = value.strip().lower()
@@ -82,6 +84,7 @@ def _is_truthy(value: str | None) -> bool:
 
 
 def _resolve_chembl_client() -> _ChemblClientProtocol:
+    """Resolve the ChEMBL client, falling back to the offline stub when needed."""
     use_offline = _is_truthy(os.getenv(OFFLINE_CLIENT_ENV))
     if not use_offline and _chembl_new_client is not None:
         return cast(_ChemblClientProtocol, _chembl_new_client)
@@ -134,6 +137,7 @@ FIELD_SPECS: tuple[FieldSpec, ...] = (
 
 
 def _resolve_store_path(store: Path | None) -> Path:
+    """Resolve the vocabulary store path using overrides and legacy fallbacks."""
     if store is not None:
         return store.expanduser().resolve()
     aggregate = DEFAULT_AGGREGATED.resolve()
@@ -146,6 +150,7 @@ def _resolve_store_path(store: Path | None) -> Path:
 
 
 def _load_store(path: Path) -> Mapping[str, object]:
+    """Load the vocabulary store from disk."""
     try:
         store = load_vocab_store(path)
     except VocabStoreError as exc:
@@ -154,6 +159,7 @@ def _load_store(path: Path) -> Mapping[str, object]:
 
 
 def _select_mapping_entries(values: list[object]) -> list[Mapping[str, object]]:
+    """Return only mapping entries from a mixed list."""
     typed_entries: list[Mapping[str, object]] = []
     for entry in values:
         if isinstance(entry, Mapping):
@@ -162,12 +168,14 @@ def _select_mapping_entries(values: list[object]) -> list[Mapping[str, object]]:
 
 
 def _iter_aliases(candidates: list[object]) -> Iterator[str]:
+    """Yield alias strings from a heterogeneous list."""
     for alias in candidates:
         if isinstance(alias, str) and alias:
             yield alias
 
 
 def _dictionary_lookup(block: Mapping[str, object]) -> dict[str, str]:
+    """Build a dictionary of identifier statuses from a vocab block."""
     values_obj = block.get("values")
     if not isinstance(values_obj, list):
         raise RuntimeError("Dictionary block missing 'values' array")
@@ -188,6 +196,7 @@ def _dictionary_lookup(block: Mapping[str, object]) -> dict[str, str]:
 
 
 def _normalise_value(value: object) -> str | None:
+    """Normalise a raw API value to a comparable string."""
     if value is None:
         return None
     text = str(value).strip()
@@ -195,6 +204,7 @@ def _normalise_value(value: object) -> str | None:
 
 
 def _classify(status: str | None) -> str:
+    """Map a stored status to an audit classification."""
     if status is None:
         return "new"
     lowered = status.lower()
@@ -208,6 +218,7 @@ def _classify(status: str | None) -> str:
 
 
 def _fetch_unique_values(spec: FieldSpec, *, page_size: int, pages: int) -> Counter[str]:
+    """Fetch unique values for a dictionary field using the ChEMBL client."""
     resource = cast(_ResourceProtocol, getattr(new_client, spec.resource))
     counter: Counter[str] = Counter()
     filters_base = dict(spec.filters or {})
@@ -233,6 +244,7 @@ def _fetch_unique_values(spec: FieldSpec, *, page_size: int, pages: int) -> Coun
 
 
 def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
+    """Write audit rows to CSV atomically."""
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     fieldnames = ["dictionary", "resource", "field", "value", "status", "occurrences"]
@@ -247,6 +259,7 @@ def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
 
 
 def _blake2_checksum(path: Path) -> str:
+    """Compute a BLAKE2 checksum for a file."""
     digest = hashlib.blake2b(digest_size=32)
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(64 * 1024), b""):
@@ -257,6 +270,7 @@ def _blake2_checksum(path: Path) -> str:
 
 
 def _compute_business_key_hash(rows: list[dict[str, Any]]) -> str:
+    """Compute a deterministic hash over dictionary/value/status triples."""
     digest = hashlib.blake2b(digest_size=32)
     for row in rows:
         payload = f"{row['dictionary']}|{row['value']}|{row['status']}"
@@ -265,6 +279,7 @@ def _compute_business_key_hash(rows: list[dict[str, Any]]) -> str:
 
 
 def _git_commit() -> str:
+    """Return the current Git commit SHA or 'unknown'."""
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -278,6 +293,7 @@ def _git_commit() -> str:
 
 
 def _extract_release(store: Mapping[str, object]) -> str | None:
+    """Extract the ChEMBL release identifier from the vocabulary store."""
     meta_obj = store.get("meta")
     if isinstance(meta_obj, Mapping):
         meta_mapping = cast(Mapping[str, object], meta_obj)
@@ -301,6 +317,7 @@ def _extract_release(store: Mapping[str, object]) -> str | None:
 
 @dataclass(frozen=True)
 class VocabAuditResult:
+    """Result bundle containing audit rows and artifact paths."""
     rows: tuple[dict[str, Any], ...]
     output: Path
     meta: Path
@@ -314,7 +331,7 @@ def audit_vocabularies(
     pages: int = 10,
     page_size: int = 1000,
 ) -> VocabAuditResult:
-    """Аудирует словари и возвращает результаты."""
+    """Audit vocabularies against API values and return results."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

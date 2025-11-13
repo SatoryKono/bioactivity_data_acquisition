@@ -17,7 +17,7 @@ application.
 # file: src/bioetl/cli/main.py
 
 from pathlib import Path
-from bioetl.core.logger import UnifiedLogger, LoggerConfig
+from bioetl.core.logging import UnifiedLogger, LoggerConfig
 
 
 def main():
@@ -45,7 +45,7 @@ level. By convention, you should always pass `__name__`.
 ```python
 # file: src/bioetl/pipelines/my_pipeline.py
 
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 # Get the logger instance at the module level
 log = UnifiedLogger.get(__name__)
@@ -66,7 +66,7 @@ ensure all subsequent logs are automatically enriched with the correct `run_id`,
 ```python
 # Inside your pipeline's main execution method
 
-from bioetl.core.logger import set_run_context
+from bioetl.core.logging import set_run_context
 
 
 def run_pipeline(run_id, source_name):

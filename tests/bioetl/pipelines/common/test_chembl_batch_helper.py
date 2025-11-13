@@ -7,7 +7,7 @@ from typing import Any, Sequence
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.chembl_descriptor import BatchExtractionContext, ChemblPipelineBase
+from bioetl.pipelines.chembl.common import BatchExtractionContext, ChemblPipelineBase
 
 
 class DummyChemblPipeline(ChemblPipelineBase):

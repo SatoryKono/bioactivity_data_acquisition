@@ -153,18 +153,18 @@ def compute_categorical_distributions(
     """Return deterministic categorical distributions for columns matching suffixes.
 
     Args:
-        df: Исходный DataFrame.
-        column_suffixes: Список суффиксов, по которым выбираются целевые колонки.
-        value_normalizer: Функция нормализации категорий; по умолчанию убирает
-            пробелы, нормализует пустые значения и NaN.
-        top_n: Максимальное число категорий на колонку; избыточные категории
-            агрегируются в ``other_bucket_label``.
-        ratio_precision: Количество знаков после запятой для метрик долей.
-        other_bucket_label: Имя агрегированного bucket для редких категорий.
+        df: Source DataFrame.
+        column_suffixes: Column suffixes identifying target columns.
+        value_normalizer: Category normalizer function; defaults to trimming whitespace and
+            normalizing empty/NaN values.
+        top_n: Maximum number of categories per column; surplus categories are aggregated under
+            ``other_bucket_label``.
+        ratio_precision: Number of decimal places for ratio metrics.
+        other_bucket_label: Aggregated bucket label for rare categories.
 
     Returns:
-        Словарь: ``{column: {category: {count, ratio}}}``, где ключи отсортированы
-        по имени колонки и по убыванию счётчиков с детерминированной альф. стабилизацией.
+        Dict ``{column: {category: {count, ratio}}}`` with columns sorted by name and categories
+        sorted by descending counts with deterministic tie-breaking.
     """
 
     if top_n <= 0:

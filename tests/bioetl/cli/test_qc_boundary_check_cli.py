@@ -6,7 +6,7 @@ from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from bioetl.cli.tools import qc_boundary_check as qc_boundary_check_cli
-from bioetl.cli.tools._qc_boundary import Violation
+from bioetl.cli.tools.qc_boundary import Violation
 
 
 def test_qc_boundary_check_success(

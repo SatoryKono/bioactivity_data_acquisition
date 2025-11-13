@@ -96,7 +96,7 @@ Example: upstream API returned HTTP 503 after exhausting retries.
 
 ```shell
 $ python -m bioetl.cli.cli_app activity_chembl --config configs/pipelines/activity/activity_chembl.yaml
-[2025-01-15T09:12:44Z] WARNING bioetl.core.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
+[2025-01-15T09:12:44Z] WARNING bioetl.core.http.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
 [2025-01-15T09:12:47Z] ERROR   cli.activity external_api_failure error="503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json"
 [ERROR] External API failure: 503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json
 $ echo $?

@@ -4,7 +4,7 @@ from typing import Any, cast
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.core.log_events import LogEvents, client_event, emit, stage_event
+from bioetl.core.logging import LogEvents, client_event, emit, stage_event
 
 
 def test_log_event_values_format() -> None:

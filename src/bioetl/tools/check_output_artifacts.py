@@ -1,12 +1,12 @@
-"""Проверка артефактов в каталоге data/output."""
+"""Check project output artifacts for tracked files and size limits."""
 
 from __future__ import annotations
 
 import subprocess
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["MAX_BYTES", "check_output_artifacts"]
@@ -17,6 +17,7 @@ IGNORED_NAMES = {".gitkeep"}
 
 
 def _git_ls_files(path: str) -> list[Path]:
+    """Return repository-tracked files within ``path``."""
     result = subprocess.run(
         ["git", "ls-files", path],
         check=True,
@@ -28,6 +29,7 @@ def _git_ls_files(path: str) -> list[Path]:
 
 
 def _git_diff_cached(path: str) -> list[Path]:
+    """Return staged files (added or modified) within ``path``."""
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only", "--diff-filter=AM", "--", path],
         check=True,
@@ -39,7 +41,7 @@ def _git_diff_cached(path: str) -> list[Path]:
 
 
 def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
-    """Возвращает список ошибок, связанных с артефактами в data/output."""
+    """Validate `data/output` artifacts and return a list of issues."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

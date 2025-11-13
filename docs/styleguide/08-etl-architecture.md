@@ -16,6 +16,31 @@ and maintainability.
 - **Pipeline Contract**: All pipelines **MUST** follow the standard pipeline
   contract.
 
+## Core Package Layout
+
+The `bioetl.core` package is the stable public surface for pipeline
+infrastructure. Its internal structure now follows the directory patterns from
+`docs/styleguide/11-naming-policy.md`:
+
+- `core/http` — HTTP adapters (`UnifiedAPIClient`, `APIClientFactory`,
+  rate limiting, circuit breaker).
+- `core/logging` — structured logging (`UnifiedLogger`, `LogEvents`,
+  event helpers).
+- `core/io` — deterministic output utilities (hashing, serialization,
+  atomic writers, QC units).
+- `core/schema` — schema factories, normalisers, and validation helpers.
+- `core/runtime` — CLI and runtime primitives (`CliCommandBase`,
+  `BioETLError`, compatibility shims).
+- `core/utils` — shared domain helpers (vocabulary store access,
+  molecule joins).
+
+`bioetl.core.__init__` re-exports the supported symbols from these
+subpackages so that imports such as `from bioetl.core import UnifiedLogger`
+continue to work. The historical compatibility stubs (`bioetl.core.api_client`,
+`bioetl.core.logger`, `bioetl.core.log_events`, etc.) were removed in Q4 2025;
+new code **MUST** import either from `bioetl.core` (preferred for public API) or
+from the canonical subpackages listed above.
+
 ## One Source, One Pipeline
 
 Each external data source **MUST** have exactly one public pipeline:
@@ -107,7 +132,7 @@ All pipelines **MUST** use unified components:
 ### UnifiedLogger
 
 ```python
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 
@@ -132,7 +157,7 @@ class MyPipeline(PipelineBase):
 ### UnifiedAPIClient
 
 ```python
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 
 class MyPipeline(PipelineBase):

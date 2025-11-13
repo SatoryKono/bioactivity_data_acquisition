@@ -2,29 +2,26 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.determinism_check import DeterminismRunResult
 from bioetl.tools.determinism_check import (
     run_determinism_check as run_determinism_check_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "run_determinism_check", "DeterminismRunResult"]
 
 run_determinism_check = run_determinism_check_sync
 
-app: TyperApp = create_app(
-    name="bioetl-determinism-check",
-    help_text="Execute two runs and compare their logs",
-)
-
-
-@app.command()
 def main(
     pipeline: list[str] | None = typer.Option(
         None,
@@ -66,6 +63,13 @@ def main(
         f"Report: {first_result.report_path.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-determinism-check",
+    help_text="Execute two runs and compare their logs",
+    main_fn=main,
+)
 
 
 def run() -> None:

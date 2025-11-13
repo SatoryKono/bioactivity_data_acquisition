@@ -1,4 +1,4 @@
-"""Иерархия высокоуровневых исключений пайплайнов BioETL."""
+"""High-level exception hierarchy for BioETL pipelines."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from builtins import ConnectionError as BuiltinConnectionError
 from builtins import TimeoutError as BuiltinTimeoutError
 
 from bioetl.clients import client_exceptions
-from bioetl.core.api_client import CircuitBreakerOpenError
+from bioetl.core.http import CircuitBreakerOpenError
 
 __all__ = [
     "PipelineError",
@@ -17,23 +17,23 @@ __all__ = [
 ]
 
 class PipelineError(Exception):
-    """Базовое исключение пайплайна."""
+    """Base exception for pipeline failures."""
 
 
 class PipelineNetworkError(PipelineError):
-    """Ошибка сетевого взаимодействия в пайплайне."""
+    """Network interaction error raised inside a pipeline."""
 
 
 class PipelineTimeoutError(PipelineNetworkError):
-    """Истек таймаут во время сетевого вызова."""
+    """Timeout raised during a network call."""
 
 
 class PipelineHTTPError(PipelineNetworkError):
-    """HTTP-ошибка в процессе сетевого вызова."""
+    """HTTP-layer failure raised during a network call."""
 
 
 def map_client_exc(exc: Exception) -> PipelineError:
-    """Сопоставить исключение клиента с иерархией пайплайна."""
+    """Map client-level exceptions to the pipeline hierarchy."""
 
     if isinstance(exc, PipelineError):
         return exc

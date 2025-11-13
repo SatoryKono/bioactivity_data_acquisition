@@ -203,7 +203,7 @@ class TestAssayParametersEnrichment:
         df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
 
         mock_client = MagicMock(spec=ChemblClient)
-        # Параметр с исходными значениями, но без standard_*
+        # Parameter contains raw values but lacks standard_* fields.
         mock_client.fetch_assay_parameters_by_assay_ids.return_value = {
             "CHEMBL1": [
                 {
@@ -212,7 +212,7 @@ class TestAssayParametersEnrichment:
                     "value": 37.0,
                     "units": "°C",
                     "text_value": None,
-                    # Нет standard_* полей
+                    # No standard_* fields provided.
                 },
             ],
         }
@@ -237,10 +237,10 @@ class TestAssayParametersEnrichment:
         import json
 
         params = json.loads(result["assay_parameters"].iloc[0])
-        # Исходные значения должны быть сохранены
+        # Original values must remain intact.
         assert params[0]["type"] == "TEMPERATURE"
         assert params[0]["value"] == 37.0
-        # standard_* должны быть None (не копируются автоматически)
+        # standard_* fields should remain None (they are not copied automatically).
         assert params[0].get("standard_type") is None
         assert params[0].get("standard_value") is None
 

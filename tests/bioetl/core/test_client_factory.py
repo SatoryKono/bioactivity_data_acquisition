@@ -10,8 +10,7 @@ from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.client_factory import APIClientFactory
+from bioetl.core import APIClientFactory, UnifiedAPIClient
 
 
 @pytest.fixture
@@ -66,7 +65,7 @@ class TestAPIClientFactory:
         """Test building a client with default configuration."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -82,7 +81,7 @@ class TestAPIClientFactory:
         """Test building a client with source name."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -96,7 +95,7 @@ class TestAPIClientFactory:
         """Test building a client with HTTP profile."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -112,7 +111,7 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         overrides = HTTPClientConfig(timeout_sec=60.0)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -126,7 +125,7 @@ class TestAPIClientFactory:
         """Test building a client with custom name."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -147,7 +146,7 @@ class TestAPIClientFactory:
         """Test building a client for a specific source."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -164,10 +163,13 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         # Add max_url_length to source parameters
         source_config = pipeline_config.sources["chembl"]
-        source_config.parameters = source_config.parameters or {}
-        source_config.parameters["max_url_length"] = 2000
+        updated_parameters = dict(source_config.parameters or {})
+        updated_parameters["max_url_length"] = 2000
+        pipeline_config.sources["chembl"] = source_config.model_copy(
+            update={"parameters": updated_parameters}
+        )
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -183,11 +185,16 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         # Add HTTP overrides to source config
         source_config = pipeline_config.sources["chembl"]
-        source_config.http = HTTPClientConfig(timeout_sec=45.0)
-        source_config.parameters = source_config.parameters or {}
-        source_config.parameters["max_url_length"] = 2000
+        updated_parameters = dict(source_config.parameters or {})
+        updated_parameters["max_url_length"] = 2000
+        pipeline_config.sources["chembl"] = source_config.model_copy(
+            update={
+                "http": HTTPClientConfig(timeout_sec=45.0),
+                "parameters": updated_parameters,
+            }
+        )
 
-        with patch("bioetl.core.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 

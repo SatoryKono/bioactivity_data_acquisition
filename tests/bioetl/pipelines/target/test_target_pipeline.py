@@ -11,6 +11,7 @@ import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.config import PipelineConfig
+from bioetl.core import UnifiedLogger
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
@@ -47,8 +48,6 @@ class TestChemblTargetPipeline:
         mock_client = Mock(spec=ChemblClient)
         mock_client.handshake.return_value = {"chembl_db_version": "31"}
 
-        from bioetl.core.logger import UnifiedLogger
-
         log = UnifiedLogger.get(__name__)
         result = pipeline._fetch_chembl_release(
             mock_client, log
@@ -68,8 +67,6 @@ class TestChemblTargetPipeline:
                 "pref_name": ["Target 1", "Target 2"],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._harmonize_identifier_columns(
@@ -91,8 +88,6 @@ class TestChemblTargetPipeline:
                 "target_chembl_id": [" CHEMBL1 ", "CHEMBL2", "INVALID", None],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._normalize_identifiers(df, log)  # noqa: SLF001  # type: ignore[arg-type]
@@ -116,8 +111,6 @@ class TestChemblTargetPipeline:
             }
         )
 
-        from bioetl.core.logger import UnifiedLogger
-
         log = UnifiedLogger.get(__name__)
         result = pipeline._normalize_string_fields(
             df, log
@@ -138,8 +131,6 @@ class TestChemblTargetPipeline:
                 "component_count": ["1", "2", None, "invalid"],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._normalize_data_types(
@@ -165,8 +156,6 @@ class TestChemblTargetPipeline:
                 "pref_name": ["Target 1"],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._ensure_schema_columns(
@@ -257,8 +246,6 @@ class TestChemblTargetPipeline:
 
         df = pd.DataFrame()
 
-        from bioetl.core.logger import UnifiedLogger
-
         log = UnifiedLogger.get(__name__)
         result = pipeline._enrich_protein_classifications(
             df, log
@@ -273,8 +260,6 @@ class TestChemblTargetPipeline:
         pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame({"pref_name": ["Target 1"]})
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._enrich_protein_classifications(
@@ -295,8 +280,6 @@ class TestChemblTargetPipeline:
                 "target_chembl_id": ["CHEMBL1"],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         chembl_client_mock = Mock()
@@ -333,8 +316,6 @@ class TestChemblTargetPipeline:
                 "protein_class_top": ['{"protein_class_id": "1"}'],
             }
         )
-
-        from bioetl.core.logger import UnifiedLogger
 
         log = UnifiedLogger.get(__name__)
         result = pipeline._enrich_protein_classifications(

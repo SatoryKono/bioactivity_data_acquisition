@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from math import isnan
 from typing import Any, Protocol
 
-from bioetl.core.logger import UnifiedLogger
+from bioetl.clients.chembl_config import EntityConfig
+from bioetl.core.logging import UnifiedLogger
 
 __all__ = [
-    "EntityConfig",
     "ChemblEntityFetcherBase",
     "ChemblClientProtocol",
-    "make_entity_config",
+    "EntityConfig",
 ]
 
 
 class ChemblClientProtocol(Protocol):
-    """Минимальный контракт клиента ChEMBL, используемый фетчерами."""
+    """Minimal contract for a ChEMBL client consumed by entity fetchers."""
 
     def paginate(
         self,
@@ -28,134 +27,24 @@ class ChemblClientProtocol(Protocol):
         page_size: int = 200,
         items_key: str | None = None,
     ) -> Iterator[Mapping[str, Any]]:
+        """Iterate over paginated responses from the ChEMBL API."""
         ...
 
-
-@dataclass(frozen=True, kw_only=True)
-class EntityConfig:
-    """Конфигурация для работы с сущностью ChEMBL.
-
-    Attributes
-    ----------
-    endpoint:
-        API endpoint для сущности, например "/assay.json".
-    filter_param:
-        Имя параметра фильтрации, например "assay_chembl_id__in".
-    id_key:
-        Ключ ID в записи, например "assay_chembl_id".
-    items_key:
-        Ключ массива записей в ответе API, например "assays".
-    log_prefix:
-        Префикс для логирования, например "assay".
-    chunk_size:
-        Размер чанка для батчинга запросов. По умолчанию 100.
-    supports_list_result:
-        Если True, результат может содержать списки записей для одного ID.
-        По умолчанию False (один объект на ID).
-    dedup_priority:
-        Функция для дедупликации записей при конфликте.
-        Принимает (existing, new) и возвращает выбранную запись.
-        По умолчанию None (используется последняя запись).
-    """
-
-    endpoint: str
-    filter_param: str
-    id_key: str
-    items_key: str
-    log_prefix: str
-    chunk_size: int = 100
-    supports_list_result: bool = False
-    dedup_priority: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None
-    base_endpoint_length: int = 0  # Базовая длина endpoint для расчета длины URL
-    enable_url_length_check: bool = False  # Включить проверку длины URL
-
-
-def make_entity_config(
-    *,
-    endpoint: str,
-    filter_param: str,
-    id_key: str,
-    items_key: str,
-    log_prefix: str,
-    chunk_size: int = 100,
-    supports_list_result: bool = False,
-    dedup_priority: Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]] | None = None,
-    base_endpoint_length: int = 0,
-    enable_url_length_check: bool = False,
-) -> EntityConfig:
-    """Создать EntityConfig с едиными инвариантами.
-
-    Parameters
-    ----------
-    endpoint, filter_param, id_key, items_key, log_prefix:
-        Непустые строковые параметры конфигурации.
-    chunk_size:
-        Положительный размер чанка.
-    supports_list_result:
-        Флаг поддержки множественных результатов.
-    dedup_priority:
-        Пользовательская функция дедупликации.
-    base_endpoint_length, enable_url_length_check:
-        Параметры контроля длины URL.
-
-    Returns
-    -------
-    EntityConfig
-        Экземпляр конфигурации без побочных эффектов.
-
-    Raises
-    ------
-    ValueError
-        Если строковые параметры пустые или chunk_size <= 0.
-    """
-
-    for field_name, value in (
-        ("endpoint", endpoint),
-        ("filter_param", filter_param),
-        ("id_key", id_key),
-        ("items_key", items_key),
-        ("log_prefix", log_prefix),
-    ):
-        if not isinstance(value, str) or not value.strip():
-            raise ValueError(f"{field_name} должен быть непустой строкой, получено {value!r}")
-
-    if not isinstance(chunk_size, int) or isinstance(chunk_size, bool) or chunk_size <= 0:
-        raise ValueError(
-            f"chunk_size должен быть положительным целым числом, получено {chunk_size!r}",
-        )
-
-    return EntityConfig(
-        endpoint=endpoint,
-        filter_param=filter_param,
-        id_key=id_key,
-        items_key=items_key,
-        log_prefix=log_prefix,
-        chunk_size=chunk_size,
-        supports_list_result=supports_list_result,
-        dedup_priority=dedup_priority,
-        base_endpoint_length=base_endpoint_length,
-        enable_url_length_check=enable_url_length_check,
-    )
-
-
-
-
 class ChemblEntityFetcherBase:
-    """Базовый класс для получения сущностей ChEMBL по ID.
+    """Base helper for fetching ChEMBL entities by identifier.
 
-    Предоставляет унифицированный интерфейс для работы с различными
-    типами сущностей ChEMBL API.
+    Provides a unified interface shared across multiple ChEMBL API entities.
     """
 
     def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None:
-        """Инициализировать fetcher для сущности.
+        """Initialize the fetcher for a ChEMBL entity.
 
         Parameters
         ----------
         chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
+            ChemblClient-compatible implementation that executes requests.
         config:
-            Конфигурация сущности.
+            Entity configuration describing endpoint details.
         """
         self._chembl_client: ChemblClientProtocol = chembl_client
         self._config = config
@@ -170,28 +59,28 @@ class ChemblEntityFetcherBase:
         fields: Sequence[str],
         page_limit: int = 1000,
     ) -> dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]:
-        """Получить записи сущности по ID.
+        """Retrieve entity payloads by identifiers.
 
         Parameters
         ----------
         ids:
-            Итерируемый объект с ID для получения.
+            Iterable with identifiers that should be fetched.
         fields:
-            Список полей для получения из API.
+            Collection of fields requested from the API.
         page_limit:
-            Размер страницы для пагинации.
+            Page size passed to the API.
 
         Returns
         -------
         dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]:
-            Словарь, ключ - ID, значение - запись или список записей
-            (в зависимости от supports_list_result).
+            Mapping of IDs to a record or list of records
+            (depends on ``supports_list_result``).
 
         Notes
         -----
-        Обработка NaN реализована без pandas: используется math.isnan для float.
+        NaN handling is implemented without pandas by using :func:`math.isnan` for floats.
         """
-        # Нормализация и фильтрация ID
+        # Normalize and filter identifiers
         unique_ids: set[str] = set()
         for entity_id in ids:
             if entity_id is None:
@@ -213,7 +102,7 @@ class ChemblEntityFetcherBase:
                 return {}
             return {}
 
-        # Обработка чанками
+        # Process identifiers in chunks
         all_records: list[dict[str, Any]] = []
         ids_list = list(unique_ids)
 
@@ -223,7 +112,7 @@ class ChemblEntityFetcherBase:
                 self._config.filter_param: ",".join(chunk),
                 "limit": page_limit,
             }
-            # Параметр only для выбора полей
+            # Include the ``only`` parameter to limit returned fields
             if fields:
                 params["only"] = ",".join(sorted(fields))
 
@@ -243,7 +132,7 @@ class ChemblEntityFetcherBase:
                     exc_info=True,
                 )
 
-        # Построение результата
+        # Build the result mapping
         if self._config.supports_list_result:
             return self._build_list_result(all_records, unique_ids)
         return self._build_dict_result(all_records, unique_ids)
@@ -253,23 +142,23 @@ class ChemblEntityFetcherBase:
         records: list[dict[str, Any]],
         unique_ids: set[str],
     ) -> dict[str, dict[str, Any]]:
-        """Построить словарь результат (один объект на ID).
+        """Build the final mapping with a single record per identifier.
 
         Parameters
         ----------
         records:
-            Список всех полученных записей.
+            Collection of fetched records.
         unique_ids:
-            Множество запрошенных ID.
+            Set of requested identifiers.
 
         Returns
         -------
         dict[str, dict[str, Any]]:
-            Словарь ID -> запись.
+            Mapping ``ID -> record``.
         """
         result: dict[str, dict[str, Any]] = {}
         for record in records:
-            entity_id_raw = record.get(self._config.id_key)
+            entity_id_raw = record.get(self._config.id_field)
             if not entity_id_raw:
                 continue
             if not isinstance(entity_id_raw, str):
@@ -279,7 +168,7 @@ class ChemblEntityFetcherBase:
             if entity_id not in result:
                 result[entity_id] = record
             elif self._config.dedup_priority:
-                # Использовать функцию приоритета для дедупликации
+                # Apply the priority function when deduplicating records
                 existing = result[entity_id]
                 result[entity_id] = self._config.dedup_priority(existing, record)
 
@@ -296,23 +185,23 @@ class ChemblEntityFetcherBase:
         records: list[dict[str, Any]],
         unique_ids: set[str],
     ) -> dict[str, list[dict[str, Any]]]:
-        """Построить словарь результат (список объектов на ID).
+        """Build the final mapping with a list of records per identifier.
 
         Parameters
         ----------
         records:
-            Список всех полученных записей.
+            Collection of fetched records.
         unique_ids:
-            Множество запрошенных ID.
+            Set of requested identifiers.
 
         Returns
         -------
         dict[str, list[dict[str, Any]]]:
-            Словарь ID -> список записей.
+            Mapping ``ID -> list of records``.
         """
         result: dict[str, list[dict[str, Any]]] = {}
         for record in records:
-            entity_id_raw = record.get(self._config.id_key)
+            entity_id_raw = record.get(self._config.id_field)
             if not entity_id_raw:
                 continue
             if not isinstance(entity_id_raw, str):

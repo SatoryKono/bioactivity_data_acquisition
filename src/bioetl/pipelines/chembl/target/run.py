@@ -18,8 +18,8 @@ from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.log_events import LogEvents
-from bioetl.core.normalizers import (
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
     normalize_identifier_columns,
@@ -27,7 +27,7 @@ from bioetl.core.normalizers import (
 )
 from bioetl.schemas.chembl_target_schema import COLUMN_ORDER, TargetSchema
 
-from ...chembl_descriptor import (
+from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,

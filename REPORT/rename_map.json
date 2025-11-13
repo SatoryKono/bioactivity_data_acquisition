@@ -73,15 +73,15 @@
   },
   {
     "old_path": "src/bioetl/cli/tools/_typer.py",
-    "new_path": "src/bioetl/cli/tools/cli__typer.py",
+    "new_path": "src/bioetl/cli/tools/typer_helpers.py",
     "scope": "file",
     "rationale_rule_id": "NR-004"
   },
   {
-    "old_path": "src/bioetl/cli/tools/_typer.py::_load_typer",
-    "new_path": "src/bioetl/cli/tools/_typer.py::load_typer",
-    "scope": "symbol",
-    "rationale_rule_id": "NR-011"
+    "old_path": "src/bioetl/cli/tools/_qc_boundary.py",
+    "new_path": "src/bioetl/cli/tools/qc_boundary.py",
+    "scope": "file",
+    "rationale_rule_id": "NR-004"
   },
   {
     "old_path": "src/bioetl/cli/tools/audit_docs.py",

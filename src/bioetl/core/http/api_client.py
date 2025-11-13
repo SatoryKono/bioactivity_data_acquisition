@@ -14,13 +14,12 @@ from typing import Any, Literal, cast
 from urllib.parse import urljoin
 from uuid import uuid4
 
-import requests
+import requests as _requests
 from requests import Response
 from requests.exceptions import HTTPError, RequestException, Timeout
 
 from bioetl.config.models.http import CircuitBreakerConfig, HTTPClientConfig
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "TokenBucketLimiter",
@@ -28,7 +27,10 @@ __all__ = [
     "CircuitBreakerOpenError",
     "UnifiedAPIClient",
     "merge_http_configs",
+    "requests",
 ]
+
+requests = _requests
 
 
 class CircuitBreakerOpenError(RequestException):

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -13,6 +13,22 @@ class WriteResult:
     metadata: Path | None
     correlation_report: Path | None
     qc_metrics: Path | None
+    extras: dict[str, Path]
+
+
+class WriteArtifacts:
+    dataset: Path
+    metadata: Path | None
+    quality_report: Path | None
+    correlation_report: Path | None
+    qc_metrics: Path | None
+
+
+class RunArtifacts:
+    write: WriteArtifacts
+    run_directory: Path
+    manifest: Path | None
+    log_file: Path
     extras: dict[str, Path]
 
 
@@ -104,10 +120,12 @@ __all__ = [
     "DocumentPipeline",
     "PipelineBase",
     "PipelineRunOptions",
+    "RunArtifacts",
     "RunResult",
     "TargetPipeline",
     "TestItemChemblPipeline",
     "TestItemPipeline",
+    "WriteArtifacts",
     "WriteResult",
 ]
 

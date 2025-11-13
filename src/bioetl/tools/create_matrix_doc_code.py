@@ -1,4 +1,4 @@
-"""Матрица трассировки документации к коду."""
+"""Construct a Doc↔Code traceability matrix for pipeline contracts."""
 
 from __future__ import annotations
 
@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -24,7 +24,7 @@ PROJECT_ROOT = get_project_root()
 
 @dataclass(frozen=True)
 class DocCodeMatrix:
-    """Результат генерации матрицы Doc↔Code."""
+    """Traceability matrix rows with output artifact locations."""
 
     rows: tuple[dict[str, Any], ...]
     csv_path: Path
@@ -32,7 +32,7 @@ class DocCodeMatrix:
 
 
 def build_matrix() -> list[dict[str, Any]]:
-    """Создаёт матрицу трассировки Doc↔Code."""
+    """Build the Doc↔Code traceability matrix entries."""
 
     matrix: list[dict[str, Any]] = []
 
@@ -42,7 +42,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/base.py",
             "code_symbol": "PipelineBase.extract",
             "pipeline": "base",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -51,7 +51,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/base.py",
             "code_symbol": "PipelineBase.transform",
             "pipeline": "base",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -60,7 +60,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/base.py",
             "code_symbol": "PipelineBase.validate",
             "pipeline": "base",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -69,7 +69,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/base.py",
             "code_symbol": "PipelineBase.write",
             "pipeline": "base",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -78,7 +78,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/base.py",
             "code_symbol": "PipelineBase.run",
             "pipeline": "base",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -90,7 +90,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/cli/registry.py",
             "code_symbol": "COMMAND_REGISTRY['activity_chembl']",
             "pipeline": "activity",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -99,7 +99,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "configs/pipelines/activity/activity_chembl.yaml",
             "code_symbol": "activity.yaml",
             "pipeline": "activity",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -108,7 +108,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/chembl/activity.py",
             "code_symbol": "ChemblActivityPipeline",
             "pipeline": "activity",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -120,7 +120,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/cli/registry.py",
             "code_symbol": "COMMAND_REGISTRY['assay_chembl']",
             "pipeline": "assay",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -129,7 +129,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "configs/pipelines/assay/assay_chembl.yaml",
             "code_symbol": "assay.yaml",
             "pipeline": "assay",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -138,7 +138,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/chembl/assay.py",
             "code_symbol": "ChemblAssayPipeline",
             "pipeline": "assay",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -150,7 +150,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/cli/registry.py",
             "code_symbol": "COMMAND_REGISTRY['testitem']",
             "pipeline": "testitem",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -159,7 +159,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "configs/pipelines/testitem/testitem_chembl.yaml",
             "code_symbol": "testitem.yaml",
             "pipeline": "testitem",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -168,7 +168,7 @@ def build_matrix() -> list[dict[str, Any]]:
             "code_file": "src/bioetl/pipelines/chembl/testitem.py",
             "code_symbol": "TestItemChemblPipeline",
             "pipeline": "testitem",
-            "contract": "обязательный",
+            "contract": "mandatory",
             "status": "ok",
             "action": "verify",
         },
@@ -183,7 +183,7 @@ def build_matrix() -> list[dict[str, Any]]:
 
 
 def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
-    """Записывает матрицу в CSV и JSON, возвращает результат."""
+    """Persist the matrix to CSV and JSON artifacts and return their locations."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

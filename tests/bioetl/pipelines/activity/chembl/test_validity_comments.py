@@ -49,7 +49,7 @@ class TestValidityCommentsExtraction:
         """Test that extract guarantees presence of comment fields even with empty values."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # DataFrame без полей комментариев
+        # DataFrame without comment fields.
         df = pd.DataFrame({"activity_id": [1, 2, 3]})
 
         result = pipeline._ensure_comment_fields(df, MagicMock())  # type: ignore[reportPrivateUsage]
@@ -58,7 +58,7 @@ class TestValidityCommentsExtraction:
         assert "data_validity_comment" in result.columns
         assert "data_validity_description" in result.columns
 
-        # Проверка что поля добавлены с pd.NA
+        # Ensure the fields default to pd.NA.
         assert result["activity_comment"].isna().all()
         assert result["data_validity_comment"].isna().all()
         assert result["data_validity_description"].isna().all()
@@ -100,7 +100,7 @@ class TestValidityCommentsMetrics:
         log = MagicMock()
         pipeline._log_validity_comments_metrics(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Не должно быть ошибок, но и не должно быть вызовов логирования
+        # Should not raise errors or emit logging calls.
         log.info.assert_not_called()
 
     def test_metrics_logging_na_rates(
@@ -121,18 +121,18 @@ class TestValidityCommentsMetrics:
         log = MagicMock()
         pipeline._log_validity_comments_metrics(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Проверка что логирование вызвано
+        # Ensure logging is performed.
         log.info.assert_called_once()
 
-        # Проверка аргументов вызова
+        # Validate logged payload.
         call_args = log.info.call_args
         assert call_args[0][0] == "validity_comments_metrics"
 
         metrics = call_args[1]
         assert "activity_comment_na_rate" in metrics
-        assert metrics["activity_comment_na_rate"] == 0.6  # 3 из 5
-        assert metrics["data_validity_comment_na_rate"] == 0.6  # 3 из 5
-        assert metrics["data_validity_description_na_rate"] == 0.8  # 4 из 5
+        assert metrics["activity_comment_na_rate"] == 0.6  # 3 out of 5.
+        assert metrics["data_validity_comment_na_rate"] == 0.6  # 3 out of 5.
+        assert metrics["data_validity_description_na_rate"] == 0.8  # 4 out of 5.
 
     def test_metrics_logging_top_10_values(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -181,9 +181,9 @@ class TestValidityCommentsMetrics:
             {
                 "activity_id": [1, 2, 3],
                 "data_validity_comment": [
-                    "Manually validated",  # В whitelist
-                    "Unknown value",  # Не в whitelist
-                    "Another unknown",  # Не в whitelist
+                    "Manually validated",  # Present in whitelist.
+                    "Unknown value",  # Not in whitelist.
+                    "Another unknown",  # Not in whitelist.
                 ],
             }
         )
@@ -191,7 +191,7 @@ class TestValidityCommentsMetrics:
         log = MagicMock()
         pipeline._log_validity_comments_metrics(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Проверка warning о неизвестных значениях
+        # Ensure a warning is emitted for unknown values.
         log.warning.assert_called_once()
         warning_call = log.warning.call_args
         assert warning_call[0][0] == "unknown_data_validity_comments_detected"
@@ -219,18 +219,18 @@ class TestValidityCommentsSoftEnum:
             {
                 "activity_id": [1, 2, 3],
                 "data_validity_comment": [
-                    "Manually validated",  # В whitelist
-                    "Unknown value",  # Не в whitelist
-                    "Another unknown",  # Не в whitelist
+                    "Manually validated",  # Present in whitelist.
+                    "Unknown value",  # Not in whitelist.
+                    "Another unknown",  # Not in whitelist.
                 ],
             }
         )
 
         log = MagicMock()
-        # Soft enum не должен падать, только логировать
+        # Soft enum should log warnings without failing.
         pipeline._validate_data_validity_comment_soft_enum(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Проверка warning
+        # Verify warning emission.
         log.warning.assert_called_once()
         warning_call = log.warning.call_args
         assert warning_call[0][0] == "soft_enum_unknown_data_validity_comment"
@@ -240,7 +240,7 @@ class TestValidityCommentsSoftEnum:
     def test_soft_enum_validation_missing_whitelist_raises(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
-        """Test that soft enum validation fails fast when whitelist недоступен."""
+        """Test that soft enum validation fails fast when the whitelist is unavailable."""
         config = pipeline_config_fixture
 
         with patch(
@@ -282,7 +282,7 @@ class TestValidityCommentsSoftEnum:
         log = MagicMock()
         pipeline._validate_data_validity_comment_soft_enum(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Не должно быть предупреждений если все значения валидны
+        # No warnings should be emitted when values are valid.
         log.warning.assert_not_called()
 
 
@@ -300,14 +300,14 @@ class TestValidityCommentsInvariant:
             {
                 "activity_id": [1, 2, 3],
                 "data_validity_comment": ["Valid", None, None],
-                "data_validity_description": ["Desc 1", "Desc 2", None],  # Desc 2 без comment
+                "data_validity_description": ["Desc 1", "Desc 2", None],  # "Desc 2" lacks comment.
             }
         )
 
         log = MagicMock()
         pipeline._normalize_string_fields(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Проверка warning о нарушении инварианта
+        # Ensure the invariant violation triggers a warning.
         log.warning.assert_called()
         warning_calls = [call[0][0] for call in log.warning.call_args_list]
         assert "invariant_data_validity_description_without_comment" in warning_calls
@@ -329,7 +329,7 @@ class TestValidityCommentsInvariant:
         log = MagicMock()
         pipeline._normalize_string_fields(df, log)  # type: ignore[reportPrivateUsage]
 
-        # Не должно быть предупреждений о нарушении инварианта
+        # No invariant violation warnings should appear.
         warning_calls = [call[0][0] for call in log.warning.call_args_list]
         assert "invariant_data_validity_description_without_comment" not in warning_calls
 
@@ -390,7 +390,7 @@ class TestValidityCommentsOnlyFields:
         """Test that data_validity_description is extracted via fetch_data_validity_lookup in extract."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # Создать DataFrame с data_validity_comment
+        # Build a DataFrame including data_validity_comment.
         df = pd.DataFrame(
             {
                 "activity_id": [1, 2, 3],
@@ -402,7 +402,7 @@ class TestValidityCommentsOnlyFields:
             }
         )
 
-        # Mock ChemblClient и fetch_data_validity_lookup
+        # Mock ChemblClient and fetch_data_validity_lookup.
         from bioetl.clients.client_chembl_common import ChemblClient
 
         mock_api_client = MagicMock()
@@ -423,20 +423,20 @@ class TestValidityCommentsOnlyFields:
         log = MagicMock()
         result = pipeline._extract_data_validity_descriptions(df, mock_chembl_client, log)  # type: ignore[reportPrivateUsage]
 
-        # Проверка что fetch_data_validity_lookup был вызван
+        # Confirm fetch_data_validity_lookup was invoked.
         mock_chembl_client.fetch_data_validity_lookup.assert_called_once()
 
-        # Проверка что data_validity_description добавлен
+        # Confirm data_validity_description is populated.
         assert "data_validity_description" in result.columns
 
-        # Проверка что значения корректно заполнены
+        # Ensure values are filled correctly.
         assert (
             result["data_validity_description"].iloc[0] == "This record has been manually validated"
         )
         assert result["data_validity_description"].iloc[1] == "Value is outside the typical range"
-        assert pd.isna(result["data_validity_description"].iloc[2])  # None для пустого comment
+        assert pd.isna(result["data_validity_description"].iloc[2])  # None for empty comment.
 
-        # Проверка что вызов был с правильными параметрами
+        # Verify the call used correct parameters.
         call_args = mock_chembl_client.fetch_data_validity_lookup.call_args
         assert set(call_args.kwargs["comments"]) == {"Manually validated", "Outside typical range"}
         assert call_args.kwargs["fields"] == ["data_validity_comment", "description"]

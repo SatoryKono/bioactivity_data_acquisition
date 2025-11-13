@@ -16,7 +16,7 @@ from typing import Any, Final, TypeGuard, cast
 
 import yaml
 
-from bioetl.core.errors import BioETLError
+from bioetl.core.runtime.errors import BioETLError
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}

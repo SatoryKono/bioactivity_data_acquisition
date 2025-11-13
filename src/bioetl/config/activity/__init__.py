@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from pydantic import Field, PositiveInt, model_validator
 
-from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
+from bioetl.core.runtime import BaseSourceConfig, BaseSourceParameters
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig

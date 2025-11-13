@@ -9,9 +9,9 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.core.frame import ensure_columns
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.io import ensure_columns
+from bioetl.core.logging import LogEvents
+from bioetl.core.logging import UnifiedLogger
 from bioetl.schemas.chembl_document_enrichment import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
@@ -26,12 +26,12 @@ def _escape_pipe(value: str | Any) -> str:
     Parameters
     ----------
     value:
-        Input value to escape. ``None`` и NA приводятся к пустой строке.
+        Input value to escape. ``None`` and NA become an empty string.
 
     Returns
     -------
     str:
-        Строка с экранированными разделителями: ``|`` → ``\\|``, ``\\`` → ``\\\\``.
+        String with escaped delimiters: ``|`` → ``\\|``, ``\\`` → ``\\\\``.
     """
 
     if value is None or pd.isna(value):
@@ -134,21 +134,21 @@ def enrich_with_document_terms(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame документов полями из document_term.
+    """Enrich the document DataFrame with document_term fields.
 
     Parameters
     ----------
     df_docs:
-        DataFrame с данными документов, должен содержать document_chembl_id.
+        Document DataFrame; must contain `document_chembl_id`.
     client:
-        ChemblClient для запросов к ChEMBL API.
+        ChemblClient used for ChEMBL API requests.
     cfg:
-        Конфигурация обогащения из config.chembl.document.enrich.document_term.
+        Enrichment configuration from `config.chembl.document.enrich.document_term`.
 
     Returns
     -------
     pd.DataFrame:
-        Обогащенный DataFrame с добавленными колонками:
+        Enriched DataFrame with added columns:
         - term (nullable string, pipe-separated terms)
         - weight (nullable string, pipe-separated weights)
     """
@@ -179,7 +179,7 @@ def enrich_with_document_terms(
         prepared_empty = _ensure_term_columns(df_docs)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_empty, lazy=True)
 
-    # Проверка наличия необходимых колонок
+    # Ensure required columns are present.
     required_cols = ["document_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_docs.columns]
     if missing_cols:
@@ -189,16 +189,16 @@ def enrich_with_document_terms(
         prepared_missing = _ensure_term_columns(df_docs)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_missing, lazy=True)
 
-    # Собрать уникальные document_chembl_id, dropna
+    # Collect unique document_chembl_id values, dropping NA.
     doc_ids: list[str] = []
     for _, row in df_docs.iterrows():
         doc_id = row.get("document_chembl_id")
 
-        # Пропускаем NaN/None значения
+        # Skip NaN/None values.
         if pd.isna(doc_id) or doc_id is None:
             continue
 
-        # Преобразуем в строку
+        # Convert to string.
         doc_id_str = str(doc_id).strip()
 
         if doc_id_str:
@@ -208,12 +208,12 @@ def enrich_with_document_terms(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
 
-    # Получить конфигурацию
+    # Retrieve configuration.
     fields = cfg.get("select_fields", ["document_chembl_id", "term", "weight"])
     page_limit = cfg.get("page_limit", 1000)
     sort = cfg.get("sort", "weight_desc")
 
-    # Вызвать client.fetch_document_terms_by_ids
+    # Call client.fetch_document_terms_by_ids.
     log.info(LogEvents.ENRICHMENT_FETCHING_TERMS, ids_count=len(set(doc_ids)))
     records_dict = client.fetch_document_terms_by_ids(
         ids=doc_ids,
@@ -221,15 +221,15 @@ def enrich_with_document_terms(
         page_limit=page_limit,
     )
 
-    # Преобразовать dict[doc_id, list[records]] в плоский список для aggregate_terms
+    # Flatten dict[doc_id, list[records]] into rows for aggregate_terms.
     all_records: list[dict[str, Any]] = []
     for records_list in records_dict.values():
         all_records.extend(records_list)
 
-    # Агрегировать термины
+    # Aggregate terms.
     agg_result = aggregate_terms(all_records, sort=sort)
 
-    # Создать DataFrame для join
+    # Build DataFrame for the join.
     enrichment_data: list[dict[str, Any]] = []
     for doc_id, term_weight in agg_result.items():
         enrichment_data.append(
@@ -247,8 +247,7 @@ def enrich_with_document_terms(
 
     df_enrich = pd.DataFrame(enrichment_data)
 
-    # Left-join обратно к df_docs на document_chembl_id
-    # Сохраняем исходный порядок строк через индекс
+    # Left-join back to df_docs on document_chembl_id, preserving index order.
     original_index = df_docs.index.copy()
     df_result = df_docs.merge(
         df_enrich,
@@ -257,7 +256,7 @@ def enrich_with_document_terms(
         suffixes=("", "_enrich"),
     )
 
-    # Перенести значения из *_enrich в основные колонки
+    # Move values from *_enrich columns into main columns.
     for col in ["term", "weight"]:
         enrich_col = f"{col}_enrich"
         if enrich_col in df_result.columns:
@@ -266,7 +265,7 @@ def enrich_with_document_terms(
             df_result[col] = base_series.where(pd.notna(base_series), enrich_series)
             df_result = df_result.drop(columns=[enrich_col])
 
-    # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
+    # Ensure all expected columns exist (fill NA where missing).
     for col in ["term", "weight"]:
         if col not in df_result.columns:
             df_result[col] = pd.Series(
@@ -282,7 +281,7 @@ def enrich_with_document_terms(
             df_result.loc[na_mask, col] = ""
         df_result[col] = df_result[col].astype("string")
 
-    # Восстановить исходный порядок
+    # Restore original row order.
     df_result = df_result.reindex(original_index)
     df_result = _ensure_term_columns(df_result)
 

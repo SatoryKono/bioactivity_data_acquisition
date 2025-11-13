@@ -11,7 +11,7 @@ __all__ = ["ChemblDataValidityEntityClient"]
 
 
 class ChemblDataValidityEntityClient(ChemblEntityClientBase):
-    """Клиент для получения data_validity_lookup записей из ChEMBL API."""
+    """Client for retrieving ``data_validity_lookup`` records from the ChEMBL API."""
 
     CONFIG: ClassVar[EntityConfig] = make_entity_config(
         endpoint="/data_validity_lookup.json",

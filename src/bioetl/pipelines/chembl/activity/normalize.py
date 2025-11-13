@@ -9,9 +9,9 @@ import numpy as np
 import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.core.frame import ensure_columns
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.io import ensure_columns
+from bioetl.core.logging import LogEvents
+from bioetl.core.logging import UnifiedLogger
 from bioetl.schemas.chembl_activity_enrichment import (
     ASSAY_ENRICHMENT_SCHEMA,
     COMPOUND_RECORD_ENRICHMENT_SCHEMA,
@@ -50,7 +50,7 @@ _DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (("data_validity_descripti
 
 
 def _extract_first_present(record: Mapping[str, Any], keys: Iterable[str]) -> Any:
-    """Возвратить значение по первому доступному алиасу."""
+    """Return the first available alias value from the record."""
 
     for key in keys:
         if key in record:
@@ -69,12 +69,12 @@ def enrich_with_assay(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity полями из /assay (ChEMBL v2).
+    """Enrich the activity DataFrame with /assay fields (ChEMBL v2).
 
-    Требуемые входные колонки: assay_chembl_id.
-    Добавляет:
-      - assay_organism : pandas.StringDtype (nullable)
-      - assay_tax_id   : pandas.Int64Dtype  (nullable)
+    Required input column: `assay_chembl_id`.
+    Adds:
+      - `assay_organism` : pandas.StringDtype (nullable)
+      - `assay_tax_id`   : pandas.Int64Dtype  (nullable)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
@@ -84,37 +84,37 @@ def enrich_with_assay(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # 1) Валидация наличия ключа
+    # 1) Validate that the key column is available.
     if "assay_chembl_id" not in df_act.columns:
         log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"])
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # 2) Собрать уникальные валидные идентификаторы (без iterrows: быстрее и чище)
+    # 2) Collect unique valid identifiers (vectorized approach).
     assay_ids = df_act["assay_chembl_id"].dropna().astype(str).str.strip()
     assay_ids = assay_ids[assay_ids.ne("")].unique().tolist()
 
-    # Гарантируем наличие выходных колонок даже при пустом наборе ID
+    # Guarantee output columns even when the identifier set is empty.
     if not assay_ids:
         log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # 3) Конфигурация (явно фиксируем корректные имена полей ChEMBL /assay)
-    #    NB: В ChEMBL JSON поле называется 'assay_organism', не 'organism'
+    # 3) Configuration step (explicitly pin valid ChEMBL /assay field names).
+    #    Note: In the ChEMBL JSON payload the field is 'assay_organism', not 'organism'.
     fields_cfg = cfg.get(
         "fields",
         ["assay_chembl_id", "assay_organism", "assay_tax_id"],
     )
-    # Жёстко гарантируем, что критические поля присутствуют
+    # Ensure that mandatory fields are always present.
     required_fields = {"assay_chembl_id", "assay_organism", "assay_tax_id"}
     fields = list(dict.fromkeys(list(fields_cfg) + list(required_fields)))
 
     page_limit = int(cfg.get("page_limit", 1000))
 
-    # 4) Вызов клиента
-    # Ожидается, что клиент:
-    #  - проставит only=fields
-    #  - корректно пройдёт пагинацию по page_meta (limit/offset/next/total_count)
-    #  - вернёт dict: {assay_chembl_id: record_dict}
+    # 4) Execute client call.
+    # The client is expected to:
+    #  - set only=fields
+    #  - iterate pagination via page_meta (limit/offset/next/total_count)
+    #  - return dict: {assay_chembl_id: record_dict}
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAYS, ids_count=len(assay_ids))
     records_by_id: dict[str, dict[str, Any]] = (
         client.fetch_assays_by_ids(
@@ -125,7 +125,7 @@ def enrich_with_assay(
         or {}
     )
 
-    # 5) Построить таблицу обогащения (только нужные выходные поля)
+    # 5) Build enrichment table limited to the required output fields.
     if not records_by_id:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
@@ -142,7 +142,7 @@ def enrich_with_assay(
 
     df_enrich = pd.DataFrame(enrichment_rows)
 
-    # 6) Левый джойн по ключу, порядок строк — как во входном df_act
+    # 6) Execute left join preserving the input row order.
     original_index = df_act.index
     df_merged = df_act.merge(
         df_enrich,
@@ -152,7 +152,7 @@ def enrich_with_assay(
         suffixes=("", "_enrich"),
     ).reindex(original_index)
 
-    # 7) Приведение типов (софт)
+    # 7) Perform soft type coercion.
     if "assay_organism_enrich" in df_merged.columns:
         df_merged["assay_organism"] = df_merged["assay_organism_enrich"].combine_first(
             df_merged["assay_organism"]
@@ -171,7 +171,7 @@ def enrich_with_assay(
 
     df_merged["assay_organism"] = df_merged["assay_organism"].astype("string")
 
-    # assay_tax_id может приходить строкой — приводим к Int64 с NA
+    # assay_tax_id may arrive as a string — coerce to Int64 with NA support.
     df_merged["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
         df_merged["assay_tax_id"], errors="coerce"
     ).astype("Int64")
@@ -188,27 +188,27 @@ def enrich_with_compound_record(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity полями из compound_record.
+    """Enrich the activity DataFrame with compound_record fields.
 
     Parameters
     ----------
     df_act:
-        DataFrame с данными activity, должен содержать molecule_chembl_id.
-        Для строк с document_chembl_id используется путь через пары (molecule_chembl_id, document_chembl_id).
-        Для строк без document_chembl_id используется fallback через record_id.
+        Activity DataFrame; must contain `molecule_chembl_id`. For rows with
+        `document_chembl_id`, enrichment uses (molecule_chembl_id, document_chembl_id) pairs.
+        Rows without `document_chembl_id` fall back to `record_id`.
     client:
-        ChemblClient для запросов к ChEMBL API.
+        ChemblClient used for ChEMBL API requests.
     cfg:
-        Конфигурация обогащения из config.chembl.activity.enrich.compound_record.
+        Enrichment configuration from `config.chembl.activity.enrich.compound_record`.
 
     Returns
     -------
-    pd.DataFrame:
-        Обогащенный DataFrame с добавленными колонками:
-        - compound_name (nullable string) - из compound_record.compound_name
-        - compound_key (nullable string) - из compound_record.compound_key
-        - curated (nullable bool) - из compound_record.curated
-        - removed (nullable bool) - всегда NULL (не извлекается из ChEMBL)
+    pd.DataFrame
+        Enriched DataFrame with columns:
+        - `compound_name` (nullable string) from `compound_record.compound_name`
+        - `compound_key` (nullable string) from `compound_record.compound_key`
+        - `curated` (nullable bool) from `compound_record.curated`
+        - `removed` (nullable bool) always NULL (not supplied by ChEMBL)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
@@ -218,7 +218,7 @@ def enrich_with_compound_record(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # Проверка наличия необходимых колонок
+    # Verify that required columns are present.
     if "molecule_chembl_id" not in df_act.columns:
         log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=["molecule_chembl_id"],
@@ -227,10 +227,10 @@ def enrich_with_compound_record(
 
     df_act = df_act.copy()
 
-    # 1) Сохранение порядка строк: добавить временный столбец _row_id
+    # 1) Preserve input ordering: add temporary column _row_id.
     df_act["_row_id"] = np.arange(len(df_act))
 
-    # 2) Разделить DataFrame на две части: с document_chembl_id и без него
+    # 2) Split the DataFrame into rows with and without document_chembl_id.
     has_doc_id = "document_chembl_id" in df_act.columns
     if has_doc_id:
         mask_with_doc = df_act["document_chembl_id"].notna() & (
@@ -242,17 +242,17 @@ def enrich_with_compound_record(
         df_with_doc = pd.DataFrame()
         df_without_doc = df_act.copy()
 
-    # 3) Обогащение для строк с document_chembl_id через пары
+    # 3) Enrich rows with document_chembl_id using pairs.
     enrichment_by_pairs: pd.DataFrame | None = None
     if not df_with_doc.empty:
         enrichment_by_pairs = _enrich_by_pairs(df_with_doc, client, cfg, log)
 
-    # 4) Определить строки, которые нуждаются в fallback через record_id:
-    #    - строки без document_chembl_id
-    #    - строки с document_chembl_id, но где обогащение через пары не дало результата
+    # 4) Determine rows requiring record_id fallback:
+    #    - rows without document_chembl_id
+    #    - rows with document_chembl_id but without pair enrichment results
     df_need_fallback = df_without_doc.copy()
     if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
-        # Проверить строки из обогащения через пары, где compound_name/compound_key пустые
+        # Check pair-enriched rows with empty compound_name/compound_key.
         if {"compound_name", "compound_key"}.issubset(enrichment_by_pairs.columns):
             mask_empty = (
                 enrichment_by_pairs["compound_name"].isna()
@@ -265,29 +265,29 @@ def enrich_with_compound_record(
             mask_empty = pd.Series(False, index=enrichment_by_pairs.index)
         rows_need_fallback = enrichment_by_pairs[mask_empty].copy()
         if not rows_need_fallback.empty and "record_id" in rows_need_fallback.columns:
-            # Добавить эти строки к df_need_fallback для fallback
+            # Add these rows to df_need_fallback for fallback processing.
             df_need_fallback = pd.concat([df_need_fallback, rows_need_fallback], ignore_index=True)
 
-    # 5) Обогащение через record_id (fallback) для строк, которые в этом нуждаются
+    # 5) Fallback enrichment via record_id for the remaining rows.
     enrichment_by_record_id: pd.DataFrame | None = None
     if not df_need_fallback.empty and "record_id" in df_need_fallback.columns:
-        # Убрать дубликаты по _row_id, если они есть
+        # Drop duplicate _row_id entries if present.
         df_need_fallback = df_need_fallback.drop_duplicates(subset=["_row_id"], keep="first")
         enrichment_by_record_id = _enrich_by_record_id(df_need_fallback, client, cfg, log)
 
-    # 6) Объединить результаты с приоритетом: данные из пар > данные из fallback
-    # Начинаем с исходного DataFrame и применяем обогащения последовательно
+    # 6) Merge results with priority: pair data overrides fallback data.
+    # Start from the original DataFrame and apply enrichments sequentially.
     df_result = df_act.copy()
 
-    # Применить обогащение через пары для строк с document_chembl_id
+    # Apply pair enrichment for rows containing document_chembl_id.
     if enrichment_by_pairs is not None and not enrichment_by_pairs.empty:
-        # Создать словарь данных из обогащения через пары по _row_id
+        # Build a mapping of pair enrichment data indexed by _row_id.
         pairs_dict: dict[int, dict[str, Any]] = {}
         for _, row in enrichment_by_pairs.iterrows():
             row_id_raw = row.get("_row_id")
             if not pd.isna(row_id_raw):
                 try:
-                    # Безопасное преобразование в int
+                    # Safe conversion to int.
                     if isinstance(row_id_raw, (int, float)):
                         row_id = int(row_id_raw)
                     else:
@@ -300,13 +300,13 @@ def enrich_with_compound_record(
                 except (ValueError, TypeError):
                     continue
 
-        # Применить данные из обогащения через пары
+        # Apply pair enrichment data.
         if "_row_id" in df_result.columns:
             for idx in df_result.index:
                 row_id_raw = df_result.loc[idx, "_row_id"]
                 if not pd.isna(row_id_raw):
                     try:
-                        # Безопасное преобразование в int
+                        # Safe conversion to int.
                         if isinstance(row_id_raw, (int, float)):
                             row_id = int(row_id_raw)
                         else:
@@ -322,19 +322,19 @@ def enrich_with_compound_record(
                     except (ValueError, TypeError):
                         continue
 
-    # Восстановить исходный порядок по _row_id
+    # Restore original ordering by _row_id.
     if "_row_id" in df_result.columns:
         df_result = df_result.sort_values("_row_id").reset_index(drop=True)
 
-    # Применить fallback данные только для строк, где compound_name/compound_key пустые
+    # Apply fallback data only for rows with empty compound_name/compound_key.
     if enrichment_by_record_id is not None and not enrichment_by_record_id.empty:
-        # Создать словарь fallback данных по _row_id
+        # Build fallback data mapping by _row_id.
         fallback_dict: dict[int, dict[str, Any]] = {}
         for _, row in enrichment_by_record_id.iterrows():
             row_id_raw = row.get("_row_id")
             if not pd.isna(row_id_raw):
                 try:
-                    # Безопасное преобразование в int
+                    # Safe conversion to int.
                     if isinstance(row_id_raw, (int, float)):
                         row_id = int(row_id_raw)
                     else:
@@ -346,19 +346,19 @@ def enrich_with_compound_record(
                 except (ValueError, TypeError):
                     continue
 
-        # Применить fallback данные только для строк, где compound_name/compound_key пустые
+        # Apply fallback data solely where compound_name/compound_key remain empty.
         if "_row_id" in df_result.columns:
             for idx in df_result.index:
                 row_id_raw = df_result.loc[idx, "_row_id"]
                 if not pd.isna(row_id_raw):
                     try:
-                        # Безопасное преобразование в int
+                        # Safe conversion to int.
                         if isinstance(row_id_raw, (int, float)):
                             row_id = int(row_id_raw)
                         else:
                             row_id = int(str(row_id_raw))
                         if row_id in fallback_dict:
-                            # Проверить, нужно ли применять fallback (если compound_name/compound_key пустые)
+                            # Check whether fallback is needed (compound_name/compound_key empty).
                             compound_name = (
                                 df_result.loc[idx, "compound_name"]
                                 if "compound_name" in df_result.columns
@@ -388,21 +388,21 @@ def enrich_with_compound_record(
                     except (ValueError, TypeError):
                         continue
 
-    # 6) Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
+    # 6) Ensure all new columns exist (fill missing ones with NA).
     for col in ["compound_name", "compound_key", "curated", "removed"]:
         if col not in df_result.columns:
             df_result[col] = pd.NA
 
-    # 7) removed всегда <NA> на этом этапе
+    # 7) removed is always <NA> at this stage.
     df_result["removed"] = pd.NA
 
-    # 8) Удалить временную колонку _row_id
+    # 8) Drop the temporary _row_id column.
     if "_row_id" in df_result.columns:
         df_result = df_result.drop(columns=["_row_id"])
 
-    # 9) Надёжное приведение булевых для curated
+    # 9) Robust boolean coercion for curated.
     if "curated" in df_result.columns:
-        # Нормализовать возможные представления перед приведением к boolean
+        # Normalize possible representations before casting to boolean.
         curated_mapping: Mapping[object, bool] = {
             1: True,
             0: False,
@@ -420,7 +420,7 @@ def enrich_with_compound_record(
             df_result.loc[mapped_mask, "curated"] = normalized_curated[mapped_mask]
         df_result["curated"] = df_result["curated"].astype("boolean")
 
-    # 10) Нормализовать типы для строковых полей
+    # 10) Normalize string field types.
     df_result["compound_name"] = df_result["compound_name"].astype("string")
     df_result["compound_key"] = df_result["compound_key"].astype("string")
     df_result["removed"] = df_result["removed"].astype("boolean")
@@ -439,8 +439,8 @@ def _enrich_by_pairs(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity через пары (molecule_chembl_id, document_chembl_id)."""
-    # Нормализация ключей до сборки пар: upper, strip
+    """Enrich the activity DataFrame using (molecule_chembl_id, document_chembl_id) pairs."""
+    # Normalize keys before building pairs: upper and strip.
     pairs_df = df_act[["molecule_chembl_id", "document_chembl_id"]].astype("string").copy()
     for column in pairs_df.columns:
         pairs_df[column] = pairs_df[column].str.strip().str.upper()
@@ -452,7 +452,7 @@ def _enrich_by_pairs(
         log.debug(LogEvents.ENRICHMENT_BY_PAIRS_SKIPPED_NO_VALID_PAIRS)
         return df_act
 
-    # Поля запроса к клиенту — плоские имена полей, которые возвращает ChEMBL API
+    # Request fields are flat names emitted by the ChEMBL API.
     fields = cfg.get(
         "fields",
         [
@@ -465,7 +465,7 @@ def _enrich_by_pairs(
     )
     page_limit = cfg.get("page_limit", 1000)
 
-    # Обернуть вызов клиента в try/except — не роняем пайплайн
+    # Wrap the client call in try/except to avoid failing the pipeline.
     log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_PAIRS, pairs_count=len(pairs))
     compound_records_dict: dict[tuple[str, str], dict[str, Any]] = {}
     try:
@@ -485,7 +485,7 @@ def _enrich_by_pairs(
         )
         return df_act
 
-    # Маппинг результата клиента
+    # Map client results.
     enrichment_data: list[dict[str, Any]] = []
     pairs_found = 0
     pairs_not_found = 0
@@ -543,7 +543,7 @@ def _enrich_by_pairs(
                 }
             )
 
-    # Логирование результатов
+    # Log enrichment statistics.
     log.info(LogEvents.ENRICHMENT_BY_PAIRS_COMPLETE,
         pairs_requested=len(pairs),
         pairs_found=pairs_found,
@@ -555,7 +555,7 @@ def _enrich_by_pairs(
         log.warning(LogEvents.ENRICHMENT_BY_PAIRS_SOME_PAIRS_NOT_FOUND,
             pairs_not_found=pairs_not_found,
             pairs_total=len(pairs),
-            hint="Проверьте, что пары (molecule_chembl_id, document_chembl_id) существуют в ChEMBL API",
+            hint="Verify that (molecule_chembl_id, document_chembl_id) pairs exist in the ChEMBL API.",
         )
 
     if not enrichment_data:
@@ -564,7 +564,7 @@ def _enrich_by_pairs(
 
     df_enrich = pd.DataFrame(enrichment_data)
 
-    # Нормализовать ключи в df_enrich для join (upper, strip)
+    # Normalize keys in df_enrich for the join (upper and strip).
     df_enrich["molecule_chembl_id"] = (
         df_enrich["molecule_chembl_id"].astype("string").str.strip().str.upper()
     )
@@ -572,7 +572,7 @@ def _enrich_by_pairs(
         df_enrich["document_chembl_id"].astype("string").str.strip().str.upper()
     )
 
-    # Нормализовать ключи в df_act для join (upper, strip)
+    # Normalize keys in df_act for the join (upper and strip).
     df_act["molecule_chembl_id_normalized"] = (
         df_act["molecule_chembl_id"].astype("string").str.strip().str.upper()
     )
@@ -580,7 +580,7 @@ def _enrich_by_pairs(
         df_act["document_chembl_id"].astype("string").str.strip().str.upper()
     )
 
-    # Left-join обратно к df_act на нормализованные ключи
+    # Left-join back to df_act on normalized keys.
     df_result = df_act.merge(
         df_enrich,
         left_on=["molecule_chembl_id_normalized", "document_chembl_id_normalized"],
@@ -589,12 +589,12 @@ def _enrich_by_pairs(
         suffixes=("", "_enrich"),
     )
 
-    # Удалить временные нормализованные колонки
+    # Remove temporary normalized columns.
     df_result = df_result.drop(
         columns=["molecule_chembl_id_normalized", "document_chembl_id_normalized"]
     )
 
-    # Коалесценс после merge: *_enrich → базовые колонки
+    # Coalesce *_enrich columns back into base columns.
     for col in ["compound_name", "compound_key", "curated"]:
         if f"{col}_enrich" in df_result.columns:
             if col not in df_result.columns:
@@ -615,8 +615,8 @@ def _enrich_by_record_id(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity через record_id (fallback для строк без document_chembl_id)."""
-    # Собрать уникальные record_id
+    """Enrich the activity DataFrame by record_id (fallback when document_chembl_id is absent)."""
+    # Collect unique record_id values.
     record_ids: set[str] = set()
     for _, row in df_act.iterrows():
         rec = row.get("record_id")
@@ -629,12 +629,12 @@ def _enrich_by_record_id(
         log.debug(LogEvents.ENRICHMENT_BY_RECORD_ID_SKIPPED_NO_VALID_IDS)
         return df_act
 
-    # Поля запроса к клиенту — плоские имена полей
+    # Request fields are flat names.
     fields = ["record_id", "compound_name", "compound_key"]
     page_limit = cfg.get("page_limit", 1000)
     batch_size = int(cfg.get("batch_size", 100)) or 100
 
-    # Получить compound_record по record_id
+    # Fetch compound_record entries by record_id.
     log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_RECORD_ID,
         record_ids_count=len(record_ids),
     )
@@ -643,7 +643,7 @@ def _enrich_by_record_id(
         unique_ids = list(record_ids)
         all_records: list[dict[str, Any]] = []
 
-        # Обработка батчами по фильтру record_id__in
+        # Process in batches using record_id__in filter.
         for i in range(0, len(unique_ids), batch_size):
             chunk = unique_ids[i : i + batch_size]
             params: dict[str, Any] = {
@@ -668,7 +668,7 @@ def _enrich_by_record_id(
                     exc_info=True,
                 )
 
-        # Построить словарь по record_id
+        # Build lookup dictionary keyed by record_id.
         for record in all_records:
             rid_raw = record.get("record_id")
             if rid_raw is None:
@@ -692,7 +692,7 @@ def _enrich_by_record_id(
         log.debug(LogEvents.ENRICHMENT_BY_RECORD_ID_NO_RECORDS_FOUND)
         return df_act
 
-    # Создать DataFrame для join
+    # Create DataFrame for the join.
     compound_data: list[dict[str, Any]] = []
     for record_id, record in compound_records_dict.items():
         compound_data.append(
@@ -709,7 +709,7 @@ def _enrich_by_record_id(
         else pd.DataFrame(columns=["record_id", "compound_key", "compound_name"])
     )
 
-    # Нормализовать record_id в df_act для join
+    # Normalize record_id in df_act for the join.
     df_act_normalized = df_act.copy()
     if "record_id" in df_act_normalized.columns:
         mask_na = df_act_normalized["record_id"].isna()
@@ -720,7 +720,7 @@ def _enrich_by_record_id(
             df_compound["record_id"] = df_compound["record_id"].astype(str)
             df_compound.loc[df_compound["record_id"] == "nan", "record_id"] = pd.NA
 
-    # Left-join по record_id
+    # Left-join by record_id.
     df_result = df_act_normalized.merge(
         df_compound,
         on=["record_id"],
@@ -728,7 +728,7 @@ def _enrich_by_record_id(
         suffixes=("", "_compound"),
     )
 
-    # Коалесценс после merge: *_compound → базовые колонки
+    # Coalesce *_compound columns back into the base columns.
     for col in ["compound_name", "compound_key"]:
         if f"{col}_compound" in df_result.columns:
             if col not in df_result.columns:
@@ -740,7 +740,7 @@ def _enrich_by_record_id(
                 )
             df_result = df_result.drop(columns=[f"{col}_compound"])
 
-    # Добавить curated и removed (всегда None для этого пути)
+    # Add curated and removed (always None for this path).
     if "curated" not in df_result.columns:
         df_result["curated"] = pd.NA
     if "removed" not in df_result.columns:
@@ -754,22 +754,22 @@ def enrich_with_data_validity(
     client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
-    """Обогатить DataFrame activity полями из data_validity_lookup.
+    """Enrich the activity DataFrame with `data_validity_lookup` fields.
 
     Parameters
     ----------
     df_act:
-        DataFrame с данными activity, должен содержать data_validity_comment.
+        Activity DataFrame; must contain `data_validity_comment`.
     client:
-        ChemblClient для запросов к ChEMBL API.
+        ChemblClient used for ChEMBL API requests.
     cfg:
-        Конфигурация обогащения из config.chembl.activity.enrich.data_validity.
+        Enrichment configuration from `config.chembl.activity.enrich.data_validity`.
 
     Returns
     -------
-    pd.DataFrame:
-        Обогащенный DataFrame с добавленной колонкой:
-        - data_validity_description (nullable string) - из DATA_VALIDITY_LOOKUP.DESCRIPTION
+    pd.DataFrame
+        Enriched DataFrame with column:
+        - `data_validity_description` (nullable string) from `DATA_VALIDITY_LOOKUP.DESCRIPTION`.
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_enrichment")
 
@@ -779,7 +779,7 @@ def enrich_with_data_validity(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_EMPTY_DATAFRAME)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # Проверка наличия необходимых колонок
+    # Ensure required columns are present.
     required_cols = ["data_validity_comment"]
     missing_cols = [col for col in required_cols if col not in df_act.columns]
     if missing_cols:
@@ -788,16 +788,16 @@ def enrich_with_data_validity(
         )
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # Собрать уникальные data_validity_comment, dropna
+    # Collect unique data_validity_comment values, dropping NA.
     validity_comments: list[str] = []
     for _, row in df_act.iterrows():
         comment = row.get("data_validity_comment")
 
-        # Пропускаем NaN/None значения
+        # Skip NaN/None values.
         if pd.isna(comment) or comment is None:
             continue
 
-        # Преобразуем в строку
+        # Convert to string.
         comment_str = str(comment).strip()
 
         if comment_str:
@@ -807,11 +807,11 @@ def enrich_with_data_validity(
         log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_COMMENTS)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
-    # Получить конфигурацию
+    # Retrieve configuration.
     fields = cfg.get("fields", ["data_validity_comment", "description"])
     page_limit = cfg.get("page_limit", 1000)
 
-    # Вызвать client.fetch_data_validity_lookup
+    # Invoke client.fetch_data_validity_lookup.
     log.info(LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY, comments_count=len(set(validity_comments)))
     records_dict = client.fetch_data_validity_lookup(
         comments=validity_comments,
@@ -819,7 +819,7 @@ def enrich_with_data_validity(
         page_limit=page_limit,
     )
 
-    # Создать DataFrame для join
+    # Create DataFrame for the join.
     enrichment_data: list[dict[str, Any]] = []
     for comment in set(validity_comments):
         record = records_dict.get(comment)
@@ -831,7 +831,7 @@ def enrich_with_data_validity(
                 }
             )
         else:
-            # Если запись не найдена, оставляем description как NULL
+            # Leave description as NULL when no record is found.
             enrichment_data.append(
                 {
                     "data_validity_comment": comment,
@@ -845,8 +845,7 @@ def enrich_with_data_validity(
 
     df_enrich = pd.DataFrame(enrichment_data)
 
-    # Left-join обратно к df_act на data_validity_comment
-    # Сохраняем исходный порядок строк через индекс
+    # Left-join back to df_act on data_validity_comment while preserving row order via index.
     original_index = df_act.index.copy()
     df_result = df_act.merge(
         df_enrich,
@@ -855,14 +854,14 @@ def enrich_with_data_validity(
         suffixes=("", "_enrich"),
     )
 
-    # Убедиться, что колонка присутствует (заполнить NA для отсутствующих)
+    # Ensure the column exists (fill NA when missing).
     if "data_validity_description" not in df_result.columns:
         df_result["data_validity_description"] = pd.NA
 
-    # Восстановить исходный порядок
+    # Restore original order.
     df_result = df_result.reindex(original_index)
 
-    # Если комментарий присутствует, но описание отсутствует, используем комментарий как описание
+    # Use the comment text when description is missing but comment is present.
     comment_series = df_result["data_validity_comment"].astype("string")
     description_series = df_result["data_validity_description"]
     missing_description_mask = comment_series.notna() & (comment_series.str.strip() != "")
@@ -872,7 +871,7 @@ def enrich_with_data_validity(
             missing_description_mask
         ]
 
-    # Нормализовать типы
+    # Normalize column types.
     df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
 
     log.info(LogEvents.ENRICHMENT_COMPLETED,

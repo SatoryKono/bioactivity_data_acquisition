@@ -225,9 +225,7 @@ class TestAssayPipelineSmoke:
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
@@ -280,9 +278,7 @@ class TestAssayPipelineSmoke:
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=5)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -333,9 +329,7 @@ class TestAssayPipelineSmoke:
         # Mock API client factory
         mock_assays = create_mock_assay_data(count=10)
         mock_client = setup_mock_api_client(mock_assays)
-        with patch(
-            "bioetl.core.client_factory.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = assay_run.ChemblAssayPipeline(config, run_id="test_run")
 
             # Extract a small sample

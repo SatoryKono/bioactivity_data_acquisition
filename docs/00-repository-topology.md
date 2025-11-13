@@ -1,79 +1,81 @@
 # Repository Topology
 
-Этот раздел описывает слоистую структуру репозитория `bioetl` и правила работы с
-артефактами.
+This document describes the layered layout of the `bioetl` repository and the
+rules for storing deterministic artifacts.
 
-## Слои репозитория
+## Repository Layers
 
 ### `src/`
 
-Основной прикладной код фреймворка и пайплайнов. Директория разбита на модули с
-типовыми интерфейсами (клиенты источников, нормализаторы, пайплайны). Все
-реализации обязаны следовать контрактам, описанным в `docs/etl_contract/` и
-`docs/pipelines/`. Подсистема `bioetl.cli` подчиняется строгим правилам
-зависимостей: модули CLI не импортируют `requests` и его исключения, вместо
-этого используют адаптационный слой `bioetl.clients.exceptions`.
-Конфигурационные модели CLI всегда подтягиваются из подпакетов
-`bioetl.config.models.*`, чтобы гарантировать единый источник правды для
-типизированных настроек.
+Primary application and pipeline code. Modules are organized by component type
+(clients, normalizers, pipelines, writers) and implement the contracts defined
+in `docs/etl_contract/` and `docs/pipelines/`. The Typer CLI lives in
+`src/bioetl/cli/` and depends on shared abstractions such as
+`bioetl.clients.client_exceptions` instead of direct HTTP libraries. CLI
+configuration models are imported from `bioetl.config.models.*`, ensuring that
+runtime options derive from the typed configuration registry.
 
 ### `tests/`
 
-Юнит-, интеграционные и golden-тесты располагаются в `tests/bioetl/`. Структура
-зеркалирует модули из `src/`, что упрощает навигацию и поиск примеров
-использования. Фикстуры и общие утилиты тестов собраны в
-`tests/bioetl/conftest.py` и подпакете `tests/bioetl/unit/utils`.
+Unit, integration, and golden tests reside under `tests/bioetl/`. Directory
+structure mirrors `src/` to simplify navigation and example discovery. Shared
+fixtures live in `tests/bioetl/conftest.py`, while reusable helpers are grouped
+inside `tests/bioetl/unit/utils/`.
 
 ### `configs/`
 
-Типизированные конфигурации и профили, описанные в
+Typed configuration models and profiles documented in
 [`docs/configs/00-typed-configs-and-profiles.md`](configs/00-typed-configs-and-profiles.md).
-Каталог содержит Pydantic-модели, схемы конфигураций и материалы для генерации
-документации. Конфиги являются источником правды для параметров пайплайнов и
-всегда синхронизируются с документацией через CI.
+This directory houses Pydantic models, profile YAML, and generated artifacts for
+documentation. Configuration files are the single source of truth for pipeline
+parameters and stay in sync with documentation through CI validation.
+
+### `docs/`
+
+Authoritative documentation, including this topology, the ETL contract, style
+guides, and pipeline catalogs. Indexing is maintained by `docs/INDEX.md`.
 
 ### `data/`
 
-Каталог для артефактов, необходимых в процессе разработки: локальные заглушки
-источников, подготовленные фикстуры и golden-снепшоты, если они не генерируются
-динамически. Большие производственные выгрузки и приватные данные в репозиторий
-не добавляются. Для воспроизводимых примеров используйте небольшие
-детерминированные выборки.
+Deterministic datasets required for development: curated fixtures, test
+snapshots, and golden examples that are safe to version-control. Large
+production extracts and private data must not be committed. Favor small,
+deterministic samples for reproducible walkthroughs.
 
 ### `scripts/`
 
-Скрипты обслуживания: вспомогательные утилиты CLI, миграции, средства анализа и
-диагностики. Все скрипты должны быть идемпотентны и документированы в
-`docs/cli/` или соответствующих технических разделах. Конфигурация запуска
-определяется через профили в `configs/`.
+Maintenance tooling: CLI helpers, migration scripts, and diagnostics. Scripts
+must be idempotent, documented under `docs/cli/`, and parameterized via profiles
+from `configs/`.
 
 ### `.cache/`
 
-Локальный кэш промежуточных файлов (например, результаты HTTP-запросов или
-прекомпилированные артефакты), используемый для ускорения разработки. Каталог
-исключён из коммитов и CI; артефакты здесь недолговечны и могут быть безопасно
-удалены.
+Local-only cache for intermediate files (e.g., HTTP responses, compiled lookup
+tables). The directory is ignored by Git and CI; contents are ephemeral and can
+be safely purged at any time.
 
-## Источники правды
+## Sources of Truth
 
-- **Конфигурации**: описываются в `configs/` и документации раздела
-  `docs/configs/`; изменения проходят через код-ревью и валидируются CI.
-- **Секреты**: хранятся во внешнем секрет-менеджере (Vault) и доставляются через
-  переменные окружения. Локальные шаблоны (`.env.key.template`) остаются пустыми
-  и служат лишь ориентирами. Подробности — в README.md и в разделе
-  [`Secrets and Configuration`](styleguide/09-secrets-config.md).
-- **Документация**: каталог `docs/` содержит каноничные описания архитектуры,
-  контрактов и процессов. Любые изменения архитектуры сопровождаются правками в
-  соответствующих разделах и проверяются пайплайном `Documentation`.
+- **Configurations** — defined in `configs/` and documented in `docs/configs/`.
+  All changes are code-reviewed and verified by CI pipelines.
+- **Secrets** — stored in HashiCorp Vault and surfaced via environment variables.
+  Local templates such as `.env.key.template` remain empty placeholders. See
+  [`styleguide/09-secrets-config.md`](styleguide/09-secrets-config.md) for the
+  mandatory practices. Where `README.md` is available it provides the high-level
+  entry point; if `README.md` is absent or incomplete, the documentation in
+  `docs/` is authoritative.
+- **Documentation** — the `docs/` directory contains the canonical specifications
+  for architecture, contracts, and processes. Any structural code change must be
+  reflected here and passes the documentation validation pipeline.
 
-## Размещение артефактов
+## Artifact Placement
 
-1. **Долгоживущие артефакты** (схемы, стабильные фикстуры) размещаются в
-   поддиректориях `data/` или `tests/bioetl/` и должны быть детерминированы.
-1. **Временные и крупные артефакты** сохраняются в `.cache/` или внешнем
-   хранилище (S3, GCS). Такие данные не коммитятся и очищаются перед
-   публикацией.
-1. **Сгенерированные отчёты и документация** публикуются через CI в GitHub
-   Pages; локально их можно хранить в `site/`, который исключён из репозитория.
-1. **Секреты и ключи доступа** никогда не размещаются в репозитории. Используйте
-   переменные окружения и интеграцию Vault, описанную в `README.md`.
+1. **Long-lived artifacts** (schemas, stable fixtures) belong in `data/` or
+   `tests/bioetl/` and must be deterministic.
+2. **Temporary or bulky artifacts** are written to `.cache/` or to external
+   storage (S3, GCS). They are excluded from commits and cleaned before release.
+3. **Generated reports and documentation** are published via CI to GitHub Pages.
+   Local previews may use `site/`, which stays untracked.
+4. **Secrets and access keys** must never enter the repository. Use environment
+   variables and the Vault integration outlined in
+   [`styleguide/09-secrets-config.md`](styleguide/09-secrets-config.md).

@@ -94,7 +94,7 @@ The CLI maps specific families of exceptions to deterministic exit codes (see
   structured logging.
 - **External dependencies**: Network and API issues are normalized to
   `bioetl.clients.exceptions` (`ConnectionError`, `Timeout`, `HTTPError`,
-  `RequestException`) and `bioetl.core.api_client.CircuitBreakerOpenError`,
+  `RequestException`) and `bioetl.core.http.api_client.CircuitBreakerOpenError`,
   alongside builtin `ConnectionError`/`TimeoutError`. CLI code MUST reference
   these via `bioetl.clients.exceptions`, never via `requests.exceptions`.
 - **Unexpected failures**: Any other exception is logged as

@@ -156,7 +156,7 @@ HTTP событий. OpenTelemetry
 
 Инициализация:
 
-from bioetl.core.logger import UnifiedLogger, LoggerConfig
+from bioetl.core.logging import UnifiedLogger, LoggerConfig
 
 UnifiedLogger.configure(LoggerConfig( level="INFO", console_format="json",
 file_enabled=True, file_path=Path("var/logs/pipeline_20251102.log"),
@@ -165,7 +165,7 @@ UnifiedLogger.get(name)
 
 Контекст запуска:
 
-from bioetl.core.logger import set_run_context
+from bioetl.core.logging import set_run_context
 set_run_context(run_id="r-20251102-001", stage="extract", actor="scheduler",
 source="chembl") log.info("Fetching", endpoint="/activity.json",
 params={"limit": 100}, attempt=1)

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from bioetl.config.models import CLIConfig
+from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
 
-from .base import PipelineBase, RunArtifacts, RunResult, WriteArtifacts, WriteResult
+from .base import PipelineBase, RunResult
 from .chembl.activity.run import ChemblActivityPipeline
 from .chembl.assay.run import ChemblAssayPipeline
 from .chembl.document.run import ChemblDocumentPipeline

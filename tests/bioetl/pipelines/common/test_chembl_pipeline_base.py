@@ -19,7 +19,7 @@ else:
 from bioetl.config import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.pipelines.chembl_descriptor import ChemblPipelineBase
+from bioetl.pipelines.chembl.common import ChemblPipelineBase
 
 
 class _DummyChemblPipeline(ChemblPipelineBase):

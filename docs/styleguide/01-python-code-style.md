@@ -52,7 +52,7 @@ from typing import Any, Sequence
 import pandas as pd
 import structlog
 
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 from bioetl.schemas import ActivitySchema
 ```
 
@@ -63,7 +63,7 @@ from bioetl.schemas import ActivitySchema
 from bioetl.core import *
 
 # Invalid: incorrect ordering
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import UnifiedLogger
 import pandas as pd
 from typing import Any
 ```

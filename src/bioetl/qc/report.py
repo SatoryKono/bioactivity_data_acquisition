@@ -7,7 +7,7 @@ from typing import Any, Literal, cast
 
 import pandas as pd
 
-from bioetl.core.qc.units import QCUnits
+from bioetl.core.io import QCUnits
 
 from .metrics import (
     DuplicateStats,

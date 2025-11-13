@@ -241,4 +241,3 @@ def _normalize_qc_name(module_name: str) -> str:
         return ".".join((*prefix_parts, normalized_suffix))
     return ".".join(prefix_parts)
 
-

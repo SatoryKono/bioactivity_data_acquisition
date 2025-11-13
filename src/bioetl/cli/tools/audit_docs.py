@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.audit_docs import run_audit
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "run_audit"]
 
-app: TyperApp = create_app(
-    name="bioetl-audit-docs",
-    help_text="Run documentation audit and collect reports",
-)
-
-
-@app.command()
 def main(
     artifacts: Path = typer.Option(
         Path("artifacts"),
@@ -39,6 +36,13 @@ def main(
     run_audit(artifacts_dir=artifacts_path)
     typer.echo(f"Audit completed, reports stored in {artifacts_path}")
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-audit-docs",
+    help_text="Run documentation audit and collect reports",
+    main_fn=main,
+)
 
 
 def run() -> None:

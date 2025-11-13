@@ -1,12 +1,12 @@
-"""Проверка конфигураций пайплайнов и консистентности схем."""
+"""Validate pipeline configurations and schema registry consistency."""
 
 from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.schemas import SCHEMA_REGISTRY
 from bioetl.tools import get_project_root
 
@@ -19,6 +19,7 @@ CONFIGS = PROJECT_ROOT / "configs" / "pipelines" / "chembl"
 
 
 def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
+    """Load a pipeline config and return validation metadata."""
     try:
         from bioetl.config.loader import load_config
 
@@ -28,7 +29,7 @@ def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
             "pipeline_name": getattr(getattr(config, "pipeline", None), "name", None),
             "validation_errors": [],
         }
-    except Exception as exc:  # noqa: BLE001 - ошибка конфигурации
+    except Exception as exc:  # noqa: BLE001 - configuration failure surfaced
         return False, {
             "config": None,
             "pipeline_name": None,
@@ -38,6 +39,7 @@ def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
 
 
 def _check_required_fields(config: Any, pipeline_name: str) -> list[str]:
+    """Validate required configuration fields for the specified pipeline."""
     errors: list[str] = []
 
     if not hasattr(config, "pipeline") or not hasattr(config.pipeline, "name"):
@@ -67,6 +69,7 @@ def _check_required_fields(config: Any, pipeline_name: str) -> list[str]:
 
 
 def _validate_schema_registry() -> list[str]:
+    """Validate schema registry invariants and return error messages."""
     errors: list[str] = []
     for identifier, entry in SCHEMA_REGISTRY.as_mapping().items():
         schema_columns = list(entry.schema.columns.keys())
@@ -97,6 +100,7 @@ def _validate_schema_registry() -> list[str]:
 
 
 def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]) -> Path:
+    """Write a schema guard markdown report and return its path."""
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "SCHEMA_GUARD_REPORT.md"
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
@@ -144,7 +148,7 @@ def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]
 
 
 def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
-    """Запускает валидацию конфигов и схем, возвращает результаты и путь к отчёту."""
+    """Execute configuration and schema validation, returning results and report path."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

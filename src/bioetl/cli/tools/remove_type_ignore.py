@@ -2,27 +2,24 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.remove_type_ignore import remove_type_ignore as remove_type_ignore_sync
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "remove_type_ignore"]
 
 remove_type_ignore = remove_type_ignore_sync
 
-app: TyperApp = create_app(
-    name="bioetl-remove-type-ignore",
-    help_text="Remove type ignore directives from source files",
-)
-
-
-@app.command()
 def main(
     root: Path | None = typer.Option(
         None,
@@ -46,6 +43,13 @@ def main(
 
     typer.echo(f"Removed type ignore directives: {removed}")
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-remove-type-ignore",
+    help_text="Remove type ignore directives from source files",
+    main_fn=main,
+)
 
 
 def run() -> None:

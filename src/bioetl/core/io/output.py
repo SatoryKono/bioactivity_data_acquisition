@@ -5,19 +5,20 @@ from __future__ import annotations
 import csv
 import os
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import pandas as pd
 import yaml
 
-from bioetl.config import PipelineConfig
-from bioetl.core.hashing import hash_from_mapping
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
-from .logger import UnifiedLogger
+from .hashing import hash_from_mapping
+
+if TYPE_CHECKING:
+    from bioetl.config import PipelineConfig
 
 # CSV quoting type for pandas to_csv
 # Values: 0=QUOTE_MINIMAL, 1=QUOTE_ALL, 2=QUOTE_NONNUMERIC, 3=QUOTE_NONE
@@ -25,11 +26,19 @@ CSVQuotingLiteral = Literal[0, 1, 2, 3]
 
 __all__ = [
     "DeterministicWriteArtifacts",
-    "prepare_dataframe",
+    "WriteArtifacts",
+    "RunArtifacts",
+    "WriteResult",
+    "build_write_artifacts",
+    "emit_qc_artifact",
     "ensure_hash_columns",
-    "write_dataset_atomic",
-    "write_yaml_atomic",
+    "finalise_output",
+    "plan_run_artifacts",
+    "prepare_dataframe",
     "serialise_metadata",
+    "write_dataset_atomic",
+    "write_frame_like",
+    "write_yaml_atomic",
 ]
 
 
@@ -39,6 +48,40 @@ class DeterministicWriteArtifacts:
 
     dataframe: pd.DataFrame
     metadata: Mapping[str, Any]
+
+
+@dataclass(frozen=True)
+class WriteArtifacts:
+    """Collection of files emitted by the write stage of a pipeline run."""
+
+    dataset: Path
+    metadata: Path | None = None
+    quality_report: Path | None = None
+    correlation_report: Path | None = None
+    qc_metrics: Path | None = None
+
+
+@dataclass(frozen=True)
+class RunArtifacts:
+    """All artifacts tracked for a completed run."""
+
+    write: WriteArtifacts
+    run_directory: Path
+    manifest: Path | None
+    log_file: Path
+    extras: dict[str, Path] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class WriteResult:
+    """Materialised artifacts produced by the write stage."""
+
+    dataset: Path
+    quality_report: Path | None = None
+    metadata: Path | None = None
+    correlation_report: Path | None = None
+    qc_metrics: Path | None = None
+    extras: dict[str, Path] = field(default_factory=dict)
 
 
 def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
@@ -392,3 +435,51 @@ def finalise_output(
     )
 
     return DeterministicWriteArtifacts(dataframe=prepared.dataframe, metadata=metadata)
+
+
+def plan_run_artifacts(
+    stem: str,
+    *,
+    run_directory: Path,
+    logs_directory: Path,
+    dataset_extension: str,
+    qc_extension: str,
+    manifest_extension: str,
+    log_extension: str,
+    include_correlation: bool = False,
+    include_qc_metrics: bool = False,
+    include_metadata: bool = False,
+    include_manifest: bool = False,
+    extras: Mapping[str, Path] | None = None,
+) -> RunArtifacts:
+    """Return the artifact map for a deterministic run."""
+
+    dataset = run_directory / f"{stem}.{dataset_extension}"
+    quality = run_directory / f"{stem}_quality_report.{qc_extension}"
+    correlation = (
+        run_directory / f"{stem}_correlation_report.{qc_extension}"
+        if include_correlation
+        else None
+    )
+    qc_metrics = run_directory / f"{stem}_qc.{qc_extension}" if include_qc_metrics else None
+    metadata = run_directory / f"{stem}_meta.yaml" if include_metadata else None
+    manifest = (
+        run_directory / f"{stem}_run_manifest.{manifest_extension}" if include_manifest else None
+    )
+    log_file = logs_directory / f"{stem}.{log_extension}"
+
+    write_artifacts = WriteArtifacts(
+        dataset=dataset,
+        metadata=metadata,
+        quality_report=quality,
+        correlation_report=correlation,
+        qc_metrics=qc_metrics,
+    )
+    extras_map: dict[str, Path] = dict(extras) if extras is not None else {}
+    return RunArtifacts(
+        write=write_artifacts,
+        run_directory=run_directory,
+        manifest=manifest,
+        log_file=log_file,
+        extras=extras_map,
+    )

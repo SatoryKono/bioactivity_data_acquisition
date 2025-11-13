@@ -12,17 +12,17 @@ class RuntimeConfig(BaseModel):
 
     parallelism: PositiveInt = Field(
         default=4,
-        description="Количество параллельных воркеров для этапов extract/transform.",
+        description="Number of parallel workers for extract/transform stages.",
     )
     chunk_rows: PositiveInt = Field(
         default=100_000,
-        description="Размер чанка строк для пакетной обработки источников.",
+        description="Row chunk size used for batch source processing.",
     )
     dry_run: bool = Field(
         default=False,
-        description="Режим проверки без записи артефактов во внешние системы.",
+        description="Verification mode without writing artifacts to external systems.",
     )
     seed: int = Field(
         default=42,
-        description="Инициализационное значение генераторов случайных чисел для детерминизма.",
+        description="Initial seed for random number generators to preserve determinism.",
     )

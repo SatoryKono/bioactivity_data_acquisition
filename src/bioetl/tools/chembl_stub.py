@@ -1,8 +1,8 @@
 """Offline stub for ``chembl_webresource_client.new_client``.
 
-Модуль предоставляет детерминированный клиент, имитирующий интерфейс
-``chembl_webresource_client`` с минимальным подмножеством данных. Он
-используется в тестах и офлайн-сценариях, где сетевые обращения запрещены.
+Provide a deterministic client mirroring the minimal interface surface of
+``chembl_webresource_client``. Used in tests and offline scenarios where network
+access is prohibited.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ _ActivityRecord = Mapping[str, object]
 
 @dataclass(frozen=True)
 class _OfflineQuery:
-    """Имитация ленивого результата ``.filter()`` ChEMBL клиента."""
+    """Lazy result emulating the ChEMBL client's ``filter`` query."""
 
     _rows: Sequence[Mapping[str, object]]
 
@@ -38,7 +38,7 @@ class _OfflineQuery:
 
 @dataclass(frozen=True)
 class _OfflineResource:
-    """Простейший ресурс с поддержкой ``filter`` и пагинации."""
+    """Minimal resource supporting ``filter`` and pagination offsets."""
 
     _records: Sequence[Mapping[str, object]]
 
@@ -51,7 +51,7 @@ class _OfflineResource:
 
 @dataclass
 class OfflineChemblClient:
-    """Фиктивный клиент с минимально необходимыми ресурсами."""
+    """Stubbed client exposing the limited resources needed offline."""
 
     activity: _OfflineResource
     assay: _OfflineResource
@@ -93,7 +93,7 @@ _OFFLINE_DATA: dict[str, list[_ActivityRecord]] = {
 
 
 def get_offline_new_client() -> OfflineChemblClient:
-    """Вернуть детерминированный офлайн-клиент."""
+    """Return the deterministic offline ChEMBL client."""
 
     return OfflineChemblClient(
         activity=_OfflineResource(_OFFLINE_DATA["activity"]),
@@ -105,6 +105,7 @@ def get_offline_new_client() -> OfflineChemblClient:
 
 
 def _safe_int(value: object, default: int) -> int:
+    """Coerce a value to ``int`` with fallback to ``default``."""
     if isinstance(value, bool):  # bool is subclass of int, treat separately
         return int(value)
     if isinstance(value, (int, float)):

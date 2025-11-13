@@ -2,26 +2,23 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.build_vocab_store import build_vocab_store as build_vocab_store_sync
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "build_vocab_store", "main", "run"]
 build_vocab_store = build_vocab_store_sync
 
-app: TyperApp = create_app(
-    name="bioetl-build-vocab-store",
-    help_text="Assemble the aggregated ChEMBL vocabulary and export YAML",
-)
-
-
-@app.command()
 def main(
     src: Path = typer.Option(
         ...,
@@ -52,6 +49,13 @@ def main(
 
     typer.echo(f"Aggregated vocabulary written to {result_path}")
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-build-vocab-store",
+    help_text="Assemble the aggregated ChEMBL vocabulary and export YAML",
+    main_fn=main,
+)
 
 
 def run() -> None:

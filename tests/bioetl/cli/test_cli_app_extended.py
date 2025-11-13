@@ -110,7 +110,7 @@ def test_load_tool_entrypoint_non_callable(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_load_typer_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    module = import_module("bioetl.cli.tools._typer")
+    module = import_module("bioetl.cli.tools.typer_helpers")
     monkeypatch.setattr(
         module.importlib,
         "import_module",

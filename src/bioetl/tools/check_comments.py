@@ -1,18 +1,18 @@
-"""Заготовка проверки комментариев в кодовой базе."""
+"""Placeholder for repository comment validation tooling."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["run_comment_check"]
 
 
 def run_comment_check(root: Path | None = None) -> None:
-    """Проверяет комментарии в репозитории (пока не реализовано)."""
+    """Validate repository comments (not yet implemented)."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

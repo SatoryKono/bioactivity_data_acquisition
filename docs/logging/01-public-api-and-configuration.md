@@ -67,7 +67,7 @@
 `mypy --strict`.
 
 ```python
-from bioetl.core.logger import LogConfig, LoggerConfig, LogFormat
+from bioetl.core.logging import LogConfig, LoggerConfig, LogFormat
 ```
 
 ### Поля `LoggerConfig`
@@ -88,7 +88,7 @@ from bioetl.core.logger import LogConfig, LoggerConfig, LogFormat
 ## Пример использования
 
 ```python
-from bioetl.core.logger import LogFormat, LoggerConfig, UnifiedLogger
+from bioetl.core.logging import LogFormat, LoggerConfig, UnifiedLogger
 
 UnifiedLogger.configure(
     config=LoggerConfig(

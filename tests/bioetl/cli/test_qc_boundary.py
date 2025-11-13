@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import pytest
 
-from bioetl.cli.tools._qc_boundary import (
+from bioetl.cli.tools.qc_boundary import (
     QC_MODULE_PREFIX,
     Violation,
     collect_qc_boundary_violations,

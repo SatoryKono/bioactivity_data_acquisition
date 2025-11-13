@@ -6,7 +6,7 @@ Adding a new pipeline requires explicitly adding its configuration to this regis
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
@@ -14,7 +14,14 @@ from typing import Any
 
 from bioetl.pipelines.base import PipelineBase
 
-__all__ = ["CommandConfig", "ToolCommandConfig", "COMMAND_REGISTRY", "TOOL_COMMANDS"]
+__all__ = [
+    "CommandConfig",
+    "ToolCommandConfig",
+    "PipelineCommandSpec",
+    "PIPELINE_REGISTRY",
+    "COMMAND_REGISTRY",
+    "TOOL_COMMANDS",
+]
 
 
 @dataclass(frozen=True)
@@ -25,6 +32,7 @@ class CommandConfig:
     description: str
     pipeline_class: type[Any]
     default_config_path: Path | None = None
+    canonical_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -37,95 +45,16 @@ class ToolCommandConfig:
     attribute: str = "app"
 
 
-def build_command_config_activity() -> CommandConfig:
-    """Build command configuration for activity pipeline."""
-    return _build_config(
-        command_name="activity_chembl",
-        description=(
-            "Extract biological activity records from ChEMBL API and normalize them to the project schema."
-        ),
-        pipeline_path="bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline",
-        default_config="configs/pipelines/activity/activity_chembl.yaml",
-    )
+@dataclass(frozen=True)
+class PipelineCommandSpec:
+    """Declarative pipeline command specification."""
 
-
-def build_command_config_assay() -> CommandConfig:
-    """Build command configuration for assay pipeline."""
-    return _build_config(
-        command_name="assay_chembl",
-        description="Extract assay records from ChEMBL API.",
-        pipeline_path="bioetl.pipelines.chembl.assay.run.ChemblAssayPipeline",
-        default_config="configs/pipelines/assay/assay_chembl.yaml",
-    )
-
-
-def build_command_config_target() -> CommandConfig:
-    """Build command configuration for target pipeline."""
-    return _build_config(
-        command_name="target_chembl",
-        description=(
-            "Extract target records from ChEMBL API and normalize them to the project schema."
-        ),
-        pipeline_path="bioetl.pipelines.chembl.target.run.ChemblTargetPipeline",
-        default_config="configs/pipelines/target/target_chembl.yaml",
-    )
-
-
-def build_command_config_document() -> CommandConfig:
-    """Build command configuration for document pipeline."""
-    return _build_config(
-        command_name="document_chembl",
-        description=(
-            "Extract document records from ChEMBL API and normalize them to the project schema."
-        ),
-        pipeline_path="bioetl.pipelines.chembl.document.run.ChemblDocumentPipeline",
-        default_config="configs/pipelines/document/document_chembl.yaml",
-    )
-
-
-def build_command_config_testitem() -> CommandConfig:
-    """Build command configuration for testitem pipeline."""
-    return _build_config(
-        command_name="testitem_chembl",
-        description="Extract molecule records from ChEMBL API and normalize them to test items.",
-        pipeline_path="bioetl.pipelines.chembl.testitem.run.TestItemChemblPipeline",
-        default_config="configs/pipelines/testitem/testitem_chembl.yaml",
-    )
-
-
-def build_command_config_pubchem() -> CommandConfig:
-    """Build command configuration for pubchem pipeline."""
-    raise NotImplementedError("PubChem pipeline not yet implemented")
-
-
-def build_command_config_uniprot() -> CommandConfig:
-    """Build command configuration for uniprot pipeline."""
-    raise NotImplementedError("UniProt pipeline not yet implemented")
-
-
-def build_command_config_iuphar() -> CommandConfig:
-    """Build command configuration for iuphar pipeline."""
-    raise NotImplementedError("IUPHAR pipeline not yet implemented")
-
-
-def build_command_config_openalex() -> CommandConfig:
-    """Build command configuration for openalex pipeline."""
-    raise NotImplementedError("OpenAlex pipeline not yet implemented")
-
-
-def build_command_config_crossref() -> CommandConfig:
-    """Build command configuration for crossref pipeline."""
-    raise NotImplementedError("Crossref pipeline not yet implemented")
-
-
-def build_command_config_pubmed() -> CommandConfig:
-    """Build command configuration for pubmed pipeline."""
-    raise NotImplementedError("PubMed pipeline not yet implemented")
-
-
-def build_command_config_semantic_scholar() -> CommandConfig:
-    """Build command configuration for semantic_scholar pipeline."""
-    raise NotImplementedError("Semantic Scholar pipeline not yet implemented")
+    code: str
+    description: str
+    pipeline_path: str | None
+    default_config: str | None = None
+    aliases: tuple[str, ...] = ()
+    not_implemented_message: str | None = None
 
 
 def _build_config(
@@ -134,6 +63,7 @@ def _build_config(
     description: str,
     pipeline_path: str,
     default_config: str | None,
+    canonical_name: str,
 ) -> CommandConfig:
     """Resolve the pipeline class and construct a command configuration."""
     pipeline_class = _load_pipeline_class(pipeline_path)
@@ -143,6 +73,7 @@ def _build_config(
         description=description,
         pipeline_class=pipeline_class,
         default_config_path=default_path,
+        canonical_name=canonical_name,
     )
 
 
@@ -160,21 +91,126 @@ def _load_pipeline_class(path: str) -> type[Any]:
     return pipeline_cls
 
 
-# Static registry mapping command names to their build functions
-COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = {
-    "activity_chembl": build_command_config_activity,
-    "assay_chembl": build_command_config_assay,
-    "testitem_chembl": build_command_config_testitem,
-    "target_chembl": build_command_config_target,
-    "document_chembl": build_command_config_document,
-    # "pubchem": build_command_config_pubchem,
-    # "uniprot": build_command_config_uniprot,
-    # "gtp_iuphar": build_command_config_iuphar,
-    # "openalex": build_command_config_openalex,
-    # "crossref": build_command_config_crossref,
-    # "pubmed": build_command_config_pubmed,
-    # "semantic_scholar": build_command_config_semantic_scholar,
-}
+def _create_command_registry(
+    specs: Iterable[PipelineCommandSpec],
+) -> dict[str, Callable[[], CommandConfig]]:
+    registry: dict[str, Callable[[], CommandConfig]] = {}
+    for spec in specs:
+        names = (spec.code, *spec.aliases)
+        for command_name in names:
+            registry[command_name] = _make_config_factory(spec, command_name=command_name)
+    return registry
+
+
+def _make_config_factory(
+    spec: PipelineCommandSpec,
+    *,
+    command_name: str,
+) -> Callable[[], CommandConfig]:
+    pipeline_path = spec.pipeline_path
+    if pipeline_path is None:
+        message = spec.not_implemented_message or f"{spec.code} pipeline not yet implemented"
+
+        def _not_implemented() -> CommandConfig:
+            raise NotImplementedError(message)
+
+        return _not_implemented
+
+    def _factory() -> CommandConfig:
+        return _build_config(
+            command_name=command_name,
+            description=spec.description,
+            pipeline_path=pipeline_path,
+            default_config=spec.default_config,
+            canonical_name=spec.code,
+        )
+
+    return _factory
+
+
+PIPELINE_REGISTRY: tuple[PipelineCommandSpec, ...] = (
+    PipelineCommandSpec(
+        code="activity_chembl",
+        description=(
+            "Extract biological activity records from ChEMBL API and normalize them to the project schema."
+        ),
+        pipeline_path="bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline",
+        default_config="configs/pipelines/activity/activity_chembl.yaml",
+    ),
+    PipelineCommandSpec(
+        code="assay_chembl",
+        description="Extract assay records from ChEMBL API.",
+        pipeline_path="bioetl.pipelines.chembl.assay.run.ChemblAssayPipeline",
+        default_config="configs/pipelines/assay/assay_chembl.yaml",
+    ),
+    PipelineCommandSpec(
+        code="testitem_chembl",
+        description="Extract molecule records from ChEMBL API and normalize them to test items.",
+        pipeline_path="bioetl.pipelines.chembl.testitem.run.TestItemChemblPipeline",
+        default_config="configs/pipelines/testitem/testitem_chembl.yaml",
+    ),
+    PipelineCommandSpec(
+        code="target_chembl",
+        description="Extract target records from ChEMBL API and normalize them to the project schema.",
+        pipeline_path="bioetl.pipelines.chembl.target.run.ChemblTargetPipeline",
+        default_config="configs/pipelines/target/target_chembl.yaml",
+    ),
+    PipelineCommandSpec(
+        code="document_chembl",
+        description=(
+            "Extract document records from ChEMBL API and normalize them to the project schema."
+        ),
+        pipeline_path="bioetl.pipelines.chembl.document.run.ChemblDocumentPipeline",
+        default_config="configs/pipelines/document/document_chembl.yaml",
+    ),
+    PipelineCommandSpec(
+        code="pubchem",
+        description="Extract compound data from PubChem and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="PubChem pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="uniprot",
+        description="Extract protein records from UniProt and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="UniProt pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="gtp_iuphar",
+        description="Extract ligand and target data from IUPHAR and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="IUPHAR pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="openalex",
+        description="Extract scholarly metadata from OpenAlex and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="OpenAlex pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="crossref",
+        description="Extract bibliographic metadata from Crossref and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="Crossref pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="pubmed",
+        description="Extract publication data from PubMed and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="PubMed pipeline not yet implemented",
+    ),
+    PipelineCommandSpec(
+        code="semantic_scholar",
+        description="Extract publication data from Semantic Scholar and normalize to the project schema.",
+        pipeline_path=None,
+        not_implemented_message="Semantic Scholar pipeline not yet implemented",
+    ),
+)
+
+
+COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = _create_command_registry(
+    PIPELINE_REGISTRY
+)
 
 
 TOOL_COMMANDS: dict[str, ToolCommandConfig] = {

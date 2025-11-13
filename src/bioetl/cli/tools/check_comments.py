@@ -2,27 +2,24 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.check_comments import run_comment_check as run_comment_check_sync
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "run_comment_check"]
 
 run_comment_check = run_comment_check_sync
 
-app: TyperApp = create_app(
-    name="bioetl-check-comments",
-    help_text="Validate code comments and TODO markers",
-)
-
-
-@app.command()
 def main(
     root: Path | None = typer.Option(
         None,
@@ -47,6 +44,13 @@ def main(
 
     typer.echo("Comment check completed without errors")
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-check-comments",
+    help_text="Validate code comments and TODO markers",
+    main_fn=main,
+)
 
 
 def run() -> None:

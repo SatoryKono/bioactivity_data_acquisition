@@ -2,21 +2,29 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.core.errors import BioETLError
-from bioetl.tools.vocab_audit import DEFAULT_META, DEFAULT_OUTPUT, VocabAuditResult
+from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.runtime.errors import BioETLError
+from bioetl.tools.vocab_audit import (
+    DEFAULT_META,
+    DEFAULT_OUTPUT,
+    VocabAuditResult,
+)
 from bioetl.tools.vocab_audit import (
     audit_vocabularies as audit_vocabularies_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = [
     "app",
@@ -31,13 +39,6 @@ __all__ = [
 audit_vocabularies = audit_vocabularies_sync
 
 
-app: TyperApp = create_app(
-    name="bioetl-vocab-audit",
-    help_text="Audit ChEMBL vocabularies and generate a report",
-)
-
-
-@app.command()
 def main(
     store: Path | None = typer.Option(
         None,
@@ -99,6 +100,13 @@ def main(
         f"{len(result.rows)} records, CSV {result.output.resolve()}, meta {result.meta.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-vocab-audit",
+    help_text="Audit ChEMBL vocabularies and generate a report",
+    main_fn=main,
+)
 
 
 def run() -> None:

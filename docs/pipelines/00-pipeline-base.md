@@ -162,7 +162,7 @@ This pseudocode is a realistic representation of the orchestration logic within
 
 ```python
 import time
-from bioetl.core.logger import UnifiedLogger, set_run_context
+from bioetl.core.logging import UnifiedLogger, set_run_context
 
 # This pseudocode resides within the PipelineBase class.
 

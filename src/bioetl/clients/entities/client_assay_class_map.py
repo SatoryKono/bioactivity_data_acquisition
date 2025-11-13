@@ -11,7 +11,7 @@ __all__ = ["ChemblAssayClassMapEntityClient"]
 
 
 class ChemblAssayClassMapEntityClient(ChemblEntityClientBase):
-    """Клиент для получения assay_class_map записей из ChEMBL API."""
+    """Client for retrieving ``assay_class_map`` records from the ChEMBL API."""
 
     CONFIG: ClassVar[EntityConfig] = make_entity_config(
         endpoint="/assay_class_map.json",
@@ -20,6 +20,6 @@ class ChemblAssayClassMapEntityClient(ChemblEntityClientBase):
         items_key="assay_class_maps",
         log_prefix="assay_class_map",
         chunk_size=100,
-        supports_list_result=True,  # Один assay может иметь несколько class mappings
+        supports_list_result=True,  # A single assay may expose multiple class mappings
     )
 

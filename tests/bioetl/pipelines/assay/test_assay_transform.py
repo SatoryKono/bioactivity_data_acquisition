@@ -187,7 +187,7 @@ class TestAssayParametersTruvValidation:
             },
         )
 
-        # Не должно выбрасывать ошибку, только предупреждение
+        # Should log a warning without raising an exception.
         result = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
 
         assert len(result) == 1
@@ -268,7 +268,7 @@ class TestAssayParametersTruvValidation:
             },
         )
 
-        # Не должно выбрасывать ошибку, только логировать предупреждение
+        # Should log a warning instead of raising an error.
         result = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=False)
 
         assert len(result) == 1
@@ -289,7 +289,7 @@ class TestAssayParametersTruvValidation:
             },
         )
 
-        # Пустые строки должны считаться NULL, поэтому инвариант должен быть выполнен
+        # Empty strings must be treated as NULL, so the invariant holds.
         result = validate_assay_parameters_truv(df, column="assay_parameters", fail_fast=True)
 
         assert len(result) == 1
@@ -305,18 +305,18 @@ class TestAssayParametersTruvValidation:
                             {
                                 "type": "TEMPERATURE",
                                 "value": 37.0,
-                                "text_value": "also present",  # Нарушение 1
+                                "text_value": "also present",  # Violation 1.
                             },
                             {
                                 "type": "pH",
                                 "value": 7.4,
                                 "standard_value": 7.4,
-                                "standard_text_value": "also present",  # Нарушение 2
+                                "standard_text_value": "also present",  # Violation 2.
                             },
                             {
                                 "type": "DOSE",
                                 "value": 10,
-                                "active": 2,  # Нарушение 3
+                                "active": 2,  # Violation 3.
                             },
                         ],
                     ),

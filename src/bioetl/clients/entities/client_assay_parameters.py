@@ -12,7 +12,7 @@ __all__ = ["ChemblAssayParametersEntityClient"]
 
 
 class ChemblAssayParametersEntityClient(ChemblEntityClientBase):
-    """Клиент для получения assay_parameters записей из ChEMBL API."""
+    """Client for retrieving ``assay_parameters`` records from the ChEMBL API."""
 
     CONFIG: ClassVar[EntityConfig] = make_entity_config(
         endpoint="/assay_parameter.json",
@@ -21,7 +21,7 @@ class ChemblAssayParametersEntityClient(ChemblEntityClientBase):
         items_key="assay_parameters",
         log_prefix="assay_parameters",
         chunk_size=100,
-        supports_list_result=True,  # Один assay может иметь несколько parameters
+        supports_list_result=True,  # A single assay may expose multiple parameters
     )
 
     def fetch_by_ids(
@@ -31,25 +31,25 @@ class ChemblAssayParametersEntityClient(ChemblEntityClientBase):
         page_limit: int = 1000,
         active_only: bool = True,
     ) -> dict[str, list[dict[str, Any]]]:
-        """Получить assay_parameters записи по ID.
+        """Retrieve ``assay_parameters`` records by assay identifiers.
 
         Parameters
         ----------
         ids:
-            Итерируемый объект с ID для получения.
+            Iterable with identifiers that should be fetched.
         fields:
-            Список полей для получения из API.
+            Collection of fields requested from the API.
         page_limit:
-            Размер страницы для пагинации.
+            Page size used for pagination.
         active_only:
-            Если True, фильтровать только активные параметры (active=1).
+            When True, filter to active parameters (``active=1``).
 
         Returns
         -------
         dict[str, list[dict[str, Any]]]:
-            Словарь ID -> список записей.
+            Mapping ``ID -> list of records``.
         """
-        # Переопределяем для добавления параметра active_only
+        # Override to inject the ``active_only`` query parameter
         import pandas as pd
 
         unique_ids: set[str] = set()
@@ -73,10 +73,10 @@ class ChemblAssayParametersEntityClient(ChemblEntityClientBase):
                 self._config.filter_param: ",".join(chunk),
                 "limit": page_limit,
             }
-            # Фильтр активных параметров, если запрошено
+            # Apply active-only filtering when requested
             if active_only:
                 params["active"] = "1"
-            # Параметр only для выбора полей
+            # Include the ``only`` parameter to restrict returned fields
             if fields:
                 params["only"] = ",".join(sorted(fields))
 

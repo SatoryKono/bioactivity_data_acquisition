@@ -13,11 +13,15 @@ from zoneinfo import ZoneInfo
 import typer
 from typer.models import OptionInfo
 
-from bioetl.config.environment import apply_runtime_overrides, load_environment_settings
+from bioetl.config import PipelineConfig
+from bioetl.config.environment import (
+    EnvironmentSettings,
+    apply_runtime_overrides,
+    load_environment_settings,
+)
 from bioetl.config.loader import load_config
-from bioetl.core.cli_base import CliCommandBase
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import LoggerConfig, UnifiedLogger
+from bioetl.core import CliCommandBase, LoggerConfig, UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.errors import (
     PipelineError,
@@ -121,11 +125,13 @@ class PipelineCliCommand(CliCommandBase):
         if limit is not None and sample is not None:
             raise typer.BadParameter("--limit and --sample are mutually exclusive")
 
+        env_settings: EnvironmentSettings
         try:
             env_settings = load_environment_settings()
         except ValueError as exc:
             self.emit_error("E002", f"Environment validation failed: {exc}")
             self.exit(2)
+            return
 
         apply_runtime_overrides(env_settings)
 
@@ -136,6 +142,7 @@ class PipelineCliCommand(CliCommandBase):
         if set_overrides:
             cli_overrides = _parse_set_overrides(set_overrides)
 
+        pipeline_config: PipelineConfig
         try:
             pipeline_config = load_config(
                 config_path=config,
@@ -148,9 +155,11 @@ class PipelineCliCommand(CliCommandBase):
                 f"Configuration file or referenced profile not found: {exc}",
             )
             self.exit(2)
+            return
         except ValueError as exc:
             self.emit_error("E002", f"Configuration validation failed: {exc}")
             self.exit(2)
+            return
 
         pipeline_config.cli.dry_run = dry_run
         if limit is not None:
@@ -404,9 +413,25 @@ def _resolve_pipeline_class(
     """Resolve pipeline class lazily to decouple CLI from pipeline modules."""
     try:
         pipeline_module = importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:  # pragma: no cover - defensive guard
+        log.error(
+            LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
+            pipeline=command_name,
+            module=module_name,
+            class_name=class_name,
+            run_id=run_id,
+            error=str(exc),
+            exc_info=True,
+        )
+        _echo_error("E002", "Pipeline module could not be resolved. Check installation.")
+        CliCommandBase.exit(2, cause=exc)
+        raise
+
+    try:
         pipeline_cls = getattr(pipeline_module, class_name)
-    except (ModuleNotFoundError, AttributeError) as exc:  # pragma: no cover - defensive guard
-        log.error(LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
+    except AttributeError as exc:  # pragma: no cover - defensive guard
+        log.error(
+            LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
             pipeline=command_name,
             module=module_name,
             class_name=class_name,
@@ -416,6 +441,7 @@ def _resolve_pipeline_class(
         )
         _echo_error("E002", "Pipeline class could not be resolved. Check installation.")
         CliCommandBase.exit(2, cause=exc)
+        raise
 
     if isinstance(pipeline_cls, type):
         if not issubclass(pipeline_cls, PipelineBase):

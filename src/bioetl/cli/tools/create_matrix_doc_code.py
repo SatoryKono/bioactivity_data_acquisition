@@ -2,33 +2,30 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.core.errors import BioETLError
+from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.runtime.errors import BioETLError
 from bioetl.tools.create_matrix_doc_code import DocCodeMatrix, build_matrix
 from bioetl.tools.create_matrix_doc_code import (
     write_matrix as write_matrix_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "write_matrix", "build_matrix", "DocCodeMatrix"]
 
 write_matrix = write_matrix_sync
 
-app: TyperApp = create_app(
-    name="bioetl-create-matrix-doc-code",
-    help_text="Generate the Doc↔Code matrix and export artifacts",
-)
-
-
-@app.command()
 def main(
     artifacts: Path = typer.Option(
         Path("artifacts"),
@@ -56,6 +53,13 @@ def main(
         f"{result.csv_path.resolve()} and {result.json_path.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-create-matrix-doc-code",
+    help_text="Generate the Doc↔Code matrix and export artifacts",
+    main_fn=main,
+)
 
 
 def run() -> None:

@@ -239,7 +239,7 @@ appear in a JSON log file.
   "event": "retrying_request",
   "level": "warning",
   "timestamp": "2024-10-28T14:30:01.123Z",
-  "logger": "bioetl.core.api_client",
+  "logger": "bioetl.core.http.api_client",
   "context": {
     "run_id": "activity_20241028142959",
     "stage": "extract",
@@ -312,7 +312,7 @@ appear in a JSON log file.
 # 2. Merge it with the pipeline's main config.
 # 3. Instantiate the client using the final config.
 
-from bioetl.core.api_client import UnifiedAPIClient, APIConfig
+from bioetl.core.http.api_client import UnifiedAPIClient, APIConfig
 from bioetl.config.loader import load_config
 
 # This is what happens inside the framework:

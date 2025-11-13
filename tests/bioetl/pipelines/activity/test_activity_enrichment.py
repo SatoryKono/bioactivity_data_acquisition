@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -513,14 +513,14 @@ class TestActivityEnrichment:
         # Check that enrichment data is correct
         assert result.iloc[0]["assay_organism"] == "Homo sapiens"
         assert result.iloc[0]["assay_tax_id"] == 9606
-        # Используем безопасное сравнение для полей, которые могут быть NA
+        # Use safe comparisons for fields that may contain NA.
         compound_name_0 = result.iloc[0]["compound_name"]
         assert not pd.isna(compound_name_0) and compound_name_0 == "Compound 1"
         compound_key_0 = result.iloc[0]["compound_key"]
         assert not pd.isna(compound_key_0) and compound_key_0 == "CID1"
         curated_0 = result.iloc[0]["curated"]
         assert not pd.isna(curated_0) and curated_0 == True  # noqa: E712
-        # removed всегда None/NA на этом этапе обогащения
+        # removed should always be None/NA at this enrichment stage.
         assert pd.isna(result.iloc[0]["removed"])
 
         assert result.iloc[1]["assay_organism"] == "Mus musculus"
@@ -531,7 +531,7 @@ class TestActivityEnrichment:
         assert not pd.isna(compound_key_1) and compound_key_1 == "CID2"
         curated_1 = result.iloc[1]["curated"]
         assert not pd.isna(curated_1) and curated_1 == False  # noqa: E712
-        # removed всегда None/NA на этом этапе обогащения
+        # removed should always be None/NA at this enrichment stage.
         assert pd.isna(result.iloc[1]["removed"])
 
     def test_enrichment_field_types_match_schema(
@@ -621,7 +621,7 @@ class TestActivityEnrichment:
         df["standard_text_value"] = [">10", None, "~15", None, None]
         df["standard_value"] = [None, 20.0, None, 15.0, None]
 
-        # Проверка: если standard_text_value не NULL, то standard_value должен быть NULL
+        # Invariant: when standard_text_value is not NULL, standard_value must be NULL.
         mask_text_not_null = df["standard_text_value"].notna()
         mask_value_null = df["standard_value"].isna()
         assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
@@ -637,7 +637,7 @@ class TestActivityEnrichment:
         df["text_value"] = ["Active", None, "Inactive", None, None]
         df["value"] = [None, 20.0, None, 15.0, None]
 
-        # Проверка: если text_value не NULL, то value должен быть NULL
+        # Invariant: when text_value is not NULL, value must be NULL.
         mask_text_not_null = df["text_value"].notna()
         mask_value_null = df["value"].isna()
         assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
@@ -672,7 +672,7 @@ class TestActivityEnrichment:
         }
         result = enrich_with_data_validity(df, mock_chembl_client, config)
 
-        # Проверка: если data_validity_comment не NULL, то data_validity_description должен быть не NULL
+        # Invariant: non-null data_validity_comment implies data_validity_description is non-null.
         mask_comment_not_null = result["data_validity_comment"].notna()
         mask_description_not_null = result["data_validity_description"].notna()
         assert (mask_comment_not_null & ~mask_description_not_null).sum() == 0, (
@@ -688,7 +688,7 @@ class TestActivityEnrichment:
         df["curated_by"] = ["user1", None, "user2", None, None]
         df["curated"] = [True, False, True, False, None]
 
-        # Проверка: если curated == TRUE, то curated_by должен быть не NULL
+        # Invariant: when curated is TRUE, curated_by must be non-null.
         curated_rows = df[df["curated"] == True]  # noqa: E712
         if not curated_rows.empty:
             assert curated_rows["curated_by"].notna().all(), (
@@ -720,7 +720,7 @@ class TestActivityEnrichment:
 
         result = enrich_with_compound_record(sample_activity_df, mock_chembl_client, config)
 
-        # Проверка: removed всегда NULL
+        # Invariant: removed remains NULL.
         if "removed" in result.columns:
             assert result["removed"].isna().all(), (
                 "Invariant violated: removed is not NULL on extraction stage"
@@ -755,11 +755,11 @@ class TestActivityEnrichment:
         }
         result = enrich_with_assay(sample_activity_df, mock_chembl_client, config)
 
-        # Проверка: если assay_organism NULL, то assay_tax_id должен быть NULL (или наоборот - редкие legacy-ряды допускаются)
+        # Invariant: assay_tax_id must be NULL when assay_organism is NULL (rare legacy rows may break this).
         mask_organism_null = result["assay_organism"].isna()
         mask_tax_id_not_null = result["assay_tax_id"].notna()
         inconsistent_count = (mask_organism_null & mask_tax_id_not_null).sum()
-        # Допускаем редкие legacy-ряды, но их должно быть близко к 0
+        # Allow rare legacy rows, but the count should be close to zero.
         assert inconsistent_count <= 1, (
             f"Invariant violated: too many rows with assay_organism NULL but assay_tax_id NOT NULL: {inconsistent_count}"
         )

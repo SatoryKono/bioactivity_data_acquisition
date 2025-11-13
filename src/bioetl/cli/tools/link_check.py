@@ -2,26 +2,23 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.link_check import run_link_check as run_link_check_sync
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "run_link_check"]
 
 run_link_check = run_link_check_sync
 
-app: TyperApp = create_app(
-    name="bioetl-link-check",
-    help_text="Verify documentation links via lychee",
-)
-
-
-@app.command()
 def main(
     timeout_seconds: int = typer.Option(
         300,
@@ -46,6 +43,13 @@ def main(
             fg=typer.colors.RED,
         )
     exit_with_code(exit_code)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-link-check",
+    help_text="Verify documentation links via lychee",
+    main_fn=main,
+)
 
 
 def run() -> None:

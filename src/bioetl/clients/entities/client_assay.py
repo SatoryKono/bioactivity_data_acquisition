@@ -24,16 +24,16 @@ class ChemblAssayClient(ChemblEntityIteratorBase):
         batch_size: int,
         max_url_length: int,
     ) -> None:
-        """Инициализировать клиент для assay.
+        """Initialize Chembl assay client.
 
         Parameters
         ----------
         chembl_client:
-            Экземпляр ChemblClient для выполнения запросов.
+            Instance of ChemblClient used for HTTP requests.
         batch_size:
-            Размер батча для пагинации (максимум 25 для ChEMBL API).
+            Batch size for pagination (maximum 25 for the ChEMBL API).
         max_url_length:
-            Максимальная длина URL для проверки.
+            Maximum URL length enforced during request preparation.
         """
         config = EntityConfig(
             endpoint="/assay.json",

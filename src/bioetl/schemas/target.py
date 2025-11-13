@@ -1,4 +1,4 @@
-"""Совместимость: экспорт схемы целей под историческим пространством имён."""
+"""Compatibility shim exporting the target schema under the legacy namespace."""
 
 from __future__ import annotations
 

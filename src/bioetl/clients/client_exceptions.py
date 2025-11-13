@@ -1,9 +1,9 @@
-"""Публичные исключения HTTP-клиентов BioETL.
+"""Public HTTP client exceptions exposed by BioETL.
 
-Модуль предоставляет стабильный контракт для верхних слоёв (например, CLI),
-скрывая конкретные детали реализации сетевых клиентов. Все внешние компоненты
-должны импортировать сетевые исключения только отсюда, чтобы избежать прямой
-зависимости от ``requests``.
+The module defines a stable contract for upper layers (for example, the CLI)
+by hiding concrete implementation details of the networking clients. External
+components must import network exceptions only from here to avoid direct
+dependencies on ``requests``.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ __all__ = [
     "ConnectionError",
 ]
 
-# Переэкспорт исключений requests с сохранением базовых типов.
+# Re-export requests exceptions while keeping the underlying types.
 RequestException = _RequestsRequestException
 HTTPError = _RequestsHTTPError
 Timeout = _RequestsTimeout

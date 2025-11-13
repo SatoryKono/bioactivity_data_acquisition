@@ -2,33 +2,30 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.core.errors import BioETLError
+from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.runtime.errors import BioETLError
 from bioetl.tools.catalog_code_symbols import CodeCatalog
 from bioetl.tools.catalog_code_symbols import (
     catalog_code_symbols as catalog_code_symbols_sync,
 )
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "catalog_code_symbols", "CodeCatalog"]
 
 catalog_code_symbols = catalog_code_symbols_sync
 
-app: TyperApp = create_app(
-    name="bioetl-catalog-code-symbols",
-    help_text="Build the code entity catalog and related reports",
-)
-
-
-@app.command()
 def main(
     artifacts: Path | None = typer.Option(
         None,
@@ -55,6 +52,13 @@ def main(
         f"Catalog updated: {result.json_path.resolve()} and {result.cli_path.resolve()}"
     )
     exit_with_code(0)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-catalog-code-symbols",
+    help_text="Build the code entity catalog and related reports",
+    main_fn=main,
+)
 
 
 def run() -> None:

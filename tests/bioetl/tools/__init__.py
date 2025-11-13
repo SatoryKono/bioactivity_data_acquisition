@@ -1,4 +1,4 @@
-"""Утилиты и фикстуры для модульных тестов."""
+"""Utilities and fixtures for unit tests."""
 
 from __future__ import annotations
 

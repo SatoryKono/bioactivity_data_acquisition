@@ -11,7 +11,7 @@ __all__ = ["ChemblAssayClassificationEntityClient"]
 
 
 class ChemblAssayClassificationEntityClient(ChemblEntityClientBase):
-    """Клиент для получения assay_classification записей из ChEMBL API."""
+    """Client for retrieving ``assay_classification`` records from the ChEMBL API."""
 
     CONFIG: ClassVar[EntityConfig] = make_entity_config(
         endpoint="/assay_classification.json",

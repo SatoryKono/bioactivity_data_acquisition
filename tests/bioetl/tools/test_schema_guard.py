@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from types import SimpleNamespace, ModuleType
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
 
+from bioetl.config import loader
 from bioetl.tools import schema_guard
 
 
@@ -53,7 +54,7 @@ def test_validate_config_success_and_failure(tmp_path: Path, monkeypatch: pytest
         assert path == config_path
         return Config()
 
-    monkeypatch.setattr("bioetl.config.loader.load_config", fake_load_config)
+    monkeypatch.setattr(loader, "load_config", fake_load_config)
     ok, payload = schema_guard._validate_config(config_path)
     assert ok
     assert payload["pipeline_name"] == "activity"
@@ -61,7 +62,7 @@ def test_validate_config_success_and_failure(tmp_path: Path, monkeypatch: pytest
     def failing_load(_: Path) -> None:
         raise ValueError("boom")
 
-    monkeypatch.setattr("bioetl.config.loader.load_config", failing_load)
+    monkeypatch.setattr(loader, "load_config", failing_load)
     ok, payload = schema_guard._validate_config(config_path)
     assert not ok
     assert payload["validation_errors"] == ["boom"]
@@ -93,9 +94,42 @@ def test_check_required_fields_detects_issues() -> None:
     assert "determinism.sort.by" in " ".join(errors)
 
 
+def test_check_required_fields_missing_sections() -> None:
+    class EmptyConfig:
+        pass
+
+    errors = schema_guard._check_required_fields(EmptyConfig(), "activity")
+    assert "Missing required field" in errors[0]
+
+
+def test_run_schema_guard_handles_missing_config(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    project_root = tmp_path
+    configs_dir = project_root / "configs" / "pipelines" / "chembl"
+    configs_dir.mkdir(parents=True)
+    monkeypatch.setattr(schema_guard, "PROJECT_ROOT", project_root)
+    monkeypatch.setattr(schema_guard, "CONFIGS", configs_dir)
+    monkeypatch.setattr(schema_guard, "ARTIFACTS_DIR", tmp_path / "artifacts")
+    monkeypatch.setattr(schema_guard, "UnifiedLogger", DummyUnifiedLogger)
+
+    class Registry:
+        @staticmethod
+        def as_mapping() -> dict[str, Any]:
+            return {}
+
+    monkeypatch.setattr(schema_guard, "SCHEMA_REGISTRY", Registry())
+
+    results, registry_errors, report_path = schema_guard.run_schema_guard()
+    assert report_path.exists()
+    assert registry_errors == []
+    assert not results["assay"]["valid"]
+
+
 def test_validate_schema_registry_reports_mismatches(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_module = ModuleType("dummy.schema_module")
-    dummy_module.SCHEMA_VERSION = "1.0"
+    setattr(dummy_module, "SCHEMA_VERSION", "1.0")
     monkeypatch.setitem(sys.modules, "dummy.schema_module", dummy_module)
 
     schema = SimpleNamespace(columns={"hash_row": object, "hash_business_key": object, "value": object})
@@ -145,13 +179,13 @@ def test_write_report_and_run_schema_guard(tmp_path: Path, monkeypatch: pytest.M
     def fake_load_config(_: Path) -> Config:
         return Config()
 
-    monkeypatch.setattr("bioetl.config.loader.load_config", fake_load_config)
+    monkeypatch.setattr(loader, "load_config", fake_load_config)
 
     schema = SimpleNamespace(columns={"hash_row": object, "hash_business_key": object})
     entry = SimpleNamespace(schema=schema, column_order=("hash_row", "hash_business_key"), version="1.0")
 
     module = ModuleType("dummy.schema.Module")
-    module.SCHEMA_VERSION = "1.0"
+    setattr(module, "SCHEMA_VERSION", "1.0")
     package = ModuleType("dummy")
     subpackage = ModuleType("dummy.schema")
     setattr(subpackage, "Module", module)

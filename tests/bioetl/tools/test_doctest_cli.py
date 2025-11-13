@@ -163,3 +163,41 @@ def test_run_command_handles_generic_exception(monkeypatch: pytest.MonkeyPatch) 
     assert stderr == "boom"
     assert stdout == ""
 
+
+def test_extract_bash_commands_skips_other_languages() -> None:
+    content = """
+    ```python
+    print("hello")
+    ```
+    """
+    assert not doctest_cli.extract_bash_commands(content, Path("docs.md"))
+
+
+def test_run_examples_truncates_long_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
+    monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(doctest_cli, "ARTIFACTS_DIR", tmp_path / "artifacts")
+
+    long_command = "python -m bioetl.cli.cli_app activity_chembl --config " + "a" * 80
+    example = doctest_cli.CLIExample(
+        source_file=tmp_path / "docs.md",
+        line_number=1,
+        command=long_command + " --dry-run",
+    )
+
+    def fake_run(_: str) -> tuple[int, str, str]:
+        return 0, "", ""
+
+    monkeypatch.setattr(doctest_cli, "_run_command", fake_run)
+    results, report_path = doctest_cli.run_examples([example])
+    assert results[0].exit_code == 0
+    table = report_path.read_text(encoding="utf-8")
+    assert "`python -m bioetl.cli.cli_app activity_chembl --config" in table
+
+
+def test_extract_cli_examples_handles_missing_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
+    monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(doctest_cli, "DOCS_ROOT", tmp_path / "docs")
+    examples = doctest_cli.extract_cli_examples()
+    assert examples == []

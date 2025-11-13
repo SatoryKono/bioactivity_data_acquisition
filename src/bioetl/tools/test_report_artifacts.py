@@ -1,4 +1,4 @@
-"""Общие структуры и утилиты для отчётов о запуске тестов."""
+"""Shared structures and helpers for test report artifacts."""
 
 from __future__ import annotations
 
@@ -19,14 +19,14 @@ TEST_REPORTS_ROOT: Final[Path] = Path("data/output/test-reports")
 
 
 def build_timestamp_directory_name(at: datetime) -> str:
-    """Вернуть имя каталога отчёта по метке времени UTC ISO-8601."""
+    """Return a UTC ISO-8601 timestamp directory name for reports."""
 
     return at.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 @dataclass(frozen=True, slots=True)
 class TestReportArtifacts:
-    """Абсолютные пути артефактов отчёта о тестировании."""
+    """Absolute paths for generated test report artifacts."""
 
     root: Path
     pytest_report: Path
@@ -35,7 +35,7 @@ class TestReportArtifacts:
 
 
 def resolve_artifact_paths(root: Path) -> TestReportArtifacts:
-    """Построить структуру путей в каталоге *root* без побочных эффектов."""
+    """Construct artifact paths under ``root`` without side effects."""
 
     return TestReportArtifacts(
         root=root,
@@ -47,7 +47,7 @@ def resolve_artifact_paths(root: Path) -> TestReportArtifacts:
 
 @dataclass(slots=True)
 class TestReportMeta:
-    """Данные для формирования `meta.yaml` отчёта."""
+    """Metadata required to populate the test-report `meta.yaml` file."""
 
     pipeline_version: str
     git_commit: str
@@ -59,7 +59,7 @@ class TestReportMeta:
     status: str
 
     def to_ordered_dict(self) -> dict[str, str | int]:
-        """Вернуть словарь с фиксированным порядком ключей."""
+        """Return a dictionary with a fixed key order."""
 
         return {
             "pipeline_version": self.pipeline_version,

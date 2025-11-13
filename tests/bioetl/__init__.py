@@ -1,2 +1,2 @@
-"""Тестовый пакет с дополнительными фикстурами и артефактами BioETL."""
+"""Test package with additional BioETL fixtures and artifacts."""
 

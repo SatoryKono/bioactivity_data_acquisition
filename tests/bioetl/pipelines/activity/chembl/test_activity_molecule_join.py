@@ -9,8 +9,8 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.utils.molecule_map import join_activity_with_molecule
+from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.core.utils import join_activity_with_molecule
 
 
 @pytest.fixture
@@ -112,7 +112,7 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка наличия всех выходных колонок
+        # Verify that all expected columns are present.
         expected_columns = [
             "activity_id",
             "molecule_key",
@@ -161,13 +161,13 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка compound_key
+        # Validate compound_key extraction.
         assert "compound_key" in result.columns
-        # Для record_id=100 должен быть TEST_KEY
+        # record_id=100 should yield TEST_KEY.
         row_with_record_100 = result[result["activity_id"] == 1]
         if not row_with_record_100.empty:
             compound_key = row_with_record_100.iloc[0]["compound_key"]
-            # Проверяем, что compound_key не NA и равен TEST_KEY
+            # Ensure compound_key is not NA and equals TEST_KEY.
             assert not pd.isna(compound_key), "compound_key is NA for activity_id=1"
             assert compound_key == "TEST_KEY"
 
@@ -195,13 +195,13 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка molecule_name
+        # Validate molecule_name population.
         assert "molecule_name" in result.columns
-        # Используем activity_id для фильтрации, так как molecule_chembl_id не сохраняется в результате
+        # Filter by activity_id because molecule_chembl_id is not retained in the result.
         row_with_chembl1 = result[result["activity_id"] == 1]
         if not row_with_chembl1.empty:
             molecule_name = row_with_chembl1.iloc[0]["molecule_name"]
-            # Проверяем, что molecule_name не NA и равен Aspirin
+            # Ensure molecule_name is not NA and equals Aspirin.
             assert not pd.isna(molecule_name), "molecule_name is NA for activity_id=1"
             assert molecule_name == "Aspirin"
 
@@ -232,12 +232,12 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка fallback на первый синоним
-        # Используем activity_id для фильтрации, так как molecule_chembl_id не сохраняется в результате
+        # Verify fallback to the first synonym.
+        # Filter by activity_id because molecule_chembl_id is not retained in the result.
         row_with_chembl2 = result[result["activity_id"] == 2]
         if not row_with_chembl2.empty:
             molecule_name = row_with_chembl2.iloc[0]["molecule_name"]
-            # Проверяем, что molecule_name не NA и равен Synonym1
+            # Ensure molecule_name is not NA and equals Synonym1.
             assert not pd.isna(molecule_name), "molecule_name is NA for activity_id=2"
             assert molecule_name == "Synonym1"
 
@@ -255,7 +255,7 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Должен вернуть пустой DataFrame с правильными колонками
+        # Should return an empty DataFrame with the proper columns.
         expected_columns = [
             "activity_id",
             "molecule_key",
@@ -276,7 +276,7 @@ class TestActivityMoleculeJoin:
             {
                 "activity_id": [1, 2],
                 "record_id": [100, 101],
-                # molecule_chembl_id отсутствует
+                # molecule_chembl_id column is absent.
             }
         )
 
@@ -286,7 +286,7 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Должен вернуть пустой DataFrame с правильными колонками
+        # Should return an empty DataFrame with the proper columns.
         expected_columns = [
             "activity_id",
             "molecule_key",
@@ -305,7 +305,7 @@ class TestActivityMoleculeJoin:
         """Test handling of missing molecules in API response."""
         mock_chembl_client.paginate = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={}  # Пустой ответ
+            return_value={}  # Empty response.
         )
 
         result = join_activity_with_molecule(
@@ -314,10 +314,10 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка, что molecule_name заполнен из molecule_key (fallback)
+        # Verify that molecule_name falls back to molecule_key.
         assert "molecule_name" in result.columns
         assert "molecule_key" in result.columns
-        # molecule_name должен быть равен molecule_key, если molecule не найден
+        # molecule_name should equal molecule_key when the molecule is missing.
         for _, row in result.iterrows():
             if pd.notna(row.get("molecule_key")):
                 assert row["molecule_name"] == row["molecule_key"]
@@ -346,7 +346,7 @@ class TestActivityMoleculeJoin:
             molecule_join_config,
         )
 
-        # Проверка, что колонки строго соответствуют требованиям
+        # Ensure the output columns match the exact contract.
         expected_columns = [
             "activity_id",
             "molecule_key",

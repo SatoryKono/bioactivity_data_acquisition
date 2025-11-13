@@ -20,10 +20,12 @@ _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 
 
 def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
+    """Return True when ``value`` is an iterable but not a string-like object."""
     return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
 
 
 def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
+    """Return True when ``value`` is a list instance."""
     return isinstance(value, list)
 
 
@@ -212,9 +214,10 @@ def _load_yaml(path: Path) -> Any:
     """Load a YAML file supporting ``!include`` directives."""
 
     class Loader(yaml.SafeLoader):
-        pass
+        """Custom YAML loader adding ``!include`` support."""
 
     def construct_include(loader: Loader, node: ScalarNode) -> Any:
+        """Resolve ``!include`` directives relative to the current file."""
         filename = loader.construct_scalar(node)
         include_path = _resolve_reference(filename, base=path.parent)
         return _load_yaml(include_path)
@@ -236,6 +239,7 @@ def _convert_mapping_to_string_keys(
     *,
     context: str,
 ) -> dict[str, Any]:
+    """Ensure a mapping uses string keys and raise with context on failure."""
     candidate_mapping = cast(Mapping[Any, Any], value)
     normalized: dict[str, Any] = {}
     invalid_keys: list[Any] = []
@@ -254,6 +258,7 @@ def _convert_mapping_to_string_keys(
 
 
 def _apply_yaml_merge(payload: Any) -> Any:
+    """Recursively normalise YAML merge keys and return a merged structure."""
     if isinstance(payload, MutableMapping):
         typed_payload = cast(MutableMapping[str, Any], payload)
         result: dict[str, Any] = {}
@@ -264,6 +269,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         if merge_value is not None:
             def _normalize_merge_source(candidate: Any) -> Mapping[str, Any]:
+                """Normalize individual YAML merge candidates into mappings."""
                 merged_candidate_any: Any = _apply_yaml_merge(candidate)
                 if not isinstance(merged_candidate_any, Mapping):
                     msg = "YAML merge source must be a mapping"
@@ -319,6 +325,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
 
 def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
+    """Validate that a YAML payload is a mapping and enforce string keys."""
     if not isinstance(value, MutableMapping):
         msg = f"Configuration file must produce a mapping: {path}"
         raise TypeError(msg)
@@ -329,6 +336,7 @@ def _ensure_mapping(value: Any, path: Path) -> dict[str, Any]:
 
 
 def _resolve_reference(value: str | Path, *, base: Path) -> Path:
+    """Resolve configuration references relative to ``base`` and the filesystem."""
     candidate = Path(value).expanduser()
     search_paths: list[Path] = []
 
@@ -356,6 +364,7 @@ def _deep_merge(
     base: Mapping[str, Any],
     override: Mapping[str, Any],
 ) -> dict[str, Any]:
+    """Recursively merge two mapping-like objects."""
     merged: dict[str, Any] = dict(base)
     for key, value in override.items():
         if key in merged and isinstance(merged[key], MutableMapping) and isinstance(value, Mapping):
@@ -369,6 +378,7 @@ def _deep_merge(
 
 
 def _assign_nested(target: MutableMapping[str, Any], parts: Sequence[str], value: Any) -> None:
+    """Assign a value to a nested mapping according to dotted parts."""
     current = target
     for part in parts[:-1]:
         if part not in current or not isinstance(current[part], MutableMapping):
@@ -378,6 +388,7 @@ def _assign_nested(target: MutableMapping[str, Any], parts: Sequence[str], value
 
 
 def _coerce_value(value: Any) -> Any:
+    """Best-effort conversion of CLI/environment override values."""
     if isinstance(value, str):
         try:
             return yaml.safe_load(value)
@@ -387,6 +398,7 @@ def _coerce_value(value: Any) -> Any:
 
 
 def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -> dict[str, Any]:
+    """Collect prefixed environment variables and build a nested override tree."""
     overrides: dict[str, Any] = {}
     for prefix in prefixes:
         if not prefix:
@@ -409,6 +421,7 @@ def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -
 
 
 def _select_environment(env_mapping: Mapping[str, str]) -> str | None:
+    """Resolve and validate the active environment from the mapping."""
     raw_value = env_mapping.get(ENVIRONMENT_VARIABLE)
     if raw_value is None:
         return None
@@ -429,6 +442,7 @@ def _load_environment_overrides(
     *,
     base: Path,
 ) -> tuple[dict[str, Any], list[Path]]:
+    """Load environment-specific configuration layers and return applied files."""
     env_directory = ENV_ROOT_DIR / environment
     files = _discover_layer_files(env_directory, base=base, strict=True)
     payload: dict[str, Any] = {}
@@ -450,6 +464,7 @@ def _discover_layer_files(
     base: Path,
     strict: bool = False,
 ) -> list[Path]:
+    """Discover configuration layer files under ``directory``."""
     resolved_dir = _resolve_layer_directory(directory, base=base)
     if not resolved_dir.exists():
         if strict:
@@ -465,6 +480,7 @@ def _discover_layer_files(
 
 
 def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
+    """Resolve a directory relative to known roots."""
     if directory.is_absolute():
         return directory.resolve()
 
@@ -478,6 +494,7 @@ def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
 
 
 def _stringify_profile(profile: Path, *, base: Path) -> str:
+    """Represent a profile path relative to ``base`` when possible."""
     try:
         return str(profile.relative_to(base))
     except ValueError:

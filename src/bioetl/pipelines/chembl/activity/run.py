@@ -21,16 +21,17 @@ from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.core.log_events import LogEvents
-from bioetl.core.normalizers import (
+from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
+    format_failure_cases,
     normalize_identifier_columns,
     normalize_string_columns,
+    summarize_schema_errors,
 )
-from bioetl.core.utils.molecule_map import join_activity_with_molecule
-from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
+from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas.chembl_activity_schema import (
     ACTIVITY_PROPERTY_KEYS,
@@ -42,7 +43,7 @@ from bioetl.schemas.chembl_activity_schema import (
 from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 from ...base import RunResult
-from ...chembl_descriptor import (
+from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
@@ -99,8 +100,8 @@ API_ACTIVITY_FIELDS: tuple[str, ...] = (
     "standard_upper_value",
     "uo_units",
     "qudt_units",
-    # data_validity_description извлекается отдельным запросом в extract через fetch_data_validity_lookup()
-    "curated_by",  # Для вычисления curated: (curated_by IS NOT NULL) -> bool
+    # data_validity_description is retrieved separately via fetch_data_validity_lookup().
+    "curated_by",  # Used to compute curated: (curated_by IS NOT NULL) -> bool.
 )
 
 
@@ -654,7 +655,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, ActivitySchema, log)
 
-        # Восстановить curated из curated_by если curated пусто
+        # Recompute curated from curated_by when curated is empty.
         if "curated" in df.columns or "curated_by" in df.columns:
             if "curated" not in df.columns:
                 df["curated"] = pd.NA
@@ -725,7 +726,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._check_activity_id_uniqueness(df, log)
         self._check_foreign_key_integrity(df, log)
 
-        # Soft enum валидация для data_validity_comment
+        # Soft-enum validation for data_validity_comment.
         self._validate_data_validity_comment_soft_enum(df, log)
 
         # Call base validation with error handling
@@ -786,7 +787,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
 
     def _should_enrich_compound_record(self) -> bool:
-        """Проверить, включено ли обогащение compound_record в конфиге."""
+        """Return True when compound_record enrichment is enabled in the config."""
         if not self.config.chembl:
             return False
         try:
@@ -809,10 +810,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return False
 
     def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из compound_record."""
+        """Enrich the DataFrame with compound_record fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
+        # Retrieve enrichment configuration.
         enrich_cfg: dict[str, Any] = {}
         try:
             if self.config.chembl:
@@ -835,13 +836,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать или переиспользовать клиент ChEMBL
+        # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
+        # Register the client only if not already registered.
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(
@@ -851,11 +852,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Вызвать функцию обогащения
+        # Invoke the enrichment routine.
         return enrich_with_compound_record(df, chembl_client, enrich_cfg)
 
     def _should_enrich_assay(self) -> bool:
-        """Проверить, включено ли обогащение assay в конфиге."""
+        """Return True when assay enrichment is enabled in the config."""
         if not self.config.chembl:
             return False
         try:
@@ -878,10 +879,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return False
 
     def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из assay."""
+        """Enrich the DataFrame with assay fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
+        # Retrieve enrichment configuration.
         enrich_cfg: dict[str, Any] = {}
         try:
             if self.config.chembl:
@@ -902,13 +903,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать или переиспользовать клиент ChEMBL
+        # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
+        # Register the client only if not already registered.
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(
@@ -918,11 +919,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Вызвать функцию обогащения
+        # Invoke the enrichment routine.
         return enrich_with_assay(df, chembl_client, enrich_cfg)
 
     def _should_enrich_data_validity(self) -> bool:
-        """Проверить, включено ли обогащение data_validity в конфиге."""
+        """Return True when data_validity enrichment is enabled in the config."""
         if not self.config.chembl:
             return False
         try:
@@ -945,10 +946,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return False
 
     def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из data_validity_lookup."""
+        """Enrich the DataFrame with data_validity_lookup fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
+        # Retrieve enrichment configuration.
         enrich_cfg: dict[str, Any] = {}
         try:
             if self.config.chembl:
@@ -969,7 +970,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Проверка: если data_validity_description уже заполнено (не все NA), логировать информационное сообщение
+        # If data_validity_description already contains values (not all NA), log an informational message.
         if "data_validity_description" in df.columns:
             non_na_count = int(df["data_validity_description"].notna().sum())
             if non_na_count > 0:
@@ -980,13 +981,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     message="data_validity_description already populated from extract, enrichment will update/overwrite",
                 )
 
-        # Создать или переиспользовать клиент ChEMBL
+        # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
+        # Register the client only if not already registered.
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(
@@ -996,11 +997,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Вызвать функцию обогащения (может обновить/перезаписать данные из extract)
+        # Invoke the enrichment routine (may update/overwrite extract data).
         return enrich_with_data_validity(df, chembl_client, enrich_cfg)
 
     def _should_enrich_molecule(self) -> bool:
-        """Проверить, включено ли обогащение molecule в конфиге."""
+        """Return True when molecule enrichment is enabled in the config."""
         if not self.config.chembl:
             return False
         try:
@@ -1023,10 +1024,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return False
 
     def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Обогатить DataFrame полями из molecule через join."""
+        """Enrich the DataFrame with molecule fields via join."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Получить конфигурацию обогащения
+        # Retrieve enrichment configuration.
         enrich_cfg: dict[str, Any] = {}
         try:
             if self.config.chembl:
@@ -1047,13 +1048,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Создать или переиспользовать клиент ChEMBL
+        # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
         parameters = self._normalize_parameters(source_config.parameters)
         base_url = self._resolve_base_url(parameters)
         api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Регистрируем клиент только если он еще не зарегистрирован
+        # Register the client only if not already registered.
         if "chembl_enrichment_client" not in self._registered_clients:
             self.register_client("chembl_enrichment_client", api_client)
         chembl_client = ChemblClient(
@@ -1063,26 +1064,26 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             operator=self.pipeline_code,
         )
 
-        # Вызвать функцию join для получения molecule_name
+        # Execute the join to fetch molecule_name.
         df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
 
-        # Коалесцировать molecule_name из join в molecule_pref_name если оно пусто
+        # Coalesce joined molecule_name into molecule_pref_name when missing.
         if "molecule_name" in df_join.columns:
             if "molecule_pref_name" not in df.columns:
                 df["molecule_pref_name"] = pd.NA
-            # Заполнить molecule_pref_name из molecule_name где оно пусто
+            # Fill molecule_pref_name using molecule_name where empty.
             mask = df["molecule_pref_name"].isna() | (
                 df["molecule_pref_name"].astype("string").str.strip() == ""
             )
             if mask.any():
-                # Merge по activity_id для получения molecule_name
+                # Merge on activity_id to retrieve molecule_name.
                 df_merged = df.merge(
                     df_join[["activity_id", "molecule_name"]],
                     on="activity_id",
                     how="left",
                     suffixes=("", "_join"),
                 )
-                # Заполнить molecule_pref_name из molecule_name где оно пусто
+                # Populate molecule_pref_name using molecule_name where empty.
                 df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
                 log.info(LogEvents.MOLECULE_PREF_NAME_ENRICHED,
                     rows_enriched=int(mask.sum()),
@@ -1307,22 +1308,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         }
 
     def _ensure_comment_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
-        """Гарантировать присутствие полей комментариев в DataFrame.
+        """Ensure comment fields exist in the DataFrame with string dtype defaults.
 
-        Если поля отсутствуют, добавляет их с pd.NA (dtype="string").
-        data_validity_description извлекается отдельным запросом в extract через _extract_data_validity_descriptions().
+        Missing columns are created with pd.NA. data_validity_description is populated via
+        _extract_data_validity_descriptions().
 
         Parameters
         ----------
         df:
-            DataFrame для проверки и дополнения.
+            DataFrame to inspect and augment.
         log:
             Logger instance.
 
         Returns
         -------
         pd.DataFrame:
-            DataFrame с гарантированным наличием полей комментариев.
+            DataFrame guaranteed to include comment fields.
         """
         if df.empty:
             return df
@@ -1344,24 +1345,24 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _extract_data_validity_descriptions(
         self, df: pd.DataFrame, client: ChemblClient, log: BoundLogger
     ) -> pd.DataFrame:
-        """Извлечь data_validity_description из DATA_VALIDITY_LOOKUP через отдельный запрос.
+        """Populate data_validity_description via DATA_VALIDITY_LOOKUP.
 
-        Собирает уникальные непустые значения data_validity_comment из DataFrame,
-        вызывает fetch_data_validity_lookup() и выполняет LEFT JOIN обратно к DataFrame.
+        Collects unique non-empty data_validity_comment values, calls fetch_data_validity_lookup(),
+        and left joins the results back to the DataFrame.
 
         Parameters
         ----------
         df:
-            DataFrame с данными activity, должен содержать data_validity_comment.
+            Activity DataFrame containing data_validity_comment.
         client:
-            ChemblClient для запросов к ChEMBL API.
+            ChemblClient used for API requests.
         log:
             Logger instance.
 
         Returns
         -------
         pd.DataFrame:
-            DataFrame с заполненной колонкой data_validity_description.
+            DataFrame with data_validity_description populated.
         """
         if df.empty:
             return df
@@ -1372,16 +1373,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             return df
 
-        # Собрать уникальные непустые значения data_validity_comment
+        # Collect unique non-empty data_validity_comment values.
         validity_comments: list[str] = []
         for _, row in df.iterrows():
             comment = row.get("data_validity_comment")
 
-            # Пропускаем NaN/None значения
+            # Skip NaN/None values.
             if pd.isna(comment) or comment is None:
                 continue
 
-            # Преобразуем в строку
+            # Convert to stripped string.
             comment_str = str(comment).strip()
 
             if comment_str:
@@ -1389,12 +1390,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         if not validity_comments:
             log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_SKIPPED, reason="no_valid_comments")
-            # Гарантируем наличие колонки с pd.NA
+            # Ensure the column exists with pd.NA.
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
 
-        # Вызвать fetch_data_validity_lookup для получения descriptions
+        # Fetch descriptions via fetch_data_validity_lookup.
         unique_comments = list(set(validity_comments))
         log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCHING, comments_count=len(unique_comments))
 
@@ -1410,12 +1411,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 error=str(exc),
                 exc_info=True,
             )
-            # Гарантируем наличие колонки с pd.NA
+            # Ensure the column exists with pd.NA.
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
 
-        # Создать DataFrame для join
+        # Build a DataFrame for joining.
         enrichment_data: list[dict[str, Any]] = []
         for comment in unique_comments:
             record = records_dict.get(comment)
@@ -1427,7 +1428,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     }
                 )
             else:
-                # Если запись не найдена, оставляем description как NULL
+                # Leave description as NULL when no record exists.
                 enrichment_data.append(
                     {
                         "data_validity_comment": comment,
@@ -1437,17 +1438,17 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         if not enrichment_data:
             log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_NO_RECORDS)
-            # Гарантируем наличие колонки с pd.NA
+            # Ensure the column exists with pd.NA.
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
 
         df_enrich = pd.DataFrame(enrichment_data)
 
-        # Сохранить исходный порядок строк через индекс
+        # Preserve the original row order via index.
         original_index = df.index.copy()
 
-        # LEFT JOIN обратно к df на data_validity_comment
+        # LEFT JOIN back onto the DataFrame by data_validity_comment.
         df_result = df.merge(
             df_enrich,
             on=["data_validity_comment"],
@@ -1455,18 +1456,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             suffixes=("", "_enrich"),
         )
 
-        # Убедиться, что колонка присутствует (заполнить NA для отсутствующих)
+        # Ensure the column exists (fill NA for missing entries).
         if "data_validity_description" not in df_result.columns:
             df_result["data_validity_description"] = pd.Series(
                 [pd.NA] * len(df_result), dtype="string"
             )
         else:
-            # Если колонка уже была, нормализовать типы
+            # Normalize types for existing columns.
             df_result["data_validity_description"] = df_result["data_validity_description"].astype(
                 "string"
             )
 
-        # Восстановить исходный порядок
+        # Restore original order.
         df_result = df_result.reindex(original_index)
 
         log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
@@ -1480,46 +1481,46 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _extract_assay_fields(
         self, df: pd.DataFrame, client: ChemblClient, log: BoundLogger
     ) -> pd.DataFrame:
-        """Извлечь assay_organism и assay_tax_id из ASSAYS через отдельный запрос.
+        """Populate assay_organism and assay_tax_id via ASSAYS lookup.
 
-        Собирает уникальные непустые значения assay_chembl_id из DataFrame,
-        вызывает fetch_assays_by_ids() и выполняет LEFT JOIN обратно к DataFrame.
+        Collects unique non-empty assay_chembl_id values from the DataFrame, calls
+        fetch_assays_by_ids(), and left joins the results back.
 
         Parameters
         ----------
         df:
-            DataFrame с данными activity, должен содержать assay_chembl_id.
+            Activity DataFrame containing assay_chembl_id.
         client:
-            ChemblClient для запросов к ChEMBL API.
+            ChemblClient used for API requests.
         log:
             Logger instance.
 
         Returns
         -------
         pd.DataFrame:
-            DataFrame с заполненными колонками assay_organism и assay_tax_id.
+            DataFrame with assay_organism and assay_tax_id populated.
         """
         if df.empty:
             return df
 
         if "assay_chembl_id" not in df.columns:
             log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_SKIPPED, reason="assay_chembl_id_column_missing")
-            # Гарантируем наличие колонок с pd.NA
+            # Ensure columns exist with pd.NA.
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
             return df
 
-        # Собрать уникальные непустые значения assay_chembl_id
+        # Collect unique non-empty assay_chembl_id values.
         assay_ids: list[str] = []
         for _, row in df.iterrows():
             assay_id = row.get("assay_chembl_id")
 
-            # Пропускаем NaN/None значения
+            # Skip NaN/None values.
             if pd.isna(assay_id) or assay_id is None:
                 continue
 
-            # Преобразуем в строку и нормализуем
+            # Normalize to uppercase stripped string.
             assay_id_str = str(assay_id).strip().upper()
 
             if assay_id_str:
@@ -1527,13 +1528,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         if not assay_ids:
             log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_SKIPPED, reason="no_valid_assay_ids")
-            # Гарантируем наличие колонок с pd.NA
+            # Ensure columns exist with pd.NA.
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
             return df
 
-        # Вызвать fetch_assays_by_ids для получения assay данных
+        # Fetch assay data via fetch_assays_by_ids.
         unique_assay_ids = list(set(assay_ids))
         log.info(LogEvents.EXTRACT_ASSAY_FIELDS_FETCHING, assay_ids_count=len(unique_assay_ids))
 
@@ -1548,13 +1549,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 error=str(exc),
                 exc_info=True,
             )
-            # Гарантируем наличие колонок с pd.NA
+            # Ensure columns exist with pd.NA.
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
             return df
 
-        # Создать DataFrame для join
+        # Build a DataFrame for joining.
         enrichment_data: list[dict[str, Any]] = []
         for assay_id in unique_assay_ids:
             record = records_dict.get(assay_id) if records_dict else None
@@ -1567,7 +1568,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     }
                 )
             else:
-                # Если запись не найдена, оставляем значения как NULL
+                # Leave NULL when the record is missing.
                 enrichment_data.append(
                     {
                         "assay_chembl_id": assay_id,
@@ -1578,7 +1579,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         if not enrichment_data:
             log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_NO_RECORDS)
-            # Гарантируем наличие колонок с pd.NA
+            # Ensure columns exist with pd.NA.
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
                 if col not in df.columns:
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
@@ -1586,19 +1587,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         df_enrich = pd.DataFrame(enrichment_data)
 
-        # Нормализовать assay_chembl_id в df_enrich для join (upper, strip)
+        # Normalize assay_chembl_id in enrichment data for joining.
         df_enrich["assay_chembl_id"] = (
             df_enrich["assay_chembl_id"].astype("string").str.strip().str.upper()
         )
 
-        # Нормализовать assay_chembl_id в df для join (upper, strip)
+        # Normalize assay_chembl_id in the base DataFrame for joining.
         original_index = df.index.copy()
         df_normalized = df.copy()
         df_normalized["assay_chembl_id_normalized"] = (
             df_normalized["assay_chembl_id"].astype("string").str.strip().str.upper()
         )
 
-        # LEFT JOIN обратно к df на assay_chembl_id
+        # Perform a LEFT JOIN back onto the DataFrame.
         df_result = df_normalized.merge(
             df_enrich,
             left_on="assay_chembl_id_normalized",
@@ -1607,39 +1608,39 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             suffixes=("", "_enrich"),
         )
 
-        # Удалить временную нормализованную колонку
+        # Drop the temporary normalized column.
         df_result = df_result.drop(columns=["assay_chembl_id_normalized"])
 
-        # Коалесценс после merge: *_enrich → базовые колонки
+        # Coalesce *_enrich columns back into base columns.
         for col in ["assay_organism", "assay_tax_id"]:
             if f"{col}_enrich" in df_result.columns:
-                # Коалесценс: использовать значение из обогащения, если базовое значение NA
+                # Use enrichment values when base values are NA.
                 if col not in df_result.columns:
                     df_result[col] = df_result[f"{col}_enrich"]
                 else:
-                    # Заменить NA значения значениями из _enrich
+                    # Replace NA using enrichment values.
                     base_series: pd.Series[Any] = df_result[col]
                     enrich_series: pd.Series[Any] = df_result[f"{col}_enrich"]
                     missing_mask = base_series.isna()
                     if bool(missing_mask.any()):
                         df_result.loc[missing_mask, col] = enrich_series.loc[missing_mask]
-                # Удалить колонку _enrich
+                # Remove the *_enrich column.
                 df_result = df_result.drop(columns=[f"{col}_enrich"])
 
-        # Убедиться, что все новые колонки присутствуют (заполнить NA для отсутствующих)
+        # Ensure columns exist, filling with NA where necessary.
         for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
             if col not in df_result.columns:
                 df_result[col] = pd.Series([pd.NA] * len(df_result), dtype=dtype)
 
-        # Приведение типов
+        # Cast to expected types.
         df_result["assay_organism"] = df_result["assay_organism"].astype("string")
 
-        # assay_tax_id может приходить строкой — приводим к Int64 с NA
+        # Convert assay_tax_id to Int64 with NA handling.
         df_result["assay_tax_id"] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
             df_result["assay_tax_id"], errors="coerce"
         ).astype("Int64")
 
-        # Проверка диапазона для assay_tax_id (>= 1 или NA)
+        # Verify assay_tax_id range (>= 1 or NA).
         mask_valid = df_result["assay_tax_id"].notna()
         if mask_valid.any():
             invalid_mask = mask_valid & (df_result["assay_tax_id"] < 1)
@@ -1649,7 +1650,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
                 df_result.loc[invalid_mask, "assay_tax_id"] = pd.NA
 
-        # Восстановить исходный порядок
+        # Restore the original order.
         df_result = df_result.reindex(original_index)
 
         log.info(LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE,
@@ -1661,24 +1662,24 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return df_result
 
     def _log_validity_comments_metrics(self, df: pd.DataFrame, log: BoundLogger) -> None:
-        """Логировать метрики заполненности полей комментариев.
+        """Log coverage metrics for comment fields.
 
-        Вычисляет:
-        - Долю NA для каждого из трех полей
-        - Топ-10 наиболее частых значений data_validity_comment
-        - Количество неизвестных значений data_validity_comment (не в whitelist)
+        Calculates:
+        - NA share for each of the three comment fields.
+        - Top 10 most frequent data_validity_comment values.
+        - Count of unknown data_validity_comment values (outside whitelist).
 
         Parameters
         ----------
         df:
-            DataFrame с данными activity.
+            Activity DataFrame to analyze.
         log:
             Logger instance.
         """
         if df.empty:
             return
 
-        # Вычисление долей NA
+        # Compute NA ratios.
         metrics: dict[str, Any] = {}
         comment_fields = ["activity_comment", "data_validity_comment", "data_validity_description"]
 
@@ -1691,7 +1692,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 metrics[f"{field}_na_count"] = na_count
                 metrics[f"{field}_total_count"] = total_count
 
-        # Топ-10 наиболее частых значений data_validity_comment
+        # Compute top 10 values for data_validity_comment.
         non_null_comments_series: pd.Series[str] | None = None
         if "data_validity_comment" in df.columns:
             series_candidate = df["data_validity_comment"].dropna()
@@ -1702,7 +1703,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 top_10 = {str(key): int(value) for key, value in value_counts.items()}
                 metrics["top_10_data_validity_comments"] = top_10
 
-        # Количество неизвестных значений data_validity_comment
+        # Count unknown data_validity_comment entries.
         whitelist = self._get_data_validity_comment_whitelist()
         if whitelist and non_null_comments_series is not None:
             whitelist_set: set[str] = set(whitelist)
@@ -1732,12 +1733,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             log.info(LogEvents.VALIDITY_COMMENTS_METRICS.legacy(), **metrics)
 
     def _get_data_validity_comment_whitelist(self) -> list[str]:
-        """Получить whitelist допустимых значений для data_validity_comment из словаря.
+        """Load allowed data_validity_comment values from the vocabulary store.
 
         Raises
         ------
         RuntimeError
-            Если словарь недоступен или пуст.
+            When the dictionary is unavailable or empty.
         """
 
         try:
@@ -1783,24 +1784,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return record
 
     def _extract_activity_properties_fields(self, record: dict[str, Any]) -> dict[str, Any]:
-        """Extract TRUV fields, standard_* fields, and comments from activity_properties array as fallback.
+        """Extract TRUV fields, standard_* fields, and comments from activity_properties as fallback.
 
-        Поля извлекаются из activity_properties только если они отсутствуют
-        в основном ответе API (приоритет у прямых полей из ACTIVITIES).
-        Извлекаются оригинальные TRUV-поля: value, text_value, relation, units.
-        Также извлекаются стандартизованные поля: standard_upper_value, standard_text_value.
-        Извлекаются диапазоны: upper_value, lower_value.
-        Извлекаются комментарии: activity_comment, data_validity_comment.
+        Fields are sourced from activity_properties only when missing in the primary API response
+        (ACTIVITIES takes precedence). Extracts original TRUV fields (value, text_value, relation,
+        units), standardized fields (standard_upper_value, standard_text_value), range fields
+        (upper_value, lower_value), and comments (activity_comment, data_validity_comment).
 
-        Также нормализует и сохраняет activity_properties в записи для последующей сериализации.
-        Выполняет валидацию TRUV-формата и дедупликацию точных дубликатов.
+        Also normalizes and stores activity_properties for serialization, validating TRUV format
+        and deduplicating exact duplicates.
         """
         log = UnifiedLogger.get(__name__).bind(
             component=f"{self.pipeline_code}.extract_activity_properties"
         )
         activity_id = record.get("activity_id")
 
-        # Проверка наличия activity_properties (совместимость с ChEMBL < v24)
+        # Check presence of activity_properties (compatibility with ChEMBL < v24).
         if "activity_properties" not in record:
             log.warning(LogEvents.ACTIVITY_PROPERTIES_MISSING,
                 activity_id=activity_id,
@@ -1817,7 +1816,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             return record
 
-        # Parse JSON string if needed
+        # Parse JSON string if provided.
         if isinstance(properties, str):
             try:
                 properties = json.loads(properties)
@@ -1828,14 +1827,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 )
                 return record
 
-        # Handle list of properties
+        # Ensure we operate on a list of properties.
         if not isinstance(properties, Sequence) or isinstance(properties, (str, bytes)):
             return record
 
         property_iterable: Iterable[Any] = cast(Iterable[Any], properties)
         property_items: list[Any] = list(property_iterable)
 
-        # Helper for fallback assignment
+        # Helper for fallback assignment.
         def _set_fallback(key: str, value: Any) -> None:
             """Set fallback value only if key is missing in record and value is not None."""
             if value is not None and record.get(key) is None:
@@ -1865,10 +1864,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             rf = p.get("result_flag")
             return (rf is True) or (isinstance(rf, int) and rf == 1)
 
-        # Sort: measured results (result_flag == 1) first, then others
+        # Sort: measured results (result_flag == 1) first, then others.
         items.sort(key=lambda p: (not _is_measured(p)))
 
-        # Process items: extract TRUV fields, standard_* fields, ranges, and comments as fallback
+        # Process items: extract TRUV fields, standard_* fields, ranges, and comments as fallback.
         for prop in items:
             val = prop.get("value")
             txt = prop.get("text_value")
@@ -1876,39 +1875,38 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             unt = prop.get("units")
             prop_type = str(prop.get("type", "")).lower()
 
-            # Проверяем, будем ли мы заполнять value или text_value
+            # Determine whether value or text_value will be populated.
             will_set_value = val is not None and record.get("value") is None
             will_set_text_value = txt is not None and record.get("text_value") is None
 
-            # Fallback для original/TRUV полей
+            # Fallback for original/TRUV fields.
             _set_fallback("value", val)
             _set_fallback("text_value", txt)
 
-            # Согласованное подтягивание сопряжённых полей из того же элемента
-            # Если заполняем value или text_value, подтягиваем relation и units (если они есть)
+            # Pull paired fields from the same property when setting value/text_value.
             if will_set_value or will_set_text_value:
                 _set_fallback("relation", rel)
                 _set_fallback("units", unt)
 
-            # Fallback для units из свойства (если еще не заполнено)
+            # Fallback for units when still unset.
             if unt is not None and record.get("units") is None:
                 _set_fallback("units", unt)
 
-            # Fallback для upper_value (по типам "upper", "upper_value", "upper limit")
+            # Fallback for upper_value (types "upper", "upper_value", "upper limit").
             if record.get("upper_value") is None and (
                 "upper" in prop_type or prop_type in ("upper_value", "upper limit")
             ):
                 if val is not None:
                     _set_fallback("upper_value", val)
 
-            # Fallback для lower_value (по типам "lower", "lower_value", "lower limit")
+            # Fallback for lower_value (types "lower", "lower_value", "lower limit").
             if record.get("lower_value") is None and (
                 "lower" in prop_type or prop_type in ("lower_value", "lower limit")
             ):
                 if val is not None:
                     _set_fallback("lower_value", val)
 
-            # Fallback для standard_upper_value (по типам "standard_upper", "standard upper", "standard upper value")
+            # Fallback for standard_upper_value (types "standard_upper", "standard upper", "standard upper value").
             if record.get("standard_upper_value") is None and (
                 "standard_upper" in prop_type
                 or prop_type in ("standard upper", "standard upper value")
@@ -1916,7 +1914,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 if val is not None:
                     _set_fallback("standard_upper_value", val)
 
-            # Fallback для standard_text_value (по типам с подстрокой "standard" + "text")
+            # Fallback for standard_text_value (types containing both "standard" and "text").
             if (
                 record.get("standard_text_value") is None
                 and "standard" in prop_type
@@ -1927,10 +1925,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 elif val is not None:
                     _set_fallback("standard_text_value", val)
 
-        # Fallback для data_validity_comment: извлечь из activity_properties если поле пустое
+        # Fallback logic for data_validity_comment: extract from activity_properties when empty.
         current_comment = record.get("data_validity_comment")
         if _is_empty(current_comment):
-            # Найти элементы с type содержащим "data_validity" или "validity" и наличием хотя бы одного из: text_value или value
+            # Locate items whose type contains "data_validity"/"validity" and provide text_value or value.
             data_validity_items: list[Mapping[str, Any]] = [
                 prop
                 for prop in items
@@ -1942,11 +1940,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             ]
 
             if data_validity_items:
-                # Приоритет: элементы с result_flag == 1 (измеренные результаты)
+                # Prioritize entries with result_flag == 1 (measured results).
                 measured_items = [p for p in data_validity_items if _is_measured(p)]
                 if measured_items:
-                    # Использовать первый элемент с result_flag == 1
-                    # Приоритет: text_value если есть и не пустой, иначе value
+                    # Use the first measured entry; prefer text_value when non-empty, otherwise value.
                     prop = measured_items[0]
                     text_value = prop.get("text_value")
                     value = prop.get("value")
@@ -1964,8 +1961,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             comment_value=comment_value,
                         )
                 else:
-                    # Использовать первый найденный элемент
-                    # Приоритет: text_value если есть и не пустой, иначе value
+                    # Use the first available entry; prefer text_value when non-empty, otherwise value.
                     prop = data_validity_items[0]
                     text_value = prop.get("text_value")
                     value = prop.get("value")
@@ -1983,34 +1979,34 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                             comment_value=comment_value,
                         )
             else:
-                # Логирование случая, когда activity_properties есть, но data_validity_comment не найден
+                # Log when activity_properties exist but data_validity_comment cannot be derived.
                 log.debug(LogEvents.DATA_VALIDITY_COMMENT_FALLBACK_NO_ITEMS,
                     activity_id=record.get("activity_id"),
                     activity_properties_count=len(items),
                     has_activity_properties=True,
                 )
         else:
-            # Логирование случая, когда data_validity_comment уже заполнен из прямого поля API
+            # Log when data_validity_comment is already supplied by the API.
             log.debug(LogEvents.DATA_VALIDITY_COMMENT_FROM_API,
                 activity_id=record.get("activity_id"),
                 comment_value=current_comment,
             )
 
-        # Нормализация и сохранение activity_properties для последующей сериализации
-        # Сохраняем все свойства без фильтрации (только валидация TRUV-формата)
+        # Normalize and preserve activity_properties for serialization.
+        # Retain all properties (only perform TRUV validation).
         normalized_properties = self._normalize_activity_properties_items(property_items, log)
         if normalized_properties is not None:
-            # Валидация TRUV-формата и логирование некорректных свойств
+            # Validate TRUV invariants and log invalid properties.
             validated_properties, validation_stats = self._validate_activity_properties_truv(
                 normalized_properties, log, activity_id
             )
-            # Дедупликация точных дубликатов
+            # Deduplicate exact duplicates.
             deduplicated_properties, dedup_stats = self._deduplicate_activity_properties(
                 validated_properties, log, activity_id
             )
-            # Сохраняем нормализованные и дедуплицированные свойства
+            # Store normalized, deduplicated properties.
             record["activity_properties"] = deduplicated_properties
-            # Логирование статистики
+            # Log processing statistics.
             log.debug(LogEvents.ACTIVITY_PROPERTIES_PROCESSED,
                 activity_id=activity_id,
                 original_count=len(property_items),
@@ -2021,7 +2017,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 duplicates_removed=dedup_stats.get("duplicates_removed", 0),
             )
         else:
-            # Если нормализация не удалась, сохраняем исходные свойства
+            # If normalization fails, keep the original properties.
             record["activity_properties"] = properties
             log.debug(LogEvents.ACTIVITY_PROPERTIES_NORMALIZATION_FAILED,
                 activity_id=activity_id,
@@ -2549,7 +2545,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         working_df = df.copy()
 
-        # Проверка инварианта: data_validity_description заполнено при data_validity_comment = NA
+        # Invariant check: data_validity_description populated when data_validity_comment is NA.
         if (
             "data_validity_description" in working_df.columns
             and "data_validity_comment" in working_df.columns
@@ -2637,7 +2633,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     serialized, dtype="object", index=df.loc[mask, field].index
                 )
 
-        # Диагностическое логирование для ligand_efficiency
+        # Diagnostic logging for ligand_efficiency.
         if "standard_value" in df.columns and "ligand_efficiency" in df.columns:
             mask = df["standard_value"].notna() & df["ligand_efficiency"].isna()
             if mask.any():
@@ -2702,7 +2698,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if item is None:
                 continue
             if isinstance(item, Mapping):
-                # Приводим Mapping к dict для явной типизации
+                # Convert Mapping to dict for explicit typing.
                 item_mapping = cast(Mapping[str, Any], item)
                 normalized_item: dict[str, Any | None] = {
                     key: item_mapping.get(key) for key in ACTIVITY_PROPERTY_KEYS
@@ -2729,25 +2725,25 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log: BoundLogger,
         activity_id: Any | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
-        """Валидация TRUV-формата для activity_properties.
+        """Validate TRUV format for activity_properties.
 
-        Валидирует инварианты:
-        - value IS NOT NULL ⇒ text_value IS NULL (и наоборот)
-        - relation IN ('=', '<', '≤', '>', '≥', '~') OR NULL
+        Ensures invariants:
+        - value IS NOT NULL ⇒ text_value IS NULL (and vice versa)
+        - relation ∈ ('=', '<', '≤', '>', '≥', '~') or NULL
 
         Parameters
         ----------
         properties:
-            Список нормализованных свойств для валидации.
+            Normalized properties to validate.
         log:
             Logger instance.
         activity_id:
-            ID активности для логирования (опционально).
+            Optional activity identifier for logging.
 
         Returns
         -------
         tuple[list[dict[str, Any]], dict[str, int]]:
-            Кортеж из валидированных свойств и статистики валидации.
+            Validated properties and validation statistics.
         """
         validated: list[dict[str, Any]] = []
         invalid_count = 0
@@ -2761,15 +2757,15 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             text_value = prop.get("text_value")
             relation = prop.get("relation")
 
-            # Валидация инварианта: value IS NOT NULL ⇒ text_value IS NULL (и наоборот)
+            # Validate invariant: value IS NOT NULL ⇒ text_value IS NULL (and vice versa).
             if value is not None and text_value is not None:
                 is_valid = False
                 validation_errors.append("both value and text_value are not None")
             elif value is None and text_value is None:
-                # Оба могут быть None, это допустимо
+                # Both can be None; this is acceptable.
                 pass
 
-            # Валидация relation: должен быть в допустимых значениях или NULL
+            # Validate relation: must be allowed or NULL.
             if relation is not None:
                 if not isinstance(relation, str):
                     is_valid = False
@@ -2780,7 +2776,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         f"relation '{relation}' not in allowed values: {RELATIONS}"
                     )
 
-            # Сохраняем все свойства без фильтрации (только логируем некорректные)
+            # Retain the property; only log invalid ones.
             validated.append(prop)
             if not is_valid:
                 invalid_count += 1
@@ -2805,31 +2801,31 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log: BoundLogger,
         activity_id: Any | None = None,
     ) -> tuple[list[dict[str, Any]], dict[str, int]]:
-        """Дедупликация точных дубликатов в activity_properties.
+        """Deduplicate exact duplicates within activity_properties.
 
-        Удаляет точные дубликаты по всем полям: type, relation, units, value, text_value.
-        Сохраняет порядок свойств (первое вхождение при дедупликации).
+        Removes duplicates across all fields (type, relation, units, value, text_value) while
+        preserving order (first occurrence wins).
 
         Parameters
         ----------
         properties:
-            Список валидированных свойств для дедупликации.
+            Validated properties to deduplicate.
         log:
             Logger instance.
         activity_id:
-            ID активности для логирования (опционально).
+            Optional activity identifier for logging.
 
         Returns
         -------
         tuple[list[dict[str, Any]], dict[str, int]]:
-            Кортеж из дедуплицированных свойств и статистики дедупликации.
+            Deduplicated properties and deduplication statistics.
         """
         seen: set[tuple[Any, ...]] = set()
         deduplicated: list[dict[str, Any]] = []
         duplicates_removed = 0
 
         for prop in properties:
-            # Создаем ключ для дедупликации из всех полей свойства
+            # Build a deduplication key from all property fields.
             dedup_key = (
                 prop.get("type"),
                 prop.get("relation"),
@@ -2981,15 +2977,15 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             if field not in df.columns:
                 continue
             try:
-                # Для curated и removed: если уже boolean, оставляем как есть
+                # For curated/removed: if already boolean dtype, leave unchanged.
                 if field in ("curated", "removed") and df[field].dtype == "boolean":
                     continue
-                # Конвертируем в boolean, сохраняя NA значения
+                # Convert to boolean while preserving NA values.
                 if field in ("curated", "removed"):
-                    # Конвертируем напрямую в boolean dtype, сохраняя NA
+                    # Convert directly to boolean dtype, preserving NA.
                     df[field] = df[field].astype("boolean")  # pyright: ignore[reportUnknownMemberType]
                 else:
-                    # Для остальных bool полей используем стандартную логику
+                    # For other boolean fields use standard logic.
                     bool_numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
                         df[field], errors="coerce"
                     )
@@ -3088,18 +3084,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _validate_data_validity_comment_soft_enum(
         self, df: pd.DataFrame, log: BoundLogger
     ) -> None:
-        """Soft enum валидация для data_validity_comment.
-
-        Проверяет значения против whitelist из конфига. Неизвестные значения
-        логируются как warning, но не блокируют валидацию (soft enum).
-
-        Parameters
-        ----------
-        df:
-            DataFrame для валидации.
-        log:
-            Logger instance.
-        """
+        """Soft-enum validation for data_validity_comment."""
         if df.empty or "data_validity_comment" not in df.columns:
             return
 

@@ -2,25 +2,22 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 from bioetl.tools.schema_guard import run_schema_guard as run_schema_guard_sync
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run", "run_schema_guard"]
 run_schema_guard = run_schema_guard_sync
 
-app: TyperApp = create_app(
-    name="bioetl-schema-guard",
-    help_text="Validate pipeline configs and the Pandera registry",
-)
-
-
-@app.command()
 def main() -> None:
     """Run configuration and schema validation."""
 
@@ -52,8 +49,16 @@ def main() -> None:
     exit_with_code(0)
 
 
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-schema-guard",
+    help_text="Validate pipeline configs and the Pandera registry",
+    main_fn=main,
+)
+
+
 def run() -> None:
     """Execute the Typer application."""
+
     run_app(app)
 
 

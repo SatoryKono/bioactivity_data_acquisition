@@ -58,9 +58,9 @@ class DeterminismHashColumnSchema(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    dtype: str = Field(default="string", description="Тип данных колонки (pandas dtype).")
-    length: PositiveInt = Field(default=64, description="Фиксированная длина хэша в символах.")
-    nullable: bool = Field(default=False, description="Допускается ли NULL/NA значение.")
+    dtype: str = Field(default="string", description="Column data type (pandas dtype).")
+    length: PositiveInt = Field(default=64, description="Fixed hash length in characters.")
+    nullable: bool = Field(default=False, description="Whether NULL/NA values are allowed.")
 
 
 class DeterminismHashingConfig(BaseModel):
@@ -85,19 +85,19 @@ class DeterminismHashingConfig(BaseModel):
     )
     business_key_column: str = Field(
         default="hash_business_key",
-        description="Имя колонки с хэшом бизнес-ключа в итоговом датасете.",
+        description="Column storing the business-key hash in the final dataset.",
     )
     row_hash_column: str = Field(
         default="hash_row",
-        description="Имя колонки с хэшом строки в итоговом датасете.",
+        description="Column storing the per-row hash in the final dataset.",
     )
     business_key_schema: DeterminismHashColumnSchema = Field(
         default_factory=DeterminismHashColumnSchema,
-        description="Схема Pandera/проектного контракта для hash_business_key.",
+        description="Pandera/project schema for hash_business_key.",
     )
     row_hash_schema: DeterminismHashColumnSchema = Field(
         default_factory=DeterminismHashColumnSchema,
-        description="Схема Pandera/проектного контракта для hash_row.",
+        description="Pandera/project schema for hash_row.",
     )
 
 

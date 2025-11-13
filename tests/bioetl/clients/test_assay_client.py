@@ -9,7 +9,7 @@ import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]

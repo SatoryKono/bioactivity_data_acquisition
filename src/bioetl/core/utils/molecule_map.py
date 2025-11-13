@@ -11,14 +11,14 @@ import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.logging import LogEvents
+from bioetl.core.logging import UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
 
 
 def _normalize_chembl_id(value: Any) -> str:
-    """Нормализовать ChEMBL ID: преобразовать в строку, обрезать пробелы."""
+    """Normalize a ChEMBL identifier by converting to string and stripping whitespace."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return ""
     value_str = str(value).strip()
@@ -26,7 +26,7 @@ def _normalize_chembl_id(value: Any) -> str:
 
 
 def _canonical_record_id(value: Any) -> str:
-    """Преобразовать record_id к каноническому строковому представлению."""
+    """Convert a record_id to its canonical string representation."""
 
     if value is None:
         return ""
@@ -63,14 +63,14 @@ def join_activity_with_molecule(
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
     """
-    Связать activity с compound_record и molecule данными.
+    Join activity records with compound_record and molecule metadata.
 
-    Возвращает DataFrame с колонками:
+    Returns a DataFrame with columns:
       - activity_id
       - molecule_key (molecule_chembl_id)
-      - molecule_name (pref_name -> первый синоним -> molecule_key)
-      - compound_key (из compound_record)
-      - compound_name (из compound_record)
+      - molecule_name (pref_name → first synonym → molecule_key)
+      - compound_key (from compound_record)
+      - compound_name (from compound_record)
     """
     log = UnifiedLogger.get(__name__).bind(component="activity_molecule_join")
 
@@ -135,7 +135,7 @@ def _fetch_activity_by_ids(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
-    """Загрузить activity через API по списку activity_id."""
+    """Load activity records from the API for the provided activity_id list."""
     fields = ["activity_id", "record_id", "molecule_chembl_id"]
     batch_size = cfg.get("batch_size", 25)
 
@@ -175,7 +175,7 @@ def _fetch_compound_records_by_ids(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
-    """Получить compound_record по списку record_id (ChEMBL v2, only=, order_by, детерминизм)."""
+    """Fetch compound_record entries by record_id (ChEMBL v2, only=, order_by, deterministic)."""
     if not record_ids:
         return {}
 
@@ -260,7 +260,7 @@ def _fetch_compound_records_by_ids(
         log.warning(LogEvents.COMPOUND_RECORD_INCOMPLETE_PAGINATION,
             collected=collected_from_api,
             total_count=expected_total,
-            hint="Проверьте paginate() и items_key='compound_records', а также limit<=1000.",
+            hint="Check paginate() and items_key='compound_records', and ensure limit<=1000.",
         )
 
     return result
@@ -272,7 +272,7 @@ def _fetch_molecules_for_join(
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
-    """Получить molecule по списку molecule_chembl_id с полями pref_name и molecule_synonyms."""
+    """Fetch molecule records by molecule_chembl_id including pref_name and molecule_synonyms."""
     if not molecule_ids:
         return {}
 
@@ -292,7 +292,7 @@ def _perform_joins(
     molecules_dict: dict[str, dict[str, Any]],
     log: Any,
 ) -> pd.DataFrame:
-    """Выполнить два left-join и сформировать выходные поля."""
+    """Perform two left joins and assemble the output fields."""
     compound_data: list[dict[str, Any]] = []
     for record_id, record in compound_records_dict.items():
         compound_data.append(
@@ -408,7 +408,7 @@ def _perform_joins(
 
 
 def _extract_molecule_name(record: dict[str, Any], fallback_id: str) -> str:
-    """Извлечь molecule_name из record с fallback логикой."""
+    """Extract molecule_name from a record using fallback logic."""
     pref_name = record.get("pref_name")
     if pref_name and not pd.isna(pref_name):
         pref_name_str = str(pref_name).strip()
@@ -424,7 +424,7 @@ def _extract_molecule_name(record: dict[str, Any], fallback_id: str) -> str:
 
 
 def _find_first_nonempty_synonym(value: Any) -> str | None:
-    """Извлечь первый непустой synonym как строку."""
+    """Return the first non-empty synonym string."""
 
     if isinstance(value, str):
         stripped = value.strip()
@@ -443,7 +443,7 @@ def _find_first_nonempty_synonym(value: Any) -> str | None:
 
 
 def _find_first_nonempty_synonym_in_sequence(sequence: Sequence[object]) -> str | None:
-    """Обработать последовательность synonymов, возвращая первый непустой."""
+    """Walk a synonym sequence and return the first non-empty entry."""
 
     for entry in sequence:
         nested_candidate = _find_first_nonempty_synonym(entry)
@@ -454,7 +454,7 @@ def _find_first_nonempty_synonym_in_sequence(sequence: Sequence[object]) -> str 
 
 
 def _create_empty_result() -> pd.DataFrame:
-    """Создать пустой DataFrame с правильными колонками."""
+    """Create an empty DataFrame with the expected columns."""
     return pd.DataFrame(
         columns=[
             "activity_id",

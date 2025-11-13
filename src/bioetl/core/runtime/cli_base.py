@@ -8,9 +8,9 @@ from typing import Any, Callable, ClassVar, NoReturn, TypeAlias
 import typer
 from structlog.stdlib import BoundLogger
 
-from bioetl.cli.tools._typer import TyperApp
-from bioetl.cli.tools._typer import run_app as typer_run_app
-from bioetl.core.logger import UnifiedLogger
+from bioetl.cli.tools.typer_helpers import TyperApp
+from bioetl.cli.tools.typer_helpers import run_app as typer_run_app
+from bioetl.core.logging import UnifiedLogger
 
 CommandCallable: TypeAlias = Callable[..., None]
 

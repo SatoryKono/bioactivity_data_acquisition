@@ -43,6 +43,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("bioetl_env")
     @classmethod
     def _validate_environment(cls, value: str) -> str:
+        """Normalise and validate the selected BioETL environment."""
         normalized = value.strip().lower()
         if not normalized:
             return "dev"
@@ -55,6 +56,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("vocab_store")
     @classmethod
     def _resolve_vocab_store(cls, value: Path | None) -> Path | None:
+        """Expand and resolve the configured vocabulary store path."""
         if value is None:
             return None
         return value.expanduser().resolve()
@@ -62,6 +64,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("offline_chembl_client", mode="before")
     @classmethod
     def _coerce_bool(cls, value: Any) -> bool:
+        """Coerce environment values into booleans."""
         if isinstance(value, bool):
             return value
         if value is None:
@@ -77,6 +80,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("pubmed_tool")
     @classmethod
     def _normalize_pubmed_tool(cls, value: str | None) -> str | None:
+        """Trim the PubMed tool identifier and treat empty strings as None."""
         if value is None:
             return None
         normalized = value.strip()
@@ -85,6 +89,7 @@ class EnvironmentSettings(BaseSettings):
     @field_validator("pubmed_email", "crossref_mailto")
     @classmethod
     def _validate_contact_email(cls, value: str | None) -> str | None:
+        """Validate contact email format while allowing empty values."""
         if value is None:
             return None
         normalized = value.strip()
@@ -136,6 +141,7 @@ def apply_runtime_overrides(
     applied: dict[str, str] = {}
 
     def _set_if_missing(key: str, value: str | SecretStr | None) -> None:
+        """Populate ``target`` with ``key`` when the value is truthy and not yet set."""
         if value is None:
             return
         if isinstance(value, SecretStr):

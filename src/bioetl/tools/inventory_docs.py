@@ -1,4 +1,4 @@
-"""Инвентаризация markdown-документов."""
+"""Inventory utilities for project markdown documentation."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from bioetl.core.logger import UnifiedLogger
-from bioetl.core.log_events import LogEvents
+from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -20,7 +20,7 @@ __all__ = [
 
 @dataclass(frozen=True)
 class InventoryResult:
-    """Результаты инвентаризации документации."""
+    """Inventory output containing tracked files and artifact paths."""
 
     files: tuple[Path, ...]
     inventory_path: Path
@@ -28,12 +28,14 @@ class InventoryResult:
 
 
 def _iter_markdown_files(root: Path) -> Iterable[Path]:
+    """Yield markdown documents under ``root`` in stable order."""
     for path in sorted(root.rglob("*.md")):
         if path.is_file():
             yield path
 
 
 def _sha256(path: Path) -> str:
+    """Compute the SHA-256 hash of the file at ``path``."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(64 * 1024), b""):
@@ -44,7 +46,7 @@ def _sha256(path: Path) -> str:
 
 
 def collect_markdown_files(docs_root: Path | None = None) -> tuple[Path, ...]:
-    """Возвращает упорядоченный список markdown-файлов."""
+    """Return an ordered tuple of markdown files under ``docs_root``."""
 
     project_root = get_project_root()
     base = docs_root if docs_root is not None else project_root / "docs"
@@ -57,7 +59,7 @@ def write_inventory(
     hashes_path: Path,
     files: tuple[Path, ...] | None = None,
 ) -> InventoryResult:
-    """Записывает инвентарь и хеши markdown-файлов атомарно."""
+    """Write markdown inventory and checksum files atomically."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)

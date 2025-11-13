@@ -1,4 +1,4 @@
-"""Реестр идентификаторов событий логирования и вспомогательные утилиты."""
+"""Registry of structured logging event identifiers and helper utilities."""
 
 from __future__ import annotations
 
@@ -20,24 +20,28 @@ class LogEventString(str):
     legacy: str
 
     def __new__(cls, dotted: str) -> "LogEventString":
+        """Create a string preserving both dotted and underscore legacy forms."""
         obj = super().__new__(cls, dotted)
         obj.legacy = dotted.replace(".", "_")
         return obj
 
     def __eq__(self, other: object) -> bool:
+        """Support equality comparisons against strings and legacy values."""
         if isinstance(other, str):
             return super().__eq__(other) or other == self.legacy
         return super().__eq__(other)
 
     def __hash__(self) -> int:
+        """Use string hash semantics."""
         return super().__hash__()
 
 
 class LogEvents(str, Enum):
-    """Строго типизированный реестр событий UnifiedLogger."""
+    """Strongly typed registry of UnifiedLogger events."""
 
     @staticmethod
     def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
+        """Produce a dotted event identifier based on enum member naming."""
         parts = name.lower().split("_")
         namespace = parts[0] if parts else "event"
         suffix = parts[-1] if len(parts) > 1 else "event"
@@ -49,6 +53,7 @@ class LogEvents(str, Enum):
         return LogEventString(dotted)
 
     def __eq__(self, other: object) -> bool:
+        """Compare enum values against strings and legacy identifiers."""
         if isinstance(other, str):
             value = self.value
             if isinstance(value, LogEventString):
@@ -57,6 +62,7 @@ class LogEvents(str, Enum):
         return super().__eq__(other)
 
     def __hash__(self) -> int:
+        """Hash the enum value, respecting wrapped ``LogEventString``."""
         return hash(self.value)
 
     def legacy(self) -> str:
@@ -416,16 +422,17 @@ _CLIENT_EVENT_MAP: Final[dict[str, LogEvents]] = {
 
 
 def _validate_stage_part(name: str, label: str) -> None:
+    """Validate stage identifier fragment against allowed characters."""
     if not name:
-        msg = f"{label} не может быть пустым"
+        msg = f"{label} must not be empty"
         raise ValueError(msg)
     if _STAGE_PART_PATTERN.fullmatch(name) is None:
-        msg = f"{label} должен содержать только [a-z0-9_-], получено: {name!r}"
+        msg = f"{label} must contain only [a-z0-9_-], got {name!r}"
         raise ValueError(msg)
 
 
 def stage_event(stage: str, suffix: str) -> str:
-    """Сформировать идентификатор стадии вида ``stage.<stage>.<suffix>``."""
+    """Compose a stage identifier in the form ``stage.<stage>.<suffix>``."""
 
     _validate_stage_part(stage, "stage")
     _validate_stage_part(suffix, "suffix")
@@ -433,17 +440,17 @@ def stage_event(stage: str, suffix: str) -> str:
 
 
 def client_event(name: str) -> str:
-    """Преобразовать человеко-читаемое имя в строку клиентского события."""
+    """Translate a human-readable name into a client event string."""
 
     try:
         return _CLIENT_EVENT_MAP[name].value
-    except KeyError as exc:  # pragma: no cover - защитный слой
-        msg = f"Неизвестное клиентское событие: {name!r}"
+    except KeyError as exc:  # pragma: no cover - defensive guard
+        msg = f"Unknown client event: {name!r}"
         raise ValueError(msg) from exc
 
 
 def emit(logger: BoundLogger, event: str | LogEvents, **fields: Any) -> None:
-    """Отправить событие через BoundLogger без изменения дополнительных полей."""
+    """Send an event via ``BoundLogger`` without mutating the provided fields."""
 
     message = event.value if isinstance(event, LogEvents) else event
     logger.info(message, **fields)

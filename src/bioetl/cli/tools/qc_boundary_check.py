@@ -2,24 +2,21 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import Any, cast
+from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools._qc_boundary import collect_qc_boundary_violations
-from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.cli.tools.qc_boundary import collect_qc_boundary_violations
+from bioetl.cli.tools.typer_helpers import (
+    TyperApp,
+    create_simple_tool_app,
+    get_typer,
+    run_app,
+)
 
-typer = cast(Any, importlib.import_module("typer"))
+typer: Any = get_typer()
 
 __all__ = ["app", "main", "run"]
 
-app: TyperApp = create_app(
-    name="bioetl-qc-boundary-check",
-    help_text="Ensure bioetl.cli modules do not import bioetl.qc directly or via re-export.",
-)
-
-
-@app.command()
 def main() -> None:
     """Run the static import analysis for the CLI↔QC boundary."""
 
@@ -40,6 +37,13 @@ def main() -> None:
             fg=typer.colors.RED,
         )
     exit_with_code(1)
+
+
+app: TyperApp = create_simple_tool_app(
+    name="bioetl-qc-boundary-check",
+    help_text="Ensure bioetl.cli modules do not import bioetl.qc directly or via re-export.",
+    main_fn=main,
+)
 
 
 def run() -> None:

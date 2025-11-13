@@ -14,8 +14,8 @@ from bioetl.config.models.cache import CacheConfig
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
 from bioetl.config.models.paths import PathsConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.core.logger import UnifiedLogger
+from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.core.logging import UnifiedLogger
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 

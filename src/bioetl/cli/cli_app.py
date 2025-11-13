@@ -10,16 +10,22 @@ from the static registry.
 from __future__ import annotations
 
 import importlib
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any, Callable, cast
 
 from bioetl.cli.cli_command import create_pipeline_command
-from bioetl.cli.cli_registry import COMMAND_REGISTRY, TOOL_COMMANDS, ToolCommandConfig
+from bioetl.cli.cli_registry import (
+    COMMAND_REGISTRY,
+    PIPELINE_REGISTRY,
+    TOOL_COMMANDS,
+    CommandConfig,
+    PipelineCommandSpec,
+    ToolCommandConfig,
+)
 from bioetl.cli.cli_runner import run_app
-from bioetl.cli.tools._typer import TyperApp
-from bioetl.cli.tools._typer import create_app as create_typer_app
-from bioetl.core.log_events import LogEvents
-from bioetl.core.logger import UnifiedLogger
+from bioetl.cli.tools.typer_helpers import TyperApp
+from bioetl.cli.tools.typer_helpers import create_app as create_typer_app
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 typer = cast(Any, importlib.import_module("typer"))
 
@@ -31,10 +37,15 @@ __all__ = ["app", "create_app", "run"]
 def create_app(
     command_registry: Mapping[str, Callable[[], Any]] | None = None,
     tool_commands: Mapping[str, ToolCommandConfig] | None = None,
+    pipeline_specs: Iterable[PipelineCommandSpec] | None = None,
 ) -> TyperApp:
     """Create and configure the Typer application with all registered commands."""
     registry = dict(command_registry or COMMAND_REGISTRY)
     tools = dict(tool_commands or TOOL_COMMANDS)
+    specs: tuple[PipelineCommandSpec, ...] = tuple(pipeline_specs or PIPELINE_REGISTRY)
+    known_names: set[str] = {
+        name for spec in specs for name in (spec.code, *spec.aliases)
+    }
 
     warning_messages: list[str] = []
 
@@ -47,7 +58,41 @@ def create_app(
     def list_commands() -> None:
         """List all available pipeline and tool commands."""
         typer.echo("[bioetl-cli] Registered pipeline commands:")
-        for command_name in sorted(registry.keys()):
+        for spec in sorted(specs, key=lambda item: item.code):
+            command_name = spec.code
+            build_config_func = registry.get(command_name)
+            if build_config_func is None:
+                warning = (
+                    f"[bioetl-cli] WARN: Command '{command_name}' not found in registry definition"
+                )
+                warning_messages.append(warning)
+                typer.echo(f"  {command_name:<20} - registry entry missing")
+                continue
+            try:
+                config = build_config_func()
+            except NotImplementedError:
+                typer.echo(f"  {command_name:<20} - not implemented")
+                continue
+            except Exception as exc:  # noqa: BLE001
+                _log.error(
+                    LogEvents.CLI_REGISTRY_LOOKUP_FAILED,
+                    command=command_name,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                typer.echo(f"  {command_name:<20} - ERROR: {exc}")
+                continue
+
+            alias_suffix = f" (aliases: {', '.join(spec.aliases)})" if spec.aliases else ""
+            typer.echo(f"  {command_name:<20} - {config.description}{alias_suffix}")
+
+        if tools:
+            typer.echo("[bioetl-cli] Registered utility commands:")
+            for tool_name, tool_config in sorted(tools.items()):
+                typer.echo(f"  {tool_name:<20} - {tool_config.description}")
+
+        extra_names = sorted(set(registry.keys()) - known_names)
+        for command_name in extra_names:
             try:
                 config = registry[command_name]()
             except NotImplementedError:
@@ -62,25 +107,34 @@ def create_app(
                 )
                 typer.echo(f"  {command_name:<20} - ERROR: {exc}")
                 continue
-
             typer.echo(f"  {command_name:<20} - {config.description}")
-
-        if tools:
-            typer.echo("[bioetl-cli] Registered utility commands:")
-            for tool_name, tool_config in sorted(tools.items()):
-                typer.echo(f"  {tool_name:<20} - {tool_config.description}")
 
         for message in warning_messages:
             typer.echo(message)
 
-    for command_name, build_config_func in registry.items():
+    registered_names: set[str] = set()
+
+    def _register_command(name: str, config: CommandConfig) -> None:
+        command_func = create_pipeline_command(
+            pipeline_class=config.pipeline_class,
+            command_config=config,
+        )
+        app.command(name=name)(command_func)
+        registered_names.add(name)
+
+    for spec in specs:
+        command_name = spec.code
+        build_config_func = registry.get(command_name)
+        if build_config_func is None:
+            warning_message = (
+                f"[bioetl-cli] WARN: Command '{command_name}' missing from registry definition"
+            )
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
+            continue
         try:
             command_config = build_config_func()
-            command_func = create_pipeline_command(
-                pipeline_class=command_config.pipeline_class,
-                command_config=command_config,
-            )
-            app.command(name=command_name)(command_func)
         except NotImplementedError:
             continue
         except Exception as exc:
@@ -94,7 +148,62 @@ def create_app(
             warning_messages.append(warning_message)
             typer.echo(warning_message)
             typer.echo(warning_message, err=True)
+            continue
 
+        _register_command(command_name, command_config)
+
+        for alias in spec.aliases:
+            if alias in registered_names:
+                continue
+            alias_builder = registry.get(alias)
+            if alias_builder is None:
+                warning_message = (
+                    f"[bioetl-cli] WARN: Alias '{alias}' missing from registry definition"
+                )
+                warning_messages.append(warning_message)
+                typer.echo(warning_message)
+                typer.echo(warning_message, err=True)
+                continue
+            try:
+                alias_config = alias_builder()
+            except NotImplementedError:
+                continue
+            except Exception as exc:
+                _log.error(
+                    LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                    command=alias,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                warning_message = f"[bioetl-cli] WARN: Alias '{alias}' not loaded ({exc})"
+                warning_messages.append(warning_message)
+                typer.echo(warning_message)
+                typer.echo(warning_message, err=True)
+                continue
+            _register_command(alias, alias_config)
+
+    extra_entries = sorted(set(registry.keys()) - registered_names)
+    for command_name in extra_entries:
+        build_config_func = registry[command_name]
+        try:
+            command_config = build_config_func()
+        except NotImplementedError:
+            continue
+        except Exception as exc:
+            _log.error(
+                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                command=command_name,
+                error=str(exc),
+                exc_info=True,
+            )
+            warning_message = f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})"
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
+            continue
+        if command_name in registered_names:
+            continue
+        _register_command(command_name, command_config)
     for tool_name, tool_config in tools.items():
         try:
             entrypoint = _load_tool_entrypoint(tool_config)
