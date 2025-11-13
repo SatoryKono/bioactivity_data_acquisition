@@ -8,6 +8,8 @@ from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
+import pandas as pd
+
 from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
 from bioetl.clients.client_exceptions import ConnectionError, HTTPError, RequestException, Timeout
 from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
@@ -302,12 +304,17 @@ class ChemblClient:
         self,
         entity: ChemblEntityFetcherBase,
         ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]]:
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
         """Fetch entity records by identifiers using the provided client."""
-        result = entity.fetch_by_ids(ids, fields, page_limit)
-        return cast(dict[str, dict[str, Any]], result)
+        identifiers = tuple(ids)
+        return entity.fetch_by_ids(
+            identifiers,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Assay fetching
@@ -316,26 +323,17 @@ class ChemblClient:
     def fetch_assays_by_ids(
         self,
         ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]]:
-        """Fetch assay entries by assay_chembl_id.
-
-        Parameters
-        ----------
-        ids:
-            Iterable of assay_chembl_id values.
-        fields:
-            List of field names to fetch from assay API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]]:
-            Dictionary keyed by assay_chembl_id -> record dict.
-        """
-        return self._fetch_entity_by_ids(self._assay_entity, ids, fields, page_limit)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch assay entries by ``assay_chembl_id`` and return a DataFrame."""
+        return self._fetch_entity_by_ids(
+            self._assay_entity,
+            ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Molecule fetching
@@ -344,26 +342,17 @@ class ChemblClient:
     def fetch_molecules_by_ids(
         self,
         ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]]:
-        """Fetch molecule entries by molecule_chembl_id.
-
-        Parameters
-        ----------
-        ids:
-            Iterable of molecule_chembl_id values.
-        fields:
-            List of field names to fetch from molecule API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]]:
-            Dictionary keyed by molecule_chembl_id -> record dict.
-        """
-        return self._fetch_entity_by_ids(self._molecule_entity, ids, fields, page_limit)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch molecule entries by ``molecule_chembl_id`` and return a DataFrame."""
+        return self._fetch_entity_by_ids(
+            self._molecule_entity,
+            ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Data validity lookup fetching
@@ -372,27 +361,17 @@ class ChemblClient:
     def fetch_data_validity_lookup(
         self,
         comments: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]]:
-        """Fetch data_validity_lookup entries by data_validity_comment.
-
-        Parameters
-        ----------
-        comments:
-            Iterable of data_validity_comment values.
-        fields:
-            List of field names to fetch from data_validity_lookup API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]]:
-            Dictionary keyed by data_validity_comment -> record dict.
-        """
-        result = self._data_validity_entity.fetch_by_ids(comments, fields, page_limit)
-        return cast(dict[str, dict[str, Any]], result)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``data_validity_lookup`` entries by comment and return a DataFrame."""
+        return self._fetch_entity_by_ids(
+            self._data_validity_entity,
+            comments,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Compound record fetching
@@ -401,28 +380,18 @@ class ChemblClient:
     def fetch_compound_records_by_pairs(
         self,
         pairs: Iterable[tuple[str, str]],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[tuple[str, str], dict[str, Any]]:
-        """Fetch compound_record entries by (molecule_chembl_id, document_chembl_id) pairs.
-
-        Parameters
-        ----------
-        pairs:
-            Iterable of (molecule_chembl_id, document_chembl_id) tuples.
-        fields:
-            List of field names to fetch from compound_record API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[tuple[str, str], dict[str, Any]]:
-            Dictionary keyed by (molecule_chembl_id, document_chembl_id) -> record dict.
-            Only one record per pair (deduplicated by priority).
-        """
-        result = self._compound_record_entity.fetch_by_pairs(pairs, fields, page_limit)
-        return result
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+        chunk_size: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``compound_record`` entries for ``(molecule, document)`` pairs."""
+        return self._compound_record_entity.fetch_by_pairs(
+            pairs,
+            fields=fields,
+            page_limit=page_limit,
+            chunk_size=chunk_size,
+        )
 
     # ------------------------------------------------------------------
     # Document term fetching
@@ -431,28 +400,17 @@ class ChemblClient:
     def fetch_document_terms_by_ids(
         self,
         ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Fetch document_term entries by document_chembl_id.
-
-        Parameters
-        ----------
-        ids:
-            Iterable of document_chembl_id values.
-        fields:
-            List of field names to fetch from document_term API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, list[dict[str, Any]]]:
-            Dictionary keyed by document_chembl_id -> list of record dicts.
-            Each document can have multiple terms, so values are lists.
-        """
-        result = self._document_term_entity.fetch_by_ids(ids, fields, page_limit)
-        return cast(dict[str, list[dict[str, Any]]], result)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``document_term`` entries by ``document_chembl_id``."""
+        return self._fetch_entity_by_ids(
+            self._document_term_entity,
+            ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Assay class map fetching
@@ -461,28 +419,17 @@ class ChemblClient:
     def fetch_assay_class_map_by_assay_ids(
         self,
         assay_ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Fetch assay_class_map entries by assay_chembl_id.
-
-        Parameters
-        ----------
-        assay_ids:
-            Iterable of assay_chembl_id values.
-        fields:
-            List of field names to fetch from assay_class_map API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, list[dict[str, Any]]]:
-            Dictionary keyed by assay_chembl_id -> list of record dicts.
-            Each assay can have multiple class mappings, so values are lists.
-        """
-        result = self._assay_class_map_entity.fetch_by_ids(assay_ids, fields, page_limit)
-        return cast(dict[str, list[dict[str, Any]]], result)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``assay_class_map`` entries by ``assay_chembl_id``."""
+        return self._fetch_entity_by_ids(
+            self._assay_class_map_entity,
+            assay_ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     # ------------------------------------------------------------------
     # Assay parameters fetching
@@ -491,33 +438,18 @@ class ChemblClient:
     def fetch_assay_parameters_by_assay_ids(
         self,
         assay_ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
         active_only: bool = True,
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Fetch assay_parameters entries by assay_chembl_id.
-
-        Parameters
-        ----------
-        assay_ids:
-            Iterable of assay_chembl_id values.
-        fields:
-            List of field names to fetch from assay_parameters API.
-        page_limit:
-            Page size for pagination requests.
-        active_only:
-            If True, filter only active parameters (active=1).
-
-        Returns
-        -------
-        dict[str, list[dict[str, Any]]]:
-            Dictionary keyed by assay_chembl_id -> list of record dicts.
-            Each assay can have multiple parameters, so values are lists.
-        """
-        result = self._assay_parameters_entity.fetch_by_ids(
-            assay_ids, fields, page_limit, active_only=active_only
+    ) -> pd.DataFrame:
+        """Fetch ``assay_parameters`` entries by ``assay_chembl_id``."""
+        return self._assay_parameters_entity.fetch_by_ids(
+            assay_ids,
+            fields=fields,
+            page_limit=page_limit,
+            active_only=active_only,
         )
-        return result
 
     # ------------------------------------------------------------------
     # Assay classification fetching
@@ -526,24 +458,14 @@ class ChemblClient:
     def fetch_assay_classifications_by_class_ids(
         self,
         class_ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]]:
-        """Fetch assay_classification entries by assay_class_id.
-
-        Parameters
-        ----------
-        class_ids:
-            Iterable of assay_class_id values.
-        fields:
-            List of field names to fetch from assay_classification API.
-        page_limit:
-            Page size for pagination requests.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]]:
-            Dictionary keyed by assay_class_id -> record dict.
-        """
-        result = self._assay_classification_entity.fetch_by_ids(class_ids, fields, page_limit)
-        return cast(dict[str, dict[str, Any]], result)
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``assay_classification`` entries by ``assay_class_id``."""
+        return self._fetch_entity_by_ids(
+            self._assay_classification_entity,
+            class_ids,
+            fields=fields,
+            page_limit=page_limit,
+        )

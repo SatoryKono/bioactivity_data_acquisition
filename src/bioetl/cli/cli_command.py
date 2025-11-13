@@ -3,24 +3,22 @@
 from __future__ import annotations
 
 import importlib
-import uuid
 from collections.abc import Callable
-from datetime import datetime
 from pathlib import Path
 from typing import Any, NoReturn, Protocol, cast
-from zoneinfo import ZoneInfo
 
 import typer
 from typer.models import OptionInfo
 
-from bioetl.config import PipelineConfig
-from bioetl.config.environment import (
-    EnvironmentSettings,
-    apply_runtime_overrides,
-    load_environment_settings,
+from bioetl.cli.pipeline_command_runner import (
+    ConfigLoadError,
+    EnvironmentSetupError,
+    PipelineCommandOptions,
+    PipelineCommandRunner,
+    PipelineDryRunPlan,
+    PipelineExecutionPlan,
 )
-from bioetl.config.loader import load_config
-from bioetl.core import CliCommandBase, LoggerConfig, UnifiedLogger
+from bioetl.core import CliCommandBase, UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.errors import (
@@ -86,6 +84,7 @@ class PipelineCliCommand(CliCommandBase):
         pipeline_module_name: str,
         pipeline_class_name: str,
         command_config: Any,
+        runner: PipelineCommandRunner | None = None,
     ) -> None:
         """Initialize the pipeline command runner with metadata and logger."""
         super().__init__(logger=UnifiedLogger.get(__name__))
@@ -93,6 +92,7 @@ class PipelineCliCommand(CliCommandBase):
         self._pipeline_class_name = pipeline_class_name
         self._command_config = command_config
         self._run_id: str | None = None
+        self._runner = runner or PipelineCommandRunner()
 
     def handle(
         self,
@@ -125,78 +125,55 @@ class PipelineCliCommand(CliCommandBase):
         if limit is not None and sample is not None:
             raise typer.BadParameter("--limit and --sample are mutually exclusive")
 
-        env_settings: EnvironmentSettings
-        try:
-            env_settings = load_environment_settings()
-        except ValueError as exc:
-            self.emit_error("E002", f"Environment validation failed: {exc}")
-            self.exit(2)
-            return
-
-        apply_runtime_overrides(env_settings)
-
         _validate_config_path(config)
         _validate_output_dir(output_dir)
 
-        cli_overrides: dict[str, Any] = {}
-        if set_overrides:
-            cli_overrides = _parse_set_overrides(set_overrides)
+        cli_overrides = _parse_set_overrides(set_overrides) if set_overrides else {}
 
-        pipeline_config: PipelineConfig
+        options = PipelineCommandOptions(
+            config_path=config,
+            output_dir=output_dir,
+            dry_run=dry_run,
+            verbose=verbose,
+            set_overrides=cli_overrides,
+            sample=sample,
+            limit=limit,
+            extended=extended,
+            fail_on_schema_drift=fail_on_schema_drift,
+            validate_columns=validate_columns,
+            golden=golden,
+            input_file=input_file,
+        )
+
         try:
-            pipeline_config = load_config(
-                config_path=config,
-                cli_overrides=cli_overrides,
-                include_default_profiles=True,
-            )
-        except FileNotFoundError as exc:
+            plan = self._runner.prepare(options)
+        except EnvironmentSetupError as exc:
             self.emit_error(
                 "E002",
-                f"Configuration file or referenced profile not found: {exc}",
+                f"Environment validation failed: {exc}",
             )
             self.exit(2)
             return
-        except ValueError as exc:
-            self.emit_error("E002", f"Configuration validation failed: {exc}")
+        except ConfigLoadError as exc:
+            if exc.missing_reference:
+                message = f"Configuration file or referenced profile not found: {exc}"
+            else:
+                message = f"Configuration validation failed: {exc}"
+            self.emit_error("E002", message)
             self.exit(2)
             return
 
-        pipeline_config.cli.dry_run = dry_run
-        if limit is not None:
-            pipeline_config.cli.limit = limit
-        if sample is not None:
-            pipeline_config.cli.sample = sample
-        pipeline_config.cli.extended = extended
-        if golden is not None:
-            pipeline_config.cli.golden = str(golden)
-        if input_file is not None:
-            pipeline_config.cli.input_file = str(input_file)
-        pipeline_config.cli.verbose = verbose
-        pipeline_config.cli.fail_on_schema_drift = fail_on_schema_drift
-        pipeline_config.cli.validate_columns = validate_columns
-        if not validate_columns:
-            pipeline_config.validation.strict = False
-
-        pipeline_config.materialization.root = str(output_dir)
-
-        log_level = "DEBUG" if verbose else "INFO"
-        UnifiedLogger.configure(LoggerConfig(level=log_level))
-
-        if dry_run:
+        if isinstance(plan, PipelineDryRunPlan):
             typer.echo("Configuration validated successfully (dry-run mode)")
             self.exit(0)
 
-        run_id = str(uuid.uuid4())
-        self._run_id = run_id
+        if not isinstance(plan, PipelineExecutionPlan):  # pragma: no cover - defensive guard
+            self.emit_error("E001", "Invalid pipeline execution plan generated")
+            self.exit(self.exit_code_error)
+            return
 
-        timezone_name = pipeline_config.determinism.environment.timezone
-        try:
-            tz = ZoneInfo(timezone_name)
-        except Exception:  # pragma: no cover - fallback path
-            tz = ZoneInfo("UTC")
-        pipeline_config.cli.date_tag = pipeline_config.cli.date_tag or datetime.now(tz).strftime(
-            "%Y%m%d"
-        )
+        run_id = plan.run_id
+        self._run_id = run_id
 
         log = self.logger
         log.info(
@@ -205,9 +182,9 @@ class PipelineCliCommand(CliCommandBase):
             config=str(config),
             output_dir=str(output_dir),
             run_id=run_id,
-            dry_run=dry_run,
-            limit=limit,
-            extended=extended,
+            dry_run=False,
+            limit=options.limit,
+            extended=options.extended,
         )
 
         pipeline_factory = _resolve_pipeline_class(
@@ -217,23 +194,9 @@ class PipelineCliCommand(CliCommandBase):
             run_id=run_id,
             command_name=self._command_config.name,
         )
-        pipeline = pipeline_factory(pipeline_config, run_id)
-
-        postprocess_config = getattr(pipeline_config, "postprocess", None)
-        correlation_section = getattr(postprocess_config, "correlation", None)
-        correlation_enabled = bool(getattr(correlation_section, "enabled", False))
-        effective_extended = bool(extended or pipeline_config.cli.extended)
-        run_kwargs: dict[str, Any] = {
-            "extended": effective_extended,
-            "include_correlation": effective_extended or correlation_enabled,
-            "include_qc_metrics": effective_extended,
-        }
 
         try:
-            result = pipeline.run(
-                Path(output_dir),
-                **run_kwargs,
-            )
+            result = plan.run(pipeline_factory)
         except typer.Exit:
             raise
         except Exception as exc:  # noqa: BLE001

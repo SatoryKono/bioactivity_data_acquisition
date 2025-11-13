@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Iterator, Mapping, Sequence
-from math import isnan
+from collections.abc import Iterator, Mapping, Sequence
 from typing import Any, Protocol
+
+import pandas as pd
 
 from bioetl.clients.chembl_config import EntityConfig
 from bioetl.core.logging import UnifiedLogger
 
 __all__ = [
-    "ChemblEntityFetcherBase",
     "ChemblClientProtocol",
+    "ChemblEntityClientProtocol",
+    "ChemblEntityFetcherBase",
     "EntityConfig",
 ]
 
@@ -30,22 +32,49 @@ class ChemblClientProtocol(Protocol):
         """Iterate over paginated responses from the ChEMBL API."""
         ...
 
-class ChemblEntityFetcherBase:
-    """Base helper for fetching ChEMBL entities by identifier.
 
-    Provides a unified interface shared across multiple ChEMBL API entities.
-    """
+class ChemblEntityClientProtocol(Protocol):
+    """Common protocol implemented by thin ChEMBL entity clients."""
+
+    def fetch_by_ids(
+        self,
+        ids: Sequence[str],
+        fields: Sequence[str] | None = None,
+        *,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch entity records by identifiers."""
+        ...
+
+    def fetch_all(
+        self,
+        *,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch all records with optional limit and projection."""
+        ...
+
+    def iterate_records(
+        self,
+        *,
+        params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Iterate over raw entity payloads."""
+        ...
+
+
+class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
+    """Base helper for fetching ChEMBL entities returning DataFrame payloads."""
+
+    _DEFAULT_PAGE_SIZE = 1000
 
     def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None:
-        """Initialize the fetcher for a ChEMBL entity.
-
-        Parameters
-        ----------
-        chembl_client:
-            ChemblClient-compatible implementation that executes requests.
-        config:
-            Entity configuration describing endpoint details.
-        """
+        """Initialize the fetcher for a ChEMBL entity."""
         self._chembl_client: ChemblClientProtocol = chembl_client
         self._config = config
         self._log = UnifiedLogger.get(__name__).bind(
@@ -55,167 +84,191 @@ class ChemblEntityFetcherBase:
 
     def fetch_by_ids(
         self,
-        ids: Iterable[str],
-        fields: Sequence[str],
-        page_limit: int = 1000,
-    ) -> dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]:
-        """Retrieve entity payloads by identifiers.
+        ids: Sequence[str],
+        fields: Sequence[str] | None = None,
+        *,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        identifiers = self._validate_identifiers(ids)
+        if not identifiers:
+            self._log.debug(f"{self._config.log_prefix}.fetch_by_ids.no_ids")
+            return self._empty_frame(fields)
 
-        Parameters
-        ----------
-        ids:
-            Iterable with identifiers that should be fetched.
-        fields:
-            Collection of fields requested from the API.
-        page_limit:
-            Page size passed to the API.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]] | dict[str, list[dict[str, Any]]]:
-            Mapping of IDs to a record or list of records
-            (depends on ``supports_list_result``).
-
-        Notes
-        -----
-        NaN handling is implemented without pandas by using :func:`math.isnan` for floats.
-        """
-        # Normalize and filter identifiers
-        unique_ids: set[str] = set()
-        for entity_id in ids:
-            if entity_id is None:
-                continue
-            if isinstance(entity_id, float) and isnan(entity_id):
-                continue
-
-            normalized_id = str(entity_id).strip()
-            if not normalized_id:
-                continue
-            unique_ids.add(normalized_id)
-
-        if not unique_ids:
-            self._log.debug(
-                f"{self._config.log_prefix}.no_ids",
-                message="No valid IDs to fetch",
-            )
-            if self._config.supports_list_result:
-                return {}
-            return {}
-
-        # Process identifiers in chunks
-        all_records: list[dict[str, Any]] = []
-        ids_list = list(unique_ids)
-
-        for i in range(0, len(ids_list), self._config.chunk_size):
-            chunk = ids_list[i : i + self._config.chunk_size]
-            params: dict[str, Any] = {
-                self._config.filter_param: ",".join(chunk),
-                "limit": page_limit,
-            }
-            # Include the ``only`` parameter to limit returned fields
-            if fields:
-                params["only"] = ",".join(sorted(fields))
-
-            try:
-                for record in self._chembl_client.paginate(
-                    self._config.endpoint,
+        page_size = self._resolve_page_size(page_limit, None)
+        records: list[Mapping[str, Any]] = []
+        for chunk in self._iter_chunks(identifiers):
+            params = self._build_chunk_params(chunk, fields=fields)
+            chunk_records = list(
+                self.iterate_records(
                     params=params,
-                    page_size=page_limit,
-                    items_key=self._config.items_key,
-                ):
-                    all_records.append(dict(record))
-            except Exception as exc:
-                self._log.warning(
-                    f"{self._config.log_prefix}.fetch_error",
-                    entity_count=len(chunk),
-                    error=str(exc),
-                    exc_info=True,
+                    fields=fields,
+                    page_size=page_size,
                 )
+            )
+            records.extend(chunk_records)
 
-        # Build the result mapping
-        if self._config.supports_list_result:
-            return self._build_list_result(all_records, unique_ids)
-        return self._build_dict_result(all_records, unique_ids)
-
-    def _build_dict_result(
-        self,
-        records: list[dict[str, Any]],
-        unique_ids: set[str],
-    ) -> dict[str, dict[str, Any]]:
-        """Build the final mapping with a single record per identifier.
-
-        Parameters
-        ----------
-        records:
-            Collection of fetched records.
-        unique_ids:
-            Set of requested identifiers.
-
-        Returns
-        -------
-        dict[str, dict[str, Any]]:
-            Mapping ``ID -> record``.
-        """
-        result: dict[str, dict[str, Any]] = {}
-        for record in records:
-            entity_id_raw = record.get(self._config.id_field)
-            if not entity_id_raw:
-                continue
-            if not isinstance(entity_id_raw, str):
-                continue
-            entity_id = entity_id_raw
-
-            if entity_id not in result:
-                result[entity_id] = record
-            elif self._config.dedup_priority:
-                # Apply the priority function when deduplicating records
-                existing = result[entity_id]
-                result[entity_id] = self._config.dedup_priority(existing, record)
-
+        frame = self._records_to_frame(records, fields)
         self._log.info(
-            f"{self._config.log_prefix}.fetch_complete",
-            ids_requested=len(unique_ids),
-            records_fetched=len(records),
-            records_deduped=len(result),
+            f"{self._config.log_prefix}.fetch_by_ids.complete",
+            ids_requested=len(identifiers),
+            rows=len(frame),
         )
-        return result
+        return frame
 
-    def _build_list_result(
+    def fetch_all(
         self,
-        records: list[dict[str, Any]],
-        unique_ids: set[str],
-    ) -> dict[str, list[dict[str, Any]]]:
-        """Build the final mapping with a list of records per identifier.
-
-        Parameters
-        ----------
-        records:
-            Collection of fetched records.
-        unique_ids:
-            Set of requested identifiers.
-
-        Returns
-        -------
-        dict[str, list[dict[str, Any]]]:
-            Mapping ``ID -> list of records``.
-        """
-        result: dict[str, list[dict[str, Any]]] = {}
-        for record in records:
-            entity_id_raw = record.get(self._config.id_field)
-            if not entity_id_raw:
-                continue
-            if not isinstance(entity_id_raw, str):
-                continue
-            entity_id = entity_id_raw
-            if entity_id not in result:
-                result[entity_id] = []
-            result[entity_id].append(record)
-
-        self._log.info(
-            f"{self._config.log_prefix}.fetch_complete",
-            ids_requested=len(unique_ids),
-            records_fetched=len(records),
-            entities_with_records=len(result),
+        *,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> pd.DataFrame:
+        effective_page_size = self._resolve_page_size(page_size, limit)
+        records = list(
+            self.iterate_records(
+                limit=limit,
+                fields=fields,
+                page_size=effective_page_size,
+            )
         )
-        return result
+        frame = self._records_to_frame(records, fields)
+        self._log.info(
+            f"{self._config.log_prefix}.fetch_all.complete",
+            rows=len(frame),
+            limit=limit,
+        )
+        return frame
+
+    def iterate_records(
+        self,
+        *,
+        params: Mapping[str, Any] | None = None,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        resolved_page_size = self._resolve_page_size(page_size, limit)
+        request_params = self._compose_params(
+            params=params,
+            fields=fields,
+            page_size=resolved_page_size,
+        )
+        yielded = 0
+        for record in self._chembl_client.paginate(
+            self._config.endpoint,
+            params=request_params,
+            page_size=resolved_page_size,
+            items_key=self._config.items_key,
+        ):
+            yield dict(record)
+            yielded += 1
+            if limit is not None and yielded >= limit:
+                break
+
+    # ------------------------------------------------------------------ #
+    # Internal helpers                                                   #
+    # ------------------------------------------------------------------ #
+
+    def _validate_identifiers(self, ids: Sequence[str]) -> list[str]:
+        if not isinstance(ids, Sequence):
+            msg = "ids must be a sequence of strings"
+            raise TypeError(msg)
+        identifiers: list[str] = []
+        for idx, identifier in enumerate(ids):
+            if not isinstance(identifier, str):
+                msg = f"identifier at position {idx} must be str, got {type(identifier)!r}"
+                raise TypeError(msg)
+            if identifier:
+                identifiers.append(identifier)
+        return identifiers
+
+    def _iter_chunks(self, identifiers: Sequence[str]) -> Iterator[Sequence[str]]:
+        chunk_size = self._config.chunk_size
+        for offset in range(0, len(identifiers), chunk_size):
+            yield identifiers[offset : offset + chunk_size]
+
+    def _compose_params(
+        self,
+        *,
+        params: Mapping[str, Any] | None,
+        fields: Sequence[str] | None,
+        page_size: int,
+    ) -> dict[str, Any]:
+        request_params: dict[str, Any] = dict(self._config.filters)
+        if params:
+            request_params.update(params)
+        if fields:
+            request_params["only"] = ",".join(fields)
+        request_params.setdefault("limit", page_size)
+        return request_params
+
+    def _resolve_page_size(
+        self,
+        requested: int | None,
+        limit: int | None,
+    ) -> int:
+        candidate = requested or self._config.max_page_size or self._DEFAULT_PAGE_SIZE
+        if candidate <= 0:
+            candidate = self._DEFAULT_PAGE_SIZE
+        if limit is not None:
+            candidate = min(candidate, max(limit, 1))
+        max_page_size = self._config.max_page_size
+        if max_page_size is not None:
+            candidate = min(candidate, max_page_size)
+        return candidate
+
+    def _records_to_frame(
+        self,
+        records: Sequence[Mapping[str, Any]],
+        fields: Sequence[str] | None,
+    ) -> pd.DataFrame:
+        if not records:
+            return self._empty_frame(fields)
+
+        frame = pd.DataFrame.from_records(records)
+        ordered_columns = self._resolve_column_order(frame.columns.tolist(), fields)
+        frame = frame.reindex(columns=ordered_columns)
+        if self._config.ordering:
+            sort_columns = [
+                column for column in self._config.ordering if column in frame.columns
+            ]
+            if sort_columns:
+                frame = frame.sort_values(by=sort_columns, kind="mergesort")
+        return frame.reset_index(drop=True)
+
+    def _resolve_column_order(
+        self,
+        columns: Sequence[str],
+        fields: Sequence[str] | None,
+    ) -> list[str]:
+        ordered: list[str] = []
+
+        def _extend(values: Sequence[str]) -> None:
+            for value in values:
+                if value not in ordered:
+                    ordered.append(value)
+
+        if fields:
+            _extend(fields)
+        elif self._config.default_fields:
+            _extend(self._config.default_fields)
+
+        if self._config.ordering:
+            _extend(self._config.ordering)
+
+        _extend(columns)
+        return ordered
+
+    def _empty_frame(self, fields: Sequence[str] | None) -> pd.DataFrame:
+        column_order = list(fields) if fields else list(self._config.default_fields)
+        if not column_order:
+            column_order = list(self._config.ordering)
+        return pd.DataFrame(columns=column_order)
+
+    def _build_chunk_params(
+        self,
+        chunk: Sequence[str],
+        *,
+        fields: Sequence[str] | None,
+    ) -> dict[str, Any]:
+        return {self._config.filter_param: ",".join(chunk)}
 

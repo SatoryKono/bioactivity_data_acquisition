@@ -7,7 +7,7 @@ from bioetl.schemas.common_column_factory import SchemaColumnFactory
 
 SCHEMA_VERSION = "1.1.0"
 
-COLUMN_ORDER = (
+COLUMN_ORDER: list[str] = [
     "document_chembl_id",
     "doc_type",
     "journal",
@@ -31,7 +31,23 @@ COLUMN_ORDER = (
     "term",
     "weight",
     "load_meta_id",
-)
+]
+
+REQUIRED_FIELDS: list[str] = [
+    "document_chembl_id",
+    "source",
+    "hash_business_key",
+    "hash_row",
+    "load_meta_id",
+]
+
+BUSINESS_KEY_FIELDS: list[str] = [
+    "document_chembl_id",
+]
+
+ROW_HASH_FIELDS: list[str] = [
+    column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
+]
 
 CF = SchemaColumnFactory
 
@@ -66,4 +82,11 @@ DocumentSchema = create_schema(
     column_order=COLUMN_ORDER,
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "DocumentSchema"]
+__all__ = [
+    "SCHEMA_VERSION",
+    "COLUMN_ORDER",
+    "REQUIRED_FIELDS",
+    "BUSINESS_KEY_FIELDS",
+    "ROW_HASH_FIELDS",
+    "DocumentSchema",
+]

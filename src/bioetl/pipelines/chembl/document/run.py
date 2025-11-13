@@ -113,17 +113,18 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 else DocumentSourceConfig.from_source_config(cast(Any, source_config))
             )
 
-            base_url = document_pipeline._resolve_base_url(typed_source_config.parameters)
-            http_client, _ = document_pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_document_client",
+            bundle = document_pipeline.build_chembl_entity_bundle(
+                "document",
+                source_name="chembl",
+                source_config=typed_source_config,
             )
-            chembl_client = ChemblClient(http_client)
-            document_client = ChemblDocumentClient(
-                chembl_client,
-                batch_size=min(typed_source_config.batch_size, 25),
-            )
+            if "chembl_document_client" not in document_pipeline._registered_clients:
+                document_pipeline.register_client("chembl_document_client", bundle.api_client)
+            chembl_client = bundle.chembl_client
+            document_client = cast(ChemblDocumentClient, bundle.entity_client)
+            if document_client is None:
+                msg = "Фабрика вернула пустой клиент для 'document'"
+                raise RuntimeError(msg)
             document_pipeline._chembl_release = document_pipeline.fetch_chembl_release(chembl_client, log)
             select_fields = document_pipeline._resolve_select_fields(
                 cast(SourceConfig, cast(Any, typed_source_config)),
@@ -196,16 +197,18 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_document_client"
+        bundle = self.build_chembl_entity_bundle(
+            "document",
+            source_name="chembl",
+            source_config=source_config,
         )
-
-        chembl_client = ChemblClient(http_client)
-        document_client = ChemblDocumentClient(
-            chembl_client,
-            batch_size=min(source_config.batch_size, 25),
-        )
+        if "chembl_document_client" not in self._registered_clients:
+            self.register_client("chembl_document_client", bundle.api_client)
+        chembl_client = bundle.chembl_client
+        document_client = cast(ChemblDocumentClient, bundle.entity_client)
+        if document_client is None:
+            msg = "Фабрика вернула пустой клиент для 'document'"
+            raise RuntimeError(msg)
 
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
@@ -617,19 +620,14 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")
         source_config = DocumentSourceConfig.from_source_config(source_raw)
-        api_client, _ = self.prepare_chembl_client(
-            "chembl",
-            base_url=self._resolve_base_url(
-                cast(Mapping[str, Any], dict(source_config.parameters))
-            ),
-            client_name="chembl_enrichment_client",
+        bundle = self.build_chembl_entity_bundle(
+            "document_term",
+            source_name="chembl",
+            source_config=source_config,
         )
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
+        if "chembl_enrichment_client" not in self._registered_clients:
+            self.register_client("chembl_enrichment_client", bundle.api_client)
+        chembl_client = bundle.chembl_client
 
         # Invoke the enrichment routine.
         return enrich_with_document_terms(df, chembl_client, enrich_cfg)

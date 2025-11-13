@@ -37,10 +37,8 @@ from bioetl.schemas.chembl_activity_schema import (
     ACTIVITY_PROPERTY_KEYS,
     COLUMN_ORDER,
     RELATIONS,
-    STANDARD_TYPES,
     ActivitySchema,
 )
-from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 from ...base import RunResult
 from ..common.descriptor import (
@@ -114,7 +112,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         super().__init__(config, run_id)
         self._chembl_release: str | None = None
         self._last_batch_extract_stats: dict[str, Any] | None = None
-        self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
+        self._required_vocab_ids: Callable[[str], Iterable[str]] = (
+            self._vocabulary_service.required_ids
+        )
+        self._standard_types_cache: frozenset[str] | None = None
 
     @property
     def chembl_release(self) -> str | None:
@@ -313,24 +314,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
-        http_client, _ = self.prepare_chembl_client(
-            "chembl",
-            client_name=client_name,
+        bundle = self.build_chembl_entity_bundle(
+            "activity",
+            source_name="chembl",
+            source_config=source_config,
         )
-
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-
+        if client_name:
+            self.register_client(client_name, bundle.api_client)
+        chembl_client = bundle.chembl_client
+        activity_iterator = cast(ChemblActivityClient, bundle.entity_client)
+        if activity_iterator is None:
+            msg = "Фабрика вернула пустой клиент для сущности 'activity'"
+            raise RuntimeError(msg)
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)
-
-        activity_iterator = ChemblActivityClient(
-            chembl_client,
-            batch_size=source_config.batch_size,
-        )
 
         select_fields = self._resolve_select_fields(
             source_raw,
@@ -338,6 +334,25 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         )
 
         return source_config, chembl_client, activity_iterator, select_fields
+
+    def _build_activity_enrichment_bundle(
+        self,
+        entity_name: str,
+        *,
+        client_name: str,
+    ) -> "ChemblClientBundle":
+        """Создать бандл клиентов для обогащения активностей."""
+
+        source_raw = self._resolve_source_config("chembl")
+        source_config = ActivitySourceConfig.from_source_config(source_raw)
+        bundle = self.build_chembl_entity_bundle(
+            entity_name,
+            source_name="chembl",
+            source_config=source_config,
+        )
+        if client_name not in self._registered_clients:
+            self.register_client(client_name, bundle.api_client)
+        return bundle
 
     def _build_activity_descriptor(self) -> ChemblExtractionDescriptor[ChemblActivityPipeline]:
         """Construct the descriptor driving the shared extraction template."""
@@ -348,21 +363,17 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             log: BoundLogger,
         ) -> ChemblExtractionContext:
             typed_pipeline = cast("ChemblActivityPipeline", pipeline)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                client_name="chembl_activity_client",
+            bundle = typed_pipeline.build_chembl_entity_bundle(
+                "activity",
+                source_name="chembl",
+                source_config=source_config,
             )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=typed_pipeline.load_meta_store,
-                job_id=typed_pipeline.run_id,
-                operator=typed_pipeline.pipeline_code,
-            )
+            chembl_client = bundle.chembl_client
             typed_pipeline._chembl_release = typed_pipeline.fetch_chembl_release(chembl_client, log)
-            activity_iterator = ChemblActivityClient(
-                chembl_client,
-                batch_size=source_config.batch_size,
-            )
+            activity_iterator = cast(ChemblActivityClient, bundle.entity_client)
+            if activity_iterator is None:
+                msg = "Фабрика вернула пустой клиент для 'activity'"
+                raise RuntimeError(msg)
             select_fields = source_config.parameters.select_fields
             return ChemblExtractionContext(
                 source_config=source_config,
@@ -836,21 +847,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Create or reuse the ChEMBL client.
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Register the client only if not already registered.
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
+        bundle = self._build_activity_enrichment_bundle(
+            "compound_record",
+            client_name="chembl_enrichment_client",
         )
+        chembl_client = bundle.chembl_client
 
         # Invoke the enrichment routine.
         return enrich_with_compound_record(df, chembl_client, enrich_cfg)
@@ -903,21 +904,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Create or reuse the ChEMBL client.
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Register the client only if not already registered.
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
+        bundle = self._build_activity_enrichment_bundle(
+            "assay",
+            client_name="chembl_enrichment_client",
         )
+        chembl_client = bundle.chembl_client
 
         # Invoke the enrichment routine.
         return enrich_with_assay(df, chembl_client, enrich_cfg)
@@ -981,21 +972,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     message="data_validity_description already populated from extract, enrichment will update/overwrite",
                 )
 
-        # Create or reuse the ChEMBL client.
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Register the client only if not already registered.
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
+        bundle = self._build_activity_enrichment_bundle(
+            "data_validity_lookup",
+            client_name="chembl_enrichment_client",
         )
+        chembl_client = bundle.chembl_client
 
         # Invoke the enrichment routine (may update/overwrite extract data).
         return enrich_with_data_validity(df, chembl_client, enrich_cfg)
@@ -1048,21 +1029,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 message="Using default enrichment config",
             )
 
-        # Create or reuse the ChEMBL client.
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-        api_client = self._client_factory.for_source("chembl", base_url=base_url)
-        # Register the client only if not already registered.
-        if "chembl_enrichment_client" not in self._registered_clients:
-            self.register_client("chembl_enrichment_client", api_client)
-        chembl_client = ChemblClient(
-            api_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
+        bundle = self._build_activity_enrichment_bundle(
+            "molecule",
+            client_name="chembl_enrichment_client",
         )
+        chembl_client = bundle.chembl_client
 
         # Execute the join to fetch molecule_name.
         df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
@@ -1400,7 +1371,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCHING, comments_count=len(unique_comments))
 
         try:
-            records_dict = client.fetch_data_validity_lookup(
+            records_df = client.fetch_data_validity_lookup(
                 comments=unique_comments,
                 fields=["data_validity_comment", "description"],
                 page_limit=1000,
@@ -1416,34 +1387,20 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
 
-        # Build a DataFrame for joining.
-        enrichment_data: list[dict[str, Any]] = []
-        for comment in unique_comments:
-            record = records_dict.get(comment)
-            if record:
-                enrichment_data.append(
-                    {
-                        "data_validity_comment": comment,
-                        "data_validity_description": record.get("description"),
-                    }
-                )
-            else:
-                # Leave description as NULL when no record exists.
-                enrichment_data.append(
-                    {
-                        "data_validity_comment": comment,
-                        "data_validity_description": None,
-                    }
-                )
-
-        if not enrichment_data:
+        if records_df.empty:
             log.debug(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_NO_RECORDS)
             # Ensure the column exists with pd.NA.
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
 
-        df_enrich = pd.DataFrame(enrichment_data)
+        df_enrich = (
+            records_df.loc[:, ["data_validity_comment", "description"]]
+            .drop_duplicates(subset=["data_validity_comment"], keep="first")
+            .sort_values(by=["data_validity_comment"], kind="mergesort")
+            .rename(columns={"description": "data_validity_description"})
+            .reset_index(drop=True)
+        )
 
         # Preserve the original row order via index.
         original_index = df.index.copy()
@@ -1472,7 +1429,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE,
             comments_requested=len(unique_comments),
-            records_fetched=len(enrichment_data),
+            records_fetched=len(records_df),
             rows_enriched=len(df_result),
         )
 
@@ -1539,7 +1496,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log.info(LogEvents.EXTRACT_ASSAY_FIELDS_FETCHING, assay_ids_count=len(unique_assay_ids))
 
         try:
-            records_dict = client.fetch_assays_by_ids(
+            records_df = client.fetch_assays_by_ids(
                 ids=unique_assay_ids,
                 fields=["assay_chembl_id", "assay_organism", "assay_tax_id"],
                 page_limit=1000,
@@ -1555,29 +1512,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
             return df
 
-        # Build a DataFrame for joining.
-        enrichment_data: list[dict[str, Any]] = []
-        for assay_id in unique_assay_ids:
-            record = records_dict.get(assay_id) if records_dict else None
-            if record:
-                enrichment_data.append(
-                    {
-                        "assay_chembl_id": assay_id,
-                        "assay_organism": record.get("assay_organism"),
-                        "assay_tax_id": record.get("assay_tax_id"),
-                    }
-                )
-            else:
-                # Leave NULL when the record is missing.
-                enrichment_data.append(
-                    {
-                        "assay_chembl_id": assay_id,
-                        "assay_organism": None,
-                        "assay_tax_id": None,
-                    }
-                )
-
-        if not enrichment_data:
+        if records_df.empty:
             log.debug(LogEvents.EXTRACT_ASSAY_FIELDS_NO_RECORDS)
             # Ensure columns exist with pd.NA.
             for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
@@ -1585,11 +1520,20 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     df[col] = pd.Series([pd.NA] * len(df), dtype=dtype)
             return df
 
-        df_enrich = pd.DataFrame(enrichment_data)
+        df_enrich = (
+            records_df.loc[:, ["assay_chembl_id", "assay_organism", "assay_tax_id"]]
+            .dropna(subset=["assay_chembl_id"])
+            .copy()
+        )
+        df_enrich["assay_chembl_id"] = df_enrich["assay_chembl_id"].astype("string")
 
-        # Normalize assay_chembl_id in enrichment data for joining.
         df_enrich["assay_chembl_id"] = (
             df_enrich["assay_chembl_id"].astype("string").str.strip().str.upper()
+        )
+        df_enrich = (
+            df_enrich.drop_duplicates(subset=["assay_chembl_id"], keep="first")
+            .sort_values(by=["assay_chembl_id"], kind="mergesort")
+            .reset_index(drop=True)
         )
 
         # Normalize assay_chembl_id in the base DataFrame for joining.
@@ -1626,6 +1570,8 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         df_result.loc[missing_mask, col] = enrich_series.loc[missing_mask]
                 # Remove the *_enrich column.
                 df_result = df_result.drop(columns=[f"{col}_enrich"])
+        if "assay_chembl_id_enrich" in df_result.columns:
+            df_result = df_result.drop(columns=["assay_chembl_id_enrich"])
 
         # Ensure columns exist, filling with NA where necessary.
         for col, dtype in (("assay_organism", "string"), ("assay_tax_id", "Int64")):
@@ -1655,7 +1601,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         log.info(LogEvents.EXTRACT_ASSAY_FIELDS_COMPLETE,
             assay_ids_requested=len(unique_assay_ids),
-            records_fetched=len(enrichment_data),
+            records_fetched=len(df_enrich),
             rows_enriched=len(df_result),
         )
 
@@ -1754,6 +1700,17 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             raise
 
         return values
+
+    def _get_standard_types(self) -> frozenset[str]:
+        """Return cached set of allowed standard_type values."""
+
+        if self._standard_types_cache is None:
+            values = self._vocabulary_service.required_ids(
+                "activity_standard_type",
+                allowed_statuses=("active",),
+            )
+            self._standard_types_cache = frozenset(values)
+        return self._standard_types_cache
 
     def _extract_nested_fields(self, record: dict[str, Any]) -> dict[str, Any]:
         """Extract fields from nested assay and molecule objects."""
@@ -2427,7 +2384,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 df.loc[mask, "standard_type"] = (
                     df.loc[mask, "standard_type"].astype(str).str.strip()
                 )
-                standard_types_set: set[str] = STANDARD_TYPES
+                standard_types_set = set(self._get_standard_types())
                 invalid_mask = mask & ~df["standard_type"].isin(standard_types_set)  # pyright: ignore[reportUnknownMemberType]
                 if invalid_mask.any():
                     log.warning(LogEvents.INVALID_STANDARD_TYPE, count=int(invalid_mask.sum()))

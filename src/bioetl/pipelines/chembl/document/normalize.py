@@ -215,16 +215,23 @@ def enrich_with_document_terms(
 
     # Call client.fetch_document_terms_by_ids.
     log.info(LogEvents.ENRICHMENT_FETCHING_TERMS, ids_count=len(set(doc_ids)))
-    records_dict = client.fetch_document_terms_by_ids(
+    records_df = client.fetch_document_terms_by_ids(
         ids=doc_ids,
         fields=list(fields),
         page_limit=page_limit,
     )
 
-    # Flatten dict[doc_id, list[records]] into rows for aggregate_terms.
-    all_records: list[dict[str, Any]] = []
-    for records_list in records_dict.values():
-        all_records.extend(records_list)
+    if records_df.empty:
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
+        prepared = _ensure_term_columns(df_docs)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared, lazy=True)
+
+    records_df = records_df.copy()
+    if "document_chembl_id" in records_df.columns:
+        records_df["document_chembl_id"] = records_df["document_chembl_id"].astype("string").str.strip()
+
+    # Flatten DataFrame into rows for aggregate_terms.
+    all_records: list[dict[str, Any]] = records_df.to_dict(orient="records")
 
     # Aggregate terms.
     agg_result = aggregate_terms(all_records, sort=sort)
@@ -239,11 +246,6 @@ def enrich_with_document_terms(
                 "weight": term_weight["weight"],
             }
         )
-
-    if not enrichment_data:
-        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
-        prepared = _ensure_term_columns(df_docs)
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared, lazy=True)
 
     df_enrich = pd.DataFrame(enrichment_data)
 

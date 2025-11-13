@@ -14,11 +14,10 @@ from pandera import Check, Column
 
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
-from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 SCHEMA_VERSION = "1.7.0"
 
-COLUMN_ORDER = (
+COLUMN_ORDER: list[str] = [
     "activity_id",
     "row_subtype",
     "row_index",
@@ -72,12 +71,29 @@ COLUMN_ORDER = (
     "load_meta_id",
     "hash_row",
     "hash_business_key",
-)
+]
 
-STANDARD_TYPES = required_vocab_ids(
-    "activity_standard_type",
-    allowed_statuses=("active",),
-)
+REQUIRED_FIELDS: list[str] = [
+    "activity_id",
+    "row_subtype",
+    "row_index",
+    "assay_chembl_id",
+    "testitem_chembl_id",
+    "molecule_chembl_id",
+    "load_meta_id",
+    "hash_row",
+]
+
+BUSINESS_KEY_FIELDS: list[str] = [
+    "activity_id",
+    "row_subtype",
+    "row_index",
+]
+
+ROW_HASH_FIELDS: list[str] = [
+    column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
+]
+
 RELATIONS = {"=", "<", ">", "~"}
 ACTIVITY_PROPERTY_KEYS = (
     "type",
@@ -199,7 +215,10 @@ ActivitySchema = create_schema(
         "relation": CF.string(isin=RELATIONS),
         "value": CF.object(),
         "units": CF.string(),
-        "standard_type": CF.string(isin=STANDARD_TYPES),
+        "standard_type": CF.string(
+            vocabulary="activity_standard_type",
+            vocabulary_allowed_statuses=("active",),
+        ),
         "standard_relation": CF.string(isin=RELATIONS),
         "standard_value": CF.float64(ge=0),
         "standard_upper_value": CF.float64(ge=0),
@@ -246,7 +265,9 @@ ActivitySchema = create_schema(
 __all__ = [
     "SCHEMA_VERSION",
     "COLUMN_ORDER",
-    "STANDARD_TYPES",
+    "REQUIRED_FIELDS",
+    "BUSINESS_KEY_FIELDS",
+    "ROW_HASH_FIELDS",
     "RELATIONS",
     "ACTIVITY_PROPERTY_KEYS",
     "ActivitySchema",

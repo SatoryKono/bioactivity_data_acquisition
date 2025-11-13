@@ -11,10 +11,8 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
-    from bioetl.clients.client_chembl_base import (
-        ChemblEntityFetcherBase,
-        EntityConfig,
-    )
+    from bioetl.clients.chembl_config import EntityConfig
+    from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
     from bioetl.clients.client_chembl_common import ChemblClient
     from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
     from bioetl.clients.client_chembl_iterator import (
@@ -67,6 +65,13 @@ __all__ = [
     "ChemblAssayParametersEntityClient",
     "ChemblAssayClassificationEntityClient",
     "ChemblCompoundRecordEntityClient",
+    "ChemblEntityClientFactory",
+    "ChemblClientBundle",
+    "ChemblEntityDefinition",
+    "ChemblEntityRegistryError",
+    "get_entity_definition",
+    "iter_entity_definitions",
+    "register_entity_definition",
 ]
 
 _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
@@ -89,7 +94,7 @@ _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
         "bioetl.clients.client_chembl_entity",
         "ChemblEntityClientBase",
     ),
-    "EntityConfig": ("bioetl.clients.client_chembl_base", "EntityConfig"),
+    "EntityConfig": ("bioetl.clients.chembl_config", "EntityConfig"),
     "ChemblActivityClient": ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),
     "ChemblDocumentClient": ("bioetl.clients.entities.client_document", "ChemblDocumentClient"),
     "ChemblTargetClient": ("bioetl.clients.entities.client_target", "ChemblTargetClient"),
@@ -121,6 +126,34 @@ _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
     "ChemblCompoundRecordEntityClient": (
         "bioetl.clients.entities.client_compound_record",
         "ChemblCompoundRecordEntityClient",
+    ),
+    "ChemblEntityClientFactory": (
+        "bioetl.clients.chembl_entity_factory",
+        "ChemblEntityClientFactory",
+    ),
+    "ChemblClientBundle": (
+        "bioetl.clients.chembl_entity_factory",
+        "ChemblClientBundle",
+    ),
+    "ChemblEntityDefinition": (
+        "bioetl.clients.chembl_entity_registry",
+        "ChemblEntityDefinition",
+    ),
+    "ChemblEntityRegistryError": (
+        "bioetl.clients.chembl_entity_registry",
+        "ChemblEntityRegistryError",
+    ),
+    "get_entity_definition": (
+        "bioetl.clients.chembl_entity_registry",
+        "get_entity_definition",
+    ),
+    "iter_entity_definitions": (
+        "bioetl.clients.chembl_entity_registry",
+        "iter_entity_definitions",
+    ),
+    "register_entity_definition": (
+        "bioetl.clients.chembl_entity_registry",
+        "register_entity_definition",
     ),
 }
 

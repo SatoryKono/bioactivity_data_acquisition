@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import importlib
 import sys
-from importlib import import_module
 from types import ModuleType
 from typing import Any
 
@@ -9,12 +9,12 @@ import pandas as pd
 import pytest
 from pandera import Column, DataFrameSchema
 
-from bioetl.schemas import SchemaRegistry, _split_identifier
+from bioetl.schemas import SchemaDescriptor, SchemaRegistry, _split_identifier
+from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.chembl_activity_schema import (
     _is_valid_activity_properties,
     _is_valid_activity_property_item,
 )
-from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.schema_vocabulary_helper import (
     VOCAB_STORE_ENV_VAR,
     refresh_vocab_store_cache,
@@ -23,7 +23,7 @@ from bioetl.schemas.schema_vocabulary_helper import (
 
 
 def test_activity_property_item_validation_branches() -> None:
-    valid_item = {
+    valid_item: dict[str, object] = {
         "type": "curation",
         "relation": "=",
         "units": "nM",
@@ -33,14 +33,15 @@ def test_activity_property_item_validation_branches() -> None:
     }
     assert _is_valid_activity_property_item(valid_item) is True
 
-    for key, replacement in [
+    replacements: list[tuple[str, object]] = [
         ("type", 123),
         ("relation", 0),
         ("units", 1),
         ("value", {"nested": True}),
         ("text_value", 42),
-    ]:
-        bad = dict(valid_item)
+    ]
+    for key, replacement in replacements:
+        bad: dict[str, object] = dict(valid_item)
         bad[key] = replacement
         assert _is_valid_activity_property_item(bad) is False
 
@@ -95,16 +96,21 @@ def _build_simple_schema() -> DataFrameSchema:
 def test_schema_registry_registration_errors(tmp_path: Any) -> None:
     registry = SchemaRegistry()
     schema = _build_simple_schema()
-    entry = registry.register("pkg.schema.Test", schema=schema, version="1.0.0")
+    descriptor = SchemaDescriptor.from_components(
+        identifier="pkg.schema.Test",
+        schema=schema,
+        version="1.0.0",
+    )
+    entry = registry.register(descriptor)
     assert entry.identifier == "pkg.schema.Test"
 
     with pytest.raises(ValueError):
-        registry.register("pkg.schema.Test", schema=schema, version="1.0.0")
+        registry.register(descriptor)
 
     mismatched_schema = DataFrameSchema({"different": Column(int)})
     with pytest.raises(ValueError, match="column order references missing columns"):
-        registry.register(
-            "pkg.schema.Other",
+        SchemaDescriptor.from_components(
+            identifier="pkg.schema.Other",
             schema=mismatched_schema,
             version="1.0.0",
             column_order=("missing",),
@@ -113,28 +119,56 @@ def test_schema_registry_registration_errors(tmp_path: Any) -> None:
 
 def test_schema_registry_metadata_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     schema = _build_simple_schema()
-    schema = schema.set_metadata({"version": "2.0.0", "column_order": ("id", "value")})
-    registry = SchemaRegistry()
+    schema = schema.set_metadata({"version": "2.0.0", "column_order": ("id", "value")})  # type: ignore[attr-defined]
     with pytest.raises(ValueError, match="metadata version"):
-        registry.register("pkg.meta.Schema", schema=schema, version="1.0.0")
+        SchemaDescriptor.from_components(
+            identifier="pkg.meta.Schema",
+            schema=schema,
+            version="1.0.0",
+        )
 
-    bad_metadata = schema.set_metadata({"version": "2.0.0", "column_order": ("value", "id")})
+    bad_metadata = schema.set_metadata({"version": "2.0.0", "column_order": ("value", "id")})  # type: ignore[attr-defined]
     with pytest.raises(ValueError, match="metadata column_order"):
-        registry.register("pkg.meta.Schema2", schema=bad_metadata, version="2.0.0")
+        SchemaDescriptor.from_components(
+            identifier="pkg.meta.Schema2",
+            schema=bad_metadata,
+            version="2.0.0",
+        )
 
 
 def test_schema_registry_dynamic_import(monkeypatch: pytest.MonkeyPatch) -> None:
     module = ModuleType("tests.schemas.dynamic_module")
-    schema = _build_simple_schema().set_metadata({"version": "1.2.3", "column_order": ("id", "value")})
-    module.DynamicSchema = schema
-    module.SCHEMA_VERSION = "1.2.3"
-    module.COLUMN_ORDER = ("id", "value")
+    schema = _build_simple_schema().set_metadata({"version": "1.2.3", "column_order": ("id", "value")})  # type: ignore[attr-defined]
+    setattr(module, "DynamicSchema", schema)
+    setattr(module, "SCHEMA_VERSION", "1.2.3")
+    setattr(module, "COLUMN_ORDER", ("id", "value"))
+    setattr(module, "BUSINESS_KEY_FIELDS", ("id",))
+    setattr(module, "REQUIRED_FIELDS", ("value",))
     monkeypatch.setitem(sys.modules, module.__name__, module)
 
     registry = SchemaRegistry()
     entry = registry.get(f"{module.__name__}.DynamicSchema")
     assert entry.version == "1.2.3"
     assert entry.column_order == ("id", "value")
+    assert entry.business_key_fields == ("id",)
+    assert entry.required_fields == ("value",)
+
+
+def test_schema_descriptor_vocabulary_bindings() -> None:
+    column = Column(str, metadata={"vocabulary": {"id": "test_vocab", "allowed_statuses": ("active",)}})
+    schema = DataFrameSchema({"value": column})
+    descriptor = SchemaDescriptor.from_components(
+        identifier="pkg.vocab.Schema",
+        schema=schema,
+        version="1.0.0",
+    )
+    assert descriptor.vocabulary_requirements == ("test_vocab",)
+    assert len(descriptor.vocabulary_bindings) == 1
+    binding = descriptor.vocabulary_bindings[0]
+    assert binding.column == "value"
+    assert binding.vocabulary_id == "test_vocab"
+    assert binding.allowed_statuses == ("active",)
+    assert binding.required is True
 
 
 def test_split_identifier_errors() -> None:
@@ -145,7 +179,7 @@ def test_split_identifier_errors() -> None:
 
 
 def test_required_vocab_ids(monkeypatch: pytest.MonkeyPatch) -> None:
-    helper = import_module("bioetl.schemas.schema_vocabulary_helper")
+    helper = importlib.import_module("bioetl.schemas.schema_vocabulary_helper")
     store = {"valid": {"ids": ["one", "two"], "status": ["active", "inactive"]}}
 
     def fake_load() -> dict[str, Any]:

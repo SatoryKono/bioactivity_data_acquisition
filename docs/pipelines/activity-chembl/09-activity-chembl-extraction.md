@@ -1166,7 +1166,6 @@ COLUMN_ORDER = [
     "compound_key",
 ]
 
-STANDARD_TYPES = {"IC50", "EC50", "XC50", "AC50", "Ki", "Kd", "Potency", "ED50"}
 RELATIONS = {"=", "<", ">", "<=", ">=", "~"}
 ```
 
@@ -1188,7 +1187,11 @@ ActivitySchema = DataFrameSchema(
         "document_chembl_id": Column(
             pa.String, Check.str_matches(r"^CHEMBL\d+$"), nullable=True
         ),
-        "standard_type": Column(pa.String, Check.isin(STANDARD_TYPES), nullable=True),
+        "standard_type": Column(
+            pa.String,
+            nullable=True,
+            metadata={"vocabulary": {"id": "activity_standard_type", "allowed_statuses": ("active",)}},
+        ),
         "standard_relation": Column(pa.String, Check.isin(RELATIONS), nullable=True),
         "standard_value": Column(pa.Float64, Check.ge(0), nullable=True),
         "standard_units": Column(pa.String, nullable=True),

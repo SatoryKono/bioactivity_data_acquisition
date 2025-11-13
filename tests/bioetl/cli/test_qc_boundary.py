@@ -7,18 +7,18 @@ from textwrap import dedent
 
 import pytest
 
-from bioetl.cli.tools.qc_boundary import (
+from bioetl.pipelines.qc.boundary_check import (
     QC_MODULE_PREFIX,
-    Violation,
-    collect_qc_boundary_violations,
+    QCBoundaryViolation,
+    collect_cli_qc_boundary_report,
 )
 
 
 @pytest.mark.cli
 def test_cli_modules_do_not_import_qc_directly() -> None:
     """Ensure CLI code relies on pipelines instead of QC helpers directly."""
-    violations = collect_qc_boundary_violations()
-    assert not violations, _format_violation_message(violations)
+    report = collect_cli_qc_boundary_report()
+    assert not report.has_violations, _format_violation_message(report.violations)
 
 
 def test_collect_qc_boundary_detects_indirect_imports(tmp_path: Path) -> None:
@@ -47,24 +47,28 @@ def test_collect_qc_boundary_detects_indirect_imports(tmp_path: Path) -> None:
     )
 
     package = "tmp_cli_tree"
-    violations = collect_qc_boundary_violations(cli_root=cli_root, package=package)
+    report = collect_cli_qc_boundary_report(cli_root=cli_root, package=package)
 
-    assert violations == [
-        Violation(
-            chain=(
+    assert report.violations == (
+        QCBoundaryViolation(
+            module=f"{package}.entry",
+            qc_module="bioetl.qc.helpers",
+            import_chain=(
                 f"{package}.entry",
                 "bioetl.qc.helpers",
             ),
             source_path=cli_root / "entry.py",
         ),
-        Violation(
-            chain=(
+        QCBoundaryViolation(
+            module=f"{package}.intermediate",
+            qc_module="bioetl.qc.helpers",
+            import_chain=(
                 f"{package}.intermediate",
                 "bioetl.qc.helpers",
             ),
             source_path=cli_root / "intermediate.py",
         ),
-    ]
+    )
 
 
 def test_collect_qc_boundary_handles_direct_alias(tmp_path: Path) -> None:
@@ -84,20 +88,22 @@ def test_collect_qc_boundary_handles_direct_alias(tmp_path: Path) -> None:
     )
 
     package = "tmp_cli_alias"
-    violations = collect_qc_boundary_violations(cli_root=cli_root, package=package)
+    report = collect_cli_qc_boundary_report(cli_root=cli_root, package=package)
 
-    assert violations == [
-        Violation(
-            chain=(
+    assert report.violations == (
+        QCBoundaryViolation(
+            module=f"{package}.command",
+            qc_module=QC_MODULE_PREFIX,
+            import_chain=(
                 f"{package}.command",
                 QC_MODULE_PREFIX,
             ),
             source_path=cli_root / "command.py",
         ),
-    ]
+    )
 
 
-def _format_violation_message(violations: list[Violation]) -> str:
+def _format_violation_message(violations: tuple[QCBoundaryViolation, ...]) -> str:
     formatted = [
         f"{violation.source_path}: {violation.format_chain()}" for violation in violations
     ]

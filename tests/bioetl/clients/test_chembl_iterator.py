@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.client_chembl_base import EntityConfig
+from bioetl.clients.chembl_config import EntityConfig
 from bioetl.clients.client_chembl_iterator import (
     ChemblEntityIterator,
     ChemblEntityIteratorBase,
@@ -21,10 +21,11 @@ def chembl_config() -> EntityConfig:
 
     return EntityConfig(
         endpoint="/entity.json",
+        id_field="entity_id",
         filter_param="entity_id__in",
-        id_key="entity_id",
         items_key="entities",
         log_prefix="entity",
+        default_fields=("entity_id",),
         base_endpoint_length=10,
         enable_url_length_check=True,
     )

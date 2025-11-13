@@ -85,18 +85,20 @@ class TestActivityAssayJoin:
         """Test that _extract_assay_fields adds expected columns."""
         # Mock fetch_assays_by_ids to return sample data
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": "9606",
-                },
-                "CHEMBL101": {
-                    "assay_chembl_id": "CHEMBL101",
-                    "assay_organism": "Mus musculus",
-                    "assay_tax_id": "10090",
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": "9606",
+                    },
+                    {
+                        "assay_chembl_id": "CHEMBL101",
+                        "assay_organism": "Mus musculus",
+                        "assay_tax_id": "10090",
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -118,18 +120,20 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields correctly matches records by assay_chembl_id."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": "9606",
-                },
-                "CHEMBL102": {
-                    "assay_chembl_id": "CHEMBL102",
-                    "assay_organism": "Rattus norvegicus",
-                    "assay_tax_id": "10116",
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": "9606",
+                    },
+                    {
+                        "assay_chembl_id": "CHEMBL102",
+                        "assay_organism": "Rattus norvegicus",
+                        "assay_tax_id": "10116",
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -169,7 +173,7 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields handles missing assay records gracefully."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={}
+            return_value=pd.DataFrame(columns=["assay_chembl_id", "assay_organism", "assay_tax_id"])
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -187,13 +191,15 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields handles None/NA values in assay_chembl_id."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": "9606",
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": "9606",
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -213,13 +219,15 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields preserves the original row order."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL102": {
-                    "assay_chembl_id": "CHEMBL102",
-                    "assay_organism": "Rattus norvegicus",
-                    "assay_tax_id": "10116",
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL102",
+                        "assay_organism": "Rattus norvegicus",
+                        "assay_tax_id": "10116",
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -240,13 +248,15 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields validates types correctly."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": "9606",  # String, should be converted to Int64
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": "9606",  # String, should be converted to Int64
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -270,18 +280,20 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields validates tax_id range (>= 1)."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": "9606",  # Valid: >= 1
-                },
-                "CHEMBL101": {
-                    "assay_chembl_id": "CHEMBL101",
-                    "assay_organism": "Mus musculus",
-                    "assay_tax_id": "0",  # Invalid: < 1, should be converted to NA
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": "9606",  # Valid: >= 1
+                    },
+                    {
+                        "assay_chembl_id": "CHEMBL101",
+                        "assay_organism": "Mus musculus",
+                        "assay_tax_id": "0",  # Invalid: < 1, should be converted to NA
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")
@@ -303,13 +315,15 @@ class TestActivityAssayJoin:
     ) -> None:
         """Test that _extract_assay_fields handles missing tax_id (NA)."""
         mock_chembl_client.fetch_assays_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL100": {
-                    "assay_chembl_id": "CHEMBL100",
-                    "assay_organism": "Homo sapiens",
-                    "assay_tax_id": None,  # Missing tax_id
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "assay_chembl_id": "CHEMBL100",
+                        "assay_organism": "Homo sapiens",
+                        "assay_tax_id": None,  # Missing tax_id
+                    },
+                ]
+            )
         )
 
         log = UnifiedLogger.get(__name__).bind(component="test")

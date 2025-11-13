@@ -51,6 +51,8 @@ from bioetl.qc.report import build_correlation_report as build_default_correlati
 from bioetl.qc.report import build_qc_metrics_payload
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry, get_schema
+from bioetl.vocab import get_vocabulary_service
+from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
 
 _NETWORK_ERROR_TYPES = (
     client_exceptions.Timeout,
@@ -139,6 +141,7 @@ class PipelineBase(ABC):
         self._validation_schema: SchemaRegistryEntry | None = None
         self._validation_summary: dict[str, Any] | None = None
         self._extract_metadata: dict[str, Any] = {}
+        self._vocabulary_service = get_vocabulary_service()
         load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
         self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
 
@@ -1557,6 +1560,7 @@ class PipelineBase(ABC):
         schema_valid = True
         failure_count: int | None = None
         error_summary: str | None = None
+        vocabulary_failures_details: list[dict[str, object]] = []
 
         df_for_validation = ensure_hash_columns(df, config=self.config)
         df_for_validation = self._ensure_schema_columns(
@@ -1657,6 +1661,33 @@ class PipelineBase(ABC):
                 schema_valid = False
                 error_summary = summary.get("message")
                 failure_count = summary.get("failure_count")
+
+        vocabulary_violations = self._check_vocabulary_bindings(validated, schema_entry)
+        if vocabulary_violations:
+            if fail_open:
+                schema_valid = False
+                total_invalid = sum(violation.invalid_count for violation in vocabulary_violations)
+                failure_count = (failure_count or 0) + total_invalid
+                vocabulary_failures_details = [
+                    {
+                        "column": violation.column,
+                        "vocabulary_id": violation.vocabulary_id,
+                        "invalid_values": violation.invalid_values,
+                        "invalid_count": violation.invalid_count,
+                    }
+                    for violation in vocabulary_violations
+                ]
+                log.warning(LogEvents.SCHEMA_VALIDATION_FAILED,
+                    schema=schema_entry.identifier,
+                    version=schema_entry.version,
+                    reason="vocabulary_bindings",
+                    failure_count=total_invalid,
+                    violations=vocabulary_failures_details,
+                )
+                if error_summary is None:
+                    error_summary = "vocabulary binding violations"
+            else:
+                raise VocabularyValidationError(violations=vocabulary_violations)
         self._validation_schema = schema_entry
         self._validation_summary = {
             "schema_identifier": schema_entry.identifier,
@@ -1672,6 +1703,8 @@ class PipelineBase(ABC):
             self._validation_summary["error"] = error_summary
         if failure_count is not None:
             self._validation_summary["failure_count"] = failure_count
+        if vocabulary_failures_details:
+            self._validation_summary["vocabulary_failures"] = vocabulary_failures_details
 
         if schema_valid:
             log.debug(LogEvents.VALIDATION_COMPLETED,
@@ -1681,6 +1714,65 @@ class PipelineBase(ABC):
             )
 
         return validated
+
+    def _check_vocabulary_bindings(
+        self,
+        df: pd.DataFrame,
+        descriptor: SchemaRegistryEntry,
+    ) -> list[VocabularyViolation]:
+        """Return violations for declared vocabulary bindings."""
+
+        bindings = descriptor.vocabulary_bindings
+        if not bindings:
+            return []
+
+        service = self._vocabulary_service
+        violations: list[VocabularyViolation] = []
+
+        for binding in bindings:
+            if binding.column not in df.columns:
+                continue
+
+            allowed_statuses = binding.allowed_statuses or None
+            if binding.required:
+                allowed_values = service.required_ids(
+                    binding.vocabulary_id,
+                    allowed_statuses=allowed_statuses,
+                )
+            else:
+                allowed_values = service.ids(
+                    binding.vocabulary_id,
+                    allowed_statuses=allowed_statuses,
+                )
+                if not allowed_values:
+                    continue
+
+            series = df[binding.column]
+            if series.empty:
+                continue
+
+            string_series = series.astype("string")
+            non_null_mask = string_series.notna()
+            if not bool(non_null_mask.any()):
+                continue
+
+            invalid_mask = non_null_mask & ~string_series.isin(allowed_values)
+            if not bool(invalid_mask.any()):
+                continue
+
+            invalid_series = string_series[invalid_mask].dropna()
+            invalid_values = tuple(sorted({str(value) for value in invalid_series.unique()}))
+            invalid_count = int(invalid_mask.sum())
+            violations.append(
+                VocabularyViolation(
+                    column=binding.column,
+                    vocabulary_id=binding.vocabulary_id,
+                    invalid_values=invalid_values,
+                    invalid_count=invalid_count,
+                )
+            )
+
+        return violations
 
     def _ensure_load_meta_ids(self, df: pd.DataFrame) -> pd.DataFrame:
         """Populate ``load_meta_id`` column with deterministic UUIDs when missing."""

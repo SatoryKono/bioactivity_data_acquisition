@@ -2,16 +2,11 @@
 
 from __future__ import annotations
 
-from bioetl.schemas.base_abstract_schema import create_schema
-from bioetl.schemas.common_column_factory import SchemaColumnFactory
-from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
-
-ASSAY_TYPES = required_vocab_ids("assay_type")
-
+from bioetl.schemas import base_abstract_schema, common_column_factory
 
 SCHEMA_VERSION = "1.3.0"
 
-COLUMN_ORDER = (
+COLUMN_ORDER: list[str] = [
     "assay_chembl_id",
     "row_subtype",
     "row_index",
@@ -43,18 +38,36 @@ COLUMN_ORDER = (
     "hash_row",
     "hash_business_key",
     "load_meta_id",
-)
+]
+
+REQUIRED_FIELDS: list[str] = [
+    "assay_chembl_id",
+    "row_subtype",
+    "row_index",
+    "load_meta_id",
+    "hash_row",
+]
+
+BUSINESS_KEY_FIELDS: list[str] = [
+    "assay_chembl_id",
+    "row_subtype",
+    "row_index",
+]
+
+ROW_HASH_FIELDS: list[str] = [
+    column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
+]
 
 # Row metadata columns
-CF = SchemaColumnFactory
+CF = common_column_factory.SchemaColumnFactory
 row_meta = CF.row_metadata()
 
-AssaySchema = create_schema(
+AssaySchema = base_abstract_schema.create_schema(
     columns={
         "assay_chembl_id": CF.chembl_id(nullable=False, unique=True),
         **row_meta,
         "description": CF.string(),
-        "assay_type": CF.string(isin=ASSAY_TYPES),
+        "assay_type": CF.string(vocabulary="assay_type"),
         "assay_type_description": CF.string(),
         "assay_test_type": CF.string(),
         "assay_category": CF.string(),
@@ -87,4 +100,11 @@ AssaySchema = create_schema(
     column_order=COLUMN_ORDER,
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "ASSAY_TYPES", "AssaySchema"]
+__all__ = [
+    "SCHEMA_VERSION",
+    "COLUMN_ORDER",
+    "REQUIRED_FIELDS",
+    "BUSINESS_KEY_FIELDS",
+    "ROW_HASH_FIELDS",
+    "AssaySchema",
+]

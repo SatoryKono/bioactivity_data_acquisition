@@ -153,14 +153,12 @@ Valid values **SHOULD** reference controlled dictionaries:
 ### Valid Examples
 
 ```python
-from bioetl.normalizers import BAO_ASSAY_TYPES
-
 AssaySchema = DataFrameSchema(
     columns={
         "assay_type": Column(
             str,
             nullable=False,
-            checks=Check.isin(BAO_ASSAY_TYPES),  # Controlled vocabulary
+            metadata={"vocabulary": {"id": "assay_type"}},  # Controlled vocabulary
         ),
     }
 )

@@ -6,7 +6,10 @@ from pytest import MonkeyPatch
 from typer.testing import CliRunner
 
 from bioetl.cli.tools import qc_boundary_check as qc_boundary_check_cli
-from bioetl.cli.tools.qc_boundary import Violation
+from bioetl.pipelines.qc.boundary_check import (
+    QCBoundaryReport,
+    QCBoundaryViolation,
+)
 
 
 def test_qc_boundary_check_success(
@@ -15,8 +18,8 @@ def test_qc_boundary_check_success(
 ) -> None:
     monkeypatch.setattr(
         qc_boundary_check_cli,
-        "collect_qc_boundary_violations",
-        lambda: [],
+        "collect_cli_qc_boundary_report",
+        lambda: QCBoundaryReport(package="bioetl.cli", violations=()),
     )
 
     result = runner.invoke(qc_boundary_check_cli.app, [])
@@ -32,14 +35,20 @@ def test_qc_boundary_check_failure(
 ) -> None:
     fake_path = tmp_path / "fake.py"
     fake_path.write_text("", encoding="utf-8")
-    violation = Violation(
-        chain=("bioetl.cli.fake", "bioetl.qc.helpers"),
-        source_path=fake_path,
-    )
     monkeypatch.setattr(
         qc_boundary_check_cli,
-        "collect_qc_boundary_violations",
-        lambda: [violation],
+        "collect_cli_qc_boundary_report",
+        lambda: QCBoundaryReport(
+            package="bioetl.cli",
+            violations=(
+                QCBoundaryViolation(
+                    module="bioetl.cli.fake",
+                    qc_module="bioetl.qc.helpers",
+                    import_chain=("bioetl.cli.fake", "bioetl.qc.helpers"),
+                    source_path=fake_path,
+                ),
+            ),
+        ),
     )
 
     result = runner.invoke(qc_boundary_check_cli.app, [])

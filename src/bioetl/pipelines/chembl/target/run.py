@@ -14,7 +14,6 @@ import pandas as pd
 from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
@@ -78,18 +77,19 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             source_config: TargetSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_target_http",
+            bundle = pipeline.build_chembl_entity_bundle(
+                "target",
+                source_name="chembl",
+                source_config=source_config,
             )
-            chembl_client = ChemblClient(http_client)
+            if "chembl_target_http" not in pipeline._registered_clients:
+                pipeline.register_client("chembl_target_http", bundle.api_client)
+            chembl_client = bundle.chembl_client
             pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
-            target_client = ChemblTargetClient(
-                chembl_client,
-                batch_size=min(source_config.batch_size, 25),
-            )
+            target_client = cast(ChemblTargetClient, bundle.entity_client)
+            if target_client is None:
+                msg = "Фабрика вернула пустой клиент для 'target'"
+                raise RuntimeError(msg)
             select_fields = source_config.parameters.select_fields
             return ChemblExtractionContext(
                 source_config=source_config,
@@ -158,12 +158,15 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = TargetSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_target_http"
+        bundle = self.build_chembl_entity_bundle(
+            "target",
+            source_name="chembl",
+            source_config=source_config,
         )
+        if "chembl_target_http" not in self._registered_clients:
+            self.register_client("chembl_target_http", bundle.api_client)
 
-        chembl_client = ChemblClient(http_client)
+        chembl_client = bundle.chembl_client
         self._chembl_release = self.fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
@@ -179,7 +182,10 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         limit = self.config.cli.limit
         select_fields = source_config.parameters.select_fields
 
-        target_client = ChemblTargetClient(chembl_client, batch_size=min(batch_size, 25))
+        target_client = cast(ChemblTargetClient, bundle.entity_client)
+        if target_client is None:
+            msg = "Фабрика вернула пустой клиент для 'target'"
+            raise RuntimeError(msg)
 
         def fetch_targets(
             batch_ids: Sequence[str],
@@ -343,9 +349,12 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         # Reuse existing client if available, otherwise create new one
         source_raw = self._resolve_source_config("chembl")
         source_config = TargetSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url)
-        chembl_client = ChemblClient(http_client)
+        bundle = self.build_chembl_entity_bundle(
+            "target",
+            source_name="chembl",
+            source_config=source_config,
+        )
+        chembl_client = bundle.chembl_client
 
         if "target_chembl_id" not in df.columns:
             return df
@@ -453,9 +462,12 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = TargetSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client("chembl", base_url=base_url)
-        chembl_client = ChemblClient(http_client)
+        bundle = self.build_chembl_entity_bundle(
+            "target",
+            source_name="chembl",
+            source_config=source_config,
+        )
+        chembl_client = bundle.chembl_client
 
         # Initialize columns if they don't exist
         if "protein_class_list" not in df.columns:

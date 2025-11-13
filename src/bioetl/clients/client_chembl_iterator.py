@@ -10,11 +10,13 @@ from pathlib import Path
 from typing import Any, cast
 from urllib.parse import urlencode
 
+import pandas as pd
 from structlog.stdlib import (
     BoundLogger,  # pyright: ignore[reportMissingImports, reportUnknownVariableType]
 )
 
 from bioetl.clients.chembl_config import EntityConfig
+from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
 from bioetl.config.loader import _load_yaml
 from bioetl.core.logging import UnifiedLogger
 
@@ -62,7 +64,7 @@ def _resolve_status_endpoint() -> str:
     return _DEFAULT_STATUS_ENDPOINT
 
 
-class ChemblEntityIteratorBase:
+class ChemblEntityIteratorBase(ChemblEntityFetcherBase):
     """Provide a unified iterator over ChEMBL entities with pagination and chunking."""
 
     def __init__(
@@ -93,10 +95,10 @@ class ChemblEntityIteratorBase:
             msg = "max_url_length must be a positive integer if provided"
             raise ValueError(msg)
 
+        super().__init__(chembl_client=chembl_client, config=config)
         self._chembl_client = chembl_client
         # Backwards compatibility for client attribute expected by legacy code/tests.
         self._client = chembl_client
-        self._config = config
         self._batch_size = min(batch_size, 25)
         self._max_url_length = max_url_length
         self._chembl_release: str | None = None
@@ -183,6 +185,37 @@ class ChemblEntityIteratorBase:
 
         return cast(Mapping[str, object], payload)
 
+    def fetch_by_ids(
+        self,
+        ids: Sequence[str],
+        fields: Sequence[str] | None = None,
+        *,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        identifiers = self._validate_identifiers(ids)
+        if not identifiers:
+            self._log.debug(f"{self._config.log_prefix}.fetch_by_ids.no_ids")
+            return self._empty_frame(fields)
+
+        page_size = self._resolve_page_size(page_limit, None)
+        records: list[Mapping[str, Any]] = []
+        for chunk in self._chunk_identifiers(identifiers, select_fields=fields):
+            params = self._build_chunk_params(chunk, fields=fields)
+            for record in super().iterate_records(
+                params=params,
+                fields=fields,
+                page_size=page_size,
+            ):
+                records.append(record)
+
+        frame = self._records_to_frame(records, fields)
+        self._log.info(
+            f"{self._config.log_prefix}.fetch_by_ids.complete",
+            ids_requested=len(identifiers),
+            rows=len(frame),
+        )
+        return frame
+
     def iterate_all(
         self,
         *,
@@ -209,21 +242,12 @@ class ChemblEntityIteratorBase:
         effective_page_size = self._coerce_page_size(page_size)
         yielded = 0
 
-        params: dict[str, object] = {}
-        if limit is not None and limit > 0:
-            effective_page_size = min(effective_page_size, limit)
-            params["limit"] = effective_page_size
-        else:
-            params["limit"] = effective_page_size
+        field_projection = tuple(sorted(select_fields)) if select_fields else None
 
-        if select_fields:
-            params["only"] = ",".join(sorted(select_fields))
-
-        for item in self._chembl_client.paginate(
-            self._config.endpoint,
-            params=params,
+        for item in super().iterate_records(
+            limit=limit,
+            fields=field_projection,
             page_size=effective_page_size,
-            items_key=self._config.items_key,
         ):
             yield item
             yielded += 1
@@ -250,16 +274,19 @@ class ChemblEntityIteratorBase:
         Mapping[str, object]:
             Entity records emitted for the requested identifiers.
         """
-        for chunk in self._chunk_identifiers(ids, select_fields=select_fields):
-            params: dict[str, object] = {self._config.filter_param: ",".join(chunk)}
-            if select_fields:
-                params["only"] = ",".join(sorted(select_fields))
+        identifiers = self._validate_identifiers(ids)
+        if not identifiers:
+            return
 
-            yield from self._chembl_client.paginate(
-                self._config.endpoint,
+        projection = tuple(sorted(select_fields)) if select_fields else None
+        page_size = self._resolve_page_size(None, None)
+
+        for chunk in self._chunk_identifiers(identifiers, select_fields=projection):
+            params = self._build_chunk_params(chunk, fields=projection)
+            yield from super().iterate_records(
                 params=params,
-                page_size=len(chunk),
-                items_key=self._config.items_key,
+                fields=projection,
+                page_size=page_size,
             )
 
     # ------------------------------------------------------------------
@@ -287,7 +314,7 @@ class ChemblEntityIteratorBase:
 
     def _chunk_identifiers(
         self,
-        ids: Sequence[object],
+        ids: Sequence[str],
         *,
         select_fields: Sequence[str] | None = None,
     ) -> Iterable[Sequence[str]]:
@@ -296,7 +323,7 @@ class ChemblEntityIteratorBase:
         Parameters
         ----------
         ids:
-            Sequence of identifiers (any objects) to be chunked.
+            Sequence of identifiers to be chunked.
         select_fields:
             Optional list of fields used to compute URL length.
 
@@ -308,14 +335,7 @@ class ChemblEntityIteratorBase:
         chunk: deque[str] = deque()
 
         for identifier in ids:
-            if identifier is None:
-                continue
-            if isinstance(identifier, str):
-                candidate_identifier = identifier.strip()
-            else:
-                candidate_identifier = str(identifier).strip()
-            if not candidate_identifier:
-                continue
+            candidate_identifier = identifier
 
             candidate_size = len(chunk) + 1
 
@@ -346,6 +366,15 @@ class ChemblEntityIteratorBase:
 
         if chunk:
             yield tuple(chunk)
+
+    def _resolve_page_size(
+        self,
+        requested: int | None,
+        limit: int | None,
+    ) -> int:
+        candidate = super()._resolve_page_size(requested, limit)
+        candidate = min(candidate, self._batch_size)
+        return max(candidate, 1)
 
     def _encode_in_query(
         self,

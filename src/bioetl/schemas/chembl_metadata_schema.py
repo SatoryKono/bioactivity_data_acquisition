@@ -13,7 +13,6 @@ from pandera import Check, Column
 
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
-from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -37,7 +36,24 @@ BASE_COLUMNS = (
     "notes",
 )
 
-BUSINESS_KEY_FIELDS = (
+COLUMN_ORDER: list[str] = [*BASE_COLUMNS, "hash_business_key", "hash_row"]
+
+REQUIRED_FIELDS: list[str] = [
+    "load_meta_id",
+    "source_system",
+    "request_base_url",
+    "request_params_json",
+    "request_started_at",
+    "request_finished_at",
+    "ingested_at",
+    "records_fetched",
+    "status",
+    "retry_count",
+    "hash_business_key",
+    "hash_row",
+]
+
+BUSINESS_KEY_FIELDS: list[str] = [
     "source_system",
     "request_base_url",
     "request_params_json",
@@ -45,15 +61,9 @@ BUSINESS_KEY_FIELDS = (
     "source_api_version",
     "job_id",
     "operator",
-)
+]
 
-ROW_HASH_FIELDS = BASE_COLUMNS
-
-COLUMN_ORDER = (*BASE_COLUMNS, "hash_business_key", "hash_row")
-
-ALLOWED_SOURCE_SYSTEMS: tuple[str, ...] = tuple(sorted(required_vocab_ids("source_system")))
-ALLOWED_STATUS_VALUES: tuple[str, ...] = tuple(sorted(required_vocab_ids("status")))
-
+ROW_HASH_FIELDS: list[str] = list(BASE_COLUMNS)
 
 def _is_valid_json_string(value: Any) -> bool:
     if value is None or value is pd.NA:
@@ -104,11 +114,7 @@ CF = SchemaColumnFactory
 
 columns: dict[str, Column] = {
     "load_meta_id": CF.uuid(nullable=False, unique=True),
-    "source_system": Column(
-        pa.String,  # type: ignore[arg-type]
-        checks=[Check.isin(ALLOWED_SOURCE_SYSTEMS)],
-        nullable=False,
-    ),  # type: ignore[assignment]
+    "source_system": CF.string(nullable=False, vocabulary="source_system"),
     "source_release": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "source_api_version": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "request_base_url": Column(
@@ -139,11 +145,7 @@ columns: dict[str, Column] = {
         nullable=False,
     ),  # type: ignore[assignment]
     "records_fetched": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
-    "status": Column(
-        pa.String,  # type: ignore[arg-type]
-        checks=[Check.isin(ALLOWED_STATUS_VALUES)],
-        nullable=False,
-    ),  # type: ignore[assignment]
+    "status": CF.string(nullable=False, vocabulary="status"),
     "error_message_opt": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "retry_count": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
     "job_id": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
@@ -164,9 +166,8 @@ _BASE_SCHEMA = create_schema(
 LoadMetaSchema = _BASE_SCHEMA
 
 __all__ = [
-    "ALLOWED_SOURCE_SYSTEMS",
-    "ALLOWED_STATUS_VALUES",
     "COLUMN_ORDER",
+    "REQUIRED_FIELDS",
     "BUSINESS_KEY_FIELDS",
     "ROW_HASH_FIELDS",
     "BASE_COLUMNS",

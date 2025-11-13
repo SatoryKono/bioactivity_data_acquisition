@@ -9,6 +9,8 @@ import pandas as pd
 import pandera as pa
 from pandera import Check, Column
 
+from .vocabulary_bindings import VOCAB_METADATA_KEY
+
 
 class SchemaColumnFactory:
     """Factory for reusable Pandera columns."""
@@ -27,8 +29,15 @@ class SchemaColumnFactory:
         pattern: str | None = None,
         isin: Collection[str] | None = None,
         length: tuple[int, int] | None = None,
+        vocabulary: str | None = None,
+        vocabulary_allowed_statuses: Collection[str] | None = None,
+        vocabulary_required: bool = True,
     ) -> Column:
         """Create a string column with optional constraints."""
+
+        if vocabulary is not None and isin is not None:
+            message = "isin constraint cannot be combined with vocabulary metadata."
+            raise ValueError(message)
 
         checks: list[Check] = []
         if pattern is not None:
@@ -38,12 +47,26 @@ class SchemaColumnFactory:
         if length is not None:
             checks.append(Check.str_length(length[0], length[1]))
 
+        metadata: dict[str, object] | None = None
+        if vocabulary is not None:
+            normalized_vocab = vocabulary.strip()
+            if not normalized_vocab:
+                message = "vocabulary identifier must be a non-empty string."
+                raise ValueError(message)
+            metadata_payload: dict[str, object] = {"id": normalized_vocab, "required": bool(vocabulary_required)}
+            if vocabulary_allowed_statuses:
+                metadata_payload["allowed_statuses"] = tuple(
+                    str(status) for status in vocabulary_allowed_statuses
+                )
+            metadata = {VOCAB_METADATA_KEY: metadata_payload}
+
         dtype: Any = pa.String
         return Column(
             dtype,
             checks=checks or None,
             nullable=nullable,
             unique=unique,
+            metadata=metadata,
         )
 
     @classmethod

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
-from bioetl.schemas.schema_vocabulary_helper import required_vocab_ids
-
-TARGET_TYPES = required_vocab_ids("target_type")
 
 
 SCHEMA_VERSION = "1.2.0"
 
-COLUMN_ORDER = (
+COLUMN_ORDER: list[str] = [
     "target_chembl_id",
     "pref_name",
     "target_type",
@@ -29,7 +26,21 @@ COLUMN_ORDER = (
     "hash_row",
     "hash_business_key",
     "load_meta_id",
-)
+]
+
+REQUIRED_FIELDS: list[str] = [
+    "target_chembl_id",
+    "load_meta_id",
+    "hash_row",
+]
+
+BUSINESS_KEY_FIELDS: list[str] = [
+    "target_chembl_id",
+]
+
+ROW_HASH_FIELDS: list[str] = [
+    column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
+]
 
 CF = SchemaColumnFactory
 
@@ -37,7 +48,7 @@ TargetSchema = create_schema(
     columns={
         "target_chembl_id": CF.chembl_id(nullable=False, unique=True),
         "pref_name": CF.string(),
-        "target_type": CF.string(isin=TARGET_TYPES),
+        "target_type": CF.string(vocabulary="target_type"),
         "organism": CF.string(),
         "tax_id": CF.string(),
         "species_group_flag": CF.int64(pandas_nullable=True, isin={0, 1}),
@@ -59,4 +70,11 @@ TargetSchema = create_schema(
     column_order=COLUMN_ORDER,
 )
 
-__all__ = ["SCHEMA_VERSION", "COLUMN_ORDER", "TARGET_TYPES", "TargetSchema"]
+__all__ = [
+    "SCHEMA_VERSION",
+    "COLUMN_ORDER",
+    "REQUIRED_FIELDS",
+    "BUSINESS_KEY_FIELDS",
+    "ROW_HASH_FIELDS",
+    "TargetSchema",
+]

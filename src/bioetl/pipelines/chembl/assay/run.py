@@ -182,22 +182,18 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             log: BoundLogger,
         ) -> ChemblExtractionContext:
             assay_pipeline = _require_assay_pipeline(pipeline)
-
-            http_client, _ = assay_pipeline.prepare_chembl_client(
-                "chembl",
-                client_name="chembl_assay_http",
+            bundle = assay_pipeline.build_chembl_entity_bundle(
+                "assay",
+                source_name="chembl",
+                source_config=source_config,
             )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
-            )
-            assay_client = ChemblAssayClient(
-                chembl_client,
-                batch_size=source_config.batch_size,
-                max_url_length=source_config.max_url_length,
-            )
+            if "chembl_assay_http" not in assay_pipeline._registered_clients:
+                assay_pipeline.register_client("chembl_assay_http", bundle.api_client)
+            chembl_client = bundle.chembl_client
+            assay_client = cast(ChemblAssayClient, bundle.entity_client)
+            if assay_client is None:
+                msg = "Фабрика вернула пустой клиент для 'assay'"
+                raise RuntimeError(msg)
 
             assay_client.handshake(
                 endpoint=source_config.parameters.handshake_endpoint,
@@ -336,22 +332,19 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = AssaySourceConfig.from_source_config(source_raw)
-        http_client, _ = self.prepare_chembl_client(
-            "chembl",
-            client_name="chembl_assay_http",
+        bundle = self.build_chembl_entity_bundle(
+            "assay",
+            source_name="chembl",
+            source_config=source_config,
         )
+        if "chembl_assay_http" not in self._registered_clients:
+            self.register_client("chembl_assay_http", bundle.api_client)
 
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
-        assay_client = ChemblAssayClient(
-            chembl_client,
-            batch_size=source_config.batch_size,
-            max_url_length=source_config.max_url_length,
-        )
+        chembl_client = bundle.chembl_client
+        assay_client = cast(ChemblAssayClient, bundle.entity_client)
+        if assay_client is None:
+            msg = "Фабрика вернула пустой клиент для 'assay'"
+            raise RuntimeError(msg)
 
         assay_client.handshake(
             endpoint=source_config.parameters.handshake_endpoint,
@@ -830,18 +823,12 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return df
         source_config = AssaySourceConfig.from_source_config(source_raw)
-        parameters = self._normalize_parameters(source_config.parameters)
-        base_url = self._resolve_base_url(parameters)
-
-        http_client = self._client_factory.for_source("chembl", base_url=base_url)
-
-        # Instantiate the ChemblClient.
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
+        bundle = self.build_chembl_entity_bundle(
+            "assay",
+            source_name="chembl",
+            source_config=source_config,
         )
+        chembl_client = bundle.chembl_client
 
         # Retrieve enrichment configuration from config.chembl.assay.enrich.
         chembl_config = getattr(self.config, "chembl", None)

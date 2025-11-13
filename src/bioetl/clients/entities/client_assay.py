@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
-from bioetl.clients.client_chembl_base import ChemblClientProtocol, EntityConfig
+from bioetl.clients.chembl_config import EntityConfig, get_entity_config
+from bioetl.clients.client_chembl_base import ChemblClientProtocol
 from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
 from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
 
@@ -16,6 +17,8 @@ __all__ = ["ChemblAssayClient"]
 
 class ChemblAssayClient(ChemblEntityIteratorBase):
     """High level helper focused on retrieving assay payloads."""
+
+    ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay")
 
     def __init__(
         self,
@@ -35,21 +38,9 @@ class ChemblAssayClient(ChemblEntityIteratorBase):
         max_url_length:
             Maximum URL length enforced during request preparation.
         """
-        config = EntityConfig(
-            endpoint="/assay.json",
-            filter_param="assay_chembl_id__in",
-            id_key="assay_chembl_id",
-            items_key="assays",
-            log_prefix="assay",
-            chunk_size=100,
-            supports_list_result=False,
-            base_endpoint_length=len("/assay.json?"),
-            enable_url_length_check=True,
-        )
-
         super().__init__(
             chembl_client=chembl_client,
-            config=config,
+            config=self.ENTITY_CONFIG,
             batch_size=batch_size,
             max_url_length=max_url_length,
         )

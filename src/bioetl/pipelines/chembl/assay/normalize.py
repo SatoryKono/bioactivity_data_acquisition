@@ -121,29 +121,58 @@ def enrich_with_assay_classifications(
 
     # Step 1: fetch ASSAY_CLASS_MAP by assay_chembl_id.
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASS_MAP, ids_count=len(set(assay_ids)))
-    class_map_dict = client.fetch_assay_class_map_by_assay_ids(
+    class_map_df = client.fetch_assay_class_map_by_assay_ids(
         assay_ids,
-        list(class_map_fields),
-        page_limit,
+        fields=list(class_map_fields),
+        page_limit=page_limit,
     )
+
+    class_map_dict: dict[str, list[dict[str, Any]]] = {}
+    if not class_map_df.empty:
+        normalized_class_map = (
+            class_map_df.copy()
+            .assign(
+                assay_chembl_id=lambda frame: frame["assay_chembl_id"].astype("string").str.strip(),
+                assay_class_id=lambda frame: frame["assay_class_id"].astype("string").str.strip(),
+            )
+            .dropna(subset=["assay_chembl_id", "assay_class_id"])
+            .drop_duplicates(subset=["assay_chembl_id", "assay_class_id"], keep="first")
+        )
+        for record in normalized_class_map.to_dict(orient="records"):
+            assay_key = record["assay_chembl_id"]
+            class_map_dict.setdefault(assay_key, []).append(record)
+    else:
+        normalized_class_map = pd.DataFrame(columns=list(class_map_fields))
 
     # Collect unique assay_class_id values.
     all_class_ids: set[str] = set()
-    for mappings in class_map_dict.values():
-        for mapping in mappings:
-            class_id = mapping.get("assay_class_id")
-            if class_id and not (isinstance(class_id, float) and pd.isna(class_id)):
-                all_class_ids.add(str(class_id).strip())
+    if not normalized_class_map.empty:
+        all_class_ids.update(normalized_class_map["assay_class_id"].tolist())
 
     # Step 2: fetch ASSAY_CLASSIFICATION by assay_class_id.
     classification_dict: dict[str, dict[str, Any]] = {}
     if all_class_ids:
         log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS, class_ids_count=len(all_class_ids))
-        classification_dict = client.fetch_assay_classifications_by_class_ids(
+        classification_df = client.fetch_assay_classifications_by_class_ids(
             list(all_class_ids),
-            list(classification_fields),
-            page_limit,
+            fields=list(classification_fields),
+            page_limit=page_limit,
         )
+        if not classification_df.empty:
+            normalized_classification = (
+                classification_df.copy()
+                .assign(
+                    assay_class_id=lambda frame: frame["assay_class_id"].astype("string").str.strip(),
+                )
+                .dropna(subset=["assay_class_id"])
+                .drop_duplicates(subset=["assay_class_id"], keep="first")
+            )
+            classification_dict = {
+                record["assay_class_id"]: record
+                for record in normalized_classification.to_dict(orient="records")
+            }
+        else:
+            classification_dict = {}
 
     # Step 3: combine data and build structures per assay.
     df_assay = df_assay.copy()
@@ -322,12 +351,26 @@ def enrich_with_assay_parameters(
 
     # Fetch ASSAY_PARAMETERS by assay_chembl_id
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_PARAMETERS, ids_count=len(set(assay_ids)))
-    parameters_dict = client.fetch_assay_parameters_by_assay_ids(
+    parameters_df = client.fetch_assay_parameters_by_assay_ids(
         assay_ids,
-        list(fields),
-        page_limit,
-        active_only,
+        fields=list(fields),
+        page_limit=page_limit,
+        active_only=active_only,
     )
+
+    if parameters_df.empty:
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
+        return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
+
+    normalized_parameters = (
+        parameters_df.copy()
+        .assign(assay_chembl_id=lambda frame: frame["assay_chembl_id"].astype("string").str.strip())
+        .dropna(subset=["assay_chembl_id"])
+    )
+    parameters_dict: dict[str, list[dict[str, Any]]] = {
+        assay_id: group.drop(columns=["assay_chembl_id"]).to_dict(orient="records")
+        for assay_id, group in normalized_parameters.groupby("assay_chembl_id", sort=False)
+    }
 
     # Iterate over each assay record
     df_assay = df_assay.copy()

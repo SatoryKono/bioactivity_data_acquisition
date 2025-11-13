@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import UnifiedAPIClient
@@ -180,6 +181,10 @@ class ChemblPipelineBase(PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+        self._chembl_entity_factory = ChemblEntityClientFactory(
+            config,
+            api_client_factory=self._client_factory,
+        )
         self._chembl_release: str | None = None
 
     @property
@@ -634,12 +639,49 @@ class ChemblPipelineBase(PipelineBase):
             The prepared API client and resolved base URL.
         """
         source_config = self._resolve_source_config(source_name)
-        parameters = getattr(source_config, "parameters", {})
-        resolved_base_url = base_url or self._resolve_base_url(parameters)
-        client = self._client_factory.for_source(source_name, base_url=resolved_base_url)
+        options = {"base_url": base_url} if base_url else None
+        client, resolved_base_url, _ = self._chembl_entity_factory.build_http_client(
+            source_name=source_name,
+            source_config=source_config,
+            options=options,
+        )
         if client_name:
             self.register_client(client_name, client)
         return client, resolved_base_url
+
+    def build_chembl_entity_bundle(
+        self,
+        entity_name: str,
+        *,
+        source_name: str = "chembl",
+        source_config: SourceConfig | None = None,
+        options: Mapping[str, Any] | None = None,
+        chembl_client_kwargs: Mapping[str, Any] | None = None,
+        fresh_http_client: bool = False,
+    ) -> ChemblClientBundle:
+        """Создать сущностный клиент ChEMBL с общими параметрами пайплайна."""
+
+        effective_source = source_config or self._resolve_source_config(source_name)
+        kwargs = self._default_chembl_client_kwargs()
+        if chembl_client_kwargs:
+            kwargs.update(dict(chembl_client_kwargs))
+        return self._chembl_entity_factory.build(
+            entity_name,
+            source_name=source_name,
+            source_config=effective_source,
+            options=options,
+            chembl_client_kwargs=kwargs,
+            fresh_http_client=fresh_http_client,
+        )
+
+    def _default_chembl_client_kwargs(self) -> dict[str, Any]:
+        """Вернуть контекст по умолчанию для инициализации ChemblClient."""
+
+        return {
+            "load_meta_store": self.load_meta_store,
+            "job_id": self.run_id,
+            "operator": self.pipeline_code,
+        }
 
     # ------------------------------------------------------------------
     # ChEMBL release fetching

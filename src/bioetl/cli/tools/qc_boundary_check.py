@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from bioetl.cli.tools import exit_with_code
-from bioetl.cli.tools.qc_boundary import collect_qc_boundary_violations
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.cli.tools.qc_boundary import collect_cli_qc_boundary_report
 
 typer: Any = get_typer()
 
@@ -20,8 +20,8 @@ __all__ = ["app", "main", "run"]
 def main() -> None:
     """Run the static import analysis for the CLI↔QC boundary."""
 
-    violations = collect_qc_boundary_violations()
-    if not violations:
+    report = collect_cli_qc_boundary_report()
+    if not report.has_violations:
         typer.echo("CLI↔QC boundary is respected, no violations found.")
         exit_with_code(0)
 
@@ -30,7 +30,7 @@ def main() -> None:
         err=True,
         fg=typer.colors.RED,
     )
-    for violation in violations:
+    for violation in report.violations:
         typer.secho(
             f"- {violation.source_path}: {violation.format_chain()}",
             err=True,
