@@ -1,0 +1,234 @@
+{
+  "before": {
+    "bioetl.clients": [
+      "ChemblActivityClient",
+      "ChemblAssayClassMapEntityClient",
+      "ChemblAssayClassificationEntityClient",
+      "ChemblAssayClient",
+      "ChemblAssayEntityClient",
+      "ChemblAssayParametersEntityClient",
+      "ChemblClient",
+      "ChemblCompoundRecordEntityClient",
+      "ChemblDataValidityEntityClient",
+      "ChemblDocumentClient",
+      "ChemblDocumentTermEntityClient",
+      "ChemblEntityFetcher",
+      "ChemblEntityIterator",
+      "ChemblMoleculeEntityClient",
+      "ChemblTargetClient",
+      "ChemblTestitemClient",
+      "EntityConfig"
+    ],
+    "bioetl.clients.activity": [
+      "ChemblActivityClient"
+    ],
+    "bioetl.clients.activity.chembl_activity": [
+      "ChemblActivityClient"
+    ],
+    "bioetl.clients.assay": [
+      "ChemblAssayClient",
+      "ChemblAssayEntityClient"
+    ],
+    "bioetl.clients.assay.chembl_assay": [
+      "Any",
+      "ChemblAssayClient",
+      "ChemblAssayEntityClient",
+      "ChemblClient",
+      "ChemblEntityIterator",
+      "EntityConfig",
+      "Path",
+      "annotations",
+      "importlib"
+    ],
+    "bioetl.clients.assay.chembl_assay_entity": [
+      "ChemblAssayEntityClient"
+    ],
+    "bioetl.clients.base_entity": [
+      "BaseEntityClient"
+    ],
+    "bioetl.clients.client_chembl_common": [
+      "ChemblClient"
+    ],
+    "bioetl.clients.client_chembl_base": [
+      "ChemblClientProtocol",
+      "ChemblEntityFetcher",
+      "EntityConfig",
+      "make_entity_config"
+    ],
+    "bioetl.clients.client_chembl_entities": [
+      "ChemblAssayClassMapEntityClient",
+      "ChemblAssayClassificationEntityClient",
+      "ChemblAssayParametersEntityClient",
+      "ChemblCompoundRecordEntityClient",
+      "ChemblDataValidityEntityClient",
+      "ChemblMoleculeEntityClient"
+    ],
+    "bioetl.clients.client_chembl_iterator": [
+      "ChemblEntityIterator"
+    ],
+    "bioetl.clients.document": [
+      "ChemblDocumentClient",
+      "ChemblDocumentTermEntityClient"
+    ],
+    "bioetl.clients.document.chembl_document": [
+      "ChemblDocumentClient"
+    ],
+    "bioetl.clients.document.chembl_document_entity": [
+      "ChemblDocumentTermEntityClient"
+    ],
+    "bioetl.clients.entities": [
+      "ChemblActivityClient",
+      "ChemblAssayClassMapEntityClient",
+      "ChemblAssayClassificationEntityClient",
+      "ChemblAssayParametersEntityClient",
+      "ChemblCompoundRecordEntityClient",
+      "ChemblDataValidityEntityClient",
+      "ChemblDocumentClient",
+      "ChemblDocumentTermEntityClient",
+      "ChemblMoleculeEntityClient",
+      "ChemblTargetClient",
+      "ChemblTestitemClient"
+    ],
+    "bioetl.clients.entities.activity": [
+      "ChemblActivityClient"
+    ],
+    "bioetl.clients.entities.assay_class_map": [
+      "ChemblAssayClassMapEntityClient"
+    ],
+    "bioetl.clients.entities.assay_classification": [
+      "ChemblAssayClassificationEntityClient"
+    ],
+    "bioetl.clients.entities.assay_parameters": [
+      "ChemblAssayParametersEntityClient"
+    ],
+    "bioetl.clients.entities.compound_record": [
+      "ChemblCompoundRecordEntityClient"
+    ],
+    "bioetl.clients.entities.data_validity": [
+      "ChemblDataValidityEntityClient"
+    ],
+    "bioetl.clients.entities.document": [
+      "ChemblDocumentClient"
+    ],
+    "bioetl.clients.entities.document_term": [
+      "ChemblDocumentTermEntityClient"
+    ],
+    "bioetl.clients.entities.molecule": [
+      "ChemblMoleculeEntityClient"
+    ],
+    "bioetl.clients.entities.target": [
+      "ChemblTargetClient"
+    ],
+    "bioetl.clients.entities.testitem": [
+      "ChemblTestitemClient"
+    ],
+    "bioetl.clients.exceptions": [
+      "ConnectionError",
+      "HTTPError",
+      "RequestException",
+      "Timeout"
+    ],
+    "bioetl.clients.target": [
+      "ChemblTargetClient"
+    ],
+    "bioetl.clients.target.chembl_target": [
+      "ChemblTargetClient"
+    ],
+    "bioetl.clients.testitem": [
+      "ChemblTestitemClient"
+    ],
+    "bioetl.clients.testitem.chembl_testitem": [
+      "ChemblTestitemClient"
+    ]
+  },
+  "after": {
+    "bioetl.clients": [
+      "BaseEntityClient",
+      "ChemblActivityClient",
+      "ChemblAssayClassMapEntityClient",
+      "ChemblAssayClassificationEntityClient",
+      "ChemblAssayClient",
+      "ChemblAssayEntityClient",
+      "ChemblAssayParametersEntityClient",
+      "ChemblClient",
+      "ChemblCompoundRecordEntityClient",
+      "ChemblDataValidityEntityClient",
+      "ChemblDocumentClient",
+      "ChemblDocumentTermEntityClient",
+      "ChemblEntityClientBase",
+      "ChemblEntityFetcher",
+      "ChemblEntityFetcherBase",
+      "ChemblEntityIterator",
+      "ChemblEntityIteratorBase",
+      "ChemblMoleculeEntityClient",
+      "ChemblTargetClient",
+      "ChemblTestitemClient",
+      "EntityConfig"
+    ],
+    "bioetl.clients.activity": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.assay": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_base_entity": [
+      "BaseEntityClient",
+      "ChemblEntityClientBase"
+    ],
+    "bioetl.clients.client_chembl_common": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_chembl_base": [
+      "ChemblClientProtocol",
+      "ChemblEntityFetcher",
+      "ChemblEntityFetcherBase",
+      "EntityConfig",
+      "make_entity_config"
+    ],
+    "bioetl.clients.client_chembl_entities": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_chembl_iterator": [
+      "ChemblEntityIterator",
+      "ChemblEntityIteratorBase"
+    ],
+    "bioetl.clients.client_exceptions": [
+      "ConnectionError",
+      "HTTPError",
+      "RequestException",
+      "Timeout"
+    ],
+    "bioetl.clients.document": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.entities": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.target": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.testitem": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ]
+  },
+  "aliases": [
+    {
+      "module": "bioetl.clients.client_chembl_base",
+      "name": "ChemblEntityFetcher",
+      "target": "ChemblEntityFetcherBase",
+      "status": "deprecated-alias"
+    },
+    {
+      "module": "bioetl.clients.client_chembl_iterator",
+      "name": "ChemblEntityIterator",
+      "target": "ChemblEntityIteratorBase",
+      "status": "deprecated-alias"
+    },
+    {
+      "module": "bioetl.clients.client_base_entity",
+      "name": "BaseEntityClient",
+      "target": "ChemblEntityClientBase",
+      "status": "deprecated-alias"
+    }
+  ]
+}

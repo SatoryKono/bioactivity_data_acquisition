@@ -9,6 +9,7 @@ as by golden tests.
 from __future__ import annotations
 
 import logging
+import sys
 from collections.abc import Iterable, Iterator, MutableMapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
@@ -17,13 +18,13 @@ from functools import partial
 from typing import Any, cast
 
 import structlog
-from structlog.stdlib import BoundLogger
 from structlog.contextvars import (
     bind_contextvars,
     clear_contextvars,
     get_contextvars,
     unbind_contextvars,
 )
+from structlog.stdlib import BoundLogger
 
 __all__ = [
     "LogFormat",
@@ -117,6 +118,23 @@ def _ensure_mandatory_fields(
 
 
 def _shared_processors(config: LogConfig) -> list[Any]:
+    def _safe_exception_pretty_printer(
+        logger: Any,
+        method_name: str,
+        event_dict: MutableMapping[str, Any],
+    ) -> MutableMapping[str, Any]:
+        try:
+            processed_event = _EXCEPTION_PRETTY_PRINTER(logger, method_name, event_dict)
+            if isinstance(processed_event, MutableMapping):
+                return processed_event
+            return event_dict
+        except ValueError as exc:
+            message = str(exc)
+            if "I/O operation on closed file" in message:
+                event_dict.setdefault("exception_pretty_print_error", message)
+                return event_dict
+            raise
+
     return [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
@@ -138,8 +156,11 @@ def _shared_processors(config: LogConfig) -> list[Any]:
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
-        structlog.processors.ExceptionPrettyPrinter(),
+        _safe_exception_pretty_printer,
     ]
+
+
+_EXCEPTION_PRETTY_PRINTER = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
 
 
 def _renderer_for(format: LogFormat) -> Any:

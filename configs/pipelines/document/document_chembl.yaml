@@ -95,4 +95,4 @@ chembl:
         retry_backoff: 1.5
 
 validation:
-  schema_out: bioetl.schemas.document.document_chembl.DocumentSchema
+  schema_out: bioetl.schemas.chembl_document_schema.DocumentSchema

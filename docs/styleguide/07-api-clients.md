@@ -1,13 +1,19 @@
 # API Clients
 
-This document defines the standards for HTTP API clients in the `bioetl` project. All external API interactions **MUST** use the `UnifiedAPIClient` system.
+This document defines the standards for HTTP API clients in the `bioetl`
+project. All external API interactions **MUST** use the `UnifiedAPIClient`
+system.
 
 ## Principles
 
-- **Unified Client**: All API calls **MUST** use `UnifiedAPIClient` for consistency.
-- **Retry and Backoff**: Transient failures **MUST** be handled with exponential backoff.
-- **Throttling**: Rate limiting **MUST** be enforced via token bucket with jitter.
-- **Circuit Breaker**: Protection against cascading failures **MUST** be implemented.
+- **Unified Client**: All API calls **MUST** use `UnifiedAPIClient` for
+  consistency.
+- **Retry and Backoff**: Transient failures **MUST** be handled with exponential
+  backoff.
+- **Throttling**: Rate limiting **MUST** be enforced via token bucket with
+  jitter.
+- **Circuit Breaker**: Protection against cascading failures **MUST** be
+  implemented.
 - **Caching**: TTL-based caching **SHOULD** be used for expensive operations.
 - **Timeout Policies**: Strict timeout policies **MUST** be enforced.
 
@@ -101,8 +107,8 @@ config = APIConfig(
 When receiving `429 Too Many Requests`:
 
 1. Respect `Retry-After` header if present
-2. Use exponential backoff with jitter
-3. Reduce rate limit if sustained 429s occur
+1. Use exponential backoff with jitter
+1. Reduce rate limit if sustained 429s occur
 
 ### Valid Examples
 
@@ -235,6 +241,7 @@ Pagination **MUST** be handled consistently:
 ```python
 from bioetl.core.api_client import UnifiedAPIClient
 
+
 def fetch_all_pages(client: UnifiedAPIClient, endpoint: str):
     """Fetch all pages from paginated API."""
     all_items = []
@@ -313,5 +320,7 @@ api_clients:
 
 ## References
 
-- HTTP clients documentation: [`docs/http/00-http-clients-and-retries.md`](../http/00-http-clients-and-retries.md)
-- Pipeline API client usage: [`docs/pipelines/03-data-extraction.md`](../pipelines/03-data-extraction.md)
+- HTTP clients documentation:
+  [`docs/http/00-http-clients-and-retries.md`](../http/00-http-clients-and-retries.md)
+- Pipeline API client usage:
+  [`docs/pipelines/03-data-extraction.md`](../pipelines/03-data-extraction.md)

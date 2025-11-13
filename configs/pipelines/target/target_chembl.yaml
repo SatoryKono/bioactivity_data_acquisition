@@ -64,5 +64,5 @@ transform:
     - target_components
 
 validation:
-  schema_out: bioetl.schemas.target.target_chembl.TargetSchema
+  schema_out: bioetl.schemas.chembl_target_schema.TargetSchema
   coerce: false

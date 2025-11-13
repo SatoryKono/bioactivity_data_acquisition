@@ -1,25 +1,36 @@
 # Pipeline: `document_openalex`
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
-This document describes the `document_openalex` pipeline, which is responsible for extracting document metadata from OpenAlex Works API.
+This document describes the `document_openalex` pipeline, which is responsible
+for extracting document metadata from OpenAlex Works API.
 
-**Note:** This pipeline is not yet implemented. This document serves as a specification for its future implementation.
+**Note:** This pipeline is not yet implemented. This document serves as a
+specification for its future implementation.
 
 ## 1. Identification
 
-| Item              | Value                                                                                              | Status                |
-| ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
-| **Pipeline Name** | `document_openalex`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main document_openalex`                                                       | Not Implemented       |
-| **Config File**   | [ref: repo:src/bioetl/configs/pipelines/openalex/document_openalex.yaml@refactoring_001]     | Not Implemented       |
-| **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
+| Item              | Value               | Status          |
+| ----------------- | ------------------- | --------------- |
+| **Pipeline Name** | `document_openalex` | Not Implemented |
+
+# (not implemented)
+
+| **CLI Command** | `python -m bioetl.cli.cli_app document_openalex` | Not
+Implemented | | **Config File** | \[ref:
+repo:src/bioetl/configs/pipelines/openalex/document_openalex.yaml@refactoring_001\]
+| Not Implemented | | **CLI Registration** | \[ref:
+repo:src/bioetl/cli/cli_registry.py@refactoring_001\] | Not Implemented |
 
 ## 2. Purpose and Scope
 
 ### Purpose
 
-The `document_openalex` pipeline extracts publication metadata from OpenAlex Works API. OpenAlex is a free, open-source database of scholarly works with comprehensive metadata including citations, concepts, and open access status.
+The `document_openalex` pipeline extracts publication metadata from OpenAlex
+Works API. OpenAlex is a free, open-source database of scholarly works with
+comprehensive metadata including citations, concepts, and open access status.
 
 ### Scope
 
@@ -110,7 +121,9 @@ https://api.openalex.org
 
 **Parameters:**
 
-- `work_id`: OpenAlex ID (`W1234567890`), DOI (`https://doi.org/10.1234/example`), PMID (`pmid:12345678`), or MAG ID (`mag:1234567890`)
+- `work_id`: OpenAlex ID (`W1234567890`), DOI
+  (`https://doi.org/10.1234/example`), PMID (`pmid:12345678`), or MAG ID
+  (`mag:1234567890`)
 
 **Example:**
 
@@ -159,8 +172,8 @@ curl "https://api.openalex.org/works?search=title:Machine%20Learning&per_page=10
 OpenAlex uses cursor-based pagination:
 
 1. First request: `cursor=*`
-2. Subsequent requests: `cursor={value_from_previous_response}`
-3. Continue until `meta.next_cursor` is `null`
+1. Subsequent requests: `cursor={value_from_previous_response}`
+1. Continue until `meta.next_cursor` is `null`
 
 ### Rate Limiting
 
@@ -247,36 +260,40 @@ When DOI or PMID is unavailable, use title-based search:
 
 ### 5.1 Required Parameters
 
-This pipeline follows the standard `docs/configs/00-typed-configs-and-profiles.md`.
+This pipeline follows the standard
+`docs/configs/00-typed-configs-and-profiles.md`.
 
-Configuration file: `configs/pipelines/openalex-document.yaml` (`extends: "../base.yaml"`).
+Configuration file: `configs/pipelines/openalex-document.yaml`
+(`extends: "../base.yaml"`).
 
 ### 5.2 Main Configuration Overrides
 
-| Section | Key | Value | Constraint | Comment |
-|--------|------|----------|-------------|-------------|
-| Pipeline | `pipeline.name` | `document_openalex` | — | Used in logs and `run_config.yaml`. |
-| Sources / OpenAlex | `sources.openalex.base_url` | `https://api.openalex.org` | — | Base URL for OpenAlex Works API. |
-| Sources / OpenAlex | `sources.openalex.rate_limit.max_calls_per_sec` | `10` | `≤ 10` | Conservative strategy: 10 requests/second. |
-| Sources / OpenAlex | `sources.openalex.rate_limit.min_interval_ms` | `100` | `≥ 100` | Minimum 100ms between requests (official recommendation). |
-| Sources / OpenAlex | `sources.openalex.workers` | `2-4` | `2-4` | Parallel threads for processing requests. |
-| Sources / OpenAlex | `sources.openalex.batching.per_page` | `100` | `≤ 200` | Number of records per page with cursor pagination. |
-| Sources / OpenAlex | `sources.openalex.batching.use_cursor` | `true` | — | Use cursor-based pagination (recommended). |
-| Sources / OpenAlex | `sources.openalex.http.timeout_sec` | `60.0` | — | Timeout for HTTP requests. |
-| Sources / OpenAlex | `sources.openalex.http.connect_timeout_sec` | `10.0` | — | Timeout for connection. |
-| Sources / OpenAlex | `sources.openalex.http.read_timeout_sec` | `30.0` | — | Timeout for reading response. |
-| Sources / OpenAlex | `sources.openalex.title_search.fuzzy` | `true` | — | Use fuzzy matching for title-based search (fallback). |
-| Sources / OpenAlex | `sources.openalex.title_search.threshold` | `0.8` | `0–1` | Similarity threshold for selecting best match by title. |
-| Cache | `cache.namespace` | `"openalex"` | Not empty | Ensures cache isolation. |
-| Cache | `cache.ttl` | `86400` | — | Cache TTL in seconds (24 hours). |
+| Section            | Key                                             | Value                      | Constraint | Comment                                                   |
+| ------------------ | ----------------------------------------------- | -------------------------- | ---------- | --------------------------------------------------------- |
+| Pipeline           | `pipeline.name`                                 | `document_openalex`        | —          | Used in logs and `run_config.yaml`.                       |
+| Sources / OpenAlex | `sources.openalex.base_url`                     | `https://api.openalex.org` | —          | Base URL for OpenAlex Works API.                          |
+| Sources / OpenAlex | `sources.openalex.rate_limit.max_calls_per_sec` | `10`                       | `≤ 10`     | Conservative strategy: 10 requests/second.                |
+| Sources / OpenAlex | `sources.openalex.rate_limit.min_interval_ms`   | `100`                      | `≥ 100`    | Minimum 100ms between requests (official recommendation). |
+| Sources / OpenAlex | `sources.openalex.workers`                      | `2-4`                      | `2-4`      | Parallel threads for processing requests.                 |
+| Sources / OpenAlex | `sources.openalex.batching.per_page`            | `100`                      | `≤ 200`    | Number of records per page with cursor pagination.        |
+| Sources / OpenAlex | `sources.openalex.batching.use_cursor`          | `true`                     | —          | Use cursor-based pagination (recommended).                |
+| Sources / OpenAlex | `sources.openalex.http.timeout_sec`             | `60.0`                     | —          | Timeout for HTTP requests.                                |
+| Sources / OpenAlex | `sources.openalex.http.connect_timeout_sec`     | `10.0`                     | —          | Timeout for connection.                                   |
+| Sources / OpenAlex | `sources.openalex.http.read_timeout_sec`        | `30.0`                     | —          | Timeout for reading response.                             |
+| Sources / OpenAlex | `sources.openalex.title_search.fuzzy`           | `true`                     | —          | Use fuzzy matching for title-based search (fallback).     |
+| Sources / OpenAlex | `sources.openalex.title_search.threshold`       | `0.8`                      | `0–1`      | Similarity threshold for selecting best match by title.   |
+| Cache              | `cache.namespace`                               | `"openalex"`               | Not empty  | Ensures cache isolation.                                  |
+| Cache              | `cache.ttl`                                     | `86400`                    | —          | Cache TTL in seconds (24 hours).                          |
 
 ### 5.3 CLI Overrides and Environment Variables
 
 #### CLI Examples
 
-- `--set sources.openalex.rate_limit.max_calls_per_sec=8` — reduce request limit.
+- `--set sources.openalex.rate_limit.max_calls_per_sec=8` — reduce request
+  limit.
 - `--set sources.openalex.batching.per_page=200` — increase page size.
-- `--set sources.openalex.title_search.threshold=0.85` — change similarity threshold for title search.
+- `--set sources.openalex.title_search.threshold=0.85` — change similarity
+  threshold for title search.
 
 #### Environment Variables
 
@@ -362,11 +379,15 @@ qc:
 
 ### 5.5 Validation Rules
 
-- Uses `PipelineConfig.validate_yaml('configs/pipelines/openalex-document.yaml')`.
+- Uses
+  `PipelineConfig.validate_yaml('configs/pipelines/openalex-document.yaml')`.
 
 - Additional checks:
-  - `sources.openalex.rate_limit.max_calls_per_sec` ≤ 10 (conservative strategy).
-  - `sources.openalex.rate_limit.min_interval_ms` ≥ 100 (official recommendation).
+
+  - `sources.openalex.rate_limit.max_calls_per_sec` ≤ 10 (conservative
+    strategy).
+  - `sources.openalex.rate_limit.min_interval_ms` ≥ 100 (official
+    recommendation).
   - `sources.openalex.batching.per_page` ≤ 200 (maximum page size).
   - `sources.openalex.workers` ≥ 1 and ≤ 4 (optimal range).
   - `sources.openalex.title_search.threshold` in range [0, 1].
@@ -436,42 +457,47 @@ Extract top 3 concepts by score for `concepts_top3` field:
 
 The pipeline supports the following standard CLI flags:
 
-| Flag              | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `--config`        | Path to a pipeline-specific configuration file.                               |
-| `--output-dir`    | Directory to write the output artifacts to.                                 |
-| `--dry-run`       | Run the pipeline without writing any output.                                |
-| `--limit`         | Limit the number of records to process.                                     |
-| `--profile`       | Apply a configuration profile (e.g., `determinism`).                         |
+| Flag           | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `--config`     | Path to a pipeline-specific configuration file.      |
+| `--output-dir` | Directory to write the output artifacts to.          |
+| `--dry-run`    | Run the pipeline without writing any output.         |
+| `--limit`      | Limit the number of records to process.              |
+| `--profile`    | Apply a configuration profile (e.g., `determinism`). |
 
 ### Configuration Merge Order
 
-The configuration is loaded in the following order, with later sources overriding earlier ones:
+The configuration is loaded in the following order, with later sources
+overriding earlier ones:
 
 1. **Base Profile:** `src/bioetl/configs/defaults/base.yaml`
-2. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated by `--profile determinism`)
-3. **Explicit Config:** The file specified by the `--config` flag.
-4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated
+   by `--profile determinism`)
+1. **Explicit Config:** The file specified by the `--config` flag.
+1. **CLI Flags:** Any flags that override configuration values (e.g.,
+   `--limit`).
 
 ### Configuration Keys
 
-The following table describes the expected keys in the `document_openalex.yaml` configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001] for the underlying configuration models.
+The following table describes the expected keys in the `document_openalex.yaml`
+configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001]
+for the underlying configuration models.
 
-| Key                             | Type    | Required | Default | Description                                                                 |
-| ------------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------------- |
-| `pipeline.name`                 | string  | Yes      |         | The name of the pipeline (e.g., `document_openalex`).                           |
-| `pipeline.version`              | string  | Yes      |         | The version of the pipeline.                                                |
-| `sources.openalex.base_url`     | string  | No       | `https://api.openalex.org` | The base URL for OpenAlex API.                                           |
-| `sources.openalex.rate_limit.max_calls_per_sec` | float | No       | `10.0`       | Rate limit (conservative strategy).                                 |
-| `sources.openalex.rate_limit.min_interval_ms` | integer | No       | `100`     | Minimum interval between requests (official recommendation).                                   |
-| `sources.openalex.workers`      | integer | No       | `3`       | Number of parallel workers (2-4 recommended).                                 |
-| `sources.openalex.batching.per_page` | integer | No       | `100`       | Number of records per page (max: 200).                                 |
-| `sources.openalex.batching.use_cursor` | boolean | No       | `true`       | Use cursor-based pagination (recommended).                                 |
-| `sources.openalex.title_search.fuzzy` | boolean | No       | `true`       | Use fuzzy matching for title-based search (fallback).                                 |
-| `sources.openalex.title_search.threshold` | float | No       | `0.8`       | Similarity threshold for title matching (0-1).                                 |
-| `cache.namespace`                | string  | Yes      |         | Cache namespace for isolation.         |
-| `cache.ttl`                      | integer | No       | `86400`  | Cache TTL in seconds (24 hours).         |
-| `materialization.pipeline_subdir` | string  | Yes      |         | The subdirectory within the output directory to write artifacts to.         |
+| Key                                             | Type    | Required | Default                    | Description                                                         |
+| ----------------------------------------------- | ------- | -------- | -------------------------- | ------------------------------------------------------------------- |
+| `pipeline.name`                                 | string  | Yes      |                            | The name of the pipeline (e.g., `document_openalex`).               |
+| `pipeline.version`                              | string  | Yes      |                            | The version of the pipeline.                                        |
+| `sources.openalex.base_url`                     | string  | No       | `https://api.openalex.org` | The base URL for OpenAlex API.                                      |
+| `sources.openalex.rate_limit.max_calls_per_sec` | float   | No       | `10.0`                     | Rate limit (conservative strategy).                                 |
+| `sources.openalex.rate_limit.min_interval_ms`   | integer | No       | `100`                      | Minimum interval between requests (official recommendation).        |
+| `sources.openalex.workers`                      | integer | No       | `3`                        | Number of parallel workers (2-4 recommended).                       |
+| `sources.openalex.batching.per_page`            | integer | No       | `100`                      | Number of records per page (max: 200).                              |
+| `sources.openalex.batching.use_cursor`          | boolean | No       | `true`                     | Use cursor-based pagination (recommended).                          |
+| `sources.openalex.title_search.fuzzy`           | boolean | No       | `true`                     | Use fuzzy matching for title-based search (fallback).               |
+| `sources.openalex.title_search.threshold`       | float   | No       | `0.8`                      | Similarity threshold for title matching (0-1).                      |
+| `cache.namespace`                               | string  | Yes      |                            | Cache namespace for isolation.                                      |
+| `cache.ttl`                                     | integer | No       | `86400`                    | Cache TTL in seconds (24 hours).                                    |
+| `materialization.pipeline_subdir`               | string  | Yes      |                            | The subdirectory within the output directory to write artifacts to. |
 
 ### Input Data Format
 
@@ -487,24 +513,13 @@ The following table describes the expected keys in the `document_openalex.yaml` 
 
 ```python
 class DocumentOpenAlexInputSchema(pa.DataFrameModel):
-    doi: Series[str] = pa.Field(
-        nullable=True,
-        regex=r"^10\.\d+/[^\s]+$"
-    )
+    doi: Series[str] = pa.Field(nullable=True, regex=r"^10\.\d+/[^\s]+$")
 
-    pmid: Series[int] = pa.Field(
-        ge=1,
-        nullable=True
-    )
+    pmid: Series[int] = pa.Field(ge=1, nullable=True)
 
-    openalex_id: Series[str] = pa.Field(
-        nullable=True,
-        regex=r"^W\d+$"
-    )
+    openalex_id: Series[str] = pa.Field(nullable=True, regex=r"^W\d+$")
 
-    title: Series[str] = pa.Field(
-        nullable=True
-    )
+    title: Series[str] = pa.Field(nullable=True)
 
     class Config:
         strict = True
@@ -518,7 +533,8 @@ The extraction process uses OpenAlex Works API components:
 
 ### Client
 
-The `OpenAlexClient` ([ref: repo:src/bioetl/sources/openalex/client/client.py@refactoring_001]) handles:
+The `OpenAlexClient` (\[ref:
+repo:src/bioetl/sources/openalex/client/client.py@refactoring_001\]) handles:
 
 - HTTP requests to OpenAlex API
 - Timeouts, retries with exponential backoff
@@ -530,12 +546,13 @@ The `OpenAlexClient` ([ref: repo:src/bioetl/sources/openalex/client/client.py@re
 For large result sets:
 
 1. **First request**: `cursor=*`
-2. **Subsequent requests**: Use `meta.next_cursor` from previous response
-3. Continue until `meta.next_cursor` is `null`
+1. **Subsequent requests**: Use `meta.next_cursor` from previous response
+1. Continue until `meta.next_cursor` is `null`
 
 ### Parser
 
-The parser ([ref: repo:src/bioetl/sources/openalex/parser/parser.py@refactoring_001]) extracts:
+The parser (\[ref:
+repo:src/bioetl/sources/openalex/parser/parser.py@refactoring_001\]) extracts:
 
 - OpenAlex ID, DOI, PMID
 - Title, abstract, publication dates
@@ -550,15 +567,17 @@ The parser ([ref: repo:src/bioetl/sources/openalex/parser/parser.py@refactoring_
 If DOI or PMID unavailable:
 
 1. **Exact match**: Search by title
-2. **Fuzzy match**: If no exact match, use Jaccard similarity
-3. **Select best**: Choose result with similarity > threshold (default: 0.8)
-4. **Validate year**: If year available, ensure it matches
+1. **Fuzzy match**: If no exact match, use Jaccard similarity
+1. **Select best**: Choose result with similarity > threshold (default: 0.8)
+1. **Validate year**: If year available, ensure it matches
 
 ## 7. Normalization and Validation
 
 ### Normalizer
 
-The `OpenAlexNormalizer` ([ref: repo:src/bioetl/sources/openalex/normalizer/normalizer.py@refactoring_001]) performs:
+The `OpenAlexNormalizer` (\[ref:
+repo:src/bioetl/sources/openalex/normalizer/normalizer.py@refactoring_001\])
+performs:
 
 - Date normalization (ISO 8601 format)
 - Concept extraction (top 3 by score)
@@ -568,7 +587,8 @@ The `OpenAlexNormalizer` ([ref: repo:src/bioetl/sources/openalex/normalizer/norm
 
 ### Pandera Schema
 
-A Pandera schema ([ref: repo:src/bioetl/sources/openalex/schema/schema.py@refactoring_001]) validates:
+A Pandera schema (\[ref:
+repo:src/bioetl/sources/openalex/schema/schema.py@refactoring_001\]) validates:
 
 - Data types and constraints
 - Required fields
@@ -639,19 +659,19 @@ generated_at_utc: "2025-01-28T12:00:00Z"
 
 The following QC metrics are collected and reported:
 
-| Metric                  | Description                                                                 |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `total_records`         | Total number of records processed.                |
-| `successful_fetches`    | Number of successful API calls.                   |
-| `failed_fetches`        | Number of failed API calls.            |
-| `doi_coverage`          | Percentage of records with DOI.                 |
-| `pmid_coverage`         | Percentage of records with PMID.                 |
-| `title_coverage`        | Percentage of records with title.                 |
-| `oa_status_coverage`    | Percentage of records with OA status.                 |
-| `concepts_coverage`     | Percentage of records with concepts.                 |
-| `title_fallback_rate`  | Percentage of records retrieved via title search.                 |
-| `duplicate_count`       | Number of duplicate records (based on business key).            |
-| `retry_events`          | Number of retry attempts.                 |
+| Metric                | Description                                          |
+| --------------------- | ---------------------------------------------------- |
+| `total_records`       | Total number of records processed.                   |
+| `successful_fetches`  | Number of successful API calls.                      |
+| `failed_fetches`      | Number of failed API calls.                          |
+| `doi_coverage`        | Percentage of records with DOI.                      |
+| `pmid_coverage`       | Percentage of records with PMID.                     |
+| `title_coverage`      | Percentage of records with title.                    |
+| `oa_status_coverage`  | Percentage of records with OA status.                |
+| `concepts_coverage`   | Percentage of records with concepts.                 |
+| `title_fallback_rate` | Percentage of records retrieved via title search.    |
+| `duplicate_count`     | Number of duplicate records (based on business key). |
+| `retry_events`        | Number of retry attempts.                            |
 
 ### QC Thresholds
 
@@ -664,11 +684,11 @@ Configuration thresholds:
 
 The pipeline uses the following exit codes:
 
-| Exit Code | Category                | Description                                                                 |
-| --------- | ----------------------- | --------------------------------------------------------------------------- |
-| 0         | Success                 | The pipeline completed successfully.                                        |
-| 1         | Application Error       | A fatal error occurred, such as a network error or a bug in the code.       |
-| 2         | Usage Error             | An error occurred due to invalid configuration or command-line arguments.   |
+| Exit Code | Category          | Description                                                               |
+| --------- | ----------------- | ------------------------------------------------------------------------- |
+| 0         | Success           | The pipeline completed successfully.                                      |
+| 1         | Application Error | A fatal error occurred, such as a network error or a bug in the code.     |
+| 2         | Usage Error       | An error occurred due to invalid configuration or command-line arguments. |
 
 ### Error Handling
 
@@ -695,7 +715,8 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+# (not implemented)
+python -m bioetl.cli.cli_app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex
 ```
@@ -703,7 +724,8 @@ python -m bioetl.cli.main document_openalex \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+# (not implemented)
+python -m bioetl.cli.cli_app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --dry-run
@@ -712,7 +734,8 @@ python -m bioetl.cli.main document_openalex \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+# (not implemented)
+python -m bioetl.cli.cli_app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --profile determinism
@@ -721,7 +744,8 @@ python -m bioetl.cli.main document_openalex \
 ### Override Configuration
 
 ```bash
-python -m bioetl.cli.main document_openalex \
+# (not implemented)
+python -m bioetl.cli.cli_app document_openalex \
   --config configs/pipelines/openalex/document_openalex.yaml \
   --output-dir data/output/document_openalex \
   --set sources.openalex.rate_limit.max_calls_per_sec=8 \
@@ -731,7 +755,10 @@ python -m bioetl.cli.main document_openalex \
 
 ## 12. References
 
-- Configuration: [58-document-openalex-config.md](58-document-openalex-config.md)
+- Configuration:
+  [58-document-openalex-config.md](58-document-openalex-config.md)
 - OpenAlex API: [OpenAlex API Documentation](https://docs.openalex.org/)
-- OpenAlex Use Policy: [OpenAlex API Use Policy](https://docs.openalex.org/api-use-policy)
-- ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)
+- OpenAlex Use Policy:
+  [OpenAlex API Use Policy](https://docs.openalex.org/api-use-policy)
+- ChEMBL Document Pipeline:
+  [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

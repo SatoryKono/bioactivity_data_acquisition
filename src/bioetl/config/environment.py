@@ -1,9 +1,8 @@
 """Environment-driven configuration helpers for BioETL.
 
-Этот модуль концентрирует чтение переменных окружения и обеспечивает
-сопоставление «коротких» переменных (например, ``PUBMED_TOOL``) с вложенными
-ключами ``BIOETL__...``. Такой подход рождает единый источник правды и упрощает
-использование 12-Factor Config.
+This module centralises environment variable handling and maps concise variables
+(for example, ``PUBMED_TOOL``) to nested ``BIOETL__...`` keys, enforcing a
+single source of truth and simplifying 12-Factor Config adoption.
 """
 
 from __future__ import annotations

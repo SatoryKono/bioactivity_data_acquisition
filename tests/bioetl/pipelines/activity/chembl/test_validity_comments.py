@@ -6,11 +6,11 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
-import pytest
+import pytest  # type: ignore[import-not-found]
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
-from bioetl.schemas.activity import ActivitySchema
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
@@ -26,9 +26,9 @@ class TestValidityCommentsSchema:
             "data_validity_description",
         }
 
-        assert required_columns.issubset(
-            schema_columns
-        ), f"Missing columns: {required_columns - schema_columns}"
+        assert required_columns.issubset(schema_columns), (
+            f"Missing columns: {required_columns - schema_columns}"
+        )
 
     def test_schema_column_types(self) -> None:
         """Test that comment columns have correct types (nullable string)."""
@@ -172,7 +172,7 @@ class TestValidityCommentsMetrics:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -210,7 +210,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -244,7 +244,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             side_effect=RuntimeError("dictionary missing"),
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -267,7 +267,7 @@ class TestValidityCommentsSoftEnum:
         config = pipeline_config_fixture
 
         with patch(
-            "bioetl.pipelines.activity.activity.required_vocab_ids",
+            "bioetl.pipelines.chembl.activity.run.required_vocab_ids",
             return_value={"Manually validated", "Outside typical range"},
         ):
             pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
@@ -338,58 +338,51 @@ class TestValidityCommentsInvariant:
 class TestValidityCommentsOnlyFields:
     """Test suite for only fields extraction."""
 
-    @patch("bioetl.pipelines.activity.activity.UnifiedAPIClient")
     def test_only_fields_extraction(
-        self, mock_client_class: MagicMock, pipeline_config_fixture: PipelineConfig, run_id: str
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that extract uses only= parameter to request specific fields."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        # Mock API response
-        mock_client = MagicMock()
-        mock_response = MagicMock()
-        mock_response.json.return_value = {
-            "page_meta": {"next": None},
-            "activities": [
-                {
-                    "activity_id": 1,
-                    "activity_comment": "Test comment",
-                    "data_validity_comment": "Manually validated",
-                    "data_validity_description": "Test description",
-                }
-            ],
-        }
-        mock_client.get.return_value = mock_response
+        http_client_stub = MagicMock()
+        chembl_client_stub = MagicMock()
+        chembl_client_stub.handshake.return_value = {"chembl_db_version": "test-release"}
+        iterator_stub = MagicMock()
+        iterator_stub.iterate_all.return_value = [
+            {
+                "activity_id": 1,
+                "activity_comment": "Test comment",
+                "data_validity_comment": "Manually validated",
+            }
+        ]
 
-        # Mock client factory using patch
-        mock_factory = MagicMock()
-        mock_factory.for_source.return_value = mock_client
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
 
-        # Mock handshake
         with (
-            patch.object(pipeline, "_fetch_chembl_release", return_value="v33"),
-            patch.object(pipeline, "_client_factory", mock_factory),
+            patch.object(
+                pipeline,
+                "prepare_chembl_client",
+                return_value=(http_client_stub, "https://mock.chembl.api/data"),
+            ),
+            patch(
+                "bioetl.pipelines.chembl.activity.run.ChemblClient", return_value=chembl_client_stub
+            ),
+            patch(
+                "bioetl.pipelines.chembl.activity.run.ChemblActivityClient",
+                return_value=iterator_stub,
+            ),
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
         ):
             pipeline.extract_all()
 
-        # Проверка что запрос использовал only= параметр
-        get_calls = mock_client.get.call_args_list
-        assert len(get_calls) > 0
-
-        # Проверка что в параметрах есть only
-        first_call = get_calls[0]
-        call_kwargs: dict[str, Any] = first_call.kwargs if hasattr(first_call, "kwargs") else {}  # type: ignore[assignment]
-        call_args = first_call.args if hasattr(first_call, "args") else ()
-        params_raw: Any = call_kwargs.get("params") or (call_args[1] if len(call_args) > 1 else {})
-        params: dict[str, Any] = params_raw if isinstance(params_raw, dict) else {}  # type: ignore[assignment]
-
-        assert "only" in params
-        only_fields_str = str(params["only"])  # type: ignore[arg-type]
-        only_fields = only_fields_str.split(",")
-        assert "activity_comment" in only_fields
-        assert "data_validity_comment" in only_fields
-        # data_validity_description НЕ должен быть в only=, т.к. не существует в /activity endpoint
-        assert "data_validity_description" not in only_fields
+        assert iterator_stub.iterate_all.called
+        iterate_kwargs = iterator_stub.iterate_all.call_args.kwargs
+        returned_fields = list(iterate_kwargs.get("select_fields", []))
+        assert "activity_comment" in returned_fields
+        assert "data_validity_comment" in returned_fields
+        assert "data_validity_description" not in returned_fields
 
     def test_extract_data_validity_description(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -410,7 +403,7 @@ class TestValidityCommentsOnlyFields:
         )
 
         # Mock ChemblClient и fetch_data_validity_lookup
-        from bioetl.clients.chembl import ChemblClient
+        from bioetl.clients.client_chembl_common import ChemblClient
 
         mock_api_client = MagicMock()
         mock_chembl_client = ChemblClient(mock_api_client)

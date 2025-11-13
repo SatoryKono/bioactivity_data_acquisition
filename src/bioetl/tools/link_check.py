@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["run_link_check"]
@@ -44,7 +45,7 @@ def run_link_check(timeout_seconds: int = 300) -> int:
 
     config_file = PROJECT_ROOT / ".lychee.toml"
 
-    log.info("link_check_start", config=str(config_file))
+    log.info(LogEvents.LINK_CHECK_START, config=str(config_file))
 
     try:
         result = subprocess.run(
@@ -55,11 +56,11 @@ def run_link_check(timeout_seconds: int = 300) -> int:
         )
         if result.returncode != 0:
             _write_stub_report(output_file)
-            log.warning("lychee_not_available")
+            log.warning(LogEvents.LYCHEE_NOT_AVAILABLE)
             return 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         _write_stub_report(output_file)
-        log.warning("lychee_not_available")
+        log.warning(LogEvents.LYCHEE_NOT_AVAILABLE)
         return 0
 
     try:
@@ -69,8 +70,7 @@ def run_link_check(timeout_seconds: int = 300) -> int:
             text=True,
             timeout=timeout_seconds,
         )
-        log.info(
-            "lychee_finished",
+        log.info(LogEvents.LYCHEE_FINISHED,
             returncode=result.returncode,
             stdout=result.stdout[:2000],
             stderr=result.stderr[:2000],
@@ -78,8 +78,8 @@ def run_link_check(timeout_seconds: int = 300) -> int:
         return result.returncode
     except FileNotFoundError:
         _write_stub_report(output_file)
-        log.warning("lychee_not_found")
+        log.warning(LogEvents.LYCHEE_NOT_FOUND)
         return 0
     except subprocess.TimeoutExpired:
-        log.error("lychee_timeout", timeout_seconds=timeout_seconds)
+        log.error(LogEvents.LYCHEE_TIMEOUT, timeout_seconds=timeout_seconds)
         return 1

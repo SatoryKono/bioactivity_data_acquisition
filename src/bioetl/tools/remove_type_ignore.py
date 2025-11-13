@@ -7,6 +7,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.tools import get_project_root
 
 __all__ = ["remove_type_ignore"]
@@ -41,5 +42,5 @@ def remove_type_ignore(root: Path | None = None) -> int:
     for file_path in _iter_python_files(target_root):
         total_removed += _cleanse_file(file_path)
 
-    log.info("type_ignore_removed", count=total_removed, root=str(target_root))
+    log.info(LogEvents.TYPE_IGNORE_REMOVED, count=total_removed, root=str(target_root))
     return total_removed

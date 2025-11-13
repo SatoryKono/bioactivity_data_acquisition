@@ -21,7 +21,7 @@
 
 1) Проверить наличие конфигурационного файла `configs/pipelines/testitem/testitem_chembl.yaml`
 2) Создать выходную директорию, если она не существует
-3) Запустить команду CLI: `python -m bioetl.cli.main testitem_chembl --config configs/pipelines/testitem/testitem_chembl.yaml --output-dir data/output/testitem/ --limit 10`
+3) Запустить команду CLI: `python -m bioetl.cli.app testitem_chembl --config configs/pipelines/testitem/testitem_chembl.yaml --output-dir data/output/testitem/ --limit 10`
 4) Дождаться завершения пайплайна и проверить код возврата
 5) Проверить наличие выходных файлов и `meta.yaml` в выходной директории
 

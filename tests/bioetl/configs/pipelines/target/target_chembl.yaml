@@ -1,0 +1,6 @@
+extends:
+  - ../../../../../configs/pipelines/target/target_chembl.yaml
+
+cli:
+  input_file: null
+

@@ -1,25 +1,37 @@
 # Pipeline: `document_pubmed`
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
-This document describes the `document_pubmed` pipeline, which is responsible for extracting document metadata from PubMed E-utilities API.
+This document describes the `document_pubmed` pipeline, which is responsible for
+extracting document metadata from PubMed E-utilities API.
 
-**Note:** This pipeline is not yet implemented. This document serves as a specification for its future implementation.
+**Note:** This pipeline is not yet implemented. This document serves as a
+specification for its future implementation.
 
 ## 1. Identification
 
-| Item              | Value                                                                                              | Status                |
-| ----------------- | -------------------------------------------------------------------------------------------------- | --------------------- |
-| **Pipeline Name** | `document_pubmed`                                                                                 | Not Implemented       |
-| **CLI Command**   | `python -m bioetl.cli.main document_pubmed`                                                       | Not Implemented       |
-| **Config File**   | [ref: repo:src/bioetl/configs/pipelines/pubmed/document_pubmed.yaml@refactoring_001]     | Not Implemented       |
-| **CLI Registration** | [ref: repo:src/bioetl/cli/registry.py@refactoring_001]                                          | Not Implemented       |
+| Item              | Value             | Status          |
+| ----------------- | ----------------- | --------------- |
+| **Pipeline Name** | `document_pubmed` | Not Implemented |
+
+# (not implemented)
+
+| **CLI Command** | `python -m bioetl.cli.cli_app document_pubmed` | Not
+Implemented | | **Config File** | \[ref:
+repo:src/bioetl/configs/pipelines/pubmed/document_pubmed.yaml@refactoring_001\]
+| Not Implemented | | **CLI Registration** | \[ref:
+repo:src/bioetl/cli/cli_registry.py@refactoring_001\] | Not Implemented |
 
 ## 2. Purpose and Scope
 
 ### Purpose
 
-The `document_pubmed` pipeline extracts publication metadata from PubMed E-utilities API. It provides a deterministic, reproducible way to retrieve bibliographic information including titles, abstracts, authors, journals, publication dates, and MeSH terms.
+The `document_pubmed` pipeline extracts publication metadata from PubMed
+E-utilities API. It provides a deterministic, reproducible way to retrieve
+bibliographic information including titles, abstracts, authors, journals,
+publication dates, and MeSH terms.
 
 ### Scope
 
@@ -168,7 +180,7 @@ curl "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=123
 The History Server reduces the number of requests for large batches:
 
 1. **ESearch** or **EPost**: Upload UIDs, receive `query_key` and `webenv`
-2. **EFetch**: Use `query_key` and `webenv` to retrieve records in batches
+1. **EFetch**: Use `query_key` and `webenv` to retrieve records in batches
 
 **Benefits:**
 
@@ -198,8 +210,8 @@ The History Server reduces the number of requests for large batches:
 
 ### XML Parsing (DTD-compliant extraction paths)
 
-**XML Structure (PubMed DTD):**
-Hierarchy: `PubmedArticleSet` → `PubmedArticle` → `MedlineCitation` + `PubmedData`
+**XML Structure (PubMed DTD):** Hierarchy: `PubmedArticleSet` → `PubmedArticle`
+→ `MedlineCitation` + `PubmedData`
 
 **Key field extraction paths (XPath):**
 
@@ -207,7 +219,8 @@ Hierarchy: `PubmedArticleSet` → `PubmedArticle` → `MedlineCitation` + `Pubme
 
 - `PubMed.ArticleTitle` from `//Article/ArticleTitle`
 
-- `PubMed.Abstract` from concatenated `//Abstract/AbstractText` with optional `@Label` or `@NlmCategory`
+- `PubMed.Abstract` from concatenated `//Abstract/AbstractText` with optional
+  `@Label` or `@NlmCategory`
 
 - `PubMed.Language[]` from `//Article/Language`
 
@@ -215,13 +228,15 @@ Hierarchy: `PubmedArticleSet` → `PubmedArticle` → `MedlineCitation` + `Pubme
 
 - `PubMed.JournalISOAbbrev` from `//MedlineJournalInfo/MedlineTA`
 
-- `PubMed.ISSN` from `//Journal/ISSN[@IssnType='Print' | @IssnType='Electronic']`
+- `PubMed.ISSN` from
+  `//Journal/ISSN[@IssnType='Print' | @IssnType='Electronic']`
 
 - `PubMed.Volume` from `//JournalIssue/Volume`
 
 - `PubMed.Issue` from `//JournalIssue/Issue`
 
-- `PubMed.StartPage/EndPage` from parsing `//Pagination/MedlinePgn` (e.g., "123-145")
+- `PubMed.StartPage/EndPage` from parsing `//Pagination/MedlinePgn` (e.g.,
+  "123-145")
 
 - `PubMed.PublicationType[]` from `//PublicationTypeList/PublicationType`
 
@@ -233,7 +248,7 @@ Two possible locations in XML (depending on DTD version):
 
 1. **Primary**: `//PubmedData/ArticleIdList/ArticleId[@IdType='doi']`
 
-2. **Fallback**: `//Article/ELocationID[@EIdType='doi']`
+1. **Fallback**: `//Article/ELocationID[@EIdType='doi']`
 
 Both locations should be checked and recorded in `doi_source` column for audit.
 
@@ -293,43 +308,50 @@ def normalize_pubmed_date(year, month, day):
 
 ### 5.1 Required Parameters
 
-This pipeline follows the standard `docs/configs/00-typed-configs-and-profiles.md`.
+This pipeline follows the standard
+`docs/configs/00-typed-configs-and-profiles.md`.
 
-Configuration file: `configs/pipelines/pubmed-document.yaml` (`extends: "../base.yaml"`).
+Configuration file: `configs/pipelines/pubmed-document.yaml`
+(`extends: "../base.yaml"`).
 
 ### 5.2 Main Configuration Overrides
 
-| Section | Key | Value | Constraint | Comment |
-|--------|------|----------|-------------|-------------|
-| Pipeline | `pipeline.name` | `document_pubmed` | — | Used in logs and `run_config.yaml`. |
-| Sources / PubMed | `sources.pubmed.history.use_history` | `true` | — | Required for large batches. History Server reduces number of requests. |
-| Sources / PubMed | `sources.pubmed.history.batch_size` | `200` | `≤ 200` | Recommended batch size for EFetch. For >200 UID POST is required. |
-| Sources / PubMed | `sources.pubmed.rate_limit.max_calls_per_sec_without_key` | `3` | `≤ 3` | Without API key: 3 requests/second (NCBI policy). |
-| Sources / PubMed | `sources.pubmed.rate_limit.max_calls_per_sec_with_key` | `10` | `≤ 10` | With API key: 10 requests/second (NCBI policy). |
-| Sources / PubMed | `sources.pubmed.rate_limit.jitter` | `true` | — | Use jitter for exponential backoff. |
-| Sources / PubMed | `sources.pubmed.workers` | `1` | `≤ 1` | NCBI does not welcome aggressive parallelism. |
-| Sources / PubMed | `sources.pubmed.http.timeout_sec` | `60.0` | — | Timeout for HTTP requests. |
-| Sources / PubMed | `sources.pubmed.http.connect_timeout_sec` | `10.0` | — | Timeout for connection. |
-| Sources / PubMed | `sources.pubmed.http.read_timeout_sec` | `60.0` | — | Timeout for reading response. |
-| Sources / PubMed | `sources.pubmed.http.identify.tool` | `"bioactivity_etl"` | — | Required application identifier parameter. |
-| Sources / PubMed | `sources.pubmed.http.identify.email` | — | Not empty | Required contact email. |
-| Sources / PubMed | `sources.pubmed.http.identify.api_key` | — | Optional | API key for increased limit to 10 rps. |
-| Cache | `cache.namespace` | `"pubmed"` | Not empty | Ensures cache isolation. |
-| Cache | `cache.ttl` | `86400` | — | Cache TTL in seconds (24 hours). |
+| Section          | Key                                                       | Value               | Constraint | Comment                                                                |
+| ---------------- | --------------------------------------------------------- | ------------------- | ---------- | ---------------------------------------------------------------------- |
+| Pipeline         | `pipeline.name`                                           | `document_pubmed`   | —          | Used in logs and `run_config.yaml`.                                    |
+| Sources / PubMed | `sources.pubmed.history.use_history`                      | `true`              | —          | Required for large batches. History Server reduces number of requests. |
+| Sources / PubMed | `sources.pubmed.history.batch_size`                       | `200`               | `≤ 200`    | Recommended batch size for EFetch. For >200 UID POST is required.      |
+| Sources / PubMed | `sources.pubmed.rate_limit.max_calls_per_sec_without_key` | `3`                 | `≤ 3`      | Without API key: 3 requests/second (NCBI policy).                      |
+| Sources / PubMed | `sources.pubmed.rate_limit.max_calls_per_sec_with_key`    | `10`                | `≤ 10`     | With API key: 10 requests/second (NCBI policy).                        |
+| Sources / PubMed | `sources.pubmed.rate_limit.jitter`                        | `true`              | —          | Use jitter for exponential backoff.                                    |
+| Sources / PubMed | `sources.pubmed.workers`                                  | `1`                 | `≤ 1`      | NCBI does not welcome aggressive parallelism.                          |
+| Sources / PubMed | `sources.pubmed.http.timeout_sec`                         | `60.0`              | —          | Timeout for HTTP requests.                                             |
+| Sources / PubMed | `sources.pubmed.http.connect_timeout_sec`                 | `10.0`              | —          | Timeout for connection.                                                |
+| Sources / PubMed | `sources.pubmed.http.read_timeout_sec`                    | `60.0`              | —          | Timeout for reading response.                                          |
+| Sources / PubMed | `sources.pubmed.http.identify.tool`                       | `"bioactivity_etl"` | —          | Required application identifier parameter.                             |
+| Sources / PubMed | `sources.pubmed.http.identify.email`                      | —                   | Not empty  | Required contact email.                                                |
+| Sources / PubMed | `sources.pubmed.http.identify.api_key`                    | —                   | Optional   | API key for increased limit to 10 rps.                                 |
+| Cache            | `cache.namespace`                                         | `"pubmed"`          | Not empty  | Ensures cache isolation.                                               |
+| Cache            | `cache.ttl`                                               | `86400`             | —          | Cache TTL in seconds (24 hours).                                       |
 
 ### 5.3 CLI Overrides and Environment Variables
 
 #### CLI Examples
 
 - `--set sources.pubmed.history.batch_size=150` — change batch size for EFetch.
-- `--set sources.pubmed.rate_limit.max_calls_per_sec_with_key=8` — reduce request limit.
-- `--set sources.pubmed.http.identify.tool="my_app"` — change application identifier.
+- `--set sources.pubmed.rate_limit.max_calls_per_sec_with_key=8` — reduce
+  request limit.
+- `--set sources.pubmed.http.identify.tool="my_app"` — change application
+  identifier.
 
 #### Environment Variables
 
-- `PUBMED_TOOL` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__TOOL` — application identifier (required).
-- `PUBMED_EMAIL` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL` — contact email (required).
-- `PUBMED_API_KEY` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY` — API key for increased limit (optional).
+- `PUBMED_TOOL` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__TOOL` — application
+  identifier (required).
+- `PUBMED_EMAIL` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL` — contact
+  email (required).
+- `PUBMED_API_KEY` or `BIOETL_SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY` — API
+  key for increased limit (optional).
 
 **Important:** Without `tool` and `email` parameters, NCBI will block requests!
 
@@ -422,6 +444,7 @@ qc:
 - Uses `PipelineConfig.validate_yaml('configs/pipelines/pubmed-document.yaml')`.
 
 - Additional checks:
+
   - `sources.pubmed.history.batch_size` ≤ 200 (EFetch limit).
   - `sources.pubmed.rate_limit.max_calls_per_sec_with_key` ≤ 10 (NCBI policy).
   - `sources.pubmed.rate_limit.max_calls_per_sec_without_key` ≤ 3 (NCBI policy).
@@ -459,44 +482,49 @@ Using History Server (`use_history: true`) is recommended for large batches:
 
 The pipeline supports the following standard CLI flags:
 
-| Flag              | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `--config`        | Path to a pipeline-specific configuration file.                               |
-| `--output-dir`    | Directory to write the output artifacts to.                                 |
-| `--dry-run`       | Run the pipeline without writing any output.                                |
-| `--limit`         | Limit the number of records to process.                                     |
-| `--profile`       | Apply a configuration profile (e.g., `determinism`).                         |
+| Flag           | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `--config`     | Path to a pipeline-specific configuration file.      |
+| `--output-dir` | Directory to write the output artifacts to.          |
+| `--dry-run`    | Run the pipeline without writing any output.         |
+| `--limit`      | Limit the number of records to process.              |
+| `--profile`    | Apply a configuration profile (e.g., `determinism`). |
 
 ### Configuration Merge Order
 
-The configuration is loaded in the following order, with later sources overriding earlier ones:
+The configuration is loaded in the following order, with later sources
+overriding earlier ones:
 
 1. **Base Profile:** `src/bioetl/configs/defaults/base.yaml`
-2. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated by `--profile determinism`)
-3. **Explicit Config:** The file specified by the `--config` flag.
-4. **CLI Flags:** Any flags that override configuration values (e.g., `--limit`).
+1. **Profile:** e.g., `src/bioetl/configs/defaults/determinism.yaml` (activated
+   by `--profile determinism`)
+1. **Explicit Config:** The file specified by the `--config` flag.
+1. **CLI Flags:** Any flags that override configuration values (e.g.,
+   `--limit`).
 
 ### Configuration Keys
 
-The following table describes the expected keys in the `document_pubmed.yaml` configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001] for the underlying configuration models.
+The following table describes the expected keys in the `document_pubmed.yaml`
+configuration file. See [ref: repo:src/bioetl/configs/models.py@refactoring_001]
+for the underlying configuration models.
 
-| Key                             | Type    | Required | Default | Description                                                                 |
-| ------------------------------- | ------- | -------- | ------- | --------------------------------------------------------------------------- |
-| `pipeline.name`                 | string  | Yes      |         | The name of the pipeline (e.g., `document_pubmed`).                           |
-| `pipeline.version`              | string  | Yes      |         | The version of the pipeline.                                                |
-| `sources.pubmed.base_url`       | string  | No       | `https://eutils.ncbi.nlm.nih.gov/entrez/eutils` | The base URL for PubMed E-utilities API.                                           |
-| `sources.pubmed.history.use_history` | boolean | No       | `true`       | Enable History Server for batch operations.                                 |
-| `sources.pubmed.history.batch_size` | integer | No       | `200`     | Maximum number of UIDs per EFetch request (max: 200).                                   |
-| `sources.pubmed.rate_limit.max_calls_per_sec_without_key` | float | No       | `3.0`       | Rate limit without API key (NCBI policy).                                 |
-| `sources.pubmed.rate_limit.max_calls_per_sec_with_key` | float | No       | `10.0`       | Rate limit with API key (NCBI policy).                                 |
-| `sources.pubmed.rate_limit.jitter` | boolean | No       | `true`       | Use jitter for exponential backoff.                                 |
-| `sources.pubmed.workers`        | integer | No       | `1`       | Number of parallel workers (max: 1, NCBI policy).                                 |
-| `sources.pubmed.http.identify.tool` | string | Yes      |         | Application identifier (required).                                 |
-| `sources.pubmed.http.identify.email` | string | Yes      |         | Contact email (required).                                 |
-| `sources.pubmed.http.identify.api_key` | string | No       |         | API key for increased rate limits (optional).                                 |
-| `cache.namespace`                | string  | Yes      |         | Cache namespace for isolation.         |
-| `cache.ttl`                      | integer | No       | `86400`  | Cache TTL in seconds (24 hours).         |
-| `materialization.pipeline_subdir` | string  | Yes      |         | The subdirectory within the output directory to write artifacts to.         |
+| Key                                                       | Type    | Required | Default                                         | Description                                                         |
+| --------------------------------------------------------- | ------- | -------- | ----------------------------------------------- | ------------------------------------------------------------------- |
+| `pipeline.name`                                           | string  | Yes      |                                                 | The name of the pipeline (e.g., `document_pubmed`).                 |
+| `pipeline.version`                                        | string  | Yes      |                                                 | The version of the pipeline.                                        |
+| `sources.pubmed.base_url`                                 | string  | No       | `https://eutils.ncbi.nlm.nih.gov/entrez/eutils` | The base URL for PubMed E-utilities API.                            |
+| `sources.pubmed.history.use_history`                      | boolean | No       | `true`                                          | Enable History Server for batch operations.                         |
+| `sources.pubmed.history.batch_size`                       | integer | No       | `200`                                           | Maximum number of UIDs per EFetch request (max: 200).               |
+| `sources.pubmed.rate_limit.max_calls_per_sec_without_key` | float   | No       | `3.0`                                           | Rate limit without API key (NCBI policy).                           |
+| `sources.pubmed.rate_limit.max_calls_per_sec_with_key`    | float   | No       | `10.0`                                          | Rate limit with API key (NCBI policy).                              |
+| `sources.pubmed.rate_limit.jitter`                        | boolean | No       | `true`                                          | Use jitter for exponential backoff.                                 |
+| `sources.pubmed.workers`                                  | integer | No       | `1`                                             | Number of parallel workers (max: 1, NCBI policy).                   |
+| `sources.pubmed.http.identify.tool`                       | string  | Yes      |                                                 | Application identifier (required).                                  |
+| `sources.pubmed.http.identify.email`                      | string  | Yes      |                                                 | Contact email (required).                                           |
+| `sources.pubmed.http.identify.api_key`                    | string  | No       |                                                 | API key for increased rate limits (optional).                       |
+| `cache.namespace`                                         | string  | Yes      |                                                 | Cache namespace for isolation.                                      |
+| `cache.ttl`                                               | integer | No       | `86400`                                         | Cache TTL in seconds (24 hours).                                    |
+| `materialization.pipeline_subdir`                         | string  | Yes      |                                                 | The subdirectory within the output directory to write artifacts to. |
 
 ### Input Data Format
 
@@ -512,16 +540,9 @@ The following table describes the expected keys in the `document_pubmed.yaml` co
 
 ```python
 class DocumentPubMedInputSchema(pa.DataFrameModel):
-    pmid: Series[int] = pa.Field(
-        ge=1,
-        nullable=False,
-        unique=True
-    )
+    pmid: Series[int] = pa.Field(ge=1, nullable=False, unique=True)
 
-    doi: Series[str] = pa.Field(
-        nullable=True,
-        regex=r"^10\.\d+/[^\s]+$"
-    )
+    doi: Series[str] = pa.Field(nullable=True, regex=r"^10\.\d+/[^\s]+$")
 
     class Config:
         strict = True
@@ -535,7 +556,8 @@ The extraction process uses PubMed E-utilities components:
 
 ### Client Component
 
-The `PubMedClient` ([ref: repo:src/bioetl/sources/pubmed/client/client.py@refactoring_001]) handles:
+The `PubMedClient` (\[ref:
+repo:src/bioetl/sources/pubmed/client/client.py@refactoring_001\]) handles:
 
 - HTTP requests to E-utilities endpoints
 - Timeouts, retries with exponential backoff
@@ -547,7 +569,7 @@ The `PubMedClient` ([ref: repo:src/bioetl/sources/pubmed/client/client.py@refact
 For batches >200 UIDs:
 
 1. **EPost**: Upload UIDs, receive `webenv` and `query_key`
-2. **EFetch**: Use `webenv` and `query_key` for paginated retrieval
+1. **EFetch**: Use `webenv` and `query_key` for paginated retrieval
 
 ### EFetch (Extraction)
 
@@ -559,7 +581,8 @@ Retrieves records in XML format:
 
 ### Parser
 
-The parser ([ref: repo:src/bioetl/sources/pubmed/parser/parser.py@refactoring_001]) extracts:
+The parser (\[ref:
+repo:src/bioetl/sources/pubmed/parser/parser.py@refactoring_001\]) extracts:
 
 - PMID, DOI, title, abstract
 - Journal, volume, issue, pages, ISSN
@@ -571,7 +594,9 @@ The parser ([ref: repo:src/bioetl/sources/pubmed/parser/parser.py@refactoring_00
 
 ### Normalizer
 
-The `PubMedNormalizer` ([ref: repo:src/bioetl/sources/pubmed/normalizer/normalizer.py@refactoring_001]) performs:
+The `PubMedNormalizer` (\[ref:
+repo:src/bioetl/sources/pubmed/normalizer/normalizer.py@refactoring_001\])
+performs:
 
 - Date normalization (ISO 8601 format)
 - Author name formatting (Last, First Middle)
@@ -581,7 +606,8 @@ The `PubMedNormalizer` ([ref: repo:src/bioetl/sources/pubmed/normalizer/normaliz
 
 ### Pandera Schema
 
-A Pandera schema ([ref: repo:src/bioetl/sources/pubmed/schema/schema.py@refactoring_001]) validates:
+A Pandera schema (\[ref:
+repo:src/bioetl/sources/pubmed/schema/schema.py@refactoring_001\]) validates:
 
 - Data types and constraints
 - Required fields
@@ -650,18 +676,18 @@ generated_at_utc: "2025-01-28T12:00:00Z"
 
 The following QC metrics are collected and reported:
 
-| Metric                  | Description                                                                 |
-| ----------------------- | --------------------------------------------------------------------------- |
-| `total_records`         | Total number of records processed.                |
-| `successful_fetches`    | Number of successful API calls.                   |
-| `failed_fetches`        | Number of failed API calls.            |
-| `pmid_coverage`         | Percentage of input PMIDs successfully retrieved.                         |
-| `doi_coverage`          | Percentage of records with DOI.                 |
-| `title_coverage`        | Percentage of records with title.                 |
-| `abstract_coverage`     | Percentage of records with abstract.                 |
-| `duplicate_count`       | Number of duplicate records (based on PMID).            |
-| `malformed_xml_count`   | Number of records with malformed XML.                         |
-| `retry_events`          | Number of retry attempts.                 |
+| Metric                | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| `total_records`       | Total number of records processed.                |
+| `successful_fetches`  | Number of successful API calls.                   |
+| `failed_fetches`      | Number of failed API calls.                       |
+| `pmid_coverage`       | Percentage of input PMIDs successfully retrieved. |
+| `doi_coverage`        | Percentage of records with DOI.                   |
+| `title_coverage`      | Percentage of records with title.                 |
+| `abstract_coverage`   | Percentage of records with abstract.              |
+| `duplicate_count`     | Number of duplicate records (based on PMID).      |
+| `malformed_xml_count` | Number of records with malformed XML.             |
+| `retry_events`        | Number of retry attempts.                         |
 
 ### QC Thresholds
 
@@ -674,11 +700,11 @@ Configuration thresholds:
 
 The pipeline uses the following exit codes:
 
-| Exit Code | Category                | Description                                                                 |
-| --------- | ----------------------- | --------------------------------------------------------------------------- |
-| 0         | Success                 | The pipeline completed successfully.                                        |
-| 1         | Application Error       | A fatal error occurred, such as a network error or a bug in the code.       |
-| 2         | Usage Error             | An error occurred due to invalid configuration or command-line arguments.   |
+| Exit Code | Category          | Description                                                               |
+| --------- | ----------------- | ------------------------------------------------------------------------- |
+| 0         | Success           | The pipeline completed successfully.                                      |
+| 1         | Application Error | A fatal error occurred, such as a network error or a bug in the code.     |
+| 2         | Usage Error       | An error occurred due to invalid configuration or command-line arguments. |
 
 ### Error Handling Details
 
@@ -705,7 +731,8 @@ The pipeline uses the following exit codes:
 ### Minimal Run
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+# (not implemented)
+python -m bioetl.cli.cli_app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed
 ```
@@ -713,7 +740,8 @@ python -m bioetl.cli.main document_pubmed \
 ### Dry Run
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+# (not implemented)
+python -m bioetl.cli.cli_app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --dry-run
@@ -722,7 +750,8 @@ python -m bioetl.cli.main document_pubmed \
 ### With Determinism Profile
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+# (not implemented)
+python -m bioetl.cli.cli_app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --profile determinism
@@ -735,7 +764,8 @@ export PUBMED_TOOL="bioactivity_etl"
 export PUBMED_EMAIL="contact@example.org"
 export PUBMED_API_KEY="your_api_key_here"
 
-python -m bioetl.cli.main document_pubmed \
+# (not implemented)
+python -m bioetl.cli.cli_app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed
 ```
@@ -743,7 +773,8 @@ python -m bioetl.cli.main document_pubmed \
 ### Override Configuration
 
 ```bash
-python -m bioetl.cli.main document_pubmed \
+# (not implemented)
+python -m bioetl.cli.cli_app document_pubmed \
   --config configs/pipelines/pubmed/document_pubmed.yaml \
   --output-dir data/output/document_pubmed \
   --set sources.pubmed.history.batch_size=150 \
@@ -753,6 +784,8 @@ python -m bioetl.cli.main document_pubmed \
 ## 12. References
 
 - Configuration: [50-document-pubmed-config.md](50-document-pubmed-config.md)
-- PubMed E-utilities: [NCBI E-utilities Documentation](https://www.ncbi.nlm.nih.gov/books/NBK25497/)
+- PubMed E-utilities:
+  [NCBI E-utilities Documentation](https://www.ncbi.nlm.nih.gov/books/NBK25497/)
 - PubMed XML DTD: [PubMed XML DTD](https://dtd.nlm.nih.gov/ncbi/pubmed/doc/)
-- ChEMBL Document Pipeline: [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)
+- ChEMBL Document Pipeline:
+  [`docs/pipelines/document-chembl/09-document-chembl-extraction.md`](document-chembl/09-document-chembl-extraction.md)

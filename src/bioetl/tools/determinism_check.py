@@ -1,4 +1,4 @@
-"""Проверка детерминизма пайплайнов."""
+"""Pipeline determinism verification utilities."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 from bioetl.tools import get_project_root
 
@@ -24,7 +25,7 @@ ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 
 
 def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
-    """Извлекает структурированные JSON-логи из stdout/stderr."""
+    """Extract structured JSON logs emitted to stdout and stderr."""
 
     logs: list[dict[str, Any]] = []
     all_output = stdout + "\n" + stderr
@@ -46,7 +47,7 @@ def extract_structured_logs(stdout: str, stderr: str) -> list[dict[str, Any]]:
 
 
 def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str, str]:
-    """Запускает пайплайн с --dry-run и возвращает код выхода, stdout, stderr."""
+    """Execute a pipeline using ``--dry-run`` and capture exit code and output."""
 
     config_map = {
         "activity_chembl": "configs/pipelines/activity/activity_chembl.yaml",
@@ -61,7 +62,7 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
     cmd = [
         sys.executable,
         "-m",
-        "bioetl.cli.main",
+        "bioetl.cli.cli_app",
         pipeline_name,
         "--config",
         str(config_path),
@@ -88,7 +89,7 @@ def run_pipeline_dry_run(pipeline_name: str, output_dir: Path) -> tuple[int, str
 def compare_logs(
     logs1: list[dict[str, Any]], logs2: list[dict[str, Any]]
 ) -> tuple[bool, list[str]]:
-    """Сравнивает наборы логов и возвращает (идентичны, список отличий)."""
+    """Compare two log sequences and return ``(identical, differences)``."""
 
     differences: list[str] = []
 
@@ -125,7 +126,7 @@ def compare_logs(
 
 @dataclass(frozen=True)
 class DeterminismRunResult:
-    """Результат проверки детерминизма."""
+    """Result payload of a single determinism verification run."""
 
     pipeline_name: str
     deterministic: bool
@@ -139,6 +140,7 @@ class DeterminismRunResult:
 
 
 def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -> None:
+    """Persist a determinism summary report to ``report_path``."""
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
 
     total_deterministic = sum(1 for item in results.values() if item.deterministic)
@@ -182,13 +184,13 @@ def _write_report(report_path: Path, results: dict[str, DeterminismRunResult]) -
 def run_determinism_check(
     pipelines: tuple[str, ...] | None = None,
 ) -> dict[str, DeterminismRunResult]:
-    """Запускает проверку детерминизма и возвращает результаты."""
+    """Run determinism checks for selected pipelines and return their results."""
 
     UnifiedLogger.configure()
     log = UnifiedLogger.get(__name__)
 
     target_pipelines = pipelines or ("activity_chembl", "assay_chembl")
-    log.info("determinism_check_start", pipelines=target_pipelines)
+    log.info(LogEvents.DETERMINISM_CHECK_START, pipelines=target_pipelines)
 
     results: dict[str, DeterminismRunResult] = {}
 
@@ -196,7 +198,7 @@ def run_determinism_check(
         temp_path = Path(temp_dir)
 
         for pipeline_name in target_pipelines:
-            log.info("running_pipeline_check", pipeline=pipeline_name)
+            log.info(LogEvents.RUNNING_PIPELINE_CHECK, pipeline=pipeline_name)
 
             output_dir1 = temp_path / f"{pipeline_name}_run1"
             output_dir1.mkdir()
@@ -204,8 +206,7 @@ def run_determinism_check(
 
             if exit_code1 != 0:
                 error_message = f"Run 1 failed with exit code {exit_code1}: {stderr1[:200]}"
-                log.warning(
-                    "pipeline_run_failed", pipeline=pipeline_name, attempt=1, error=error_message
+                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=1, error=error_message
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -226,8 +227,7 @@ def run_determinism_check(
 
             if exit_code2 != 0:
                 error_message = f"Run 2 failed with exit code {exit_code2}: {stderr2[:200]}"
-                log.warning(
-                    "pipeline_run_failed", pipeline=pipeline_name, attempt=2, error=error_message
+                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=2, error=error_message
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -247,10 +247,9 @@ def run_determinism_check(
             are_identical, differences = compare_logs(logs1, logs2)
 
             if are_identical:
-                log.info("pipeline_deterministic", pipeline=pipeline_name, log_count=len(logs1))
+                log.info(LogEvents.PIPELINE_DETERMINISTIC, pipeline=pipeline_name, log_count=len(logs1))
             else:
-                log.warning(
-                    "pipeline_not_deterministic",
+                log.warning(LogEvents.PIPELINE_NOT_DETERMINISTIC,
                     pipeline=pipeline_name,
                     differences=len(differences),
                 )
@@ -270,6 +269,6 @@ def run_determinism_check(
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
     report_path = ARTIFACTS_DIR / "DETERMINISM_CHECK_REPORT.md"
     _write_report(report_path, results)
-    log.info("determinism_check_report_written", path=str(report_path))
+    log.info(LogEvents.DETERMINISM_CHECK_REPORT_WRITTEN, path=str(report_path))
 
     return results

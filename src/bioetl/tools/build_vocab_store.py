@@ -11,7 +11,8 @@ from typing import Any, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.etl.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
+from bioetl.core.log_events import LogEvents
+from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
 
 __all__ = ["build_vocab_store"]
 
@@ -114,5 +115,5 @@ def build_vocab_store(
     aggregated_with_meta.update(aggregated)
 
     _atomic_write_yaml(aggregated_with_meta, resolved_output)
-    log.info("vocab_store_built", source=str(resolved_src), output=str(resolved_output))
+    log.info(LogEvents.VOCAB_STORE_BUILT, source=str(resolved_src), output=str(resolved_output))
     return resolved_output

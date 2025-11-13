@@ -1,0 +1,54 @@
+"""CLI command ``bioetl-qc-boundary-check`` for static QC import boundary checks."""
+
+from __future__ import annotations
+
+import importlib
+from typing import Any, cast
+
+from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools._qc_boundary import collect_qc_boundary_violations
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+
+typer = cast(Any, importlib.import_module("typer"))
+
+__all__ = ["app", "main", "run"]
+
+app: TyperApp = create_app(
+    name="bioetl-qc-boundary-check",
+    help_text="Ensure bioetl.cli modules do not import bioetl.qc directly or via re-export.",
+)
+
+
+@app.command()
+def main() -> None:
+    """Run the static import analysis for the CLI↔QC boundary."""
+
+    violations = collect_qc_boundary_violations()
+    if not violations:
+        typer.echo("CLI↔QC boundary is respected, no violations found.")
+        exit_with_code(0)
+
+    typer.secho(
+        "CLI↔QC boundary violations detected:",
+        err=True,
+        fg=typer.colors.RED,
+    )
+    for violation in violations:
+        typer.secho(
+            f"- {violation.source_path}: {violation.format_chain()}",
+            err=True,
+            fg=typer.colors.RED,
+        )
+    exit_with_code(1)
+
+
+def run() -> None:
+    """Execute the Typer application."""
+
+    run_app(app)
+
+
+if __name__ == "__main__":
+    run()
+
+

@@ -1,36 +1,59 @@
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
 Цель и объем
 
-Система логирования обеспечивает структурированные, детерминированные и трассируемые логи для всех стадий ETL (extract, transform, validate, load) и CLI. Выходные форматы пригодны для машинного парсинга и аудита; базовые инварианты одинаковы в dev/test/prod.
+Система логирования обеспечивает структурированные, детерминированные и
+трассируемые логи для всех стадий ETL (extract, transform, validate, load) и
+CLI. Выходные форматы пригодны для машинного парсинга и аудита; базовые
+инварианты одинаковы в dev/test/prod.
 
 Архитектура (обзор)
 
-structlog как фронт для стандартного logging, чтобы писать словари, а не разрозненный текст. Это дает комбинируемые процессоры, JSON-рендер, и безопасный контекст для async через contextvars. structlog +2 structlog +2
+structlog как фронт для стандартного logging, чтобы писать словари, а не
+разрозненный текст. Это дает комбинируемые процессоры, JSON-рендер, и безопасный
+контекст для async через contextvars. structlog +2 structlog +2
 
-Контекст выполнения держится в ContextVar и автоматически вливается в запись логов первым процессором merge_contextvars. Это корректно в потоках и asyncio. structlog
+Контекст выполнения держится в ContextVar и автоматически вливается в запись
+логов первым процессором merge_contextvars. Это корректно в потоках и asyncio.
+structlog
 
-Редактирование секретов на двух уровнях: процессор structlog для словарей событий и logging.Filter для строковых сообщений.
+Редактирование секретов на двух уровнях: процессор structlog для словарей
+событий и logging.Filter для строковых сообщений.
 
-Выводы: человекочитаемый текст для консоли в dev/test, JSON для файлов и prod. JSON рендерер с sort_keys=True и ensure_ascii=False обеспечивает стабильный порядок ключей и корректную юникодную сериализацию. structlog +2 structlog +2
+Выводы: человекочитаемый текст для консоли в dev/test, JSON для файлов и prod.
+JSON рендерер с sort_keys=True и ensure_ascii=False обеспечивает стабильный
+порядок ключей и корректную юникодную сериализацию. structlog +2 structlog +2
 
-Опциональная интеграция с OpenTelemetry: обогащение логов trace_id/span_id из активного спана. opentelemetry-python-contrib.readthedocs.io +1
+Опциональная интеграция с OpenTelemetry: обогащение логов trace_id/span_id из
+активного спана. opentelemetry-python-contrib.readthedocs.io +1
 
 Публичный API
 
-UnifiedLogger.configure(config: LoggerConfig, additional_processors: list[Processor] | None = None) -> None
+UnifiedLogger.configure(config: LoggerConfig, additional_processors:
+list[Processor] | None = None) -> None
 
 UnifiedLogger.get(name: str | None = None) -> structlog.BoundLogger
 
-set_run_context(run_id: str, stage: str, actor: str, source: str, *, trace_id: str | None = None, generated_at: str | None = None) -> None
+set_run_context(run_id: str, stage: str, actor: str, source: str, \*, trace_id:
+str | None = None, generated_at: str | None = None) -> None
 
-bind_stage(logger, stage: str, **kv) -> ContextManager
+bind_stage(logger, stage: str, \*\*kv) -> ContextManager
 
 cleanup_old_logs(older_than_days: int, logs_dir: Path) -> None
 
-Ссылки на код (ветка test_refactoring_32): [ref: repo:src/bioetl/core/logger.py@refactoring_001] [ref: repo:src/bioetl/cli/app.py@refactoring_001]
+Ссылки на код (ветка test_refactoring_32): \[ref:
+repo:src/bioetl/core/logger.py@refactoring_001\] \[ref:
+repo:src/bioetl/cli/cli_app.py@refactoring_001\]
 
-Конфигурация @dataclass class LoggerConfig: level: Literal["DEBUG","INFO","WARNING","ERROR"] = "INFO" console_format: Literal["text","json"] = "text" file_enabled: bool = True file_path: Path = Path("var/logs/app.log") file_format: Literal["json"] = "json" max_bytes: int = 10 *1024* 1024 backup_count: int = 10 telemetry_enabled: bool = False redact_secrets: bool = True json_sort_keys: bool = True # детерминированность ключей json_ensure_ascii: bool = False # корректная кириллица
+Конфигурация @dataclass class LoggerConfig: level:
+Literal["DEBUG","INFO","WARNING","ERROR"] = "INFO" console_format:
+Literal["text","json"] = "text" file_enabled: bool = True file_path: Path =
+Path("var/logs/app.log") file_format: Literal["json"] = "json" max_bytes: int =
+10 *1024* 1024 backup_count: int = 10 telemetry_enabled: bool = False
+redact_secrets: bool = True json_sort_keys: bool = True # детерминированность
+ключей json_ensure_ascii: bool = False # корректная кириллица
 
 Конвейер процессоров
 
@@ -54,43 +77,57 @@ format_exc_info/dict_tracebacks при exc_info=True
 
 файл/прод: JSONRenderer(sort_keys=True, ensure_ascii=False)
 
-Обоснование выбора merge_contextvars и JSON-рендера см. в документации structlog. structlog +1
+Обоснование выбора merge_contextvars и JSON-рендера см. в документации
+structlog. structlog +1
 
 Обязательные поля и контракты событий
 
 Минимум для каждой записи:
 
-Поле Тип Обяз. Описание run_id str да стабильный идентификатор запуска stage str да extract/transform/validate/load actor str да system/scheduler/
+Поле Тип Обяз. Описание run_id str да стабильный идентификатор запуска stage str
+да extract/transform/validate/load actor str да system/scheduler/
 
 Для HTTP/клиентов API дополнительно:
 
-Поле Тип Обяз. Комментарий endpoint str да путь/URL эндпоинта params dict null усл. attempt int да номер попытки retry_after float null усл. duration_ms int да длительность вызова trace_id str null прод
+Поле Тип Обяз. Комментарий endpoint str да путь/URL эндпоинта params dict null
+усл. attempt int да номер попытки retry_after float null усл. duration_ms int да
+длительность вызова trace_id str null прод
 
-Примечание: в prod включайте OpenTelemetry лог-интеграцию, чтобы ID трассы автоматически вкалывались в записи через интеграцию opentelemetry-instrumentation-logging. opentelemetry-python-contrib.readthedocs.io
+Примечание: в prod включайте OpenTelemetry лог-интеграцию, чтобы ID трассы
+автоматически вкалывались в записи через интеграцию
+opentelemetry-instrumentation-logging.
+opentelemetry-python-contrib.readthedocs.io
 
 Редактирование секретов
 
-Словарь чувствительных ключей: api_key, token, password, secret, authorization, bearer, credential, access_token, refresh_token, private_key, x-api-key.
+Словарь чувствительных ключей: api_key, token, password, secret, authorization,
+bearer, credential, access_token, refresh_token, private_key, x-api-key.
 
-Маскирование применимо к полям событий и к строковым сообщениям через регулярные выражения на фильтре logging.
+Маскирование применимо к полям событий и к строковым сообщениям через регулярные
+выражения на фильтре logging.
 
 Все токены преобразуются к [REDACTED].
 
-Практика структурного вывода и фильтрации на уровне процессоров рекомендована для наблюдаемости и безопасности. signoz.io
+Практика структурного вывода и фильтрации на уровне процессоров рекомендована
+для наблюдаемости и безопасности. signoz.io
 
 Форматы вывода и детерминизм
 
 Консоль (dev/test): читабельный Key=Value.
 
-Файл/Prod: JSON-строка на запись. Используем JSONRenderer(sort_keys=True, ensure_ascii=False) для стабильного порядка ключей и корректной кириллицы. structlog +1
+Файл/Prod: JSON-строка на запись. Используем JSONRenderer(sort_keys=True,
+ensure_ascii=False) для стабильного порядка ключей и корректной кириллицы.
+structlog +1
 
-Именование файлов: {script_name}_{YYYYMMDD}.log.
+Именование файлов: {script_name}\_{YYYYMMDD}.log.
 
 Ротация: RotatingFileHandler(maxBytes=10MB, backupCount=10).
 
 Интеграция с OpenTelemetry
 
-Включение telemetry_enabled=True добавляет процессор, который читает текущий span и вносит trace_id/span_id в event_dict. Это стандартный прием для корреляции логов и трасс. OpenTelemetry +1
+Включение telemetry_enabled=True добавляет процессор, который читает текущий
+span и вносит trace_id/span_id в event_dict. Это стандартный прием для
+корреляции логов и трасс. OpenTelemetry +1
 
 Инварианты качества (QC) для stage="load"
 
@@ -112,7 +149,8 @@ Development: DEBUG, консоль text, файл JSON, OTel можно выкл
 
 Testing: WARNING, без файлов, но обязательные поля контекста сохраняются.
 
-Production: INFO, консоль JSON, файл JSON, OTel включен, trace_id обязателен для HTTP событий. OpenTelemetry
+Production: INFO, консоль JSON, файл JSON, OTel включен, trace_id обязателен для
+HTTP событий. OpenTelemetry
 
 Примеры
 
@@ -120,26 +158,37 @@ Production: INFO, консоль JSON, файл JSON, OTel включен, trace
 
 from bioetl.core.logger import UnifiedLogger, LoggerConfig
 
-UnifiedLogger.configure(LoggerConfig( level="INFO", console_format="json", file_enabled=True, file_path=Path("var/logs/pipeline_20251102.log"), telemetry_enabled=True, json_sort_keys=True, json_ensure_ascii=False, )) log = UnifiedLogger.get(name)
+UnifiedLogger.configure(LoggerConfig( level="INFO", console_format="json",
+file_enabled=True, file_path=Path("var/logs/pipeline_20251102.log"),
+telemetry_enabled=True, json_sort_keys=True, json_ensure_ascii=False, )) log =
+UnifiedLogger.get(name)
 
 Контекст запуска:
 
-from bioetl.core.logger import set_run_context set_run_context(run_id="r-20251102-001", stage="extract", actor="scheduler", source="chembl") log.info("Fetching", endpoint="/activity.json", params={"limit": 100}, attempt=1)
+from bioetl.core.logger import set_run_context
+set_run_context(run_id="r-20251102-001", stage="extract", actor="scheduler",
+source="chembl") log.info("Fetching", endpoint="/activity.json",
+params={"limit": 100}, attempt=1)
 
 Ошибка с трассировкой:
 
-try: do_io() except Exception: log.error("IO failed", exc_info=True, endpoint="/activity.json", attempt=2)
+try: do_io() except Exception: log.error("IO failed", exc_info=True,
+endpoint="/activity.json", attempt=2)
 
 Тестирование
 
 Юнит-тесты проверяют обязательные поля и поведение редактирования секретов.
 
-Golden-тесты на JSON: проверяется стабильный порядок ключей (sort_keys=True). structlog
+Golden-тесты на JSON: проверяется стабильный порядок ключей (sort_keys=True).
+structlog
 
-Тест OTel: активируем span и убеждаемся, что trace_id попадает в лог при включенной телеметрии. opentelemetry-python-contrib.readthedocs.io
+Тест OTel: активируем span и убеждаемся, что trace_id попадает в лог при
+включенной телеметрии. opentelemetry-python-contrib.readthedocs.io
 
 Миграция
 
-Из logging: заменить logging.getLogger на UnifiedLogger.get, включить configure в точке входа CLI.
+Из logging: заменить logging.getLogger на UnifiedLogger.get, включить configure
+в точке входа CLI.
 
-Из «чистого» structlog: подключить merge_contextvars, JSON-рендер с нужными параметрами и фильтр секретов. structlog
+Из «чистого» structlog: подключить merge_contextvars, JSON-рендер с нужными
+параметрами и фильтр секретов. structlog

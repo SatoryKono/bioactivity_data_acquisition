@@ -1,0 +1,72 @@
+{
+  "snapshot": {
+    "bioetl.clients": [
+      "BaseEntityClient",
+      "ChemblActivityClient",
+      "ChemblAssayClassMapEntityClient",
+      "ChemblAssayClassificationEntityClient",
+      "ChemblAssayClient",
+      "ChemblAssayEntityClient",
+      "ChemblAssayParametersEntityClient",
+      "ChemblClient",
+      "ChemblCompoundRecordEntityClient",
+      "ChemblDataValidityEntityClient",
+      "ChemblDocumentClient",
+      "ChemblDocumentTermEntityClient",
+      "ChemblEntityClientBase",
+      "ChemblEntityFetcher",
+      "ChemblEntityFetcherBase",
+      "ChemblEntityIterator",
+      "ChemblEntityIteratorBase",
+      "ChemblMoleculeEntityClient",
+      "ChemblTargetClient",
+      "ChemblTestitemClient",
+      "EntityConfig"
+    ],
+    "bioetl.clients.activity": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.assay": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_base_entity": [
+      "BaseEntityClient",
+      "ChemblEntityClientBase"
+    ],
+    "bioetl.clients.client_chembl_common": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_chembl_base": [
+      "ChemblClientProtocol",
+      "ChemblEntityFetcher",
+      "ChemblEntityFetcherBase",
+      "EntityConfig",
+      "make_entity_config"
+    ],
+    "bioetl.clients.client_chembl_entities": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.client_chembl_iterator": [
+      "ChemblEntityIterator",
+      "ChemblEntityIteratorBase"
+    ],
+    "bioetl.clients.client_exceptions": [
+      "ConnectionError",
+      "HTTPError",
+      "RequestException",
+      "Timeout"
+    ],
+    "bioetl.clients.document": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.entities": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.target": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ],
+    "bioetl.clients.testitem": [
+      "<error: ModuleNotFoundError: No module named 'bioetl.clients.entities.activity'>"
+    ]
+  }
+}

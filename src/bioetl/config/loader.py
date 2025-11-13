@@ -154,7 +154,8 @@ def load_config(
     if env_overrides:
         merged = _deep_merge(merged, env_overrides)
 
-    return PipelineConfig.model_validate(merged)
+    normalized = _migrate_legacy_sections(merged)
+    return PipelineConfig.model_validate(normalized)
 
 
 def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
@@ -178,6 +179,33 @@ def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
         merged = _deep_merge(merged, _load_with_extends(reference_path, stack=(*lineage, resolved)))
 
     return _deep_merge(merged, data)
+
+
+def _migrate_legacy_sections(payload: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize legacy configuration sections before validation."""
+
+    migrated: dict[str, Any] = dict(payload)
+    clients_section = migrated.pop("clients", None)
+
+    if isinstance(clients_section, Mapping):
+        chembl_legacy = clients_section.get("chembl")
+        if isinstance(chembl_legacy, Mapping):
+            chembl_target = migrated.get("chembl")
+            if isinstance(chembl_target, Mapping):
+                chembl_payload: dict[str, Any] = dict(chembl_target)
+            else:
+                chembl_payload = {}
+
+            status_endpoint = chembl_legacy.get("status_endpoint")
+            if isinstance(status_endpoint, str):
+                normalized_status = status_endpoint.strip()
+                if normalized_status and "status_endpoint" not in chembl_payload:
+                    chembl_payload["status_endpoint"] = normalized_status
+
+            if chembl_payload:
+                migrated["chembl"] = chembl_payload
+
+    return migrated
 
 
 def _load_yaml(path: Path) -> Any:

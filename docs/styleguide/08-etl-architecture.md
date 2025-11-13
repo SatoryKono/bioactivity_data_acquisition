@@ -1,14 +1,20 @@
 # ETL Pipeline Architecture
 
-This document defines the architectural standards for ETL pipelines in the `bioetl` project. All pipelines **MUST** follow these standards for consistency and maintainability.
+This document defines the architectural standards for ETL pipelines in the
+`bioetl` project. All pipelines **MUST** follow these standards for consistency
+and maintainability.
 
 ## Principles
 
-- **One Source, One Pipeline**: Each data source **MUST** have exactly one public pipeline.
-- **Unified Components**: All pipelines **MUST** use unified components (Logger, Writer, Client, Schema).
-- **Star Schema**: Data **SHOULD** be organized in star schema (dims + fact tables).
+- **One Source, One Pipeline**: Each data source **MUST** have exactly one
+  public pipeline.
+- **Unified Components**: All pipelines **MUST** use unified components (Logger,
+  Writer, Client, Schema).
+- **Star Schema**: Data **SHOULD** be organized in star schema (dims + fact
+  tables).
 - **Adapter Pattern**: External sources **MUST** integrate via adapters.
-- **Pipeline Contract**: All pipelines **MUST** follow the standard pipeline contract.
+- **Pipeline Contract**: All pipelines **MUST** follow the standard pipeline
+  contract.
 
 ## One Source, One Pipeline
 
@@ -23,6 +29,7 @@ Each external data source **MUST** have exactly one public pipeline:
 
 ```python
 from bioetl.pipelines.base import PipelineBase
+
 
 class ChEMBLActivityPipeline(PipelineBase):
     """Public pipeline for ChEMBL activity data extraction."""
@@ -40,22 +47,27 @@ class ChEMBLActivityPipeline(PipelineBase):
 class ChEMBLActivityPipeline1(PipelineBase):  # SHALL NOT create multiple
     pass
 
+
 class ChEMBLActivityPipeline2(PipelineBase):  # SHALL NOT create multiple
     pass
 ```
 
 ## Pipeline Naming Convention
 
-All pipelines **MUST** follow a consistent naming convention that reflects the entity being extracted and the data source.
+All pipelines **MUST** follow a consistent naming convention that reflects the
+entity being extracted and the data source.
 
 ### Pipeline Name Format (for code/configs)
 
 Pipeline names **MUST** use the format: `{entity}_{source}`
 
-- **Entity** comes first (what is being extracted): `document`, `testitem`, `target`, `assay`, `activity`
-- **Source** comes second (where data comes from): `chembl`, `pubchem`, `pubmed`, `crossref`, `openalex`, `semantic_scholar`, `uniprot`, `iuphar`
+- **Entity** comes first (what is being extracted): `document`, `testitem`,
+  `target`, `assay`, `activity`
+- **Source** comes second (where data comes from): `chembl`, `pubchem`,
+  `pubmed`, `crossref`, `openalex`, `semantic_scholar`, `uniprot`, `iuphar`
 
 **Valid Examples:**
+
 - `document_chembl` - document extraction from ChEMBL
 - `testitem_pubchem` - testitem extraction from PubChem
 - `assay_chembl` - assay extraction from ChEMBL
@@ -65,6 +77,7 @@ Pipeline names **MUST** use the format: `{entity}_{source}`
 - `target_iuphar` - target extraction from IUPHAR
 
 **Invalid Examples:**
+
 - `pubmed_document` ❌ (should be `document_pubmed`)
 - `openalex_document` ❌ (should be `document_openalex`)
 - `crossref_document` ❌ (should be `document_crossref`)
@@ -72,11 +85,14 @@ Pipeline names **MUST** use the format: `{entity}_{source}`
 
 ### Documentation File Name Format
 
-Pipeline documentation files **MUST** use the format: `NN-{entity}-{source}-extraction.md`
+Pipeline documentation files **MUST** use the format:
+`NN-{entity}-{source}-extraction.md`
 
-Where `NN` is a two-digit number for ordering, and the entity-source pattern matches the pipeline name.
+Where `NN` is a two-digit number for ordering, and the entity-source pattern
+matches the pipeline name.
 
 **Valid Examples:**
+
 - `05-assay-chembl-extraction.md`
 - `06-activity-chembl-extraction.md`
 - `07-testitem-chembl-extraction.md`
@@ -95,6 +111,7 @@ from bioetl.core.logger import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 
+
 class MyPipeline(PipelineBase):
     def extract(self):
         log.info("Extraction started", source="chembl")
@@ -104,6 +121,7 @@ class MyPipeline(PipelineBase):
 
 ```python
 from bioetl.core.output_writer import UnifiedOutputWriter
+
 
 class MyPipeline(PipelineBase):
     def export(self, df: pd.DataFrame):
@@ -116,6 +134,7 @@ class MyPipeline(PipelineBase):
 ```python
 from bioetl.core.api_client import UnifiedAPIClient
 
+
 class MyPipeline(PipelineBase):
     def __init__(self, config):
         super().__init__(config)
@@ -126,6 +145,7 @@ class MyPipeline(PipelineBase):
 
 ```python
 from bioetl.schemas import ActivitySchema
+
 
 class MyPipeline(PipelineBase):
     def validate(self, df: pd.DataFrame):
@@ -151,19 +171,23 @@ Data **SHOULD** be organized in star schema:
 
 ```python
 # Dimension table
-documents_dim = pd.DataFrame({
-    "document_id": ["DOC001", "DOC002"],
-    "title": ["Title 1", "Title 2"],
-    "doi": ["10.1234/example", "10.5678/example"],
-})
+documents_dim = pd.DataFrame(
+    {
+        "document_id": ["DOC001", "DOC002"],
+        "title": ["Title 1", "Title 2"],
+        "doi": ["10.1234/example", "10.5678/example"],
+    }
+)
 
 # Fact table with foreign keys
-activity_fact = pd.DataFrame({
-    "activity_id": ["ACT001", "ACT002"],
-    "document_id": ["DOC001", "DOC002"],  # FK to documents_dim
-    "target_id": ["TGT001", "TGT002"],  # FK to targets_dim
-    "value": [1.0, 2.0],
-})
+activity_fact = pd.DataFrame(
+    {
+        "activity_id": ["ACT001", "ACT002"],
+        "document_id": ["DOC001", "DOC002"],  # FK to documents_dim
+        "target_id": ["TGT001", "TGT002"],  # FK to targets_dim
+        "value": [1.0, 2.0],
+    }
+)
 ```
 
 ## Adapter Pattern
@@ -174,6 +198,7 @@ External sources **MUST** integrate via adapters:
 
 ```python
 from abc import ABC, abstractmethod
+
 
 class SourceAdapter(ABC):
     """Base adapter for external data sources."""
@@ -216,14 +241,15 @@ All pipelines **MUST** follow the standard contract:
 ### Stages
 
 1. **extract**: Fetch raw data from source
-2. **transform**: Normalize and enrich data
-3. **validate**: Validate against schema
-4. **export**: Write to output files
+1. **transform**: Normalize and enrich data
+1. **validate**: Validate against schema
+1. **export**: Write to output files
 
 ### Valid Examples
 
 ```python
 from bioetl.pipelines.base import PipelineBase
+
 
 class ActivityPipeline(PipelineBase):
     """Activity data pipeline following standard contract."""
@@ -261,9 +287,7 @@ When merging data from multiple sources:
 
 ```python
 def merge_activities(
-    primary: pd.DataFrame,
-    secondary: pd.DataFrame,
-    merge_keys: list[str]
+    primary: pd.DataFrame, secondary: pd.DataFrame, merge_keys: list[str]
 ) -> pd.DataFrame:
     """Merge activity data with conflict resolution."""
     merged = pd.merge(
@@ -271,7 +295,7 @@ def merge_activities(
         secondary,
         on=merge_keys,
         how="outer",
-        suffixes=("_primary", "_secondary")
+        suffixes=("_primary", "_secondary"),
     )
 
     # Conflict resolution: prefer primary source
@@ -335,6 +359,8 @@ Pipelines **SHOULD** be idempotent:
 
 ## References
 
-- Pipeline base: [`docs/pipelines/00-pipeline-base.md`](../pipelines/00-pipeline-base.md)
+- Pipeline base:
+  [`docs/pipelines/00-pipeline-base.md`](../pipelines/00-pipeline-base.md)
 - ETL contract: [`docs/etl_contract/`](../etl_contract/)
-- Sources architecture: [`docs/sources/00-sources-architecture.md`](../sources/00-sources-architecture.md)
+- Sources architecture:
+  [`docs/sources/00-sources-architecture.md`](../sources/00-sources-architecture.md)

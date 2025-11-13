@@ -16,7 +16,8 @@ from typing import Any, Protocol, cast
 import yaml
 
 from bioetl.core.logger import UnifiedLogger
-from bioetl.etl.vocab_store import VocabStoreError, load_vocab_store
+from bioetl.core.log_events import LogEvents
+from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 
 _chembl_new_client: Any | None = None
@@ -87,12 +88,11 @@ def _resolve_chembl_client() -> _ChemblClientProtocol:
 
     log = UnifiedLogger.get(__name__)
     if _chembl_import_error is not None:
-        log.warning(
-            "chembl_client.offline_stub_activated",
+        log.warning(LogEvents.CHEMBL_CLIENT_OFFLINE_STUB_ACTIVATED,
             reason=str(_chembl_import_error),
         )
     else:
-        log.info("chembl_client.offline_stub_forced")
+        log.info(LogEvents.CHEMBL_CLIENT_OFFLINE_STUB_FORCED)
     return cast(_ChemblClientProtocol, get_offline_new_client())
 
 
@@ -329,8 +329,7 @@ def audit_vocabularies(
             continue
         block = vocab_store.get(spec.dictionary)
         if not isinstance(block, Mapping):
-            log.warning(
-                "dictionary_missing",
+            log.warning(LogEvents.DICTIONARY_MISSING,
                 dictionary=spec.dictionary,
                 store=str(resolved_store),
             )
@@ -396,8 +395,7 @@ def audit_vocabularies(
         os.fsync(handle.fileno())
     os.replace(tmp_meta, meta_path)
 
-    log.info(
-        "vocab_audit_completed",
+    log.info(LogEvents.VOCAB_AUDIT_COMPLETED,
         rows=len(audit_rows),
         output=str(output_path),
         meta=str(meta_path),

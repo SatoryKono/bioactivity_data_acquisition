@@ -86,6 +86,41 @@ repos:
 
   - repo: local
     hooks:
+      - id: check-pipelines-layout
+        name: check-pipelines-layout
+        entry: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          ok = True
+          root = pathlib.Path("src/bioetl/pipelines")
+          if root.exists():
+              allowed_providers = r"(chembl|pubchem|uniprot|iuphar|pubmed|openalex|crossref|semanticscholar)"
+              allowed_entities = r"(assay|activity|target|document|testitem)"
+              allowed_stages = r"(extract|transform|validate|write|run)"
+              pat = re.compile(
+                  fr"^src/bioetl/pipelines/{allowed_providers}/{allowed_entities}/{allowed_stages}\.py$"
+              )
+              for path in root.rglob("*.py"):
+                  rel_path = path.as_posix()
+                  if "/common/" in rel_path:
+                      print(f"forbid common in pipelines: {rel_path}")
+                      ok = False
+                  if not pat.match(rel_path) and not rel_path.endswith(
+                      ("/__init__.py", "/base.py", "/chembl_base.py")
+                  ):
+                      print(f"bad pipeline path: {rel_path}")
+                      ok = False
+
+          if not ok:
+              sys.exit(1)
+          PY
+        language: system
+        files: ^src/bioetl/pipelines/.*\.py$
+        pass_filenames: false
+
       - id: check-module-names
         name: Validate module naming pattern
         entry: python -m tools.qa.check_module_names
@@ -107,6 +142,41 @@ repos:
       - id: check-output-artifacts
         name: Ensure large artifacts are not committed under data/output
         entry: python -m bioetl.cli.tools.check_output_artifacts
+        language: system
+        pass_filenames: false
+
+      - id: forbid-requests-exceptions-in-cli
+        name: Forbid requests.exceptions imports in CLI layer
+        entry: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          root = pathlib.Path("src/bioetl/cli")
+          if not root.exists():
+              sys.exit(0)
+
+          patterns = (
+              re.compile(r"\brequests\.exceptions\b"),
+              re.compile(r"\bfrom\s+requests\s+import\s+exceptions\b"),
+          )
+
+          violations: list[str] = []
+          for path in root.rglob("*.py"):
+              text = path.read_text(encoding="utf-8")
+              for pattern in patterns:
+                  if pattern.search(text):
+                      violations.append(
+                          f"{path.as_posix()}: replace requests.exceptions with bioetl.clients.exceptions"
+                      )
+                      break
+
+          if violations:
+              for violation in violations:
+                  print(violation)
+              sys.exit(1)
+          PY
         language: system
         pass_filenames: false
 

@@ -1,16 +1,24 @@
 # 8. New Pipeline Implementation Guide
 
-> **Note**: Implementation status: **planned**. All file paths referencing `src/bioetl/` in this document describe the intended architecture and are not yet implemented in the codebase.
+> **Note**: Implementation status: **planned**. All file paths referencing
+> `src/bioetl/` in this document describe the intended architecture and are not
+> yet implemented in the codebase.
 
 ## Overview
 
-This guide provides a step-by-step walkthrough for creating a new ETL pipeline within the `bioetl` framework. It brings together all the concepts from the previous documents—the `PipelineBase` contract, configuration, schema validation, and CLI integration—into a practical workflow.
+This guide provides a step-by-step walkthrough for creating a new ETL pipeline
+within the `bioetl` framework. It brings together all the concepts from the
+previous documents—the `PipelineBase` contract, configuration, schema
+validation, and CLI integration—into a practical workflow.
 
-By following these steps, you can ensure that your new pipeline is robust, maintainable, and fully compliant with the framework's architecture.
+By following these steps, you can ensure that your new pipeline is robust,
+maintainable, and fully compliant with the framework's architecture.
 
 ## Step 1: Create the Pipeline Class
 
-The first step is to create a new Python file for your pipeline in the `src/bioetl/pipelines/` directory. The file should contain a new class that inherits from `PipelineBase`.
+The first step is to create a new Python file for your pipeline in the
+`src/bioetl/pipelines/` directory. The file should contain a new class that
+inherits from `PipelineBase`.
 
 - **Location**: `src/bioetl/pipelines/<source>/<pipeline_name>.py`
 - **Example**: `src/bioetl/pipelines/uniprot/protein.py`
@@ -21,10 +29,12 @@ import pandas as pd
 from bioetl.pipelines.base import PipelineBase
 from bioetl.config import PipelineConfig
 
+
 class UniprotProteinPipeline(PipelineBase):
     """
     ETL pipeline for fetching protein data from the UniProt API.
     """
+
     def __init__(self, config: PipelineConfig, run_id: str):
         super().__init__(config, run_id)
         # TODO: Initialize your API client here.
@@ -41,7 +51,8 @@ class UniprotProteinPipeline(PipelineBase):
 
 ## Step 2: Create the Pandera Schema
 
-Define the schema for your pipeline's **output**. This is a critical step that dictates the final structure of your data.
+Define the schema for your pipeline's **output**. This is a critical step that
+dictates the final structure of your data.
 
 - **Location**: `src/bioetl/schemas/<source>/<pipeline_name>_out.py`
 - **Example**: `src/bioetl/schemas/uniprot/protein_out.py`
@@ -51,10 +62,12 @@ Define the schema for your pipeline's **output**. This is a critical step that d
 import pandera as pa
 from pandera.typing import Series, String, Int64
 
+
 class UniprotProteinSchema(pa.SchemaModel):
     """
     Pandera schema for the final, transformed UniProt protein data.
     """
+
     uniprot_id: Series[String] = pa.Field(nullable=False, unique=True)
     protein_name: Series[String] = pa.Field(nullable=False)
     gene_name: Series[String] = pa.Field(nullable=True)
@@ -67,7 +80,9 @@ class UniprotProteinSchema(pa.SchemaModel):
 
 ## Step 3: Create the YAML Configuration
 
-Create the YAML configuration file that will drive your pipeline. Start by copying the skeleton from the configuration guide (`02-pipeline-config.md`) and filling in the details.
+Create the YAML configuration file that will drive your pipeline. Start by
+copying the skeleton from the configuration guide (`02-pipeline-config.md`) and
+filling in the details.
 
 - **Location**: `src/bioetl/configs/pipelines/<source>/<pipeline_name>.yaml`
 - **Example**: `src/bioetl/configs/pipelines/uniprot/protein.yaml`
@@ -102,23 +117,33 @@ write:
 ## Step 4: Implement the `extract()` Method
 
 Flesh out the `extract()` method in your pipeline class. This involves:
+
 1. Initializing a robust API client (as described in `03-extraction.md`).
-2. Implementing the logic to fetch all pages of data from the source.
-3. Returning the raw data as a DataFrame.
+1. Implementing the logic to fetch all pages of data from the source.
+1. Returning the raw data as a DataFrame.
+
+Proceed to Step 5 once extraction results pass deterministic validation and
+schema checks.
 
 ## Step 5: Implement the `transform()` Method
 
 Flesh out the `transform()` method. This is typically an iterative process:
-1. Implement the core transformation logic (renaming, normalization, type casting).
-2. Run a `--dry-run` to see the validation errors from Pandera.
-3. Refine the transformation logic to fix the errors.
-4. Repeat until the `--dry-run` completes successfully.
+
+1. Implement the core transformation logic (renaming, normalization, type
+   casting).
+1. Run a `--dry-run` to see the validation errors from Pandera.
+1. Refine the transformation logic to fix the errors.
+1. Repeat until the `--dry-run` completes successfully.
+
+Advance to full test runs only after the dry-run completes without validation
+errors.
 
 **Workflow using the CLI:**
 
 ```bash
 # Use --limit to test with a small number of records for faster iteration.
-python -m bioetl.cli.main uniprot_protein \
+# not implemented
+python -m bioetl.cli.cli_app uniprot_protein \
     --output-dir /tmp/uniprot-test \
     --limit 50 \
     --dry-run
@@ -126,22 +151,31 @@ python -m bioetl.cli.main uniprot_protein \
 
 ## Step 6: Full Test Run
 
-Once the `--dry-run` is successful, perform a full test run without the `--dry-run` or `--limit` flags.
+Once the `--dry-run` is successful, perform a full test run without the
+`--dry-run` or `--limit` flags.
 
 ```bash
-python -m bioetl.cli.main uniprot_protein --output-dir /data/output/uniprot/protein-latest
+# not implemented
+python -m bioetl.cli.cli_app uniprot_protein --output-dir /data/output/uniprot/protein-latest
 ```
 
 Inspect the output artifacts:
+
 - Check the Parquet file to ensure the data looks correct.
-- Review the `meta.yaml` file to ensure all the fields (run ID, hashes, row count) have been populated correctly.
+- Review the `meta.yaml` file to ensure all the fields (run ID, hashes, row
+  count) have been populated correctly.
+
+Confirm both artifacts before promoting the pipeline.
 
 ## Step 7: Automatic CLI Registration
 
-That's it! Because you followed the framework's conventions, your new `uniprot_protein` pipeline is automatically registered with the CLI. You can confirm this by running:
+That's it! Because you followed the framework's conventions, your new
+`uniprot_protein` pipeline is automatically registered with the CLI. You can
+confirm this by running:
 
 ```bash
-python -m bioetl.cli.main list
+python -m bioetl.cli.cli_app list
 ```
 
-Your new pipeline should appear in the list of available commands, ready for production use.
+Your new pipeline should appear in the list of available commands, ready for
+production use.

@@ -13,7 +13,8 @@ with an underscore (for example `_activity`, `_documents`). The directory is
 created automatically when a `PipelineBase` instance boots, mirroring the sample
 runs documented in the pipeline catalog. Inside each folder, a single filename
 stem captures the pipeline code, optional mode, and a deterministic run tag (for
-example a date), and all artifacts share that stem. 【F:src/bioetl/pipelines/base.py†L41-L127】
+example a date), and all artifacts share that stem.
+【F:src/bioetl/pipelines/base.py†L41-L127】
 
 A representative snapshot of `/data/output/` therefore looks like this:
 
@@ -51,18 +52,18 @@ A representative snapshot of `/data/output/` therefore looks like this:
 ```
 
 The concrete filenames follow the conventions laid out in the pipeline cards:
-CSV or Parquet datasets, optional correlation reports, and required
-`meta.yaml` files for every pipeline. 【F:docs/pipelines/10-pipelines-catalog.md†L48-L210】
+CSV or Parquet datasets, optional correlation reports, and required `meta.yaml`
+files for every pipeline. 【F:docs/pipelines/10-pipelines-catalog.md†L48-L210】
 
 ## 2. Artifact Roles and Relationships
 
-| Artifact | Purpose | Notes |
-| --- | --- | --- |
-| `<stem>.csv` / `<stem>.parquet` | Primary dataset exported by the pipeline. | Documented per pipeline in the catalog coverage matrix. 【F:docs/pipelines/10-pipelines-catalog.md†L7-L210】 |
-| `<stem>_quality_report.csv` | Deterministic QC metrics (row counts, duplicates, missingness). | Always generated in the standard output mode. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1037-L1044】 |
-| `<stem>_correlation_report.csv` | Optional correlation matrix for numeric fields. | Only present when correlation post-processing is enabled. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1039-L1046】 |
-| `<stem>_qc.csv` | Aggregated QC summary derived from validation hooks. | Declared as part of the shared artifact plan so downstream QA can diff deterministic runs. 【F:src/bioetl/pipelines/base.py†L85-L127】 |
-| `<stem>_meta.yaml` | Canonical metadata record containing configuration fingerprints, schema versions, row counts, hash details, and lineage. | Captures the full structure defined in the determinism policy. 【F:docs/determinism/00-determinism-policy.md†L73-L119】 |
+| Artifact                        | Purpose                                                                                                                  | Notes                                                                                                                                       |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<stem>.csv` / `<stem>.parquet` | Primary dataset exported by the pipeline.                                                                                | Documented per pipeline in the catalog coverage matrix. 【F:docs/pipelines/10-pipelines-catalog.md†L7-L210】                                |
+| `<stem>_quality_report.csv`     | Deterministic QC metrics (row counts, duplicates, missingness).                                                          | Always generated in the standard output mode. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1037-L1044】             |
+| `<stem>_correlation_report.csv` | Optional correlation matrix for numeric fields.                                                                          | Only present when correlation post-processing is enabled. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1039-L1046】 |
+| `<stem>_qc.csv`                 | Aggregated QC summary derived from validation hooks.                                                                     | Declared as part of the shared artifact plan so downstream QA can diff deterministic runs. 【F:src/bioetl/pipelines/base.py†L85-L127】      |
+| `<stem>_meta.yaml`              | Canonical metadata record containing configuration fingerprints, schema versions, row counts, hash details, and lineage. | Captures the full structure defined in the determinism policy. 【F:docs/determinism/00-determinism-policy.md†L73-L119】                     |
 
 `meta.yaml` now records additional lineage fields emitted directly by the shared
 writer: the configuration schema version (`config_version`), the pipeline
@@ -70,13 +71,20 @@ implementation version (`pipeline_version`), and the extraction context supplied
 by the ChEMBL clients (`chembl_release`, request `filters`, and
 `requested_at_utc`). These keys make it possible to audit which API release was
 queried with which filters while keeping the configuration provenance alongside
-the existing determinism metadata.【F:src/bioetl/core/output.py†L187-L207】【F:src/bioetl/pipelines/base.py†L375-L420】
-| `<stem>_run_manifest.json` | Run manifest enumerating generated files and checksums (extended mode). | Added by the extended artifact mode described in the activity pipeline specification. 【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1047-L1051】 |
-| Logs (`/data/logs/<pipeline>/<stem>.log`) | Structured log output tied to the same stem for traceability. | Created alongside filesystem artifacts by the orchestrator. 【F:src/bioetl/pipelines/base.py†L68-L113】 |
+the existing determinism
+metadata.【F:src/bioetl/core/output.py†L187-L207】【F:src/bioetl/pipelines/base.py†L375-L420】
+| `<stem>_run_manifest.json` | Run manifest enumerating generated files and
+checksums (extended mode). | Added by the extended artifact mode described in
+the activity pipeline specification.
+【F:docs/pipelines/activity-chembl/09-activity-chembl-extraction.md†L1047-L1051】
+| | Logs (`/data/logs/<pipeline>/<stem>.log`) | Structured log output tied to
+the same stem for traceability. | Created alongside filesystem artifacts by the
+orchestrator. 【F:src/bioetl/pipelines/base.py†L68-L113】 |
 
 The `meta.yaml` artifact links everything together: it lists every output file,
 their hashes, the schema version, and the configuration fingerprint. This file
-is the canonical lineage document and must accompany any dataset sharing. 【F:docs/determinism/00-determinism-policy.md†L73-L119】
+is the canonical lineage document and must accompany any dataset sharing.
+【F:docs/determinism/00-determinism-policy.md†L73-L119】
 
 Run manifests complement `meta.yaml` by providing a machine-readable list of
 artifacts that can be ingested by downstream automation such as golden tests and
@@ -91,14 +99,18 @@ extended run of the activity pipeline on 2025-10-28 uses the stem
 - Dataset and QC artifacts: `activity_all_20251028.csv`,
   `activity_all_20251028_quality_report.csv`, optional
   `activity_all_20251028_correlation_report.csv`, and the aggregated
-  `activity_all_20251028_qc.csv`. 【F:docs/pipelines/06-activity-data-extraction.md†L1037-L1046】【F:src/bioetl/pipelines/base.py†L85-L127】
+  `activity_all_20251028_qc.csv`.
+  【F:docs/pipelines/06-activity-data-extraction.md†L1037-L1046】【F:src/bioetl/pipelines/base.py†L85-L127】
 - Metadata: `activity_all_20251028_meta.yaml` records the configuration hash,
-  schema version, row counts, hashes, QC summary, and lineage fields shown in the
-  determinism policy example. 【F:docs/determinism/00-determinism-policy.md†L73-L119】
+  schema version, row counts, hashes, QC summary, and lineage fields shown in
+  the determinism policy example.
+  【F:docs/determinism/00-determinism-policy.md†L73-L119】
 - Run manifest: `activity_all_20251028_run_manifest.json` enumerates the same
-  files for artifact audits. 【F:docs/pipelines/06-activity-data-extraction.md†L1047-L1051】
+  files for artifact audits.
+  【F:docs/pipelines/06-activity-data-extraction.md†L1047-L1051】
 - Logs: `/data/logs/activity/activity_all_20251028.log` houses the structured
-  console/file log for the run, sharing the same stem. 【F:src/bioetl/pipelines/base.py†L68-L113】
+  console/file log for the run, sharing the same stem.
+  【F:src/bioetl/pipelines/base.py†L68-L113】
 
 The same structure applies to `document`, `target`, `assay`, and `testitem`
 pipelines, with stems such as `documents_all_20251021` or `target_all_20251028`
@@ -108,8 +120,9 @@ per the catalog. 【F:docs/pipelines/10-pipelines-catalog.md†L48-L210】
 
 `PipelineBase` tracks every run via the `*_meta.yaml` files and applies a
 retention policy when new runs are registered. Only the most recent `N` run
-stems (default 5) are preserved; older datasets, QC outputs, manifests, metadata,
-and logs are pruned together so the directory never drifts out of sync. 【F:src/bioetl/pipelines/base.py†L129-L166】
+stems (default 5) are preserved; older datasets, QC outputs, manifests,
+metadata, and logs are pruned together so the directory never drifts out of
+sync. 【F:src/bioetl/pipelines/base.py†L129-L166】
 
 Operators can raise or lower the retention count per pipeline when instantiating
 the orchestrator, giving fine-grained control over how many deterministic runs

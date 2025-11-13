@@ -5,16 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
+from pydantic import Field, PositiveInt, model_validator
+
+from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 
 
-class ActivitySourceParameters(BaseModel):
+class ActivitySourceParameters(BaseSourceParameters):
     """Free-form parameters specific to the activity source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     base_url: str | None = Field(
         default=None,
@@ -26,7 +26,9 @@ class ActivitySourceParameters(BaseModel):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> ActivitySourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None = None
+    ) -> ActivitySourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -39,28 +41,35 @@ class ActivitySourceParameters(BaseModel):
         ActivitySourceParameters
             Constructed parameters object.
         """
-        select_fields_raw = params.get("select_fields")
+        if params is None:
+            return cls()
+
+        normalized = dict(cls._normalize_mapping(params))
+        normalized.pop("max_url_length", None)
+
+        select_fields_raw = normalized.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
             if isinstance(select_fields_raw, Sequence) and not isinstance(
                 select_fields_raw, (str, bytes)
             ):
                 # Type narrowing: after isinstance check, select_fields_raw is Sequence[Any]
-                # Явно типизируем элементы для избежания предупреждений типизации
-                # basedpyright не может вывести тип field из Sequence[Any]
-                # Используем генератор списка с явной типизацией через cast
-                select_fields = tuple(str(cast(Any, field)) for field in select_fields_raw)  # pyright: ignore[reportUnknownVariableType]
+                # Explicitly cast elements to silence type checking warnings.
+                # basedpyright cannot infer the field type from Sequence[Any].
+                # Use a generator expression with explicit string conversion.
+                select_fields = tuple(
+                    str(cast(Any, field)) for field in select_fields_raw
+                )  # pyright: ignore[reportUnknownVariableType]
+            else:
+                select_fields = (str(select_fields_raw),)
 
-        return cls(
-            base_url=params.get("base_url"),
-            select_fields=select_fields,
-        )
+        normalized["select_fields"] = select_fields
+
+        return cls(**normalized)
 
 
-class ActivitySourceConfig(BaseModel):
+class ActivitySourceConfig(BaseSourceConfig[ActivitySourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
@@ -70,7 +79,15 @@ class ActivitySourceConfig(BaseModel):
         default=25,
         description="Effective batch size for pagination requests (capped at 25).",
     )
+    max_url_length: PositiveInt = Field(
+        default=2000,
+        description="Upper bound for paginated URL length when building endpoints.",
+    )
     parameters: ActivitySourceParameters = Field(default_factory=ActivitySourceParameters)
+
+    parameters_model = ActivitySourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
 
     @model_validator(mode="after")
     def enforce_limits(self) -> ActivitySourceConfig:
@@ -83,30 +100,37 @@ class ActivitySourceConfig(BaseModel):
         """
         if self.batch_size > 25:
             self.batch_size = 25
+        if self.max_url_length > 2000:
+            self.max_url_length = 2000
         return self
 
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> ActivitySourceConfig:
-        """Create an :class:`ActivitySourceConfig` from the generic :class:`SourceConfig`.
+    def _build_payload(
+        cls,
+        *,
+        config: SourceConfig,
+        parameters: ActivitySourceParameters,
+    ) -> dict[str, Any]:
+        """Extend the base payload with activity-specific fields."""
 
-        Parameters
-        ----------
-        config
-            Generic source configuration.
+        payload = super()._build_payload(config=config, parameters=parameters)
+        payload["max_url_length"] = cls._extract_max_url_length(config.parameters)
+        return payload
 
-        Returns
-        -------
-        ActivitySourceConfig
-            Pipeline-specific configuration.
-        """
-        batch_size = config.batch_size if config.batch_size is not None else 25
-        parameters = ActivitySourceParameters.from_mapping(config.parameters)
+    @staticmethod
+    def _extract_max_url_length(parameters: Mapping[str, Any] | None) -> int:
+        """Extract a validated ``max_url_length`` value from the raw parameters."""
 
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            batch_size=batch_size,
-            parameters=parameters,
-        )
+        mapping = parameters or {}
+        raw = mapping.get("max_url_length")
+        if raw is None:
+            return 2000
+        try:
+            value = int(raw)
+        except (TypeError, ValueError) as exc:
+            msg = "max_url_length must be coercible to an integer"
+            raise ValueError(msg) from exc
+        if value <= 0:
+            msg = "max_url_length must be a positive integer"
+            raise ValueError(msg)
+        return value

@@ -2,13 +2,22 @@
 
 ## Overview
 
-Modern applications, especially those in a microservices environment, rely on distributed tracing to provide observability into requests as they travel across different services. [OpenTelemetry](https://opentelemetry.io/) has emerged as the industry standard for instrumenting code to generate traces, metrics, and logs.
+Modern applications, especially those in a microservices environment, rely on
+distributed tracing to provide observability into requests as they travel across
+different services. [OpenTelemetry](https://opentelemetry.io/) has emerged as
+the industry standard for instrumenting code to generate traces, metrics, and
+logs.
 
-The `bioetl` logging system includes an optional, first-class integration with OpenTelemetry. When enabled, this integration automatically enriches all log records with the `trace_id` and `span_id` from the active OpenTelemetry span. This allows for seamless correlation of logs with traces in observability platforms like Jaeger, Datadog, or SigNoz.
+The `bioetl` logging system includes an optional, first-class integration with
+OpenTelemetry. When enabled, this integration automatically enriches all log
+records with the `trace_id` and `span_id` from the active OpenTelemetry span.
+This allows for seamless correlation of logs with traces in observability
+platforms like Jaeger, Datadog, or SigNoz.
 
 ## Enabling the Integration
 
-The OpenTelemetry integration is disabled by default. It can be enabled by setting a single parameter in the `LoggerConfig`:
+The OpenTelemetry integration is disabled by default. It can be enabled by
+setting a single parameter in the `LoggerConfig`:
 
 ```python
 # In your main application entry point
@@ -21,11 +30,16 @@ config = LoggerConfig(
 UnifiedLogger.configure(config)
 ```
 
-When `telemetry_enabled` is set to `True`, the `UnifiedLogger` adds a special processor to the `structlog` pipeline. This processor inspects the active OpenTelemetry context, extracts the current `trace_id` and `span_id`, and injects them into the log event dictionary.
+When `telemetry_enabled` is set to `True`, the `UnifiedLogger` adds a special
+processor to the `structlog` pipeline. This processor inspects the active
+OpenTelemetry context, extracts the current `trace_id` and `span_id`, and
+injects them into the log event dictionary.
 
 ## How It Works
 
-For the integration to work, your application must be instrumented with the OpenTelemetry SDK. This is typically done at the application's entry point using an auto-instrumentation agent or by manually configuring the SDK.
+For the integration to work, your application must be instrumented with the
+OpenTelemetry SDK. This is typically done at the application's entry point using
+an auto-instrumentation agent or by manually configuring the SDK.
 
 **Example of Manual OpenTelemetry Setup:**
 
@@ -45,7 +59,8 @@ trace.set_tracer_provider(provider)
 tracer = trace.get_tracer(__name__)
 ```
 
-Once the tracer is configured, you can create spans to trace the execution of your code.
+Once the tracer is configured, you can create spans to trace the execution of
+your code.
 
 ```python
 from bioetl.core.logger import UnifiedLogger
@@ -65,7 +80,8 @@ with tracer.start_as_current_span("my_etl_operation") as span:
 
 ### Log Output with Telemetry Enabled
 
-When the code above is run with `telemetry_enabled=True`, the resulting JSON logs will automatically contain the new fields:
+When the code above is run with `telemetry_enabled=True`, the resulting JSON
+logs will automatically contain the new fields:
 
 ```json
 {
@@ -79,4 +95,8 @@ When the code above is run with `telemetry_enabled=True`, the resulting JSON log
 }
 ```
 
-This automatic enrichment is the key to powerful observability. In a compatible backend, you can now instantly jump from a specific trace to all the logs that were generated during that trace, or from a specific log message directly to the trace that produced it. This dramatically reduces the time it takes to debug issues in production environments.
+This automatic enrichment is the key to powerful observability. In a compatible
+backend, you can now instantly jump from a specific trace to all the logs that
+were generated during that trace, or from a specific log message directly to the
+trace that produced it. This dramatically reduces the time it takes to debug
+issues in production environments.

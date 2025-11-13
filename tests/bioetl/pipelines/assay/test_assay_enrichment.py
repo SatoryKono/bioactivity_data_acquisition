@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients import ChemblClient
-from bioetl.pipelines.assay.assay_enrichment import enrich_with_assay_parameters
+from bioetl.pipelines.chembl.assay.normalize import enrich_with_assay_parameters
 
 
 @pytest.mark.unit

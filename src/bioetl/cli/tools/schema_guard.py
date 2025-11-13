@@ -1,32 +1,61 @@
-"""CLI для проверки конфигураций и схем."""
+"""CLI command ``bioetl-schema-guard``."""
 
 from __future__ import annotations
 
-import typer
+import importlib
+from typing import Any, cast
 
-from bioetl.cli.tools import create_app
-from bioetl.tools.schema_guard import run_schema_guard
+from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools._typer import TyperApp, create_app, run_app
+from bioetl.tools.schema_guard import run_schema_guard as run_schema_guard_sync
 
-app = create_app(
+typer = cast(Any, importlib.import_module("typer"))
+
+__all__ = ["app", "main", "run", "run_schema_guard"]
+run_schema_guard = run_schema_guard_sync
+
+app: TyperApp = create_app(
     name="bioetl-schema-guard",
-    help_text="Валидация конфигураций пайплайнов и реестра схем",
+    help_text="Validate pipeline configs and the Pandera registry",
 )
 
 
 @app.command()
 def main() -> None:
-    """Выполнить проверку схем."""
+    """Run configuration and schema validation."""
 
-    results, registry_errors, report_path = run_schema_guard()
-    invalid = [name for name, item in results.items() if not item["valid"]]
-    if invalid or registry_errors:
+    try:
+        results, registry_errors, report_path = run_schema_guard()
+    except Exception as exc:  # noqa: BLE001
+        typer.secho(str(exc), err=True, fg=typer.colors.RED)
+        exit_with_code(1, cause=exc)
+
+    invalid_configs = [
+        name for name, payload in results.items() if not payload.get("valid", False)
+    ]
+
+    if invalid_configs or registry_errors:
         typer.secho(
-            f"Найдены проблемы в конфигурациях/схемах. Отчёт: {report_path}",
+            "Issues detected in configurations or schema registry:",
             fg=typer.colors.RED,
         )
-        raise typer.Exit(code=1)
-    typer.echo(f"Все конфигурации валидны. Отчёт: {report_path}")
+        if invalid_configs:
+            typer.echo(" - Invalid configurations: " + ", ".join(sorted(invalid_configs)))
+        if registry_errors:
+            typer.echo(" - Schema registry errors:")
+            for error in registry_errors:
+                typer.echo(f"   * {error}")
+        typer.echo(f"Report: {report_path.resolve()}")
+        exit_with_code(1)
+
+    typer.echo(f"All configurations are valid. Report: {report_path.resolve()}")
+    exit_with_code(0)
 
 
 def run() -> None:
-    app()
+    """Execute the Typer application."""
+    run_app(app)
+
+
+if __name__ == "__main__":
+    run()

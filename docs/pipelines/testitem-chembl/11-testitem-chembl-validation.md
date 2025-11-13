@@ -1,8 +1,6 @@
 # 11 TestItem ChEMBL Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
@@ -20,9 +18,9 @@ The pipeline uses `TestItemSchema` for validation:
 ## Validation Workflow
 
 1. **Schema Validation**: Validates against TestItemSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `molecule_chembl_id` values
-3. **Structure Validation**: Validates InChI/SMILES formats
-4. **Referential Integrity**: Checks molecule references in related tables
+1. **Duplicate Detection**: Ensures duplicate-free `molecule_chembl_id` values
+1. **Structure Validation**: Validates InChI/SMILES formats
+1. **Referential Integrity**: Checks molecule references in related tables
 
 ## Constraints
 

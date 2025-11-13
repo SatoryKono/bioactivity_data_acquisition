@@ -7,7 +7,7 @@ import json
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.assay.assay_transform import validate_assay_parameters_truv
+from bioetl.pipelines.chembl.assay.transform import validate_assay_parameters_truv
 
 
 @pytest.mark.unit

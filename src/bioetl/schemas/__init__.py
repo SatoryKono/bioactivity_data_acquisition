@@ -8,7 +8,100 @@ from importlib import import_module
 
 import pandera as pa
 
-__all__ = ["SchemaRegistryEntry", "SchemaRegistry", "SCHEMA_REGISTRY", "get_schema"]
+from . import (
+    chembl_activity_schema,
+    chembl_assay_schema,
+    chembl_document_schema,
+    chembl_target_schema,
+    chembl_testitem_schema,
+)
+
+__all__ = [
+    "SchemaRegistryEntry",
+    "SchemaRegistry",
+    "SCHEMA_REGISTRY",
+    "get_schema",
+    "ChemblActivitySchema",
+    "ChemblAssaySchema",
+    "ChemblDocumentSchema",
+    "ChemblTargetSchema",
+    "ChemblTestItemSchema",
+    "CHEMBL_ACTIVITY_COLUMN_ORDER",
+    "CHEMBL_ASSAY_COLUMN_ORDER",
+    "CHEMBL_DOCUMENT_COLUMN_ORDER",
+    "CHEMBL_TARGET_COLUMN_ORDER",
+    "CHEMBL_TESTITEM_COLUMN_ORDER",
+    "CHEMBL_ACTIVITY_STANDARD_TYPES",
+    "CHEMBL_ACTIVITY_RELATIONS",
+    "CHEMBL_ACTIVITY_PROPERTY_KEYS",
+]
+
+ChemblActivitySchema = chembl_activity_schema.ActivitySchema
+CHEMBL_ACTIVITY_COLUMN_ORDER = chembl_activity_schema.COLUMN_ORDER
+CHEMBL_ACTIVITY_STANDARD_TYPES = chembl_activity_schema.STANDARD_TYPES
+CHEMBL_ACTIVITY_RELATIONS = chembl_activity_schema.RELATIONS
+CHEMBL_ACTIVITY_PROPERTY_KEYS = chembl_activity_schema.ACTIVITY_PROPERTY_KEYS
+
+ChemblAssaySchema = chembl_assay_schema.AssaySchema
+CHEMBL_ASSAY_COLUMN_ORDER = chembl_assay_schema.COLUMN_ORDER
+
+ChemblDocumentSchema = chembl_document_schema.DocumentSchema
+CHEMBL_DOCUMENT_COLUMN_ORDER = chembl_document_schema.COLUMN_ORDER
+
+ChemblTargetSchema = chembl_target_schema.TargetSchema
+CHEMBL_TARGET_COLUMN_ORDER = chembl_target_schema.COLUMN_ORDER
+
+ChemblTestItemSchema = chembl_testitem_schema.TestItemSchema
+CHEMBL_TESTITEM_COLUMN_ORDER = chembl_testitem_schema.COLUMN_ORDER
+
+
+def _clone_schema_with_metadata(
+    schema: pa.DataFrameSchema,
+    extra_metadata: Mapping[str, object],
+) -> pa.DataFrameSchema:
+    merged_metadata: dict[str, object] = {}
+    if schema.metadata:
+        merged_metadata.update(schema.metadata)
+    merged_metadata.update(dict(extra_metadata))
+
+    unique_value = schema.unique
+    if isinstance(unique_value, list):
+        unique_arg: object = list(unique_value)
+    else:
+        unique_arg = unique_value
+
+    return pa.DataFrameSchema(
+        columns=dict(schema.columns),
+        checks=list(schema.checks),
+        index=schema.index,
+        dtype=schema.dtype,
+        coerce=schema.coerce,
+        strict=schema.strict,
+        ordered=schema.ordered,
+        unique=unique_arg,
+        report_duplicates=schema.report_duplicates,
+        unique_column_names=schema.unique_column_names,
+        add_missing_columns=schema.add_missing_columns,
+        drop_invalid_rows=schema.drop_invalid_rows,
+        name=schema.name,
+        title=schema.title,
+        description=schema.description,
+        parsers=list(schema.parsers),
+        metadata=merged_metadata,
+    )
+
+
+if not hasattr(pa.DataFrameSchema, "set_metadata"):
+    def _set_metadata(  # type: ignore[override]
+        self: pa.DataFrameSchema,
+        metadata: Mapping[str, object],
+    ) -> pa.DataFrameSchema:
+        if not isinstance(metadata, Mapping):
+            msg = "metadata must be a mapping"
+            raise TypeError(msg)
+        return _clone_schema_with_metadata(self, metadata)
+
+    pa.DataFrameSchema.set_metadata = _set_metadata  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,10 +132,30 @@ class SchemaRegistry:
     ) -> SchemaRegistryEntry:
         """Register a schema and return the created entry."""
 
+        if not isinstance(version, str):
+            msg = f"Schema '{identifier}' version must be string."
+            raise TypeError(msg)
+
         if identifier in self._entries:
             msg = f"Schema '{identifier}' is already registered"
             raise ValueError(msg)
-        normalized_order = tuple(column_order or tuple(schema.columns.keys()))
+
+        metadata = schema.metadata or {}
+        metadata_column_order = metadata.get("column_order")
+        metadata_name = metadata.get("name")
+        metadata_version = metadata.get("version")
+
+        effective_column_order: Sequence[str] | None = column_order
+        if effective_column_order is None and metadata_column_order:
+            effective_column_order = tuple(metadata_column_order)
+            schema_columns_tuple = tuple(schema.columns.keys())
+            if tuple(metadata_column_order) != schema_columns_tuple:
+                msg = (
+                    f"Schema '{identifier}' metadata column_order does not match schema columns."
+                )
+                raise ValueError(msg)
+
+        normalized_order = tuple(effective_column_order or tuple(schema.columns.keys()))
         if len(set(normalized_order)) != len(normalized_order):
             msg = f"Schema '{identifier}' column order contains duplicates"
             raise ValueError(msg)
@@ -52,9 +165,24 @@ class SchemaRegistry:
                 f"Schema '{identifier}' column order references missing columns: {missing_columns}"
             )
             raise ValueError(msg)
+
+        if metadata_column_order is not None and tuple(metadata_column_order) != normalized_order:
+            msg = (
+                f"Schema '{identifier}' metadata column_order does not match registered order."
+            )
+            raise ValueError(msg)
+
+        if metadata_version is not None and str(metadata_version) != version:
+            msg = (
+                f"Schema '{identifier}' metadata version '{metadata_version}' "
+                f"does not match declared version '{version}'."
+            )
+            raise ValueError(msg)
+
+        resolved_name = name or metadata_name or schema.name or identifier.split(".")[-1]
         entry = SchemaRegistryEntry(
             identifier=identifier,
-            name=name or schema.name or identifier.split(".")[-1],
+            name=resolved_name,
             version=version,
             column_order=normalized_order,
             schema=schema,
@@ -72,7 +200,11 @@ class SchemaRegistry:
         module = import_module(module_path)
         schema = getattr(module, attr)
         version = getattr(module, "SCHEMA_VERSION", "0.0.0")
-        column_order = getattr(module, "COLUMN_ORDER", tuple(getattr(schema, "columns", {}).keys()))
+        column_order = getattr(
+            module,
+            "COLUMN_ORDER",
+            schema.metadata.get("column_order") if schema.metadata else None,
+        )
         name = getattr(schema, "name", attr)
 
         if not isinstance(schema, pa.DataFrameSchema):
@@ -135,43 +267,43 @@ def _register_builtin_schema(
 
 
 _register_builtin_schema(
-    identifier="bioetl.schemas.activity.activity_chembl.ActivitySchema",
-    module_path="bioetl.schemas.activity.activity_chembl",
+    identifier="bioetl.schemas.chembl_activity_schema.ActivitySchema",
+    module_path="bioetl.schemas.chembl_activity_schema",
     schema_attr="ActivitySchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.testitem.testitem_chembl.TestItemSchema",
-    module_path="bioetl.schemas.testitem.testitem_chembl",
+    identifier="bioetl.schemas.chembl_testitem_schema.TestItemSchema",
+    module_path="bioetl.schemas.chembl_testitem_schema",
     schema_attr="TestItemSchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.assay.assay_chembl.AssaySchema",
-    module_path="bioetl.schemas.assay.assay_chembl",
+    identifier="bioetl.schemas.chembl_assay_schema.AssaySchema",
+    module_path="bioetl.schemas.chembl_assay_schema",
     schema_attr="AssaySchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.document.document_chembl.DocumentSchema",
-    module_path="bioetl.schemas.document.document_chembl",
+    identifier="bioetl.schemas.chembl_document_schema.DocumentSchema",
+    module_path="bioetl.schemas.chembl_document_schema",
     schema_attr="DocumentSchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.target.target_chembl.TargetSchema",
-    module_path="bioetl.schemas.target.target_chembl",
+    identifier="bioetl.schemas.chembl_target_schema.TargetSchema",
+    module_path="bioetl.schemas.chembl_target_schema",
     schema_attr="TargetSchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.load_meta.LoadMetaSchema",
-    module_path="bioetl.schemas.load_meta",
+    identifier="bioetl.schemas.chembl_metadata_schema.LoadMetaSchema",
+    module_path="bioetl.schemas.chembl_metadata_schema",
     schema_attr="LoadMetaSchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",

@@ -1,4 +1,4 @@
-"""Storage helper for persisting load_meta lineage events."""
+"""Storage helper for persisting chembl_metadata_schema lineage events."""
 
 from __future__ import annotations
 
@@ -16,7 +16,14 @@ from uuid import uuid4
 import pandas as pd
 import pandera as pa
 
-from bioetl.schemas.load_meta import COLUMN_ORDER, LoadMetaSchema
+from bioetl.core.hashing import hash_from_mapping
+from bioetl.core.log_events import LogEvents
+from bioetl.schemas.chembl_metadata_schema import (
+    BUSINESS_KEY_FIELDS,
+    COLUMN_ORDER,
+    ROW_HASH_FIELDS,
+    LoadMetaSchema,
+)
 
 from .logger import UnifiedLogger
 
@@ -31,6 +38,16 @@ def _canonical_json(payload: Any) -> str:
     return json.dumps(
         payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str
     )
+
+
+def _normalise_base_url(value: Any) -> str:
+    text = str(value)
+    if text.startswith("http://") or text.startswith("https://"):
+        return text
+    stripped = text.strip().strip("<>")
+    if not stripped:
+        stripped = "unknown"
+    return f"https://mock.invalid/{stripped}"
 
 
 @dataclass(slots=True)
@@ -79,7 +96,7 @@ class _ActiveRecord:
 
 
 class LoadMetaStore:
-    """Manage lifecycle of load_meta entries with deterministic persistence."""
+    """Manage lifecycle of chembl_metadata_schema entries with deterministic persistence."""
 
     def __init__(self, base_path: str | Path, *, dataset_format: str = "parquet") -> None:
         if dataset_format not in {"parquet", "delta"}:
@@ -109,9 +126,10 @@ class LoadMetaStore:
         operator: str | None = None,
         notes: str | None = None,
     ) -> str:
-        """Create a new active load_meta record and return its identifier."""
+        """Create a new active chembl_metadata_schema record and return its identifier."""
 
         load_meta_id = str(uuid4())
+        base_url = _normalise_base_url(request_base_url)
         if isinstance(request_params, str):
             params_json = request_params
         else:
@@ -120,7 +138,7 @@ class LoadMetaStore:
         record = _ActiveRecord(
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
             request_params_json=params_json,
             request_started_at=now,
             request_finished_at=now,
@@ -132,11 +150,10 @@ class LoadMetaStore:
             notes=notes,
         )
         self._active[load_meta_id] = record
-        self._logger.info(
-            "load_meta.begin",
+        self._logger.info(LogEvents.LOAD_META_BEGIN,
             load_meta_id=load_meta_id,
             source_system=source_system,
-            request_base_url=request_base_url,
+            request_base_url=base_url,
         )
         return load_meta_id
 
@@ -160,8 +177,7 @@ class LoadMetaStore:
         if records_fetched_delta is not None:
             record.records_fetched += records_fetched_delta
         record.request_finished_at = _utcnow()
-        self._logger.info(
-            "load_meta.page",
+        self._logger.info(LogEvents.LOAD_META_PAGE,
             load_meta_id=load_meta_id,
             pages=len(events),
         )
@@ -190,11 +206,14 @@ class LoadMetaStore:
         if notes:
             record.notes = notes if record.notes is None else f"{record.notes}; {notes}"
 
-        df = pd.DataFrame([record.to_payload()], columns=COLUMN_ORDER)
+        payload = record.to_payload()
+        payload["hash_business_key"] = hash_from_mapping(payload, BUSINESS_KEY_FIELDS)
+        payload["hash_row"] = hash_from_mapping(payload, ROW_HASH_FIELDS)
+
+        df = pd.DataFrame([payload], columns=COLUMN_ORDER)
         LoadMetaSchema.validate(df, lazy=True)
         self._write_dataframe(df, self._meta_dir / f"{load_meta_id}.parquet")
-        self._logger.info(
-            "load_meta.finish",
+        self._logger.info(LogEvents.LOAD_META_FINISH,
             load_meta_id=load_meta_id,
             status=status,
             records_fetched=records_fetched,

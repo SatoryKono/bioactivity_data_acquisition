@@ -5,16 +5,15 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt, model_validator
+from pydantic import Field, PositiveInt, model_validator
+
+from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
 
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig
 
 
-class TargetSourceParameters(BaseModel):
+class TargetSourceParameters(BaseSourceParameters):
     """Free-form parameters specific to the target source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     base_url: str | None = Field(
         default=None,
@@ -26,7 +25,9 @@ class TargetSourceParameters(BaseModel):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> TargetSourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None
+    ) -> TargetSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -39,7 +40,11 @@ class TargetSourceParameters(BaseModel):
         TargetSourceParameters
             Constructed parameters object.
         """
-        select_fields_raw = params.get("select_fields")
+        if params is None:
+            return cls()
+
+        normalized = cls._normalize_mapping(params)
+        select_fields_raw = normalized.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
             if isinstance(select_fields_raw, Sequence) and not isinstance(
@@ -48,15 +53,13 @@ class TargetSourceParameters(BaseModel):
                 select_fields = tuple(str(field) for field in select_fields_raw)
 
         return cls(
-            base_url=params.get("base_url"),
+            base_url=normalized.get("base_url"),
             select_fields=select_fields,
         )
 
 
-class TargetSourceConfig(BaseModel):
+class TargetSourceConfig(BaseSourceConfig[TargetSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
@@ -67,6 +70,10 @@ class TargetSourceConfig(BaseModel):
         description="Effective batch size for pagination requests (capped at 25).",
     )
     parameters: TargetSourceParameters = Field(default_factory=TargetSourceParameters)
+
+    parameters_model = TargetSourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
 
     @model_validator(mode="after")
     def enforce_limits(self) -> TargetSourceConfig:
@@ -80,29 +87,3 @@ class TargetSourceConfig(BaseModel):
         if self.batch_size > 25:
             self.batch_size = 25
         return self
-
-    @classmethod
-    def from_source_config(cls, config: SourceConfig) -> TargetSourceConfig:
-        """Create a :class:`TargetSourceConfig` from the generic :class:`SourceConfig`.
-
-        Parameters
-        ----------
-        config
-            Generic source configuration.
-
-        Returns
-        -------
-        TargetSourceConfig
-            Pipeline-specific configuration.
-        """
-        batch_size = config.batch_size if config.batch_size is not None else 25
-        parameters = TargetSourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            batch_size=batch_size,
-            parameters=parameters,
-        )

@@ -19,7 +19,7 @@
 
 1) Проверить наличие конфигурационного файла `configs/pipelines/assay/assay_chembl.yaml`
 2) Создать выходную директорию, если она не существует
-3) Запустить команду CLI: `python -m bioetl.cli.main assay_chembl --config configs/pipelines/assay/assay_chembl.yaml --output-dir <output-dir> [OPTIONS]`
+3) Запустить команду CLI: `python -m bioetl.cli.app assay_chembl --config configs/pipelines/assay/assay_chembl.yaml --output-dir <output-dir> [OPTIONS]`
 4) Дождаться завершения пайплайна и проверить код возврата
 5) Проверить наличие выходных файлов и `meta.yaml` в выходной директории
 

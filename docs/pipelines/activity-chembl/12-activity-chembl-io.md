@@ -1,12 +1,11 @@
 # 12 Activity ChEMBL I/O
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the pipeline-specific I/O configuration for the Activity (ChEMBL) pipeline.
+This document describes the pipeline-specific I/O configuration for the Activity
+(ChEMBL) pipeline.
 
 ## Pipeline-Specific Output Files
 
@@ -20,7 +19,10 @@ Stable sorting by: `['assay_id', 'testitem_id', 'activity_id']`
 
 ## Related Documentation
 
-- [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) — General I/O format, atomic writing, metadata structure
-- [13-activity-chembl-determinism.md](13-activity-chembl-determinism.md) — Determinism policy
+- [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) —
+  General I/O format, atomic writing, metadata structure
+- [13-activity-chembl-determinism.md](13-activity-chembl-determinism.md) —
+  Determinism policy
 - [14-activity-chembl-qc.md](14-activity-chembl-qc.md) — QC metrics
-- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline overview
+- [00-activity-chembl-overview.md](00-activity-chembl-overview.md) — Pipeline
+  overview

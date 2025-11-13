@@ -1,12 +1,11 @@
 # 60 Document Crossref Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the validation stage of the Document (Crossref) pipeline.
+This document describes the validation stage of the Document (Crossref)
+pipeline.
 
 ## Pandera Schemas
 
@@ -19,10 +18,11 @@ The pipeline uses `DocumentCrossrefSchema` for validation:
 
 ## Validation Workflow
 
-1. **Schema Validation**: Validates against DocumentCrossrefSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `doi` values
-3. **Identifier Validation**: Validates DOI/ISSN/ISBN formats
-4. **Publisher Validation**: Validates publisher references
+1. **Schema Validation**: Validates against DocumentCrossrefSchema with
+   strict=True
+1. **Duplicate Detection**: Ensures duplicate-free `doi` values
+1. **Identifier Validation**: Validates DOI/ISSN/ISBN formats
+1. **Publisher Validation**: Validates publisher references
 
 ## Constraints
 

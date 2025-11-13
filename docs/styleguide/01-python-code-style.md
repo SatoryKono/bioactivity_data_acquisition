@@ -1,25 +1,33 @@
 # Python Code Style
 
-This document defines the Python code style standards for the `bioetl` project. All code **MUST** conform to these standards, which are enforced by automated tooling in CI/CD.
+This document defines the Python code style standards for the `bioetl` project.
+All code **MUST** conform to these standards, which are enforced by automated
+tooling in CI/CD.
 
 ## Principles
 
-- **Determinism**: Code formatting and style checks **MUST** produce consistent results across all environments.
-- **Type Safety**: Public APIs **MUST** be fully annotated and pass `mypy --strict` without `Any`.
-- **Clarity**: Code **SHOULD** be readable, maintainable, and follow Python best practices.
-- **Composition over Inheritance**: Prefer composition patterns over class inheritance where possible.
+- **Determinism**: Code formatting and style checks **MUST** produce consistent
+  results across all environments.
+- **Type Safety**: Public APIs **MUST** be fully annotated and pass
+  `mypy --strict` without `Any`.
+- **Clarity**: Code **SHOULD** be readable, maintainable, and follow Python best
+  practices.
+- **Composition over Inheritance**: Prefer composition patterns over class
+  inheritance where possible.
 
 ## Code Formatting
 
 ### Ruff and Black
 
-All Python code **MUST** be formatted using `ruff format` (or `black` with identical settings):
+All Python code **MUST** be formatted using `ruff format` (or `black` with
+identical settings):
 
 - **Line length**: 100 characters maximum
 - **Target version**: Python 3.10+ (as specified in `pyproject.toml`)
 - **Indentation**: 4 spaces, no tabs
 
-**Enforcement**: Pre-commit hooks and CI check formatting before allowing commits.
+**Enforcement**: Pre-commit hooks and CI check formatting before allowing
+commits.
 
 ### Import Sorting (isort)
 
@@ -64,7 +72,8 @@ from typing import Any
 
 ### Public API Requirements
 
-All public functions, classes, and methods **MUST** have complete type annotations:
+All public functions, classes, and methods **MUST** have complete type
+annotations:
 
 - Function parameters and return types
 - Class attributes (using `dataclass` or explicit annotations)
@@ -74,12 +83,14 @@ All public functions, classes, and methods **MUST** have complete type annotatio
 
 - **Mode**: `strict = true` for `src/bioetl` and `scripts`
 - **Python version**: 3.10
-- **Overrides**: Some third-party modules may ignore missing imports (see `pyproject.toml`)
+- **Overrides**: Some third-party modules may ignore missing imports (see
+  `pyproject.toml`)
 
 ### Valid Examples
 
 ```python
 from typing import Sequence
+
 
 def process_data(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
     """Process data and return filtered DataFrame."""
@@ -90,9 +101,11 @@ def process_data(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
 from dataclasses import dataclass
 from pathlib import Path
 
+
 @dataclass
 class Config:
     """Pipeline configuration."""
+
     input_path: Path
     output_path: Path
     batch_size: int = 1000
@@ -104,6 +117,7 @@ class Config:
 # Invalid: missing return type
 def process_data(df):
     return df
+
 
 # Invalid: Any without justification
 def process_data(df: pd.DataFrame) -> Any:
@@ -117,10 +131,11 @@ def process_data(df: pd.DataFrame) -> Any:
 The following patterns **SHALL NOT** be used:
 
 1. **Wildcard imports**: `from x import *`
-2. **Magic numbers**: Use named constants or configuration
-3. **Global mutable state**: Prefer dependency injection or explicit state management
-4. **Hidden side effects**: Functions should be pure where possible
-5. **Function calls in argument defaults**: Use `None` and check inside function
+1. **Magic numbers**: Use named constants or configuration
+1. **Global mutable state**: Prefer dependency injection or explicit state
+   management
+1. **Hidden side effects**: Functions should be pure where possible
+1. **Function calls in argument defaults**: Use `None` and check inside function
 
 ### Valid Examples
 
@@ -128,7 +143,10 @@ The following patterns **SHALL NOT** be used:
 # Valid: named constant
 DEFAULT_BATCH_SIZE = 1000
 
-def process_batch(items: Sequence[str], batch_size: int = DEFAULT_BATCH_SIZE) -> list[str]:
+
+def process_batch(
+    items: Sequence[str], batch_size: int = DEFAULT_BATCH_SIZE
+) -> list[str]:
     return items[:batch_size]
 ```
 
@@ -147,12 +165,15 @@ class DataProcessor:
 def process_batch(items: Sequence[str]) -> list[str]:
     return items[:1000]  # What is 1000?
 
+
 # Invalid: function call in default
 def process_data(items: list[str] = get_default_items()):  # B008 violation
     return items
 
+
 # Invalid: global mutable state
 _cache = {}  # Avoid global mutable state
+
 
 def get_item(key: str) -> str | None:
     return _cache.get(key)  # Hidden side effect
@@ -170,6 +191,7 @@ The following rule categories are enabled (see `pyproject.toml`):
 - **UP**: pyupgrade (modernize Python syntax)
 
 **Ignored rules**:
+
 - `E501`: Line too long (handled by formatter)
 - `B008`: Function calls in defaults (allowed with `None` pattern)
 - `C901`: Too complex (review on case-by-case basis)
@@ -199,4 +221,5 @@ See `.github/workflows/ci.yaml` for CI configuration.
 - Project configuration: `pyproject.toml`
 - Pre-commit hooks: `.pre-commit-config.yaml`
 - CI pipeline: `.github/workflows/ci.yaml`
-- Detailed logging guidelines: [`02-logging-guidelines.md`](./02-logging-guidelines.md)
+- Detailed logging guidelines:
+  [`02-logging-guidelines.md`](./02-logging-guidelines.md)

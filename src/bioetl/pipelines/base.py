@@ -11,6 +11,8 @@ import hashlib
 import time
 import uuid
 from abc import ABC, abstractmethod
+from builtins import ConnectionError as BuiltinConnectionError
+from builtins import TimeoutError as BuiltinTimeoutError
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -20,12 +22,16 @@ from zoneinfo import ZoneInfo
 
 import pandas as pd
 import pandera.errors
+from pandas import Series
 from pandera import DataFrameSchema
+from structlog.stdlib import BoundLogger
 
+from bioetl.clients import client_exceptions
 from bioetl.config import PipelineConfig
 from bioetl.core import APIClientFactory
-from bioetl.core.api_client import UnifiedAPIClient
+from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.load_meta_store import LoadMetaStore
+from bioetl.core.log_events import LogEvents
 from bioetl.core.logger import UnifiedLogger
 from bioetl.core.output import (
     DeterministicWriteArtifacts,
@@ -35,11 +41,22 @@ from bioetl.core.output import (
     write_dataset_atomic,
     write_yaml_atomic,
 )
-from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
+from bioetl.core.utils.validation import format_failure_cases, summarize_schema_errors
+from bioetl.pipelines.errors import PipelineError, map_client_exc
 from bioetl.qc.report import build_correlation_report as build_default_correlation_report
 from bioetl.qc.report import build_qc_metrics_payload
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry, get_schema
+
+_NETWORK_ERROR_TYPES = (
+    client_exceptions.Timeout,
+    client_exceptions.HTTPError,
+    client_exceptions.RequestException,
+    client_exceptions.ConnectionError,
+    BuiltinConnectionError,
+    BuiltinTimeoutError,
+    CircuitBreakerOpenError,
+)
 
 
 @dataclass(frozen=True)
@@ -107,6 +124,33 @@ class RunResult:
     run_id: str | None = None
     log_file: Path | None = None
     stage_durations_ms: dict[str, float] = field(default_factory=dict)
+    _dataset_path: Path | None = None
+    _records: int | None = None
+    _dataframe: pd.DataFrame | None = None
+
+    @property
+    def dataset_path(self) -> Path:
+        """Return the primary dataset path for backward compatibility."""
+
+        return self._dataset_path or self.write_result.dataset
+
+    @property
+    def records(self) -> int:
+        """Return the number of records materialised by the run."""
+
+        if self._records is not None:
+            return self._records
+        if self._dataframe is not None:
+            return int(self._dataframe.shape[0])
+        return 0
+
+    @property
+    def dataframe(self) -> pd.DataFrame:
+        """Return a copy of the dataframe produced by the run when available."""
+
+        if self._dataframe is not None:
+            return self._dataframe
+        return pd.DataFrame()
 
 
 class PipelineBase(ABC):
@@ -527,34 +571,33 @@ class PipelineBase(ABC):
         resolved_path = path.resolve()
 
         if not resolved_path.exists():
-            log.warning("input_file_not_found", path=str(resolved_path))
+            log.warning(LogEvents.INPUT_FILE_NOT_FOUND, path=str(resolved_path))
             return pd.DataFrame()
 
-        log.info("reading_input", path=str(resolved_path), limit=limit, sample=sample)
+        log.info(LogEvents.READING_INPUT, path=str(resolved_path), limit=limit, sample=sample)
 
         # Determine file format from extension
         # Note: pandas read methods have complex overloads; type checker cannot fully infer return type
-        df = (
+        df: pd.DataFrame = (
             pd.read_parquet(resolved_path)  # pyright: ignore[reportUnknownMemberType]
             if resolved_path.suffix.lower() == ".parquet"
             else pd.read_csv(resolved_path, low_memory=False)  # pyright: ignore[reportUnknownMemberType]
         )
         if df.empty:
-            log.debug("input_file_empty", path=str(resolved_path))
+            log.debug(LogEvents.INPUT_FILE_EMPTY, path=str(resolved_path))
             return df
 
         # Apply limit if specified
         if limit is not None and limit > 0:
             if limit < len(df):
                 df = df.head(limit)
-                log.info("input_limit_active", limit=limit, rows=len(df))
+                log.info(LogEvents.INPUT_LIMIT_ACTIVE, limit=limit, rows=len(df))
 
         # Apply sample if specified
         if sample is not None and sample > 0 and sample < len(df):
             seed = self._deterministic_sample_seed()
             df = df.sample(n=sample, random_state=seed, replace=False).sort_index()
-            log.info(
-                "sample_applied",
+            log.info(LogEvents.SAMPLE_APPLIED,
                 sample_size=sample,
                 population=len(df),
                 seed=seed,
@@ -591,7 +634,7 @@ class PipelineBase(ABC):
         log = UnifiedLogger.get(__name__)
 
         if not self.config.cli.input_file:
-            log.debug("no_input_file", id_column=id_column_name)
+            log.debug(LogEvents.NO_INPUT_FILE, id_column=id_column_name)
             return []
 
         input_path = Path(self.config.cli.input_file)
@@ -612,13 +655,12 @@ class PipelineBase(ABC):
         df = self.read_input_table(input_path, limit=limit, sample=sample)
 
         if df.empty:
-            log.warning("input_file_empty_ids", path=str(input_path), id_column=id_column_name)
+            log.warning(LogEvents.INPUT_FILE_EMPTY_IDS, path=str(input_path), id_column=id_column_name)
             return []
 
         if id_column_name not in df.columns:
             available_columns = list(df.columns)
-            log.error(
-                "input_file_missing_id_column",
+            log.error(LogEvents.INPUT_FILE_MISSING_ID_COLUMN,
                 path=str(input_path),
                 id_column=id_column_name,
                 available_columns=available_columns,
@@ -630,8 +672,7 @@ class PipelineBase(ABC):
         ids: list[str] = df[id_column_name].dropna().astype(str).unique().tolist()
         ids.sort()  # Deterministic ordering
 
-        log.info(
-            "input_ids_read",
+        log.info(LogEvents.INPUT_IDS_READ,
             path=str(input_path),
             id_column=id_column_name,
             count=len(ids),
@@ -711,7 +752,7 @@ class PipelineBase(ABC):
 
         # Default implementation: no enrichment stages
         # Subclasses can override to add custom enrichment logic
-        log.debug("enrichment_stages_completed", stages=stages or [])
+        log.debug(LogEvents.ENRICHMENT_STAGES_COMPLETED, stages=stages or [])
         return df
 
     def run_schema_validation(
@@ -746,20 +787,24 @@ class PipelineBase(ABC):
 
         try:
             schema_entry = get_schema(schema_identifier)
-            schema = schema_entry.schema
+            schema: DataFrameSchema = schema_entry.schema
             if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-                schema = cast(Any, schema).replace(
-                    strict=self.config.validation.strict,
-                    coerce=self.config.validation.coerce,
+                schema = cast(
+                    DataFrameSchema,
+                    cast(Any, schema).replace(
+                        strict=self.config.validation.strict,
+                        coerce=self.config.validation.coerce,
+                    ),
                 )
 
-            validated = schema.validate(df, lazy=True)
-            if not isinstance(validated, pd.DataFrame):
+            validated_candidate: Any = schema.validate(df, lazy=True)
+            if not isinstance(validated_candidate, pd.DataFrame):
                 msg = "Schema validation did not return a DataFrame"
                 raise TypeError(msg)
-            validated = self._reorder_columns(validated, schema_entry.column_order)
-            log.debug(
-                "schema_validation_completed",
+            validated = self._reorder_columns(
+                validated_candidate, schema_entry.column_order
+            )
+            log.debug(LogEvents.SCHEMA_VALIDATION_COMPLETED,
                 dataset=dataset_name,
                 schema=schema_entry.identifier,
                 version=schema_entry.version,
@@ -787,7 +832,7 @@ class PipelineBase(ABC):
             if failure_details:
                 log_payload["failure_details"] = failure_details
 
-            log.warning("schema_validation_failed", **log_payload)
+            log.warning(LogEvents.SCHEMA_VALIDATION_FAILED, **log_payload)
             return df
 
     def finalize_with_standard_metadata(
@@ -895,8 +940,7 @@ class PipelineBase(ABC):
             Optional error message.
         """
         log = UnifiedLogger.get(__name__)
-        log.warning(
-            "validation_issue_recorded",
+        log.warning(LogEvents.VALIDATION_ISSUE_RECORDED,
             severity=severity,
             dataset=dataset,
             column=column,
@@ -952,11 +996,17 @@ class PipelineBase(ABC):
             msg = "base_url must be a string"
             raise TypeError(msg)
 
-        client = factory.for_source("chembl", base_url=base_url)
+        try:
+            client = factory.for_source("chembl", base_url=base_url)
+        except Exception as exc:
+            if isinstance(exc, _NETWORK_ERROR_TYPES):
+                mapped = map_client_exc(exc)
+                raise mapped from exc
+            raise
         self.register_client("chembl_client", client)
 
         log = UnifiedLogger.get(__name__)
-        log.debug("chembl_client_initialized", base_url=base_url)
+        log.debug(LogEvents.CHEMBL_CLIENT_INITIALIZED, base_url=base_url)
         return client
 
     # ------------------------------------------------------------------
@@ -977,12 +1027,38 @@ class PipelineBase(ABC):
         return None
 
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
-        """Override to provide custom defaults or dtypes for schema columns."""
+        """Default column factories and dtypes for schema-required columns."""
 
-        return {}
+        def _row_index_factory(count: int) -> pd.Series[Any]:
+            return pd.Series(range(count), dtype="Int64")
+
+        return {
+            "row_subtype": {
+                "default": self.pipeline_code,
+                "dtype": pd.StringDtype(),
+            },
+            "row_index": {
+                "factory": _row_index_factory,
+                "dtype": pd.Int64Dtype(),
+            },
+        }
+
+    def _default_validation_schema_entry(self) -> SchemaRegistryEntry | None:
+        """Return the configured validation schema entry, if available."""
+
+        identifier = getattr(self.config.validation, "schema_out", None)
+        if not identifier:
+            return None
+        try:
+            return get_schema(identifier)
+        except KeyError:
+            return None
 
     def _ensure_schema_columns(
-        self, df: pd.DataFrame, column_order: Sequence[str], log: Any
+        self,
+        df: pd.DataFrame,
+        column_order_or_log: Sequence[str] | BoundLogger,
+        log: BoundLogger | None = None,
     ) -> pd.DataFrame:
         """Add missing schema columns so downstream normalization can operate safely.
 
@@ -990,10 +1066,13 @@ class PipelineBase(ABC):
         ----------
         df
             DataFrame to ensure columns for.
-        column_order
-            Sequence of column names that should exist in the DataFrame.
+        column_order_or_log
+            Either an explicit column order sequence or a logger when relying on
+            the configured validation schema.
         log
-            Logger instance for logging.
+            Logger instance for logging. When omitted, ``column_order_or_log`` is
+            treated as the logger and the schema column order is inferred from the
+            configured validation schema.
 
         Returns
         -------
@@ -1003,6 +1082,28 @@ class PipelineBase(ABC):
         df = df.copy()
         if df.empty:
             return df
+
+        effective_log: BoundLogger | None = None
+        if log is None:
+            if isinstance(column_order_or_log, BoundLogger):
+                effective_log = column_order_or_log
+                schema_entry = self._default_validation_schema_entry()
+                column_order: Sequence[str] = (
+                    schema_entry.column_order if schema_entry else ()
+                )
+            else:
+                column_order = column_order_or_log
+        else:
+            if isinstance(column_order_or_log, BoundLogger):
+                raise TypeError(
+                    "column_order_or_log must be schema column order when log is provided"
+                )
+            column_order = column_order_or_log
+            effective_log = log
+
+        if effective_log is None:
+            effective_log = UnifiedLogger.get(__name__)
+        logger: BoundLogger = effective_log
 
         expected = list(column_order)
         missing = [column for column in expected if column not in df.columns]
@@ -1015,9 +1116,8 @@ class PipelineBase(ABC):
                 if callable(factory):
                     produced = factory(row_count)
                     if isinstance(produced, pd.Series):
-                        produced_series = cast(pd.Series[Any], produced)
-                        if len(produced_series) == row_count:
-                            df[column] = produced_series
+                        if len(produced) == row_count:
+                            df[column] = produced
                             continue
                     if isinstance(produced, Sequence) and not isinstance(
                         produced, (str, bytes, bytearray)
@@ -1033,7 +1133,7 @@ class PipelineBase(ABC):
                     df[column] = pd.Series([default_value] * row_count, dtype=dtype)
                 else:
                     df[column] = pd.Series([default_value] * row_count)
-            log.debug("schema_columns_added", columns=missing)
+            logger.debug(LogEvents.SCHEMA_COLUMNS_ADDED, columns=missing)
 
         return df
 
@@ -1062,7 +1162,7 @@ class PipelineBase(ABC):
         return df[[*existing_schema_columns, *extras]]
 
     def _normalize_data_types(
-        self, df: pd.DataFrame, schema: DataFrameSchema, log: Any
+        self, df: pd.DataFrame, schema: DataFrameSchema | None, log: Any
     ) -> pd.DataFrame:
         """Convert data types according to the schema.
 
@@ -1085,6 +1185,12 @@ class PipelineBase(ABC):
         """
         df = df.copy()
 
+        if schema is None:
+            schema_entry = self._default_validation_schema_entry()
+            if schema_entry is None:
+                return df
+            schema = schema_entry.schema
+
         def _to_numeric_series(series: pd.Series[Any]) -> pd.Series[Any]:
             to_numeric_series = cast(Callable[..., pd.Series[Any]], pd.to_numeric)
             return to_numeric_series(series, errors="coerce")
@@ -1095,25 +1201,27 @@ class PipelineBase(ABC):
                 continue
 
             try:
-                column_series = cast(pd.Series[Any], df[column_name])
+                column_series = cast(Series, df[column_name])
 
                 # Handle nullable integers
                 if column_def.dtype == pd.Int64Dtype() or (
                     hasattr(column_def.dtype, "name") and column_def.dtype.name == "Int64"
                 ):
                     numeric_series = _to_numeric_series(column_series)
-                    df[column_name] = cast(pd.Series[Any], numeric_series.astype("Int64"))
+                    df[column_name] = cast(Series, numeric_series.astype("Int64"))
                 # Handle nullable floats
                 elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "Float64":
                     numeric_series_float = _to_numeric_series(column_series)
-                    df[column_name] = cast(pd.Series[Any], numeric_series_float.astype("Float64"))
+                    df[column_name] = cast(
+                        Series, numeric_series_float.astype("Float64")
+                    )
                 # Handle strings - convert to string, preserving None values
                 elif hasattr(column_def.dtype, "name") and column_def.dtype.name == "string":
                     mask: pd.Series[bool] = column_series.notna()
                     if bool(mask.any()):
                         df.loc[mask, column_name] = df.loc[mask, column_name].astype(str)
             except (ValueError, TypeError) as exc:
-                log.warning("type_conversion_failed", field=column_name, error=str(exc))
+                log.warning(LogEvents.TYPE_CONVERSION_FAILED, field=column_name, error=str(exc))
 
         return df
 
@@ -1125,7 +1233,7 @@ class PipelineBase(ABC):
             try:
                 closer()
             except Exception as exc:  # pragma: no cover - defensive cleanup path
-                log.warning("client_cleanup_failed", client=name, error=str(exc))
+                log.warning(LogEvents.CLIENT_CLEANUP_FAILED, client=name, error=str(exc))
             finally:
                 self._registered_clients.pop(name, None)
 
@@ -1159,7 +1267,12 @@ class PipelineBase(ABC):
             All artifacts generated by the write operation.
         """
         log = UnifiedLogger.get(__name__)
-
+        if not isinstance(df, pd.DataFrame):  # pyright: ignore[reportUnnecessaryIsInstance]
+            msg = (
+                "write() expects a pandas DataFrame payload; "
+                f"received {type(df).__name__!s}"
+            )
+            raise TypeError(msg)
         run_tag = self._normalise_run_tag(None)
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         mode = "extended" if effective_extended else None
@@ -1178,7 +1291,11 @@ class PipelineBase(ABC):
             if include_qc_metrics is not None
             else effective_extended
         )
-        include_metadata = True  # Всегда создавать meta.yaml
+        include_metadata = bool(self.config.validation.schema_out)
+        if effective_extended:
+            include_metadata = True
+        elif self._extract_metadata:
+            include_metadata = True
         include_manifest = effective_extended
 
         run_dir = output_path if output_path.is_dir() else output_path.parent
@@ -1233,18 +1350,20 @@ class PipelineBase(ABC):
             metrics_dict = cast(dict[str, Any], quality_dict.setdefault("metrics", metrics_default))
             metrics_dict.update(metrics_summary)
 
-        log.debug(
-            "write_artifacts_prepared",
+        log.debug(LogEvents.WRITE_ARTIFACTS_PREPARED,
             rows=len(prepared.dataframe),
             dataset=str(artifacts.write.dataset),
         )
 
+        record_count = int(prepared.dataframe.shape[0])
+        dataframe_copy = prepared.dataframe.copy(deep=True)
+
         write_dataset_atomic(prepared.dataframe, artifacts.write.dataset, config=self.config)
-        log.debug("dataset_written", path=str(artifacts.write.dataset))
+        log.debug(LogEvents.DATASET_WRITTEN, path=str(artifacts.write.dataset))
         metadata_path: Path | None = None
         if artifacts.write.metadata is not None:
             write_yaml_atomic(metadata, artifacts.write.metadata)
-            log.debug("metadata_written", path=str(artifacts.write.metadata))
+            log.debug(LogEvents.METADATA_WRITTEN, path=str(artifacts.write.metadata))
             metadata_path = artifacts.write.metadata
 
         quality_payload = self.build_quality_report(prepared.dataframe)
@@ -1294,6 +1413,9 @@ class PipelineBase(ABC):
             run_id=self.run_id,
             log_file=artifacts.log_file,
             stage_durations_ms=self._stage_durations_ms,
+            _dataset_path=artifacts.write.dataset,
+            _records=record_count,
+            _dataframe=dataframe_copy,
         )
 
     def run(
@@ -1358,41 +1480,41 @@ class PipelineBase(ABC):
         )
 
         UnifiedLogger.bind(stage="bootstrap")
-        log.info("pipeline_started", mode=configured_mode, output_path=str(output_path))
+        log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_path))
 
         try:
             with UnifiedLogger.stage("extract", component=self._component_for_stage("extract")):
-                log.info("extract_started")
+                log.info(LogEvents.STAGE_EXTRACT_START)
                 extract_start = time.perf_counter()
                 extracted = self.extract(*args, **kwargs)
                 duration = (time.perf_counter() - extract_start) * 1000.0
                 stage_durations_ms["extract"] = duration
                 rows = self._safe_len(extracted)
-                log.info("extract_completed", duration_ms=duration, rows=rows)
+                log.info(LogEvents.STAGE_EXTRACT_FINISH, duration_ms=duration, rows=rows)
 
             with UnifiedLogger.stage("transform", component=self._component_for_stage("transform")):
-                log.info("transform_started")
+                log.info(LogEvents.STAGE_TRANSFORM_START)
                 transform_start = time.perf_counter()
                 transformed = self.transform(extracted)
                 duration = (time.perf_counter() - transform_start) * 1000.0
                 stage_durations_ms["transform"] = duration
                 rows = self._safe_len(transformed)
-                log.info("transform_completed", duration_ms=duration, rows=rows)
+                log.info(LogEvents.STAGE_TRANSFORM_FINISH, duration_ms=duration, rows=rows)
 
             # transformed is always pd.DataFrame according to transform signature
             prepared_for_validation = self._apply_cli_sample(transformed)
 
             with UnifiedLogger.stage("validate", component=self._component_for_stage("validate")):
-                log.info("validate_started")
+                log.info(LogEvents.STAGE_VALIDATE_START)
                 validate_start = time.perf_counter()
                 validated = self.validate(prepared_for_validation)
                 duration = (time.perf_counter() - validate_start) * 1000.0
                 stage_durations_ms["validate"] = duration
                 rows = self._safe_len(validated)
-                log.info("validate_completed", duration_ms=duration, rows=rows)
+                log.info(LogEvents.STAGE_VALIDATE_FINISH, duration_ms=duration, rows=rows)
 
             with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
-                log.info("write_started", output_path=str(output_path))
+                log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_path))
                 write_start = time.perf_counter()
                 result = self.write(
                     validated,
@@ -1403,30 +1525,48 @@ class PipelineBase(ABC):
                 )
                 duration = (time.perf_counter() - write_start) * 1000.0
                 stage_durations_ms["write"] = duration
-                log.info(
-                    "write_completed",
+                log.info(LogEvents.STAGE_WRITE_FINISH,
                     duration_ms=duration,
                     dataset=str(result.write_result.dataset),
                 )
 
             self.apply_retention_policy()
-            log.info("pipeline_completed", stage_durations_ms=stage_durations_ms)
+            log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
             return result
 
+        except PipelineError as exc:
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(exc),
+                error_type=exc.__class__.__name__,
+                exc_info=True,
+            )
+            raise
+        except _NETWORK_ERROR_TYPES as exc:
+            mapped = map_client_exc(exc)
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(mapped),
+                error_type=mapped.__class__.__name__,
+                exc_info=True,
+            )
+            raise mapped from exc
         except Exception as exc:
-            log.error("pipeline_failed", error=str(exc), exc_info=True)
+            log.error(LogEvents.STAGE_RUN_ERROR,
+                error=str(exc),
+                error_type=exc.__class__.__name__,
+                exc_info=True,
+            )
             raise
 
         finally:
             with UnifiedLogger.stage("cleanup", component=self._component_for_stage("cleanup")):
-                log.info("cleanup_started")
+                log.info(LogEvents.STAGE_CLEANUP_START)
                 self._cleanup_registered_clients()
                 try:
                     self.close_resources()
                 except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
-                    log.warning("cleanup_failed", error=str(cleanup_error))
-                log.info("cleanup_completed")
+                    log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
+                log.info(LogEvents.STAGE_CLEANUP_FINISH)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate ``df`` against the configured Pandera schema.
@@ -1436,17 +1576,20 @@ class PipelineBase(ABC):
         schema_identifier = self.config.validation.schema_out
         log = UnifiedLogger.get(__name__)
         if not schema_identifier:
-            log.debug("validation_skipped", reason="no_schema_configured")
+            log.debug(LogEvents.VALIDATION_SKIPPED, reason="no_schema_configured")
             self._validation_schema = None
             self._validation_summary = None
             return df
 
         schema_entry = get_schema(schema_identifier)
-        schema = schema_entry.schema
+        schema: DataFrameSchema = schema_entry.schema
         if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-            schema = cast(Any, schema).replace(
-                strict=self.config.validation.strict,
-                coerce=self.config.validation.coerce,
+            schema = cast(
+                DataFrameSchema,
+                cast(Any, schema).replace(
+                    strict=self.config.validation.strict,
+                    coerce=self.config.validation.coerce,
+                ),
             )
         else:
             schema = self._clone_schema_with_options(
@@ -1454,8 +1597,7 @@ class PipelineBase(ABC):
                 strict=self.config.validation.strict,
                 coerce=self.config.validation.coerce,
             )
-        log.debug(
-            "validation_schema_loaded",
+        log.debug(LogEvents.VALIDATION_SCHEMA_LOADED,
             schema=schema_entry.identifier,
             version=schema_entry.version,
         )
@@ -1480,34 +1622,93 @@ class PipelineBase(ABC):
         )
         df_for_validation = self._ensure_load_meta_ids(df_for_validation)
 
-        try:
-            validated = schema.validate(df_for_validation, lazy=True)
-            if not isinstance(validated, pd.DataFrame):
-                msg = "Schema validation did not return a DataFrame"
-                raise TypeError(msg)
-            validated = self._reorder_columns(validated, schema_entry.column_order)
-        except pandera.errors.SchemaErrors as exc:
-            if not fail_open:
-                raise
-            summary = summarize_schema_errors(exc)
-            failure_cases_df = getattr(exc, "failure_cases", None)
-            failure_details: dict[str, Any] | None = None
-            if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
-                failure_details = format_failure_cases(failure_cases_df)
-                summary["failure_count"] = int(len(failure_cases_df))
-            log_payload: dict[str, Any] = {
-                "schema": schema_entry.identifier,
-                "version": schema_entry.version,
-                **summary,
-            }
-            if failure_details:
-                log_payload["failure_details"] = failure_details
-            log.warning("schema_validation_failed", **log_payload)
-            validated = df_for_validation
-            schema_valid = False
-            error_summary = summary.get("message")
-            failure_count = summary.get("failure_count")
+        def _coerce_failures_only(error: pandera.errors.SchemaErrors) -> tuple[bool, list[str]]:
+            failure_cases_df = getattr(error, "failure_cases", None)
+            if not isinstance(failure_cases_df, pd.DataFrame) or failure_cases_df.empty:
+                return False, []
 
+            checks_series = failure_cases_df.get("check")
+            if checks_series is None:
+                return False, []
+
+            checks_str = checks_series.astype(str)
+            if not bool(checks_str.str.startswith("coerce_dtype").all()):
+                return False, []
+
+            columns_series = failure_cases_df.get("column")
+            columns_list: list[str] = []
+            if columns_series is not None:
+                columns_list = (
+                    columns_series.dropna().astype(str).unique().tolist()
+                )
+
+            return True, columns_list
+
+        try:
+            validated_candidate: Any = schema.validate(df_for_validation, lazy=True)
+            validated = self._reorder_columns(validated_candidate, schema_entry.column_order)
+        except pandera.errors.SchemaErrors as exc:
+            fallback_validated: pd.DataFrame | None = None
+            coerce_only = False
+            affected_columns: list[str] = []
+            fallback_schema: DataFrameSchema | None = None
+            if bool(self.config.validation.coerce):
+                coerce_only, affected_columns = _coerce_failures_only(exc)
+                fallback_schema = cast(
+                    DataFrameSchema,
+                    self._clone_schema_with_options(
+                        schema_entry.schema,
+                        strict=self.config.validation.strict,
+                        coerce=False,
+                    ),
+                )
+                try:
+                    retried_candidate: Any = fallback_schema.validate(
+                        df_for_validation, lazy=True
+                    )
+                except pandera.errors.SchemaErrors:
+                    fallback_validated = None
+                else:
+                    fallback_validated = self._reorder_columns(
+                        retried_candidate,
+                        schema_entry.column_order,
+                    )
+                    schema = fallback_schema
+                    log.debug(LogEvents.VALIDATION_RETRY_WITHOUT_COERCE,
+                        columns=affected_columns,
+                        rows=len(df_for_validation),
+                    )
+
+            if fallback_validated is not None:
+                validated = fallback_validated
+            elif coerce_only and fallback_schema is not None:
+                schema = fallback_schema
+                validated = df_for_validation
+                log.debug(LogEvents.VALIDATION_COERCE_ONLY_PASSTHROUGH,
+                    columns=affected_columns,
+                    rows=len(df_for_validation),
+                )
+            else:
+                if not fail_open:
+                    raise
+                summary = summarize_schema_errors(exc)
+                failure_cases_df = getattr(exc, "failure_cases", None)
+                failure_details: dict[str, Any] | None = None
+                if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
+                    failure_details = format_failure_cases(failure_cases_df)
+                    summary["failure_count"] = int(len(failure_cases_df))
+                log_payload: dict[str, Any] = {
+                    "schema": schema_entry.identifier,
+                    "version": schema_entry.version,
+                    **summary,
+                }
+                if failure_details:
+                    log_payload["failure_details"] = failure_details
+                log.warning(LogEvents.SCHEMA_VALIDATION_FAILED, **log_payload)
+                validated = df_for_validation
+                schema_valid = False
+                error_summary = summary.get("message")
+                failure_count = summary.get("failure_count")
         self._validation_schema = schema_entry
         self._validation_summary = {
             "schema_identifier": schema_entry.identifier,
@@ -1525,8 +1726,7 @@ class PipelineBase(ABC):
             self._validation_summary["failure_count"] = failure_count
 
         if schema_valid:
-            log.debug(
-                "validation_completed",
+            log.debug(LogEvents.VALIDATION_COMPLETED,
                 schema=schema_entry.identifier,
                 version=schema_entry.version,
                 rows=len(validated),
@@ -1620,9 +1820,12 @@ class PipelineBase(ABC):
                 msg = f"Dataframe missing columns required by schema: {missing}"
                 raise ValueError(msg)
             extras = [column for column in df.columns if column not in ordered]
-            if not extras:
-                return df[ordered]
-            return df[[*ordered, *extras]]
+            if extras:
+                UnifiedLogger.get(__name__).debug(
+                    "schema_extra_columns_dropped",
+                    columns=extras,
+                )
+            return df[ordered]
 
         existing = [column for column in ordered if column in df.columns]
         extras = [column for column in df.columns if column not in existing]
@@ -1642,8 +1845,7 @@ class PipelineBase(ABC):
 
         if sample_size >= len(df):
             log = UnifiedLogger.get(__name__)
-            log.debug(
-                "sample_size_exceeds_population",
+            log.debug(LogEvents.SAMPLE_SIZE_EXCEEDS_POPULATION,
                 requested=sample_size,
                 population=len(df),
             )
@@ -1652,8 +1854,7 @@ class PipelineBase(ABC):
         seed = self._deterministic_sample_seed()
         sampled = df.sample(n=sample_size, random_state=seed, replace=False).sort_index()
         log = UnifiedLogger.get(__name__)
-        log.info(
-            "sample_applied",
+        log.info(LogEvents.SAMPLE_APPLIED,
             sample_size=sample_size,
             population=len(df),
             seed=seed,

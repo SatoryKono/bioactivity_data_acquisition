@@ -151,4 +151,4 @@ transform:
       - standard_inchi_key
 
 validation:
-  schema_out: bioetl.schemas.testitem.testitem_chembl.TestItemSchema
+  schema_out: bioetl.schemas.chembl_testitem_schema.TestItemSchema

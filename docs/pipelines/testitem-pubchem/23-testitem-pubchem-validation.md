@@ -1,8 +1,6 @@
 # 23 TestItem PubChem Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
@@ -19,10 +17,11 @@ The pipeline uses `TestItemPubChemSchema` for validation:
 
 ## Validation Workflow
 
-1. **Schema Validation**: Validates against TestItemPubChemSchema with strict=True
-2. **Duplicate Detection**: Ensures duplicate-free `pubchem_cid` values
-3. **Structure Validation**: Validates InChI/SMILES formats
-4. **Property Validation**: Validates numeric property ranges
+1. **Schema Validation**: Validates against TestItemPubChemSchema with
+   strict=True
+1. **Duplicate Detection**: Ensures duplicate-free `pubchem_cid` values
+1. **Structure Validation**: Validates InChI/SMILES formats
+1. **Property Validation**: Validates numeric property ranges
 
 ## Constraints
 

@@ -8,14 +8,14 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.activity.activity_enrichment import (
+from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.schemas.activity import COLUMN_ORDER, ActivitySchema
+from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER, ActivitySchema
 
 
 @pytest.fixture
@@ -624,9 +624,9 @@ class TestActivityEnrichment:
         # Проверка: если standard_text_value не NULL, то standard_value должен быть NULL
         mask_text_not_null = df["standard_text_value"].notna()
         mask_value_null = df["standard_value"].isna()
-        assert (
-            (mask_text_not_null & ~mask_value_null).sum() == 0
-        ), "Invariant violated: standard_text_value IS NOT NULL but standard_value is not NULL"
+        assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
+            "Invariant violated: standard_text_value IS NOT NULL but standard_value is not NULL"
+        )
 
     def test_invariant_text_value_implies_null_value(
         self,
@@ -640,9 +640,9 @@ class TestActivityEnrichment:
         # Проверка: если text_value не NULL, то value должен быть NULL
         mask_text_not_null = df["text_value"].notna()
         mask_value_null = df["value"].isna()
-        assert (
-            mask_text_not_null & ~mask_value_null
-        ).sum() == 0, "Invariant violated: text_value IS NOT NULL but value is not NULL"
+        assert (mask_text_not_null & ~mask_value_null).sum() == 0, (
+            "Invariant violated: text_value IS NOT NULL but value is not NULL"
+        )
 
     def test_invariant_data_validity_comment_implies_description(
         self,
@@ -675,9 +675,9 @@ class TestActivityEnrichment:
         # Проверка: если data_validity_comment не NULL, то data_validity_description должен быть не NULL
         mask_comment_not_null = result["data_validity_comment"].notna()
         mask_description_not_null = result["data_validity_description"].notna()
-        assert (
-            (mask_comment_not_null & ~mask_description_not_null).sum() == 0
-        ), "Invariant violated: data_validity_comment IS NOT NULL but data_validity_description is NULL"
+        assert (mask_comment_not_null & ~mask_description_not_null).sum() == 0, (
+            "Invariant violated: data_validity_comment IS NOT NULL but data_validity_description is NULL"
+        )
 
     def test_invariant_curated_implies_curated_by_not_null(
         self,
@@ -691,9 +691,9 @@ class TestActivityEnrichment:
         # Проверка: если curated == TRUE, то curated_by должен быть не NULL
         curated_rows = df[df["curated"] == True]  # noqa: E712
         if not curated_rows.empty:
-            assert (
-                curated_rows["curated_by"].notna().all()
-            ), "Invariant violated: curated == TRUE but curated_by is NULL"
+            assert curated_rows["curated_by"].notna().all(), (
+                "Invariant violated: curated == TRUE but curated_by is NULL"
+            )
 
     def test_invariant_removed_always_null_on_extraction(
         self,
@@ -722,9 +722,9 @@ class TestActivityEnrichment:
 
         # Проверка: removed всегда NULL
         if "removed" in result.columns:
-            assert (
-                result["removed"].isna().all()
-            ), "Invariant violated: removed is not NULL on extraction stage"
+            assert result["removed"].isna().all(), (
+                "Invariant violated: removed is not NULL on extraction stage"
+            )
 
     def test_invariant_assay_organism_and_tax_id_consistency(
         self,
@@ -760,6 +760,6 @@ class TestActivityEnrichment:
         mask_tax_id_not_null = result["assay_tax_id"].notna()
         inconsistent_count = (mask_organism_null & mask_tax_id_not_null).sum()
         # Допускаем редкие legacy-ряды, но их должно быть близко к 0
-        assert (
-            inconsistent_count <= 1
-        ), f"Invariant violated: too many rows with assay_organism NULL but assay_tax_id NOT NULL: {inconsistent_count}"
+        assert inconsistent_count <= 1, (
+            f"Invariant violated: too many rows with assay_organism NULL but assay_tax_id NOT NULL: {inconsistent_count}"
+        )

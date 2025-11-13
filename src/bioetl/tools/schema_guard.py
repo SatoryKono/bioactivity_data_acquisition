@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.core.logger import UnifiedLogger
+from bioetl.core.log_events import LogEvents
 from bioetl.schemas import SCHEMA_REGISTRY
 from bioetl.tools import get_project_root
 
@@ -156,7 +157,7 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
     results: dict[str, dict[str, Any]] = {}
 
     for pipeline_name, config_path in configs_to_check.items():
-        log.info("validating_config", pipeline=pipeline_name, path=str(config_path))
+        log.info(LogEvents.VALIDATING_CONFIG, pipeline=pipeline_name, path=str(config_path))
         if not config_path.exists():
             results[pipeline_name] = {
                 "valid": False,
@@ -165,7 +166,7 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
                 "errors": [f"Configuration file not found: {config_path}"],
                 "exception_type": None,
             }
-            log.warning("config_missing", pipeline=pipeline_name)
+            log.warning(LogEvents.CONFIG_MISSING, pipeline=pipeline_name)
             continue
 
         valid, result = _validate_config(config_path)
@@ -185,21 +186,20 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
         }
 
         if valid:
-            log.info("config_valid", pipeline=pipeline_name)
+            log.info(LogEvents.CONFIG_VALID, pipeline=pipeline_name)
         else:
-            log.warning(
-                "config_invalid",
+            log.warning(LogEvents.CONFIG_INVALID,
                 pipeline=pipeline_name,
                 errors=len(results[pipeline_name]["errors"]),
             )
 
     registry_errors = _validate_schema_registry()
     if registry_errors:
-        log.warning("schema_registry_invalid", errors=len(registry_errors))
+        log.warning(LogEvents.SCHEMA_REGISTRY_INVALID, errors=len(registry_errors))
     else:
-        log.info("schema_registry_valid")
+        log.info(LogEvents.SCHEMA_REGISTRY_VALID)
 
     report_path = _write_report(results, registry_errors)
-    log.info("schema_guard_report_written", path=str(report_path))
+    log.info(LogEvents.SCHEMA_GUARD_REPORT_WRITTEN, path=str(report_path))
 
     return results, registry_errors, report_path

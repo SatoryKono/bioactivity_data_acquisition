@@ -1,16 +1,16 @@
 # 17 Document ChEMBL Config
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the configuration keys and profiles for the Document (ChEMBL) pipeline.
+This document describes the configuration keys and profiles for the Document
+(ChEMBL) pipeline.
 
 ## Configuration File
 
-The pipeline configuration is defined in `configs/pipelines/document/document_chembl.yaml`.
+The pipeline configuration is defined in
+`configs/pipelines/document/document_chembl.yaml`.
 
 ## Profile Inheritance
 
@@ -43,11 +43,14 @@ The configuration extends the following profiles:
 Configuration can be overridden via:
 
 1. Environment variables (highest priority)
-2. `--set` CLI flags
-3. Configuration file values (lowest priority)
+1. `--set` CLI flags
+1. Configuration file values (lowest priority)
 
 ## Related Documentation
 
-- [Typed Configurations](../configs/00-typed-configs-and-profiles.md) — Configuration system
-- [16-document-chembl-cli.md](document-chembl/16-document-chembl-cli.md) — CLI usage
-- [00-document-chembl-overview.md](document-chembl/00-document-chembl-overview.md) — Pipeline overview
+- [Typed Configurations](../configs/00-typed-configs-and-profiles.md) —
+  Configuration system
+- [16-document-chembl-cli.md](document-chembl/16-document-chembl-cli.md) — CLI
+  usage
+- [00-document-chembl-overview.md](document-chembl/00-document-chembl-overview.md)
+  — Pipeline overview

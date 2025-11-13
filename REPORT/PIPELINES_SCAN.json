@@ -1,0 +1,194 @@
+{
+  "repository_branch": "refactoring_050-1",
+  "search_scope": [
+    "src/bioetl/**",
+    "configs/**",
+    "tests/**",
+    "docs/**",
+    "pyproject.toml",
+    ".pre-commit-config.yaml"
+  ],
+  "pipelines": {
+    "activity": {
+      "status": "found",
+      "pipeline_files": [
+        {"path": "src/bioetl/pipelines/chembl/activity/run.py", "lines": "1-3477"},
+        {"path": "src/bioetl/pipelines/chembl/activity/normalize.py", "lines": "1-891"}
+      ],
+      "classes": [
+        {"name": "ChemblActivityPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/activity/run.py:106-3477"}
+      ],
+      "mixins": [
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
+      ],
+      "cli_entrypoints": [
+        {"path": "src/bioetl/cli/cli_registry.py:27-36", "detail": "build_command_config_activity"},
+        {"path": "src/bioetl/cli/cli_registry.py:129-135", "detail": "COMMAND_REGISTRY mapping"},
+        {"path": "src/bioetl/cli/cli_app.py:21-63", "detail": "Typer app registration"},
+        {"path": "src/bioetl/cli/cli_command.py:94-349", "detail": "create_pipeline_command"}
+      ],
+      "schema_imports": [
+        {"path": "src/bioetl/pipelines/chembl/activity/run.py:34-40", "symbols": ["ACTIVITY_PROPERTY_KEYS", "COLUMN_ORDER", "RELATIONS", "STANDARD_TYPES", "ActivitySchema"]}
+      ],
+      "api_clients": [
+        {"path": "src/bioetl/pipelines/chembl/activity/run.py:20-33", "modules": ["bioetl.clients.entities.activity", "bioetl.clients.client_chembl_common"]}
+      ],
+      "configs": [
+        {"path": "src/bioetl/pipelines/chembl/activity/run.py:22-23", "detail": "PipelineConfig import"},
+        {"path": "src/bioetl/config/activity/__init__.py:15-107", "detail": "ActivitySourceConfig definition"},
+        {"path": "configs/pipelines/activity/activity_chembl.yaml:1-185", "detail": "Pipeline YAML"}
+      ],
+      "writer_validator_logger": {
+        "writer": ["src/bioetl/pipelines/base.py:1203-1377"],
+        "validator": ["src/bioetl/pipelines/base.py:1511-1679"],
+        "logger": ["src/bioetl/pipelines/base.py:1409-1509"]
+      }
+    },
+    "assay": {
+      "status": "found",
+      "pipeline_files": [
+        {"path": "src/bioetl/pipelines/chembl/assay/run.py", "lines": "1-953"},
+        {"path": "src/bioetl/pipelines/chembl/assay/normalize.py", "lines": "1-379"},
+        {"path": "src/bioetl/pipelines/chembl/assay/transform.py", "lines": "1-233"}
+      ],
+      "classes": [
+        {"name": "ChemblAssayPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/assay/run.py:126-953"}
+      ],
+      "mixins": [
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
+      ],
+      "cli_entrypoints": [
+        {"path": "src/bioetl/cli/cli_registry.py:39-48", "detail": "build_command_config_assay"},
+        {"path": "src/bioetl/cli/cli_registry.py:129-135", "detail": "COMMAND_REGISTRY mapping"},
+        {"path": "src/bioetl/cli/cli_app.py:21-63", "detail": "Typer app registration"},
+        {"path": "src/bioetl/cli/cli_command.py:94-349", "detail": "create_pipeline_command"}
+      ],
+      "schema_imports": [
+        {"path": "src/bioetl/pipelines/chembl/assay/run.py:32-33", "symbols": ["COLUMN_ORDER", "AssaySchema"]}
+      ],
+      "api_clients": [
+        {"path": "src/bioetl/pipelines/chembl/assay/run.py:14-27", "modules": ["bioetl.clients.assay.chembl_assay", "bioetl.clients.client_chembl_common"]}
+      ],
+      "configs": [
+        {"path": "src/bioetl/pipelines/chembl/assay/run.py:16-17", "detail": "PipelineConfig import"},
+        {"path": "src/bioetl/config/assay/__init__.py:16-137", "detail": "AssaySourceConfig definition"},
+        {"path": "configs/pipelines/assay/assay_chembl.yaml:1-136", "detail": "Pipeline YAML"}
+      ],
+      "writer_validator_logger": {
+        "writer": ["src/bioetl/pipelines/base.py:1203-1377"],
+        "validator": ["src/bioetl/pipelines/base.py:1511-1679"],
+        "logger": ["src/bioetl/pipelines/base.py:1409-1509"]
+      }
+    },
+    "testitem": {
+      "status": "found",
+      "pipeline_files": [
+        {"path": "src/bioetl/pipelines/chembl/testitem/run.py", "lines": "1-808"},
+        {"path": "src/bioetl/pipelines/chembl/testitem/transform.py", "lines": "1-139"}
+      ],
+      "classes": [
+        {"name": "TestItemChemblPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/testitem/run.py:52-808"}
+      ],
+      "mixins": [
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
+      ],
+      "cli_entrypoints": [
+        {"path": "src/bioetl/cli/cli_registry.py:75-84", "detail": "build_command_config_testitem"},
+        {"path": "src/bioetl/cli/cli_registry.py:129-135", "detail": "COMMAND_REGISTRY mapping"},
+        {"path": "src/bioetl/cli/cli_app.py:21-63", "detail": "Typer app registration"},
+        {"path": "src/bioetl/cli/cli_command.py:94-349", "detail": "create_pipeline_command"}
+      ],
+      "schema_imports": [
+        {"path": "src/bioetl/pipelines/chembl/testitem/run.py:19-20", "symbols": ["COLUMN_ORDER"]}
+      ],
+      "api_clients": [
+        {"path": "src/bioetl/pipelines/chembl/testitem/run.py:13-28", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.testitem"]}
+      ],
+      "configs": [
+        {"path": "src/bioetl/pipelines/chembl/testitem/run.py:15-16", "detail": "PipelineConfig import"},
+        {"path": "src/bioetl/config/testitem/__init__.py:1-200", "detail": "TestItemSourceConfig definition"},
+        {"path": "configs/pipelines/testitem/testitem_chembl.yaml:1-155", "detail": "Pipeline YAML"}
+      ],
+      "writer_validator_logger": {
+        "writer": ["src/bioetl/pipelines/base.py:1203-1377"],
+        "validator": ["src/bioetl/pipelines/base.py:1511-1679"],
+        "logger": ["src/bioetl/pipelines/base.py:1409-1509"]
+      }
+    },
+    "target": {
+      "status": "found",
+      "pipeline_files": [
+        {"path": "src/bioetl/pipelines/chembl/target/run.py", "lines": "1-784"},
+        {"path": "src/bioetl/pipelines/chembl/target/transform.py", "lines": "1-252"}
+      ],
+      "classes": [
+        {"name": "ChemblTargetPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/target/run.py:38-784"}
+      ],
+      "mixins": [
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
+      ],
+      "cli_entrypoints": [
+        {"path": "src/bioetl/cli/cli_registry.py:51-60", "detail": "build_command_config_target"},
+        {"path": "src/bioetl/cli/cli_registry.py:129-135", "detail": "COMMAND_REGISTRY mapping"},
+        {"path": "src/bioetl/cli/cli_app.py:21-63", "detail": "Typer app registration"},
+        {"path": "src/bioetl/cli/cli_command.py:94-349", "detail": "create_pipeline_command"}
+      ],
+      "schema_imports": [
+        {"path": "src/bioetl/pipelines/chembl/target/run.py:27-28", "symbols": ["COLUMN_ORDER", "TargetSchema"]}
+      ],
+      "api_clients": [
+        {"path": "src/bioetl/pipelines/chembl/target/run.py:17-35", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.target"]}
+      ],
+      "configs": [
+        {"path": "src/bioetl/pipelines/chembl/target/run.py:19-20", "detail": "PipelineConfig import"},
+        {"path": "src/bioetl/config/target/__init__.py:1-200", "detail": "TargetSourceConfig definition"},
+        {"path": "configs/pipelines/target/target_chembl.yaml:1-69", "detail": "Pipeline YAML"}
+      ],
+      "writer_validator_logger": {
+        "writer": ["src/bioetl/pipelines/base.py:1203-1377"],
+        "validator": ["src/bioetl/pipelines/base.py:1511-1679"],
+        "logger": ["src/bioetl/pipelines/base.py:1409-1509"]
+      }
+    },
+    "document": {
+      "status": "found",
+      "pipeline_files": [
+        {"path": "src/bioetl/pipelines/chembl/document/run.py", "lines": "1-655"},
+        {"path": "src/bioetl/pipelines/chembl/document/normalize.py", "lines": "1-295"}
+      ],
+      "classes": [
+        {"name": "ChemblDocumentPipeline", "bases": ["ChemblPipelineBase"], "path": "src/bioetl/pipelines/chembl/document/run.py:60-655"}
+      ],
+      "mixins": [
+        {"name": "ChemblPipelineBase", "path": "src/bioetl/pipelines/chembl_descriptor.py:162-324"},
+        {"name": "PipelineBase", "path": "src/bioetl/pipelines/base.py:120-1784"}
+      ],
+      "cli_entrypoints": [
+        {"path": "src/bioetl/cli/cli_registry.py:63-72", "detail": "build_command_config_document"},
+        {"path": "src/bioetl/cli/cli_registry.py:129-135", "detail": "COMMAND_REGISTRY mapping"},
+        {"path": "src/bioetl/cli/cli_app.py:21-63", "detail": "Typer app registration"},
+        {"path": "src/bioetl/cli/cli_command.py:94-349", "detail": "create_pipeline_command"}
+      ],
+      "schema_imports": [
+        {"path": "src/bioetl/pipelines/chembl/document/run.py:20-21", "symbols": ["COLUMN_ORDER"]}
+      ],
+      "api_clients": [
+        {"path": "src/bioetl/pipelines/chembl/document/run.py:14-29", "modules": ["bioetl.clients.client_chembl_common", "bioetl.clients.entities.document"]}
+      ],
+      "configs": [
+        {"path": "src/bioetl/pipelines/chembl/document/run.py:16-18", "detail": "PipelineConfig import"},
+        {"path": "src/bioetl/config/document/__init__.py:1-200", "detail": "DocumentSourceConfig definition"},
+        {"path": "configs/pipelines/document/document_chembl.yaml:1-99", "detail": "Pipeline YAML"}
+      ],
+      "writer_validator_logger": {
+        "writer": ["src/bioetl/pipelines/base.py:1203-1377"],
+        "validator": ["src/bioetl/pipelines/base.py:1511-1679"],
+        "logger": ["src/bioetl/pipelines/base.py:1409-1509"]
+      }
+    }
+  }
+}

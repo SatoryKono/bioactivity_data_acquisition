@@ -8,9 +8,9 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.core.api_client import UnifiedAPIClient
-from bioetl.pipelines.activity.join_molecule import join_activity_with_molecule
+from bioetl.core.utils.molecule_map import join_activity_with_molecule
 
 
 @pytest.fixture

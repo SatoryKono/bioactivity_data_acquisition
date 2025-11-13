@@ -1,0 +1,159 @@
+{
+  "rules": [
+    {
+      "id": "NR-001",
+      "scope": "all",
+      "kind": "file",
+      "pattern": "^(api|cli|client|service|repo|schema|model|utils|pipeline)_[a-z0-9]+_(extract|transform|validate|write|run|sync|normalize|resolve|map)(_[a-z0-9]+)?\\.py$",
+      "description": "Имена модулей следуют формату <layer>_<domain>_<action>[_<provider>] без пробелов, дефисов и CamelCase."
+    },
+    {
+      "id": "NR-002",
+      "scope": "all",
+      "kind": "module",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Пакеты и файлы модулей используют snake_case с буквенно-цифровыми символами."
+    },
+    {
+      "id": "NR-003",
+      "scope": "tests",
+      "kind": "module",
+      "pattern": "^test_[a-z0-9_]+\\.py$",
+      "description": "Тестовые модули именуются с префиксом test_ и отражают имя проверяемого модуля."
+    },
+    {
+      "id": "NR-004",
+      "scope": "cli",
+      "kind": "file",
+      "pattern": "^cli_.*\\.py$",
+      "description": "Файлы в каталоге cli имеют префикс cli_."
+    },
+    {
+      "id": "NR-005",
+      "scope": "clients",
+      "kind": "file",
+      "pattern": "^client_.*\\.py$",
+      "description": "Клиентские модули используют префикс client_."
+    },
+    {
+      "id": "NR-006",
+      "scope": "clients",
+      "kind": "class",
+      "pattern": "^[A-Z][A-Za-z0-9]*Client$",
+      "description": "Классы клиентов оканчиваются на Client и оформлены в PascalCase."
+    },
+    {
+      "id": "NR-007",
+      "scope": "schemas",
+      "kind": "file",
+      "pattern": ".*_schema\\.(py|ya?ml)$",
+      "description": "Все схемы именуются с суффиксом _schema и располагаются в файлах .py, .yaml или .yml."
+    },
+    {
+      "id": "NR-008",
+      "scope": "config",
+      "kind": "file",
+      "pattern": "^[a-z0-9_]+\\.(yaml|yml|json)$",
+      "description": "Конфигурации используют snake_case имя и расширение yaml, yml или json."
+    },
+    {
+      "id": "NR-009",
+      "scope": "tests",
+      "kind": "file",
+      "pattern": "^tests/bioetl/.*/test_[a-z0-9_]+\\.py$",
+      "description": "Структура тестов зеркалирует дерево src/bioetl, сохраняя путь tests/bioetl/.../test_<module>.py."
+    },
+    {
+      "id": "NR-010",
+      "scope": "all",
+      "kind": "class",
+      "pattern": "^[A-Z][A-Za-z0-9]*$",
+      "description": "Классы объявляются в PascalCase; базовые классы и интерфейсы допускают суффиксы Base и ABC."
+    },
+    {
+      "id": "NR-011",
+      "scope": "all",
+      "kind": "func",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Функции и методы именуются глаголами в виде snake_case."
+    },
+    {
+      "id": "NR-012",
+      "scope": "all",
+      "kind": "const",
+      "pattern": "^[A-Z][A-Z0-9_]*$",
+      "description": "Константы оформляются в верхнем регистре с разделением символом подчеркивания."
+    },
+    {
+      "id": "NR-013",
+      "scope": "all",
+      "kind": "exception",
+      "pattern": "^[A-Z][A-Za-z0-9]*Error$",
+      "description": "Исключения заканчиваются на Error и используют PascalCase."
+    }
+  ],
+  "hierarchy": {
+    "root": "src/bioetl/pipelines",
+    "pattern": "<provider>/<entity>/<stage>.py",
+    "provider_values": [
+      "chembl",
+      "pubchem",
+      "uniprot",
+      "iuphar",
+      "pubmed",
+      "openalex",
+      "crossref",
+      "semanticscholar"
+    ],
+    "entity_values": [
+      "assay",
+      "activity",
+      "target",
+      "document",
+      "testitem"
+    ],
+    "stage_values": [
+      "extract",
+      "transform",
+      "validate",
+      "write",
+      "run"
+    ],
+    "description": "Все пайплайны обязаны соблюдать трёхуровневую структуру директорий src/bioetl/pipelines/<provider>/<entity>/<stage>.py; тесты должны иметь зеркальную структуру."
+  },
+  "conventions": {
+    "class_suffixes": [
+      "Client",
+      "Service",
+      "Repository",
+      "Validator",
+      "Normalizer",
+      "Writer",
+      "Base",
+      "ABC",
+      "Model",
+      "Record",
+      "Config"
+    ],
+    "predicate_prefixes": [
+      "is_",
+      "has_",
+      "should_"
+    ],
+    "factory_prefixes": [
+      "build_",
+      "create_",
+      "make_"
+    ],
+    "io_prefixes": [
+      "load_",
+      "save_"
+    ],
+    "private_prefix": "_",
+    "module_pattern": "^[a-z][a-z0-9_]*$",
+    "function_pattern": "^[a-z][a-z0-9_]*$",
+    "constant_pattern": "^[A-Z][A-Z0-9_]*$",
+    "notes": "Функции используют глагольные формы в snake_case; приватные вспомогательные элементы получают префикс подчеркивания."
+  }
+}
+

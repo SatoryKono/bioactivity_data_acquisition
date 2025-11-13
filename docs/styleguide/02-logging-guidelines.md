@@ -1,24 +1,32 @@
 # Logging Guidelines
 
-This document defines the logging standards for the `bioetl` project. All logging **MUST** use the centralized `UnifiedLogger` system based on `structlog`.
+This document defines the logging standards for the `bioetl` project. All
+logging **MUST** use the centralized `UnifiedLogger` system based on
+`structlog`.
 
 ## Principles
 
-- **Centralization**: All logging **MUST** use `UnifiedLogger` from `bioetl.core.logger`.
-- **Structured Logging**: All logs **MUST** be structured (JSON or key-value format).
-- **No Print Statements**: Direct `print()` calls **SHALL NOT** be used in production code.
-- **Context Enrichment**: All log records **MUST** include mandatory context fields.
+- **Centralization**: All logging **MUST** use `UnifiedLogger` from
+  `bioetl.core.logger`.
+- **Structured Logging**: All logs **MUST** be structured (JSON or key-value
+  format).
+- **No Print Statements**: Direct `print()` calls **SHALL NOT** be used in
+  production code.
+- **Context Enrichment**: All log records **MUST** include mandatory context
+  fields.
 - **Security**: Sensitive data **MUST** be redacted from logs.
 
 ## UnifiedLogger Usage
 
 ### Initialization
 
-The logger **MUST** be configured once at the application entry point (e.g., CLI main function):
+The logger **MUST** be configured once at the application entry point (e.g., CLI
+main function):
 
 ```python
 from bioetl.core.logger import UnifiedLogger, LoggerConfig
 from pathlib import Path
+
 
 def main():
     config = LoggerConfig(
@@ -26,7 +34,7 @@ def main():
         console_format="text",  # "text" for dev, "json" for prod
         file_enabled=True,
         file_path=Path("logs/pipeline_run.log"),
-        telemetry_enabled=False
+        telemetry_enabled=False,
     )
     UnifiedLogger.configure(config)
     # ... rest of application
@@ -41,6 +49,7 @@ from bioetl.core.logger import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 
+
 class MyPipeline:
     def run(self):
         log.info("Pipeline started", step="initialization")
@@ -53,13 +62,14 @@ Set execution context at the start of each pipeline run:
 ```python
 from bioetl.core.logger import set_run_context
 
+
 def run_pipeline():
     set_run_context(
         run_id="run_20240101_120000",
         stage="extract",
         actor="user@example.com",
         source="chembl",
-        trace_id=None  # Optional: OpenTelemetry trace ID
+        trace_id=None,  # Optional: OpenTelemetry trace ID
     )
     log.info("Context set")
 ```
@@ -70,23 +80,19 @@ All log records **MUST** include the following fields (automatically injected):
 
 - `run_id`: Unique identifier for the pipeline run
 - `pipeline`: Name of the pipeline
-- `stage`: Current execution stage (e.g., `extract`, `transform`, `validate`, `export`)
+- `stage`: Current execution stage (e.g., `extract`, `transform`, `validate`,
+  `export`)
 - `timestamp_utc`: UTC timestamp in ISO-8601 format
 
-### Valid Examples
+### Valid Examples: Mandatory Fields
 
 ```python
-log.info(
-    "Extraction started",
-    source="chembl",
-    batch_size=1000,
-    row_count=50000
-)
+log.info("Extraction started", source="chembl", batch_size=1000, row_count=50000)
 ```
 
 This automatically includes: `run_id`, `pipeline`, `stage`, `timestamp_utc`.
 
-### Invalid Examples
+### Invalid Examples: Mandatory Fields
 
 ```python
 # Invalid: using print()
@@ -94,6 +100,7 @@ print("Extraction started")  # SHALL NOT be used
 
 # Invalid: using standard logging
 import logging
+
 logger = logging.getLogger(__name__)  # SHALL NOT be used
 logger.info("Message")
 ```
@@ -122,7 +129,7 @@ log.info(
     "Data validation completed",
     valid_rows=9500,
     invalid_rows=500,
-    validation_time_ms=1250
+    validation_time_ms=1250,
 )
 
 log.error(
@@ -130,7 +137,7 @@ log.error(
     url="https://api.example.com/data",
     status_code=429,
     retry_after=60,
-    error_message="Rate limit exceeded"
+    error_message="Rate limit exceeded",
 )
 ```
 
@@ -143,9 +150,10 @@ Sensitive data **MUST** be redacted from logs:
 - Tokens
 - Personal identifiers
 
-The `UnifiedLogger` includes automatic redaction processors. Ensure sensitive values are not included in log messages or structured fields.
+The `UnifiedLogger` includes automatic redaction processors. Ensure sensitive
+values are not included in log messages or structured fields.
 
-### Valid Examples
+### Valid Examples: Secret Redaction
 
 ```python
 # Valid: redacted sensitive data
@@ -156,13 +164,12 @@ log.info(
 )
 ```
 
-### Invalid Examples
+### Invalid Examples: Secret Redaction
 
 ```python
 # Invalid: sensitive data in logs
 log.info(
-    "API key obtained",
-    api_key="sk_live_1234567890abcdef"  # SHALL NOT log secrets
+    "API key obtained", api_key="sk_live_1234567890abcdef"  # SHALL NOT log secrets
 )
 ```
 
@@ -172,7 +179,7 @@ log.info(
 
 Use `console_format="text"` for human-readable key-value output:
 
-```
+```text
 2024-01-01T12:00:00.123Z [INFO] run_id=run_123 stage=extract pipeline=activity Data extraction started source=chembl rows=1000
 ```
 
@@ -186,26 +193,26 @@ Use `console_format="json"` for machine-readable JSON output:
 
 ## Best Practices
 
-1. **Context Binding**: Use `set_run_context()` at pipeline start to enrich all subsequent logs.
-2. **Structured Data**: Prefer structured key-value pairs over formatted strings.
-3. **Error Context**: Always include relevant context in error logs (URLs, IDs, counts).
-4. **Performance**: Log data volumes and execution times for monitoring.
-5. **Traceability**: Include `trace_id` when available for distributed tracing.
+1. **Context Binding**: Use `set_run_context()` at pipeline start to enrich all
+   subsequent logs.
+1. **Structured Data**: Prefer structured key-value pairs over formatted
+   strings.
+1. **Error Context**: Always include relevant context in error logs (URLs, IDs,
+   counts).
+1. **Performance**: Log data volumes and execution times for monitoring.
+1. **Traceability**: Include `trace_id` when available for distributed tracing.
 
-### Valid Example
+### Valid Example: Run Context
 
 ```python
 from bioetl.core.logger import UnifiedLogger, set_run_context
 
 log = UnifiedLogger.get(__name__)
 
+
 def extract_data(source: str, batch_size: int) -> pd.DataFrame:
     start_time = time.time()
-    log.info(
-        "Starting extraction",
-        source=source,
-        batch_size=batch_size
-    )
+    log.info("Starting extraction", source=source, batch_size=batch_size)
 
     try:
         data = fetch_from_api(source, batch_size)
@@ -214,7 +221,7 @@ def extract_data(source: str, batch_size: int) -> pd.DataFrame:
             "Extraction completed",
             source=source,
             rows=len(data),
-            duration_ms=elapsed_ms
+            duration_ms=elapsed_ms,
         )
         return data
     except Exception as e:
@@ -222,7 +229,7 @@ def extract_data(source: str, batch_size: int) -> pd.DataFrame:
             "Extraction failed",
             source=source,
             error=str(e),
-            error_type=type(e).__name__
+            error_type=type(e).__name__,
         )
         raise
 ```
@@ -231,4 +238,5 @@ def extract_data(source: str, batch_size: int) -> pd.DataFrame:
 
 - UnifiedLogger implementation: `src/bioetl/core/logger.py`
 - Detailed documentation: [`docs/logging/`](../logging/)
-- Security guidelines: [`docs/logging/04-security-secret-redaction.md`](../logging/04-security-secret-redaction.md)
+- Security guidelines:
+  [`docs/logging/04-security-secret-redaction.md`](../logging/04-security-secret-redaction.md)

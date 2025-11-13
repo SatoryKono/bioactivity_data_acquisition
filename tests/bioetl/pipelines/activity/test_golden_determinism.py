@@ -8,7 +8,7 @@ import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.golden  # type: ignore[attr-defined]
@@ -24,7 +24,7 @@ class TestGoldenDeterminism:
         golden_dir: Path,
     ):
         """Test that CSV artifacts are deterministic."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -63,7 +63,7 @@ class TestGoldenDeterminism:
         """Test that meta.yaml has required structure."""
         import yaml
 
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -77,9 +77,9 @@ class TestGoldenDeterminism:
         result = pipeline.write(sample_activity_data, artifacts.run_directory, extended=True)
 
         # Load and verify meta.yaml structure
-        assert (
-            result.write_result.metadata is not None
-        ), "metadata should be created with extended=True"
+        assert result.write_result.metadata is not None, (
+            "metadata should be created with extended=True"
+        )
         meta_content = yaml.safe_load(result.write_result.metadata.read_text())
 
         # Verify required fields based on actual metadata structure
@@ -97,7 +97,7 @@ class TestGoldenDeterminism:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that column order is stable."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -122,7 +122,7 @@ class TestGoldenDeterminism:
         # Verify column order matches schema
         # Note: hash_row and hash_business_key are added after schema columns
         # Note: enrichment columns (compound_name, curated, removed) are only added if enrichment is enabled
-        from bioetl.schemas.activity import COLUMN_ORDER
+        from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER
 
         # Filter out enrichment columns that may not be present if enrichment is disabled
         enrichment_cols = {"compound_name", "curated", "removed"}
@@ -132,16 +132,16 @@ class TestGoldenDeterminism:
         df_schema_cols = [col for col in df.columns if col in schema_cols]
 
         # Check that schema columns (excluding enrichment) are in the correct order
-        assert (
-            df_schema_cols == schema_cols
-        ), "Schema columns (excluding enrichment) must be in the correct order before hash columns"
+        assert df_schema_cols == schema_cols, (
+            "Schema columns (excluding enrichment) must be in the correct order before hash columns"
+        )
 
         # Hash columns should be at the end (if present)
         if "hash_row" in df.columns:
-            assert (
-                df.columns[-2] == "hash_row" or df.columns[-1] == "hash_row"
-            ), "hash_row should be at the end"
+            assert df.columns[-2] == "hash_row" or df.columns[-1] == "hash_row", (
+                "hash_row should be at the end"
+            )
         if "hash_business_key" in df.columns:
-            assert (
-                df.columns[-1] == "hash_business_key"
-            ), "hash_business_key should be the last column"
+            assert df.columns[-1] == "hash_business_key", (
+                "hash_business_key should be the last column"
+            )

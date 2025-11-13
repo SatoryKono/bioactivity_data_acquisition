@@ -11,7 +11,7 @@ import pytest
 import yaml
 
 from bioetl.config import PipelineConfig
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 @pytest.mark.integration
@@ -93,7 +93,7 @@ class TestPipelineLifecycle:
     ):
         """Test pipeline lifecycle with validation error."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.activity_chembl:ActivitySchema"
+            "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         )
         pipeline_config_fixture.validation.strict = True
         pipeline_config_fixture.determinism.sort.by = []

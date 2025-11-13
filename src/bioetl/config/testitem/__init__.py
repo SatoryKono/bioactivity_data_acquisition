@@ -5,16 +5,16 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field, PositiveInt
+from pydantic import Field, PositiveInt
+
+from bioetl.core.config.base_source import BaseSourceConfig, BaseSourceParameters
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig
 
 
-class TestItemSourceParameters(BaseModel):
+class TestItemSourceParameters(BaseSourceParameters):
     """Free-form parameters specific to the testitem source."""
-
-    model_config = ConfigDict(extra="forbid")
 
     base_url: str | None = Field(
         default=None,
@@ -30,7 +30,9 @@ class TestItemSourceParameters(BaseModel):
     )
 
     @classmethod
-    def from_mapping(cls, params: Mapping[str, Any]) -> TestItemSourceParameters:
+    def from_mapping(
+        cls, params: Mapping[str, Any] | None
+    ) -> TestItemSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -43,19 +45,24 @@ class TestItemSourceParameters(BaseModel):
         TestItemSourceParameters
             Constructed parameters object.
         """
-        select_fields_raw = params.get("select_fields")
+        if params is None:
+            return cls()
+
+        normalized = cls._normalize_mapping(params)
+
+        select_fields_raw = normalized.get("select_fields")
         select_fields: Sequence[str] | None = None
         if select_fields_raw is not None:
             if isinstance(select_fields_raw, Sequence) and not isinstance(
                 select_fields_raw, (str, bytes)
             ):
                 # Type narrowing: after isinstance check, select_fields_raw is Sequence[Any]
-                # Явно типизируем элементы для избежания предупреждений типизации
-                # basedpyright не может вывести тип field из Sequence[Any]
-                # Используем генератор списка с явной типизацией через cast
+                # Explicitly annotate elements to avoid type narrowing warnings.
+                # basedpyright cannot infer the field type from Sequence[Any].
+                # Use a generator with explicit casting to strings.
                 select_fields = tuple(str(cast(Any, field)) for field in select_fields_raw)  # pyright: ignore[reportUnknownVariableType]
 
-        max_pages_raw = params.get("max_pages")
+        max_pages_raw = normalized.get("max_pages")
         max_pages: PositiveInt | None = None
         if max_pages_raw is not None:
             try:
@@ -66,16 +73,14 @@ class TestItemSourceParameters(BaseModel):
                 pass
 
         return cls(
-            base_url=params.get("base_url"),
+            base_url=normalized.get("base_url"),
             select_fields=select_fields,
             max_pages=max_pages,
         )
 
 
-class TestItemSourceConfig(BaseModel):
+class TestItemSourceConfig(BaseSourceConfig[TestItemSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
-
-    model_config = ConfigDict(extra="forbid")
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
@@ -87,37 +92,22 @@ class TestItemSourceConfig(BaseModel):
     )
     parameters: TestItemSourceParameters = Field(default_factory=TestItemSourceParameters)
 
+    parameters_model = TestItemSourceParameters
+    batch_field = "page_size"
+    default_batch_size = 200
+
     @classmethod
-    def from_source_config(cls, config: SourceConfig) -> TestItemSourceConfig:
-        """Create a :class:`TestItemSourceConfig` from the generic :class:`SourceConfig`.
-
-        Parameters
-        ----------
-        config
-            Generic source configuration.
-
-        Returns
-        -------
-        TestItemSourceConfig
-            Pipeline-specific configuration.
-        """
-        # Extract page_size from batch_size or parameters
-        page_size: int = 200
+    def _resolve_batch_value(
+        cls,
+        *,
+        config: SourceConfig,
+        parameters: TestItemSourceParameters,  # noqa: ARG003
+    ) -> int:
         if config.batch_size is not None:
-            page_size = config.batch_size
-        else:
-            parameters = config.parameters
-            batch_size_raw = parameters.get("batch_size")
-            if isinstance(batch_size_raw, int) and batch_size_raw > 0:
-                page_size = batch_size_raw
-
-        parameters_obj = TestItemSourceParameters.from_mapping(config.parameters)
-
-        return cls(
-            enabled=config.enabled,
-            description=config.description,
-            http_profile=config.http_profile,
-            http=config.http,
-            page_size=page_size,
-            parameters=parameters_obj,
-        )
+            return int(config.batch_size)
+        raw_parameters = config.parameters
+        batch_size_raw = raw_parameters.get("batch_size")
+        if isinstance(batch_size_raw, int) and batch_size_raw > 0:
+            return batch_size_raw
+        default_value = cls._default_batch_value()
+        return int(default_value) if default_value is not None else 200

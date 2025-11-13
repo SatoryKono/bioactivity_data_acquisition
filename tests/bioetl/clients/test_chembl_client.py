@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.clients.chembl import ChemblClient
+from bioetl.clients.client_chembl_common import ChemblClient, _resolve_status_endpoint
 from bioetl.core.api_client import UnifiedAPIClient
 
 
@@ -44,14 +44,17 @@ class TestChemblClient:
         mock_api_client.get.return_value = mock_response
 
         client = ChemblClient(mock_api_client)
-        result1 = client.handshake("/status")
-        result2 = client.handshake("/status")
+        default_endpoint = _resolve_status_endpoint()
+
+        result1 = client.handshake()
+        result2 = client.handshake()
 
         # Should only call API once
         assert mock_api_client.get.call_count == 1
+        assert mock_api_client.get.call_args_list[0][0][0] == default_endpoint
         assert result1 == result2
         assert result1["chembl_db_version"] == "33"
-        assert "/status" in client._status_cache
+        assert default_endpoint in client._status_cache
 
     def test_handshake_different_endpoints(
         self, mock_api_client: MagicMock, mock_response: MagicMock
@@ -61,13 +64,41 @@ class TestChemblClient:
         mock_api_client.get.return_value = mock_response
 
         client = ChemblClient(mock_api_client)
-        client.handshake("/status")
+        default_endpoint = _resolve_status_endpoint()
+        client.handshake()
         client.handshake("/version")
 
         # Should call API twice for different endpoints
         assert mock_api_client.get.call_count == 2
-        assert "/status" in client._status_cache
+        assert default_endpoint in client._status_cache
         assert "/version" in client._status_cache
+
+    def test_handshake_default_endpoint_from_config(
+        self,
+        mock_api_client: MagicMock,
+        mock_response: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Ensure handshake() uses the endpoint resolved from configuration."""
+
+        mock_response.json.return_value = {
+            "chembl_db_version": "34",
+            "api_version": "2.0",
+        }
+        mock_api_client.get.return_value = mock_response
+
+        configured_endpoint = "/configured-status.json"
+        monkeypatch.setattr(
+            "bioetl.clients.client_chembl_common._resolve_status_endpoint",
+            lambda: configured_endpoint,
+        )
+
+        client = ChemblClient(mock_api_client)
+        payload = client.handshake()
+
+        assert payload["chembl_db_version"] == "34"
+        assert mock_api_client.get.call_args_list[0][0][0] == configured_endpoint
+        assert configured_endpoint in client._status_cache
 
     def test_paginate_single_page(
         self, mock_api_client: MagicMock, mock_response: MagicMock
@@ -123,7 +154,7 @@ class TestChemblClient:
 
         assert len(items) == 1
         # Should pass params to first request (after handshake)
-        # Find the call to /activities.json (skip handshake call to /status)
+        # Find the call to /activities.json (skip handshake call to default status endpoint)
         activity_calls = [
             call for call in mock_api_client.get.call_args_list if call[0][0] == "/activities.json"
         ]

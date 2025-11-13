@@ -1,13 +1,17 @@
 # Deterministic I/O
 
-This document defines the standards for deterministic input/output operations in the `bioetl` project. All data operations **MUST** ensure bit-for-bit reproducibility.
+This document defines the standards for deterministic input/output operations in
+the `bioetl` project. All data operations **MUST** ensure bit-for-bit
+reproducibility.
 
 ## Principles
 
-- **Determinism**: Same input and configuration **MUST** produce identical output files.
+- **Determinism**: Same input and configuration **MUST** produce identical
+  output files.
 - **Fixed Ordering**: Row and column order **MUST** be stable across runs.
 - **UTC Time**: All timestamps **MUST** use UTC and ISO-8601 format.
-- **Canonical Serialization**: JSON and other formats **MUST** use stable key ordering.
+- **Canonical Serialization**: JSON and other formats **MUST** use stable key
+  ordering.
 - **Atomic Writes**: File writes **MUST** be atomic (temp → fsync → rename).
 
 ## Row and Column Ordering
@@ -22,7 +26,8 @@ def sort_dataframe(df: pd.DataFrame, sort_keys: list[str]) -> pd.DataFrame:
     return df.sort_values(by=sort_keys, kind="stable").reset_index(drop=True)
 ```
 
-**Configuration**: Sort keys defined in pipeline config under `determinism.sort.by`:
+**Configuration**: Sort keys defined in pipeline config under
+`determinism.sort.by`:
 
 ```yaml
 determinism:
@@ -35,8 +40,8 @@ determinism:
 Column order **MUST** match the Pandera schema's `column_order`:
 
 1. Schema defines order via `ordered=True`
-2. Validation enforces column order
-3. Write stage preserves this order
+1. Validation enforces column order
+1. Write stage preserves this order
 
 ## Time Handling
 
@@ -60,6 +65,7 @@ timestamp = datetime.now().isoformat()  # SHALL NOT use local time
 ```python
 from datetime import datetime, timezone
 
+
 def generate_metadata() -> dict[str, str]:
     return {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -75,6 +81,7 @@ JSON output **MUST** use stable key ordering:
 
 ```python
 import json
+
 
 def serialize_json(data: dict) -> str:
     """Serialize dict to JSON with sorted keys."""
@@ -102,6 +109,7 @@ All file writes **MUST** use the atomic write pattern:
 import os
 from pathlib import Path
 
+
 def write_atomic(content: str, path: Path):
     """Write file atomically using temp → fsync → rename."""
     # 1. Write to temporary file
@@ -123,6 +131,7 @@ def write_atomic(content: str, path: Path):
 ```python
 from pathlib import Path
 import os
+
 
 def write_dataframe_atomic(df: pd.DataFrame, path: Path):
     """Write DataFrame atomically."""
@@ -147,6 +156,7 @@ def write_dataframe_atomic(df: pd.DataFrame, path: Path):
 def write_dataframe_direct(df: pd.DataFrame, path: Path):
     df.to_csv(path, index=False)  # SHALL NOT write directly
 
+
 # Invalid: missing fsync
 def write_without_fsync(content: str, path: Path):
     tmp_path = path.with_suffix(".tmp")
@@ -170,6 +180,7 @@ Derived keys **MUST** use BLAKE2 hash when generating composite keys:
 
 ```python
 import hashlib
+
 
 def hash_business_key(components: list[str]) -> str:
     """Generate BLAKE2 hash of business key components."""
@@ -201,11 +212,9 @@ import yaml
 from datetime import datetime, timezone
 import hashlib
 
+
 def generate_meta_yaml(
-    row_count: int,
-    file_path: Path,
-    pipeline_version: str,
-    git_commit: str
+    row_count: int, file_path: Path, pipeline_version: str, git_commit: str
 ) -> dict:
     """Generate meta.yaml content."""
     # Calculate checksum
@@ -218,6 +227,7 @@ def generate_meta_yaml(
         "blake2_checksum": file_hash,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
     }
+
 
 def write_meta_yaml(meta: dict, data_path: Path):
     """Write meta.yaml atomically."""
@@ -239,5 +249,6 @@ Example: `activity_v1_abc123def.csv`
 ## References
 
 - Determinism policy: [`docs/determinism/`](../determinism/)
-- ETL contract: [`docs/etl_contract/06-determinism-output.md`](../etl_contract/06-determinism-output.md)
+- ETL contract:
+  [`docs/etl_contract/06-determinism-output.md`](../etl_contract/06-determinism-output.md)
 - Schema guidelines: [`03-data-schemas.md`](./03-data-schemas.md)

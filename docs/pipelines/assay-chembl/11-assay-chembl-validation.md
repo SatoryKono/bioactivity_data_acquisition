@@ -1,12 +1,12 @@
 # 11 Assay ChEMBL Validation
 
-**Version:** 1.0.0
-**Date:** 2025-01-29
-**Author:** Data Acquisition Team
+**Version:** 1.0.0 **Date:** 2025-01-29 **Author:** Data Acquisition Team
 
 ## Purpose
 
-This document describes the validation stage of the Assay (ChEMBL) pipeline, covering Pandera schema definitions, field constraints, and validation workflows.
+This document describes the validation stage of the Assay (ChEMBL) pipeline,
+covering Pandera schema definitions, field constraints, and validation
+workflows.
 
 ## Pandera Schemas
 
@@ -19,9 +19,10 @@ The pipeline uses `AssaySchema` with strict validation:
 ## Validation Workflow
 
 1. **Schema Validation**: Validates against AssaySchema with strict=True
-2. **Referential Integrity**: Checks enriched target and assay class references
-3. **Duplicate Detection**: Ensures no duplicate combinations of `assay_chembl_id`, `row_subtype`, `row_index`
-4. **BAO Compliance**: Validates assay class mappings against BAO ontology
+1. **Referential Integrity**: Checks enriched target and assay class references
+1. **Duplicate Detection**: Ensures no duplicate combinations of
+   `assay_chembl_id`, `row_subtype`, `row_index`
+1. **BAO Compliance**: Validates assay class mappings against BAO ontology
 
 ## Constraints
 

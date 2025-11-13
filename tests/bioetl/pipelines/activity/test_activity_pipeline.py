@@ -4,17 +4,18 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock
+from typing import Any, Mapping
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 from requests.exceptions import RequestException
 
+from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import PipelineConfig
 from bioetl.core.api_client import CircuitBreakerOpenError
-from bioetl.pipelines.activity.activity import ChemblActivityPipeline
-from bioetl.schemas.activity import ActivitySchema
+from bioetl.pipelines.chembl.activity import run
+from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
@@ -25,7 +26,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of valid ChEMBL IDs."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -45,7 +46,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of invalid ChEMBL IDs."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -65,7 +66,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of BAO identifiers."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -84,7 +85,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of standard_value."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -104,7 +105,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that negative standard_values are set to None."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -122,7 +123,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of standard_relation."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -154,7 +155,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of standard_type."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -174,7 +175,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of standard_units."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -206,7 +207,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of string fields."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -246,7 +247,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of nested structures to JSON strings."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -284,7 +285,7 @@ class TestChemblActivityPipelineTransformations:
     ) -> None:
         """Ensure numeric/text payloads and result flag survive normalization."""
 
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -346,7 +347,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test data type conversions."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -378,7 +379,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test foreign key validation."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -396,7 +397,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test activity_id uniqueness check."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df_unique = pd.DataFrame({"activity_id": [1, 2, 3]})
         pipeline._check_activity_id_uniqueness(df_unique, MagicMock())  # type: ignore[reportPrivateUsage]
@@ -410,7 +411,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test foreign key integrity check."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df_valid = pd.DataFrame(
             {
@@ -434,7 +435,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test transform with empty DataFrame."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df_empty = pd.DataFrame()
         result = pipeline.transform(df_empty)
@@ -445,7 +446,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test transform with invalid payload type."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # transform expects pd.DataFrame, so passing string should raise TypeError or AttributeError
         with pytest.raises((TypeError, AttributeError)):
@@ -455,7 +456,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that transform harmonizes identifier columns and drops aliases."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -479,7 +480,7 @@ class TestChemblActivityPipelineTransformations:
     ) -> None:
         """Ensure transform keeps raw measurement fields alongside standardized ones."""
 
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         df = pd.DataFrame(
             {
@@ -526,26 +527,40 @@ class TestChemblActivityPipelineTransformations:
         """Ensure batched extraction invokes the API and warms the cache."""
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline._chembl_release = "33"  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [1, 2, 3]})
 
-        client = MagicMock()
-        response_batch_one = MagicMock()
-        response_batch_one.json.return_value = {
-            "activities": [
-                {"activity_id": 1, "standard_type": "IC50"},
-                {"activity_id": 2, "standard_type": "IC50"},
-            ]
-        }
-        response_batch_two = MagicMock()
-        response_batch_two.json.return_value = {
-            "activities": [{"activity_id": 3, "standard_type": "IC50"}]
-        }
-        client.get.side_effect = [response_batch_one, response_batch_two]
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+
+        def paginate(
+            endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None
+        ) -> Any:
+            values = params["activity_id__in"].split(",")
+            payload = [{"activity_id": int(value), "standard_type": "IC50"} for value in values]
+            return iter(payload)
+
+        iterator_client.paginate.side_effect = paginate
+
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=2)
+
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id", "standard_type"],
+            )  # type: ignore[reportPrivateUsage]
 
         assert list(result["activity_id"]) == [1, 2, 3]
         stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
@@ -553,11 +568,26 @@ class TestChemblActivityPipelineTransformations:
         assert stats["api_calls"] == 2
         assert stats["cache_hits"] == 0
 
-        cached_client = MagicMock()
-        cached_result = pipeline._extract_from_chembl(dataset, cached_client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        cached_iterator_client = MagicMock()
+        cached_iterator_client.paginate.side_effect = AssertionError(
+            "paginate should not be called when cache is warm"
+        )
+        cached_activity_iterator = ChemblActivityClient(cached_iterator_client, batch_size=2)
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            cached_result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                cached_activity_iterator,
+                select_fields=["activity_id", "standard_type"],
+            )  # type: ignore[reportPrivateUsage]
 
         assert list(cached_result["activity_id"]) == [1, 2, 3]
-        assert cached_client.get.call_count == 0
+        cached_iterator_client.paginate.assert_not_called()
         cached_stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
         assert cached_stats is not None
         assert cached_stats["cache_hits"] == 3
@@ -571,16 +601,32 @@ class TestChemblActivityPipelineTransformations:
         """Network failures should produce fallback records."""
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline._chembl_release = "33"  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [10, 11]})
-        client = MagicMock()
-        client.get.side_effect = RequestException("boom")
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=2)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+        iterator_client.paginate.side_effect = RequestException("boom")
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=2)
 
-        assert client.get.call_count == 1
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id"],
+            )  # type: ignore[reportPrivateUsage]
+
+        iterator_client.paginate.assert_called_once()
         assert list(result["activity_id"]) == [10, 11]
         assert all(result["data_validity_comment"].str.contains("Fallback"))  # type: ignore[reportUnknownMemberType]
         metadata = result["activity_properties"].apply(json.loads)  # type: ignore[reportUnknownMemberType]
@@ -607,16 +653,32 @@ class TestChemblActivityPipelineTransformations:
         """Circuit breaker errors should also yield fallback records."""
 
         pipeline_config_fixture.paths.cache_root = str(tmp_path)
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         pipeline._chembl_release = "34"  # type: ignore[reportPrivateUsage]
 
         dataset = pd.DataFrame({"activity_id": [42]})
-        client = MagicMock()
-        client.get.side_effect = CircuitBreakerOpenError("open")
+        chembl_client_stub = MagicMock()
 
-        result = pipeline._extract_from_chembl(dataset, client, batch_size=1)  # type: ignore[reportPrivateUsage]
+        iterator_client = MagicMock()
+        iterator_client.paginate.side_effect = CircuitBreakerOpenError("open")
+        activity_iterator = ChemblActivityClient(iterator_client, batch_size=1)
 
-        assert client.get.call_count == 1
+        def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
+            return df
+
+        with (
+            patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
+            patch.object(pipeline, "_extract_assay_fields", side_effect=passthrough),
+            patch.object(pipeline, "_log_validity_comments_metrics"),
+        ):
+            result = pipeline._extract_from_chembl(
+                dataset,
+                chembl_client_stub,
+                activity_iterator,
+                select_fields=["activity_id"],
+            )  # type: ignore[reportPrivateUsage]
+
+        iterator_client.paginate.assert_called_once()
         assert result.shape[0] == 1
         assert "Fallback" in result["data_validity_comment"].iloc[0]
         stats = pipeline._last_batch_extract_stats  # type: ignore[reportPrivateUsage]
@@ -628,7 +690,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that elements with result_flag==1 have priority over others."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -650,7 +712,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that existing values in record are not overwritten by properties."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -673,7 +735,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that standard_* fields are never extracted from properties."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -709,7 +771,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that data_validity_comment is extracted from properties as fallback when empty."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Тест 1: fallback работает, когда data_validity_comment пустое
         record = {
@@ -761,7 +823,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that data_validity_comment fallback prioritizes elements with result_flag == 1."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Тест: приоритет элементов с result_flag == 1
         record = {
@@ -831,7 +893,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that data_validity_comment is extracted from value when text_value is missing."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Тест: элемент с только value (без text_value)
         record = {
@@ -893,7 +955,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that invalid JSON in activity_properties returns record unchanged."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -911,7 +973,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that non-list activity_properties returns record unchanged."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -929,7 +991,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that relation and units are pulled together with value from same element."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -958,7 +1020,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that relation and units are pulled together with text_value from same element."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -987,7 +1049,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that only items with type and value/text_value are processed."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,
@@ -1017,7 +1079,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that exact duplicates are removed from activity_properties."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         properties = [
             {
@@ -1069,7 +1131,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test TRUV validation: value and text_value cannot both be not None."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         properties = [
             {
@@ -1123,11 +1185,11 @@ class TestChemblActivityPipelineTransformations:
         assert stats["invalid_count"] == 2  # 2 invalid properties
         assert stats["valid_count"] == len(validated)
 
-    def test_extract_activity_properties_missing_chEMBL_v24(
+    def test_extract_activity_properties_missing_chEMBL_v24(  # noqa: N802
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of missing activity_properties (ChEMBL < v24 compatibility)."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Record without activity_properties (ChEMBL < v24)
         record = {
@@ -1142,11 +1204,11 @@ class TestChemblActivityPipelineTransformations:
         assert "activity_properties" in result
         assert result["activity_properties"] is None
 
-    def test_extract_activity_properties_null_chEMBL_v24(
+    def test_extract_activity_properties_null_chEMBL_v24(  # noqa: N802
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test handling of null activity_properties (ChEMBL < v24 compatibility)."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         # Record with activity_properties = None (ChEMBL < v24)
         record = {
@@ -1166,7 +1228,7 @@ class TestChemblActivityPipelineTransformations:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test that all properties are preserved without filtering."""
-        pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+        pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         record = {
             "activity_id": 1,

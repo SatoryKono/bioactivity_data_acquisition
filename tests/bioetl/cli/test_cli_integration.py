@@ -10,9 +10,9 @@ import pytest  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
-from bioetl.cli.main import app  # type: ignore[reportUnknownVariableType]
+from bioetl.cli.cli_app import app  # type: ignore[reportUnknownVariableType]
 
-CLI_APP = get_command(app)
+CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
 
 
 @pytest.mark.integration  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
@@ -41,7 +41,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity_chembl:ActivitySchema"
+  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
 determinism:
   sort:
     by: ["activity_id"]
@@ -55,12 +55,12 @@ determinism:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
+            patch("bioetl.config.load_config") as mock_load_config,
             patch("bioetl.core.client_factory.APIClientFactory.for_source") as mock_factory,
         ):
             from pathlib import Path as PathType
 
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             # Use absolute path to avoid resolution issues
@@ -72,17 +72,20 @@ determinism:
                 )
             except Exception:
                 # If config loading fails, create a minimal config manually
-                from bioetl.config.models.base import PipelineConfig, PipelineMetadata
-                from bioetl.config.models.cli import CLIConfig
-                from bioetl.config.models.determinism import (
+                from bioetl.config.models import (
+                    CLIConfig,
                     DeterminismConfig,
                     DeterminismHashingConfig,
                     DeterminismSortingConfig,
+                    HTTPClientConfig,
+                    HTTPConfig,
+                    MaterializationConfig,
+                    PipelineConfig,
+                    PipelineMetadata,
+                    RetryConfig,
+                    SourceConfig,
+                    ValidationConfig,
                 )
-                from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-                from bioetl.config.models.paths import MaterializationConfig
-                from bioetl.config.models.source import SourceConfig
-                from bioetl.config.models.validation import ValidationConfig
 
                 real_config = PipelineConfig(
                     version=1,
@@ -110,7 +113,7 @@ determinism:
                         ),
                     ),
                     validation=ValidationConfig(
-                        schema_out="bioetl.schemas.activity_chembl:ActivitySchema",
+                        schema_out="bioetl.schemas.chembl_activity_schema:ActivitySchema",
                         strict=True,
                         coerce=True,
                     ),
@@ -140,8 +143,8 @@ determinism:
             mock_client.get.side_effect = [mock_status_response, mock_activity_response]
             mock_factory.return_value = mock_client
 
-            result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                CLI_APP,
+            result: Any = runner.invoke(
+                CLI_APP,  # type: ignore[reportUnknownArgumentType]
                 [
                     "activity_chembl",
                     "--config",
@@ -179,10 +182,10 @@ http:
 
         # Mock load_config to avoid profile resolution issues in tests
         with (
-            patch("bioetl.cli.command.load_config") as mock_load_config,
-            patch("bioetl.cli.command.create_pipeline_command") as mock_create_command,
+            patch("bioetl.config.load_config") as mock_load_config,
+            patch("bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.run") as mock_run,
         ):
-            from bioetl.config import load_config as real_load_config
+            from bioetl.config.loader import load_config as real_load_config
 
             # Load config without default profiles for test
             real_config = real_load_config(
@@ -191,14 +194,11 @@ http:
             )
             mock_load_config.return_value = real_config
 
-            # Create a mock command that raises an error
-            def mock_command(*args: Any, **kwargs: Any) -> None:
-                raise ValueError("Pipeline error")
+            # Mock pipeline.run() to raise an error
+            mock_run.side_effect = ValueError("Pipeline error")
 
-            mock_create_command.return_value = mock_command
-
-            result: Any = runner.invoke(  # type: ignore[reportUnknownVariableType,reportUnknownMemberType]
-                CLI_APP,
+            result: Any = runner.invoke(
+                CLI_APP,  # type: ignore[reportUnknownArgumentType]
                 [
                     "activity_chembl",
                     "--config",
@@ -208,8 +208,8 @@ http:
                 ],
             )
 
-            # Exit code 2 for typer validation errors, 1 for pipeline errors
-            assert result.exit_code in (1, 2)  # type: ignore[reportUnknownMemberType]
+            # Exit code 1 for pipeline errors (ValueError is not an API error)
+            assert result.exit_code == 1  # type: ignore[reportUnknownMemberType]
             # Check for error message in either stdout or stderr
             error_output = (result.stdout + result.stderr).lower()  # type: ignore[reportUnknownMemberType]
             assert "failed" in error_output or "error" in error_output  # type: ignore[reportUnknownMemberType]
