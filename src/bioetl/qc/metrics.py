@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal
 from typing import TypedDict, cast
 
@@ -26,14 +27,22 @@ pd.StringDtype.__repr__ = _string_dtype_repr  # type: ignore[assignment]
 pd.StringDtype.__str__ = _string_dtype_repr  # type: ignore[assignment]
 
 __all__ = [
+    "CategoricalDistribution",
+    "CategoricalDistributionEntry",
+    "CorrelationMatrix",
+    "DuplicateStats",
+    "MissingnessStats",
+    "OutlierStatistic",
+    "compute_categorical_distributions",
+    "compute_correlation_matrix",
     "compute_duplicate_stats",
     "compute_missingness",
-    "compute_correlation_matrix",
-    "compute_categorical_distributions",
+    "detect_iqr_outliers",
 ]
 
 
-class DuplicateStats(TypedDict):
+@dataclass(frozen=True)
+class DuplicateStats:
     """Structured duplicate statistics returned by :func:`compute_duplicate_stats`."""
 
     row_count: int
@@ -89,6 +98,45 @@ class CategoricalDistributionEntry(TypedDict):
 
 
 CategoricalDistribution = dict[str, dict[str, CategoricalDistributionEntry]]
+
+
+@dataclass(frozen=True)
+class MissingnessStats:
+    """Wrapper around the missingness dataframe to expose helper utilities."""
+
+    table: pd.DataFrame
+
+    def total_missing(self) -> int:
+        """Return the total number of missing values across all columns."""
+
+        if self.table.empty:
+            return 0
+        return int(self.table["missing_count"].sum())
+
+    def columns_with_missing(self) -> list[str]:
+        """Return sorted column names that have missing values."""
+
+        if self.table.empty:
+            return []
+        filtered = self.table.loc[self.table["missing_count"] > 0, "column"]
+        return sorted(filtered.astype(str).tolist())
+
+
+@dataclass(frozen=True)
+class CorrelationMatrix:
+    """Deterministic correlation matrix wrapper."""
+
+    table: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class OutlierStatistic:
+    """IQR-based outlier summary for a numeric column."""
+
+    column: str
+    count: int
+    lower_bound: float
+    upper_bound: float
 
 
 def _default_value_normalizer(value: Scalar | None) -> str:
@@ -242,7 +290,7 @@ def compute_categorical_distributions(
         distributions[column] = inner
 
     return distributions
-def compute_missingness(df: pd.DataFrame) -> pd.DataFrame:
+def compute_missingness(df: pd.DataFrame) -> MissingnessStats:
     """Return per-column missing value statistics with stable ordering."""
 
     if df.empty:
@@ -253,13 +301,14 @@ def compute_missingness(df: pd.DataFrame) -> pd.DataFrame:
                 "missing_ratio": pd.Series(dtype="float64"),
             }
         )
-        return result.astype(
+        empty_result = result.astype(
             {
                 "column": "string[python]",
                 "missing_count": "int64",
                 "missing_ratio": "float64",
             }
         )
+        return MissingnessStats(table=empty_result)
 
     column_dtype = pd.StringDtype(storage="python")
 
@@ -290,10 +339,10 @@ def compute_missingness(df: pd.DataFrame) -> pd.DataFrame:
         ascending=[False, True],
         kind="mergesort",
     ).reset_index(drop=True)
-    return result
+    return MissingnessStats(table=result)
 
 
-def compute_correlation_matrix(df: pd.DataFrame) -> pd.DataFrame | None:
+def compute_correlation_matrix(df: pd.DataFrame) -> CorrelationMatrix | None:
     """Return the numeric correlation matrix or ``None`` when not applicable.
 
     Columns are sorted alphabetically to guarantee deterministic output.
@@ -307,4 +356,57 @@ def compute_correlation_matrix(df: pd.DataFrame) -> pd.DataFrame | None:
     correlation = numeric_df.corr(numeric_only=True)
     if correlation.empty:
         return None
-    return correlation.reindex(index=ordered_columns, columns=ordered_columns)
+    final_matrix = correlation.reindex(index=ordered_columns, columns=ordered_columns)
+    return CorrelationMatrix(table=final_matrix)
+
+
+def detect_iqr_outliers(
+    df: pd.DataFrame,
+    *,
+    multiplier: float = 1.5,
+    min_count: int = 1,
+) -> tuple[OutlierStatistic, ...]:
+    """Return deterministic IQR-based outlier statistics for numeric columns.
+
+    Args:
+        df: Source dataframe.
+        multiplier: IQR multiplier to derive bounds (default 1.5).
+        min_count: Minimum number of detected outliers required to emit a record.
+
+    Returns:
+        Tuple of :class:`OutlierStatistic` ordered by column name.
+    """
+
+    if multiplier <= 0:
+        msg = "multiplier must be positive"
+        raise ValueError(msg)
+    if min_count < 0:
+        msg = "min_count must be non-negative"
+        raise ValueError(msg)
+
+    numeric_df = df.select_dtypes(include=["number"])
+    entries: list[OutlierStatistic] = []
+    for column in sorted(numeric_df.columns):
+        series = numeric_df[column].dropna()
+        if series.empty:
+            continue
+        q1 = series.quantile(0.25)
+        q3 = series.quantile(0.75)
+        iqr = float(q3 - q1)
+        if iqr == 0:
+            continue
+        lower_bound = float(q1 - multiplier * iqr)
+        upper_bound = float(q3 + multiplier * iqr)
+        mask = (series < lower_bound) | (series > upper_bound)
+        count = int(mask.sum())
+        if count < min_count or count == 0:
+            continue
+        entries.append(
+            OutlierStatistic(
+                column=str(column),
+                count=count,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+            )
+        )
+    return tuple(entries)

@@ -9,13 +9,13 @@ from typing import Any, Callable, Mapping, Protocol
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-from bioetl.config import PipelineConfig
 from bioetl.config.environment import (
     EnvironmentSettings,
     apply_runtime_overrides,
     load_environment_settings,
 )
 from bioetl.config.loader import load_config
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core import LoggerConfig, UnifiedLogger
 from bioetl.pipelines.base import PipelineBase, RunResult
 
@@ -35,6 +35,22 @@ def _apply_runtime_overrides_safely(settings: EnvironmentSettings) -> None:
     """Применить runtime-переопределения окружения, игнорируя возвращаемое значение."""
 
     apply_runtime_overrides(settings)
+
+
+def _replace_config_section(
+    config: PipelineConfig,
+    *,
+    section: str,
+    updates: Mapping[str, Any],
+) -> PipelineConfig:
+    """Вернуть новый PipelineConfig с обновлённой секцией без мутаций."""
+
+    if not updates:
+        return config
+
+    section_model = getattr(config, section)
+    updated_section = section_model.model_copy(update=dict(updates))
+    return config.model_copy(update={section: updated_section})
 
 
 class PipelineFactory(Protocol):
@@ -147,27 +163,41 @@ class PipelineConfigFactory:
         except ValueError as exc:
             raise ConfigLoadError(exc) from exc
 
-        pipeline_config.cli.dry_run = options.dry_run
-        pipeline_config.cli.verbose = options.verbose
-        pipeline_config.cli.extended = options.extended
-        pipeline_config.cli.fail_on_schema_drift = options.fail_on_schema_drift
-        pipeline_config.cli.validate_columns = options.validate_columns
-        pipeline_config.cli.set_overrides = cli_overrides
-
+        cli_updates: dict[str, Any] = {
+            "dry_run": options.dry_run,
+            "verbose": options.verbose,
+            "extended": options.extended,
+            "fail_on_schema_drift": options.fail_on_schema_drift,
+            "validate_columns": options.validate_columns,
+            "set_overrides": cli_overrides,
+        }
         if options.limit is not None:
-            pipeline_config.cli.limit = options.limit
+            cli_updates["limit"] = options.limit
         if options.sample is not None:
-            pipeline_config.cli.sample = options.sample
-
+            cli_updates["sample"] = options.sample
         if options.golden is not None:
-            pipeline_config.cli.golden = str(options.golden)
+            cli_updates["golden"] = str(options.golden)
         if options.input_file is not None:
-            pipeline_config.cli.input_file = str(options.input_file)
+            cli_updates["input_file"] = str(options.input_file)
+
+        pipeline_config = _replace_config_section(
+            pipeline_config,
+            section="cli",
+            updates=cli_updates,
+        )
 
         if not options.validate_columns:
-            pipeline_config.validation.strict = False
+            pipeline_config = _replace_config_section(
+                pipeline_config,
+                section="validation",
+                updates={"strict": False},
+            )
 
-        pipeline_config.materialization.root = str(options.output_dir)
+        pipeline_config = _replace_config_section(
+            pipeline_config,
+            section="materialization",
+            updates={"root": str(options.output_dir)},
+        )
 
         return pipeline_config
 
@@ -205,7 +235,11 @@ class PipelineCommandRunner:
             tz = ZoneInfo("UTC")
 
         if not config.cli.date_tag:
-            config.cli.date_tag = self._now_factory(tz).strftime("%Y%m%d")
+            config = _replace_config_section(
+                config,
+                section="cli",
+                updates={"date_tag": self._now_factory(tz).strftime("%Y%m%d")},
+            )
 
         run_kwargs = self._build_run_kwargs(config=config, options=options)
 

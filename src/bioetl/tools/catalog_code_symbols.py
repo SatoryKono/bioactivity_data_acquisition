@@ -8,8 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = [
@@ -103,7 +102,8 @@ def extract_config_models() -> dict[str, Any]:
     """Collect Pydantic config model metadata."""
 
     try:
-        from bioetl.config.models import DeterminismConfig, PipelineConfig, PipelineMetadata
+        from bioetl.config.models.models import PipelineConfig, PipelineMetadata
+        from bioetl.config.models.policies import DeterminismConfig
     except ImportError as exc:  # pragma: no cover - infrastructure failure
         return {"error": f"Failed to import config models: {exc}"}
 

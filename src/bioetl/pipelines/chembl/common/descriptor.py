@@ -19,7 +19,6 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.runtime.base_source import BaseSourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
@@ -243,24 +242,29 @@ class ChemblPipelineBase(PipelineBase):
             Normalised mapping with stringified keys preserving deterministic
             ordering semantics for later processing.
         """
+        parameters_mapping = getattr(parameters, "parameters_mapping", None)
+        if callable(parameters_mapping):
+            mapping_candidate = parameters_mapping()
+            if isinstance(mapping_candidate, Mapping):
+                return {str(key): value for key, value in mapping_candidate.items()}
 
         if isinstance(parameters, Mapping):
             mapping = cast(Mapping[object, Any], parameters)
-            return ChemblPipelineBase._stringify_mapping(mapping)
+            return {str(key): value for key, value in mapping.items()}
 
         model_dump = getattr(parameters, "model_dump", None)
         if callable(model_dump):
             dumped = model_dump()
             if isinstance(dumped, Mapping):
                 mapping = cast(Mapping[object, Any], dumped)
-                return ChemblPipelineBase._stringify_mapping(mapping)
+                return {str(key): value for key, value in mapping.items()}
 
         as_dict = getattr(parameters, "dict", None)
         if callable(as_dict):
             dumped = as_dict()
             if isinstance(dumped, Mapping):
                 mapping = cast(Mapping[object, Any], dumped)
-                return ChemblPipelineBase._stringify_mapping(mapping)
+                return {str(key): value for key, value in mapping.items()}
 
         attrs = getattr(parameters, "__dict__", None)
         if isinstance(attrs, dict):
@@ -320,12 +324,10 @@ class ChemblPipelineBase(PipelineBase):
         """
         batch_size: int | None = getattr(source_config, "batch_size", None)
         if batch_size is None:
-            parameters = getattr(source_config, "parameters", {})
-            if isinstance(parameters, Mapping):
-                parameters_mapping = cast(Mapping[str, Any], parameters)
-                candidate: Any = parameters_mapping.get("batch_size")
-                if isinstance(candidate, int) and candidate > 0:
-                    batch_size = candidate
+            parameters_mapping = source_config.parameters_mapping()
+            candidate: Any = parameters_mapping.get("batch_size")
+            if isinstance(candidate, int) and candidate > 0:
+                batch_size = candidate
         if batch_size is None or batch_size <= 0:
             batch_size = 25
         return batch_size
@@ -349,17 +351,15 @@ class ChemblPipelineBase(PipelineBase):
         list[str]
             List of field names to select from the API.
         """
-        parameters_raw = getattr(source_config, "parameters", {})
-        if isinstance(parameters_raw, Mapping):
-            parameters = cast(Mapping[str, Any], parameters_raw)
-            select_fields_raw = parameters.get("select_fields")
-            if (
-                select_fields_raw is not None
-                and isinstance(select_fields_raw, Sequence)
-                and not isinstance(select_fields_raw, (str, bytes))
-            ):
-                select_fields = cast(Sequence[Any], select_fields_raw)
-                return [str(field) for field in select_fields]
+        parameters = source_config.parameters_mapping()
+        select_fields_raw = parameters.get("select_fields")
+        if (
+            select_fields_raw is not None
+            and isinstance(select_fields_raw, Sequence)
+            and not isinstance(select_fields_raw, (str, bytes))
+        ):
+            select_fields = cast(Sequence[Any], select_fields_raw)
+            return [str(field) for field in select_fields]
         if default_fields:
             return list(default_fields)
         return []
@@ -516,8 +516,7 @@ class ChemblPipelineBase(PipelineBase):
             page_size = self._resolve_page_size(base_size, limit, hard_cap=cap)
         context.page_size = page_size
 
-        parameters = getattr(source_config, "parameters", {})
-        normalised_parameters = self._normalize_parameters(parameters)
+        normalised_parameters = self._normalize_parameters(source_config.parameters)
 
         filters_payload: dict[str, Any] = {
             "mode": "all",
@@ -655,7 +654,7 @@ class ChemblPipelineBase(PipelineBase):
         entity_name: str,
         *,
         source_name: str = "chembl",
-        source_config: SourceConfig | BaseSourceConfig[Any] | None = None,
+        source_config: SourceConfig | None = None,
         options: Mapping[str, Any] | None = None,
         chembl_client_kwargs: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,

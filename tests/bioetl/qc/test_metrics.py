@@ -5,7 +5,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.qc.metrics import (
     compute_categorical_distributions,
@@ -103,8 +103,8 @@ class TestQCMetrics:
             }
         )
 
-        result = compute_missingness(df)
-        reordered = compute_missingness(df[["c", "b", "a"]])
+        result = compute_missingness(df).table
+        reordered = compute_missingness(df[["c", "b", "a"]]).table
 
         assert result.equals(reordered)
         assert result["column"].tolist() == ["a", "b", "c"]
@@ -122,8 +122,9 @@ class TestQCMetrics:
 
         correlation = compute_correlation_matrix(df)
         assert correlation is not None
-        assert list(correlation.columns) == ["a", "m", "z"]
-        assert list(correlation.index) == ["a", "m", "z"]
+        matrix = correlation.table
+        assert list(matrix.columns) == ["a", "m", "z"]
+        assert list(matrix.index) == ["a", "m", "z"]
 
     def test_compute_categorical_distributions_basic(self) -> None:
         """Categorical distributions should normalize labels and ratios."""

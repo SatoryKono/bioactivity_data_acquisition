@@ -10,13 +10,16 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
-from bioetl.config import PipelineConfig, TestItemSourceConfig
+from bioetl.config import TestItemSourceConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
-from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
+from bioetl.schemas import SchemaRegistryEntry
+from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from ..common.descriptor import (
     BatchExtractionContext,
@@ -58,6 +61,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         super().__init__(config, run_id)
         self._chembl_db_version: str | None = None
         self._api_version: str | None = None
+        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
+        self._output_schema = self._output_schema_entry.schema
+        self._output_column_order = self._output_schema_entry.column_order
 
     @property
     def chembl_db_version(self) -> str | None:
@@ -340,7 +346,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         df = self._normalize_string_fields(df, log)
 
         # Ensure all schema columns exist with proper types
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         # Normalize numeric fields (type coercion, negative values -> None)
         df = self._normalize_numeric_fields(df, log)
@@ -363,7 +369,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             df = df.sort_values("molecule_chembl_id").reset_index(drop=True)
 
         # Reorder columns according to schema COLUMN_ORDER
-        df = self._order_schema_columns(df, COLUMN_ORDER)
+        df = self._order_schema_columns(df, self._output_column_order)
 
         log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
@@ -533,7 +539,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         for column in float_columns:
             specs[column] = {"dtype": "Float64", "default": pd.NA}
 
-        for column in COLUMN_ORDER:
+        for column in self._output_column_order:
             if column not in specs:
                 specs[column] = {"dtype": "string", "default": pd.NA}
 
@@ -718,9 +724,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        from bioetl.schemas.chembl_testitem_schema import COLUMN_ORDER
-
-        schema_columns = set(COLUMN_ORDER)
+        schema_columns = set(self._output_column_order)
         existing_columns = set(df.columns)
         extra_columns = existing_columns - schema_columns
 

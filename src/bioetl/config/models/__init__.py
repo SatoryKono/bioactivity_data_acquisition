@@ -1,87 +1,28 @@
-"""Pydantic models describing the pipeline configuration schema."""
+"""Deprecated compatibility layer for configuration models.
+
+Prefer importing from `bioetl.config.models.models` (core models) or
+`bioetl.config.models.policies` (policy objects). This package now simply
+re-exports the canonical modules for backward compatibility.
+"""
 
 from __future__ import annotations
 
-from .base import PipelineConfig, PipelineMetadata
-from .cache import CacheConfig
-from .cli import CLIConfig
-from .determinism import (
-    DeterminismConfig,
-    DeterminismEnvironmentConfig,
-    DeterminismHashColumnSchema,
-    DeterminismHashingConfig,
-    DeterminismMetaConfig,
-    DeterminismSerializationConfig,
-    DeterminismSerializationCSVConfig,
-    DeterminismSortingConfig,
-    DeterminismWriteConfig,
-)
-from .fallbacks import FallbacksConfig
-from .http import (
-    CircuitBreakerConfig,
-    HTTPClientConfig,
-    HTTPConfig,
-    RateLimitConfig,
-    RetryConfig,
-    StatusCode,
-)
-from .io import IOConfig, IOInputConfig, IOOutputConfig
-from .logging import LoggingConfig
-from .paths import MaterializationConfig, PathsConfig
-from .postprocess import PostprocessConfig, PostprocessCorrelationConfig
-from .runtime import RuntimeConfig
-from .source import SourceConfig
-from .telemetry import TelemetryConfig
-from .transform import TransformConfig
-from .validation import ValidationConfig
+import warnings
 
-__all__ = [
-    # Base
-    "PipelineConfig",
-    "PipelineMetadata",
-    # HTTP
-    "HTTPConfig",
-    "HTTPClientConfig",
-    "RetryConfig",
-    "RateLimitConfig",
-    "CircuitBreakerConfig",
-    "StatusCode",
-    # Cache
-    "CacheConfig",
-    # Runtime
-    "RuntimeConfig",
-    # IO
-    "IOConfig",
-    "IOInputConfig",
-    "IOOutputConfig",
-    # Paths
-    "PathsConfig",
-    "MaterializationConfig",
-    # Determinism
-    "DeterminismConfig",
-    "DeterminismSortingConfig",
-    "DeterminismSerializationConfig",
-    "DeterminismSerializationCSVConfig",
-    "DeterminismHashingConfig",
-    "DeterminismHashColumnSchema",
-    "DeterminismEnvironmentConfig",
-    "DeterminismWriteConfig",
-    "DeterminismMetaConfig",
-    # Validation
-    "ValidationConfig",
-    # Transform
-    "TransformConfig",
-    # Postprocess
-    "PostprocessConfig",
-    "PostprocessCorrelationConfig",
-    # Source
-    "SourceConfig",
-    # CLI
-    "CLIConfig",
-    # Logging
-    "LoggingConfig",
-    # Fallbacks
-    "FallbacksConfig",
-    # Telemetry
-    "TelemetryConfig",
-]
+from .models import *  # noqa: F401,F403
+from .models import __all__ as _models_all
+from .policies import *  # noqa: F401,F403
+from .policies import __all__ as _policies_all
+
+_EXPORTED_SYMBOLS = tuple(sorted(set(_models_all + _policies_all)))
+
+__all__: tuple[str, ...] = _EXPORTED_SYMBOLS
+
+warnings.warn(
+    (
+        "bioetl.config.models is deprecated; import from "
+        "bioetl.config.models.models or bioetl.config.models.policies instead."
+    ),
+    DeprecationWarning,
+    stacklevel=2,
+)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 import pandas as pd
@@ -42,6 +42,16 @@ def _should_nullify_string_value(value: Any) -> bool:
     if isinstance(value, float) and pd.isna(value):
         return False
     return not isinstance(value, str)
+
+
+def _stringify_record_keys(record: Mapping[Any, Any]) -> dict[str, Any]:
+    """Return copy of record with stringified keys."""
+    return {str(key): value for key, value in record.items()}
+
+
+def _stringify_records(records: Iterable[Mapping[Any, Any]]) -> list[dict[str, Any]]:
+    """Return list of dictionaries that only use string keys."""
+    return [_stringify_record_keys(record) for record in records]
 
 
 def enrich_with_assay_classifications(
@@ -138,8 +148,11 @@ def enrich_with_assay_classifications(
             .dropna(subset=["assay_chembl_id", "assay_class_id"])
             .drop_duplicates(subset=["assay_chembl_id", "assay_class_id"], keep="first")
         )
-        for record in normalized_class_map.to_dict(orient="records"):
-            assay_key = record["assay_chembl_id"]
+        for raw_record in normalized_class_map.to_dict(orient="records"):
+            record = _stringify_record_keys(raw_record)
+            assay_key = record.get("assay_chembl_id")
+            if not isinstance(assay_key, str):
+                continue
             class_map_dict.setdefault(assay_key, []).append(record)
     else:
         normalized_class_map = pd.DataFrame(columns=list(class_map_fields))
@@ -167,10 +180,13 @@ def enrich_with_assay_classifications(
                 .dropna(subset=["assay_class_id"])
                 .drop_duplicates(subset=["assay_class_id"], keep="first")
             )
-            classification_dict = {
-                record["assay_class_id"]: record
-                for record in normalized_classification.to_dict(orient="records")
-            }
+            classification_dict = {}
+            for raw_record in normalized_classification.to_dict(orient="records"):
+                record = _stringify_record_keys(raw_record)
+                class_id_value = record.get("assay_class_id")
+                if not isinstance(class_id_value, str) or not class_id_value:
+                    continue
+                classification_dict[class_id_value] = record
         else:
             classification_dict = {}
 
@@ -367,10 +383,14 @@ def enrich_with_assay_parameters(
         .assign(assay_chembl_id=lambda frame: frame["assay_chembl_id"].astype("string").str.strip())
         .dropna(subset=["assay_chembl_id"])
     )
-    parameters_dict: dict[str, list[dict[str, Any]]] = {
-        assay_id: group.drop(columns=["assay_chembl_id"]).to_dict(orient="records")
-        for assay_id, group in normalized_parameters.groupby("assay_chembl_id", sort=False)
-    }
+    parameters_dict: dict[str, list[dict[str, Any]]] = {}
+    for assay_key, group in normalized_parameters.groupby("assay_chembl_id", sort=False):
+        if not isinstance(assay_key, str) or not assay_key:
+            continue
+        records = _stringify_records(
+            group.drop(columns=["assay_chembl_id"]).to_dict(orient="records")
+        )
+        parameters_dict[assay_key] = records
 
     # Iterate over each assay record
     df_assay = df_assay.copy()

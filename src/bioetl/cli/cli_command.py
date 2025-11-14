@@ -18,8 +18,8 @@ from bioetl.cli.pipeline_command_runner import (
     PipelineDryRunPlan,
     PipelineExecutionPlan,
 )
-from bioetl.core import CliCommandBase, UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.errors import (
     PipelineError,
@@ -224,6 +224,7 @@ class PipelineCliCommand(CliCommandBase):
             command_name=self._command_config.name,
         )
         self.exit(self.exit_code_error)
+        raise AssertionError("unreachable exit path")
 
 def _parse_set_overrides(set_overrides: list[str]) -> dict[str, Any]:
     """Parse --set KEY=VALUE flags into a dictionary."""
@@ -509,6 +510,7 @@ def _emit_external_api_failure(
     )
     _echo_error("E003", f"External API failure: {exc}")
     CliCommandBase.exit(3, cause=exc)
+    raise AssertionError("unreachable exit path")
 
 
 def _is_requests_api_error(exc: Exception) -> bool:

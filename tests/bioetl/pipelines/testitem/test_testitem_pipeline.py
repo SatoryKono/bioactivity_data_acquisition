@@ -7,7 +7,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.testitem import run as testitem_run
 
 

@@ -24,7 +24,6 @@ from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.runtime.base_source import BaseSourceConfig
 
 __all__ = [
     "ChemblEntityBuilder",
@@ -35,10 +34,7 @@ __all__ = [
     "register_entity_definition",
 ]
 
-ChemblEntityBuilder = Callable[
-    [ChemblClientProtocol, SourceConfig | BaseSourceConfig[Any] | None, Mapping[str, Any] | None],
-    Any,
-]
+ChemblEntityBuilder = Callable[[ChemblClientProtocol, SourceConfig | None, Mapping[str, Any] | None], Any]
 
 
 class ChemblEntityRegistryError(LookupError):
@@ -142,32 +138,14 @@ def _resolve_positive_int(
     return candidate
 
 
-def _extract_source_parameters(
-    source: SourceConfig | BaseSourceConfig[Any] | None,
-) -> Mapping[str, Any]:
+def _extract_source_parameters(source: SourceConfig | None) -> Mapping[str, Any]:
     if source is None:
         return {}
-    parameters = getattr(source, "parameters", {})
-    if isinstance(parameters, Mapping):
-        return cast(Mapping[str, Any], parameters)
-    model_dump = getattr(parameters, "model_dump", None)
-    if callable(model_dump):
-        dumped = model_dump()
-        if isinstance(dumped, Mapping):
-            return cast(Mapping[str, Any], dumped)
-    as_dict = getattr(parameters, "dict", None)
-    if callable(as_dict):
-        dumped = as_dict()
-        if isinstance(dumped, Mapping):
-            return cast(Mapping[str, Any], dumped)
-    attrs = getattr(parameters, "__dict__", None)
-    if isinstance(attrs, dict):
-        return {str(key): value for key, value in attrs.items() if not key.startswith("_")}
-    return {}
+    return source.parameters_mapping()
 
 
 def _resolve_batch_size(
-    source: SourceConfig | BaseSourceConfig[Any] | None,
+    source: SourceConfig | None,
     overrides: Mapping[str, Any] | None,
     *,
     default: int = 25,
@@ -188,7 +166,7 @@ def _resolve_batch_size(
 
 
 def _resolve_max_url_length(
-    source: SourceConfig | BaseSourceConfig[Any] | None,
+    source: SourceConfig | None,
     overrides: Mapping[str, Any] | None,
     *,
     allow_none: bool = True,
@@ -219,7 +197,7 @@ def _iterator_builder(
 ) -> ChemblEntityBuilder:
     def _builder(
         chembl_client: ChemblClientProtocol,
-        source_config: SourceConfig | BaseSourceConfig[Any] | None,
+        source_config: SourceConfig | None,
         options: Mapping[str, Any] | None,
     ) -> Any:
         batch_size = _resolve_batch_size(
@@ -247,7 +225,7 @@ def _iterator_builder(
 def _simple_builder(client_cls: type[Any]) -> ChemblEntityBuilder:
     def _builder(
         chembl_client: ChemblClientProtocol,
-        _: SourceConfig | BaseSourceConfig[Any] | None,
+        _: SourceConfig | None,
         __: Mapping[str, Any] | None,
     ) -> Any:
         return client_cls(chembl_client)

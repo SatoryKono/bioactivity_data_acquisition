@@ -8,8 +8,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = ["run_semantic_diff"]
@@ -99,7 +98,7 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 def extract_config_fields_from_code() -> dict[str, Any]:
     """Load typed config field definitions from the codebase."""
     try:
-        from bioetl.config.models import PipelineConfig
+        from bioetl.config.models.models import PipelineConfig
     except Exception as exc:  # noqa: BLE001
         return {"error": str(exc)}
 

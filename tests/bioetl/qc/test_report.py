@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from bioetl.qc.plan import QCPlan, QCMetricsExecutor
 from bioetl.qc.report import (
     build_correlation_report,
     build_qc_metrics_payload,
@@ -262,3 +263,36 @@ class TestQCReport:
         assert len(units_distribution) == 21  # top 20 + other bucket
         assert units_distribution["__other__"]["count"] == 5
         assert units_distribution["__other__"]["ratio"] == 0.2
+
+    def test_build_quality_report_from_bundle(self) -> None:
+        """Quality report should accept a precomputed bundle."""
+        df = pd.DataFrame(
+            {
+                "activity_id": [1, 2, 3],
+                "value": [1.0, 2.0, 3.0],
+                "value_units": ["nM", "nM", "uM"],
+            }
+        )
+        executor = QCMetricsExecutor()
+        bundle = executor.execute(df)
+
+        report = build_quality_report(bundle=bundle)
+
+        assert isinstance(report, pd.DataFrame)
+        assert not report.empty
+
+    def test_build_correlation_report_respects_plan(self) -> None:
+        """Correlation builder should follow plan toggles."""
+        df = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": [2, 4, 6],
+            }
+        )
+        executor = QCMetricsExecutor()
+        plan = QCPlan(correlation=False)
+        bundle = executor.execute(df, plan=plan)
+
+        report = build_correlation_report(bundle=bundle, plan=plan)
+
+        assert report is None

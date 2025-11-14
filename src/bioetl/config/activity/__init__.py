@@ -7,13 +7,11 @@ from typing import Any, cast
 
 from pydantic import Field, PositiveInt, model_validator
 
-from bioetl.core.runtime import BaseSourceConfig, BaseSourceParameters
-
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig
+from ..models.source import SourceConfig, SourceParameters
 
 
-class ActivitySourceParameters(BaseSourceParameters):
+class ActivitySourceParameters(SourceParameters):
     """Free-form parameters specific to the activity source."""
 
     base_url: str | None = Field(
@@ -68,7 +66,7 @@ class ActivitySourceParameters(BaseSourceParameters):
         return cls(**normalized)
 
 
-class ActivitySourceConfig(BaseSourceConfig[ActivitySourceParameters]):
+class ActivitySourceConfig(SourceConfig):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -114,7 +112,7 @@ class ActivitySourceConfig(BaseSourceConfig[ActivitySourceParameters]):
         """Extend the base payload with activity-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
-        payload["max_url_length"] = cls._extract_max_url_length(config.parameters)
+        payload["max_url_length"] = cls._extract_max_url_length(config.parameters_mapping())
         return payload
 
     @staticmethod

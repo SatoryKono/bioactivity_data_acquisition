@@ -7,14 +7,12 @@ from typing import Any
 
 from pydantic import Field, PositiveInt, model_validator
 
-from bioetl.core.runtime import BaseSourceConfig, BaseSourceParameters
-
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig
+from ..models.source import SourceConfig, SourceParameters
 from ..utils import coerce_bool
 
 
-class AssaySourceParameters(BaseSourceParameters):
+class AssaySourceParameters(SourceParameters):
     """Free-form parameters specific to the assay source."""
 
     base_url: str | None = Field(
@@ -55,7 +53,7 @@ class AssaySourceParameters(BaseSourceParameters):
         )
 
 
-class AssaySourceConfig(BaseSourceConfig[AssaySourceParameters]):
+class AssaySourceConfig(SourceConfig):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -101,7 +99,7 @@ class AssaySourceConfig(BaseSourceConfig[AssaySourceParameters]):
         """Extend the base payload with assay-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
-        payload["max_url_length"] = cls._extract_max_url_length(config.parameters)
+        payload["max_url_length"] = cls._extract_max_url_length(config.parameters_mapping())
         return payload
 
     @staticmethod

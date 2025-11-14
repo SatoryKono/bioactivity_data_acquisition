@@ -145,3 +145,24 @@ __all__ = [
     "format_failure_cases",
     "summarize_schema_errors",
 ]
+
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "PipelineBase": ("bioetl.core.runtime.base_pipeline_compat", "PipelineBase"),
+    "RunResult": ("bioetl.core.runtime.base_pipeline_compat", "RunResult"),
+    "BaseSourceConfig": ("bioetl.core.runtime.base_source", "BaseSourceConfig"),
+    "BaseSourceParameters": ("bioetl.core.runtime.base_source", "BaseSourceParameters"),
+    "CliCommandBase": ("bioetl.core.runtime.cli_base", "CliCommandBase"),
+    "CliEntrypoint": ("bioetl.core.runtime.cli_base", "CliEntrypoint"),
+    "BioETLError": ("bioetl.core.runtime.errors", "BioETLError"),
+    "LoadMetaStore": ("bioetl.core.runtime.load_meta_store", "LoadMetaStore"),
+}
+
+
+def __getattr__(name: str) -> object:
+    if name in _LAZY_EXPORTS:
+        module_name, attr_name = _LAZY_EXPORTS[name]
+        module = __import__(module_name, fromlist=[attr_name])
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module 'bioetl.core' has no attribute '{name}'")

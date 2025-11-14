@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, Callable, TypeVar, cast
 
 import numpy as np
 import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.core.io import ensure_columns
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_activity_enrichment import (
     ASSAY_ENRICHMENT_SCHEMA,
     COMPOUND_RECORD_ENRICHMENT_SCHEMA,
@@ -47,6 +46,24 @@ _COMPOUND_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 _DATA_VALIDITY_COLUMNS: tuple[tuple[str, str], ...] = (("data_validity_description", "string"),)
+
+
+_NormalizedValue = TypeVar("_NormalizedValue", str | None, bool | None)
+
+
+def _build_series_from_aliases(
+    records: Sequence[Mapping[str, Any]],
+    index: pd.Index,
+    field_key: str,
+    normalizer: Callable[[Any], _NormalizedValue],
+    dtype: str,
+) -> pd.Series:
+    """Construct a normalized pandas Series for the requested compound record field."""
+    aliases = _COMPOUND_FIELD_ALIASES.get(field_key, (field_key,))
+    normalized_values = [
+        normalizer(_extract_first_present(record, aliases)) for record in records
+    ]
+    return pd.Series(data=normalized_values, index=index, dtype=dtype)
 
 
 def _extract_first_present(record: Mapping[str, Any], keys: Iterable[str]) -> Any:
@@ -529,41 +546,36 @@ def _enrich_by_pairs(
         log.debug(LogEvents.ENRICHMENT_BY_PAIRS_NO_RECORDS_FOUND)
         return df_act
 
-    compound_name_series = records_df.apply(
-        lambda row: _normalize_optional_string(
-            _extract_first_present(
-                row,
-                _COMPOUND_FIELD_ALIASES.get("compound_name", ("compound_name",)),
-            )
-        ),
-        axis=1,
+    record_dicts = cast(Sequence[Mapping[str, Any]], records_df.to_dict(orient="records"))
+    compound_name_series = _build_series_from_aliases(
+        records=record_dicts,
+        index=records_df.index,
+        field_key="compound_name",
+        normalizer=_normalize_optional_string,
+        dtype="string",
     )
-    compound_key_series = records_df.apply(
-        lambda row: _normalize_optional_string(
-            _extract_first_present(
-                row,
-                _COMPOUND_FIELD_ALIASES.get("compound_key", ("compound_key",)),
-            )
-        ),
-        axis=1,
+    compound_key_series = _build_series_from_aliases(
+        records=record_dicts,
+        index=records_df.index,
+        field_key="compound_key",
+        normalizer=_normalize_optional_string,
+        dtype="string",
     )
-    curated_series = records_df.apply(
-        lambda row: _coerce_bool_flag(
-            _extract_first_present(
-                row,
-                _COMPOUND_FIELD_ALIASES.get("curated", ("curated",)),
-            )
-        ),
-        axis=1,
+    curated_series = _build_series_from_aliases(
+        records=record_dicts,
+        index=records_df.index,
+        field_key="curated",
+        normalizer=_coerce_bool_flag,
+        dtype="boolean",
     )
 
     df_enrich = pd.DataFrame(
         {
             "molecule_chembl_id": records_df["molecule_chembl_id"],
             "document_chembl_id": records_df["document_chembl_id"],
-            "compound_name": pd.Series(compound_name_series, dtype="string"),
-            "compound_key": pd.Series(compound_key_series, dtype="string"),
-            "curated": pd.Series(curated_series, dtype="boolean"),
+            "compound_name": compound_name_series,
+            "compound_key": compound_key_series,
+            "curated": curated_series,
             "removed": pd.Series([pd.NA] * len(records_df), dtype="boolean"),
         }
     )

@@ -17,6 +17,14 @@ from . import (
     chembl_target_schema,
     chembl_testitem_schema,
 )
+from .versioning import (
+    SCHEMA_MIGRATION_REGISTRY,
+    SchemaMigration,
+    SchemaMigrationError,
+    SchemaMigrationPathError,
+    SchemaMigrationRegistry,
+    SchemaVersionMismatchError,
+)
 
 __all__ = [
     "SchemaDescriptor",
@@ -36,6 +44,12 @@ __all__ = [
     "CHEMBL_TESTITEM_COLUMN_ORDER",
     "CHEMBL_ACTIVITY_RELATIONS",
     "CHEMBL_ACTIVITY_PROPERTY_KEYS",
+    "SchemaMigration",
+    "SchemaMigrationRegistry",
+    "SchemaMigrationError",
+    "SchemaMigrationPathError",
+    "SchemaVersionMismatchError",
+    "SCHEMA_MIGRATION_REGISTRY",
 ]
 
 ChemblActivitySchema = chembl_activity_schema.ActivitySchema
@@ -686,9 +700,20 @@ _register_builtin_schema(
     column_order_attr="COLUMN_ORDER",
 )
 
+from .migrations import load_builtin_migrations
 
-def get_schema(identifier: str) -> SchemaDescriptor:
+load_builtin_migrations()
+
+
+def get_schema(identifier: str, *, version: str | None = None) -> SchemaDescriptor:
     """Return the schema descriptor identified by ``identifier``."""
 
-    return SCHEMA_REGISTRY.get(identifier)
+    descriptor = SCHEMA_REGISTRY.get(identifier)
+    if version is not None and descriptor.version != version:
+        raise SchemaVersionMismatchError(
+            schema_identifier=identifier,
+            expected_version=version,
+            actual_version=descriptor.version,
+        )
+    return descriptor
 

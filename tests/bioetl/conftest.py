@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cli import CLIConfig
 from bioetl.config.models.determinism import (
@@ -22,6 +21,7 @@ from bioetl.config.models.determinism import (
     DeterminismSortingConfig,
 )
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig

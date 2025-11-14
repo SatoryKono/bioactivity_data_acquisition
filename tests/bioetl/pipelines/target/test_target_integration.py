@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 
 

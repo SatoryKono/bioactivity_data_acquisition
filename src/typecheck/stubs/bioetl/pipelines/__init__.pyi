@@ -5,7 +5,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.config.models import CLIConfig
+from bioetl.config.models.models import CLIConfig
 
 class WriteResult:
     dataset: Path

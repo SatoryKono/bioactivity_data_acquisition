@@ -12,12 +12,14 @@ import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.config import DocumentSourceConfig, PipelineConfig
+from bioetl.config import DocumentSourceConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, normalize_string_columns
-from bioetl.schemas.chembl_document_schema import COLUMN_ORDER
+from bioetl.schemas import SchemaRegistryEntry
+from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from ..common.descriptor import (
     BatchExtractionContext,
@@ -65,6 +67,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._last_batch_extract_stats: dict[str, Any] | None = None
+        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
+        self._output_schema = self._output_schema_entry.schema
+        self._output_column_order = self._output_schema_entry.column_order
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Fetch document payloads from ChEMBL using the unified HTTP client.
@@ -311,7 +316,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         df = self._add_system_fields(df, log)
 
         # Ensure schema columns
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         # Deduplicate by document_chembl_id before validation
         # Schema requires unique document_chembl_id, so we need to remove duplicates
@@ -331,13 +336,13 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 )
 
         # Order columns according to schema
-        df = self._order_schema_columns(df, COLUMN_ORDER)
+        df = self._order_schema_columns(df, self._output_column_order)
 
         log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate payload against DocumentSchema with detailed error handling."""
+        """Validate payload against the registered output schema with detailed errors."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
@@ -346,7 +351,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             return df
 
         if self.config.validation.strict:
-            allowed_columns = set(COLUMN_ORDER)
+            allowed_columns = set(self._output_column_order)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
                 log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,

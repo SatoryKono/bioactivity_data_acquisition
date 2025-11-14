@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.common import ChemblPipelineBase

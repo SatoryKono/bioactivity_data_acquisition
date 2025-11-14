@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from collections.abc import Iterable, Mapping
-from typing import Any
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Any, cast
 
 import pandas as pd
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.core.io import ensure_columns
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_document_enrichment import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]
@@ -51,7 +50,7 @@ _DOCUMENT_TERM_COLUMNS: tuple[tuple[str, str], ...] = (
 
 
 def aggregate_terms(
-    rows: Iterable[dict[str, Any]],
+    rows: Iterable[Mapping[str, Any]],
     sort: str = "weight_desc",
 ) -> dict[str, dict[str, str]]:
     """Aggregate document terms by document_chembl_id.
@@ -231,7 +230,7 @@ def enrich_with_document_terms(
         records_df["document_chembl_id"] = records_df["document_chembl_id"].astype("string").str.strip()
 
     # Flatten DataFrame into rows for aggregate_terms.
-    all_records: list[dict[str, Any]] = records_df.to_dict(orient="records")
+    all_records = cast(Sequence[Mapping[str, Any]], records_df.to_dict(orient="records"))
 
     # Aggregate terms.
     agg_result = aggregate_terms(all_records, sort=sort)

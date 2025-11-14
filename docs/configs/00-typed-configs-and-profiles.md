@@ -19,8 +19,21 @@ configuration system, based on the implementation in
 
 ### 1.1 Структура модулей
 
+> **Новое API.** Внутренний код должен импортировать
+> конфигурации из `bioetl.config.models.models`
+> (структурные модели) и `bioetl.config.models.policies`
+> (policy-объекты: HTTP, детерминизм, логирование и т.д.).
+> Пакет `bioetl.config.models` и файл
+> `bioetl/config/models.py` теперь рассматриваются как
+> легаси-слой совместимости: они только реэкспортируют новые
+> модули и помечены DeprecationWarning. Внешние пользователи
+> могут продолжать их использовать до полного удаления, но
+> внутренние импорты обязаны перейти на новые пути.
+
 Модели конфигурации организованы в модульную структуру:
 
+- `src/bioetl/config/models/models.py` - канонические экспортёры внутренних моделей
+- `src/bioetl/config/models/policies.py` - канонические экспортёры policy-моделей
 - `src/bioetl/config/models/base.py` - `PipelineConfig`, `PipelineMetadata`
 - `src/bioetl/config/models/http.py` - HTTP-конфигурация (`HTTPConfig`,
   `HTTPClientConfig`, `RetryConfig`, `RateLimitConfig`, `CircuitBreakerConfig`)
@@ -41,8 +54,11 @@ configuration system, based on the implementation in
 - `src/bioetl/config/models/fallbacks.py` - `FallbacksConfig`
 - `src/bioetl/config/models/telemetry.py` - `TelemetryConfig`
 
-Все модели реэкспортируются через `src/bioetl/config/models/__init__.py` для
-обратной совместимости.
+Исторические точки входа `bioetl.config.models` (пакет) и
+`bioetl/config/models.py` продолжают реэкспортировать эти классы,
+но **считаются deprecated** и служат только для внешней совместимости.
+Внутренние импорты должны использовать `bioetl.config.models.models`
+и/или `bioetl.config.models.policies`.
 
 ### 1.2 Pipeline-специфичные конфигурации
 
@@ -56,6 +72,22 @@ Pipeline-специфичные конфигурации находятся в �
   `DocumentSourceParameters`
 - `src/bioetl/config/testitem/` - `TestItemSourceConfig`,
   `TestItemSourceParameters`
+
+### 1.3 Ленивые реэкспорты и интерфейсы
+
+Чтобы устранить цикл `bioetl.config ↔ bioetl.pipelines.base`, пакет
+`bioetl.config` теперь лениво подгружает специализированные модули через
+`__getattr__`, а полученные объекты кешируются.[ref:
+repo:src/bioetl/config/__init__.py] Импорт `PipelineConfig` или `load_config`
+больше не требует загрузки `config.activity`, которая транзитивно тянула
+`bioetl.core.runtime` и наследника `PipelineBase`.
+
+Базовый слой оркестрации теперь типизирует конфигурацию через
+`PipelineConfigProtocol` и вспомогательные протоколы из
+`src/bioetl/core/config_contracts.py`, что убирает жёсткую привязку к
+Pydantic-классу и формализует минимальный контракт между конфигурацией и
+пайплайном.[ref: repo:src/bioetl/core/config_contracts.py][ref:
+repo:src/bioetl/pipelines/base.py]
 
 ## 2. Структура и типы `PipelineConfig`
 
@@ -156,10 +188,14 @@ Pipeline-специфичные конфигурации находятся в �
 |                   | `filename_template` | `null`          | Jinja-шаблон имени файла.[ref: repo:src/bioetl/configs/models.py†L128-L131]                         |
 | `fallbacks`       | `enabled`           | `true`          | Включает fallback-стратегии.[ref: repo:src/bioetl/configs/models.py†L139-L146]                      |
 |                   | `max_depth`         | `null`          | Ограничение глубины fallback.[ref: repo:src/bioetl/configs/models.py†L139-L146]                     |
-| `validation`      | `schema_in`         | `null`          | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/configs/models.py†L287-L296]                     |
-|                   | `schema_out`        | `null`          | Путь к выходной схеме.[ref: repo:src/bioetl/configs/models.py†L291-L296]                            |
-|                   | `strict`            | `true`          | Требует строгого порядка колонок.[ref: repo:src/bioetl/configs/models.py†L295-L296]                 |
-|                   | `coerce`            | `true`          | Приводит типы в Pandera.[ref: repo:src/bioetl/configs/models.py†L295-L296]                          |
+| `validation`      | `schema_in`         | `null`          | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/config/models.py†L258-L270]                      |
+|                   | `schema_out`        | `null`          | Путь к выходной схеме.[ref: repo:src/bioetl/config/models.py†L262-L270]                             |
+|                   | `schema_in_version` | `null`          | Ожидаемая версия входной схемы; требует `schema_in`.[ref: repo:src/bioetl/config/models.py†L266-L274] |
+|                   | `schema_out_version`| `null`          | Ожидаемая версия выходной схемы; требует `schema_out`.[ref: repo:src/bioetl/config/models.py†L270-L276] |
+|                   | `allow_schema_migration` | `false`     | Разрешает применение зарегистрированных миграций при дрейфе версий.[ref: repo:src/bioetl/config/models.py†L274-L302] |
+|                   | `max_schema_migration_hops` | `3`       | Максимальная длина цепочки миграций (переходов между версиями).[ref: repo:src/bioetl/config/models.py†L278-L302] |
+|                   | `strict`            | `true`          | Требует строгого порядка колонок.[ref: repo:src/bioetl/config/models.py†L282-L288]                  |
+|                   | `coerce`            | `true`          | Приводит типы в Pandera.[ref: repo:src/bioetl/config/models.py†L284-L288]                           |
 | `cli`             | `profiles[]`        | `[]`            | Профили, переданные через `--profile`.[ref: repo:src/bioetl/configs/models.py†L304-L316]            |
 |                   | `dry_run`           | `false`         | Флаг `--dry-run`.[ref: repo:src/bioetl/configs/models.py†L308-L316]                                 |
 |                   | `limit`             | `null`          | Лимит записей (`--limit`).[ref: repo:src/bioetl/configs/models.py†L309-L312]                        |

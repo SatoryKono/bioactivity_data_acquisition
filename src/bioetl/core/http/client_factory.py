@@ -46,7 +46,7 @@ class APIClientFactory:
         source_config = self._get_source(source_name)
         profile = source_config.http_profile
         overrides = source_config.http
-        parameters = source_config.parameters or {}
+        parameters = source_config.parameters_mapping()
         max_url_length = parameters.get("max_url_length")
         if isinstance(max_url_length, int) and max_url_length > 0:
             if overrides is not None:

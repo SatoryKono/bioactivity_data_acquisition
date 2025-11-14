@@ -7,9 +7,10 @@ import json
 import re
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Iterator, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -20,7 +21,9 @@ from structlog.stdlib import BoundLogger
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.config import ActivitySourceConfig, PipelineConfig
+from bioetl.config import ActivitySourceConfig
+from bioetl.config.models.determinism import DeterminismSortingConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
@@ -33,13 +36,15 @@ from bioetl.core.schema import (
     summarize_schema_errors,
 )
 from bioetl.core.utils import join_activity_with_molecule
+from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
+from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.chembl_activity_schema import (
     ACTIVITY_PROPERTY_KEYS,
-    COLUMN_ORDER,
     RELATIONS,
-    ActivitySchema,
 )
+from bioetl.schemas.pipeline_contracts import get_out_schema
+from bioetl.vocab.service import required_vocab_ids
 
 from ...base import RunResult
 from ..common.descriptor import (
@@ -113,10 +118,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         super().__init__(config, run_id)
         self._chembl_release: str | None = None
         self._last_batch_extract_stats: dict[str, Any] | None = None
-        self._required_vocab_ids: Callable[[str], Iterable[str]] = (
-            self._vocabulary_service.required_ids
-        )
+        self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
         self._standard_types_cache: frozenset[str] | None = None
+        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
+        self._output_schema = self._output_schema_entry.schema
+        self._output_column_order = self._output_schema_entry.column_order
 
     @property
     def chembl_release(self) -> str | None:
@@ -652,7 +658,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = df.copy()
 
         df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         if df.empty:
             log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
@@ -665,7 +671,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._normalize_string_fields(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._add_row_metadata(df, log)
-        df = self._normalize_data_types(df, ActivitySchema, log)
+        df = self._normalize_data_types(df, self._output_schema, log)
 
         # Recompute curated from curated_by when curated is empty.
         if "curated" in df.columns or "curated_by" in df.columns:
@@ -677,7 +683,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             df["curated"] = df["curated"].astype("boolean")
 
         df = self._validate_foreign_keys(df, log)
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         # Enrichment: compound_record fields
         if self._should_enrich_compound_record():
@@ -697,7 +703,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         # Finalize identifier columns BEFORE ordering to ensure all required columns exist
         df = self._finalize_identifier_columns(df, log)
-        df = self._order_schema_columns(df, COLUMN_ORDER)
+        df = self._order_schema_columns(df, self._output_column_order)
         df = self._finalize_output_columns(df, log)
         df = self._filter_invalid_required_fields(df, log)
 
@@ -705,7 +711,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate payload against ActivitySchema with detailed error handling."""
+        """Validate payload against the registered output schema with detailed errors."""
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
 
@@ -714,7 +720,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return df
 
         if self.config.validation.strict:
-            allowed_columns = set(COLUMN_ORDER)
+            allowed_columns = set(self._output_column_order)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
                 log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
@@ -745,58 +751,78 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         # Temporarily disable coercion to preserve nullable Int64 types for target_tax_id
         # Schema has coerce=False, but base.validate uses config.validation.coerce
         original_coerce = self.config.validation.coerce
-        try:
-            self.config.validation.coerce = False
-            validated = super().validate(df)
-            log.info(LogEvents.STAGE_VALIDATE_FINISH,
-                rows=len(validated),
-                schema=self.config.validation.schema_out,
-                strict=self.config.validation.strict,
-                coerce=original_coerce,  # Log original value for clarity
-            )
-            return validated
-        except pandera.errors.SchemaErrors as exc:
-            # Extract detailed error information
-            failure_cases_df: pd.DataFrame | None = None
-            if hasattr(exc, "failure_cases"):
-                failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
-            error_count = len(failure_cases_df) if failure_cases_df is not None else 0
-            error_summary = summarize_schema_errors(exc)
+        validation_override = (
+            self.config.validation.model_copy(update={"coerce": False})
+            if original_coerce
+            else None
+        )
 
-            log.error(LogEvents.VALIDATION_FAILED,
-                error_count=error_count,
-                schema=self.config.validation.schema_out,
-                strict=self.config.validation.strict,
-                coerce=original_coerce,  # Log original value for clarity
-                error_summary=error_summary,
-                exc_info=True,
-            )
+        with self._temporary_config(validation=validation_override):
+            try:
+                validated = super().validate(df)
+                log.info(LogEvents.STAGE_VALIDATE_FINISH,
+                    rows=len(validated),
+                    schema=self.config.validation.schema_out,
+                    strict=self.config.validation.strict,
+                    coerce=original_coerce,  # Log original value for clarity
+                )
+                return validated
+            except pandera.errors.SchemaErrors as exc:
+                # Extract detailed error information
+                failure_cases_df: pd.DataFrame | None = None
+                if hasattr(exc, "failure_cases"):
+                    failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
+                error_count = len(failure_cases_df) if failure_cases_df is not None else 0
+                error_summary = summarize_schema_errors(exc)
 
-            # Log detailed failure cases if available
-            if failure_cases_df is not None and not failure_cases_df.empty:
-                failure_cases_summary = format_failure_cases(failure_cases_df)
-                log.error(LogEvents.VALIDATION_FAILURE_CASES, failure_cases=failure_cases_summary)
-                # Log individual errors with row index and activity_id as per documentation
-                self._log_detailed_validation_errors(failure_cases_df, df, log)
+                log.error(LogEvents.VALIDATION_FAILED,
+                    error_count=error_count,
+                    schema=self.config.validation.schema_out,
+                    strict=self.config.validation.strict,
+                    coerce=original_coerce,  # Log original value for clarity
+                    error_summary=error_summary,
+                    exc_info=True,
+                )
 
-            msg = (
-                f"Validation failed with {error_count} error(s) against schema "
-                f"{self.config.validation.schema_out}: {error_summary}"
-            )
-            raise ValueError(msg) from exc
-        except Exception as exc:
-            log.error(LogEvents.VALIDATION_ERROR,
-                error=str(exc),
-                schema=self.config.validation.schema_out,
-                exc_info=True,
-            )
-            raise
-        finally:
-            self.config.validation.coerce = original_coerce
+                # Log detailed failure cases if available
+                if failure_cases_df is not None and not failure_cases_df.empty:
+                    failure_cases_summary = format_failure_cases(failure_cases_df)
+                    log.error(LogEvents.VALIDATION_FAILURE_CASES, failure_cases=failure_cases_summary)
+                    # Log individual errors with row index and activity_id as per documentation
+                    self._log_detailed_validation_errors(failure_cases_df, df, log)
+
+                msg = (
+                    f"Validation failed with {error_count} error(s) against schema "
+                    f"{self.config.validation.schema_out}: {error_summary}"
+                )
+                raise ValueError(msg) from exc
+            except Exception as exc:
+                log.error(LogEvents.VALIDATION_ERROR,
+                    error=str(exc),
+                    schema=self.config.validation.schema_out,
+                    exc_info=True,
+                )
+                raise
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
+
+    @contextmanager
+    def _temporary_config(self, **section_overrides: Any) -> Iterator[None]:
+        """Temporarily replace selected config sections with immutable copies."""
+
+        overrides = {key: value for key, value in section_overrides.items() if value is not None}
+        if not overrides:
+            yield
+            return
+
+        original_config = self.config
+        self.config = self.config.model_copy(update=overrides)
+        try:
+            yield
+        finally:
+            self.config = original_config
 
     def _should_enrich_compound_record(self) -> bool:
         """Return True when compound_record enrichment is enabled in the config."""
@@ -1372,7 +1398,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         log.info(LogEvents.EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCHING, comments_count=len(unique_comments))
 
         try:
-            records_df = client.fetch_data_validity_lookup(
+            records_payload = client.fetch_data_validity_lookup(
                 comments=unique_comments,
                 fields=["data_validity_comment", "description"],
                 page_limit=1000,
@@ -1384,6 +1410,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 exc_info=True,
             )
             # Ensure the column exists with pd.NA.
+            if "data_validity_description" not in df.columns:
+                df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
+            return df
+
+        try:
+            records_df = self._coerce_lookup_records(records_payload)
+        except TypeError as exc:
+            log.warning(
+                "extract_data_validity_descriptions_invalid_payload",
+                error=str(exc),
+                exc_info=True,
+            )
             if "data_validity_description" not in df.columns:
                 df["data_validity_description"] = pd.Series([pd.NA] * len(df), dtype="string")
             return df
@@ -1435,6 +1473,32 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         )
 
         return df_result
+
+    @staticmethod
+    def _coerce_lookup_records(records: Any) -> pd.DataFrame:
+        """Normalize lookup payloads returned by ChemblClient into a DataFrame."""
+
+        if isinstance(records, pd.DataFrame):
+            return records
+
+        if isinstance(records, Mapping):
+            rows: list[dict[str, Any]] = []
+            for key, value in records.items():
+                row: dict[str, Any] = {"data_validity_comment": key}
+                if isinstance(value, Mapping):
+                    row.update(value)
+                else:
+                    row["description"] = value
+                rows.append(row)
+            return pd.DataFrame(rows)
+
+        if isinstance(records, Sequence) and not isinstance(records, (str, bytes)):
+            return pd.DataFrame(list(records))
+
+        raise TypeError(
+            "fetch_data_validity_lookup must return a DataFrame, mapping, or iterable payload; "
+            f"received {type(records)!r}"
+        )
 
     def _extract_assay_fields(
         self, df: pd.DataFrame, client: ChemblClient, log: BoundLogger
@@ -1651,7 +1715,16 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 metrics["top_10_data_validity_comments"] = top_10
 
         # Count unknown data_validity_comment entries.
-        whitelist = self._get_data_validity_comment_whitelist()
+        whitelist: list[str] | None
+        try:
+            whitelist = self._get_data_validity_comment_whitelist()
+        except RuntimeError as exc:
+            whitelist = None
+            log.warning(
+                LogEvents.DATA_VALIDITY_COMMENT_WHITELIST_UNAVAILABLE,
+                error=str(exc),
+            )
+
         if whitelist and non_null_comments_series is not None:
             whitelist_set: set[str] = set(whitelist)
 
@@ -2249,7 +2322,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """Align final column order with schema and drop unexpected fields."""
 
         df = df.copy()
-        expected = list(COLUMN_ORDER)
+        expected = list(self._output_column_order)
 
         extras = [column for column in df.columns if column not in expected]
         if extras:
@@ -3195,13 +3268,24 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 logged_errors=max_errors,
             )
 
-    def build_quality_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+    def build_quality_report(
+        self,
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> pd.DataFrame | dict[str, object] | None:
         """Return QC report with activity-specific metrics including distributions."""
 
         # Build base quality report with activity_id as business key for duplicate checking
         business_key = ["activity_id"] if "activity_id" in df.columns else None
 
-        base_report = build_default_quality_report(df, business_key_fields=business_key)
+        base_report = build_default_quality_report(
+            df,
+            business_key_fields=business_key,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
         # build_default_quality_report always returns pd.DataFrame by contract
 
         rows: list[dict[str, Any]] = []
@@ -3322,18 +3406,18 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
 
         # Temporarily override sort config if not already set
-        original_sort_by = self.config.determinism.sort.by
-        if not original_sort_by or original_sort_by != sort_keys:
-            # Create a modified config with the correct sort keys
-            from copy import deepcopy
-
-            from bioetl.config.models.determinism import DeterminismSortingConfig
-
-            modified_config = deepcopy(self.config)
-            modified_config.determinism.sort = DeterminismSortingConfig(
-                by=sort_keys,
-                ascending=[True, True, True],
-                na_position="last",
+        original_sort_by = tuple(self.config.determinism.sort.by)
+        desired_sort_by = tuple(sort_keys)
+        needs_override = (not original_sort_by) or (desired_sort_by != original_sort_by)
+        if needs_override:
+            determinism_override = self.config.determinism.model_copy(
+                update={
+                    "sort": DeterminismSortingConfig(
+                        by=list(desired_sort_by),
+                        ascending=[True, True, True],
+                        na_position="last",
+                    )
+                }
             )
 
             log.debug(LogEvents.WRITE_SORT_CONFIG_SET,
@@ -3341,23 +3425,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 original_sort_keys=list(original_sort_by) if original_sort_by else [],
             )
 
-            # Temporarily replace config
-            original_config = self.config
-            self.config = modified_config
-
-            try:
-                result = super().write(
+            with self._temporary_config(determinism=determinism_override):
+                return super().write(
                     df,
                     output_path,
                     extended=extended,
                     include_correlation=include_correlation,
                     include_qc_metrics=include_qc_metrics,
                 )
-            finally:
-                # Restore original config
-                self.config = original_config
-
-            return result
 
         # If sort config already matches, proceed normally
         return super().write(

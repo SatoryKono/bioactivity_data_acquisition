@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema

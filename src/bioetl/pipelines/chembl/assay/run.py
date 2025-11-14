@@ -12,7 +12,8 @@ from pandas import Series
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.config import AssaySourceConfig, PipelineConfig
+from bioetl.config import AssaySourceConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import (
@@ -21,7 +22,8 @@ from bioetl.core.schema import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from bioetl.schemas.chembl_assay_schema import COLUMN_ORDER, AssaySchema
+from bioetl.schemas import SchemaRegistryEntry
+from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from ..common.descriptor import (
     BatchExtractionContext,
@@ -131,6 +133,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._chembl_release: str | None = None
+        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
+        self._output_schema = self._output_schema_entry.schema
+        self._output_column_order = self._output_schema_entry.column_order
 
     @property
     def chembl_release(self) -> str | None:
@@ -457,7 +462,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         df = df.copy()
 
         df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         if df.empty:
             log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
@@ -471,9 +476,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         df = self._normalize_nested_structures(df, log)
         df = self._serialize_array_fields(df, log)
         df = self._add_row_metadata(df, log)
-        df = self._normalize_data_types(df, AssaySchema, log)
-        df = self._ensure_schema_columns(df, COLUMN_ORDER, log)
-        df = self._order_schema_columns(df, COLUMN_ORDER)
+        df = self._normalize_data_types(df, self._output_schema, log)
+        df = self._ensure_schema_columns(df, self._output_column_order, log)
+        df = self._order_schema_columns(df, self._output_column_order)
 
         log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df
@@ -680,7 +685,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         return df
 
     def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
-        """Convert data types according to the AssaySchema.
+        """Convert data types according to the registered output schema.
 
         Overrides base implementation to handle row_index and confidence_score specially.
         """

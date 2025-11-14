@@ -8,10 +8,14 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cache import CacheConfig
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import (
+    PipelineConfig,
+    PipelineDomainConfig,
+    PipelineInfrastructureConfig,
+)
 from bioetl.config.models.paths import PathsConfig
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
@@ -42,13 +46,7 @@ def sample_activity_df() -> pd.DataFrame:
 @pytest.fixture
 def mock_pipeline_config() -> PipelineConfig:
     """Create a mock PipelineConfig for testing."""
-    return PipelineConfig(  # type: ignore[call-arg]
-        version=1,
-        pipeline=PipelineMetadata(  # type: ignore[call-arg]
-            name="activity_chembl",
-            version="1.0.0",
-            description="Test activity pipeline",
-        ),
+    infrastructure = PipelineInfrastructureConfig(
         http=HTTPConfig(
             default=HTTPClientConfig(
                 timeout_sec=30.0,
@@ -57,12 +55,23 @@ def mock_pipeline_config() -> PipelineConfig:
                 retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
             ),
         ),
-        sources={},
-        paths=PathsConfig(output_root="data/output", cache_root="data/cache"),
         cache=CacheConfig(enabled=False),
+        paths=PathsConfig(output_root="data/output", cache_root="data/cache"),
+    )
+    domain = PipelineDomainConfig(
         validation=ValidationConfig(
             schema_out="bioetl.schemas.chembl_activity_schema.ActivitySchema"
         ),
+    )
+    return PipelineConfig(
+        version=1,
+        pipeline=PipelineMetadata(
+            name="activity_chembl",
+            version="1.0.0",
+            description="Test activity pipeline",
+        ),
+        domain=domain,
+        infrastructure=infrastructure,
     )
 
 

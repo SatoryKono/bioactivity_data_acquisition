@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping, cast
+from typing import Any, Mapping, MutableMapping
 
 from bioetl.clients.chembl_entity_registry import ChemblEntityDefinition, get_entity_definition
 from bioetl.clients.client_chembl_common import ChemblClient
-from bioetl.config.models import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
+from bioetl.config.models.source import SourceConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.core.http.client_factory import APIClientFactory
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -16,10 +17,13 @@ __all__ = ["ChemblClientBundle", "ChemblEntityClientFactory"]
 
 @dataclass(frozen=True, slots=True)
 class ChemblClientBundle:
-    """Результат работы фабрики: сущностный клиент и сопутствующие объекты.
+    """Результат работы фабрики: полностью собранный стек клиентов ChEMBL.
 
-    Содержит все объекты, необходимые для работы с конкретной ChEMBL-сущностью:
-    HTTP-клиент, ChEMBL-клиент, entity-клиент и их конфигурации.
+    Bundle фиксирует внешний контракт фабрики: пайплайн получает детерминированный
+    набор объектов (HTTP-клиент, «толстый» ChemblClient и «тонкий»
+    `ChemblEntityClientProtocol`) вместе с конфигурациями, использованными при
+    создании. Экземпляр неизменяем и может безопасно проксироваться между
+    компонентами пайплайна.
 
     Parameters
     ----------
@@ -57,16 +61,22 @@ class ChemblClientBundle:
     chembl_client: ChemblClient
     entity_client: Any | None
     entity_config: Any | None
-    source_config: Any | None
+    source_config: SourceConfig | None
 
 
 class ChemblEntityClientFactory:
-    """Единая точка создания клиентов ChEMBL-сущностей.
+    """Единая точка создания клиентов ChEMBL-сущностей и их зависимостей.
 
-    Фабрика создаёт полный набор клиентов для работы с конкретной ChEMBL-сущностью:
-    HTTP-клиент, ChEMBL-клиент и специализированный entity-клиент. Использует
-    реестр сущностей (ChemblEntityDefinition) для определения типа клиента и
-    конфигурации. Кэширует HTTP-клиенты для переиспользования.
+    Класс инкапсулирует все правила построения entity-клиентов:
+
+    * извлекает `ChemblEntityDefinition` и `EntityConfig` из реестра;
+    * создаёт HTTP-клиент через `APIClientFactory`, кэшируя его по (source, base_url);
+    * связывает HTTP-клиент с ``ChemblClient`` и специализированным клиентом,
+      реализующим `ChemblEntityClientProtocol`;
+    * логирует состав бандла и выбранные параметры.
+
+    Тем самым фабрика фиксирует единый контракт для пайплайнов и упрощает
+    тестирование (можно подменять `APIClientFactory` или `UnifiedAPIClient`).
 
     Parameters
     ----------
@@ -114,20 +124,21 @@ class ChemblEntityClientFactory:
         entity_name: str,
         *,
         source_name: str = "chembl",
-        source_config: Any | None = None,
+        source_config: SourceConfig | None = None,
         options: Mapping[str, Any] | None = None,
         chembl_client_kwargs: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,
     ) -> ChemblClientBundle:
         """Создаёт сущностный клиент и возвращает бандл с зависимостями.
 
-        Процесс создания:
-        1. Получает определение сущности из реестра по entity_name.
-        2. Разрешает конфигурацию источника (source_config или из pipeline_config).
-        3. Определяет base_url из options, source_config или значения по умолчанию.
-        4. Создаёт или получает из кэша HTTP-клиент.
-        5. Создаёт ChemblClient с опциональными параметрами.
-        6. Создаёт специализированный entity-клиент через определение сущности.
+        Алгоритм:
+
+        1. Получает `ChemblEntityDefinition` по имени и проверяет, что сущность зарегистрирована.
+        2. Разрешает `SourceConfig`: либо из аргумента `source_config`, либо из `pipeline_config.sources`.
+        3. Определяет `base_url`, применяя приоритет options > source_config > значение по умолчанию.
+        4. Создаёт или извлекает из кэша `UnifiedAPIClient`.
+        5. Инициализирует `ChemblClient` (сетевой слой) с дополнительными параметрами.
+        6. Делегирует создание специализированного клиента в `definition.build_client`.
 
         Parameters
         ----------
@@ -158,15 +169,15 @@ class ChemblEntityClientFactory:
         Raises
         ------
         ChemblEntityRegistryError
-            Если сущность с указанным именем не зарегистрирована в реестре.
+            Если сущность не зарегистрирована в `chembl_entity_registry`.
         KeyError
-            Если source_name не найден в pipeline_config.sources и source_config не указан.
+            Если источник не найден и `source_config` не предоставлен.
         TypeError
-            Если base_url не является строкой.
+            Если `base_url`/`options["base_url"]` не строка.
         ValueError
-            Если base_url пуст.
+            Если `base_url` после нормализации пуст.
         RuntimeError
-            Если не удалось создать entity-клиент (оборачивает исключения из build_client).
+            Оборачивает исключения из `ChemblEntityDefinition.build_client`, чтобы унифицировать сообщения пайплайна.
 
         Examples
         --------
@@ -220,7 +231,7 @@ class ChemblEntityClientFactory:
         self,
         *,
         source_name: str = "chembl",
-        source_config: Any | None = None,
+        source_config: SourceConfig | None = None,
         options: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,
     ) -> tuple[UnifiedAPIClient, str, Any]:
@@ -279,7 +290,7 @@ class ChemblEntityClientFactory:
         self._http_cache[cache_key] = http_client
         return http_client
 
-    def _resolve_source_config(self, source_name: str) -> Any:
+    def _resolve_source_config(self, source_name: str) -> SourceConfig:
         try:
             return self._config.sources[source_name]
         except KeyError as exc:
@@ -288,7 +299,7 @@ class ChemblEntityClientFactory:
 
     @staticmethod
     def _resolve_base_url(
-        source_config: Any | None,
+        source_config: SourceConfig | None,
         options: Mapping[str, Any] | None,
     ) -> str:
         candidate = None
@@ -310,32 +321,16 @@ class ChemblEntityClientFactory:
         return normalized.rstrip("/")
 
     @staticmethod
-    def _normalize_parameters(source_config: Any | None) -> Mapping[str, Any]:
+    def _normalize_parameters(source_config: SourceConfig | None) -> Mapping[str, Any]:
         if source_config is None:
             return {}
-        parameters = getattr(source_config, "parameters", {})
-        if isinstance(parameters, Mapping):
-            return cast(Mapping[str, Any], parameters)
-        model_dump = getattr(parameters, "model_dump", None)
-        if callable(model_dump):
-            dumped = model_dump()
-            if isinstance(dumped, Mapping):
-                return cast(Mapping[str, Any], dumped)
-        as_dict = getattr(parameters, "dict", None)
-        if callable(as_dict):
-            dumped = as_dict()
-            if isinstance(dumped, Mapping):
-                return cast(Mapping[str, Any], dumped)
-        attrs = getattr(parameters, "__dict__", None)
-        if isinstance(attrs, dict):
-            return {str(key): value for key, value in attrs.items() if not key.startswith("_")}
-        return {}
+        return source_config.parameters_mapping()
 
     @staticmethod
     def _build_entity_client(
         definition: ChemblEntityDefinition,
         chembl_client: ChemblClient,
-        source_config: Any | None,
+        source_config: SourceConfig | None,
         options: Mapping[str, Any] | None,
     ) -> Any:
         try:

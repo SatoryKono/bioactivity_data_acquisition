@@ -12,7 +12,9 @@ Primary application and pipeline code. Modules are organized by component type
 in `docs/etl_contract/` and `docs/pipelines/`. The Typer CLI lives in
 `src/bioetl/cli/` and depends on shared abstractions such as
 `bioetl.clients.client_exceptions` instead of direct HTTP libraries. CLI
-configuration models are imported from `bioetl.config.models.*`, ensuring that
+configuration models are imported from
+`bioetl.config.models.models` (or `.policies` for policy objects),
+ensuring that
 runtime options derive from the typed configuration registry.
 
 ### `tests/`

@@ -4,6 +4,11 @@
 и `src/bioetl/config/environment.py`. При расширении API обновляйте этот файл и
 раздел индекса `docs/api/INDEX.md`.
 
+> **Импорт моделей.** Все примеры ниже используют
+> `bioetl.config.models.models.PipelineConfig`. Путь
+> `bioetl.config.models`/`bioetl/config/models.py` допускается только для внешней
+> совместимости и помечен DeprecationWarning.
+
 ## `load_config`
 
 **Сигнатура**:

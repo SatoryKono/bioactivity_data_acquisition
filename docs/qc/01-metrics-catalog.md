@@ -5,6 +5,22 @@ data quality and pipeline health. Each metric is a quantifiable measure that
 serves as the basis for an "Expectation," which is a verifiable assertion about
 the data.
 
+## 0. Declarative QC Plan Controls
+
+The `QCPlan` model enables pipelines to toggle whole metric families without
+touching the underlying QC layer:
+
+- `duplicates`, `missingness`, `units_distribution`, `relation_distribution`,
+  `correlation`, and `outliers` are boolean flags described in
+  [00-qc-overview](00-qc-overview.md#6-declarative-qc-plan). Disabling a flag
+  removes the associated section from both the quality report and the JSON
+  payload while preserving column order.
+- `outlier_iqr_multiplier` and `outlier_min_count` parameterise the range checks.
+- `custom_metrics` references names registered via `register_qc_metric`. Each
+  callable returns a `QCMetricResult` that may add rows to the tabular report and
+  always contributes an entry to the `custom_metrics` map inside
+  `*_qc.json`. These payloads must be deterministic, JSON-serialisable objects.
+
 ## 1. Integrity and Uniqueness Metrics
 
 These metrics ensure that the primary keys and relationships within the data are

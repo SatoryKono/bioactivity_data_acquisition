@@ -9,7 +9,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.base import PipelineBase, RunArtifacts
 
 

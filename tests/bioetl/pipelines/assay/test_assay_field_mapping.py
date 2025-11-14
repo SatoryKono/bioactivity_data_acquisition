@@ -5,9 +5,9 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.transform import TransformConfig
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.pipelines.chembl.assay import run as assay_run

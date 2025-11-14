@@ -7,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.determinism import (
     DeterminismConfig,
@@ -17,6 +16,11 @@ from bioetl.config.models.determinism import (
     DeterminismSortingConfig,
 )
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import (
+    PipelineConfig,
+    PipelineDomainConfig,
+    PipelineInfrastructureConfig,
+)
 from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core import (
@@ -33,13 +37,7 @@ from bioetl.core import (
 @pytest.fixture
 def output_config(tmp_path: Path) -> PipelineConfig:
     """Sample PipelineConfig for output testing."""
-    return PipelineConfig(  # type: ignore[call-arg]
-        version=1,
-        pipeline=PipelineMetadata(  # type: ignore[call-arg]
-            name="test_pipeline",
-            version="1.0.0",
-            description="Test pipeline",
-        ),
+    infrastructure = PipelineInfrastructureConfig(
         http=HTTPConfig(
             default=HTTPClientConfig(
                 timeout_sec=30.0,
@@ -49,7 +47,7 @@ def output_config(tmp_path: Path) -> PipelineConfig:
             ),
         ),
         materialization=MaterializationConfig(root=str(tmp_path)),
-        determinism=DeterminismConfig(  # type: ignore[call-arg]
+        determinism=DeterminismConfig(
             sort=DeterminismSortingConfig(by=["id"], ascending=[True]),
             hashing=DeterminismHashingConfig(
                 business_key_fields=("id",),
@@ -67,11 +65,23 @@ def output_config(tmp_path: Path) -> PipelineConfig:
             ),
             float_precision=6,
         ),
+    )
+    domain = PipelineDomainConfig(
         validation=ValidationConfig(
             strict=True,
             coerce=True,
             schema_out="bioetl.schemas.chembl_activity_schema:ActivitySchema",  # Required for column_order
         ),
+    )
+    return PipelineConfig(
+        version=1,
+        pipeline=PipelineMetadata(
+            name="test_pipeline",
+            version="1.0.0",
+            description="Test pipeline",
+        ),
+        domain=domain,
+        infrastructure=infrastructure,
     )
 
 

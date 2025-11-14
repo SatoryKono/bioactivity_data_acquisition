@@ -7,12 +7,11 @@ from typing import Any
 
 from pydantic import Field, PositiveInt, model_validator
 
-from bioetl.core.runtime import BaseSourceConfig, BaseSourceParameters
-
 from ..models.http import HTTPClientConfig
+from ..models.source import SourceConfig, SourceParameters
 
 
-class TargetSourceParameters(BaseSourceParameters):
+class TargetSourceParameters(SourceParameters):
     """Free-form parameters specific to the target source."""
 
     base_url: str | None = Field(
@@ -58,7 +57,7 @@ class TargetSourceParameters(BaseSourceParameters):
         )
 
 
-class TargetSourceConfig(BaseSourceConfig[TargetSourceParameters]):
+class TargetSourceConfig(SourceConfig):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)

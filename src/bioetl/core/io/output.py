@@ -18,7 +18,7 @@ from bioetl.core.logging import LogEvents, UnifiedLogger
 from .hashing import hash_from_mapping
 
 if TYPE_CHECKING:
-    from bioetl.config import PipelineConfig
+    from bioetl.config.models.models import PipelineConfig
 
 # CSV quoting type for pandas to_csv
 # Values: 0=QUOTE_MINIMAL, 1=QUOTE_ALL, 2=QUOTE_NONNUMERIC, 3=QUOTE_NONE

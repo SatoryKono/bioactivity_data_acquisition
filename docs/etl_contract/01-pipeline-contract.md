@@ -28,7 +28,7 @@ pseudocode illustrates the required methods and their responsibilities.
 # file: src/bioetl/pipelines/base.py
 from abc import ABC, abstractmethod
 import pandas as pd
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 
 
 class PipelineBase(ABC):
@@ -115,7 +115,7 @@ would implement the required `extract` and `transform` methods.
 import pandas as pd
 import requests
 from bioetl.pipelines.base import PipelineBase
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 
 
 class MyApiPipeline(PipelineBase):

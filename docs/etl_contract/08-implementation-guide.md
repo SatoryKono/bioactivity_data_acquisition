@@ -27,7 +27,7 @@ inherits from `PipelineBase`.
 # file: src/bioetl/pipelines/uniprot/protein.py
 import pandas as pd
 from bioetl.pipelines.base import PipelineBase
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 
 
 class UniprotProteinPipeline(PipelineBase):

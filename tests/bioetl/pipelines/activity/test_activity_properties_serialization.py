@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 

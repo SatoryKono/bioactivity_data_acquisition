@@ -138,3 +138,27 @@ planned).【F:docs/sources/01-interface-matrix.md†L7-L13】_
 - The interface matrix ties each parser to a parser unit test entry, documenting
   the expectation that parsing contracts are backed by automated tests before
   pipelines are promoted.【F:docs/sources/01-interface-matrix.md†L7-L13】
+
+## 5. Entity client contract and factory
+
+- `ChemblEntityClientProtocol` и `ChemblEntityFetcherBase`
+  (`src/bioetl/clients/client_chembl_base.py`) фиксируют публичный API
+  сущностных клиентов: `fetch_by_ids`, `fetch_all`, `iterate_records`. Все методы
+  обязаны возвращать `pandas.DataFrame` с колонками, упорядоченными согласно
+  `EntityConfig.ordering`, и поддерживать одинаковую семантику аргументов
+  (`fields`, `page_size`, `limit`), чтобы пайплайны могли свободно подменять
+  реализацию.
+- `EntityConfig` (`src/bioetl/clients/chembl_config.py`) выступает единственным
+  источником истинных значений endpoint, chunking-политики и фильтров. Реестр
+  конфигураций используется фабрикой, поэтому любое изменение схемы должно
+  сопровождаться обновлением соответствующего `EntityConfig` и golden-тестов.
+- `ChemblEntityClientFactory`
+  (`src/bioetl/clients/chembl_entity_factory.py`) создаёт полный стек клиентов и
+  кэширует `UnifiedAPIClient` по `(source_name, base_url)`. Фабрика гарантирует,
+  что каждый bundle содержит ссылку на использованный `EntityConfig`, что
+  упрощает трассировку и QC.
+- Тесты `tests/bioetl/clients/test_entity_factory.py` проверяют контракт фабрики:
+  выбор класса по имени сущности, корректную передачу `EntityConfig`, соблюдение
+  протокола клиентов и детерминированное поведение `fetch_*`. При изменении
+  клиентского интерфейса тесты должны обновляться первыми, чтобы зафиксировать
+  новое публичное поведение.

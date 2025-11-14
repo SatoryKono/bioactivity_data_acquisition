@@ -72,19 +72,21 @@ determinism:
                 )
             except Exception:
                 # If config loading fails, create a minimal config manually
-                from bioetl.config.models import (
+                from bioetl.config.models.models import (
                     CLIConfig,
+                    MaterializationConfig,
+                    PipelineConfig,
+                    PipelineMetadata,
+                    SourceConfig,
+                    ValidationConfig,
+                )
+                from bioetl.config.models.policies import (
                     DeterminismConfig,
                     DeterminismHashingConfig,
                     DeterminismSortingConfig,
                     HTTPClientConfig,
                     HTTPConfig,
-                    MaterializationConfig,
-                    PipelineConfig,
-                    PipelineMetadata,
                     RetryConfig,
-                    SourceConfig,
-                    ValidationConfig,
                 )
 
                 real_config = PipelineConfig(

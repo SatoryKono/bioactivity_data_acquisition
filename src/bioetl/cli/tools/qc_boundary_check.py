@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools.qc_boundary import collect_cli_qc_boundary_report
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
-from bioetl.cli.tools.qc_boundary import collect_cli_qc_boundary_report
 
 typer: Any = get_typer()
 

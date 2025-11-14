@@ -8,7 +8,9 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[import-not-found]
 
-from bioetl.config import PipelineConfig
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
+from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
@@ -344,7 +346,7 @@ class TestValidityCommentsOnlyFields:
         """Test that extract uses only= parameter to request specific fields."""
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
-        http_client_stub = MagicMock()
+        http_client_stub = MagicMock(spec=UnifiedAPIClient)
         chembl_client_stub = MagicMock()
         chembl_client_stub.handshake.return_value = {"chembl_db_version": "test-release"}
         iterator_stub = MagicMock()
@@ -359,19 +361,19 @@ class TestValidityCommentsOnlyFields:
         def passthrough(df: pd.DataFrame, *_: Any, **__: Any) -> pd.DataFrame:
             return df
 
+        bundle = ChemblClientBundle(
+            entity_name="activity",
+            source_name="chembl",
+            base_url="https://mock.chembl.api/data",
+            api_client=http_client_stub,
+            chembl_client=chembl_client_stub,
+            entity_client=iterator_stub,
+            entity_config=None,
+            source_config=None,
+        )
+
         with (
-            patch.object(
-                pipeline,
-                "prepare_chembl_client",
-                return_value=(http_client_stub, "https://mock.chembl.api/data"),
-            ),
-            patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblClient", return_value=chembl_client_stub
-            ),
-            patch(
-                "bioetl.pipelines.chembl.activity.run.ChemblActivityClient",
-                return_value=iterator_stub,
-            ),
+            patch.object(pipeline, "build_chembl_entity_bundle", return_value=bundle),
             patch.object(pipeline, "_extract_data_validity_descriptions", side_effect=passthrough),
             patch.object(pipeline, "_log_validity_comments_metrics"),
         ):

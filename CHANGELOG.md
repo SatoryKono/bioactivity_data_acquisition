@@ -4,6 +4,10 @@
 
 ### Изменено
 
+- Устранён цикл `bioetl.config ↔ bioetl.pipelines.base`: пакет конфигурации
+  переключён на ленивые реэкспорты, а `PipelineBase` использует новый
+  `PipelineConfigProtocol` из `bioetl.core.config_contracts`, что разблокировало
+  запуск тестов.
 - Добавлен слой `load_meta`: словари, Pandera-схема, `LoadMetaStore`,
   прокидка `load_meta_id` в ChEMBL-пайплайны, новые тесты и документация.
 - Унифицированы ChEMBL-пайплайны: `ChemblActivityPipeline` и
@@ -15,6 +19,10 @@
   `SchemaRegistry` и `schema_guard.py`.
 - Расширены тесты: интеграционный сценарий жизненного цикла пайплайна и
   юнит-контроль реестра схем.
+- Добавлен модуль `bioetl.schemas.pipeline_contracts` с helper-функциями
+  (`get_pipeline_contract/get_out_schema/get_business_key_fields`), пайплайны
+  ChEMBL и `PipelineBase` больше не хардкодят строковые идентификаторы схем; в
+  docs обновлён раздел про контракты, добавлены юнит-тесты helper’ов.
 
 ### Инструменты
 

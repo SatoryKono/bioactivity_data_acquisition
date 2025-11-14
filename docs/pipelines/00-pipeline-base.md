@@ -96,7 +96,7 @@ All pipelines **must** inherit from this class.
 import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 
 
 class PipelineBase(ABC):
@@ -293,6 +293,27 @@ runtime.【F:docs/pipelines/00-pipeline-base.md†L109-L170】
 | `validate`       | Fetches the schema from the Unified Schema registry, enforces column order, runs Pandera validation, records QC metrics, and accumulates issues through `record_validation_issue`.          | Do not override unless absolutely required. Register additional schemas through configuration and call `run_schema_validation` for secondary datasets.                                                              | Validation is deterministic for identical input frames and schema versions. Non-fatal severities return the input frame unchanged but still log issues for auditability.【F:docs/pipelines/00-pipeline-base.md†L257-L322】                                         |
 | `export` (write) | Applies determinism rules (column order, stable sort, hash policies), writes the dataset and all QC artefacts via the configured output writer, and persists `stage_durations_ms`.          | Optional overrides should call `PipelineBase.export` to benefit from the shared behaviour. Use `set_export_metadata_from_dataframe` and `finalize_with_standard_metadata` to standardise metadata prior to writing. | Output files must be reproducible: the same input DataFrame and determinism settings produce byte-identical CSV files and metadata manifests.【F:docs/pipelines/00-pipeline-base.md†L324-L392】                                                                    |
 | `cleanup`        | Resets logging context to `stage="cleanup"`, removes transient runtime options, closes registered API clients, and calls `close_resources`.                                                 | Release any additional resources inside `close_resources` without raising exceptions.                                                                                                                               | Cleanup has no external side effects beyond releasing resources, preserving idempotency for subsequent runs.【F:docs/pipelines/00-pipeline-base.md†L394-L428】                                                                                                     |
+
+### Schema Version Contracts
+
+`PipelineBase` now enforces explicit schema versions declared in `PipelineConfig.validation`:
+
+- `schema_out_version` and `schema_in_version` capture the versions the pipeline expects to emit and consume. They fail fast when the actual Pandera schema reports a different version, preventing silent drift.
+- Setting `allow_schema_migration=true` instructs the orchestrator to look up a path in the global `SchemaMigrationRegistry`; `max_schema_migration_hops` bounds the allowed chain length. Each hop is logged via `schema.version.migration.plan`/`schema.version.migration.applied` events with deterministic context (dataset name, from/to versions, description).
+- When migrations are enabled and a path exists (e.g., `1.6.0 → 1.7.0 → 1.8.0`), the DataFrame is transformed before Pandera validation so that downstream code always works with the current schema definition. Metadata fields (`schema_version`, `migrated_from_version`, `migrations_applied`) are updated to reflect the final contract.
+- `run_schema_validation()` inherits the same behaviour for secondary datasets. If the provided identifier matches `validation.schema_in`, it automatically uses `schema_in_version`/`allow_schema_migration` so enrichment hooks can validate intermediate payloads without duplicating boilerplate.
+
+Pipelines still remain responsible for supplying deterministic migration functions (pure transforms with canonical sorting and hashing). Missing migrations or disabled flags raise `SchemaVersionMismatchError`, blocking exports until the contract is updated or the migration registry is extended.
+
+#### Pipeline ↔ schema bindings
+
+Чтобы убрать прямые строки c идентификаторами Pandera-схем в коде пайплайнов, модуль `bioetl.schemas.pipeline_contracts` хранит декларативную карту `pipeline_code → schema`. Хелперы:
+
+- `get_pipeline_contract(code)` — возвращает объект с `schema_in`/`schema_out`.
+- `get_out_schema(code)` / `get_in_schema(code)` — выдают `SchemaRegistryEntry`, позволяя сразу обратиться к `column_order`, `business_key_fields` и самой схеме.
+- `get_business_key_fields(code)` / `get_column_order(code)` — удобные шорткаты для типичных потребностей.
+
+Все пайплайны должны запрашивать схемы через эти функции, а не хранить строковые идентификаторы у себя. Таким образом, карта становится единым источником правды, а изменение схемы требует правки только в одном месте.
 
 ### Retry and Backoff Expectations
 

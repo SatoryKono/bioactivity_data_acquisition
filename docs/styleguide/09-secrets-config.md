@@ -56,7 +56,7 @@ secret_manager = SecretManager(provider="aws_secrets_manager")
 api_key = secret_manager.get_secret("chembl/api_key")
 ```
 
-### Valid Examples
+### Profile Loading Example
 
 ```python
 import os
@@ -110,7 +110,7 @@ class PipelineConfig(BaseModel):
 ### Configuration Loading
 
 ```python
-from bioetl.config.models import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 import yaml
 from pathlib import Path
 
@@ -163,7 +163,7 @@ pipeline:
   source: "chembl"
 ```
 
-### Valid Examples
+### Validation Example
 
 ```python
 from pathlib import Path
@@ -193,7 +193,7 @@ def load_config_with_profiles(config_path: Path, profile_names: list[str]) -> di
 
 All configuration **MUST** be validated on load:
 
-### Valid Examples
+### Rotation Example
 
 ```python
 from pydantic import BaseModel, validator
@@ -217,7 +217,7 @@ class APIConfig(BaseModel):
 
 Secrets **SHOULD** support rotation:
 
-### Valid Examples
+### Precedence Example
 
 ```python
 from datetime import datetime, timedelta

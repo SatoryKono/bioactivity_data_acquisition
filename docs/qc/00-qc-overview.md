@@ -175,5 +175,74 @@ This process ensures that the QC checks run automatically on every commit,
 enforcing both functional correctness (schema validation) and regression control
 (golden parity and metric thresholds).
 
+## 6. Declarative QC Plan
+
+Starting with the `QCPlan` model (`bioetl.qc.plan.QCPlan`), every pipeline
+expresses which QC steps **MUST** run for its outputs. The plan is evaluated by
+`QCMetricsExecutor`, which yields a `QCMetricsBundle` consumed by all report
+builders.
+
+| Field                  | Type    | Default | Description                                                                    |
+| ---------------------- | ------- | ------- | ------------------------------------------------------------------------------ |
+| `duplicates`           | bool    | `true`  | Include duplicate statistics (business-key aware).                             |
+| `missingness`          | bool    | `true`  | Emit per-column missing counts/ratios.                                         |
+| `units_distribution`   | bool    | `true`  | Use `QCUnits` helpers for `*_units` suffix distributions.                      |
+| `relation_distribution`| bool    | `true`  | Same for `*_relation` suffixes.                                                |
+| `correlation`          | bool    | `true`  | Compute numeric correlation matrix.                                            |
+| `outliers`             | bool    | `true`  | Run deterministic IQR-based outlier detection.                                 |
+| `outlier_iqr_multiplier` | float | `1.5`   | Tunable IQR multiplier (MUST be > 0).                                          |
+| `outlier_min_count`    | int     | `1`     | Minimum outlier count required to log a row.                                   |
+| `custom_metrics`       | tuple[str, ...] | `()` | Names resolved via `QCMetricRegistry` for pipeline-specific metrics.          |
+
+Plans are immutable (Pydantic `ConfigDict(frozen=True)`) and pipelines override
+`PipelineBase.qc_plan` to toggle metrics or register per-domain hooks. Pipelines
+register bespoke QC metrics by calling `register_qc_metric("provider::metric",
+callable)` and adding the registry key to `custom_metrics`. Each callable
+receives the raw `DataFrame` plus a `QCExecutionContext` exposing the current
+plan, business-key fields, and precomputed bundle for reuse.
+
+## 7. QC Artifact Contracts
+
+All downstream consumers rely on stable QC artifacts:
+
+### 7.1. `*_quality_report.csv`
+
+- Columns are fixed and ordered: `section`, `metric`, `column`, `value`, `count`,
+  `ratio`, `lower_bound`, `upper_bound`.
+- Allowed sections:
+  - `summary`: duplicates (`row_count`, `deduplicated_count`, `duplicate_count`,
+    `duplicate_ratio`).
+  - `missing`: per-column missing stats (`metric == "missing_count"`).
+  - `distribution`: `units_distribution` and `relation_distribution` rows with
+    canonical sorting.
+  - `outliers`: `metric == "iqr_outlier_count"` showing IQR bounds.
+  - `custom:*`: optional rows emitted by registry-backed metrics; they MUST set
+    `section` to a namespaced value (`custom:<domain>`) and a deterministic
+    `metric`.
+- When a plan disables a section, the report simply omits that portion while
+  preserving the column layout. Pipelines **MUST NOT** mutate the format.
+
+### 7.2. `*_qc.json`
+
+`build_qc_metrics_payload` serialises the bundle into canonical JSON:
+
+- Always includes numeric totals when enabled: `row_count`,
+  `deduplicated_count`, `duplicate_count`, `duplicate_ratio`,
+  `total_missing_values`, `columns_with_missing`.
+- Distributions are deterministic dictionaries keyed by column name with sorted
+  inner keys.
+- Outliers render as `{column: {count, lower_bound, upper_bound}}`.
+- `business_key_fields` lists the exact keys that were enforced.
+- Custom metrics populate `custom_metrics` as
+  `{metric_name: <callable-specific payload>}`; consumers should treat payloads
+  as opaque but deterministic JSON-serialisable structures.
+
+### 7.3. `*_correlation_report.csv`
+
+Correlation reports now wrap the Pandas matrix in a dataclass; the persisted CSV
+starts with a `feature` column followed by alphabetically sorted numeric feature
+names. When `QCPlan.correlation` is `false` or insufficient numeric columns are
+present, the artifact is skipped (the path is planned but left empty).
+
 [ge-docs]: https://docs.greatexpectations.io/docs/
 [pandera-docs]: https://pandera.readthedocs.io/en/stable/

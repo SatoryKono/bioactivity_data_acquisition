@@ -114,3 +114,47 @@ class ActivitySchema(pa.SchemaModel):
 By centralizing and automating the validation process, the framework ensures
 that data quality is a consistent, non-negotiable standard across all pipelines,
 rather than an ad-hoc check left to individual developers.
+
+## Schema Version Contracts and Migrations
+
+Every Pandera schema exported by `bioetl.schemas.*` declares a semantic
+`SCHEMA_VERSION`. Pipelines must pin the versions they expect in the YAML
+configuration so that drift is detected explicitly. The `validation` section
+now exposes the following fields:
+
+- `schema_out_version`: mandatory when `schema_out` is set. The framework calls
+  `bioetl.schemas.get_schema(..., expected_version=schema_out_version)` and
+  fails fast if the code was updated to a different schema version without a
+  coordinated config change.
+- `schema_in` / `schema_in_version`: optional guard for auxiliary datasets
+  validated via `PipelineBase.run_schema_validation`. When configured, the
+  helper automatically reuses these expectations so secondary datasets stay in
+  lockstep with the registry.
+- `allow_schema_migration`: opt-in flag enabling automatic migrations when the
+  incoming dataset version differs from the registered schema version. Migrations
+  are defined in `src/bioetl/schemas/migrations/*` via the
+  `SchemaMigrationRegistry`.
+- `max_schema_migration_hops`: positive integer limiting how many sequential
+  migrations may be applied. Set this to the smallest value that covers the
+  intended upgrade path to keep runtime predictable.
+
+When migrations are enabled, `PipelineBase` consults the global
+`SCHEMA_MIGRATION_REGISTRY` to assemble a deterministic plan from the declared
+source version to the schema version embedded in the registry. Each migration
+step is a pure function that receives a DataFrame and returns a transformed copy;
+the framework logs every applied step together with the source/target versions
+so QC artifacts and `meta.yaml` capture the exact lineage.
+
+```yaml
+validation:
+  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out_version: "1.7.0"
+  schema_in: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_in_version: "1.6.0"
+  allow_schema_migration: true
+  max_schema_migration_hops: 2
+```
+
+Pipelines that do not opt into migrations retain the previous strict behavior:
+any version mismatch raises `SchemaVersionMismatchError` immediately, preventing
+silent contract changes.

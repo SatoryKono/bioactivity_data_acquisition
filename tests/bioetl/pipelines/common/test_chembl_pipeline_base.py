@@ -16,7 +16,7 @@ else:
     class MonkeyPatch:  # pragma: no cover - runtime placeholder
         """Runtime placeholder for pytest monkeypatch fixture."""
 
-from bioetl.config import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.pipelines.chembl.common import ChemblPipelineBase

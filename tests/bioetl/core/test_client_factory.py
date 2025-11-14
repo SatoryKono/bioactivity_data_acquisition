@@ -6,9 +6,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from bioetl.config import PipelineConfig
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import (
+    PipelineConfig,
+    PipelineDomainConfig,
+    PipelineInfrastructureConfig,
+)
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory, UnifiedAPIClient
 
@@ -16,13 +20,7 @@ from bioetl.core import APIClientFactory, UnifiedAPIClient
 @pytest.fixture
 def pipeline_config() -> PipelineConfig:
     """Sample PipelineConfig for testing."""
-    return PipelineConfig(  # type: ignore[call-arg]
-        version=1,
-        pipeline=PipelineMetadata(  # type: ignore[call-arg]
-            name="test_pipeline",
-            version="1.0.0",
-            description="Test pipeline",
-        ),
+    infrastructure = PipelineInfrastructureConfig(
         http=HTTPConfig(
             default=HTTPClientConfig(
                 timeout_sec=30.0,
@@ -38,17 +36,29 @@ def pipeline_config() -> PipelineConfig:
                 ),
             },
         ),
+    )
+    domain = PipelineDomainConfig(
         sources={
-            "chembl": SourceConfig(  # type: ignore[call-arg,dict-item]
+            "chembl": SourceConfig(
                 enabled=True,
                 parameters={"base_url": "https://www.ebi.ac.uk/chembl/api/data"},
             ),
-            "test_source": SourceConfig(  # type: ignore[call-arg,dict-item]
+            "test_source": SourceConfig(
                 enabled=True,
                 http_profile="fast",
                 parameters={"base_url": "https://example.com/api"},
             ),
         },
+    )
+    return PipelineConfig(
+        version=1,
+        pipeline=PipelineMetadata(
+            name="test_pipeline",
+            version="1.0.0",
+            description="Test pipeline",
+        ),
+        domain=domain,
+        infrastructure=infrastructure,
     )
 
 

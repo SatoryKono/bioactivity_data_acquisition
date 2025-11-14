@@ -7,13 +7,11 @@ from typing import Any, cast
 
 from pydantic import Field, PositiveInt
 
-from bioetl.core.runtime import BaseSourceConfig, BaseSourceParameters
-
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig
+from ..models.source import SourceConfig, SourceParameters
 
 
-class TestItemSourceParameters(BaseSourceParameters):
+class TestItemSourceParameters(SourceParameters):
     """Free-form parameters specific to the testitem source."""
 
     base_url: str | None = Field(
@@ -79,7 +77,7 @@ class TestItemSourceParameters(BaseSourceParameters):
         )
 
 
-class TestItemSourceConfig(BaseSourceConfig[TestItemSourceParameters]):
+class TestItemSourceConfig(SourceConfig):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -105,7 +103,7 @@ class TestItemSourceConfig(BaseSourceConfig[TestItemSourceParameters]):
     ) -> int:
         if config.batch_size is not None:
             return int(config.batch_size)
-        raw_parameters = config.parameters
+        raw_parameters = config.parameters_mapping()
         batch_size_raw = raw_parameters.get("batch_size")
         if isinstance(batch_size_raw, int) and batch_size_raw > 0:
             return batch_size_raw

@@ -27,7 +27,7 @@ from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients import client_exceptions
-from bioetl.config import PipelineConfig
+from bioetl.config.models import PipelineConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.io import (
@@ -47,10 +47,25 @@ from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime.load_meta_store import LoadMetaStore
 from bioetl.core.schema import format_failure_cases, summarize_schema_errors
 from bioetl.pipelines.errors import PipelineError, map_client_exc
-from bioetl.qc.report import build_correlation_report as build_default_correlation_report
-from bioetl.qc.report import build_qc_metrics_payload
-from bioetl.qc.report import build_quality_report as build_default_quality_report
-from bioetl.schemas import SchemaRegistryEntry, get_schema
+from bioetl.qc.plan import QC_PLAN_DEFAULT, QCMetricsBundle, QCMetricsExecutor, QCPlan
+from bioetl.qc.report import (
+    build_correlation_report as build_default_correlation_report,
+)
+from bioetl.qc.report import (
+    build_qc_metrics_payload,
+)
+from bioetl.qc.report import (
+    build_quality_report as build_default_quality_report,
+)
+from bioetl.schemas import (
+    SCHEMA_MIGRATION_REGISTRY,
+    SchemaMigration,
+    SchemaMigrationError,
+    SchemaRegistryEntry,
+    SchemaVersionMismatchError,
+    get_schema,
+)
+from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service
 from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
 
@@ -139,11 +154,13 @@ class PipelineBase(ABC):
         self._registered_clients: dict[str, Callable[[], None]] = {}
         self._trace_id, self._root_span_id = self._derive_trace_and_span()
         self._validation_schema: SchemaRegistryEntry | None = None
+        self._validation_schema_version: str | None = None
         self._validation_summary: dict[str, Any] | None = None
         self._extract_metadata: dict[str, Any] = {}
         self._vocabulary_service = get_vocabulary_service()
         load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
         self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
+        self._qc_executor = QCMetricsExecutor()
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.
@@ -351,22 +368,73 @@ class PipelineBase(ABC):
     # Optional hooks overridable by subclasses
     # ------------------------------------------------------------------
 
-    def build_quality_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+    @property
+    def qc_plan(self) -> QCPlan:
+        """Return the QC plan executed for this pipeline."""
+
+        return QC_PLAN_DEFAULT
+
+    def _business_key_fields(self) -> tuple[str, ...]:
+        """Return configured business key fields."""
+
+        configured = getattr(self.config.determinism.hashing, "business_key_fields", None)
+        if configured:
+            return tuple(str(field) for field in configured if field)
+        try:
+            return get_pipeline_business_keys(self.pipeline_code)
+        except KeyError:
+            return ()
+
+    def build_quality_report(
+        self,
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> pd.DataFrame | dict[str, object] | None:
         """Return a QC dataframe for the quality report artefact."""
 
-        business_key = self.config.determinism.hashing.business_key_fields
-        return build_default_quality_report(df, business_key_fields=business_key)
+        business_key = self._business_key_fields()
+        return build_default_quality_report(
+            df,
+            business_key_fields=business_key or None,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
 
-    def build_correlation_report(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+    def build_correlation_report(
+        self,
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> pd.DataFrame | dict[str, object] | None:
         """Return a correlation report artefact payload."""
 
-        return build_default_correlation_report(df)
+        business_key = self._business_key_fields()
+        return build_default_correlation_report(
+            df,
+            business_key_fields=business_key or None,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
 
-    def build_qc_metrics(self, df: pd.DataFrame) -> pd.DataFrame | dict[str, object] | None:
+    def build_qc_metrics(
+        self,
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> pd.DataFrame | dict[str, object] | None:
         """Return aggregated QC metrics for persistence."""
 
-        business_key = self.config.determinism.hashing.business_key_fields
-        payload = build_qc_metrics_payload(df, business_key_fields=business_key)
+        business_key = self._business_key_fields()
+        payload = build_qc_metrics_payload(
+            df,
+            business_key_fields=business_key or None,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
         # Convert Mapping[str, Any] to dict[str, object]
         return dict(payload)
 
@@ -712,6 +780,8 @@ class PipelineBase(ABC):
         schema_identifier: str,
         *,
         dataset_name: str = "secondary",
+        expected_version: str | None = None,
+        allow_migration: bool | None = None,
     ) -> pd.DataFrame:
         """Validate a secondary dataset against a schema.
 
@@ -726,6 +796,13 @@ class PipelineBase(ABC):
             The schema identifier from the registry.
         dataset_name:
             Optional name for the dataset (for logging).
+        expected_version:
+            Optional expected schema version for the dataset. Defaults to the
+            configured validation.schema_in_version when matching schema_in.
+        allow_migration:
+            Override controlling whether migrations may be applied. Defaults to
+            validation.allow_schema_migration when ``schema_identifier`` equals
+            ``validation.schema_in``; otherwise False.
 
         Returns
         -------
@@ -737,7 +814,33 @@ class PipelineBase(ABC):
             return df
 
         try:
-            schema_entry = get_schema(schema_identifier)
+            configured_schema_in = getattr(self.config.validation, "schema_in", None)
+            resolved_expected = expected_version
+            if resolved_expected is None and schema_identifier == configured_schema_in:
+                resolved_expected = getattr(self.config.validation, "schema_in_version", None)
+            if allow_migration is None:
+                resolved_allow_migration = bool(
+                    getattr(self.config.validation, "allow_schema_migration", False)
+                    if schema_identifier == configured_schema_in
+                    else False
+                )
+            else:
+                resolved_allow_migration = bool(allow_migration)
+
+            schema_entry, migrations, _ = self._resolve_schema_entry(
+                schema_identifier,
+                expected_version=resolved_expected,
+                dataset_role=dataset_name,
+                allow_migration=resolved_allow_migration,
+            )
+            if migrations:
+                df = self._apply_schema_migrations(
+                    df,
+                    schema_identifier=schema_identifier,
+                    dataset_role=dataset_name,
+                    migrations=migrations,
+                )
+
             schema: DataFrameSchema = schema_entry.schema
             if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
                 schema = cast(
@@ -818,9 +921,7 @@ class PipelineBase(ABC):
 
         if df is not None:
             finalized["row_count"] = len(df)
-            finalized["schema_version"] = (
-                self._validation_schema.version if self._validation_schema else None
-            )
+            finalized["schema_version"] = self._validation_schema_version
 
         return finalized
 
@@ -856,7 +957,7 @@ class PipelineBase(ABC):
 
         if self._validation_schema:
             base_metadata["schema_identifier"] = self._validation_schema.identifier
-            base_metadata["schema_version"] = self._validation_schema.version
+            base_metadata["schema_version"] = self._validation_schema_version
 
         return base_metadata
 
@@ -939,8 +1040,10 @@ class PipelineBase(ABC):
 
         # Resolve base URL from source config if not provided
         if base_url is None:
-            parameters = source_config.parameters or {}
-            base_url = parameters.get("base_url", "https://www.ebi.ac.uk/chembl/api/data")
+            base_url = source_config.get_parameter(
+                "base_url",
+                "https://www.ebi.ac.uk/chembl/api/data",
+            )
 
         # Ensure base_url is str (guaranteed by .get() with default, but type checker doesn't know)
         if not isinstance(base_url, str):
@@ -1004,6 +1107,91 @@ class PipelineBase(ABC):
             return get_schema(identifier)
         except KeyError:
             return None
+
+    def _resolve_schema_entry(
+        self,
+        schema_identifier: str,
+        *,
+        expected_version: str | None,
+        dataset_role: str,
+        allow_migration: bool,
+    ) -> tuple[SchemaRegistryEntry, tuple[SchemaMigration, ...], str | None]:
+        """Resolve schema descriptor and migration plan for dataset_role."""
+
+        schema_entry = get_schema(schema_identifier)
+        actual_version = schema_entry.version
+        log = UnifiedLogger.get(__name__)
+        log.debug(
+            LogEvents.SCHEMA_VERSION_EXPECTED,
+            schema=schema_identifier,
+            dataset=dataset_role,
+            expected_version=expected_version,
+            actual_version=actual_version,
+        )
+
+        if expected_version is None or expected_version == actual_version:
+            return schema_entry, (), expected_version
+
+        if not allow_migration:
+            raise SchemaVersionMismatchError(
+                schema_identifier=schema_identifier,
+                expected_version=expected_version,
+                actual_version=actual_version,
+                message=(
+                    f"Schema '{schema_identifier}' version '{actual_version}' "
+                    f"does not match expected '{expected_version}' and "
+                    "schema migrations are disabled."
+                ),
+            )
+
+        try:
+            migrations = SCHEMA_MIGRATION_REGISTRY.resolve_path(
+                schema_identifier=schema_identifier,
+                current_version=expected_version,
+                target_version=actual_version,
+                max_hops=self.config.validation.max_schema_migration_hops,
+            )
+        except SchemaMigrationError as exc:
+            raise SchemaVersionMismatchError(
+                schema_identifier=schema_identifier,
+                expected_version=expected_version,
+                actual_version=actual_version,
+                message=str(exc),
+            ) from exc
+
+        log.info(
+            LogEvents.SCHEMA_VERSION_MIGRATION_PLAN,
+            schema=schema_identifier,
+            dataset=dataset_role,
+            from_version=expected_version,
+            to_version=actual_version,
+            hops=len(migrations),
+        )
+        return schema_entry, tuple(migrations), expected_version
+
+    def _apply_schema_migrations(
+        self,
+        df: pd.DataFrame,
+        *,
+        schema_identifier: str,
+        dataset_role: str,
+        migrations: Sequence[SchemaMigration],
+    ) -> pd.DataFrame:
+        """Apply schema migrations sequentially."""
+
+        migrated = df
+        log = UnifiedLogger.get(__name__)
+        for migration in migrations:
+            migrated = migration.apply(migrated)
+            log.info(
+                LogEvents.SCHEMA_VERSION_MIGRATION_APPLIED,
+                schema=schema_identifier,
+                dataset=dataset_role,
+                from_version=migration.from_version,
+                to_version=migration.to_version,
+                description=migration.description,
+            )
+        return migrated
 
     def _ensure_schema_columns(
         self,
@@ -1529,10 +1717,29 @@ class PipelineBase(ABC):
         if not schema_identifier:
             log.debug(LogEvents.VALIDATION_SKIPPED, reason="no_schema_configured")
             self._validation_schema = None
+            self._validation_schema_version = None
             self._validation_summary = None
             return df
 
-        schema_entry = get_schema(schema_identifier)
+        dataset_role = "primary"
+        expected_version = getattr(self.config.validation, "schema_out_version", None)
+        allow_migration = bool(getattr(self.config.validation, "allow_schema_migration", False))
+        schema_entry, migrations, source_version = self._resolve_schema_entry(
+            schema_identifier,
+            expected_version=expected_version,
+            dataset_role=dataset_role,
+            allow_migration=allow_migration,
+        )
+        migrations_applied = len(migrations)
+        migrated_from_version = source_version if migrations_applied else None
+        if migrations:
+            df = self._apply_schema_migrations(
+                df,
+                schema_identifier=schema_identifier,
+                dataset_role=dataset_role,
+                migrations=migrations,
+            )
+
         schema: DataFrameSchema = schema_entry.schema
         if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
             schema = cast(
@@ -1689,6 +1896,7 @@ class PipelineBase(ABC):
             else:
                 raise VocabularyValidationError(violations=vocabulary_violations)
         self._validation_schema = schema_entry
+        self._validation_schema_version = schema_entry.version
         self._validation_summary = {
             "schema_identifier": schema_entry.identifier,
             "schema_name": schema_entry.name,
@@ -1698,6 +1906,9 @@ class PipelineBase(ABC):
             "coerce": bool(self.config.validation.coerce),
             "row_count": int(len(validated)),
             "schema_valid": schema_valid,
+            "expected_version": expected_version,
+            "migrated_from_version": migrated_from_version,
+            "migrations_applied": migrations_applied,
         }
         if error_summary is not None:
             self._validation_summary["error"] = error_summary
