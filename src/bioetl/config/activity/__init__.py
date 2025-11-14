@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from pydantic import Field, PositiveInt, model_validator
+from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -14,6 +14,7 @@ from ..models.source import SourceConfig, SourceParameters
 class ActivitySourceParameters(SourceParameters):
     """Free-form parameters specific to the activity source."""
 
+    model_config = ConfigDict(extra="forbid")
     base_url: str | None = Field(
         default=None,
         description="Override for the ChEMBL API base URL when fetching activities.",
@@ -66,14 +67,14 @@ class ActivitySourceParameters(SourceParameters):
         return cls(**normalized)
 
 
-class ActivitySourceConfig(SourceConfig):
+class ActivitySourceConfig(SourceConfig[ActivitySourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
     http_profile: str | None = Field(default=None)
     http: HTTPClientConfig | None = Field(default=None)
-    batch_size: PositiveInt = Field(
+    batch_size: PositiveInt | None = Field(
         default=25,
         description="Effective batch size for pagination requests (capped at 25).",
     )

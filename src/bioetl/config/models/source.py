@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, ClassVar, TypeVar, cast
+from typing import Any, ClassVar, Generic, TypeVar, cast
 
 from pydantic import BaseModel, ConfigDict, Field, PositiveInt
 from pydantic_core import PydanticUndefined
@@ -11,13 +11,13 @@ from pydantic_core import PydanticUndefined
 from .http import HTTPClientConfig
 
 ParametersT = TypeVar("ParametersT", bound="SourceParameters")
-SelfSourceConfigT = TypeVar("SelfSourceConfigT", bound="SourceConfig")
+SelfSourceConfigT = TypeVar("SelfSourceConfigT", bound="SourceConfig[Any]")
 
 
 class SourceParameters(BaseModel):
     """Base parameter model for per-source overrides."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     @classmethod
     def from_mapping(cls: type[ParametersT], params: Mapping[str, Any] | None) -> ParametersT:
@@ -35,7 +35,7 @@ class SourceParameters(BaseModel):
         return {str(key): value for key, value in params.items()}
 
 
-class SourceConfig(BaseModel):
+class SourceConfig(BaseModel, Generic[ParametersT]):
     """Unified per-source configuration model for pipelines and clients."""
 
     model_config = ConfigDict(extra="forbid")
@@ -56,8 +56,8 @@ class SourceConfig(BaseModel):
         default=None,
         description="Batch size used when paginating requests for this source.",
     )
-    parameters: Mapping[str, Any] | SourceParameters = Field(
-        default_factory=dict,
+    parameters: ParametersT = Field(
+        default_factory=SourceParameters,
         description="Free-form parameters consumed by source-specific components.",
     )
 
@@ -70,7 +70,7 @@ class SourceConfig(BaseModel):
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def from_source_config(cls: type[SelfSourceConfigT], config: "SourceConfig") -> SelfSourceConfigT:
+    def from_source_config(cls: type[SelfSourceConfigT], config: "SourceConfig[Any]") -> SelfSourceConfigT:
         """Build a specialized configuration object from a generic instance."""
 
         if isinstance(config, cls):
@@ -80,10 +80,16 @@ class SourceConfig(BaseModel):
         return cls(**payload)
 
     @classmethod
-    def _build_parameters(cls, params: Mapping[str, Any] | SourceParameters) -> Any:
+    def _build_parameters(cls, params: SourceParameters | Mapping[str, Any] | None) -> ParametersT:
         model = cls.parameters_model
         if model is None:
-            return params
+            if params is None:
+                return cast(ParametersT, SourceParameters())
+            if isinstance(params, SourceParameters):
+                return cast(ParametersT, params)
+            return cast(ParametersT, SourceParameters(**SourceParameters._normalize_mapping(params)))
+        if params is None:
+            return model()
         if isinstance(params, model):
             return params
         if isinstance(params, SourceParameters):
@@ -103,7 +109,7 @@ class SourceConfig(BaseModel):
     def _build_payload(
         cls,
         *,
-        config: "SourceConfig",
+        config: "SourceConfig[Any]",
         parameters: Any,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -127,7 +133,7 @@ class SourceConfig(BaseModel):
     def _resolve_batch_value(
         cls,
         *,
-        config: "SourceConfig",
+        config: "SourceConfig[Any]",
         parameters: Any,  # noqa: ARG003 - hook for subclass overrides
     ) -> int | None:
         if config.batch_size is not None:
@@ -165,18 +171,8 @@ class SourceConfig(BaseModel):
     def parameters_mapping(self) -> dict[str, Any]:
         """Return parameters as a deterministic mapping."""
 
-        params = self.parameters
-        if isinstance(params, Mapping):
-            return {str(key): value for key, value in params.items()}
-        model_dump = getattr(params, "model_dump", None)
-        if callable(model_dump):
-            dumped = model_dump()
-            if isinstance(dumped, Mapping):
-                return {str(key): value for key, value in dumped.items()}
-        attrs = getattr(params, "__dict__", None)
-        if isinstance(attrs, dict):
-            return {str(key): value for key, value in attrs.items() if not key.startswith("_")}
-        return {}
+        dumped = self.parameters.model_dump()
+        return {str(key): value for key, value in dumped.items()}
 
     def get_parameter(self, key: str, default: Any | None = None) -> Any | None:
         """Return a parameter value with a fallback."""

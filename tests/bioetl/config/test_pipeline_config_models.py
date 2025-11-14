@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from pydantic import Field
 
 from bioetl.config.models import (
     CacheConfig,
@@ -18,6 +19,7 @@ from bioetl.config.models import (
     PipelineInfrastructureConfig,
     PipelineMetadata,
     SourceConfig,
+    SourceParameters,
 )
 
 
@@ -170,4 +172,35 @@ def test_pipeline_config_supports_nested_section_updates() -> None:
 
     assert updated.validation.strict is False
     assert updated.logging.level == "DEBUG"
+
+
+class _DummySourceParameters(SourceParameters):
+    foo: int = Field(default=1)
+
+
+class _DummySourceConfig(SourceConfig):
+    batch_size: int = Field(default=25)
+    parameters: _DummySourceParameters = Field(default_factory=_DummySourceParameters)
+
+    parameters_model = _DummySourceParameters
+    batch_field = "batch_size"
+    default_batch_size = 25
+
+
+@pytest.mark.unit
+def test_source_config_parameters_mapping_handles_models() -> None:
+    config = _DummySourceConfig(parameters=_DummySourceParameters(foo=7))
+
+    assert config.parameters_mapping() == {"foo": 7}
+
+
+@pytest.mark.unit
+def test_specialized_source_config_builds_from_generic() -> None:
+    generic = SourceConfig(parameters={"foo": 9}, batch_size=10)
+
+    specialized = _DummySourceConfig.from_source_config(generic)
+
+    assert isinstance(specialized, _DummySourceConfig)
+    assert specialized.parameters.foo == 9
+    assert specialized.batch_size == 10
 
