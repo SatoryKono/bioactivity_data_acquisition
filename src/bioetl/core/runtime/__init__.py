@@ -5,26 +5,16 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING, Any, Mapping
 
-from .base_source import BaseSourceConfig, BaseSourceParameters
 from .cli_base import CliCommandBase, CliEntrypoint
 from .errors import BioETLError
 
 if TYPE_CHECKING:
-    from .base_pipeline_compat import (
-        PipelineBase,
-        RunArtifacts,
-        RunResult,
-        WriteArtifacts,
-        WriteResult,
-    )
     from .load_meta_store import LoadMetaStore
 
 
 _LAZY_EXPORTS: Mapping[str, str] = {
     "LoadMetaStore": "bioetl.core.runtime.load_meta_store",
-    "PipelineBase": "bioetl.core.runtime.base_pipeline_compat",
     "RunArtifacts": "bioetl.core.io",
-    "RunResult": "bioetl.core.runtime.base_pipeline_compat",
     "WriteArtifacts": "bioetl.core.io",
     "WriteResult": "bioetl.core.io",
 }
@@ -39,8 +29,6 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    "BaseSourceConfig",
-    "BaseSourceParameters",
     "BioETLError",
     "CliCommandBase",
     "CliEntrypoint",

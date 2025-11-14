@@ -117,10 +117,9 @@ traced to a single pipeline run and request:
 - `dataset` – dataset nickname or target table.
 
 Bind these values once via
-`bind_global_context(run_id=..., pipeline=..., trace_id=..., span_id=...)`.
-Subsequent calls to `bind_global_context` can extend or override context for
-narrower scopes (e.g., per-stage
-metadata).【F:src/bioetl/core/logger.py†L123-L145】
+`UnifiedLogger.bind(run_id=..., pipeline=..., trace_id=..., span_id=...)`.
+Subsequent calls to `UnifiedLogger.bind` can extend or override context for
+narrower scopes (e.g., per-stage metadata).【F:src/bioetl/core/logger.py†L123-L145】
 
 ## Mandatory context data
 

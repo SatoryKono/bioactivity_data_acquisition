@@ -32,9 +32,10 @@ pipelines.
 
 All event identifiers are sourced from `bioetl.core.logging.log_events.LogEvents` and
 follow the deterministic naming pattern `namespace.action.suffix`. Dots separate
-the hierarchy, and only lowercase ASCII, digits, `_` and `-` are permitted.
-Dedicated helper factories `stage_event()` and `client_event()` produce
-compliant identifiers for dynamic situations.
+the hierarchy, and only lowercase ASCII, digits, `_` and `-` are permitted. When
+a pipeline needs a bespoke identifier (for example, per stage or per client) it
+should compose the string explicitly using that scheme instead of helper
+factories.
 
 ### Context-Specific Fields
 

@@ -32,7 +32,6 @@ __all__ = [
     "build_write_artifacts",
     "emit_qc_artifact",
     "ensure_hash_columns",
-    "finalise_output",
     "plan_run_artifacts",
     "prepare_dataframe",
     "serialise_metadata",
@@ -379,62 +378,6 @@ def emit_qc_artifact(
     log.debug(LogEvents.WRITING_QC_ARTIFACT, artifact=artifact_name, path=str(target_path))
     write_frame_like(frame, target_path, config=config)
     return target_path
-
-
-def finalise_output(
-    df: pd.DataFrame,
-    *,
-    config: PipelineConfig,
-    run_id: str,
-    pipeline_code: str,
-    dataset_path: Path,
-    metadata_path: Path,
-    stage_durations_ms: Mapping[str, float],
-    metadata_hook: Callable[[Mapping[str, Any], pd.DataFrame], Mapping[str, Any]] | None = None,
-    quality_report: pd.DataFrame | Mapping[str, Any] | None = None,
-    quality_path: Path | None = None,
-    correlation_report: pd.DataFrame | Mapping[str, Any] | None = None,
-    correlation_path: Path | None = None,
-    qc_metrics: pd.DataFrame | Mapping[str, Any] | None = None,
-    qc_metrics_path: Path | None = None,
-) -> DeterministicWriteArtifacts:
-    """Persist the dataset and optional QC artefacts."""
-
-    log = UnifiedLogger.get(__name__)
-    log.debug(LogEvents.BUILDING_WRITE_ARTIFACTS, dataset=str(dataset_path))
-    prepared = build_write_artifacts(
-        df,
-        config=config,
-        run_id=run_id,
-        pipeline_code=pipeline_code,
-        dataset_path=dataset_path,
-        stage_durations_ms=stage_durations_ms,
-    )
-    metadata = dict(prepared.metadata)
-    if metadata_hook is not None:
-        metadata = dict(metadata_hook(metadata, prepared.dataframe))
-
-    log.debug(LogEvents.WRITING_DATASET, path=str(dataset_path), rows=len(prepared.dataframe))
-    write_dataset_atomic(prepared.dataframe, dataset_path, config=config)
-
-    log.debug(LogEvents.WRITING_METADATA, path=str(metadata_path))
-    write_yaml_atomic(metadata, metadata_path)
-
-    emit_qc_artifact(
-        quality_report, quality_path, config=config, log=log, artifact_name="quality_report"
-    )
-    emit_qc_artifact(
-        correlation_report,
-        correlation_path,
-        config=config,
-        log=log,
-        artifact_name="correlation_report",
-    )
-    emit_qc_artifact(
-        qc_metrics, qc_metrics_path, config=config, log=log, artifact_name="qc_metrics"
-    )
-
-    return DeterministicWriteArtifacts(dataframe=prepared.dataframe, metadata=metadata)
 
 
 def plan_run_artifacts(

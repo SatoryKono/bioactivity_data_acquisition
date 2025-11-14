@@ -167,6 +167,13 @@ def enrich_with_assay(
         page_limit=page_limit,
     )
 
+    if isinstance(records_df, Mapping):
+        hydrated_rows: list[dict[str, Any]] = []
+        for payload in records_df.values():
+            if isinstance(payload, Mapping):
+                hydrated_rows.append(dict(payload))
+        records_df = pd.DataFrame.from_records(hydrated_rows)
+
     # 5) Build enrichment table limited to the required output fields.
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
@@ -525,6 +532,20 @@ def _enrich_by_pairs(
         )
         return df_act
 
+    if isinstance(records_df, Mapping):
+        hydrated_rows: list[dict[str, Any]] = []
+        for key_pair, payload in records_df.items():
+            if not isinstance(key_pair, tuple) or len(key_pair) != 2:
+                continue
+            molecule_id, document_id = key_pair
+            row: dict[str, Any] = {}
+            if isinstance(payload, Mapping):
+                row = dict(payload)
+            row.setdefault("molecule_chembl_id", molecule_id)
+            row.setdefault("document_chembl_id", document_id)
+            hydrated_rows.append(row)
+        records_df = pd.DataFrame.from_records(hydrated_rows)
+
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_BY_PAIRS_NO_RECORDS_FOUND)
         return df_act
@@ -858,6 +879,13 @@ def enrich_with_data_validity(
         fields=list(fields),
         page_limit=page_limit,
     )
+
+    if isinstance(records_df, Mapping):
+        hydrated_rows: list[dict[str, Any]] = []
+        for payload in records_df.values():
+            if isinstance(payload, Mapping):
+                hydrated_rows.append(dict(payload))
+        records_df = pd.DataFrame.from_records(hydrated_rows)
 
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)

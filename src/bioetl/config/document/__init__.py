@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
+from bioetl.clients.base import normalize_select_fields
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
 
@@ -41,14 +42,8 @@ class DocumentSourceParameters(SourceParameters):
         DocumentSourceParameters
             Constructed parameters object.
         """
-        data = params or {}
-        select_fields_raw = data.get("select_fields")
-        select_fields: Sequence[str] | None = None
-        if select_fields_raw is not None:
-            if isinstance(select_fields_raw, Sequence) and not isinstance(
-                select_fields_raw, (str, bytes)
-            ):
-                select_fields = tuple(str(field) for field in select_fields_raw)
+        data = dict(params or {})
+        select_fields = normalize_select_fields(data.get("select_fields"))
 
         payload: dict[str, Any] = {}
         if "base_url" in data:

@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import json
 import math
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from numbers import Number
 
 import pandas as pd
 
 __all__ = [
+    "RELATIONS",
     "is_json_string",
     "validate_json_series",
     "validate_optional_json_series",
     "is_activity_property_item",
     "validate_activity_properties",
+    "validate_membership_series",
+    "validate_relation_series",
 ]
+
+RELATIONS: tuple[str, ...] = ("=", "<", ">", "~")
 
 
 def is_json_string(value: object, *, allow_empty: bool = False) -> bool:
@@ -132,5 +137,33 @@ def validate_activity_properties(
             return False
 
     return True
+
+
+def validate_membership_series(
+    series: pd.Series,
+    *,
+    allowed: Iterable[str],
+) -> bool:
+    """Ensure every non-null entry belongs to the allowed value set."""
+
+    allowed_set = frozenset(str(item).strip() for item in allowed if str(item).strip())
+    if not allowed_set:
+        return True
+    non_null = series.dropna()
+    if non_null.empty:
+        return True
+    normalized = non_null.astype(str).str.strip()
+    return bool(normalized.isin(allowed_set).all())
+
+
+def validate_relation_series(
+    series: pd.Series,
+    *,
+    allowed: Sequence[str] | None = None,
+) -> bool:
+    """Specialized validator for relation fields supporting custom domain overrides."""
+
+    domain = allowed if allowed is not None else RELATIONS
+    return validate_membership_series(series, allowed=domain)
 
 

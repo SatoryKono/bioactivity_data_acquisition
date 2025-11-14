@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any
 
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
+from bioetl.clients.base import normalize_select_fields
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
 
@@ -46,23 +47,7 @@ class ActivitySourceParameters(SourceParameters):
         normalized = dict(cls._normalize_mapping(params))
         normalized.pop("max_url_length", None)
 
-        select_fields_raw = normalized.get("select_fields")
-        select_fields: Sequence[str] | None = None
-        if select_fields_raw is not None:
-            if isinstance(select_fields_raw, Sequence) and not isinstance(
-                select_fields_raw, (str, bytes)
-            ):
-                # Type narrowing: after isinstance check, select_fields_raw is Sequence[Any]
-                # Explicitly cast elements to silence type checking warnings.
-                # basedpyright cannot infer the field type from Sequence[Any].
-                # Use a generator expression with explicit string conversion.
-                select_fields = tuple(
-                    str(cast(Any, field)) for field in select_fields_raw
-                )  # pyright: ignore[reportUnknownVariableType]
-            else:
-                select_fields = (str(select_fields_raw),)
-
-        normalized["select_fields"] = select_fields
+        normalized["select_fields"] = normalize_select_fields(normalized.get("select_fields"))
 
         return cls(**normalized)
 

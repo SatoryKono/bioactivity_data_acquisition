@@ -20,11 +20,13 @@ from bioetl.config.models.determinism import (
     DeterminismHashingConfig,
     DeterminismSortingConfig,
 )
+from bioetl.config.models.domain import PipelineDomainConfig
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.infrastructure import PipelineInfrastructureConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.postprocess import PostprocessConfig
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 
@@ -115,38 +117,52 @@ def sample_chembl_status_response() -> dict[str, Any]:
 def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
     """Sample ``PipelineConfig`` for pipeline unit tests."""
 
-    return PipelineConfig(  # type: ignore[call-arg]
+    http_config = HTTPConfig(
+        default=HTTPClientConfig(
+            timeout_sec=30.0,
+            connect_timeout_sec=10.0,
+            read_timeout_sec=30.0,
+            retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
+        ),
+    )
+
+    determinism_config = DeterminismConfig(
+        sort=DeterminismSortingConfig(by=[], ascending=[]),
+        hashing=DeterminismHashingConfig(business_key_fields=()),
+    )
+
+    infrastructure_config = PipelineInfrastructureConfig(
+        http=http_config,
+        materialization=MaterializationConfig(root=str(tmp_output_dir)),
+        determinism=determinism_config,
+        cli=CLIConfig(date_tag="20240101"),
+    )
+
+    domain_config = PipelineDomainConfig(
+        validation=ValidationConfig(schema_out=None, strict=True, coerce=True),
+        postprocess=PostprocessConfig(),
+        sources={
+            "chembl": SourceConfig(
+                enabled=True,
+                parameters=SourceParameters.from_mapping(
+                    {
+                        "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                        "max_url_length": 2000,
+                    }
+                ),
+            )
+        },
+    )
+
+    return PipelineConfig(
         version=1,
-        pipeline=PipelineMetadata(  # type: ignore[call-arg]
+        pipeline=PipelineMetadata(
             name="activity_chembl",
             version="1.0.0",
             description="Test activity pipeline",
         ),
-        http=HTTPConfig(
-            default=HTTPClientConfig(
-                timeout_sec=30.0,
-                connect_timeout_sec=10.0,
-                read_timeout_sec=30.0,
-                retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
-            ),
-        ),
-        materialization=MaterializationConfig(root=str(tmp_output_dir)),
-        determinism=DeterminismConfig(  # type: ignore[call-arg]
-            sort=DeterminismSortingConfig(by=[], ascending=[]),
-            hashing=DeterminismHashingConfig(business_key_fields=()),
-        ),
-        validation=ValidationConfig(schema_out=None, strict=True, coerce=True),
-        postprocess=PostprocessConfig(),
-        sources={
-            "chembl": SourceConfig(  # type: ignore[call-arg,dict-item]
-                enabled=True,
-                parameters={
-                    "base_url": "https://www.ebi.ac.uk/chembl/api/data",
-                    "max_url_length": 2000,
-                },
-            )
-        },
-        cli=CLIConfig(date_tag="20240101"),  # type: ignore[attr-defined]
+        domain=domain_config,
+        infrastructure=infrastructure_config,
     )
 
 

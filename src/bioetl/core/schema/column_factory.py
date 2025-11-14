@@ -171,39 +171,3 @@ class SchemaColumnFactory:
 
         return cls.string(pattern=cls.UUID_PATTERN, nullable=nullable, unique=unique)
 
-    @classmethod
-    def chembl_molecule_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
-        """Alias for ChEMBL molecule identifier columns."""
-
-        return cls.chembl_id(nullable=nullable, unique=unique)
-
-    @classmethod
-    def chembl_assay_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
-        """Alias for ChEMBL assay identifier columns."""
-
-        return cls.chembl_id(nullable=nullable, unique=unique)
-
-    @classmethod
-    def chembl_target_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
-        """Alias for ChEMBL target identifier columns."""
-
-        return cls.chembl_id(nullable=nullable, unique=unique)
-
-    @classmethod
-    def chembl_document_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
-        """Alias for ChEMBL document identifier columns."""
-
-        return cls.chembl_id(nullable=nullable, unique=unique)
-
-    @classmethod
-    def chembl_testitem_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
-        """Alias for ChEMBL test item identifier columns."""
-
-        return cls.chembl_id(nullable=nullable, unique=unique)
-
-    @classmethod
-    def bao_term_id(cls, *, nullable: bool = True) -> Column:
-        """Alias for BAO term identifier columns."""
-
-        return cls.bao_id(nullable=nullable)
-

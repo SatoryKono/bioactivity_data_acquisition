@@ -2,15 +2,9 @@
 
 from __future__ import annotations
 
-import re
 from enum import Enum, auto
-from typing import Any, Final
 
-from structlog.stdlib import BoundLogger
-
-__all__ = ["LogEvents", "stage_event", "client_event", "emit"]
-
-_STAGE_PART_PATTERN: Final[re.Pattern[str]] = re.compile(r"^[a-z0-9_-]+$")
+__all__ = ["LogEvents"]
 
 
 class LogEventString(str):
@@ -83,31 +77,21 @@ class LogEvents(str, Enum):
     CLI_PIPELINE_API_ERROR = auto()
     CLI_PIPELINE_CLASS_INVALID = auto()
     CLI_PIPELINE_CLASS_LOOKUP_FAILED = auto()
-    CLI_PIPELINE_COMPLETED = auto()
-    CLI_PIPELINE_FAILED = auto()
-    CLI_PIPELINE_STARTED = auto()
     CLI_REGISTRY_LOOKUP_FAILED = auto()
     STAGE_RUN_START = auto()
     STAGE_RUN_FINISH = auto()
     STAGE_RUN_ERROR = auto()
     STAGE_EXTRACT_START = auto()
     STAGE_EXTRACT_FINISH = auto()
-    STAGE_EXTRACT_ERROR = auto()
     STAGE_TRANSFORM_START = auto()
     STAGE_TRANSFORM_FINISH = auto()
-    STAGE_TRANSFORM_ERROR = auto()
     STAGE_VALIDATE_START = auto()
     STAGE_VALIDATE_FINISH = auto()
-    STAGE_VALIDATE_ERROR = auto()
     STAGE_WRITE_START = auto()
     STAGE_WRITE_FINISH = auto()
-    STAGE_WRITE_ERROR = auto()
     STAGE_CLEANUP_START = auto()
     STAGE_CLEANUP_FINISH = auto()
     STAGE_CLEANUP_ERROR = auto()
-    CLIENT_REQUEST = "client.request.sent"
-    CLIENT_RETRY = "client.request.retry"
-    CLIENT_RATE_LIMIT = "client.rate_limit.hit"
     CLIENT_CIRCUIT_OPEN = "client.circuit.open"
     HTTP_RATE_LIMITER_WAIT = auto()
     HTTP_REQUEST_COMPLETED = auto()
@@ -116,6 +100,8 @@ class LogEvents(str, Enum):
     HTTP_REQUEST_METHOD_OVERRIDE = auto()
     HTTP_REQUEST_RETRY = auto()
     HTTP_RESOLVE_URL = auto()
+    HTTP_PAGINATOR_PAGE_FETCHED = auto()
+    HTTP_PAGINATOR_NEXT_LINK_RESOLVED = auto()
     ACTIVITY_FETCH_ERROR = auto()
     ACTIVITY_NO_IDS = auto()
     ACTIVITY_NO_RECORDS_FETCHED = auto()
@@ -134,7 +120,6 @@ class LogEvents(str, Enum):
     ACTIVITY_PROPERTY_TRUV_VALIDATION_FAILED = auto()
     ARRAY_FIELDS_SERIALIZED = auto()
     ARTIFACTS_WRITTEN = auto()
-    ASSAY_CLASS_ID_COLUMN_MISSING_AFTER_ENRICHMENT = auto()
     ASSAY_CLASS_ID_EMPTY_AFTER_ENRICHMENT = auto()
     ASSAY_CLASS_ID_ENRICHMENT_STATS = auto()
     ASSAY_CLASS_ID_EXTRACTED_FROM_CLASSIFICATIONS = auto()
@@ -228,7 +213,6 @@ class LogEvents(str, Enum):
     ENRICHMENT_CLASSIFICATIONS_STARTED = auto()
     ENRICHMENT_COMPLETED = auto()
     ENRICHMENT_CONFIG_ERROR = auto()
-    ENRICHMENT_DATA_VALIDITY_DESCRIPTION_ALREADY_FILLED = auto()
     ENRICHMENT_FETCH_ERROR_BY_PAIRS = auto()
     ENRICHMENT_FETCH_ERROR_BY_RECORD_ID = auto()
     ENRICHMENT_FETCHING_ASSAY_CLASS_MAP = auto()
@@ -257,16 +241,13 @@ class LogEvents(str, Enum):
     EXTRACT_ASSAY_FIELDS_FETCHING = auto()
     EXTRACT_ASSAY_FIELDS_NO_RECORDS = auto()
     EXTRACT_ASSAY_FIELDS_SKIPPED = auto()
-    EXTRACT_COMPLETED = auto()
     EXTRACT_DATA_VALIDITY_DESCRIPTIONS_COMPLETE = auto()
-    EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCH_ERROR = auto()
     EXTRACT_DATA_VALIDITY_DESCRIPTIONS_FETCHING = auto()
     EXTRACT_DATA_VALIDITY_DESCRIPTIONS_NO_RECORDS = auto()
     EXTRACT_DATA_VALIDITY_DESCRIPTIONS_SKIPPED = auto()
     EXTRACT_IDS_PAGINATED_BATCH_ERROR = auto()
     EXTRACT_IDS_PAGINATED_NO_VALID_IDS = auto()
     EXTRACT_IDS_PAGINATED_SUMMARY = auto()
-    EXTRACT_STARTED = auto()
     FILTER_SKIPPED_MISSING_COLUMNS = auto()
     FILTERED_INVALID_ROWS = auto()
     FINALISING_OUTPUT = auto()
@@ -294,7 +275,6 @@ class LogEvents(str, Enum):
     INVALID_STANDARD_RELATION = auto()
     INVALID_STANDARD_TYPE = auto()
     INVALID_TARGET_CHEMBL_ID = auto()
-    INVARIANT_DATA_VALIDITY_DESCRIPTION_WITHOUT_COMMENT = auto()
     INVENTORY_COLLECTED = auto()
     INVENTORY_WRITTEN = auto()
     JOIN_COMPLETED = auto()
@@ -333,13 +313,10 @@ class LogEvents(str, Enum):
     OUTPUT_COLUMNS_DROPPED = auto()
     OUTPUT_COLUMNS_MISSING = auto()
     PARSE_ERRORS = auto()
-    PIPELINE_COMPLETED = auto()
     PIPELINE_DETERMINISTIC = auto()
-    PIPELINE_FAILED = auto()
     PIPELINE_INVENTORY_COMPLETED = auto()
     PIPELINE_NOT_DETERMINISTIC = auto()
     PIPELINE_RUN_FAILED = auto()
-    PIPELINE_STARTED = auto()
     PREPARING_DIRECTORIES = auto()
     PROTEIN_CLASSIFICATION_FETCH_ERROR = auto()
     PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR = auto()
@@ -358,7 +335,6 @@ class LogEvents(str, Enum):
     SCAN_COMPLETE = auto()
     SCAN_START = auto()
     SCHEMA_COLUMNS_ADDED = auto()
-    SCHEMA_EXTRA_COLUMNS_DROPPED = auto()
     SCHEMA_GUARD_REPORT_WRITTEN = auto()
     SCHEMA_REGISTRY_INVALID = auto()
     SCHEMA_REGISTRY_VALID = auto()
@@ -376,9 +352,7 @@ class LogEvents(str, Enum):
     TARGET_DIRECTORY_EXISTS = auto()
     TESTS_FAILED = auto()
     TESTS_SUCCEEDED = auto()
-    TRANSFORM_COMPLETED = auto()
     TRANSFORM_EMPTY_DATAFRAME = auto()
-    TRANSFORM_STARTED = auto()
     TRUV_VALIDATION_ERROR = auto()
     TRUV_VALIDATION_FAILED = auto()
     TRUV_VALIDATION_PASSED = auto()
@@ -387,9 +361,7 @@ class LogEvents(str, Enum):
     TYPE_CONVERSION_FAILED = auto()
     TYPE_IGNORE_REMOVED = auto()
     UNKNOWN_DATA_VALIDITY_COMMENTS_DETECTED = auto()
-    VALIDATE_COMPLETED = auto()
     VALIDATE_EMPTY_DATAFRAME = auto()
-    VALIDATE_STARTED = auto()
     VALIDATING_ASSAY_PARAMETERS_TRUV = auto()
     VALIDATING_CONFIG = auto()
     VALIDATION_COERCE_ONLY_PASSTHROUGH = auto()
@@ -407,54 +379,9 @@ class LogEvents(str, Enum):
     VOCAB_AUDIT_COMPLETED = auto()
     VOCAB_STORE_BUILT = auto()
     WRITE_ARTIFACTS_PREPARED = auto()
-    WRITE_COMPLETED = auto()
     WRITE_SORT_CONFIG_SET = auto()
-    WRITE_STARTED = auto()
     WRITING_DATASET = auto()
     WRITING_META = auto()
     WRITING_METADATA = auto()
     WRITING_QC_ARTIFACT = auto()
-
-
-_CLIENT_EVENT_MAP: Final[dict[str, LogEvents]] = {
-    "request": LogEvents.CLIENT_REQUEST,
-    "retry": LogEvents.CLIENT_RETRY,
-    "rate_limit": LogEvents.CLIENT_RATE_LIMIT,
-    "circuit_open": LogEvents.CLIENT_CIRCUIT_OPEN,
-}
-
-
-def _validate_stage_part(name: str, label: str) -> None:
-    """Validate stage identifier fragment against allowed characters."""
-    if not name:
-        msg = f"{label} must not be empty"
-        raise ValueError(msg)
-    if _STAGE_PART_PATTERN.fullmatch(name) is None:
-        msg = f"{label} must contain only [a-z0-9_-], got {name!r}"
-        raise ValueError(msg)
-
-
-def stage_event(stage: str, suffix: str) -> str:
-    """Compose a stage identifier in the form ``stage.<stage>.<suffix>``."""
-
-    _validate_stage_part(stage, "stage")
-    _validate_stage_part(suffix, "suffix")
-    return f"stage.{stage}.{suffix}"
-
-
-def client_event(name: str) -> str:
-    """Translate a human-readable name into a client event string."""
-
-    try:
-        return _CLIENT_EVENT_MAP[name].value
-    except KeyError as exc:  # pragma: no cover - defensive guard
-        msg = f"Unknown client event: {name!r}"
-        raise ValueError(msg) from exc
-
-
-def emit(logger: BoundLogger, event: str | LogEvents, **fields: Any) -> None:
-    """Send an event via ``BoundLogger`` without mutating the provided fields."""
-
-    message = event.value if isinstance(event, LogEvents) else event
-    logger.info(message, **fields)
 

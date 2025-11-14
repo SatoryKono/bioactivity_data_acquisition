@@ -8,8 +8,10 @@ import pandera as pa
 from pandera import Check, Column
 
 from bioetl.schemas._validators import (
+    RELATIONS,
     is_activity_property_item,
     validate_activity_properties,
+    validate_relation_series,
 )
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
@@ -93,7 +95,6 @@ ROW_HASH_FIELDS: list[str] = [
     column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
 ]
 
-RELATIONS = {"=", "<", ">", "~"}
 ACTIVITY_PROPERTY_KEYS: tuple[str, ...] = (
     "type",
     "relation",
@@ -145,14 +146,22 @@ ActivitySchema = create_schema(
         "record_id": CF.int64(ge=1),
         "src_id": CF.int64(ge=1),
         "type": CF.string(),
-        "relation": CF.string(isin=RELATIONS),
+        "relation": Column(
+            pa.String,
+            Check(lambda series: validate_relation_series(series, allowed=RELATIONS)),
+            nullable=True,
+        ),
         "value": CF.object(),
         "units": CF.string(),
         "standard_type": CF.string(
             vocabulary="activity_standard_type",
             vocabulary_allowed_statuses=("active",),
         ),
-        "standard_relation": CF.string(isin=RELATIONS),
+        "standard_relation": Column(
+            pa.String,
+            Check(lambda series: validate_relation_series(series, allowed=RELATIONS)),
+            nullable=True,
+        ),
         "standard_value": CF.float64(ge=0),
         "standard_upper_value": CF.float64(ge=0),
         "standard_units": CF.string(),

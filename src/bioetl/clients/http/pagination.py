@@ -88,7 +88,20 @@ class Paginator:
                     break
                 if len(page_items) > remaining:
                     page_items = page_items[:remaining]
-            emitted += len(page_items)
+            page_length = len(page_items)
+            emitted += page_length
+            params_snapshot = pending_params.copy() if pending_params is not None and page_index == 0 else None
+            log_kwargs: dict[str, Any] = {
+                "endpoint": normalized_endpoint,
+                "page_index": page_index,
+                "status_code": response.status_code,
+                "items_count": page_length,
+                "emitted_total": emitted,
+                "limit": limit,
+            }
+            if params_snapshot:
+                log_kwargs["params"] = params_snapshot
+            self._log.info(LogEvents.HTTP_PAGINATOR_PAGE_FETCHED, **log_kwargs)
             yield PageResult(
                 endpoint=normalized_endpoint,
                 status_code=response.status_code,
@@ -101,6 +114,12 @@ class Paginator:
             pending_params = None
             page_index += 1
             next_endpoint = self._resolve_next_link(payload)
+            self._log.debug(
+                LogEvents.HTTP_PAGINATOR_NEXT_LINK_RESOLVED,
+                current_endpoint=normalized_endpoint,
+                next_endpoint=next_endpoint,
+                page_index=page_index,
+            )
 
             if limit is not None and emitted >= limit:
                 break

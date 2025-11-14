@@ -20,9 +20,6 @@ def test_core_public_exports_are_available() -> None:
         # Logging layer
         "UnifiedLogger": "bioetl.core.logging",
         "LogEvents": "bioetl.core.logging",
-        "client_event": "bioetl.core.logging",
-        "stage_event": "bioetl.core.logging",
-        "emit": "bioetl.core.logging",
         # IO layer
         "DeterministicWriteArtifacts": "bioetl.core.io",
         "RunArtifacts": "bioetl.core.io",
@@ -36,7 +33,6 @@ def test_core_public_exports_are_available() -> None:
         "ensure_columns": "bioetl.core.io",
         "ensure_hash_columns": "bioetl.core.io",
         "emit_qc_artifact": "bioetl.core.io",
-        "finalise_output": "bioetl.core.io",
         "prepare_dataframe": "bioetl.core.io",
         "serialise_metadata": "bioetl.core.io",
         "write_frame_like": "bioetl.core.io",
@@ -56,11 +52,7 @@ def test_core_public_exports_are_available() -> None:
         "BioETLError": "bioetl.core.runtime",
         "CliCommandBase": "bioetl.core.runtime",
         "CliEntrypoint": "bioetl.core.runtime",
-        "BaseSourceConfig": "bioetl.core.runtime",
-        "BaseSourceParameters": "bioetl.core.runtime",
         "LoadMetaStore": "bioetl.core.runtime",
-        "PipelineBase": "bioetl.core.runtime",
-        "RunResult": "bioetl.core.runtime",
         # Utils layer
         "join_activity_with_molecule": "bioetl.core.utils",
         "load_vocab_store": "bioetl.core.utils",
@@ -93,7 +85,11 @@ def test_core_public_exports_are_available() -> None:
         "bioetl.core.errors",
         "bioetl.core.load_meta_store",
         "bioetl.core.base_pipeline",
+        "bioetl.core.config",
         "bioetl.core.config.base_source",
+        "bioetl.core.interfaces",
+        "bioetl.core.runtime.base_pipeline_compat",
+        "bioetl.core.runtime.base_source",
     ],
 )
 def test_removed_compat_modules_raise_import_error(module_name: str) -> None:

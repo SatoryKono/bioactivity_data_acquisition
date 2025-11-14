@@ -58,13 +58,14 @@ from bioetl.qc.report import (
     build_quality_report as build_default_quality_report,
 )
 from bioetl.schemas import (
-    SCHEMA_MIGRATION_REGISTRY,
     SchemaMigration,
     SchemaMigrationError,
     SchemaRegistryEntry,
     SchemaVersionMismatchError,
     get_schema,
 )
+import bioetl.schemas.versioning as schema_versioning
+SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service
 from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
@@ -1145,7 +1146,7 @@ class PipelineBase(ABC):
             )
 
         try:
-            migrations = SCHEMA_MIGRATION_REGISTRY.resolve_path(
+            migrations = schema_versioning.SCHEMA_MIGRATION_REGISTRY.resolve_path(
                 schema_identifier=schema_identifier,
                 current_version=expected_version,
                 target_version=actual_version,

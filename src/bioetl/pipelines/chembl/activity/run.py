@@ -38,10 +38,8 @@ from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.activity import (
-    ACTIVITY_PROPERTY_KEYS,
-    RELATIONS,
-)
+from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS
+from bioetl.schemas._validators import RELATIONS
 from bioetl.schemas.pipeline_contracts import get_out_schema
 from bioetl.vocab.service import required_vocab_ids
 

@@ -26,7 +26,6 @@ from .io import (
     ensure_columns,
     ensure_hash_columns,
     escape_delims,
-    finalise_output,
     hash_from_mapping,
     header_rows_serialize,
     plan_run_artifacts,
@@ -47,16 +46,9 @@ from .logging import (
     LogFormat,
     LoggerConfig,
     UnifiedLogger,
-    bind_global_context,
-    client_event,
     configure_logging,
-    emit,
     get_logger,
-    reset_global_context,
-    stage_event,
 )
-from .runtime.base_pipeline_compat import PipelineBase, RunResult
-from .runtime.base_source import BaseSourceConfig, BaseSourceParameters
 from .runtime.cli_base import CliCommandBase, CliEntrypoint
 from .runtime.errors import BioETLError
 from .runtime.load_meta_store import LoadMetaStore
@@ -89,13 +81,8 @@ __all__ = [
     "LoggerConfig",
     "MANDATORY_FIELDS",
     "UnifiedLogger",
-    "bind_global_context",
-    "client_event",
     "configure_logging",
-    "emit",
     "get_logger",
-    "reset_global_context",
-    "stage_event",
     # IO
     "DeterministicWriteArtifacts",
     "QCUnits",
@@ -108,7 +95,6 @@ __all__ = [
     "ensure_columns",
     "ensure_hash_columns",
     "escape_delims",
-    "finalise_output",
     "hash_from_mapping",
     "header_rows_serialize",
     "plan_run_artifacts",
@@ -121,14 +107,10 @@ __all__ = [
     "write_frame_like",
     "write_yaml_atomic",
     # Runtime
-    "BaseSourceConfig",
-    "BaseSourceParameters",
     "BioETLError",
     "CliCommandBase",
     "CliEntrypoint",
     "LoadMetaStore",
-    "PipelineBase",
-    "RunResult",
     # Utils
     "clear_vocab_store_cache",
     "get_ids",
@@ -147,10 +129,6 @@ __all__ = [
 ]
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "PipelineBase": ("bioetl.core.runtime.base_pipeline_compat", "PipelineBase"),
-    "RunResult": ("bioetl.core.runtime.base_pipeline_compat", "RunResult"),
-    "BaseSourceConfig": ("bioetl.core.runtime.base_source", "BaseSourceConfig"),
-    "BaseSourceParameters": ("bioetl.core.runtime.base_source", "BaseSourceParameters"),
     "CliCommandBase": ("bioetl.core.runtime.cli_base", "CliCommandBase"),
     "CliEntrypoint": ("bioetl.core.runtime.cli_base", "CliEntrypoint"),
     "BioETLError": ("bioetl.core.runtime.errors", "BioETLError"),

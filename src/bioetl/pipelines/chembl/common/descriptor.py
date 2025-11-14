@@ -17,12 +17,16 @@ from urllib.parse import urlparse
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.base import (
+    build_filters_payload,
+    merge_select_fields,
+    normalize_select_fields,
+)
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import UnifiedAPIClient
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 from ...base import PipelineBase
 
@@ -51,7 +55,7 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
 
     name: str
     source_name: str
-    source_config_factory: Callable[[SourceConfig], Any]
+    source_config_factory: Callable[[SourceConfig[Any]], Any]
     build_context: Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext]
     id_column: str
     summary_event: str
@@ -196,7 +200,7 @@ class ChemblPipelineBase(PipelineBase):
     # Configuration resolution methods
     # ------------------------------------------------------------------
 
-    def _resolve_source_config(self, name: str) -> SourceConfig:
+    def _resolve_source_config(self, name: str) -> SourceConfig[Any]:
         """Resolve source configuration by name.
 
         Parameters
@@ -309,7 +313,7 @@ class ChemblPipelineBase(PipelineBase):
         return max(effective, 1)
 
     @staticmethod
-    def _resolve_batch_size(source_config: SourceConfig) -> int:
+    def _resolve_batch_size(source_config: SourceConfig[Any]) -> int:
         """Resolve batch size from source configuration.
 
         Parameters
@@ -334,7 +338,7 @@ class ChemblPipelineBase(PipelineBase):
 
     def _resolve_select_fields(
         self,
-        source_config: SourceConfig,
+        source_config: SourceConfig[Any],
         default_fields: Sequence[str] | None = None,
     ) -> list[str]:
         """Resolve select_fields from config or use default.
@@ -352,17 +356,13 @@ class ChemblPipelineBase(PipelineBase):
             List of field names to select from the API.
         """
         parameters = source_config.parameters_mapping()
-        select_fields_raw = parameters.get("select_fields")
-        if (
-            select_fields_raw is not None
-            and isinstance(select_fields_raw, Sequence)
-            and not isinstance(select_fields_raw, (str, bytes))
-        ):
-            select_fields = cast(Sequence[Any], select_fields_raw)
-            return [str(field) for field in select_fields]
-        if default_fields:
-            return list(default_fields)
-        return []
+        normalized = normalize_select_fields(
+            parameters.get("select_fields"),
+            default=default_fields,
+        )
+        if normalized is None:
+            return []
+        return list(normalized)
 
     @staticmethod
     def _merge_select_fields(
@@ -371,23 +371,10 @@ class ChemblPipelineBase(PipelineBase):
     ) -> list[str] | None:
         """Return a deterministic list merging configured and required fields."""
 
-        if not select_fields and not required_fields:
+        merged = merge_select_fields(select_fields, required_fields)
+        if merged is None:
             return None
-
-        merged: list[str] = []
-        for raw_field in select_fields or ():
-            if raw_field is None:
-                continue
-            candidate = str(raw_field)
-            if candidate and candidate not in merged:
-                merged.append(candidate)
-        for raw_field in required_fields or ():
-            if raw_field is None:
-                continue
-            candidate = str(raw_field)
-            if candidate and candidate not in merged:
-                merged.append(candidate)
-        return merged
+        return list(merged)
 
     def _dispatch_extract_mode(
         self,
@@ -484,19 +471,11 @@ class ChemblPipelineBase(PipelineBase):
 
         limit = self.config.cli.limit
 
-        select_fields_list: list[str] | None = None
-        if context.select_fields is not None:
-            select_fields_list = list(context.select_fields)
-        elif descriptor.default_select_fields is not None:
-            select_fields_list = list(descriptor.default_select_fields)
-
-        if descriptor.must_have_fields:
-            must_fields = list(descriptor.must_have_fields)
-            if select_fields_list is None:
-                select_fields_list = must_fields
-            else:
-                select_fields_list = list(dict.fromkeys([*select_fields_list, *must_fields]))
-
+        configured_select: Sequence[str] | None = context.select_fields
+        if configured_select is None and descriptor.default_select_fields is not None:
+            configured_select = descriptor.default_select_fields
+        merged_select = merge_select_fields(configured_select, descriptor.must_have_fields)
+        select_fields_list = list(merged_select) if merged_select else None
         context.select_fields = select_fields_list
 
         batch_size_candidate: int | None = getattr(source_config, "batch_size", None)
@@ -518,18 +497,14 @@ class ChemblPipelineBase(PipelineBase):
 
         normalised_parameters = self._normalize_parameters(source_config.parameters)
 
-        filters_payload: dict[str, Any] = {
-            "mode": "all",
-            "limit": int(limit) if limit is not None else None,
-            "page_size": page_size,
-            "select_fields": list(select_fields_list) if select_fields_list else None,
-        }
-        if context.extra_filters:
-            filters_payload.update(context.extra_filters)
-        if normalised_parameters:
-            filters_payload["parameters"] = normalised_parameters
-
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+        filters_payload, compact_filters = build_filters_payload(
+            limit=limit,
+            page_size=page_size,
+            select_fields=select_fields_list,
+            extra_filters=context.extra_filters,
+            parameters=normalised_parameters,
+            mode="all",
+        )
 
         metadata_kwargs = dict(context.metadata)
         self.record_extract_metadata(
@@ -654,7 +629,7 @@ class ChemblPipelineBase(PipelineBase):
         entity_name: str,
         *,
         source_name: str = "chembl",
-        source_config: SourceConfig | None = None,
+        source_config: SourceConfig[Any] | None = None,
         options: Mapping[str, Any] | None = None,
         chembl_client_kwargs: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,
@@ -1010,17 +985,19 @@ class ChemblPipelineBase(PipelineBase):
         merged_select_fields = self._merge_select_fields(select_fields, required_fields)
         select_fields_tuple: tuple[str, ...] = tuple(merged_select_fields or ())
 
-        filters_payload: dict[str, Any] = {
-            "mode": "ids",
+        extra_filter_payload: dict[str, Any] = {
             "requested_ids": unique_ids,
-            "limit": int(limit) if limit is not None else None,
             "batch_size": effective_batch_size,
         }
-        if merged_select_fields:
-            filters_payload["select_fields"] = list(merged_select_fields)
         if metadata_filters:
-            filters_payload.update(dict(metadata_filters))
-        compact_filters = {key: value for key, value in filters_payload.items() if value is not None}
+            extra_filter_payload.update(dict(metadata_filters))
+        filters_payload, compact_filters = build_filters_payload(
+            mode="ids",
+            limit=limit,
+            page_size=effective_batch_size,
+            select_fields=merged_select_fields,
+            extra_filters=extra_filter_payload,
+        )
 
         self.record_extract_metadata(
             chembl_release=chembl_release or self._chembl_release,

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, cast
 from uuid import uuid4
 
 import pandas as pd
-import pandera as pa
 
 from bioetl.core.io import hash_from_mapping
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -218,22 +217,6 @@ class LoadMetaStore:
             records_fetched=records_fetched,
         )
         del self._active[load_meta_id]
-
-    def write_dataframe(
-        self,
-        frame: Any,
-        path: str | Path,
-        *,
-        schema: pa.DataFrameSchema | None = None,
-    ) -> None:
-        """Validate (optionally) and persist ``frame`` atomically."""
-
-        destination = Path(path)
-        if not destination.is_absolute():
-            destination = self._base_path / destination
-        if schema is not None and isinstance(frame, pd.DataFrame):
-            schema.validate(frame, lazy=True)
-        self._write_dataframe(frame, destination)
 
     # ------------------------------------------------------------------
     # Internal helpers

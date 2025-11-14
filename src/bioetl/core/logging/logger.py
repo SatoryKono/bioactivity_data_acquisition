@@ -32,8 +32,6 @@ __all__ = [
     "DEFAULT_LOG_LEVEL",
     "MANDATORY_FIELDS",
     "configure_logging",
-    "bind_global_context",
-    "reset_global_context",
     "get_logger",
     "LoggerConfig",
     "UnifiedLogger",
@@ -212,18 +210,6 @@ def configure_logging(
     )
 
 
-def bind_global_context(**kwargs: Any) -> None:
-    """Bind context that should appear on every log line going forward."""
-
-    bind_contextvars(**kwargs)
-
-
-def reset_global_context() -> None:
-    """Clear previously bound global context."""
-
-    clear_contextvars()
-
-
 def get_logger(name: str = "bioetl") -> BoundLogger:
     """Return a configured bound logger."""
 
@@ -279,13 +265,13 @@ class UnifiedLogger:
     def bind(**context: Any) -> None:
         """Bind context that should be included with all subsequent log events."""
 
-        bind_global_context(**context)
+        bind_contextvars(**context)
 
     @staticmethod
     def reset() -> None:
         """Reset all bound context variables."""
 
-        reset_global_context()
+        clear_contextvars()
 
     @staticmethod
     def scoped(**context: Any) -> AbstractContextManager[None]:
