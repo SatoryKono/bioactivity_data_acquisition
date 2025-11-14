@@ -200,6 +200,10 @@ callable)` and adding the registry key to `custom_metrics`. Each callable
 receives the raw `DataFrame` plus a `QCExecutionContext` exposing the current
 plan, business-key fields, and precomputed bundle for reuse.
 
+`QCUnits.for_suffixes(df, column_suffixes=(...))` offers the shared
+implementation used by `QCUnits.for_units` and `QCUnits.for_relation` when
+pipelines must report distributions for additional suffix families.
+
 ## 7. QC Artifact Contracts
 
 All downstream consumers rely on stable QC artifacts:
