@@ -108,11 +108,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return [str(payload_activity_ids)]
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all activity records from ChEMBL using the shared iterator."""
-
-        return self.run_extract_all(self._build_activity_descriptor())
-
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract activity records by a specific list of IDs using batch extraction.
 
@@ -303,7 +298,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             self.register_client(client_name, bundle.api_client)
         return bundle
 
-    def _build_activity_descriptor(self) -> ChemblExtractionDescriptor[ChemblActivityPipeline]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblActivityPipeline]:
         """Construct the descriptor driving the shared extraction template."""
 
         def build_context(

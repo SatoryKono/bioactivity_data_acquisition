@@ -115,13 +115,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all molecule records from ChEMBL using pagination."""
-
-        descriptor = self._build_testitem_descriptor()
-        return self.run_extract_all(descriptor)
-
-    def _build_testitem_descriptor(
+    def build_descriptor(
         self: SelfTestitemChemblPipeline,
     ) -> ChemblExtractionDescriptor[SelfTestitemChemblPipeline]:
         """Return the descriptor powering testitem extraction."""

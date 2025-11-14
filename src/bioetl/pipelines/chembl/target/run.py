@@ -54,13 +54,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all target records from ChEMBL using pagination."""
-
-        descriptor = self._build_target_descriptor()
-        return self.run_extract_all(descriptor)
-
-    def _build_target_descriptor(self) -> ChemblExtractionDescriptor["ChemblTargetPipeline"]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblTargetPipeline"]:
         """Return the descriptor powering target extraction."""
 
         def build_context(

@@ -140,13 +140,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all assay records from ChEMBL using pagination."""
-
-        descriptor = self._build_assay_descriptor()
-        return self.run_extract_all(descriptor)
-
-    def _build_assay_descriptor(
+    def build_descriptor(
         self: SelfChemblAssayPipeline,
     ) -> ChemblExtractionDescriptor[SelfChemblAssayPipeline]:
         """Return the descriptor powering the shared extraction template."""

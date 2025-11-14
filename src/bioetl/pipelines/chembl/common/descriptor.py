@@ -182,6 +182,18 @@ class ChemblPipelineBase(PipelineBase):
     #: Source label used when identifiers are provided via legacy hooks.
     legacy_extract_source: str = "legacy"
 
+    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
+        """Return the descriptor used by :meth:`extract_all`."""
+
+        msg = f"{type(self).__name__} must implement build_descriptor()"
+        raise NotImplementedError(msg)
+
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all records according to the pipeline descriptor."""
+
+        descriptor = self.build_descriptor()
+        return self.run_extract_all(descriptor)
+
     def __init__(self, config: Any, run_id: str) -> None:
         """Initialize the ChEMBL pipeline base.
 

@@ -48,12 +48,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         self._output_schema = self._output_schema_entry.schema
         self._output_column_order = self._output_schema_entry.column_order
 
-    def extract_all(self) -> pd.DataFrame:
-        """Extract all document records from ChEMBL using pagination."""
-
-        return self.run_extract_all(self._build_document_descriptor())
-
-    def _build_document_descriptor(
+    def build_descriptor(
         self: SelfChemblDocumentPipeline,
     ) -> ChemblExtractionDescriptor[SelfChemblDocumentPipeline]:
         """Return the descriptor powering the shared extraction routine."""
