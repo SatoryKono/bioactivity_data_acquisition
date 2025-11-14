@@ -6,7 +6,7 @@ from typing import Any, Iterator
 
 import pytest
 
-from bioetl.tools import audit_docs
+from bioetl.cli.tools._logic import cli_audit_docs as audit_docs
 
 
 class DummyLogger:

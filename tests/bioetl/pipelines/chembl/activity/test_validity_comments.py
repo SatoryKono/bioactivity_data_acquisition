@@ -12,7 +12,7 @@ from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.schemas.activity import ActivitySchema
+from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
@@ -405,7 +405,7 @@ class TestValidityCommentsOnlyFields:
         )
 
         # Mock ChemblClient and fetch_data_validity_lookup.
-        from bioetl.clients.client_chembl_common import ChemblClient
+        from bioetl.clients.client_chembl import ChemblClient
 
         mock_api_client = MagicMock()
         mock_chembl_client = ChemblClient(mock_api_client)

@@ -35,10 +35,6 @@ class SchemaColumnFactory:
     ) -> Column:
         """Create a string column with optional constraints."""
 
-        if vocabulary is not None and isin is not None:
-            message = "isin constraint cannot be combined with vocabulary metadata."
-            raise ValueError(message)
-
         checks: list[Check] = []
         if pattern is not None:
             checks.append(Check.str_matches(pattern))

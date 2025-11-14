@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+from pathlib import Path
+
+from bioetl.config.loader import load_config
 from bioetl.config.models.base import PipelineConfig
 from bioetl.config.models.http import HTTPClientConfig
 from bioetl.config.models.source import SourceConfig
@@ -10,7 +14,7 @@ from bioetl.core.logging import LogEvents
 from .api_client import UnifiedAPIClient, merge_http_configs
 from bioetl.core.logging import UnifiedLogger
 
-__all__ = ["APIClientFactory"]
+__all__ = ["APIClientFactory", "for_tool"]
 
 
 class APIClientFactory:
@@ -87,3 +91,37 @@ class APIClientFactory:
         except KeyError as exc:
             msg = f"Unknown source '{name}'"
             raise KeyError(msg) from exc
+
+
+_TOOL_CONFIG_PATH = Path("configs/tools/http_client.yaml")
+
+
+@lru_cache(maxsize=1)
+def _load_tool_pipeline_config() -> PipelineConfig:
+    return load_config(_TOOL_CONFIG_PATH, include_default_profiles=True)
+
+
+@lru_cache(maxsize=1)
+def _build_tool_client_factory() -> APIClientFactory:
+    config = _load_tool_pipeline_config()
+    return APIClientFactory(config)
+
+
+def for_tool(
+    *,
+    base_url: str,
+    source: str | None = None,
+    profile: str | None = None,
+    overrides: HTTPClientConfig | None = None,
+    name: str | None = None,
+) -> UnifiedAPIClient:
+    """Return a tool-friendly HTTP client configured from shared defaults."""
+
+    factory = _build_tool_client_factory()
+    return factory.build(
+        base_url=base_url,
+        source=source,
+        profile=profile,
+        overrides=overrides,
+        name=name,
+    )

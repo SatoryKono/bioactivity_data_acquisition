@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.clients.client_chembl_base import ChemblClientProtocol
+from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = [

@@ -7,9 +7,8 @@ access is prohibited.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Iterator, Mapping, Sequence
-
 
 __all__ = [
     "OfflineChemblClient",

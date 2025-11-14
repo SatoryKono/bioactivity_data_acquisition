@@ -28,4 +28,3 @@ Prompt-driven refactors (1–7) left several unused helpers, fixtures, and ad-ho
 - `artifacts/vulture-report.txt`
 - `artifacts/ignore-hints.txt`
 - `artifacts/dead-code-pruned.csv`
-

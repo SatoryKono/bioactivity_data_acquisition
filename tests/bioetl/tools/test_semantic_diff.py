@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import semantic_diff
+from bioetl.cli.tools._logic import cli_semantic_diff as semantic_diff
 
 
 class DummyLogger:

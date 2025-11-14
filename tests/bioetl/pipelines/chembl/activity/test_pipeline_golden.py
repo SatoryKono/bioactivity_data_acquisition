@@ -21,7 +21,7 @@ class TestGoldenDeterminism:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that CSV artifacts are deterministic."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)
@@ -60,7 +60,7 @@ class TestGoldenDeterminism:
         """Test that meta.yaml has required structure."""
         import yaml
 
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -94,7 +94,7 @@ class TestGoldenDeterminism:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that column order is stable."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]
         pipeline_config_fixture.determinism.sort.ascending = [True]
 
@@ -119,7 +119,7 @@ class TestGoldenDeterminism:
         # Verify column order matches schema
         # Note: hash_row and hash_business_key are added after schema columns
         # Note: enrichment columns (compound_name, curated, removed) are only added if enrichment is enabled
-        from bioetl.schemas.activity import COLUMN_ORDER
+        from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER
 
         # Filter out enrichment columns that may not be present if enrichment is disabled
         enrichment_cols = {"compound_name", "curated", "removed"}

@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from bioetl.clients.client_chembl_common import ChemblClient, _resolve_status_endpoint
+from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
 from bioetl.core.http.api_client import UnifiedAPIClient
 
 
@@ -89,7 +89,7 @@ class TestChemblClient:
 
         configured_endpoint = "/configured-status.json"
         monkeypatch.setattr(
-            "bioetl.clients.client_chembl_common._resolve_status_endpoint",
+            "bioetl.clients.client_chembl._resolve_status_endpoint",
             lambda: configured_endpoint,
         )
 

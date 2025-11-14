@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from bioetl.config import loader
-from bioetl.tools import schema_guard
+from bioetl.cli.tools._logic import cli_schema_guard as schema_guard
 
 
 class DummyLogger:

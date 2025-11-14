@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 
 

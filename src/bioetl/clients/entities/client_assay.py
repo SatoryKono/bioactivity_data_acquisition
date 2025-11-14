@@ -1,21 +1,20 @@
-"""Assay-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl_common`."""
+"""Assay-specific HTTP client helpers built on top of :mod:`bioetl.clients.client_chembl`."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
-from bioetl.clients.client_chembl_base import ChemblClientProtocol
-from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
+from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol, ChemblEntityFetcherBase
 from bioetl.clients.entities.client_assay_entity import ChemblAssayEntityClient
 
 if TYPE_CHECKING:
-    from bioetl.clients.client_chembl_common import ChemblClient
+    from bioetl.clients.client_chembl import ChemblClient
 
 __all__ = ["ChemblAssayClient"]
 
 
-class ChemblAssayClient(ChemblEntityIteratorBase):
+class ChemblAssayClient(ChemblEntityFetcherBase):
     """High level helper focused on retrieving assay payloads."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay")

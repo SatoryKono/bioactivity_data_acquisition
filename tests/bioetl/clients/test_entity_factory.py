@@ -12,7 +12,7 @@ import pytest  # type: ignore[reportMissingImports]
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.clients.chembl_entity_registry import ChemblEntityRegistryError
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient

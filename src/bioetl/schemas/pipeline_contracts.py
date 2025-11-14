@@ -32,7 +32,7 @@ class PipelineSchemaContract:
 _PIPELINE_SCHEMA_CONTRACTS: Mapping[str, PipelineSchemaContract] = {
     "activity_chembl": PipelineSchemaContract(
         pipeline_code="activity_chembl",
-        schema_out="bioetl.schemas.activity.ActivitySchema",
+        schema_out="bioetl.schemas.chembl_activity_schema.ActivitySchema",
     ),
     "assay_chembl": PipelineSchemaContract(
         pipeline_code="assay_chembl",

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import create_matrix_doc_code
+from bioetl.cli.tools._logic import cli_create_matrix_doc_code as create_matrix_doc_code
 
 
 class DummyLogger:

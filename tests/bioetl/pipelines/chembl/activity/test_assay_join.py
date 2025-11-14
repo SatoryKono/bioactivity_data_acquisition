@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cache import CacheConfig
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
@@ -60,7 +60,7 @@ def mock_pipeline_config() -> PipelineConfig:
     )
     domain = PipelineDomainConfig(
         validation=ValidationConfig(
-            schema_out="bioetl.schemas.activity.ActivitySchema"
+            schema_out="bioetl.schemas.chembl_activity_schema.ActivitySchema"
         ),
     )
     return PipelineConfig(

@@ -8,8 +8,8 @@ from typing import Any, Callable, ClassVar, Mapping, NoReturn, TypeAlias
 import typer
 from structlog.stdlib import BoundLogger
 
-from bioetl.cli.tools.typer_helpers import TyperApp
-from bioetl.cli.tools.typer_helpers import run_app as typer_run_app
+from bioetl.cli.cli_entrypoint import TyperApp
+from bioetl.cli.cli_entrypoint import run_app as typer_run_app
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime.cli_errors import (
     CLI_ERROR_INTERNAL,

@@ -70,7 +70,7 @@ def output_config(tmp_path: Path) -> PipelineConfig:
         validation=ValidationConfig(
             strict=True,
             coerce=True,
-            schema_out="bioetl.schemas.activity:ActivitySchema",  # Required for column_order
+            schema_out="bioetl.schemas.chembl_activity_schema:ActivitySchema",  # Required for column_order
         ),
     )
     return PipelineConfig(
@@ -116,7 +116,7 @@ class TestOutput:
         """Test preparing dataframe with column order."""
         # Set column_order and schema_out
         output_config.determinism.column_order = ("id", "value")
-        output_config.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"
+        output_config.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"
 
         result = prepare_dataframe(sample_dataframe, config=output_config)
 

@@ -22,9 +22,9 @@ from bioetl.cli.cli_registry import (
     PipelineCommandSpec,
     ToolCommandConfig,
 )
-from bioetl.cli.cli_runner import run_app
-from bioetl.cli.tools.typer_helpers import TyperApp
-from bioetl.cli.tools.typer_helpers import create_app as create_typer_app
+from bioetl.cli.cli_entrypoint import TyperApp
+from bioetl.cli.cli_entrypoint import create_app as create_typer_app
+from bioetl.cli.cli_entrypoint import run_app
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 typer = cast(Any, importlib.import_module("typer"))

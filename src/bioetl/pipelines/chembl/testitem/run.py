@@ -10,7 +10,7 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import TestItemSourceConfig
 from bioetl.config.models.models import PipelineConfig

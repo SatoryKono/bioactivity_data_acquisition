@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import dup_finder
+from bioetl.cli.tools._logic import cli_dup_finder as dup_finder
 
 
 def _write_module(path: Path, content: str) -> None:

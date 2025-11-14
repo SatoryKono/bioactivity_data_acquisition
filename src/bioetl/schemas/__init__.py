@@ -11,13 +11,14 @@ import pandera as pa
 from bioetl.core.schema.vocabulary_bindings import SchemaVocabularyBinding
 
 from . import (
-    activity,
     chembl_activity_schema,
     chembl_assay_schema,
     chembl_document_schema,
     chembl_target_schema,
     chembl_testitem_schema,
 )
+from .common_schema import HASH_COLUMN_NAMES
+from .legacy_schemas import register_legacy_schema_modules
 from .migrations import load_builtin_migrations
 from .versioning import (
     SCHEMA_MIGRATION_REGISTRY,
@@ -58,10 +59,10 @@ __all__ = [
     "SCHEMA_MIGRATION_REGISTRY",
 ]
 
-ActivitySchema = activity.ActivitySchema
-ACTIVITY_COLUMN_ORDER = activity.COLUMN_ORDER
-ACTIVITY_RELATIONS = activity.RELATIONS
-ACTIVITY_PROPERTY_KEYS = activity.ACTIVITY_PROPERTY_KEYS
+ActivitySchema = chembl_activity_schema.ActivitySchema
+ACTIVITY_COLUMN_ORDER = chembl_activity_schema.COLUMN_ORDER
+ACTIVITY_RELATIONS = chembl_activity_schema.RELATIONS
+ACTIVITY_PROPERTY_KEYS = chembl_activity_schema.ACTIVITY_PROPERTY_KEYS
 
 ChemblActivitySchema = chembl_activity_schema.ActivitySchema
 CHEMBL_ACTIVITY_COLUMN_ORDER = chembl_activity_schema.COLUMN_ORDER
@@ -554,7 +555,7 @@ class SchemaRegistry:
             )
             raise ValueError(msg)
 
-        for hashed_column in ("hash_row", "hash_business_key"):
+        for hashed_column in HASH_COLUMN_NAMES:
             if hashed_column not in schema_columns:
                 msg = f"Schema '{descriptor.identifier}' missing required column '{hashed_column}'"
                 raise ValueError(msg)
@@ -676,13 +677,6 @@ _register_builtin_schema(
     column_order_attr="COLUMN_ORDER",
 )
 _register_builtin_schema(
-    identifier="bioetl.schemas.activity.ActivitySchema",
-    module_path="bioetl.schemas.activity",
-    schema_attr="ActivitySchema",
-    version_attr="SCHEMA_VERSION",
-    column_order_attr="COLUMN_ORDER",
-)
-_register_builtin_schema(
     identifier="bioetl.schemas.chembl_testitem_schema.TestItemSchema",
     module_path="bioetl.schemas.chembl_testitem_schema",
     schema_attr="TestItemSchema",
@@ -718,6 +712,7 @@ _register_builtin_schema(
     column_order_attr="COLUMN_ORDER",
 )
 
+register_legacy_schema_modules()
 load_builtin_migrations()
 
 

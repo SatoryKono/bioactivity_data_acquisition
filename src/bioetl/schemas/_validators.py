@@ -9,6 +9,8 @@ from numbers import Number
 
 import pandas as pd
 
+from bioetl.schemas.common_schema import RELATION_SYMBOLS
+
 __all__ = [
     "RELATIONS",
     "is_json_string",
@@ -20,7 +22,7 @@ __all__ = [
     "validate_relation_series",
 ]
 
-RELATIONS: tuple[str, ...] = ("=", "<", ">", "~")
+RELATIONS: tuple[str, ...] = RELATION_SYMBOLS
 
 
 def is_json_string(value: object, *, allow_empty: bool = False) -> bool:

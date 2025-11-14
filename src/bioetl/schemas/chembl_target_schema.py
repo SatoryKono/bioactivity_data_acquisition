@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
-
+from bioetl.schemas.common_schema import resolve_row_hash_fields
 
 SCHEMA_VERSION = "1.2.0"
 
@@ -38,9 +38,7 @@ BUSINESS_KEY_FIELDS: list[str] = [
     "target_chembl_id",
 ]
 
-ROW_HASH_FIELDS: list[str] = [
-    column for column in COLUMN_ORDER if column not in {"hash_row", "hash_business_key"}
-]
+ROW_HASH_FIELDS: list[str] = list(resolve_row_hash_fields(COLUMN_ORDER))
 
 CF = SchemaColumnFactory
 

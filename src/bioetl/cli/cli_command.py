@@ -8,8 +8,8 @@ from typing import Any, NoReturn, cast
 
 import typer
 from structlog.stdlib import BoundLogger
-from typer.models import OptionInfo
 
+from bioetl.config.environment import load_environment_settings as _load_environment_settings
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import (
@@ -17,7 +17,7 @@ from bioetl.core.runtime.cli_errors import (
     CLI_ERROR_EXTERNAL_API,
     CLI_ERROR_INTERNAL,
 )
-from bioetl.core.runtime.pipeline_command_runner import (
+from bioetl.core.runtime.cli_pipeline_runner import (
     ConfigLoadError,
     EnvironmentSetupError,
     PipelineCommandOptions,
@@ -25,9 +25,10 @@ from bioetl.core.runtime.pipeline_command_runner import (
     PipelineConfigFactory,
     PipelineDryRunPlan,
     PipelineExecutionPlan,
-)
-from bioetl.core.runtime.pipeline_command_runner import (
-    load_environment_settings as _load_environment_settings,
+    coerce_option_value,
+    parse_set_overrides,
+    validate_config_path,
+    validate_output_dir,
 )
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.errors import (
@@ -110,24 +111,48 @@ class PipelineCliCommand(CliCommandBase):
         input_file: Path | None,
     ) -> None:
         """Execute the pipeline workflow with normalized options."""
-        dry_run = cast(bool, _coerce_option_value(dry_run))
-        verbose = cast(bool, _coerce_option_value(verbose))
-        set_overrides = cast(list[str], _coerce_option_value(set_overrides, default=[]))
-        sample = cast(int | None, _coerce_option_value(sample))
-        limit = cast(int | None, _coerce_option_value(limit))
-        extended = cast(bool, _coerce_option_value(extended))
-        fail_on_schema_drift = cast(bool, _coerce_option_value(fail_on_schema_drift))
-        validate_columns = cast(bool, _coerce_option_value(validate_columns))
-        golden = cast(Path | None, _coerce_option_value(golden))
-        input_file = cast(Path | None, _coerce_option_value(input_file))
+        dry_run = cast(bool, coerce_option_value(dry_run))
+        verbose = cast(bool, coerce_option_value(verbose))
+        override_values = cast(list[str], coerce_option_value(set_overrides, default=[]))
+        sample = cast(int | None, coerce_option_value(sample))
+        limit = cast(int | None, coerce_option_value(limit))
+        extended = cast(bool, coerce_option_value(extended))
+        fail_on_schema_drift = cast(bool, coerce_option_value(fail_on_schema_drift))
+        validate_columns = cast(bool, coerce_option_value(validate_columns))
+        golden = cast(Path | None, coerce_option_value(golden))
+        input_file = cast(Path | None, coerce_option_value(input_file))
 
         if limit is not None and sample is not None:
             raise typer.BadParameter("--limit and --sample are mutually exclusive")
 
-        _validate_config_path(config)
-        _validate_output_dir(output_dir)
+        try:
+            config = validate_config_path(config)
+        except FileNotFoundError as exc:
+            CliCommandBase.emit_error(
+                template=CLI_ERROR_CONFIG,
+                message=str(exc),
+                event=LogEvents.CONFIG_MISSING,
+                context={"config_path": str(config)},
+            )
+            self.exit(2)
+            return
 
-        cli_overrides = _parse_set_overrides(set_overrides) if set_overrides else {}
+        try:
+            output_dir = validate_output_dir(output_dir)
+        except OSError as exc:
+            CliCommandBase.emit_error(
+                template=CLI_ERROR_CONFIG,
+                message=str(exc),
+                event=LogEvents.CONFIG_INVALID,
+                context={"output_dir": str(output_dir)},
+            )
+            self.exit(2)
+            return
+
+        try:
+            cli_overrides = parse_set_overrides(override_values) if override_values else {}
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc))
 
         options = PipelineCommandOptions(
             config_path=config,
@@ -144,8 +169,9 @@ class PipelineCliCommand(CliCommandBase):
             input_file=input_file,
         )
 
+        runner = self._get_runner()
         try:
-            plan = self._get_runner().prepare(options)
+            plan = runner.prepare(options)
         except EnvironmentSetupError as exc:
             self.emit_error(
                 template=CLI_ERROR_CONFIG,
@@ -190,17 +216,6 @@ class PipelineCliCommand(CliCommandBase):
         self._run_id = run_id
 
         log = self.logger
-        log.info(
-            LogEvents.CLI_RUN_START,
-            pipeline=self._command_config.name,
-            config=str(config),
-            output_dir=str(output_dir),
-            run_id=run_id,
-            dry_run=False,
-            limit=options.limit,
-            extended=options.extended,
-        )
-
         pipeline_factory = _resolve_pipeline_class(
             module_name=self._pipeline_module_name,
             class_name=self._pipeline_class_name,
@@ -210,20 +225,19 @@ class PipelineCliCommand(CliCommandBase):
         )
 
         try:
-            result = plan.run(pipeline_factory)
+            result = runner.execute_plan(
+                plan,
+                pipeline_factory=pipeline_factory,
+                logger=self.logger,
+                command_name=self._command_config.name,
+                config_path=config,
+                output_dir=output_dir,
+            )
         except typer.Exit:
             raise
         except Exception as exc:  # noqa: BLE001
             self.handle_exception(exc)
             return
-
-        log.info(
-            LogEvents.CLI_RUN_FINISH,
-            run_id=run_id,
-            pipeline=self._command_config.name,
-            dataset=str(result.write_result.dataset),
-            duration_ms=sum(result.stage_durations_ms.values()),
-        )
 
         typer.echo(f"Pipeline completed successfully: {result.write_result.dataset}")
         self.exit(0)
@@ -247,47 +261,6 @@ class PipelineCliCommand(CliCommandBase):
             environment_loader=load_environment_settings,
         )
         return PipelineCommandRunner(config_factory=config_factory)
-
-def _parse_set_overrides(set_overrides: list[str]) -> dict[str, Any]:
-    """Parse --set KEY=VALUE flags into a dictionary."""
-    parsed: dict[str, Any] = {}
-    for override in set_overrides:
-        if "=" not in override:
-            msg = f"Invalid --set format: {override}. Expected KEY=VALUE"
-            raise typer.BadParameter(msg)
-        key, value = override.split("=", 1)
-        parsed[key] = value
-    return parsed
-
-
-def _validate_config_path(config_path: Path) -> None:
-    """Validate that the configuration file exists."""
-    resolved_path = config_path.expanduser().resolve()
-    if not resolved_path.exists():
-        CliCommandBase.emit_error(
-            template=CLI_ERROR_CONFIG,
-            message=(
-                f"Configuration file not found: {resolved_path}. Provide a valid path via --config/-c."
-            ),
-            event=LogEvents.CONFIG_MISSING,
-            context={"config_path": str(resolved_path)},
-        )
-        CliCommandBase.exit(2)
-
-
-def _validate_output_dir(output_dir: Path) -> None:
-    """Validate that the output directory is writable."""
-    try:
-        output_dir.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        CliCommandBase.emit_error(
-            template=CLI_ERROR_CONFIG,
-            message=f"Cannot create output directory: {output_dir}. {exc}",
-            event=LogEvents.CONFIG_INVALID,
-            context={"output_dir": str(output_dir)},
-        )
-        CliCommandBase.exit(2)
-
 
 def create_pipeline_command(
     pipeline_class: type[PipelineBase],
@@ -515,14 +488,6 @@ def _handle_pipeline_exception(
         context=context,
     )
     CliCommandBase.exit(1, cause=exc)
-
-
-def _coerce_option_value(value: Any, *, default: Any | None = None) -> Any:
-    """Coerce Typer OptionInfo placeholders into concrete runtime values."""
-
-    if isinstance(value, OptionInfo):
-        return value.default if value.default is not ... else default
-    return value if value is not ... else default
 
 
 def _emit_external_api_failure(

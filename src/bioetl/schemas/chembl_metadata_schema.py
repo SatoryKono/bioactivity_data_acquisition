@@ -16,8 +16,10 @@ from bioetl.schemas._validators import (
 )
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
+from bioetl.schemas.common_schema import HTTP_URL_PATTERN
 
 SCHEMA_VERSION = "1.0.0"
+STATUS_VALUES: tuple[str, ...] = ("success", "warning", "error")
 
 BASE_COLUMNS = (
     "load_meta_id",
@@ -99,7 +101,7 @@ columns: dict[str, Column] = {
     "source_api_version": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "request_base_url": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check.str_matches(r"^https?://")],
+        checks=[Check.str_matches(HTTP_URL_PATTERN)],
         nullable=False,
     ),  # type: ignore[assignment]
     "request_params_json": Column(
@@ -125,7 +127,7 @@ columns: dict[str, Column] = {
         nullable=False,
     ),  # type: ignore[assignment]
     "records_fetched": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
-    "status": CF.string(nullable=False, vocabulary="status"),
+    "status": CF.string(nullable=False, vocabulary="status", isin=STATUS_VALUES),
     "error_message_opt": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
     "retry_count": Column(pa.Int64, checks=[Check.ge(0)], nullable=False),  # type: ignore[arg-type,assignment]
     "job_id": Column(pa.String, nullable=True),  # type: ignore[arg-type,assignment]
@@ -150,6 +152,7 @@ __all__ = [
     "REQUIRED_FIELDS",
     "BUSINESS_KEY_FIELDS",
     "ROW_HASH_FIELDS",
+    "STATUS_VALUES",
     "BASE_COLUMNS",
     "LoadMetaSchema",
     "SCHEMA_VERSION",

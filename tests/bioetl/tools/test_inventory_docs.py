@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import inventory_docs
+from bioetl.cli.tools._logic import cli_inventory_docs as inventory_docs
 
 
 class DummyLogger:

@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import catalog_code_symbols
+from bioetl.cli.tools._logic import cli_catalog_code_symbols as catalog_code_symbols
 
 
 class DummyLogger:

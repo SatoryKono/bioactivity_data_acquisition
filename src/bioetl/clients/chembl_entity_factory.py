@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, MutableMapping
 
 from bioetl.clients.chembl_entity_registry import ChemblEntityDefinition, get_entity_definition
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.http.api_client import UnifiedAPIClient

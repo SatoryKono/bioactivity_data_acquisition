@@ -55,6 +55,6 @@ http:
     # --- Default Headers ---
     # Headers to include in every request. Can be overridden at the source level.
     headers:
-      User-Agent: "BioETL/1.0 (UnifiedAPIClient)"
-      Accept: "application/json"
-      Accept-Encoding: "gzip, deflate"
+      user_agent: "BioETL/1.0 (UnifiedAPIClient)"
+      accept: "application/json"
+      accept_encoding: "gzip, deflate"

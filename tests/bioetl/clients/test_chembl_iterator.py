@@ -1,4 +1,4 @@
-"""Unit tests for ChemblEntityIterator."""
+"""Unit tests for ChemblEntityFetcherBase."""
 
 from __future__ import annotations
 
@@ -8,11 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.clients.chembl_config import EntityConfig
-from bioetl.clients.client_chembl_iterator import (
-    ChemblEntityIterator,
-    ChemblEntityIteratorBase,
-    _resolve_status_endpoint,
-)
+from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
 
 
 @pytest.fixture
@@ -35,15 +31,15 @@ def chembl_config() -> EntityConfig:
 def mock_logger() -> Iterator[MagicMock]:
     """Patch UnifiedLogger.get to avoid touching global logging."""
 
-    with patch("bioetl.clients.client_chembl_iterator.UnifiedLogger.get") as mock_get_logger:
+    with patch("bioetl.clients.client_chembl_entity_base.UnifiedLogger.get") as mock_get_logger:
         bound_logger = MagicMock()
         mock_get_logger.return_value = MagicMock(bind=MagicMock(return_value=bound_logger))
         yield bound_logger
 
 
 @pytest.mark.unit  # type: ignore[reportUnknownMemberType]
-class TestChemblEntityIterator:
-    """Unit tests for iterator behaviour."""
+class TestChemblEntityFetcherBase:
+    """Unit tests for shared entity fetcher behaviour."""
 
     def test_handshake_caches_release(
         self,
@@ -54,22 +50,21 @@ class TestChemblEntityIterator:
         chembl_client = MagicMock()
         chembl_client.handshake.return_value = {"chembl_db_version": "34"}
 
-        iterator = ChemblEntityIteratorBase(
+        fetcher = ChemblEntityFetcherBase(
             chembl_client,
             chembl_config,
             batch_size=25,
             max_url_length=128,
         )
 
-        payload = iterator.handshake()
+        payload = fetcher.handshake()
 
         assert payload == {"chembl_db_version": "34"}
-        assert iterator.chembl_release == "34"
-        default_endpoint = _resolve_status_endpoint()
-        chembl_client.handshake.assert_called_once_with(default_endpoint)
+        assert fetcher.chembl_release == "34"
+        chembl_client.handshake.assert_called_once_with(None)
         mock_logger.info.assert_called_with(
             "entity.handshake",
-            handshake_endpoint=default_endpoint,
+            handshake_endpoint=None,
             handshake_enabled=True,
             chembl_release="34",
         )
@@ -89,14 +84,14 @@ class TestChemblEntityIterator:
             ]
         )
 
-        iterator = ChemblEntityIteratorBase(
+        fetcher = ChemblEntityFetcherBase(
             chembl_client,
             chembl_config,
             batch_size=10,
             max_url_length=128,
         )
 
-        records = list(iterator.iterate_all(limit=2, select_fields=("field1", "field2")))
+        records = list(fetcher.iterate_all(limit=2, select_fields=("field1", "field2")))
 
         assert records == [{"entity_id": "E1"}, {"entity_id": "E2"}]
         chembl_client.paginate.assert_called_once()
@@ -115,7 +110,7 @@ class TestChemblEntityIterator:
     ) -> None:
         """Ensure identifier chunking respects URL length constraints."""
         chembl_client = MagicMock()
-        iterator = ChemblEntityIteratorBase(
+        fetcher = ChemblEntityFetcherBase(
             chembl_client,
             chembl_config,
             batch_size=5,
@@ -123,12 +118,13 @@ class TestChemblEntityIterator:
         )
 
         chunks = list(
-            iterator._chunk_identifiers(
+            fetcher._chunk_identifiers(  # type: ignore[attr-defined]
                 (
                     "AAAAAAAAAA",
                     "BBBBBBBBBB",
                     "CCCCCCCCCC",
                 ),
+                select_fields=None,
             )
         )
 
@@ -138,23 +134,24 @@ class TestChemblEntityIterator:
             ("CCCCCCCCCC",),
         ]
 
-    def test_coerce_page_size_limits_to_batch(
+    def test_resolve_page_size_limits_to_batch(
         self,
         chembl_config: EntityConfig,
         mock_logger: MagicMock,
     ) -> None:
-        """Ensure page size coercion respects iterator batch size."""
+        """Ensure page size resolution respects batch size constraints."""
         chembl_client = MagicMock()
-        iterator = ChemblEntityIterator(
+        fetcher = ChemblEntityFetcherBase(
             chembl_client,
             chembl_config,
-            batch_size=30,
+            batch_size=25,
             max_url_length=128,
         )
 
-        assert iterator._coerce_page_size(None) == 25
-        assert iterator._coerce_page_size(0) == 25
-        assert iterator._coerce_page_size(-5) == 25
-        assert iterator._coerce_page_size(10) == 10
-        assert iterator._coerce_page_size(100) == 25
+        assert fetcher._resolve_page_size(None, None) == 25  # type: ignore[attr-defined]
+        assert fetcher._resolve_page_size(0, None) == 25  # type: ignore[attr-defined]
+        assert fetcher._resolve_page_size(-5, None) == 25  # type: ignore[attr-defined]
+        assert fetcher._resolve_page_size(10, None) == 10  # type: ignore[attr-defined]
+        assert fetcher._resolve_page_size(100, None) == 25  # type: ignore[attr-defined]
+        assert fetcher._resolve_page_size(50, 5) == 5  # type: ignore[attr-defined]
 

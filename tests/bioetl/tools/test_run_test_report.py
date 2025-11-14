@@ -9,7 +9,7 @@ from typing import Any, Iterator
 import pytest
 import yaml
 
-import bioetl.tools.run_test_report as run_test_report
+import bioetl.cli.tools.cli_run_test_report as run_test_report
 from bioetl.tools.test_report_artifacts import TestReportArtifacts
 
 

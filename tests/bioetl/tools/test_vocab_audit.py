@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Mapping
 
 import pytest
 
 from bioetl.core.utils import VocabStoreError
-from bioetl.tools import vocab_audit
+from bioetl.cli.tools._logic import cli_vocab_audit as vocab_audit
 
 
 class DummyLogger:
@@ -200,8 +200,6 @@ def test_is_truthy_variants() -> None:
 
 def test_resolve_chembl_client_env_offline(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vocab_audit, "UnifiedLogger", DummyUnifiedLogger)
-    monkeypatch.setattr(vocab_audit, "_chembl_new_client", None)
-    monkeypatch.setattr(vocab_audit, "_chembl_import_error", RuntimeError("boom"))
     sentinel_client = DummyClient()
     monkeypatch.setattr(vocab_audit, "get_offline_new_client", lambda: sentinel_client)
     monkeypatch.setenv(vocab_audit.OFFLINE_CLIENT_ENV, "1")
@@ -211,11 +209,27 @@ def test_resolve_chembl_client_env_offline(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_resolve_chembl_client_prefers_online(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(vocab_audit, "UnifiedLogger", DummyUnifiedLogger)
-    sentinel_client = DummyClient()
-    monkeypatch.setattr(vocab_audit, "_chembl_new_client", sentinel_client)
+    sentinel_api_client = object()
+
+    class DummyChemblClient:
+        def __init__(self, client: Any, *args: Any, **kwargs: Any) -> None:
+            self.client = client
+
+        def paginate(
+            self,
+            endpoint: str,
+            *,
+            params: Mapping[str, Any] | None = None,
+            page_size: int | None = None,
+        ) -> Iterator[Mapping[str, Any]]:
+            del endpoint, params, page_size
+            return iter([])
+
+    monkeypatch.setattr(vocab_audit, "for_tool", lambda **_: sentinel_api_client)
+    monkeypatch.setattr(vocab_audit, "ChemblClient", DummyChemblClient)
     monkeypatch.setenv(vocab_audit.OFFLINE_CLIENT_ENV, "false")
     client = vocab_audit._resolve_chembl_client()
-    assert client is sentinel_client
+    assert isinstance(client, vocab_audit._ChemblClientAdapter)
 
 
 def test_extract_release_falls_back_to_blocks() -> None:

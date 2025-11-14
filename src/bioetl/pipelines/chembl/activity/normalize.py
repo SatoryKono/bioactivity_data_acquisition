@@ -8,10 +8,10 @@ from typing import Any, Callable, TypeVar, cast
 import numpy as np
 import pandas as pd
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.schemas.chembl_activity_enrichment import (
+from bioetl.schemas.chembl_activity_enrichment_schema import (
     ASSAY_ENRICHMENT_SCHEMA,
     COMPOUND_RECORD_ENRICHMENT_SCHEMA,
     DATA_VALIDITY_ENRICHMENT_SCHEMA,

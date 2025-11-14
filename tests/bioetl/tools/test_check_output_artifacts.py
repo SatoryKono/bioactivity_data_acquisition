@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-import bioetl.tools.check_output_artifacts as check_output_mod
-from bioetl.tools.check_output_artifacts import check_output_artifacts
+import bioetl.cli.tools.cli_check_output_artifacts as check_output_mod
+from bioetl.cli.tools.cli_check_output_artifacts import check_output_artifacts
 
 
 class CaptureLogger:
@@ -46,14 +46,14 @@ def test_check_output_artifacts_reports_all_issues(
     oversized.write_bytes(b"0" * 2)
 
     facade = LoggerFacade()
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts.UnifiedLogger", facade)
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts.get_project_root", lambda: repo_root)
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.UnifiedLogger", facade)
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
     monkeypatch.setattr(
-        "bioetl.tools.check_output_artifacts._git_ls_files",
+        "bioetl.cli.tools.cli_check_output_artifacts._git_ls_files",
         lambda path: [Path("data/output/tracked.csv"), Path("data/output/.gitkeep")],
     )
     monkeypatch.setattr(
-        "bioetl.tools.check_output_artifacts._git_diff_cached",
+        "bioetl.cli.tools.cli_check_output_artifacts._git_diff_cached",
         lambda path: [Path("data/output/new.csv")],
     )
 
@@ -74,10 +74,10 @@ def test_check_output_artifacts_passes_when_clean(
     (repo_root / "data" / "output").mkdir(parents=True)
 
     facade = LoggerFacade()
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts.UnifiedLogger", facade)
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts.get_project_root", lambda: repo_root)
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts._git_ls_files", lambda path: [])
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts._git_diff_cached", lambda path: [])
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.UnifiedLogger", facade)
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts._git_ls_files", lambda path: [])
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts._git_diff_cached", lambda path: [])
 
     errors = check_output_artifacts()
 
@@ -95,7 +95,7 @@ def test_git_helpers_parse_output(monkeypatch: pytest.MonkeyPatch) -> None:
             return Result("data/output/new.csv\n\n")
         return Result("data/output/tracked.csv\n")
 
-    monkeypatch.setattr("bioetl.tools.check_output_artifacts.subprocess.run", fake_run)
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.subprocess.run", fake_run)
     tracked = check_output_mod._git_ls_files("data/output")
     staged = check_output_mod._git_diff_cached("data/output")
     assert tracked == [Path("data/output/tracked.csv")]

@@ -8,14 +8,14 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.schemas.activity import COLUMN_ORDER, ActivitySchema
+from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER, ActivitySchema
 
 
 @pytest.fixture

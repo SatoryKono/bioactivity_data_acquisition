@@ -31,7 +31,7 @@
 
 ### 2.3 Нормализация CLI-параметров
 
-- `CommonOptions` (`cli/cli_command.py` L45-L75) и `_coerce_option_value` / `_parse_set_overrides` / `_validate_*` (L113-L290) повторяют структуру `PipelineCommandOptions` (`core/runtime/pipeline_command_runner.py` L85-L116) и проверок в `PipelineConfigFactory`. Нормализация значений Typer и проверка путей реализованы дважды.
+- `CommonOptions` (`cli/cli_command.py` L45-L75) и `_coerce_option_value` / `_parse_set_overrides` / `_validate_*` (L113-L290) повторяют структуру `PipelineCommandOptions` (`core/runtime/cli_pipeline_runner.py` L85-L116) и проверок в `PipelineConfigFactory`. Нормализация значений Typer и проверка путей реализованы дважды.
 
   **Предложение:** перенести коэрсинг и валидацию в `PipelineCommandRunner` (или `CliCommandBase`) и переиспользовать из CLI через общий helper.
 
@@ -45,7 +45,7 @@
 
 | Rule | Нарушение | Предложение |
 | --- | --- | --- |
-| NR-004 (CLI-модули `cli_*.py`) | `src/bioetl/core/runtime/pipeline_command_runner.py` содержит чисто CLI-логику (подготовка команд и ошибок), но не имеет префикса `cli_`. | Переименовать файл в `cli_pipeline_command_runner.py` и обновить импорты (`bioetl.cli.cli_command`, `tests/...`). |
+| NR-004 (CLI-модули `cli_*.py`) | `src/bioetl/core/runtime/cli_pipeline_runner.py` — итоговое название после приведения к префиксу `cli_`. | ✓ Выполнено (2025‑11‑14): файл переименован и импорты обновлены (`bioetl.cli.cli_command`, `tests/...`). |
 
 Прочие правила (NR-001 — snake_case модулей, NR-002 — PascalCase классов, NR-003 — snake_case функций, NR-005/NR-006/NR-007 — приватные/ду́ндеры/исключения) нарушений в `src/bioetl/core/**` не выявили.
 

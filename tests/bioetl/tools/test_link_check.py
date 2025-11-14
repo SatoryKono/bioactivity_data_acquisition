@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import link_check
+from bioetl.cli.tools._logic import cli_link_check as link_check
 
 
 class DummyLogger:

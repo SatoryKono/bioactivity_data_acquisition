@@ -20,13 +20,8 @@ if TYPE_CHECKING:
         iter_entity_definitions,
         register_entity_definition,
     )
-    from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
-    from bioetl.clients.client_chembl_common import ChemblClient
-    from bioetl.clients.client_chembl_entity import ChemblEntityClientBase
-    from bioetl.clients.client_chembl_iterator import (
-        ChemblEntityIterator,
-        ChemblEntityIteratorBase,
-    )
+    from bioetl.clients.client_chembl import ChemblClient
+    from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
     from bioetl.clients.entities.client_activity import ChemblActivityClient
     from bioetl.clients.entities.client_assay import ChemblAssayClient
     from bioetl.clients.entities.client_assay_class_map import (
@@ -62,9 +57,6 @@ __all__ = [
     "ChemblTargetClient",
     "ChemblTestitemClient",
     "ChemblEntityFetcherBase",
-    "ChemblEntityIteratorBase",
-    "ChemblEntityIterator",
-    "ChemblEntityClientBase",
     "EntityConfig",
     "ChemblMoleculeEntityClient",
     "ChemblDataValidityEntityClient",
@@ -83,24 +75,15 @@ __all__ = [
 ]
 
 _ATTR_MAP: Final[dict[str, tuple[str, str]]] = {
-    "ChemblClient": ("bioetl.clients.client_chembl_common", "ChemblClient"),
+    "ChemblClient": ("bioetl.clients.client_chembl", "ChemblClient"),
     "ChemblAssayClient": ("bioetl.clients.entities.client_assay", "ChemblAssayClient"),
     "ChemblAssayEntityClient": (
         "bioetl.clients.entities.client_assay_entity",
         "ChemblAssayEntityClient",
     ),
     "ChemblEntityFetcherBase": (
-        "bioetl.clients.client_chembl_base",
+        "bioetl.clients.client_chembl_entity_base",
         "ChemblEntityFetcherBase",
-    ),
-    "ChemblEntityIteratorBase": (
-        "bioetl.clients.client_chembl_iterator",
-        "ChemblEntityIteratorBase",
-    ),
-    "ChemblEntityIterator": ("bioetl.clients.client_chembl_iterator", "ChemblEntityIterator"),
-    "ChemblEntityClientBase": (
-        "bioetl.clients.client_chembl_entity",
-        "ChemblEntityClientBase",
     ),
     "EntityConfig": ("bioetl.clients.chembl_config", "EntityConfig"),
     "ChemblActivityClient": ("bioetl.clients.entities.client_activity", "ChemblActivityClient"),

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.tools.remove_type_ignore import (
+from bioetl.cli.tools.cli_remove_type_ignore import (
     TYPE_IGNORE_PATTERN,
     _cleanse_file,
     _iter_python_files,
@@ -84,8 +84,8 @@ def test_remove_type_ignore_counts_and_logs(tmp_path: Path, monkeypatch: pytest.
     dummy_unified_logger = DummyUnifiedLogger()
     dummy_unified_logger.logger = dummy_logger
 
-    monkeypatch.setattr("bioetl.tools.remove_type_ignore.UnifiedLogger", dummy_unified_logger)
-    monkeypatch.setattr("bioetl.tools.remove_type_ignore.get_project_root", lambda: repo_root)
+    monkeypatch.setattr("bioetl.cli.tools.cli_remove_type_ignore.UnifiedLogger", dummy_unified_logger)
+    monkeypatch.setattr("bioetl.cli.tools.cli_remove_type_ignore.get_project_root", lambda: repo_root)
 
     removed = remove_type_ignore()
 

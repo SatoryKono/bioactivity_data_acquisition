@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import determinism_check
+from bioetl.cli.tools._logic import cli_determinism_check as determinism_check
 
 
 class DummyLogger:

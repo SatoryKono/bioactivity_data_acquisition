@@ -18,7 +18,7 @@ from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig
 from bioetl.config.models.determinism import DeterminismSortingConfig
@@ -38,7 +38,7 @@ from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.activity import ACTIVITY_PROPERTY_KEYS
+from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 from bioetl.schemas._validators import RELATIONS
 from bioetl.schemas.pipeline_contracts import get_out_schema
 from bioetl.vocab.service import required_vocab_ids

@@ -52,8 +52,38 @@ class ChemblEntityClientProtocol(Protocol):
     ) -> Iterator[Mapping[str, Any]]: ...
 
 class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
-    _chembl_client: Any
+    _chembl_client: ChemblClientProtocol
     _config: EntityConfig
 
-    def __init__(self, chembl_client: Any, config: EntityConfig) -> None: ...
+    def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None: ...
+
+    def _validate_identifiers(self, ids: Sequence[str]) -> list[str]: ...
+
+    def _chunk_identifiers(
+        self,
+        ids: Sequence[str],
+        *,
+        select_fields: Sequence[str] | None = ...,
+    ) -> Iterator[Sequence[str]]: ...
+
+    def _build_chunk_params(
+        self,
+        chunk: Sequence[str],
+        *,
+        fields: Sequence[str] | None = ...,
+    ) -> dict[str, Any]: ...
+
+    def _empty_frame(self, fields: Sequence[str] | None) -> pd.DataFrame: ...
+
+    def _records_to_frame(
+        self,
+        records: Sequence[Mapping[str, Any]],
+        fields: Sequence[str] | None,
+    ) -> pd.DataFrame: ...
+
+    def _resolve_page_size(
+        self,
+        requested: int | None,
+        limit: int | None,
+    ) -> int: ...
 

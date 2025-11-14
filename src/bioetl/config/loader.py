@@ -296,7 +296,106 @@ def _migrate_legacy_sections(payload: Mapping[str, Any]) -> dict[str, Any]:
             if chembl_payload:
                 migrated["chembl"] = chembl_payload
 
+    _maybe_normalize_http_headers(migrated)
     return migrated
+
+
+def _maybe_normalize_http_headers(payload: MutableMapping[str, Any]) -> None:
+    """Ensure HTTP header keys follow canonical formatting."""
+
+    http_section = payload.get("http")
+    if not isinstance(http_section, Mapping):
+        return
+
+    normalized_http = _normalize_http_section(http_section)
+    if normalized_http is not None:
+        payload["http"] = normalized_http
+
+
+def _normalize_http_section(http_section: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return normalized HTTP section when header keys require updates."""
+
+    normalized: dict[str, Any] = dict(http_section)
+    changed = False
+
+    default_block = http_section.get("default")
+    normalized_default = _normalize_http_header_block(default_block)
+    if normalized_default is not None:
+        normalized["default"] = normalized_default
+        changed = True
+
+    profiles_block = http_section.get("profiles")
+    if isinstance(profiles_block, Mapping):
+        profiles_payload: dict[str, Any] = dict(profiles_block)
+        profiles_changed = False
+        for profile_name, profile_payload in profiles_block.items():
+            normalized_profile = _normalize_http_header_block(profile_payload)
+            if normalized_profile is not None:
+                profiles_payload[profile_name] = normalized_profile
+                profiles_changed = True
+        if profiles_changed:
+            normalized["profiles"] = profiles_payload
+            changed = True
+
+    if not changed:
+        return None
+    return normalized
+
+
+def _normalize_http_header_block(block: Any) -> dict[str, Any] | None:
+    """Normalize header keys inside a single HTTP client block."""
+
+    if not isinstance(block, Mapping):
+        return None
+
+    normalized_block: dict[str, Any] = dict(block)
+    headers = block.get("headers")
+    normalized_headers = _normalize_header_mapping(headers)
+    if normalized_headers is None:
+        return None
+
+    normalized_block["headers"] = normalized_headers
+    return normalized_block
+
+
+def _normalize_header_mapping(headers: Any) -> dict[str, Any] | None:
+    """Convert snake_case header keys into canonical HTTP header names."""
+
+    if not isinstance(headers, Mapping):
+        return None
+
+    normalized: dict[str, Any] = {}
+    changed = False
+
+    for raw_key, raw_value in headers.items():
+        if isinstance(raw_key, str):
+            formatted_key = _format_http_header_name(raw_key)
+            if formatted_key != raw_key:
+                changed = True
+            normalized_key: Any = formatted_key
+        else:
+            normalized_key = raw_key
+        normalized[normalized_key] = raw_value
+
+    if not changed:
+        return None
+    return normalized
+
+
+def _format_http_header_name(raw_key: str) -> str:
+    """Convert snake_case/bare header names into Header-Case format."""
+
+    stripped = raw_key.strip()
+    if not stripped:
+        return raw_key
+    if "-" in stripped or not stripped.islower():
+        return stripped
+
+    parts = [part for part in stripped.split("_") if part]
+    if not parts:
+        return stripped
+    formatted = "-".join(part.capitalize() for part in parts)
+    return formatted
 
 
 def _load_yaml(path: Path) -> Any:

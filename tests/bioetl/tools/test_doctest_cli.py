@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import doctest_cli
+from bioetl.cli.tools._logic import cli_doctest_cli as doctest_cli
 
 
 class DummyLogger:

@@ -6,19 +6,18 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest  # type: ignore[reportMissingImports]
-import typer  # type: ignore[reportMissingImports]
 from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
 from bioetl.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
-from bioetl.cli.cli_command import (  # type: ignore[reportMissingImports,reportPrivateUsage]
-    _parse_set_overrides,
-    _validate_config_path,
-    _validate_output_dir,
-)
 from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
+)
+from bioetl.core.runtime.cli_pipeline_runner import (
+    parse_set_overrides,
+    validate_config_path,
+    validate_output_dir,
 )
 
 CLI_APP = get_command(app)  # type: ignore[reportUnknownVariableType]
@@ -32,18 +31,18 @@ class TestCLIParsing:
         """Test parsing valid --set overrides."""
         overrides = ["key1=value1", "key2=value2", "nested.key=value3"]
 
-        result = _parse_set_overrides(overrides)
+        result = parse_set_overrides(overrides)
 
         assert result == {"key1": "value1", "key2": "value2", "nested.key": "value3"}
 
     def test_parse_set_overrides_invalid(self):
         """Test parsing invalid --set overrides."""
-        with pytest.raises(typer.BadParameter):  # type: ignore[reportUnknownMemberType]
-            _parse_set_overrides(["invalid_format"])
+        with pytest.raises(ValueError):
+            parse_set_overrides(["invalid_format"])
 
     def test_parse_set_overrides_empty(self):
         """Test parsing empty --set overrides."""
-        result = _parse_set_overrides([])
+        result = parse_set_overrides([])
 
         assert result == {}
 
@@ -53,23 +52,21 @@ class TestCLIParsing:
         config_file.touch()
 
         # Should not raise
-        _validate_config_path(config_file)
+        validate_config_path(config_file)
 
     def test_validate_config_path_not_exists(self, tmp_path: Path):
         """Test validation of non-existent config path."""
         config_file = tmp_path / "nonexistent.yaml"
 
-        with pytest.raises(typer.Exit) as exc_info:  # type: ignore[reportUnknownMemberType]
-            _validate_config_path(config_file)
-
-        assert exc_info.value.exit_code == 2  # type: ignore[reportUnknownMemberType]
+        with pytest.raises(FileNotFoundError):
+            validate_config_path(config_file)
 
     def test_validate_output_dir_creatable(self, tmp_path: Path):
         """Test validation of creatable output directory."""
         output_dir = tmp_path / "output"
 
         # Should not raise
-        _validate_output_dir(output_dir)
+        validate_output_dir(output_dir)
 
         assert output_dir.exists()
 
@@ -79,7 +76,7 @@ class TestCLIParsing:
         output_dir.mkdir()
 
         # Should not raise
-        _validate_output_dir(output_dir)
+        validate_output_dir(output_dir)
 
 
 @pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
@@ -408,7 +405,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.activity:ActivitySchema"
+  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
 """
         )
 

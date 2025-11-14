@@ -5,7 +5,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.tools import check_comments
+from bioetl.cli.tools._logic import cli_check_comments as check_comments
 
 
 class DummyLogger:

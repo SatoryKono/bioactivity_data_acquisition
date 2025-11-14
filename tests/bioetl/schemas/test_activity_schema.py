@@ -8,7 +8,7 @@ import pandas as pd
 import pandera.errors
 import pytest
 
-from bioetl.schemas.activity import (
+from bioetl.schemas.chembl_activity_schema import (
     ACTIVITY_PROPERTY_KEYS,
     COLUMN_ORDER,
     RELATIONS,

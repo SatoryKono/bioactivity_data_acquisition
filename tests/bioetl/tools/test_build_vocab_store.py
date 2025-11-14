@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 import yaml
 
-from bioetl.tools import build_vocab_store
+from bioetl.cli.tools._logic import cli_build_vocab_store as build_vocab_store
 
 
 class DummyLogger:

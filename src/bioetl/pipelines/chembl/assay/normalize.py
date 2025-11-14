@@ -8,10 +8,10 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.clients.client_chembl_common import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.schemas.chembl_assay_enrichment import (
+from bioetl.schemas.chembl_assay_enrichment_schema import (
     ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA,
     ASSAY_PARAMETERS_ENRICHMENT_SCHEMA,
 )

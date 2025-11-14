@@ -142,7 +142,7 @@ planned).【F:docs/sources/01-interface-matrix.md†L7-L13】_
 ## 5. Entity client contract and factory
 
 - `ChemblEntityClientProtocol` и `ChemblEntityFetcherBase`
-  (`src/bioetl/clients/client_chembl_base.py`) фиксируют публичный API
+  (`src/bioetl/clients/client_chembl_entity_base.py`) фиксируют публичный API
   сущностных клиентов: `fetch_by_ids`, `fetch_all`, `iterate_records`. Все методы
   обязаны возвращать `pandas.DataFrame` с колонками, упорядоченными согласно
   `EntityConfig.ordering`, и поддерживать одинаковую семантику аргументов

@@ -5,7 +5,7 @@ from typing import Any, Iterator, Mapping, cast
 
 import pytest
 
-from bioetl.clients.client_chembl_iterator import ChemblEntityIteratorBase
+from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
 from bioetl.clients.entities.client_compound_record import (
     ChemblCompoundRecordEntityClient,
     _compound_record_dedup_priority,
@@ -48,6 +48,9 @@ class RecordingChemblClient:
         records = list(self._responses.get((doc_id, chunk), []))
         return iter(records)
 
+    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]:
+        return {}
+
 
 class DummyChemblClient:
     """Minimal Chembl client stub satisfying ChemblClientProtocol."""
@@ -61,6 +64,9 @@ class DummyChemblClient:
         items_key: str | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         return iter(())
+
+    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]:
+        return {}
 
 
 def test_fetch_by_pairs_filters_invalid_pairs(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -175,13 +181,20 @@ def test_safe_bool(value: Any, expected: bool) -> None:
 def test_document_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_init(self, chembl_client: Any, *, config: Any, batch_size: int, max_url_length: int | None) -> None:  # type: ignore[override]
+    def fake_init(
+        self,
+        chembl_client: Any,
+        *,
+        config: Any,
+        batch_size: int | None = None,
+        max_url_length: int | None = None,
+    ) -> None:  # type: ignore[override]
         captured["config"] = config
         captured["batch_size"] = batch_size
         captured["max_url_length"] = max_url_length
 
     monkeypatch.setattr(
-        ChemblEntityIteratorBase,
+        ChemblEntityFetcherBase,
         "__init__",
         fake_init,
     )
@@ -197,13 +210,20 @@ def test_document_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_testitem_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     captured: dict[str, Any] = {}
 
-    def fake_init(self, chembl_client: Any, *, config: Any, batch_size: int, max_url_length: int | None) -> None:  # type: ignore[override]
+    def fake_init(
+        self,
+        chembl_client: Any,
+        *,
+        config: Any,
+        batch_size: int | None = None,
+        max_url_length: int | None = None,
+    ) -> None:  # type: ignore[override]
         captured["config"] = config
         captured["batch_size"] = batch_size
         captured["max_url_length"] = max_url_length
 
     monkeypatch.setattr(
-        ChemblEntityIteratorBase,
+        ChemblEntityFetcherBase,
         "__init__",
         fake_init,
     )
