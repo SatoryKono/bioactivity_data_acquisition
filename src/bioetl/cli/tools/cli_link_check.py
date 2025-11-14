@@ -14,9 +14,14 @@ from bioetl.cli.tools._logic import cli_link_check as cli_link_check_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
-_LOGIC_EXPORTS = getattr(cli_link_check_impl, "__all__", [])
-globals().update({symbol: getattr(cli_link_check_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+run_link_check = cli_link_check_impl.run_link_check
+
+__all__ = (
+    "run_link_check",
+    "app",
+    "cli_main",
+    "run",
+)
 
 typer: Any = get_typer()
 
@@ -30,6 +35,7 @@ def cli_main(
 ) -> None:
     """Run the documentation link validation."""
 
+    exit_code: int
     try:
         exit_code = cli_link_check_impl.run_link_check(timeout_seconds=timeout_seconds)
     except Exception as exc:  # noqa: BLE001
@@ -41,11 +47,12 @@ def cli_main(
                 "timeout_seconds": timeout_seconds,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     if exit_code == 0:
         typer.echo("Link check completed successfully")
+        CliCommandBase.exit(0)
     else:
         typer.secho(
             f"Link check failed with errors (exit={exit_code})",
@@ -61,7 +68,7 @@ def cli_main(
                 "lychee_exit_code": exit_code,
             },
         )
-    CliCommandBase.exit(0)
+        CliCommandBase.exit(exit_code)
 
 
 app: TyperApp = create_simple_tool_app(

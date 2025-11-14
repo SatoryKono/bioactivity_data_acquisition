@@ -1,0 +1,179 @@
+columns:
+- activity_id
+- activity_properties
+- activity_comment
+- assay_chembl_id
+- assay_description
+- assay_organism
+- assay_tax_id
+- assay_type
+- bao_endpoint
+- bao_format
+- bao_label
+- canonical_smiles
+- compound_key
+- data_validity_comment
+- data_validity_description
+- document_chembl_id
+- ligand_efficiency
+- lower_value
+- molecule_chembl_id
+- molecule_pref_name
+- parent_molecule_chembl_id
+- pchembl_value
+- potential_duplicate
+- published_relation
+- published_type
+- published_units
+- published_value
+- qudt_units
+- record_id
+- relation
+- src_id
+- standard_flag
+- standard_relation
+- standard_text_value
+- standard_type
+- standard_units
+- standard_upper_value
+- standard_value
+- target_chembl_id
+- target_organism
+- target_pref_name
+- target_tax_id
+- testitem_chembl_id
+- text_value
+- type
+- units
+- uo_units
+- upper_value
+- value
+- hash_row
+- hash_business_key
+config_version: 1
+dataset_path: E:\github\bioactivity_data_acquisition1\tests\golden\activity_chembl\_build\activity_chembl_extended_20240101.csv
+generated_at_utc: '2025-11-14T18:35:20.052469Z'
+hash_policy_version: 1.0.0
+hashing:
+  algorithm: sha256
+  business_key_column: hash_business_key
+  business_key_fields:
+  - activity_id
+  hash_business_key:
+    nullable: false
+    unique: 3
+  hash_row:
+    nullable: false
+    unique: 3
+  row_column: hash_row
+  row_fields: []
+  sample_hash_business_key: 6b86b273ff34fce19d6b804eff5a3f5747ada4eaa22f1d49c01e52ddb7875b4b
+  sample_hash_row: ef007fabe67136ee163eb6237fc952e872dabdcf0159f47a918bd7a9f0ea431d
+pipeline: activity_chembl
+pipeline_version: 1.0.0
+quality:
+  metrics:
+    business_key_fields:
+    - activity_id
+    columns_with_missing: activity_comment, activity_properties, assay_description,
+      assay_organism, assay_tax_id, assay_type, bao_endpoint, bao_format, bao_label,
+      data_validity_comment, data_validity_description, ligand_efficiency, lower_value,
+      molecule_pref_name, parent_molecule_chembl_id, potential_duplicate, published_relation,
+      published_type, published_units, published_value, qudt_units, record_id, relation,
+      src_id, standard_relation, standard_text_value, standard_type, standard_upper_value,
+      target_organism, target_pref_name, text_value, uo_units, upper_value
+    deduplicated_count: 3
+    duplicate_count: 0
+    duplicate_ratio: 0.0
+    iqr_outliers: {}
+    relation_distribution:
+      published_relation:
+        <=:
+          count: 1
+          ratio: 0.333333
+        '=':
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+      relation:
+        '=':
+          count: 1
+          ratio: 0.333333
+        '>':
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+      standard_relation:
+        '=':
+          count: 1
+          ratio: 0.333333
+        '>':
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+    row_count: 3
+    total_missing_values: 46
+    units_distribution:
+      published_units:
+        mM:
+          count: 1
+          ratio: 0.333333
+        nM:
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 1
+          ratio: 0.333334
+      qudt_units:
+        QUDT_0000001:
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 2
+          ratio: 0.666667
+      standard_units:
+        mM:
+          count: 1
+          ratio: 0.333333
+        nM:
+          count: 1
+          ratio: 0.333333
+        μM:
+          count: 1
+          ratio: 0.333334
+      units:
+        mM:
+          count: 1
+          ratio: 0.333333
+        nM:
+          count: 1
+          ratio: 0.333333
+        μM:
+          count: 1
+          ratio: 0.333334
+      uo_units:
+        UO_0000001:
+          count: 1
+          ratio: 0.333333
+        'null':
+          count: 2
+          ratio: 0.666667
+row_count: 3
+run_id: golden-run-activity
+sorting:
+  ascending:
+  - true
+  - true
+  - true
+  by:
+  - assay_chembl_id
+  - testitem_chembl_id
+  - activity_id
+  na_position: last
+stage_durations_ms: {}

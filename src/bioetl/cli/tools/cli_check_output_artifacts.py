@@ -18,7 +18,7 @@ _LOGIC_EXPORTS = getattr(cli_check_output_artifacts_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_check_output_artifacts_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 MAX_BYTES = cli_check_output_artifacts_impl.MAX_BYTES
@@ -33,6 +33,8 @@ def cli_main(
 ) -> None:
     """Run the output artifact inspection."""
 
+    errors: list[str]
+
     try:
         errors = cli_check_output_artifacts_impl.check_output_artifacts(max_bytes=max_bytes)
     except Exception as exc:  # noqa: BLE001
@@ -44,8 +46,8 @@ def cli_main(
                 "max_bytes": max_bytes,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     if errors:
         for message in errors:

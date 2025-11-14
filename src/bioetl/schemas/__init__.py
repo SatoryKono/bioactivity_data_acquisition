@@ -19,7 +19,6 @@ from . import (
 )
 from .common_schema import HASH_COLUMN_NAMES
 from .legacy_schemas import register_legacy_schema_modules
-from .migrations import load_builtin_migrations
 from .versioning import (
     SCHEMA_MIGRATION_REGISTRY,
     SchemaMigration,
@@ -31,7 +30,6 @@ from .versioning import (
 
 __all__ = [
     "SchemaDescriptor",
-    "SchemaRegistryEntry",
     "SchemaRegistry",
     "SCHEMA_REGISTRY",
     "get_schema",
@@ -713,7 +711,6 @@ _register_builtin_schema(
 )
 
 register_legacy_schema_modules()
-load_builtin_migrations()
 
 
 def get_schema(identifier: str, *, version: str | None = None) -> SchemaDescriptor:

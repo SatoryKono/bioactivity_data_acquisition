@@ -14,9 +14,18 @@ from bioetl.cli.tools._logic import cli_doctest_cli as cli_doctest_cli_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
-_LOGIC_EXPORTS = getattr(cli_doctest_cli_impl, "__all__", [])
-globals().update({symbol: getattr(cli_doctest_cli_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+CLIExample = cli_doctest_cli_impl.CLIExample
+extract_cli_examples = cli_doctest_cli_impl.extract_cli_examples
+run_examples = cli_doctest_cli_impl.run_examples
+
+__all__ = (
+    "CLIExample",
+    "extract_cli_examples",
+    "run_examples",
+    "app",
+    "cli_main",
+    "run",
+)
 
 typer: Any = get_typer()
 
@@ -25,7 +34,7 @@ def cli_main() -> None:
     """Execute CLI doctests and analyze outcomes."""
 
     try:
-        results, report_path = cli_doctest_cli_impl.run_examples()
+        results, report_path = run_examples()
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -34,8 +43,8 @@ def cli_main() -> None:
                 "command": "bioetl-doctest-cli",
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     failed = [item for item in results if item.exit_code != 0]
     if failed:

@@ -17,7 +17,7 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_inventory_docs_impl, "__all__", [])
 globals().update({symbol: getattr(cli_inventory_docs_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -46,6 +46,7 @@ def cli_main(
 
     inventory_path_resolved = inventory_path.resolve()
     hashes_path_resolved = hashes_path.resolve()
+    result: cli_inventory_docs_impl.InventoryResult
     try:
         result = cli_inventory_docs_impl.write_inventory(
             inventory_path=inventory_path_resolved,
@@ -61,8 +62,8 @@ def cli_main(
                 "hashes_path": str(hashes_path_resolved),
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     typer.echo(
         f"Inventory completed: {len(result.files)} files, "

@@ -15,11 +15,14 @@ from bioetl.cli.tools._logic import cli_remove_type_ignore as cli_remove_type_ig
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
-_LOGIC_EXPORTS = getattr(cli_remove_type_ignore_impl, "__all__", [])
-globals().update(
-    {symbol: getattr(cli_remove_type_ignore_impl, symbol) for symbol in _LOGIC_EXPORTS}
+remove_type_ignore = cli_remove_type_ignore_impl.remove_type_ignore
+
+__all__ = (
+    "remove_type_ignore",
+    "app",
+    "cli_main",
+    "run",
 )
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -39,6 +42,7 @@ def cli_main(
     """Remove ``type: ignore`` directives from the selected tree."""
 
     resolved_root = root.resolve() if root is not None else None
+    removed: int
     try:
         removed = cli_remove_type_ignore_impl.remove_type_ignore(root=resolved_root)
     except Exception as exc:  # noqa: BLE001
@@ -50,8 +54,8 @@ def cli_main(
                 "root": str(resolved_root) if resolved_root else None,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     typer.echo(f"Removed type ignore directives: {removed}")
     CliCommandBase.exit(0)

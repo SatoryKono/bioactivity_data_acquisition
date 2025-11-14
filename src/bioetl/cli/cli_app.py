@@ -14,6 +14,13 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Callable, cast
 
 from bioetl.cli.cli_command import create_pipeline_command
+from bioetl.cli.cli_entrypoint import (
+    TyperApp,
+    run_app,
+)
+from bioetl.cli.cli_entrypoint import (
+    create_app as create_typer_app,
+)
 from bioetl.cli.cli_registry import (
     COMMAND_REGISTRY,
     PIPELINE_REGISTRY,
@@ -22,9 +29,6 @@ from bioetl.cli.cli_registry import (
     PipelineCommandSpec,
     ToolCommandConfig,
 )
-from bioetl.cli.cli_entrypoint import TyperApp
-from bioetl.cli.cli_entrypoint import create_app as create_typer_app
-from bioetl.cli.cli_entrypoint import run_app
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 typer = cast(Any, importlib.import_module("typer"))

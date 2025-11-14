@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from bioetl.cli.cli_entrypoint import (
@@ -16,13 +17,15 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_semantic_diff_impl, "__all__", [])
 globals().update({symbol: getattr(cli_semantic_diff_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
 
 def cli_main() -> None:
     """Run the semantic diff workflow."""
+
+    report_path: Path
 
     try:
         report_path = cli_semantic_diff_impl.run_semantic_diff()
@@ -34,8 +37,8 @@ def cli_main() -> None:
                 "command": "bioetl-semantic-diff",
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     typer.echo(f"Semantic diff report written to: {report_path.resolve()}")
     CliCommandBase.exit(0)

@@ -18,7 +18,7 @@ _LOGIC_EXPORTS = getattr(cli_determinism_check_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_determinism_check_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -34,6 +34,7 @@ def cli_main(
     """Run determinism checks for the selected pipelines."""
 
     targets = tuple(pipeline) if pipeline else None
+    results: dict[str, cli_determinism_check_impl.DeterminismRunResult]
 
     try:
         results = cli_determinism_check_impl.run_determinism_check(pipelines=targets)
@@ -46,8 +47,8 @@ def cli_main(
                 "exception_type": exc.__class__.__name__,
                 "pipelines": targets,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     if not results:
         CliCommandBase.emit_error(
@@ -58,6 +59,7 @@ def cli_main(
                 "pipelines": targets,
             },
         )
+        CliCommandBase.exit(2)
 
     non_deterministic = [
         name for name, item in results.items() if not item.deterministic
@@ -78,6 +80,7 @@ def cli_main(
                 "report_path": str(first_result.report_path.resolve()),
             },
         )
+        CliCommandBase.exit(3)
 
     typer.echo(
         "All inspected pipelines are deterministic. "

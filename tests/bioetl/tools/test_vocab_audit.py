@@ -5,8 +5,8 @@ from typing import Any, Iterator, Mapping
 
 import pytest
 
-from bioetl.core.utils import VocabStoreError
 from bioetl.cli.tools._logic import cli_vocab_audit as vocab_audit
+from bioetl.core.utils import VocabStoreError
 
 
 class DummyLogger:

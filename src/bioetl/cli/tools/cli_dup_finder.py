@@ -18,7 +18,7 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_dup_finder_impl, "__all__", [])
 globals().update({symbol: getattr(cli_dup_finder_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -76,8 +76,8 @@ def cli_main(
                 "format": fmt,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(2, cause=exc)
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -90,8 +90,8 @@ def cli_main(
                 "format": fmt,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     typer.echo("Duplicate finder completed successfully.")
     CliCommandBase.exit(0)

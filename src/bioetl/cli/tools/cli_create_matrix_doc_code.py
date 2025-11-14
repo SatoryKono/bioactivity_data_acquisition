@@ -18,11 +18,18 @@ from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
 from bioetl.core.runtime.errors import BioETLError
 
-_LOGIC_EXPORTS = getattr(cli_create_matrix_doc_code_impl, "__all__", [])
-globals().update(
-    {symbol: getattr(cli_create_matrix_doc_code_impl, symbol) for symbol in _LOGIC_EXPORTS}
+DocCodeMatrix = cli_create_matrix_doc_code_impl.DocCodeMatrix
+build_matrix = cli_create_matrix_doc_code_impl.build_matrix
+write_matrix = cli_create_matrix_doc_code_impl.write_matrix
+
+__all__ = (
+    "DocCodeMatrix",
+    "build_matrix",
+    "write_matrix",
+    "app",
+    "cli_main",
+    "run",
 )
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -52,9 +59,8 @@ def cli_main(
                 "artifacts": str(artifacts_path),
                 "exception_type": exc.__class__.__name__,
             },
-            exit_code=3,
-            cause=exc,
         )
+        CliCommandBase.exit(3, cause=exc)
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -64,8 +70,8 @@ def cli_main(
                 "artifacts": str(artifacts_path),
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     typer.echo(
         f"Matrix with {len(result.rows)} rows saved to "

@@ -16,7 +16,7 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_schema_guard_impl, "__all__", [])
 globals().update({symbol: getattr(cli_schema_guard_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -34,8 +34,8 @@ def cli_main() -> None:
                 "command": "bioetl-schema-guard",
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
+        CliCommandBase.exit(1, cause=exc)
 
     invalid_configs = [
         name for name, payload in results.items() if not payload.get("valid", False)
