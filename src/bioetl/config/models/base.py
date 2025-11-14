@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 # ruff: noqa: I001
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from ._proxy_utils import ProxyDefinition, build_section_proxies
 from .cache import CacheConfig
 from .cli import CLIConfig
 from .determinism import DeterminismConfig
@@ -189,133 +190,112 @@ class PipelineConfig(BaseModel):
             raise ValueError(msg)
         return self
 
-    @property
-    def runtime(self) -> RuntimeConfig:
-        return self.infrastructure.runtime
+    if TYPE_CHECKING:
+        runtime: RuntimeConfig
+        io: IOConfig
+        http: HTTPConfig
+        cache: CacheConfig
+        paths: PathsConfig
+        determinism: DeterminismConfig
+        materialization: MaterializationConfig
+        logging: LoggingConfig
+        telemetry: TelemetryConfig
+        cli: CLIConfig
+        fallbacks: FallbacksConfig
+        validation: ValidationConfig
+        transform: TransformConfig
+        postprocess: PostprocessConfig
+        sources: dict[str, SourceConfig]
+        chembl: Mapping[str, Any] | None
 
-    @runtime.setter
-    def runtime(self, value: RuntimeConfig) -> None:
-        self.infrastructure.runtime = value
 
-    @property
-    def io(self) -> IOConfig:
-        return self.infrastructure.io
+_PIPELINE_CONFIG_PROXY_FIELDS: tuple[ProxyDefinition, ...] = (
+    ProxyDefinition(
+        attr="runtime",
+        path=("infrastructure", "runtime"),
+        return_type=RuntimeConfig,
+    ),
+    ProxyDefinition(
+        attr="io",
+        path=("infrastructure", "io"),
+        return_type=IOConfig,
+    ),
+    ProxyDefinition(
+        attr="http",
+        path=("infrastructure", "http"),
+        return_type=HTTPConfig,
+    ),
+    ProxyDefinition(
+        attr="cache",
+        path=("infrastructure", "cache"),
+        return_type=CacheConfig,
+    ),
+    ProxyDefinition(
+        attr="paths",
+        path=("infrastructure", "paths"),
+        return_type=PathsConfig,
+    ),
+    ProxyDefinition(
+        attr="determinism",
+        path=("infrastructure", "determinism"),
+        return_type=DeterminismConfig,
+    ),
+    ProxyDefinition(
+        attr="materialization",
+        path=("infrastructure", "materialization"),
+        return_type=MaterializationConfig,
+    ),
+    ProxyDefinition(
+        attr="logging",
+        path=("infrastructure", "logging"),
+        return_type=LoggingConfig,
+    ),
+    ProxyDefinition(
+        attr="telemetry",
+        path=("infrastructure", "telemetry"),
+        return_type=TelemetryConfig,
+    ),
+    ProxyDefinition(
+        attr="cli",
+        path=("infrastructure", "cli"),
+        return_type=CLIConfig,
+    ),
+    ProxyDefinition(
+        attr="fallbacks",
+        path=("domain", "fallbacks"),
+        return_type=FallbacksConfig,
+    ),
+    ProxyDefinition(
+        attr="validation",
+        path=("domain", "validation"),
+        return_type=ValidationConfig,
+    ),
+    ProxyDefinition(
+        attr="transform",
+        path=("domain", "transform"),
+        return_type=TransformConfig,
+    ),
+    ProxyDefinition(
+        attr="postprocess",
+        path=("domain", "postprocess"),
+        return_type=PostprocessConfig,
+    ),
+    ProxyDefinition(
+        attr="sources",
+        path=("domain", "sources"),
+        return_type=dict[str, SourceConfig],
+        value_type=Mapping[str, SourceConfig],
+        setter=dict,
+    ),
+    ProxyDefinition(
+        attr="chembl",
+        path=("domain", "chembl"),
+        return_type=Mapping[str, Any] | None,
+    ),
+)
 
-    @io.setter
-    def io(self, value: IOConfig) -> None:
-        self.infrastructure.io = value
-
-    @property
-    def http(self) -> HTTPConfig:
-        return self.infrastructure.http
-
-    @http.setter
-    def http(self, value: HTTPConfig) -> None:
-        self.infrastructure.http = value
-
-    @property
-    def cache(self) -> CacheConfig:
-        return self.infrastructure.cache
-
-    @cache.setter
-    def cache(self, value: CacheConfig) -> None:
-        self.infrastructure.cache = value
-
-    @property
-    def paths(self) -> PathsConfig:
-        return self.infrastructure.paths
-
-    @paths.setter
-    def paths(self, value: PathsConfig) -> None:
-        self.infrastructure.paths = value
-
-    @property
-    def determinism(self) -> DeterminismConfig:
-        return self.infrastructure.determinism
-
-    @determinism.setter
-    def determinism(self, value: DeterminismConfig) -> None:
-        self.infrastructure.determinism = value
-
-    @property
-    def materialization(self) -> MaterializationConfig:
-        return self.infrastructure.materialization
-
-    @materialization.setter
-    def materialization(self, value: MaterializationConfig) -> None:
-        self.infrastructure.materialization = value
-
-    @property
-    def logging(self) -> LoggingConfig:
-        return self.infrastructure.logging
-
-    @logging.setter
-    def logging(self, value: LoggingConfig) -> None:
-        self.infrastructure.logging = value
-
-    @property
-    def telemetry(self) -> TelemetryConfig:
-        return self.infrastructure.telemetry
-
-    @telemetry.setter
-    def telemetry(self, value: TelemetryConfig) -> None:
-        self.infrastructure.telemetry = value
-
-    @property
-    def cli(self) -> CLIConfig:
-        return self.infrastructure.cli
-
-    @cli.setter
-    def cli(self, value: CLIConfig) -> None:
-        self.infrastructure.cli = value
-
-    @property
-    def fallbacks(self) -> FallbacksConfig:
-        return self.domain.fallbacks
-
-    @fallbacks.setter
-    def fallbacks(self, value: FallbacksConfig) -> None:
-        self.domain.fallbacks = value
-
-    @property
-    def validation(self) -> ValidationConfig:
-        return self.domain.validation
-
-    @validation.setter
-    def validation(self, value: ValidationConfig) -> None:
-        self.domain.validation = value
-
-    @property
-    def transform(self) -> TransformConfig:
-        return self.domain.transform
-
-    @transform.setter
-    def transform(self, value: TransformConfig) -> None:
-        self.domain.transform = value
-
-    @property
-    def postprocess(self) -> PostprocessConfig:
-        return self.domain.postprocess
-
-    @postprocess.setter
-    def postprocess(self, value: PostprocessConfig) -> None:
-        self.domain.postprocess = value
-
-    @property
-    def sources(self) -> dict[str, SourceConfig]:
-        return self.domain.sources
-
-    @sources.setter
-    def sources(self, value: Mapping[str, SourceConfig]) -> None:
-        self.domain.sources = dict(value)
-
-    @property
-    def chembl(self) -> Mapping[str, Any] | None:
-        return self.domain.chembl
-
-    @chembl.setter
-    def chembl(self, value: Mapping[str, Any] | None) -> None:
-        self.domain.chembl = value
+for _attr, _descriptor in build_section_proxies(_PIPELINE_CONFIG_PROXY_FIELDS).items():
+    setattr(PipelineConfig, _attr, _descriptor)
 
 
 class PipelineCommonCompat:
@@ -326,41 +306,77 @@ class PipelineCommonCompat:
     def __init__(self, cli: CLIConfig) -> None:
         self._cli = cli
 
-    @property
-    def input_file(self) -> str | None:
-        return self._cli.input_file
-
-    @property
-    def limit(self) -> int | None:
-        return self._cli.limit
-
-    @property
-    def sample(self) -> int | None:
-        return self._cli.sample
-
-    @property
-    def extended(self) -> bool:
-        return self._cli.extended
-
-    @property
-    def dry_run(self) -> bool:
-        return self._cli.dry_run
-
-    @property
-    def fail_on_schema_drift(self) -> bool:
-        return self._cli.fail_on_schema_drift
-
-    @property
-    def validate_columns(self) -> bool:
-        return self._cli.validate_columns
-
-    @property
-    def golden(self) -> str | None:
-        return self._cli.golden
-
-    @property
-    def verbose(self) -> bool:
-        return self._cli.verbose
-
     def __getattr__(self, item: str) -> Any:
         return getattr(self._cli, item)
+
+    if TYPE_CHECKING:
+        input_file: str | None
+        limit: int | None
+        sample: int | None
+        extended: bool
+        dry_run: bool
+        fail_on_schema_drift: bool
+        validate_columns: bool
+        golden: str | None
+        verbose: bool
+
+
+_PIPELINE_COMMON_PROXY_FIELDS: tuple[ProxyDefinition, ...] = (
+    ProxyDefinition(
+        attr="input_file",
+        path=("_cli", "input_file"),
+        return_type=str | None,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="limit",
+        path=("_cli", "limit"),
+        return_type=int | None,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="sample",
+        path=("_cli", "sample"),
+        return_type=int | None,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="extended",
+        path=("_cli", "extended"),
+        return_type=bool,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="dry_run",
+        path=("_cli", "dry_run"),
+        return_type=bool,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="fail_on_schema_drift",
+        path=("_cli", "fail_on_schema_drift"),
+        return_type=bool,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="validate_columns",
+        path=("_cli", "validate_columns"),
+        return_type=bool,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="golden",
+        path=("_cli", "golden"),
+        return_type=str | None,
+        read_only=True,
+    ),
+    ProxyDefinition(
+        attr="verbose",
+        path=("_cli", "verbose"),
+        return_type=bool,
+        read_only=True,
+    ),
+)
+
+for _attr, _descriptor in build_section_proxies(_PIPELINE_COMMON_PROXY_FIELDS).items():
+    setattr(PipelineCommonCompat, _attr, _descriptor)
