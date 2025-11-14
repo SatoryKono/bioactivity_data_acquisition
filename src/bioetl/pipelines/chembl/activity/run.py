@@ -38,7 +38,7 @@ from bioetl.schemas.activity import (
 from bioetl.schemas.vocab import required_vocab_ids
 
 from ..base import RunResult
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import CHEMBL_PIPELINE_EXTRACT_DOCSTRING, ChemblPipelineBase
 from .activity_enrichment import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -107,41 +107,30 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch activity payloads from ChEMBL using the unified HTTP client.
-
-        Checks for input_file in config.cli.input_file and calls extract_by_ids()
-        if present, otherwise calls extract_all().
-        """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_activity.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
+        if not self.config.cli.input_file:
+            payload_activity_ids = kwargs.get("activity_ids")
+            if payload_activity_ids is not None:
+                log.warning(
+                    "chembl_activity.deprecated_kwargs",
+                    message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
+                )
+                if isinstance(payload_activity_ids, Sequence):
+                    sequence_ids: Sequence[str | int] = cast(
+                        Sequence[str | int], payload_activity_ids
+                    )
+                    ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
+                else:
+                    ids_list = [str(payload_activity_ids)]
+                return self.extract_by_ids(ids_list)
 
-        # Legacy support: check kwargs for activity_ids (deprecated)
-        payload_activity_ids = kwargs.get("activity_ids")
-        if payload_activity_ids is not None:
-            log.warning(
-                "chembl_activity.deprecated_kwargs",
-                message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
-            )
-            if isinstance(payload_activity_ids, Sequence):
-                sequence_ids: Sequence[str | int] = cast(Sequence[str | int], payload_activity_ids)
-                ids_list: list[str] = [str(id_val) for id_val in sequence_ids]
-            else:
-                ids_list = [str(payload_activity_ids)]
-            return self.extract_by_ids(ids_list)
+        return self.run_extract_stage(
+            log=log,
+            event_name="chembl_activity.extract_mode",
+        )
 
-        log.info("chembl_activity.extract_mode", mode="full")
-        return self.extract_all()
+    extract.__doc__ = CHEMBL_PIPELINE_EXTRACT_DOCSTRING.format(entity="activity")
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all activity records from ChEMBL using pagination."""

@@ -26,6 +26,13 @@ from bioetl.core.mapping_utils import stringify_mapping
 from .base import PipelineBase
 from .common.release_tracker import ChemblHandshakeResult, ChemblReleaseMixin
 
+
+CHEMBL_PIPELINE_EXTRACT_DOCSTRING = (
+    "Fetch {entity} payloads from ChEMBL using the unified HTTP client.\n\n"
+    "Checks for input_file in config.cli.input_file and calls extract_by_ids()\n"
+    "if present, otherwise calls extract_all().\n"
+)
+
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
 
@@ -57,6 +64,47 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         super().__init__(config, run_id)
         self._client_factory = APIClientFactory(config)
+
+    def run_extract_stage(
+        self,
+        *,
+        log: BoundLogger | None = None,
+        event_name: str | None = None,
+    ) -> pd.DataFrame:
+        """Execute the extract stage with shared CLI input handling."""
+
+        bound_log = log or UnifiedLogger.get(__name__).bind(
+            component=self._component_for_stage("extract")
+        )
+        event = event_name or f"{self.pipeline_code}.extract_mode"
+
+        input_file = getattr(self.config.cli, "input_file", None)
+        if input_file:
+            id_column_name = self._get_id_column_name()
+            limit = getattr(self.config.cli, "limit", None)
+            sample = getattr(self.config.cli, "sample", None)
+            ids = self._read_input_ids(
+                id_column_name=id_column_name,
+                limit=limit,
+                sample=sample,
+            )
+            if ids:
+                extract_by_ids = getattr(self, "extract_by_ids", None)
+                if not callable(extract_by_ids):
+                    msg = (
+                        f"Pipeline '{self.pipeline_code}' does not implement extract_by_ids() "
+                        "but config.cli.input_file is provided."
+                    )
+                    raise NotImplementedError(msg)
+                bound_log.info(event, mode="batch", ids_count=len(ids))
+                return extract_by_ids(ids)
+
+        bound_log.info(event, mode="full")
+        extract_all = getattr(self, "extract_all", None)
+        if not callable(extract_all):
+            msg = f"Pipeline '{self.pipeline_code}' must implement extract_all()"
+            raise NotImplementedError(msg)
+        return extract_all()
 
     # ------------------------------------------------------------------
     # Configuration resolution methods

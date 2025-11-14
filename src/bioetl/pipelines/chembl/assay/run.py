@@ -32,7 +32,7 @@ from bioetl.pipelines.assay.assay_transform import (
 )
 from bioetl.schemas.assay import COLUMN_ORDER, AssaySchema
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import CHEMBL_PIPELINE_EXTRACT_DOCSTRING, ChemblPipelineBase
 
 _CLASSIFICATION_ID_KEYS: tuple[str, ...] = (
     "assay_class_id",
@@ -130,27 +130,13 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch assay payloads from ChEMBL using the configured HTTP client.
-
-        Checks for input_file in config.cli.input_file and calls extract_by_ids()
-        if present, otherwise calls extract_all().
-        """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        return self.run_extract_stage(
+            log=log,
+            event_name="chembl_assay.extract_mode",
+        )
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_assay.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
-
-        log.info("chembl_assay.extract_mode", mode="full")
-        return self.extract_all()
+    extract.__doc__ = CHEMBL_PIPELINE_EXTRACT_DOCSTRING.format(entity="assay")
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all assay records from ChEMBL using pagination."""
