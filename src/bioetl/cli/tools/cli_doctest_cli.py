@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
-from bioetl.cli.cli_entrypoint import (
-    TyperApp,
-    create_simple_tool_app,
-    get_typer,
-    run_app,
-)
+from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
 from bioetl.cli.tools._logic import cli_doctest_cli as cli_doctest_cli_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
@@ -78,17 +73,13 @@ def cli_main() -> None:
     CliCommandBase.exit(0)
 
 
-app: TyperApp = create_simple_tool_app(
+app: TyperApp
+run: Callable[[], None]
+app, run = register_tool_app(
     name="bioetl-doctest-cli",
     help_text="Execute CLI examples and generate a report",
     main_fn=cli_main,
 )
-
-
-def run() -> None:
-    """Execute the Typer application."""
-
-    run_app(app)
 
 
 if __name__ == "__main__":
