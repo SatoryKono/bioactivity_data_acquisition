@@ -21,7 +21,7 @@ from bioetl.core.api_client import UnifiedAPIClient
 from bioetl.core.normalizers import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas.testitem import COLUMN_ORDER
 
-from ..chembl_base import ChemblPipelineBase
+from ..chembl_base import CHEMBL_PIPELINE_EXTRACT_DOCSTRING, ChemblPipelineBase
 from .testitem_transform import transform as transform_testitem
 
 # Обязательные поля, которые всегда должны быть в запросе к API
@@ -121,27 +121,13 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     # ------------------------------------------------------------------
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch molecule payloads from ChEMBL using the unified HTTP client.
-
-        Checks for input_file in config.cli.input_file and calls extract_by_ids()
-        if present, otherwise calls extract_all().
-        """
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
+        return self.run_extract_stage(
+            log=log,
+            event_name="chembl_testitem.extract_mode",
+        )
 
-        # Check for input file and extract IDs if present
-        if self.config.cli.input_file:
-            id_column_name = self._get_id_column_name()
-            ids = self._read_input_ids(
-                id_column_name=id_column_name,
-                limit=self.config.cli.limit,
-                sample=self.config.cli.sample,
-            )
-            if ids:
-                log.info("chembl_testitem.extract_mode", mode="batch", ids_count=len(ids))
-                return self.extract_by_ids(ids)
-
-        log.info("chembl_testitem.extract_mode", mode="full")
-        return self.extract_all()
+    extract.__doc__ = CHEMBL_PIPELINE_EXTRACT_DOCSTRING.format(entity="molecule")
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all molecule records from ChEMBL using pagination."""
