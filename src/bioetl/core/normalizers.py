@@ -12,10 +12,12 @@ import pandas as pd
 __all__ = [
     "IdentifierRule",
     "IdentifierStats",
+    "StringNormalizationConfig",
     "StringRule",
     "StringStats",
     "normalize_identifier_columns",
     "normalize_string_columns",
+    "normalize_string_columns_with_config",
 ]
 
 
@@ -65,6 +67,15 @@ class StringRule:
     lowercase: bool = False
     max_length: int | None = None
     collapse_whitespace: bool = False
+
+
+@dataclass(frozen=True)
+class StringNormalizationConfig:
+    """Declarative configuration for string normalization."""
+
+    columns: Sequence[str] = field(default_factory=tuple)
+    default_rule: StringRule = field(default_factory=StringRule)
+    overrides: Mapping[str, StringRule] = field(default_factory=dict)
 
 
 @dataclass
@@ -183,3 +194,30 @@ def normalize_string_columns(
         stats.add(column, processed_count)
 
     return result, stats
+
+
+def _resolve_string_rules(config: StringNormalizationConfig) -> dict[str, StringRule]:
+    rules: dict[str, StringRule] = {}
+
+    for column in config.columns:
+        rules[column] = config.overrides.get(column, config.default_rule)
+
+    for column, rule in config.overrides.items():
+        rules[column] = rule
+
+    return rules
+
+
+def normalize_string_columns_with_config(
+    df: pd.DataFrame,
+    config: StringNormalizationConfig,
+    *,
+    copy: bool = True,
+) -> tuple[pd.DataFrame, StringStats]:
+    """Normalize textual columns based on a configuration object."""
+
+    rules = _resolve_string_rules(config)
+    if not rules:
+        return (df.copy() if copy else df), StringStats()
+
+    return normalize_string_columns(df, rules, copy=copy)

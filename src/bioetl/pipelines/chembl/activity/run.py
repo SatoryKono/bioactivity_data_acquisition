@@ -22,9 +22,10 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.normalizers import (
     IdentifierRule,
+    StringNormalizationConfig,
     StringRule,
     normalize_identifier_columns,
-    normalize_string_columns,
+    normalize_string_columns_with_config,
 )
 from bioetl.pipelines.common.validation import format_failure_cases, summarize_schema_errors
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -2422,27 +2423,37 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                     message="data_validity_description is filled while data_validity_comment is NA",
                 )
 
-        rules: dict[str, StringRule] = {
-            "canonical_smiles": StringRule(),
-            "bao_label": StringRule(max_length=128),
-            "target_organism": StringRule(title_case=True),
-            "assay_organism": StringRule(title_case=True),
-            "data_validity_comment": StringRule(),
-            "data_validity_description": StringRule(),
-            "activity_comment": StringRule(),
-            "standard_text_value": StringRule(),
-            "text_value": StringRule(),
-            "type": StringRule(),
-            "units": StringRule(),
-            "assay_type": StringRule(),
-            "assay_description": StringRule(),
-            "molecule_pref_name": StringRule(),
-            "target_pref_name": StringRule(),
-            "uo_units": StringRule(),
-            "qudt_units": StringRule(),
-        }
+        config = StringNormalizationConfig(
+            columns=[
+                "canonical_smiles",
+                "bao_label",
+                "target_organism",
+                "assay_organism",
+                "data_validity_comment",
+                "data_validity_description",
+                "activity_comment",
+                "standard_text_value",
+                "text_value",
+                "type",
+                "units",
+                "assay_type",
+                "assay_description",
+                "molecule_pref_name",
+                "target_pref_name",
+                "uo_units",
+                "qudt_units",
+            ],
+            default_rule=StringRule(),
+            overrides={
+                "bao_label": StringRule(max_length=128),
+                "target_organism": StringRule(title_case=True),
+                "assay_organism": StringRule(title_case=True),
+            },
+        )
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        normalized_df, stats = normalize_string_columns_with_config(
+            working_df, config, copy=False
+        )
 
         if stats.has_changes:
             log.debug(
