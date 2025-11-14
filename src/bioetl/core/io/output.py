@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pandas as pd
 import yaml
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.logging import LogEvents
 
 from .hashing import hash_from_mapping
 

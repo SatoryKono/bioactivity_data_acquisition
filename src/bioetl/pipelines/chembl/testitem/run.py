@@ -59,7 +59,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
     def _fetch_chembl_release(
         self,
-        client: UnifiedAPIClient | "ChemblClient" | Any,  # noqa: ANN401
+        client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
     ) -> str | None:
         """Capture ChEMBL release and API version from status endpoint."""

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 from bioetl.tools.determinism_check import DeterminismRunResult
 from bioetl.tools.determinism_check import (
     run_determinism_check as run_determinism_check_sync,
@@ -37,12 +38,26 @@ def main(
     try:
         results = run_determinism_check(pipelines=targets)
     except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Determinism check failed: {exc}",
+            context={
+                "command": "bioetl-determinism-check",
+                "exception_type": exc.__class__.__name__,
+                "pipelines": targets,
+            },
+            cause=exc,
+        )
 
     if not results:
-        typer.secho("No pipelines found for determinism check", err=True, fg=typer.colors.RED)
-        exit_with_code(1)
+        emit_tool_error(
+            template=CLI_ERROR_CONFIG,
+            message="No pipelines found for determinism check",
+            context={
+                "command": "bioetl-determinism-check",
+                "pipelines": targets,
+            },
+        )
 
     non_deterministic = [
         name for name, item in results.items() if not item.deterministic
@@ -50,13 +65,19 @@ def main(
     first_result = next(iter(results.values()))
 
     if non_deterministic:
-        typer.secho(
-            "Non-deterministic pipelines detected: " + ", ".join(non_deterministic),
-            err=True,
-            fg=typer.colors.RED,
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=(
+                "Non-deterministic pipelines detected: "
+                f"{', '.join(non_deterministic)}. "
+                f"Report: {first_result.report_path.resolve()}"
+            ),
+            context={
+                "command": "bioetl-determinism-check",
+                "pipelines": tuple(non_deterministic),
+                "report_path": str(first_result.report_path.resolve()),
+            },
         )
-        typer.echo(f"See report for details: {first_result.report_path.resolve()}")
-        exit_with_code(1)
 
     typer.echo(
         "All inspected pipelines are deterministic. "

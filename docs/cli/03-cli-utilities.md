@@ -29,3 +29,14 @@
 
 Все CLI команды доступны после `pip install -e .[dev]` и запускаются из корня
 репозитория, чтобы относительные пути разрешались корректно.
+
+## Структурная обработка ошибок
+
+- Все инструменты **должны** использовать `bioetl.cli.tools.emit_tool_error`.
+- Helper логирует событие `LogEvents.CLI_RUN_ERROR`, добавляет `error_code/label`
+  и печатает детерминированную строку `[bioetl-cli] ERROR <code>: <message>` в
+  `stderr`.
+- Внешние ошибки (`BioETLError`, `CircuitBreakerOpenError`, `HTTPError`,
+  `Timeout`) завершаются через `exit_code=3`, остальные — через `exit_code=1`.
+- Сообщения должны включать бизнес‑контекст (команда, путь к отчёту, параметры),
+  а структурный `context` дополняется `error_code` и `error_label`.

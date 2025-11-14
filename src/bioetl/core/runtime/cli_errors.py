@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping, MutableMapping, Protocol
+from typing import Any, Mapping, MutableMapping, NoReturn, Protocol
 
 import typer
 
@@ -17,6 +17,7 @@ __all__ = [
     "CLI_ERROR_CONFIG",
     "CLI_ERROR_EXTERNAL_API",
     "emit_cli_error",
+    "emit_tool_error",
     "format_cli_error",
 ]
 
@@ -78,5 +79,30 @@ def emit_cli_error(
     bound_context.setdefault("error_message", message)
     log.error(event, **bound_context)
     typer.echo(format_cli_error(template, message), err=True)
+
+
+def emit_tool_error(
+    *,
+    template: CliErrorTemplate,
+    message: str,
+    event: LogEvents | str = LogEvents.CLI_RUN_ERROR,
+    logger: LoggerLike | None = None,
+    context: Mapping[str, Any] | None = None,
+    exit_code: int = 1,
+    cause: Exception | None = None,
+) -> NoReturn:
+    """Emit a deterministic CLI tool error and terminate the process."""
+
+    emit_cli_error(
+        template=template,
+        message=message,
+        event=event,
+        logger=logger,
+        context=context,
+    )
+    from bioetl.core.runtime.cli_base import CliCommandBase
+
+    CliCommandBase.exit(exit_code, cause=cause)
+    raise AssertionError("unreachable exit path")
 
 

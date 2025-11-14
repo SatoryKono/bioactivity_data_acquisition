@@ -49,6 +49,11 @@ external API failures exit with code `3`.
 | `1`       | `typer.Exit(1)`                                                                                         | Column validator `[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`                   | Column comparison detected missing/extra columns and aborted the run after printing the validation report.     |
 | `2`       | `typer.BadParameter`                                                                                    | CLI option validators `[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`              | Mutually exclusive `--sample/--limit`, out-of-range sample size, or unsupported `--mode`.                      |
 
+Инструменты из `bioetl.cli.tools.*` используют тот же контракт через
+`bioetl.cli.tools.emit_tool_error`. Внешние HTTP/ChEMBL ошибки завершаются кодом
+`3`, остальные — кодом `1`, при этом stderr сообщение стандартизовано и
+дублируется структурным логом `LogEvents.CLI_RUN_ERROR`.
+
 ### HTTP-specific behaviour
 
 The resilient HTTP layer retries transient errors before surfacing them as

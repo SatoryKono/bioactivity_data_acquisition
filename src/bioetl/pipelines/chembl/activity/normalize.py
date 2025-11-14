@@ -168,8 +168,9 @@ def enrich_with_assay(
     )
 
     if isinstance(records_df, Mapping):
+        records_mapping = cast(Mapping[str, Any], records_df)
         hydrated_rows: list[dict[str, Any]] = []
-        for payload in records_df.values():
+        for payload in records_mapping.values():
             if isinstance(payload, Mapping):
                 hydrated_rows.append(dict(payload))
         records_df = pd.DataFrame.from_records(hydrated_rows)
@@ -881,8 +882,9 @@ def enrich_with_data_validity(
     )
 
     if isinstance(records_df, Mapping):
+        records_mapping = cast(Mapping[str, Any], records_df)
         hydrated_rows: list[dict[str, Any]] = []
-        for payload in records_df.values():
+        for payload in records_mapping.values():
             if isinstance(payload, Mapping):
                 hydrated_rows.append(dict(payload))
         records_df = pd.DataFrame.from_records(hydrated_rows)

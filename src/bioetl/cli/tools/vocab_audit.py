@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
@@ -14,6 +14,7 @@ from bioetl.cli.tools.typer_helpers import (
 )
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
 from bioetl.core.runtime.errors import BioETLError
 from bioetl.tools.vocab_audit import (
     DEFAULT_META,
@@ -89,11 +90,36 @@ def main(
             page_size=page_size,
         )
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_EXTERNAL_API,
+            message=f"Vocabulary audit failed due to external API error: {exc}",
+            context={
+                "command": "bioetl-vocab-audit",
+                "exception_type": exc.__class__.__name__,
+                "store": str(store.resolve()) if store else None,
+                "output": str(output.resolve()) if hasattr(output, "resolve") else str(output),
+                "meta": str(meta.resolve()) if hasattr(meta, "resolve") else str(meta),
+                "pages": pages,
+                "page_size": page_size,
+            },
+            exit_code=3,
+            cause=exc,
+        )
     except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Vocabulary audit failed: {exc}",
+            context={
+                "command": "bioetl-vocab-audit",
+                "exception_type": exc.__class__.__name__,
+                "store": str(store.resolve()) if store else None,
+                "output": str(output.resolve()) if hasattr(output, "resolve") else str(output),
+                "meta": str(meta.resolve()) if hasattr(meta, "resolve") else str(meta),
+                "pages": pages,
+                "page_size": page_size,
+            },
+            cause=exc,
+        )
 
     typer.echo(
         "Vocabulary audit completed: "

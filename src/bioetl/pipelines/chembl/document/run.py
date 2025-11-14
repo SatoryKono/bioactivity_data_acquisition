@@ -106,7 +106,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 raise RuntimeError(msg)
             document_pipeline._chembl_release = document_pipeline.fetch_chembl_release(chembl_client, log)
             select_fields = document_pipeline._resolve_select_fields(
-                cast(SourceConfig, cast(Any, typed_source_config)),
+                cast(SourceConfig[Any], cast(Any, typed_source_config)),
                 default_fields=API_DOCUMENT_FIELDS,
             )
 

@@ -30,6 +30,10 @@ class TyperApp(Protocol):
         """Register a Typer command callback."""
         ...
 
+    def callback(self, *_args: Any, **_kwargs: Any) -> Callable[[_F], _F]:
+        """Register a Typer application callback."""
+        ...
+
 
 class TyperModule(Protocol):
     """Minimal contract of the ``typer`` module required by this package."""
