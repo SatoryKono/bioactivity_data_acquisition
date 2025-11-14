@@ -199,6 +199,7 @@ class ChemblPipelineBase(PipelineBase):
             api_client_factory=self._client_factory,
         )
         self._chembl_release: str | None = None
+        self._api_version: str | None = None
 
     # ------------------------------------------------------------------
     # Normalization helpers
@@ -282,6 +283,19 @@ class ChemblPipelineBase(PipelineBase):
     def chembl_release(self) -> str | None:
         """Return the cached ChEMBL release captured during extraction."""
         return self._chembl_release
+
+    @property
+    def api_version(self) -> str | None:
+        """Return the cached API version captured during extraction."""
+        return self._api_version
+
+    def _set_chembl_release(self, value: str | None) -> None:
+        """Update the cached ChEMBL release used by the pipeline."""
+        self._chembl_release = value
+
+    def _set_api_version(self, value: str | None) -> None:
+        """Update the cached API version used by the pipeline."""
+        self._api_version = value
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Dispatch between batch and full extraction modes."""
