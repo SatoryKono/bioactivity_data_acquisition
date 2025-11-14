@@ -11,7 +11,6 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig, PipelineConfig
 from bioetl.config.models.source import SourceConfig

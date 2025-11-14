@@ -17,6 +17,7 @@ import pandera.errors
 from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig, PipelineConfig
@@ -340,7 +341,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         entity_name: str,
         *,
         client_name: str,
-    ) -> "ChemblClientBundle":
+    ) -> ChemblClientBundle:
         """Создать бандл клиентов для обогащения активностей."""
 
         source_raw = self._resolve_source_config("chembl")

@@ -11,7 +11,6 @@ import pandas as pd
 from pandas import Series
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
@@ -340,7 +339,6 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         if "chembl_assay_http" not in self._registered_clients:
             self.register_client("chembl_assay_http", bundle.api_client)
 
-        chembl_client = bundle.chembl_client
         assay_client = cast(ChemblAssayClient, bundle.entity_client)
         if assay_client is None:
             msg = "Фабрика вернула пустой клиент для 'assay'"

@@ -19,6 +19,7 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
+from bioetl.core.runtime.base_source import BaseSourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
@@ -654,7 +655,7 @@ class ChemblPipelineBase(PipelineBase):
         entity_name: str,
         *,
         source_name: str = "chembl",
-        source_config: SourceConfig | None = None,
+        source_config: SourceConfig | BaseSourceConfig[Any] | None = None,
         options: Mapping[str, Any] | None = None,
         chembl_client_kwargs: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,

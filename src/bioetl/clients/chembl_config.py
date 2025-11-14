@@ -64,7 +64,81 @@ def _normalize_filters(filters: Mapping[str, Any]) -> Mapping[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class EntityConfig:
-    """Определяет контракт доступа к конкретной ChEMBL-сущности."""
+    """Определяет контракт доступа к конкретной ChEMBL-сущности.
+
+    Класс описывает параметры доступа к конкретному типу сущностей ChEMBL API:
+    endpoint, поля идентификаторов, параметры фильтрации, ключи ответов и настройки
+    пагинации. Используется клиентами для унифицированного доступа к данным.
+
+    Parameters
+    ----------
+    endpoint : str
+        Относительный путь к endpoint API (например, "/activity.json").
+        Должен быть непустой строкой.
+    id_field : str
+        Имя поля идентификатора в ответе API (например, "activity_id").
+        Используется для логирования и валидации.
+    filter_param : str
+        Имя параметра запроса для фильтрации по идентификаторам
+        (например, "activity_id__in").
+    items_key : str
+        Ключ в JSON-ответе, содержащий массив записей (например, "activities").
+    log_prefix : str
+        Префикс для структурированного логирования операций с сущностью.
+    default_fields : Sequence[str], optional
+        Список полей по умолчанию для запросов. Используется для определения
+        порядка колонок в пустых DataFrame. По умолчанию пустой кортеж.
+    supports_list_result : bool, optional
+        Указывает, поддерживает ли endpoint возврат списка записей напрямую.
+        По умолчанию False.
+    chunk_size : int, optional
+        Размер чанка для разбиения идентификаторов при запросах. Должен быть
+        положительным. По умолчанию 100.
+    max_page_size : int | None, optional
+        Максимальный размер страницы для пагинации. Если None, используется
+        значение по умолчанию из клиента. По умолчанию None.
+    ordering : Sequence[str], optional
+        Список полей для сортировки результатов. Используется для обеспечения
+        детерминированного порядка записей. По умолчанию пустой кортеж.
+    filters : Mapping[str, Any], optional
+        Словарь фильтров по умолчанию, применяемых к каждому запросу.
+        Ключи сортируются для детерминированности. По умолчанию пустой словарь.
+    base_endpoint_length : int | None, optional
+        Базовая длина endpoint для расчёта длины URL при проверке ограничений.
+        Если None, используется длина endpoint. По умолчанию None.
+    enable_url_length_check : bool, optional
+        Включает проверку длины URL при разбиении идентификаторов на чанки.
+        По умолчанию False.
+    dedup_priority : DedupStrategy | None, optional
+        Функция для выбора приоритетной записи при дедупликации.
+        По умолчанию None.
+
+    Raises
+    ------
+    TypeError
+        Если endpoint, id_field, filter_param, items_key или log_prefix не являются
+        строками, или chunk_size/max_page_size не являются целыми числами.
+    ValueError
+        Если endpoint, id_field, filter_param, items_key или log_prefix пусты,
+        или chunk_size/max_page_size неположительны, или default_fields/ordering
+        содержат пустые строки.
+
+    Examples
+    --------
+    >>> config = EntityConfig(
+    ...     endpoint="/activity.json",
+    ...     id_field="activity_id",
+    ...     filter_param="activity_id__in",
+    ...     items_key="activities",
+    ...     log_prefix="activity",
+    ...     default_fields=("activity_id", "standard_value"),
+    ...     chunk_size=100,
+    ... )
+    >>> config.endpoint
+    '/activity.json'
+    >>> config.chunk_size
+    100
+    """
 
     endpoint: str
     id_field: str
@@ -154,16 +228,27 @@ class EntityConfig:
         object.__setattr__(self, "filters", _normalize_filters(self.filters))
 
     def iter_default_filters(self) -> Iterator[tuple[str, Any]]:
-        """Итератор по фильтрам по умолчанию в детерминированном порядке."""
+        """Итератор по фильтрам по умолчанию в детерминированном порядке.
+
+        Yields
+        ------
+        tuple[str, Any]
+            Пары (ключ, значение) из словаря filters в отсортированном порядке.
+        """
 
         for item in self.filters.items():
             yield item
 
 
 class EntityConfigRegistry:
-    """Реестр конфигураций ChEMBL-сущностей."""
+    """Реестр конфигураций ChEMBL-сущностей.
+
+    Хранит и предоставляет доступ к конфигурациям EntityConfig по имени сущности.
+    Обеспечивает централизованное управление конфигурациями для всех типов сущностей.
+    """
 
     def __init__(self) -> None:
+        """Инициализирует пустой реестр конфигураций."""
         self._configs: dict[str, EntityConfig] = {}
 
     def register(
@@ -173,6 +258,24 @@ class EntityConfigRegistry:
         *,
         replace: bool = False,
     ) -> None:
+        """Регистрирует конфигурацию сущности в реестре.
+
+        Parameters
+        ----------
+        name : str
+            Имя сущности (например, "activity", "assay"). Должно быть непустой строкой.
+        config : EntityConfig
+            Конфигурация сущности для регистрации.
+        replace : bool, optional
+            Если True, заменяет существующую конфигурацию. По умолчанию False.
+
+        Raises
+        ------
+        TypeError
+            Если name не является строкой.
+        ValueError
+            Если name пусто или конфигурация уже зарегистрирована (при replace=False).
+        """
         normalized = _ensure_non_empty(name, field_name="name")
         if not replace and normalized in self._configs:
             msg = f"Конфигурация '{normalized}' уже зарегистрирована"
@@ -180,6 +283,25 @@ class EntityConfigRegistry:
         self._configs[normalized] = config
 
     def get(self, name: str) -> EntityConfig:
+        """Возвращает конфигурацию сущности по имени.
+
+        Parameters
+        ----------
+        name : str
+            Имя сущности для поиска. Должно быть непустой строкой.
+
+        Returns
+        -------
+        EntityConfig
+            Конфигурация сущности.
+
+        Raises
+        ------
+        TypeError
+            Если name не является строкой.
+        KeyError
+            Если конфигурация с указанным именем не найдена.
+        """
         normalized = _ensure_non_empty(name, field_name="name")
         try:
             return self._configs[normalized]
@@ -188,12 +310,31 @@ class EntityConfigRegistry:
             raise KeyError(msg) from exc
 
     def contains(self, name: str) -> bool:
+        """Проверяет наличие конфигурации в реестре.
+
+        Parameters
+        ----------
+        name : str
+            Имя сущности для проверки.
+
+        Returns
+        -------
+        bool
+            True, если конфигурация зарегистрирована, иначе False.
+        """
         normalized = name.strip()
         if not normalized:
             return False
         return normalized in self._configs
 
     def as_mapping(self) -> Mapping[str, EntityConfig]:
+        """Возвращает неизменяемое представление реестра.
+
+        Returns
+        -------
+        Mapping[str, EntityConfig]
+            Неизменяемый словарь всех зарегистрированных конфигураций.
+        """
         return MappingProxyType(dict(self._configs))
 
 
@@ -206,10 +347,47 @@ def register_entity_config(
     *,
     replace: bool = False,
 ) -> None:
+    """Регистрирует конфигурацию сущности в глобальном реестре.
+
+    Parameters
+    ----------
+    name : str
+        Имя сущности для регистрации.
+    config : EntityConfig
+        Конфигурация сущности.
+    replace : bool, optional
+        Если True, заменяет существующую конфигурацию. По умолчанию False.
+
+    Raises
+    ------
+    TypeError
+        Если name не является строкой.
+    ValueError
+        Если name пусто или конфигурация уже зарегистрирована (при replace=False).
+    """
     ENTITY_CONFIG_REGISTRY.register(name, config, replace=replace)
 
 
 def get_entity_config(name: str) -> EntityConfig:
+    """Возвращает конфигурацию сущности из глобального реестра.
+
+    Parameters
+    ----------
+    name : str
+        Имя сущности для поиска.
+
+    Returns
+    -------
+    EntityConfig
+        Конфигурация сущности.
+
+    Raises
+    ------
+    TypeError
+        Если name не является строкой.
+    KeyError
+        Если конфигурация с указанным именем не найдена.
+    """
     return ENTITY_CONFIG_REGISTRY.get(name)
 
 

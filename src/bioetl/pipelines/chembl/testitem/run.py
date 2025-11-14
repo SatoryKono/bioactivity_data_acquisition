@@ -10,7 +10,6 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import PipelineConfig, TestItemSourceConfig
 from bioetl.core import UnifiedLogger
@@ -72,7 +71,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
     def _fetch_chembl_release(
         self,
-        client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
+        client: UnifiedAPIClient | "ChemblClient" | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
     ) -> str | None:
         """Capture ChEMBL release and API version from status endpoint."""
@@ -158,25 +157,21 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            base_url = pipeline._resolve_base_url(source_config.parameters)
-            http_client, _ = pipeline.prepare_chembl_client(
-                "chembl",
-                base_url=base_url,
-                client_name="chembl_testitem_http",
+            bundle = pipeline.build_chembl_entity_bundle(
+                "testitem",
+                source_name="chembl",
+                source_config=source_config,
             )
-            chembl_client = ChemblClient(
-                http_client,
-                load_meta_store=pipeline.load_meta_store,
-                job_id=pipeline.run_id,
-                operator=pipeline.pipeline_code,
-            )
+            if "chembl_testitem_http" not in pipeline._registered_clients:
+                pipeline.register_client("chembl_testitem_http", bundle.api_client)
+            chembl_client = bundle.chembl_client
             pipeline._fetch_chembl_release(chembl_client, log)
             select_fields = source_config.parameters.select_fields
             log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-            testitem_client = ChemblTestitemClient(
-                chembl_client,
-                batch_size=min(source_config.page_size, 25),
-            )
+            testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
+            if testitem_client is None:
+                msg = "Фабрика вернула пустой клиент для 'testitem'"
+                raise RuntimeError(msg)
             return ChemblExtractionContext(
                 source_config=source_config,
                 iterator=testitem_client,
@@ -250,17 +245,14 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         source_raw = self._resolve_source_config("chembl")
         source_config = TestItemSourceConfig.from_source_config(source_raw)
-        base_url = self._resolve_base_url(cast(Mapping[str, Any], dict(source_config.parameters)))
-        http_client, _ = self.prepare_chembl_client(
-            "chembl", base_url=base_url, client_name="chembl_testitem_http"
+        bundle = self.build_chembl_entity_bundle(
+            "testitem",
+            source_name="chembl",
+            source_config=source_config,
         )
-
-        chembl_client = ChemblClient(
-            http_client,
-            load_meta_store=self.load_meta_store,
-            job_id=self.run_id,
-            operator=self.pipeline_code,
-        )
+        if "chembl_testitem_http" not in self._registered_clients:
+            self.register_client("chembl_testitem_http", bundle.api_client)
+        chembl_client = bundle.chembl_client
         self._fetch_chembl_release(chembl_client, log)
 
         if self.config.cli.dry_run:
@@ -279,7 +271,10 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
         log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
 
-        testitem_client = ChemblTestitemClient(chembl_client, batch_size=page_size)
+        testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
+        if testitem_client is None:
+            msg = "Фабрика вернула пустой клиент для 'testitem'"
+            raise RuntimeError(msg)
 
         def fetch_testitems(
             batch_ids: Sequence[str],

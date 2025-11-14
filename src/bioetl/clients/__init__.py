@@ -12,6 +12,14 @@ from typing import TYPE_CHECKING, Any, Final
 
 if TYPE_CHECKING:
     from bioetl.clients.chembl_config import EntityConfig
+    from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+    from bioetl.clients.chembl_entity_registry import (
+        ChemblEntityDefinition,
+        ChemblEntityRegistryError,
+        get_entity_definition,
+        iter_entity_definitions,
+        register_entity_definition,
+    )
     from bioetl.clients.client_chembl_base import ChemblEntityFetcherBase
     from bioetl.clients.client_chembl_common import ChemblClient
     from bioetl.clients.client_chembl_entity import ChemblEntityClientBase

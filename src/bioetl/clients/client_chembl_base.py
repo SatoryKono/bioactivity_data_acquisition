@@ -19,7 +19,17 @@ __all__ = [
 
 
 class ChemblClientProtocol(Protocol):
-    """Minimal contract for a ChEMBL client consumed by entity fetchers."""
+    """Минимальный контракт для ChEMBL-клиента, используемого entity-фетчерами.
+
+    Протокол определяет минимальный интерфейс, который должен реализовывать
+    клиент ChEMBL для работы с базовыми классами получения сущностей.
+    Используется для обеспечения слабой связанности между компонентами.
+
+    Methods
+    -------
+    paginate(endpoint, *, params=None, page_size=200, items_key=None)
+        Итерирует по страницам ответов ChEMBL API.
+    """
 
     def paginate(
         self,
@@ -29,12 +39,43 @@ class ChemblClientProtocol(Protocol):
         page_size: int = 200,
         items_key: str | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Iterate over paginated responses from the ChEMBL API."""
+        """Итерирует по страницам ответов ChEMBL API.
+
+        Parameters
+        ----------
+        endpoint : str
+            Относительный путь к endpoint API.
+        params : Mapping[str, Any] | None, optional
+            Параметры запроса. По умолчанию None.
+        page_size : int, optional
+            Размер страницы для пагинации. По умолчанию 200.
+        items_key : str | None, optional
+            Ключ в JSON-ответе, содержащий массив записей. По умолчанию None.
+
+        Yields
+        ------
+        Mapping[str, Any]
+            Отдельные записи из ответов API.
+        """
         ...
 
 
 class ChemblEntityClientProtocol(Protocol):
-    """Common protocol implemented by thin ChEMBL entity clients."""
+    """Общий протокол, реализуемый тонкими клиентами ChEMBL-сущностей.
+
+    Протокол определяет стандартный интерфейс для всех клиентов сущностей ChEMBL.
+    Обеспечивает единообразный API для получения данных по идентификаторам,
+    полного получения всех записей и итерации по записям.
+
+    Methods
+    -------
+    fetch_by_ids(ids, fields=None, *, page_limit=None)
+        Получает записи сущности по идентификаторам.
+    fetch_all(*, limit=None, fields=None, page_size=None)
+        Получает все записи сущности с опциональными ограничениями.
+    iterate_records(*, params=None, limit=None, fields=None, page_size=None)
+        Итерирует по записям сущности.
+    """
 
     def fetch_by_ids(
         self,
@@ -43,7 +84,29 @@ class ChemblEntityClientProtocol(Protocol):
         *,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch entity records by identifiers."""
+        """Получает записи сущности по идентификаторам.
+
+        Parameters
+        ----------
+        ids : Sequence[str]
+            Последовательность идентификаторов для запроса.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат. Если None, возвращаются
+            все поля или поля по умолчанию из конфигурации. По умолчанию None.
+        page_limit : int | None, optional
+            Максимальное количество записей на странице. По умолчанию None.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame с записями сущности. Колонки упорядочены согласно
+            конфигурации и запрошенным полям.
+
+        Raises
+        ------
+        TypeError
+            Если ids не является последовательностью или содержит нестроковые значения.
+        """
         ...
 
     def fetch_all(
@@ -53,7 +116,22 @@ class ChemblEntityClientProtocol(Protocol):
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch all records with optional limit and projection."""
+        """Получает все записи сущности с опциональными ограничениями.
+
+        Parameters
+        ----------
+        limit : int | None, optional
+            Максимальное количество записей для возврата. По умолчанию None.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат. По умолчанию None.
+        page_size : int | None, optional
+            Размер страницы для пагинации. По умолчанию None.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame со всеми записями сущности (с учётом limit).
+        """
         ...
 
     def iterate_records(
@@ -64,17 +142,61 @@ class ChemblEntityClientProtocol(Protocol):
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Iterate over raw entity payloads."""
+        """Итерирует по записям сущности.
+
+        Parameters
+        ----------
+        params : Mapping[str, Any] | None, optional
+            Дополнительные параметры запроса. По умолчанию None.
+        limit : int | None, optional
+            Максимальное количество записей для возврата. По умолчанию None.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат. По умолчанию None.
+        page_size : int | None, optional
+            Размер страницы для пагинации. По умолчанию None.
+
+        Yields
+        ------
+        Mapping[str, Any]
+            Отдельные записи сущности в виде словарей.
+        """
         ...
 
 
 class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
-    """Base helper for fetching ChEMBL entities returning DataFrame payloads."""
+    """Базовый класс для получения ChEMBL-сущностей, возвращающий DataFrame.
+
+    Предоставляет общую реализацию методов протокола ChemblEntityClientProtocol:
+    разбиение идентификаторов на чанки, построение параметров запросов,
+    преобразование записей в DataFrame с детерминированным порядком колонок
+    и сортировкой.
+
+    Parameters
+    ----------
+    chembl_client : ChemblClientProtocol
+        Клиент ChEMBL для выполнения HTTP-запросов.
+    config : EntityConfig
+        Конфигурация сущности, определяющая endpoint, параметры фильтрации
+        и настройки пагинации.
+
+    Attributes
+    ----------
+    _DEFAULT_PAGE_SIZE : int
+        Размер страницы по умолчанию (1000).
+    """
 
     _DEFAULT_PAGE_SIZE = 1000
 
     def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None:
-        """Initialize the fetcher for a ChEMBL entity."""
+        """Инициализирует фетчер для ChEMBL-сущности.
+
+        Parameters
+        ----------
+        chembl_client : ChemblClientProtocol
+            Клиент ChEMBL для выполнения HTTP-запросов.
+        config : EntityConfig
+            Конфигурация сущности.
+        """
         self._chembl_client: ChemblClientProtocol = chembl_client
         self._config = config
         self._log = UnifiedLogger.get(__name__).bind(
@@ -89,6 +211,32 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         *,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
+        """Получает записи сущности по идентификаторам.
+
+        Разбивает идентификаторы на чанки согласно config.chunk_size,
+        выполняет запросы для каждого чанка и объединяет результаты
+        в единый DataFrame с детерминированным порядком колонок.
+
+        Parameters
+        ----------
+        ids : Sequence[str]
+            Последовательность идентификаторов для запроса.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат. По умолчанию None.
+        page_limit : int | None, optional
+            Максимальное количество записей на странице. По умолчанию None.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame с записями сущности. Пустой DataFrame с правильными
+            колонками, если ids пуст или не содержит валидных идентификаторов.
+
+        Raises
+        ------
+        TypeError
+            Если ids не является последовательностью или содержит нестроковые значения.
+        """
         identifiers = self._validate_identifiers(ids)
         if not identifiers:
             self._log.debug(f"{self._config.log_prefix}.fetch_by_ids.no_ids")
@@ -122,6 +270,25 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
     ) -> pd.DataFrame:
+        """Получает все записи сущности с опциональными ограничениями.
+
+        Выполняет запрос всех записей через iterate_records и преобразует
+        результаты в DataFrame с детерминированным порядком колонок.
+
+        Parameters
+        ----------
+        limit : int | None, optional
+            Максимальное количество записей для возврата. По умолчанию None.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат. По умолчанию None.
+        page_size : int | None, optional
+            Размер страницы для пагинации. По умолчанию None.
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame со всеми записями сущности (с учётом limit).
+        """
         effective_page_size = self._resolve_page_size(page_size, limit)
         records = list(
             self.iterate_records(
@@ -146,6 +313,30 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
+        """Итерирует по записям сущности.
+
+        Использует chembl_client.paginate для получения записей с пагинацией.
+        Применяет фильтры по умолчанию из config, добавляет параметры fields
+        и ограничивает количество записей согласно limit.
+
+        Parameters
+        ----------
+        params : Mapping[str, Any] | None, optional
+            Дополнительные параметры запроса, объединяемые с фильтрами
+            по умолчанию из config. По умолчанию None.
+        limit : int | None, optional
+            Максимальное количество записей для возврата. По умолчанию None.
+        fields : Sequence[str] | None, optional
+            Список полей для включения в результат (параметр "only").
+            По умолчанию None.
+        page_size : int | None, optional
+            Размер страницы для пагинации. По умолчанию None.
+
+        Yields
+        ------
+        Mapping[str, Any]
+            Отдельные записи сущности в виде словарей.
+        """
         resolved_page_size = self._resolve_page_size(page_size, limit)
         request_params = self._compose_params(
             params=params,
