@@ -607,7 +607,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = df.copy()
 
         df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            order_columns=False,
+        )
 
         if df.empty:
             log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
@@ -615,9 +620,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
-        df = self._normalize_identifiers(df, log)
         df = self._normalize_measurements(df, log)
-        df = self._normalize_string_fields(df, log)
         df = self._normalize_nested_structures(df, log)
         df = self._add_row_metadata(df, log)
         df = self._normalize_data_types(df, self._output_schema, log)
@@ -632,7 +635,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             df["curated"] = df["curated"].astype("boolean")
 
         df = self._validate_foreign_keys(df, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            normalize_identifiers=False,
+            normalize_strings=False,
+            order_columns=False,
+        )
 
         # Enrichment: compound_record fields
         if self._should_enrich_compound_record():

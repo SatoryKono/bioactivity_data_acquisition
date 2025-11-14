@@ -31,6 +31,42 @@ class _DummyChemblPipeline(ChemblPipelineBase):
         return df
 
 
+class _NormalizationProbePipeline(ChemblPipelineBase):
+    actor = "normalization_probe"
+
+    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:  # pragma: no cover - unused
+        raise NotImplementedError
+
+    def extract_all(self) -> pd.DataFrame:  # pragma: no cover - unused
+        raise NotImplementedError
+
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:  # pragma: no cover - unused
+        raise NotImplementedError
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - pass-through
+        return df
+
+    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: PLR6301
+        if df.empty:
+            return df
+
+        normalized = df.copy()
+        if "identifier" in normalized.columns:
+            normalized["identifier"] = (
+                normalized["identifier"].astype(str).str.strip().str.upper()
+            )
+        return normalized
+
+    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: PLR6301
+        if df.empty:
+            return df
+
+        normalized = df.copy()
+        if "name" in normalized.columns:
+            normalized["name"] = normalized["name"].astype(str).str.strip()
+        return normalized
+
+
 @pytest.fixture
 def dummy_pipeline(pipeline_config_fixture: PipelineConfig, run_id: str) -> _DummyChemblPipeline:
     return _DummyChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
@@ -155,4 +191,36 @@ def test_dispatch_extract_mode_falls_back_to_full(
     assert list(result["identifier"]) == ["ALL"]
     assert "batch_called" not in execution
     assert execution["full_called"] is True
+
+
+@pytest.mark.unit
+def test_normalize_and_enforce_schema_applies_shared_rules(
+    pipeline_config_fixture: PipelineConfig,
+    run_id: str,
+) -> None:
+    pipeline = _NormalizationProbePipeline(config=pipeline_config_fixture, run_id=run_id)
+    log = UnifiedLogger.get(__name__).bind(component="chembl_test")
+
+    raw = pd.DataFrame(
+        {
+            "identifier": [" chembl123 "],
+            "name": ["  Example Record  "],
+        }
+    )
+    column_order = ["identifier", "name", "row_subtype", "row_index"]
+
+    normalized = pipeline._normalize_and_enforce_schema(  # noqa: SLF001
+        raw,
+        column_order,
+        log,
+        order_columns=True,
+    )
+
+    assert list(normalized.columns[: len(column_order)]) == column_order
+    assert normalized.loc[0, "identifier"] == "CHEMBL123"
+    assert normalized.loc[0, "name"] == "Example Record"
+    assert normalized.loc[0, "row_subtype"] == pipeline.pipeline_code
+    assert normalized.loc[0, "row_index"] == 0
+    # Original input should remain unchanged
+    assert raw.loc[0, "identifier"] == " chembl123 "
 
