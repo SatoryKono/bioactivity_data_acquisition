@@ -18,7 +18,16 @@ _LOGIC_EXPORTS = getattr(cli_determinism_check_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_determinism_check_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_determinism_check = getattr(cli_determinism_check_impl, "run_determinism_check")
+DeterminismRunResult = getattr(cli_determinism_check_impl, "DeterminismRunResult")
+__all__ = [
+    * _LOGIC_EXPORTS,
+    "run_determinism_check",
+    "DeterminismRunResult",
+    "app",
+    "cli_main",
+    "run",
+]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -34,10 +43,12 @@ def cli_main(
     """Run determinism checks for the selected pipelines."""
 
     targets = tuple(pipeline) if pipeline else None
-    results: dict[str, cli_determinism_check_impl.DeterminismRunResult]
+    results: dict[str, DeterminismRunResult]
 
     try:
-        results = cli_determinism_check_impl.run_determinism_check(pipelines=targets)
+        results = run_determinism_check(pipelines=targets)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -47,8 +58,8 @@ def cli_main(
                 "exception_type": exc.__class__.__name__,
                 "pipelines": targets,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     if not results:
         CliCommandBase.emit_error(
@@ -58,8 +69,8 @@ def cli_main(
                 "command": "bioetl-determinism-check",
                 "pipelines": targets,
             },
+            exit_code=1,
         )
-        CliCommandBase.exit(2)
 
     non_deterministic = [
         name for name, item in results.items() if not item.deterministic
@@ -79,8 +90,8 @@ def cli_main(
                 "pipelines": tuple(non_deterministic),
                 "report_path": str(first_result.report_path.resolve()),
             },
+            exit_code=1,
         )
-        CliCommandBase.exit(3)
 
     typer.echo(
         "All inspected pipelines are deterministic. "

@@ -17,7 +17,8 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_build_vocab_store_impl, "__all__", [])
 globals().update({symbol: getattr(cli_build_vocab_store_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+build_vocab_store = getattr(cli_build_vocab_store_impl, "build_vocab_store")
+__all__ = [* _LOGIC_EXPORTS, "build_vocab_store", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -44,19 +45,22 @@ def cli_main(
 ) -> None:
     """Aggregate vocabulary files and write the combined YAML."""
 
+    src_path = src.resolve()
+    output_path = output.resolve()
     try:
-        result_path = cli_build_vocab_store_impl.build_vocab_store(src=src, output=output)
+        result_path = build_vocab_store(src=src_path, output=output_path)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
             message=f"Vocabulary store build failed: {exc}",
             context={
                 "command": "bioetl-build-vocab-store",
-                "src": str(src),
-                "output": str(output),
+                "src": str(src_path),
+                "output": str(output_path),
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
 
     typer.echo(f"Aggregated vocabulary written to {result_path}")

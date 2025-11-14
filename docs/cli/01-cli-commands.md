@@ -93,7 +93,7 @@ that governs deterministic outputs and golden artefact maintenance.
 python -m bioetl.cli.cli_app activity_chembl \
   --config configs/pipelines/activity/activity_chembl.yaml \
   --output-dir data/output/activity \
-  --golden tests/bioetl/golden/activity/activity.parquet \
+  --golden tests/golden/activity_chembl/v1/dataset/activity_chembl_extended_20240101.csv \
   --extended
 # Exit code: 0 (outputs identical to the golden snapshot)
 ```

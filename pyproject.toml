@@ -164,7 +164,7 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/bioetl"]
+testpaths = ["tests/bioetl", "tests/golden"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -173,11 +173,16 @@ addopts = [
     "-v",
     "--strict-markers",
     "--strict-config",
-    "--cov=src/bioetl",
+    "--cov=bioetl.cli.cli_app",
+    "--cov=bioetl.cli.cli_command",
+    "--cov=bioetl.cli.cli_entrypoint",
+    "--cov=bioetl.cli.cli_registry",
+    "--cov=bioetl.cli.tools.typer_helpers",
+    "--cov=bioetl.core.runtime.cli_pipeline_runner",
     "--cov-report=term-missing",
     "--cov-report=html",
     "--cov-report=xml",
-"--cov-fail-under=65",
+    "--cov-fail-under=65",
     "--tb=short",
     "--durations=10",
     "--maxfail=5",

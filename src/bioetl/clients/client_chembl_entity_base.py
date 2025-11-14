@@ -144,6 +144,7 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         self._log.info(
             f"{self._config.log_prefix}.handshake",
             handshake_endpoint=endpoint,
+            handshake_enabled=enabled,
             chembl_release=self._chembl_release,
         )
         return payload

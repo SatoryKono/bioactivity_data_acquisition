@@ -49,7 +49,9 @@ def cli_main(
 
     artifacts_path = artifacts.resolve()
     try:
-        result = cli_create_matrix_doc_code_impl.write_matrix(artifacts_dir=artifacts_path)
+        result = write_matrix(artifacts_dir=artifacts_path)
+    except typer.Exit:
+        raise
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
         CliCommandBase.emit_error(
             template=CLI_ERROR_EXTERNAL_API,
@@ -59,8 +61,9 @@ def cli_main(
                 "artifacts": str(artifacts_path),
                 "exception_type": exc.__class__.__name__,
             },
+            exit_code=1,
+            cause=exc,
         )
-        CliCommandBase.exit(3, cause=exc)
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -70,8 +73,8 @@ def cli_main(
                 "artifacts": str(artifacts_path),
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     typer.echo(
         f"Matrix with {len(result.rows)} rows saved to "

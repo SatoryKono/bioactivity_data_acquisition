@@ -1,6 +1,6 @@
 # Страница перемещена
 
-Документация по утилите теперь находится в `docs/qc/check-output-artifacts.md`.
+Документация по утилите перенесена в `docs/qc/05-check-output-artifacts.md`.
 
 Пожалуйста, обновите закладки:
-[bioetl-check-output-artifacts](check-output-artifacts.md).
+[bioetl-check-output-artifacts](05-check-output-artifacts.md).

@@ -31,7 +31,7 @@
 ### Инструменты
 
 - `scripts/schema_guard.py` валидирует реестр схем (версии, дубликаты,
-  hash-поля) и пишет отчёт `artifacts/SCHEMA_GUARD_REPORT.md`.
+  hash-поля) и пишет отчёт `artifacts/schema_guard_report.md`.
 - Утилиты перенесены в `tools.*`, добавлены консольные entry points
   `bioetl-*`, каталог `scripts/` удалён. Smoke-тесты CLI добавлены в
   `tests/integration/cli/test_tools_cli.py`.

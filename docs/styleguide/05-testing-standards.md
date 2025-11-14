@@ -104,9 +104,11 @@ behavior:
 
 ### Golden Test Structure
 
-1. Store expected output in `tests/bioetl/golden/{test_name}.golden`
-1. Compare actual output with golden file
-1. Update golden file only when intentional changes occur
+1. Store expected output in `tests/golden/<area>/<version>/` (mirroring the
+   `dataset/meta/qc/manifest` layout).
+1. Compare actual output with the committed golden files (byte-wise for datasets/QC,
+   structural comparison for metadata).
+1. Update golden files only when intentional changes occur and document the reason.
 
 ### Valid Examples
 

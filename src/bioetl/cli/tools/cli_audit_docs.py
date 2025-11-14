@@ -38,7 +38,9 @@ def cli_main(
 
     artifacts_path = artifacts.resolve()
     try:
-        cli_audit_docs_impl.run_audit(artifacts_dir=artifacts_path)
+        run_audit(artifacts_dir=artifacts_path)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -48,7 +50,6 @@ def cli_main(
                 "artifacts": str(artifacts_path),
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
     typer.echo(f"Audit completed, reports stored in {artifacts_path}")
     CliCommandBase.exit(0)

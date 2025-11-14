@@ -7,14 +7,16 @@ from .output import (
     RunArtifacts,
     WriteArtifacts,
     WriteResult,
+    build_run_manifest_payload,
     build_write_artifacts,
     emit_qc_artifact,
     ensure_hash_columns,
     plan_run_artifacts,
     prepare_dataframe,
     serialise_metadata,
-    write_dataset_atomic,
     write_frame_like,
+    write_dataset_atomic,
+    write_json_atomic,
     write_yaml_atomic,
 )
 from .serialization import (
@@ -32,6 +34,7 @@ __all__ = [
     "RunArtifacts",
     "WriteArtifacts",
     "WriteResult",
+    "build_run_manifest_payload",
     "build_write_artifacts",
     "compute_hash",
     "ensure_columns",
@@ -48,6 +51,7 @@ __all__ = [
     "serialise_metadata",
     "write_dataset_atomic",
     "write_frame_like",
+    "write_json_atomic",
     "write_yaml_atomic",
 ]
 

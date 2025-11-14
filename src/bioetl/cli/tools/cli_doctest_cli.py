@@ -35,6 +35,8 @@ def cli_main() -> None:
 
     try:
         results, report_path = run_examples()
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -43,8 +45,8 @@ def cli_main() -> None:
                 "command": "bioetl-doctest-cli",
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     failed = [item for item in results if item.exit_code != 0]
     if failed:
@@ -66,6 +68,7 @@ def cli_main() -> None:
                 "total_examples": len(results),
                 "report_path": str(report_path.resolve()),
             },
+            exit_code=1,
         )
 
     typer.echo(

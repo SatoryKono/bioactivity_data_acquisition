@@ -267,14 +267,30 @@ def create_app(
 
 def _load_tool_entrypoint(tool_config: ToolCommandConfig) -> Callable[..., None]:
     """Dynamically load a tool entrypoint without importing QC modules into CLI."""
+
     module = importlib.import_module(tool_config.module)
-    attribute = getattr(module, tool_config.attribute)
-    if callable(attribute):
-        return cast(Callable[..., None], attribute)
-    msg = (
-        f"Attribute '{tool_config.attribute}' from '{tool_config.module}' is not callable."
+    preferred_attr = tool_config.attribute
+    fallback_attr = "cli_main" if preferred_attr == "main" else "main"
+    search_order: tuple[str, ...]
+    if preferred_attr == fallback_attr:
+        search_order = (preferred_attr,)
+    else:
+        search_order = (preferred_attr, fallback_attr)
+
+    # Preserve order but avoid duplicate lookups if attribute names coincide.
+    for attr_name in dict.fromkeys(search_order):
+        if not hasattr(module, attr_name):
+            continue
+        attribute = getattr(module, attr_name)
+        if callable(attribute):
+            return cast(Callable[..., None], attribute)
+        msg = f"Attribute '{attr_name}' from '{tool_config.module}' is not callable."
+        raise TypeError(msg)
+
+    searched = "', '".join(search_order)
+    raise AttributeError(
+        f"Module '{tool_config.module}' has no callable entrypoint among '{searched}'."
     )
-    raise TypeError(msg)
 
 
 app = create_app()

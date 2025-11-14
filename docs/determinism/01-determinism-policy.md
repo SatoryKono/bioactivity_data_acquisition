@@ -217,7 +217,7 @@ determinism:
 The primary strategy for testing determinism is "golden testing."
 
 - **Location**: Golden files are stored in
-  `tests/bioetl/golden/<pipeline_name>/`.
+  `tests/golden/<pipeline_name>/<version>/`.
 - **Process**:
   1. A test runs a pipeline against a fixed input dataset.
   1. The output dataset file and `meta.yaml` file are captured.
@@ -359,7 +359,7 @@ bioetl document-pubmed run ^
   --config configs/pipelines/document/document_pubmed.yaml ^
   --output-dir data/output/document/pubmed ^
   --sample 500 ^
-  --golden tests/bioetl/golden/document_pubmed/documents.parquet
+  --golden tests/golden/document_pubmed/v1/dataset/documents.parquet
 ```
 
 - `--sample N` produces a deterministic subset using a fixed seed so that quick

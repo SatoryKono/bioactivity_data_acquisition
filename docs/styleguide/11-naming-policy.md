@@ -505,8 +505,11 @@ tests/golden/test_&lt;area&gt;_golden.py
 
 ```
 
+- Example: `[ref: repo:tests/golden/test_activity_golden.py]` demonstrates
+  the canonical pattern for Chembl activity.
 - Golden artefacts:
-- placed under `qc/golden/&lt;area&gt;/...`
+- placed under `tests/golden/&lt;area&gt;/&lt;version&gt;/` with `dataset/`, `meta/`,
+  `qc/`, and `manifest/` subdirectories
 - file names MUST be deterministic and documented (see `10-documentation-standards.md` / QC docs).
 If the project already uses a different, established pattern for golden tests, that pattern MUST be documented
 

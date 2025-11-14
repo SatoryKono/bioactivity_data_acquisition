@@ -66,7 +66,7 @@ execution.
 Golden artifacts provide regression coverage for schema behavior.
 
 1. **Storage**: Golden CSV/Parquet outputs and `meta.yaml` snapshots live under
-   `tests/bioetl/golden/<pipeline>/` (mirrored on the `test_refactoring_32`
+   `tests/golden/<pipeline>/<version>/` (mirrored on the `test_refactoring_32`
    branch until merged).
 1. **Regeneration triggers**:
    - Schema version bump (of any level) or deterministic policy change.
@@ -145,7 +145,7 @@ analytics.
 - `SchemaRegistry.register()` отклоняет дублирующиеся `column_order`,
   отсутствующие колонки и несогласованные версии.
 - `scripts/schema_guard.py` (см. [ref: repo:scripts/schema_guard.py]) валидирует
-  конфиги и реестр схем, формирует отчёт `artifacts/SCHEMA_GUARD_REPORT.md` и
+  конфиги и реестр схем, формирует отчёт `artifacts/schema_guard_report.md` и
   прерывает CI при нарушениях.
 - Юнит-тест `tests/bioetl/schemas/test_schema_registry.py` гарантирует, что
   `hash_row`/`hash_business_key` присутствуют во всех зарегистрированных схемах

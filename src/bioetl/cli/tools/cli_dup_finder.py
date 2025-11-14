@@ -18,7 +18,14 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_dup_finder_impl, "__all__", [])
 globals().update({symbol: getattr(cli_dup_finder_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_dup_finder_workflow = getattr(cli_dup_finder_impl, "main")
+__all__ = [
+    * _LOGIC_EXPORTS,
+    "run_dup_finder_workflow",
+    "app",
+    "cli_main",
+    "run",
+]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -64,7 +71,9 @@ def cli_main(
 
     out_path = _normalize_out(out)
     try:
-        cli_dup_finder_impl.main(root=root, out=out_path, fmt=fmt)
+        run_dup_finder_workflow(root=root, out=out_path, fmt=fmt)
+    except typer.Exit:
+        raise
     except ValueError as exc:
         CliCommandBase.emit_error(
             template=CLI_ERROR_CONFIG,
@@ -76,8 +85,9 @@ def cli_main(
                 "format": fmt,
                 "exception_type": exc.__class__.__name__,
             },
+            exit_code=1,
+            cause=exc,
         )
-        CliCommandBase.exit(2, cause=exc)
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -90,8 +100,8 @@ def cli_main(
                 "format": fmt,
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     typer.echo("Duplicate finder completed successfully.")
     CliCommandBase.exit(0)

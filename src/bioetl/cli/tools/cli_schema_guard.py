@@ -16,7 +16,8 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_schema_guard_impl, "__all__", [])
 globals().update({symbol: getattr(cli_schema_guard_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_schema_guard = getattr(cli_schema_guard_impl, "run_schema_guard")
+__all__ = [* _LOGIC_EXPORTS, "run_schema_guard", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -25,7 +26,9 @@ def cli_main() -> None:
     """Run configuration and schema validation."""
 
     try:
-        results, registry_errors, report_path = cli_schema_guard_impl.run_schema_guard()
+        results, registry_errors, report_path = run_schema_guard()
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -34,8 +37,8 @@ def cli_main() -> None:
                 "command": "bioetl-schema-guard",
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     invalid_configs = [
         name for name, payload in results.items() if not payload.get("valid", False)
@@ -65,6 +68,7 @@ def cli_main() -> None:
                 "registry_error_count": len(registry_errors),
                 "report_path": str(report_path.resolve()),
             },
+            exit_code=1,
         )
 
     typer.echo(f"All configurations are valid. Report: {report_path.resolve()}")

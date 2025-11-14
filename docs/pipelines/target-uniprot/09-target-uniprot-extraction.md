@@ -494,7 +494,7 @@ schema_version: "1.0.0"
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
 1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в
-   `tests/bioetl/golden/target-uniprot/`
+   `tests/golden/target_uniprot/v1/`
 1. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма

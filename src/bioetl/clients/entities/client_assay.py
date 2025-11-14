@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Mapping
 
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol, ChemblEntityFetcherBase
@@ -18,6 +18,8 @@ class ChemblAssayClient(ChemblEntityFetcherBase):
     """High level helper focused on retrieving assay payloads."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay")
+    MAX_BATCH_SIZE: ClassVar[int] = 25
+    DEFAULT_HANDSHAKE_ENDPOINT: ClassVar[str] = "/status.json"
 
     def __init__(
         self,
@@ -37,12 +39,25 @@ class ChemblAssayClient(ChemblEntityFetcherBase):
         max_url_length:
             Maximum URL length enforced during request preparation.
         """
+        capped_batch_size = min(batch_size, self.MAX_BATCH_SIZE)
+
         super().__init__(
             chembl_client=chembl_client,
             config=self.ENTITY_CONFIG,
-            batch_size=batch_size,
+            batch_size=capped_batch_size,
             max_url_length=max_url_length,
         )
 
         self._entity_client = ChemblAssayEntityClient(chembl_client)
+
+    def handshake(
+        self,
+        *,
+        endpoint: str | None = None,
+        enabled: bool = True,
+    ) -> Mapping[str, Any]:
+        """Perform handshake with the configured default endpoint."""
+
+        effective_endpoint = endpoint or self.DEFAULT_HANDSHAKE_ENDPOINT
+        return super().handshake(endpoint=effective_endpoint, enabled=enabled)
 

@@ -112,10 +112,22 @@ def is_valid_activity_property_item(item: object) -> bool:
     return is_activity_property_item(dict(item), allowed_keys=ACTIVITY_PROPERTY_KEYS)
 
 
+def _is_valid_activity_property_item(item: object) -> bool:
+    """Backward compatible alias for ``is_valid_activity_property_item``."""
+
+    return is_valid_activity_property_item(item)
+
+
 def is_valid_activity_properties(value: object) -> bool:
     """Return True when value stores a JSON array/dict with normalized items."""
 
     return validate_activity_properties(value, allowed_keys=ACTIVITY_PROPERTY_KEYS)
+
+
+def _is_valid_activity_properties(value: object) -> bool:
+    """Backward compatible alias for ``is_valid_activity_properties``."""
+
+    return is_valid_activity_properties(value)
 
 
 def activity_properties_validator(value: object) -> bool:
@@ -214,7 +226,9 @@ __all__ = [
     "RELATIONS",
     "ACTIVITY_PROPERTY_KEYS",
     "is_valid_activity_property_item",
+    "_is_valid_activity_property_item",
     "is_valid_activity_properties",
+    "_is_valid_activity_properties",
     "activity_properties_validator",
     "ActivitySchema",
 ]

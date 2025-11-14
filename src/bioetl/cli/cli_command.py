@@ -133,9 +133,9 @@ class PipelineCliCommand(CliCommandBase):
                 message=str(exc),
                 event=LogEvents.CONFIG_MISSING,
                 context={"config_path": str(config)},
+                exit_code=2,
+                cause=exc,
             )
-            self.exit(2)
-            return
 
         try:
             output_dir = validate_output_dir(output_dir)
@@ -145,9 +145,9 @@ class PipelineCliCommand(CliCommandBase):
                 message=str(exc),
                 event=LogEvents.CONFIG_INVALID,
                 context={"output_dir": str(output_dir)},
+                exit_code=2,
+                cause=exc,
             )
-            self.exit(2)
-            return
 
         try:
             cli_overrides = parse_set_overrides(override_values) if override_values else {}
@@ -179,8 +179,9 @@ class PipelineCliCommand(CliCommandBase):
                 logger=self.logger,
                 event=LogEvents.CLI_RUN_ERROR,
                 context={"pipeline": self._command_config.name},
+                exit_code=2,
+                cause=exc,
             )
-            self.exit(2)
             return
         except ConfigLoadError as exc:
             if exc.missing_reference:
@@ -193,8 +194,9 @@ class PipelineCliCommand(CliCommandBase):
                 logger=self.logger,
                 event=LogEvents.CONFIG_INVALID,
                 context={"pipeline": self._command_config.name},
+                exit_code=2,
+                cause=exc,
             )
-            self.exit(2)
             return
 
         if isinstance(plan, PipelineDryRunPlan):
@@ -208,8 +210,8 @@ class PipelineCliCommand(CliCommandBase):
                 logger=self.logger,
                 event=LogEvents.CLI_RUN_ERROR,
                 context={"pipeline": self._command_config.name},
+                exit_code=self.exit_code_error,
             )
-            self.exit(self.exit_code_error)
             return
 
         run_id = plan.run_id
@@ -394,8 +396,9 @@ def _resolve_pipeline_class(
                 "run_id": run_id,
                 "exc_info": True,
             },
+            exit_code=2,
+            cause=exc,
         )
-        CliCommandBase.exit(2, cause=exc)
         raise
 
     try:
@@ -413,8 +416,9 @@ def _resolve_pipeline_class(
                 "run_id": run_id,
                 "exc_info": True,
             },
+            exit_code=2,
+            cause=exc,
         )
-        CliCommandBase.exit(2, cause=exc)
         raise
 
     if isinstance(pipeline_cls, type):
@@ -425,8 +429,8 @@ def _resolve_pipeline_class(
                 logger=log,
                 event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
                 context={"pipeline": command_name, "module": module_name, "class_name": class_name},
+                exit_code=2,
             )
-            CliCommandBase.exit(2)
     elif not callable(pipeline_cls):
         CliCommandBase.emit_error(
             template=CLI_ERROR_CONFIG,
@@ -434,8 +438,8 @@ def _resolve_pipeline_class(
             logger=log,
             event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
             context={"pipeline": command_name, "module": module_name, "class_name": class_name},
+            exit_code=2,
         )
-        CliCommandBase.exit(2)
 
     return cast(type[PipelineBase], pipeline_cls)
 
@@ -477,8 +481,9 @@ def _handle_pipeline_exception(
             logger=log,
             event=LogEvents.CLI_RUN_ERROR,
             context=context,
+            exit_code=1,
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     CliCommandBase.emit_error(
         template=CLI_ERROR_INTERNAL,
@@ -486,8 +491,9 @@ def _handle_pipeline_exception(
         logger=log,
         event=LogEvents.CLI_RUN_ERROR,
         context=context,
+        exit_code=1,
+        cause=exc,
     )
-    CliCommandBase.exit(1, cause=exc)
 
 
 def _emit_external_api_failure(
@@ -503,9 +509,9 @@ def _emit_external_api_failure(
         logger=log,
         event=LogEvents.CLI_PIPELINE_API_ERROR,
         context={**context, "error_message": str(exc)},
+        exit_code=3,
+        cause=exc,
     )
-    CliCommandBase.exit(3, cause=exc)
-    raise AssertionError("unreachable exit path")
 
 
 def _is_requests_api_error(exc: Exception) -> bool:

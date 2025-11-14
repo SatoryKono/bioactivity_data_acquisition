@@ -22,7 +22,8 @@ _LOGIC_EXPORTS = getattr(cli_catalog_code_symbols_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_catalog_code_symbols_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+catalog_code_symbols = getattr(cli_catalog_code_symbols_impl, "catalog_code_symbols")
+__all__ = [* _LOGIC_EXPORTS, "catalog_code_symbols", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -40,10 +41,11 @@ def cli_main(
 ) -> None:
     """Run the code catalog collection routine."""
 
+    artifacts_path = artifacts.resolve() if artifacts else None
     try:
-        result = cli_catalog_code_symbols_impl.catalog_code_symbols(
-            artifacts_dir=artifacts.resolve() if artifacts else None
-        )
+        result = catalog_code_symbols(artifacts_dir=artifacts_path)
+    except typer.Exit:
+        raise
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
         CliCommandBase.emit_error(
             template=CLI_ERROR_EXTERNAL_API,
@@ -51,10 +53,9 @@ def cli_main(
             context={
                 "command": "bioetl-catalog-code-symbols",
                 "exception_type": exc.__class__.__name__,
-                "artifacts": str(artifacts.resolve()) if artifacts else None,
+                "artifacts": str(artifacts_path) if artifacts_path else None,
             },
-            exit_code=3,
-            cause=exc,
+            exit_code=1,
         )
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
@@ -63,9 +64,8 @@ def cli_main(
             context={
                 "command": "bioetl-catalog-code-symbols",
                 "exception_type": exc.__class__.__name__,
-                "artifacts": str(artifacts.resolve()) if artifacts else None,
+                "artifacts": str(artifacts_path) if artifacts_path else None,
             },
-            cause=exc,
         )
 
     typer.echo(

@@ -11,6 +11,7 @@ import pytest
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.base import PipelineBase, RunArtifacts
+from tests.support.qc_assertions import assert_qc_artifact_set
 
 
 class TestPipeline(PipelineBase):
@@ -332,10 +333,10 @@ class TestPipelineBase:
         # Use output_path from artifacts for write()
         result = pipeline.write(sample_activity_data, artifacts.write.dataset.parent, extended=True)
 
-        assert result.write_result.dataset.exists()
-        assert result.write_result.metadata is not None and result.write_result.metadata.exists()
-        assert result.write_result.quality_report is not None
-        assert result.write_result.quality_report.exists()
+        assert_qc_artifact_set(
+            result.write_result,
+            expect_metrics=True,
+        )
 
     def test_write_invalid_payload(
         self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path

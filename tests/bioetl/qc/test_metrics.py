@@ -13,6 +13,11 @@ from bioetl.qc.metrics import (
     compute_missingness,
 )
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
+from tests.support.qc_assertions import (
+    assert_quality_report_structure,
+    assert_qc_artifact_set,
+    assert_qc_metrics_payload_structure,
+)
 
 
 @pytest.mark.qc
@@ -23,10 +28,10 @@ class TestQCMetrics:
         """Test quality report building."""
         report = build_quality_report(sample_activity_data, business_key_fields=["activity_id"])
 
-        assert report is not None
-        assert not report.empty
-        # Should have metrics columns
-        assert "section" in report.columns or "metric" in report.columns
+        assert_quality_report_structure(
+            report,
+            required_sections=("summary", "missing", "distribution"),
+        )
         # Distribution sections should be present for relation and units fields
         assert (
             report["metric"].eq("relation_distribution").any()
@@ -39,16 +44,10 @@ class TestQCMetrics:
             sample_activity_data, business_key_fields=["activity_id"]
         )
 
-        assert metrics is not None
-        assert isinstance(metrics, dict)
-
-        # Should have key metrics
-        assert "row_count" in metrics or "total_rows" in metrics
-        assert "duplicate_count" in metrics or "unique_count" in metrics
-        # New distribution metrics should be part of the payload
-        assert "units_distribution" in metrics
-        assert "relation_distribution" in metrics
-        assert "iqr_outliers" in metrics
+        assert_qc_metrics_payload_structure(
+            metrics,
+            required_keys=("units_distribution", "relation_distribution", "iqr_outliers"),
+        )
 
     def test_quality_report_detects_outliers(self):
         """Ensure that simple outliers are surfaced in the report."""
@@ -79,7 +78,7 @@ class TestQCMetrics:
 
         report = build_quality_report(df, business_key_fields=["activity_id"])
 
-        assert report is not None
+        assert_quality_report_structure(report)
         # Should detect duplicates
         duplicate_metrics = report[report["metric"].str.contains("duplicate", case=False, na=False)]
         assert not duplicate_metrics.empty
@@ -90,8 +89,7 @@ class TestQCMetrics:
 
         metrics = build_qc_metrics_payload(df, business_key_fields=[])
 
-        assert metrics is not None
-        assert isinstance(metrics, dict)
+        assert_qc_metrics_payload_structure(metrics)
 
     def test_compute_missingness_is_sorted(self) -> None:
         """Missingness stats should be sorted deterministically."""
@@ -188,9 +186,7 @@ class TestQCMetrics:
 
         result = pipeline.write(sample_activity_data, artifacts.run_directory)
 
-        # Should have QC artifacts
-        assert result.write_result.quality_report is not None
-        assert result.write_result.quality_report.exists()
+        assert_qc_artifact_set(result.write_result)
 
         # Verify QC report is readable
         report_df = pd.read_csv(result.write_result.quality_report)  # type: ignore[arg-type]

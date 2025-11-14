@@ -220,6 +220,21 @@ def enrich_with_document_terms(
         page_limit=page_limit,
     )
 
+    if isinstance(records_df, Mapping):
+        flattened_rows: list[dict[str, Any]] = []
+        for doc_id, entries in records_df.items():
+            if isinstance(entries, Mapping):
+                payloads: Iterable[Mapping[str, Any]] = [entries]
+            elif isinstance(entries, Iterable):
+                payloads = [entry for entry in entries if isinstance(entry, Mapping)]
+            else:
+                payloads = []
+            for payload in payloads:
+                record = dict(payload)
+                record.setdefault("document_chembl_id", doc_id)
+                flattened_rows.append(record)
+        records_df = pd.DataFrame.from_records(flattened_rows, columns=list(set(fields + ["document_chembl_id"])))
+
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         prepared = _ensure_term_columns(df_docs)

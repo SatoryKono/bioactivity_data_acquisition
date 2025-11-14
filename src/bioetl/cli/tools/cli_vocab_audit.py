@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from bioetl.cli.cli_entrypoint import (
     TyperApp,
@@ -20,7 +20,21 @@ from bioetl.core.runtime.errors import BioETLError
 
 _LOGIC_EXPORTS = getattr(cli_vocab_audit_impl, "__all__", [])
 globals().update({symbol: getattr(cli_vocab_audit_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+VocabAuditResult = getattr(cli_vocab_audit_impl, "VocabAuditResult")
+audit_vocabularies = getattr(cli_vocab_audit_impl, "audit_vocabularies")
+__all__ = [
+    * _LOGIC_EXPORTS,
+    "VocabAuditResult",
+    "audit_vocabularies",
+    "app",
+    "cli_main",
+    "run",
+]  # pyright: ignore[reportUnsupportedDunderAll]
+
+if TYPE_CHECKING:
+    from bioetl.cli.tools._logic.cli_vocab_audit import VocabAuditResult as VocabAuditResultType
+else:
+    VocabAuditResultType = Any
 
 typer: Any = get_typer()
 DEFAULT_OUTPUT = cli_vocab_audit_impl.DEFAULT_OUTPUT
@@ -68,16 +82,18 @@ def cli_main(
 ) -> None:
     """Run the vocabulary audit pipeline."""
 
-    result: cli_vocab_audit_impl.VocabAuditResult
+    result: VocabAuditResultType
 
     try:
-        result = cli_vocab_audit_impl.audit_vocabularies(
+        result = audit_vocabularies(
             store=store.resolve() if store else None,
             output=output,
             meta=meta,
             pages=pages,
             page_size=page_size,
         )
+    except typer.Exit:
+        raise
     except (BioETLError, CircuitBreakerOpenError, HTTPError, Timeout) as exc:
         CliCommandBase.emit_error(
             template=CLI_ERROR_EXTERNAL_API,
@@ -91,8 +107,9 @@ def cli_main(
                 "pages": pages,
                 "page_size": page_size,
             },
+            exit_code=1,
+            cause=exc,
         )
-        CliCommandBase.exit(3, cause=exc)
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -106,8 +123,8 @@ def cli_main(
                 "pages": pages,
                 "page_size": page_size,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     typer.echo(
         "Vocabulary audit completed: "

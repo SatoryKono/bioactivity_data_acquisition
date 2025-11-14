@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from bioetl.cli.cli_entrypoint import (
     TyperApp,
@@ -17,7 +17,21 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_inventory_docs_impl, "__all__", [])
 globals().update({symbol: getattr(cli_inventory_docs_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+InventoryResult = getattr(cli_inventory_docs_impl, "InventoryResult")
+write_inventory = getattr(cli_inventory_docs_impl, "write_inventory")
+__all__ = [
+    * _LOGIC_EXPORTS,
+    "InventoryResult",
+    "write_inventory",
+    "app",
+    "cli_main",
+    "run",
+]  # pyright: ignore[reportUnsupportedDunderAll]
+
+if TYPE_CHECKING:
+    from bioetl.cli.tools._logic.cli_inventory_docs import InventoryResult as InventoryResultType
+else:
+    InventoryResultType = Any
 
 typer: Any = get_typer()
 
@@ -46,12 +60,14 @@ def cli_main(
 
     inventory_path_resolved = inventory_path.resolve()
     hashes_path_resolved = hashes_path.resolve()
-    result: cli_inventory_docs_impl.InventoryResult
+    result: InventoryResultType
     try:
-        result = cli_inventory_docs_impl.write_inventory(
+        result = write_inventory(
             inventory_path=inventory_path_resolved,
             hashes_path=hashes_path_resolved,
         )
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -62,8 +78,8 @@ def cli_main(
                 "hashes_path": str(hashes_path_resolved),
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     typer.echo(
         f"Inventory completed: {len(result.files)} files, "

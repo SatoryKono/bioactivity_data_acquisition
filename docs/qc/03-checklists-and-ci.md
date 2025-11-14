@@ -36,8 +36,8 @@ This stage runs the ETL pipeline using a deterministic configuration profile.
       --set determinism.enabled=true
     ```
 
-- [ ] **Collect Artifacts**: The primary dataset (e.g., `.parquet`), the
-  `meta.yaml`, and the `manifest.txt` **MUST** be collected for the next stage.
+- [ ] **Collect Artifacts**: The primary dataset (e.g., `.csv`), the
+  `meta.yaml`, the QC bundle, and the `*_run_manifest.json` **MUST** be collected for the next stage.
 
 ### Stage 3: Comparison and Validation
 
@@ -51,7 +51,7 @@ This stage compares the newly generated artifacts against the golden versions.
     # Pseudocode for a comparison script
     python tools/compare_artifacts.py \
       --new-dir data/output/activity_chembl/run_123 \
-      --golden-dir tests/bioetl/golden/activity_chembl
+      --golden-dir tests/golden/activity_chembl/v1
     ```
 
 - [ ] **Check Exit Code**: The comparison script **MUST** exit with a non-zero

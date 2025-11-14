@@ -165,7 +165,7 @@ def _run_command(cmd: str) -> tuple[int, str, str]:
 def _write_report(results: list[CLIExampleResult]) -> Path:
     """Persist CLI doctest results as a markdown report."""
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = ARTIFACTS_DIR / "CLI_DOCTEST_REPORT.md"
+    report_path = ARTIFACTS_DIR / "cli_doctest_report.md"
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
 
     passed = sum(1 for item in results if item.exit_code == 0)

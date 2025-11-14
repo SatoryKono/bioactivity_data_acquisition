@@ -17,7 +17,8 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_check_comments_impl, "__all__", [])
 globals().update({symbol: getattr(cli_check_comments_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+run_comment_check = getattr(cli_check_comments_impl, "run_comment_check")
+__all__ = [* _LOGIC_EXPORTS, "run_comment_check", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -37,7 +38,9 @@ def cli_main(
 
     resolved_root = root.resolve() if root else None
     try:
-        cli_check_comments_impl.run_comment_check(root=resolved_root)
+        run_comment_check(root=resolved_root)
+    except typer.Exit:
+        raise
     except NotImplementedError as exc:
         CliCommandBase.emit_error(
             template=CLI_ERROR_CONFIG,
@@ -47,7 +50,6 @@ def cli_main(
                 "root": str(resolved_root) if resolved_root else None,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
@@ -58,7 +60,6 @@ def cli_main(
                 "root": str(resolved_root) if resolved_root else None,
                 "exception_type": exc.__class__.__name__,
             },
-            cause=exc,
         )
 
     typer.echo("Comment check completed without errors")

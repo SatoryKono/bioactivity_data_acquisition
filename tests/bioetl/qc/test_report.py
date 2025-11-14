@@ -12,6 +12,10 @@ from bioetl.qc.report import (
     build_qc_metrics_payload,
     build_quality_report,
 )
+from tests.support.qc_assertions import (
+    assert_quality_report_structure,
+    assert_qc_metrics_payload_structure,
+)
 
 
 @pytest.mark.unit
@@ -30,11 +34,7 @@ class TestQCReport:
 
         report = build_quality_report(df)
 
-        assert isinstance(report, pd.DataFrame)
-        assert "section" in report.columns
-        assert "metric" in report.columns
-        assert "value" in report.columns
-        # Should have summary metrics
+        assert_quality_report_structure(report, required_sections=("summary",))
         summary = report[report["section"] == "summary"]
         assert len(summary) > 0
 
@@ -49,7 +49,7 @@ class TestQCReport:
 
         report = build_quality_report(df)
 
-        assert isinstance(report, pd.DataFrame)
+        assert_quality_report_structure(report, required_sections=("summary",))
         summary = report[report["section"] == "summary"]
         assert len(summary) > 0
 
@@ -65,7 +65,7 @@ class TestQCReport:
 
         report = build_quality_report(df)
 
-        assert isinstance(report, pd.DataFrame)
+        assert_quality_report_structure(report, required_sections=("missing",))
         missing = report[report["section"] == "missing"]
         assert len(missing) > 0
         assert "column" in missing.columns
@@ -82,7 +82,7 @@ class TestQCReport:
 
         report = build_quality_report(df, business_key_fields=("id",))
 
-        assert isinstance(report, pd.DataFrame)
+        assert_quality_report_structure(report, required_sections=("summary",))
         summary = report[report["section"] == "summary"]
         assert len(summary) > 0
 
@@ -146,10 +146,7 @@ class TestQCReport:
 
         payload = build_qc_metrics_payload(df)
 
-        assert isinstance(payload, dict)
-        assert "row_count" in payload
-        assert "total_missing_values" in payload
-        assert "columns_with_missing" in payload
+        assert_qc_metrics_payload_structure(payload)
 
     def test_build_qc_metrics_payload_with_missing(self) -> None:
         """Test building QC metrics payload with missing values."""
@@ -163,6 +160,7 @@ class TestQCReport:
 
         payload = build_qc_metrics_payload(df)
 
+        assert_qc_metrics_payload_structure(payload)
         assert payload["total_missing_values"] > 0
         assert payload["columns_with_missing"] != ""
 
@@ -177,7 +175,7 @@ class TestQCReport:
 
         payload = build_qc_metrics_payload(df, business_key_fields=("id",))
 
-        assert "business_key_fields" in payload
+        assert_qc_metrics_payload_structure(payload, required_keys=("business_key_fields",))
         assert payload["business_key_fields"] == ["id"]
 
     def test_build_qc_metrics_payload_no_missing(self) -> None:
@@ -191,6 +189,7 @@ class TestQCReport:
 
         payload = build_qc_metrics_payload(df)
 
+        assert_qc_metrics_payload_structure(payload)
         assert payload["total_missing_values"] == 0
         assert payload["columns_with_missing"] == ""
 
@@ -278,8 +277,7 @@ class TestQCReport:
 
         report = build_quality_report(bundle=bundle)
 
-        assert isinstance(report, pd.DataFrame)
-        assert not report.empty
+        assert_quality_report_structure(report)
 
     def test_build_correlation_report_respects_plan(self) -> None:
         """Correlation builder should follow plan toggles."""

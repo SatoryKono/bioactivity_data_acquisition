@@ -18,7 +18,14 @@ _LOGIC_EXPORTS = getattr(cli_check_output_artifacts_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_check_output_artifacts_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+check_output_artifacts = getattr(cli_check_output_artifacts_impl, "check_output_artifacts")
+__all__ = [
+    * _LOGIC_EXPORTS,
+    "check_output_artifacts",
+    "app",
+    "cli_main",
+    "run",
+]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 MAX_BYTES = cli_check_output_artifacts_impl.MAX_BYTES
@@ -36,7 +43,9 @@ def cli_main(
     errors: list[str]
 
     try:
-        errors = cli_check_output_artifacts_impl.check_output_artifacts(max_bytes=max_bytes)
+        errors = check_output_artifacts(max_bytes=max_bytes)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -46,8 +55,8 @@ def cli_main(
                 "max_bytes": max_bytes,
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     if errors:
         for message in errors:
@@ -60,6 +69,7 @@ def cli_main(
                 "max_bytes": max_bytes,
                 "error_count": len(errors),
             },
+            exit_code=1,
         )
 
     typer.echo("data/output directory is clean")

@@ -137,6 +137,23 @@ def enrich_with_assay_classifications(
         page_limit=page_limit,
     )
 
+    if isinstance(class_map_df, Mapping):
+        flattened_rows: list[dict[str, Any]] = []
+        for assay_id, mappings in class_map_df.items():
+            if isinstance(mappings, Mapping):
+                entries: Iterable[Mapping[str, Any]] = [mappings]
+            elif isinstance(mappings, Iterable):
+                entries = [
+                    entry for entry in mappings if isinstance(entry, Mapping)
+                ]
+            else:
+                entries = []
+            for entry in entries:
+                record = dict(entry)
+                record.setdefault("assay_chembl_id", assay_id)
+                flattened_rows.append(record)
+        class_map_df = pd.DataFrame.from_records(flattened_rows, columns=list(class_map_fields))
+
     class_map_dict: dict[str, list[dict[str, Any]]] = {}
     if not class_map_df.empty:
         normalized_class_map = (
@@ -171,6 +188,16 @@ def enrich_with_assay_classifications(
             fields=list(classification_fields),
             page_limit=page_limit,
         )
+        if isinstance(classification_df, Mapping):
+            classification_rows: list[dict[str, Any]] = []
+            for class_id, payload in classification_df.items():
+                if isinstance(payload, Mapping):
+                    record = dict(payload)
+                    record.setdefault("assay_class_id", class_id)
+                    classification_rows.append(record)
+            classification_df = pd.DataFrame.from_records(
+                classification_rows, columns=list(classification_fields)
+            )
         if not classification_df.empty:
             normalized_classification = (
                 classification_df.copy()
@@ -373,6 +400,21 @@ def enrich_with_assay_parameters(
         page_limit=page_limit,
         active_only=active_only,
     )
+
+    if isinstance(parameters_df, Mapping):
+        flattened_rows: list[dict[str, Any]] = []
+        for assay_id, records in parameters_df.items():
+            if isinstance(records, Mapping):
+                payloads: Iterable[Mapping[str, Any]] = [records]
+            elif isinstance(records, Iterable):
+                payloads = [entry for entry in records if isinstance(entry, Mapping)]
+            else:
+                payloads = []
+            for payload in payloads:
+                record = dict(payload)
+                record.setdefault("assay_chembl_id", assay_id)
+                flattened_rows.append(record)
+        parameters_df = pd.DataFrame.from_records(flattened_rows, columns=list(fields))
 
     if parameters_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)

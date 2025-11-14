@@ -34,10 +34,12 @@ from bioetl.core.io import (
     DeterministicWriteArtifacts,
     RunArtifacts,
     WriteResult,
+    build_run_manifest_payload,
     build_write_artifacts,
     emit_qc_artifact,
     ensure_hash_columns,
     write_dataset_atomic,
+    write_json_atomic,
     write_yaml_atomic,
 )
 from bioetl.core.io import (
@@ -1532,6 +1534,22 @@ class PipelineBase(ABC):
             artifact_name="qc_metrics",
         )
 
+        manifest_path: Path | None = None
+        if artifacts.manifest is not None:
+            manifest_payload = build_run_manifest_payload(
+                pipeline_code=self.pipeline_code,
+                run_id=self.run_id,
+                run_directory=artifacts.run_directory,
+                dataset=artifacts.write.dataset,
+                metadata=metadata_path,
+                quality_report=quality_path,
+                correlation_report=correlation_path,
+                qc_metrics=metrics_path,
+                extras=artifacts.extras,
+            )
+            write_json_atomic(manifest_payload, artifacts.manifest)
+            manifest_path = artifacts.manifest
+
         # Create WriteResult for RunResult
         write_result = WriteResult(
             dataset=artifacts.write.dataset,
@@ -1546,7 +1564,7 @@ class PipelineBase(ABC):
         return RunResult(
             write_result=write_result,
             run_directory=artifacts.run_directory,
-            manifest=artifacts.manifest,
+            manifest=manifest_path,
             additional_datasets=dict(artifacts.extras),
             qc_summary=metrics_path,
             debug_dataset=None,  # Not implemented yet

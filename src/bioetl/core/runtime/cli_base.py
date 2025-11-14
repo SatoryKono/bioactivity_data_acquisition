@@ -80,14 +80,15 @@ class CliCommandBase:
     def handle_exception(self, exc: Exception) -> NoReturn:
         """Handle unexpected exceptions and terminate the process."""
 
-        emit_tool_error(
+        self.emit_error(
             template=self.error_template,
             message=f"Unhandled CLI exception: {exc}",
             logger=self.logger,
+            event=LogEvents.CLI_RUN_ERROR,
             context={"exception_type": exc.__class__.__name__},
-            exit_code=self.exit_code_error,
-            cause=exc,
         )
+        self.exit(self.exit_code_error)
+        self.exit(self.exit_code_error)
 
     @staticmethod
     def emit_error(
@@ -97,8 +98,10 @@ class CliCommandBase:
         logger: LoggerLike | None = None,
         event: LogEvents | str = LogEvents.CLI_RUN_ERROR,
         context: Mapping[str, Any] | None = None,
-    ) -> None:
-        """Emit a structured error message in a deterministic format."""
+        exit_code: int | None = None,
+        cause: Exception | None = None,
+    ) -> NoReturn:
+        """Emit a structured error message and terminate the command."""
 
         emit_cli_error(
             template=template,
@@ -107,6 +110,7 @@ class CliCommandBase:
             logger=logger,
             context=context,
         )
+        CliCommandBase.exit(exit_code or CliCommandBase.exit_code_error, cause=cause)
 
     @staticmethod
     def exit(code: int, *, cause: Exception | None = None) -> NoReturn:

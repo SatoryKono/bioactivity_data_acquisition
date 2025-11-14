@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
@@ -13,38 +12,19 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
-from bioetl.config.models.base import PipelineMetadata
-from bioetl.config.models.cli import CLIConfig
-from bioetl.config.models.determinism import (
-    DeterminismConfig,
-    DeterminismHashingConfig,
-    DeterminismSortingConfig,
-)
-from bioetl.config.models.domain import PipelineDomainConfig
-from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
-from bioetl.config.models.infrastructure import PipelineInfrastructureConfig
 from bioetl.config.models.models import PipelineConfig
-from bioetl.config.models.paths import MaterializationConfig
-from bioetl.config.models.postprocess import PostprocessConfig
-from bioetl.config.models.source import SourceConfig, SourceParameters
-from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
+from tests.support.factories import (
+    build_pipeline_config,
+    load_sample_activity_dataframe,
+    load_test_json,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
 
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
-
-DATA_DIR = Path(__file__).parent / "bioetl" / "data"
-
-
-def _load_json(relative_path: str) -> Any:
-    """Load JSON from ``tests/bioetl/data`` using canonical parameters."""
-
-    data_path = DATA_DIR / relative_path
-    with data_path.open("r", encoding="utf-8") as stream:
-        return json.load(stream)
 
 
 @pytest.fixture  # type: ignore[misc]
@@ -78,7 +58,7 @@ def golden_dir(tmp_path: Path) -> Path:
 def sample_activity_data_raw() -> list[dict[str, Any]]:
     """Raw activity data as it would come from ChEMBL API."""
 
-    raw_payload = _load_json("sample_activity_data_raw.json")
+    raw_payload = load_test_json("sample_activity_data_raw.json")
     return list(raw_payload)
 
 
@@ -86,22 +66,14 @@ def sample_activity_data_raw() -> list[dict[str, Any]]:
 def sample_activity_data() -> pd.DataFrame:
     """Sample activity DataFrame for testing."""
 
-    dataset: dict[str, list[Any]] = _load_json("sample_activity_data.json")
-    frame = pd.DataFrame(dataset)
-
-    # Explicit nullable integer columns for deterministic schema assertions.
-    nullable_columns = ("assay_tax_id", "record_id", "src_id", "target_tax_id")
-    for column in nullable_columns:
-        frame[column] = pd.Series(dataset[column], dtype="Int64")
-
-    return frame
+    return load_sample_activity_dataframe()
 
 
 @pytest.fixture  # type: ignore[misc]
 def sample_chembl_api_response() -> dict[str, Any]:
     """Sample ChEMBL API paginated response."""
 
-    payload = _load_json("sample_chembl_api_response.json")
+    payload = load_test_json("sample_chembl_api_response.json")
     return dict(payload)
 
 
@@ -109,7 +81,7 @@ def sample_chembl_api_response() -> dict[str, Any]:
 def sample_chembl_status_response() -> dict[str, Any]:
     """Sample ChEMBL status API response."""
 
-    payload = _load_json("sample_chembl_status_response.json")
+    payload = load_test_json("sample_chembl_status_response.json")
     return dict(payload)
 
 
@@ -117,53 +89,7 @@ def sample_chembl_status_response() -> dict[str, Any]:
 def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
     """Sample ``PipelineConfig`` for pipeline unit tests."""
 
-    http_config = HTTPConfig(
-        default=HTTPClientConfig(
-            timeout_sec=30.0,
-            connect_timeout_sec=10.0,
-            read_timeout_sec=30.0,
-            retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
-        ),
-    )
-
-    determinism_config = DeterminismConfig(
-        sort=DeterminismSortingConfig(by=[], ascending=[]),
-        hashing=DeterminismHashingConfig(business_key_fields=()),
-    )
-
-    infrastructure_config = PipelineInfrastructureConfig(
-        http=http_config,
-        materialization=MaterializationConfig(root=str(tmp_output_dir)),
-        determinism=determinism_config,
-        cli=CLIConfig(date_tag="20240101"),
-    )
-
-    domain_config = PipelineDomainConfig(
-        validation=ValidationConfig(schema_out=None, strict=True, coerce=True),
-        postprocess=PostprocessConfig(),
-        sources={
-            "chembl": SourceConfig(
-                enabled=True,
-                parameters=SourceParameters.from_mapping(
-                    {
-                        "base_url": "https://www.ebi.ac.uk/chembl/api/data",
-                        "max_url_length": 2000,
-                    }
-                ),
-            )
-        },
-    )
-
-    return PipelineConfig(
-        version=1,
-        pipeline=PipelineMetadata(
-            name="activity_chembl",
-            version="1.0.0",
-            description="Test activity pipeline",
-        ),
-        domain=domain_config,
-        infrastructure=infrastructure_config,
-    )
+    return build_pipeline_config(tmp_output_dir)
 
 
 @pytest.fixture  # type: ignore[misc]

@@ -17,7 +17,8 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_semantic_diff_impl, "__all__", [])
 globals().update({symbol: getattr(cli_semantic_diff_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [*_LOGIC_EXPORTS, "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_semantic_diff = getattr(cli_semantic_diff_impl, "run_semantic_diff")
+__all__ = [* _LOGIC_EXPORTS, "run_semantic_diff", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -28,7 +29,9 @@ def cli_main() -> None:
     report_path: Path
 
     try:
-        report_path = cli_semantic_diff_impl.run_semantic_diff()
+        report_path = run_semantic_diff()
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -37,8 +40,8 @@ def cli_main() -> None:
                 "command": "bioetl-semantic-diff",
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(1, cause=exc)
 
     typer.echo(f"Semantic diff report written to: {report_path.resolve()}")
     CliCommandBase.exit(0)

@@ -37,7 +37,9 @@ def cli_main(
 
     exit_code: int
     try:
-        exit_code = cli_link_check_impl.run_link_check(timeout_seconds=timeout_seconds)
+        exit_code = run_link_check(timeout_seconds=timeout_seconds)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -47,8 +49,8 @@ def cli_main(
                 "timeout_seconds": timeout_seconds,
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     if exit_code == 0:
         typer.echo("Link check completed successfully")
@@ -67,8 +69,8 @@ def cli_main(
                 "timeout_seconds": timeout_seconds,
                 "lychee_exit_code": exit_code,
             },
+            exit_code=exit_code,
         )
-        CliCommandBase.exit(exit_code)
 
 
 app: TyperApp = create_simple_tool_app(

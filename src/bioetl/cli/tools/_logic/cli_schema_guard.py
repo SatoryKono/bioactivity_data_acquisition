@@ -102,7 +102,7 @@ def _validate_schema_registry() -> list[str]:
 def _write_report(results: dict[str, dict[str, Any]], registry_errors: list[str]) -> Path:
     """Write a schema guard markdown report and return its path."""
     ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
-    report_path = ARTIFACTS_DIR / "SCHEMA_GUARD_REPORT.md"
+    report_path = ARTIFACTS_DIR / "schema_guard_report.md"
     tmp = report_path.with_suffix(report_path.suffix + ".tmp")
 
     total_valid = sum(1 for item in results.values() if item["valid"])

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import json
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -36,8 +38,10 @@ __all__ = [
     "prepare_dataframe",
     "serialise_metadata",
     "write_dataset_atomic",
+    "write_json_atomic",
     "write_frame_like",
     "write_yaml_atomic",
+    "build_run_manifest_payload",
 ]
 
 
@@ -251,6 +255,22 @@ def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig
     os.replace(tmp_path, path)
 
 
+def write_json_atomic(payload: Mapping[str, Any], path: Path) -> None:
+    """Write ``payload`` as canonical JSON via an atomic replace."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        json.dump(
+            payload,
+            handle,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    os.replace(tmp_path, path)
+
+
 def write_yaml_atomic(payload: Mapping[str, Any], path: Path) -> None:
     """Persist ``payload`` as YAML using an atomic ``os.replace``."""
 
@@ -361,6 +381,71 @@ def build_write_artifacts(
         stage_durations_ms=stage_durations_ms,
     )
     return DeterministicWriteArtifacts(dataframe=prepared, metadata=metadata)
+
+
+def _relative_artifact_path(path: Path, base: Path) -> str:
+    try:
+        return path.relative_to(base).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def build_run_manifest_payload(
+    *,
+    pipeline_code: str,
+    run_id: str,
+    run_directory: Path,
+    dataset: Path,
+    metadata: Path | None,
+    quality_report: Path | None,
+    correlation_report: Path | None,
+    qc_metrics: Path | None,
+    extras: Mapping[str, Path],
+) -> dict[str, Any]:
+    """Return manifest payload capturing deterministic artifact metadata."""
+
+    def _entry(name: str, path: Path) -> dict[str, Any]:
+        return {
+            "name": name,
+            "path": _relative_artifact_path(path, run_directory),
+            "size_bytes": path.stat().st_size,
+            "sha256": _file_sha256(path),
+        }
+
+    entries: list[dict[str, Any]] = []
+    if dataset.exists():
+        entries.append(_entry("dataset", dataset))
+    if metadata and metadata.exists():
+        entries.append(_entry("meta", metadata))
+    if quality_report and quality_report.exists():
+        entries.append(_entry("quality_report", quality_report))
+    if correlation_report and correlation_report.exists():
+        entries.append(_entry("correlation_report", correlation_report))
+    if qc_metrics and qc_metrics.exists():
+        entries.append(_entry("qc_metrics", qc_metrics))
+    for extra_name, extra_path in sorted(extras.items()):
+        if extra_path.exists():
+            entries.append(_entry(f"extra:{extra_name}", extra_path))
+
+    entries.sort(key=lambda item: (item["name"], item["path"]))
+
+    return {
+        "manifest_version": 1,
+        "pipeline": pipeline_code,
+        "run_id": run_id,
+        "generated_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "run_directory": run_directory.as_posix(),
+        "artifacts": entries,
+        "total_artifacts": len(entries),
+    }
 
 
 def emit_qc_artifact(

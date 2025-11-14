@@ -1496,7 +1496,7 @@ schema_version: "2.0.0"
 Golden-артефакты обеспечивают регрессионное покрытие для поведения схемы:
 
 1. **Хранение:** Golden CSV/Parquet и `meta.yaml` находятся в
-   `tests/bioetl/golden/assay/`
+   `tests/golden/assay/v1/`
 1. **Триггеры регенерации:**
    - Изменение версии схемы (любой уровень)
    - Изменение политики детерминизма
@@ -1656,7 +1656,7 @@ python -m bioetl.cli.cli_app assay_chembl \
 python -m bioetl.cli.cli_app assay_chembl \
   --config configs/pipelines/assay/assay_chembl.yaml \
   --output-dir data/output/assay \
-  --golden tests/bioetl/golden/assay/assay_20250115.csv
+  --golden tests/golden/assay/v1/dataset/assay_20250115.csv
 ```
 
 **Переопределение параметров ChEMBL:**

@@ -14,6 +14,7 @@ from _pytest.capture import CaptureFixture
 from typer.models import OptionInfo
 
 from bioetl.cli.cli_command import create_pipeline_command
+from bioetl.core.io import WriteResult
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cli import CLIConfig
 from bioetl.config.models.determinism import (
@@ -34,7 +35,7 @@ from bioetl.core.runtime.cli_pipeline_runner import (
     validate_config_path,
     validate_output_dir,
 )
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, RunResult
 from bioetl.pipelines.errors import PipelineError, PipelineHTTPError
 
 
@@ -62,8 +63,10 @@ class DummyPipeline:
         if callable(side_effect):
             return side_effect(output_dir=output_dir, **kwargs)
         dataset = side_effect if isinstance(side_effect, str) else "dataset.csv"
-        return SimpleNamespace(
-            write_result=SimpleNamespace(dataset=dataset),
+        dataset_path = output_dir / dataset
+        return RunResult(
+            write_result=WriteResult(dataset=dataset_path),
+            run_directory=output_dir,
             stage_durations_ms={"extract": 5},
         )
 

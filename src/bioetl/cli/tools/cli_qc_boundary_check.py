@@ -1,24 +1,25 @@
-from bioetl.core.runtime.cli_base import CliCommandBase
 """CLI command ``bioetl-qc-boundary-check`` for static QC import boundary checks."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from bioetl.cli.tools.cli_qc_boundary import collect_cli_qc_boundary_report
 from bioetl.cli.cli_entrypoint import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.cli.tools.cli_qc_boundary import collect_cli_qc_boundary_report
+from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG
 
 typer: Any = get_typer()
 
-__all__ = ["app", "main", "run"]
+__all__ = ["app", "cli_main", "main", "run"]
 
-def main() -> None:
+
+def cli_main() -> None:
     """Run the static import analysis for the CLI↔QC boundary."""
 
     report = collect_cli_qc_boundary_report()
@@ -47,10 +48,16 @@ def main() -> None:
     )
 
 
+def main() -> None:
+    """Backward compatible wrapper for legacy entrypoints."""
+
+    cli_main()
+
+
 app: TyperApp = create_simple_tool_app(
     name="bioetl-qc-boundary-check",
     help_text="Ensure bioetl.cli modules do not import bioetl.qc directly or via re-export.",
-    main_fn=main,
+    main_fn=cli_main,
 )
 
 

@@ -170,9 +170,11 @@ def enrich_with_assay(
     if isinstance(records_df, Mapping):
         records_mapping = cast(Mapping[str, Any], records_df)
         hydrated_rows: list[dict[str, Any]] = []
-        for payload in records_mapping.values():
+        for assay_id, payload in records_mapping.items():
             if isinstance(payload, Mapping):
-                hydrated_rows.append(dict(payload))
+                record = dict(payload)
+                record.setdefault("assay_chembl_id", assay_id)
+                hydrated_rows.append(record)
         records_df = pd.DataFrame.from_records(hydrated_rows)
 
     # 5) Build enrichment table limited to the required output fields.
@@ -884,9 +886,11 @@ def enrich_with_data_validity(
     if isinstance(records_df, Mapping):
         records_mapping = cast(Mapping[str, Any], records_df)
         hydrated_rows: list[dict[str, Any]] = []
-        for payload in records_mapping.values():
+        for comment_key, payload in records_mapping.items():
             if isinstance(payload, Mapping):
-                hydrated_rows.append(dict(payload))
+                record = dict(payload)
+                record.setdefault("data_validity_comment", comment_key)
+                hydrated_rows.append(record)
         records_df = pd.DataFrame.from_records(hydrated_rows)
 
     if records_df.empty:

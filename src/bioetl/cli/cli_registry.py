@@ -42,7 +42,7 @@ class ToolCommandConfig:
     name: str
     description: str
     module: str
-    attribute: str = "app"
+    attribute: str = "main"
 
 
 @dataclass(frozen=True)
@@ -217,105 +217,88 @@ TOOL_COMMANDS: dict[str, ToolCommandConfig] = {
     "audit_docs": ToolCommandConfig(
         name="bioetl-audit-docs",
         description="Run documentation audit and collect reports.",
-        module="bioetl.cli.tools.cli_audit_docs",
-        attribute="main",
+        module="bioetl.cli.tools.audit_docs",
     ),
     "build_vocab_store": ToolCommandConfig(
         name="bioetl-build-vocab-store",
         description="Assemble the aggregated ChEMBL vocabulary and export YAML.",
-        module="bioetl.cli.tools.cli_build_vocab_store",
-        attribute="main",
+        module="bioetl.cli.tools.build_vocab_store",
     ),
     "dup_finder": ToolCommandConfig(
         name="bioetl-dup-finder",
         description="Detect duplicate and near-duplicate code fragments across the repo.",
-        module="bioetl.cli.tools.cli_dup_finder",
-        attribute="main",
+        module="bioetl.cli.tools.dup_finder",
     ),
     "catalog_code_symbols": ToolCommandConfig(
         name="bioetl-catalog-code-symbols",
         description="Build the code entity catalog and related reports.",
-        module="bioetl.cli.tools.cli_catalog_code_symbols",
-        attribute="main",
+        module="bioetl.cli.tools.catalog_code_symbols",
     ),
     "check_comments": ToolCommandConfig(
         name="bioetl-check-comments",
         description="Validate code comments and TODO markers.",
-        module="bioetl.cli.tools.cli_check_comments",
-        attribute="main",
+        module="bioetl.cli.tools.check_comments",
     ),
     "check_output_artifacts": ToolCommandConfig(
         name="bioetl-check-output-artifacts",
         description="Inspect the data/output directory and flag artifacts.",
-        module="bioetl.cli.tools.cli_check_output_artifacts",
-        attribute="main",
+        module="bioetl.cli.tools.check_output_artifacts",
     ),
     "create_matrix_doc_code": ToolCommandConfig(
         name="bioetl-create-matrix-doc-code",
         description="Generate the Doc<->Code matrix and export artifacts.",
-        module="bioetl.cli.tools.cli_create_matrix_doc_code",
-        attribute="main",
+        module="bioetl.cli.tools.create_matrix_doc_code",
     ),
     "determinism_check": ToolCommandConfig(
         name="bioetl-determinism-check",
         description="Execute two runs and compare their logs.",
-        module="bioetl.cli.tools.cli_determinism_check",
-        attribute="main",
+        module="bioetl.cli.tools.determinism_check",
     ),
     "doctest_cli": ToolCommandConfig(
         name="bioetl-doctest-cli",
         description="Execute CLI examples and generate a report.",
-        module="bioetl.cli.tools.cli_doctest_cli",
-        attribute="main",
+        module="bioetl.cli.tools.doctest_cli",
     ),
     "inventory_docs": ToolCommandConfig(
         name="bioetl-inventory-docs",
         description="Collect a Markdown document inventory and compute hashes.",
-        module="bioetl.cli.tools.cli_inventory_docs",
-        attribute="main",
+        module="bioetl.cli.tools.inventory_docs",
     ),
     "link_check": ToolCommandConfig(
         name="bioetl-link-check",
         description="Verify documentation links via lychee.",
-        module="bioetl.cli.tools.cli_link_check",
-        attribute="main",
+        module="bioetl.cli.tools.link_check",
     ),
     "remove_type_ignore": ToolCommandConfig(
         name="bioetl-remove-type-ignore",
         description="Remove type ignore directives from source files.",
-        module="bioetl.cli.tools.cli_remove_type_ignore",
-        attribute="main",
+        module="bioetl.cli.tools.remove_type_ignore",
     ),
     "run_test_report": ToolCommandConfig(
         name="bioetl-run-test-report",
         description="Generate pytest and coverage reports with metadata.",
-        module="bioetl.cli.tools.cli_run_test_report",
-        attribute="main",
+        module="bioetl.cli.tools.run_test_report",
     ),
     "schema_guard": ToolCommandConfig(
         name="bioetl-schema-guard",
         description="Validate pipeline configs and the Pandera registry.",
-        module="bioetl.cli.tools.cli_schema_guard",
-        attribute="main",
+        module="bioetl.cli.tools.schema_guard",
     ),
     "semantic_diff": ToolCommandConfig(
         name="bioetl-semantic-diff",
         description="Compare documentation and code to produce a diff.",
-        module="bioetl.cli.tools.cli_semantic_diff",
-        attribute="main",
+        module="bioetl.cli.tools.semantic_diff",
     ),
     "vocab_audit": ToolCommandConfig(
         name="bioetl-vocab-audit",
         description="Audit ChEMBL vocabularies and generate a report.",
-        module="bioetl.cli.tools.cli_vocab_audit",
-        attribute="main",
+        module="bioetl.cli.tools.vocab_audit",
     ),
     "qc_boundary_check": ToolCommandConfig(
         name="bioetl-qc-boundary-check",
         description=(
             "Static verification that prevents direct or indirect imports of bioetl.qc from the CLI layer."
         ),
-        module="bioetl.cli.tools.cli_qc_boundary_check",
-        attribute="main",
+        module="bioetl.cli.tools.qc_boundary_check",
     ),
 }

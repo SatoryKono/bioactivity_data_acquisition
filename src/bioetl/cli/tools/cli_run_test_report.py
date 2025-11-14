@@ -17,10 +17,30 @@ from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 TEST_REPORTS_ROOT = cli_run_test_report_impl.TEST_REPORTS_ROOT
 generate_test_report = cli_run_test_report_impl.generate_test_report
+_blake2_digest = cli_run_test_report_impl._blake2_digest
+_load_pytest_summary = cli_run_test_report_impl._load_pytest_summary
+_compute_config_hash = cli_run_test_report_impl._compute_config_hash
+_write_yaml_atomic = cli_run_test_report_impl._write_yaml_atomic
+resolve_artifact_paths = cli_run_test_report_impl.resolve_artifact_paths
+build_timestamp_directory_name = cli_run_test_report_impl.build_timestamp_directory_name
+datetime = cli_run_test_report_impl.datetime
+timezone = cli_run_test_report_impl.timezone
+uuid4 = cli_run_test_report_impl.uuid4
+subprocess = cli_run_test_report_impl.subprocess
 
 __all__ = (
     "TEST_REPORTS_ROOT",
     "generate_test_report",
+    "_blake2_digest",
+    "_load_pytest_summary",
+    "_compute_config_hash",
+    "_write_yaml_atomic",
+    "resolve_artifact_paths",
+    "build_timestamp_directory_name",
+    "datetime",
+    "timezone",
+    "uuid4",
+    "subprocess",
     "app",
     "cli_main",
     "run",
@@ -45,7 +65,9 @@ def cli_main(
     output_root_path = output_root.resolve()
     exit_code: int
     try:
-        exit_code = cli_run_test_report_impl.generate_test_report(output_root=output_root_path)
+        exit_code = generate_test_report(output_root=output_root_path)
+    except typer.Exit:
+        raise
     except Exception as exc:  # noqa: BLE001
         CliCommandBase.emit_error(
             template=CLI_ERROR_INTERNAL,
@@ -55,8 +77,8 @@ def cli_main(
                 "output_root": str(output_root_path),
                 "exception_type": exc.__class__.__name__,
             },
+            cause=exc,
         )
-        CliCommandBase.exit(CliCommandBase.exit_code_error, cause=exc)
 
     if exit_code == 0:
         typer.echo("Test report generated successfully")
@@ -75,8 +97,8 @@ def cli_main(
             "output_root": str(output_root_path),
             "pytest_exit_code": exit_code,
         },
+        exit_code=exit_code,
     )
-    CliCommandBase.exit(exit_code)
 
 
 app: TyperApp = create_simple_tool_app(
