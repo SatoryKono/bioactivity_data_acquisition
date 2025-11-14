@@ -173,6 +173,15 @@ class ChemblPipelineBase(PipelineBase):
     and data extraction utilities.
     """
 
+    #: Canonical identifier column used when reading CLI-supplied input files.
+    id_column: str | None = None
+
+    #: Structured logging event emitted when the extraction mode is resolved.
+    extract_event_name: str | None = None
+
+    #: Source label used when identifiers are provided via legacy hooks.
+    legacy_extract_source: str = "legacy"
+
     def __init__(self, config: Any, run_id: str) -> None:
         """Initialize the ChEMBL pipeline base.
 
@@ -273,6 +282,54 @@ class ChemblPipelineBase(PipelineBase):
     def chembl_release(self) -> str | None:
         """Return the cached ChEMBL release captured during extraction."""
         return self._chembl_release
+
+    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
+        """Dispatch between batch and full extraction modes."""
+
+        log = UnifiedLogger.get(__name__).bind(
+            component=self._component_for_stage("extract")
+        )
+
+        event_name = self.extract_event_name or f"{self.pipeline_code}.extract_mode"
+        id_column_name = self.id_column or self._get_id_column_name()
+
+        legacy_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None
+        if self.has_legacy_extract_support():
+
+            def _legacy(bound_log: BoundLogger) -> Sequence[str] | None:
+                return self.resolve_legacy_extract_ids(
+                    bound_log, *args, **kwargs
+                )
+
+            legacy_resolver = _legacy
+
+        return self._dispatch_extract_mode(
+            log,
+            event_name=event_name,
+            batch_callback=self.extract_by_ids,
+            full_callback=self.extract_all,
+            id_column_name=id_column_name,
+            legacy_id_resolver=legacy_resolver,
+            legacy_source=self.legacy_extract_source,
+        )
+
+    def has_legacy_extract_support(self) -> bool:
+        """Return whether the pipeline exposes a legacy ID resolver."""
+
+        return (
+            type(self).resolve_legacy_extract_ids
+            is not ChemblPipelineBase.resolve_legacy_extract_ids
+        )
+
+    def resolve_legacy_extract_ids(
+        self,
+        log: BoundLogger,
+        *args: object,
+        **kwargs: object,
+    ) -> Sequence[str] | None:
+        """Resolve identifiers supplied via deprecated inputs."""
+
+        return None
 
     # ------------------------------------------------------------------
     # Configuration resolution methods
