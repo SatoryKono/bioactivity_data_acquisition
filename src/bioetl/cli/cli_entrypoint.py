@@ -12,6 +12,7 @@ __all__ = [
     "create_app",
     "create_simple_tool_app",
     "get_typer",
+    "register_tool_app",
     "run_app",
 ]
 
@@ -108,5 +109,21 @@ def run_app(app: TyperApp) -> None:
     """Invoke a Typer application entrypoint."""
 
     app()
+
+
+def register_tool_app(
+    *,
+    name: str,
+    help_text: str,
+    main_fn: Callable[..., Any],
+) -> tuple[TyperApp, Callable[[], None]]:
+    """Return a configured Typer app and execution wrapper for simple tools."""
+
+    app = create_simple_tool_app(name=name, help_text=help_text, main_fn=main_fn)
+
+    def _run() -> None:
+        run_app(app)
+
+    return app, _run
 
 
