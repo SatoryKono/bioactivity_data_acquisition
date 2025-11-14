@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, Callable, Literal, TextIO
 
 import pandas as pd
 import yaml
@@ -255,30 +255,42 @@ def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig
     os.replace(tmp_path, path)
 
 
-def write_json_atomic(payload: Mapping[str, Any], path: Path) -> None:
-    """Write ``payload`` as canonical JSON via an atomic replace."""
+def _write_mapping_atomic(
+    payload: Mapping[str, Any], path: Path, serializer: Callable[[Mapping[str, Any], TextIO], None]
+) -> None:
+    """Persist ``payload`` using ``serializer`` via an atomic replace."""
 
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp_path = path.with_suffix(path.suffix + ".tmp")
     with tmp_path.open("w", encoding="utf-8") as handle:
-        json.dump(
-            payload,
+        serializer(payload, handle)
+    os.replace(tmp_path, path)
+
+
+def write_json_atomic(payload: Mapping[str, Any], path: Path) -> None:
+    """Write ``payload`` as canonical JSON via an atomic replace."""
+
+    _write_mapping_atomic(
+        payload,
+        path,
+        lambda data, handle: json.dump(
+            data,
             handle,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
-        )
-    os.replace(tmp_path, path)
+        ),
+    )
 
 
 def write_yaml_atomic(payload: Mapping[str, Any], path: Path) -> None:
     """Persist ``payload`` as YAML using an atomic ``os.replace``."""
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(payload, handle, sort_keys=True, allow_unicode=True)
-    os.replace(tmp_path, path)
+    _write_mapping_atomic(
+        payload,
+        path,
+        lambda data, handle: yaml.safe_dump(data, handle, sort_keys=True, allow_unicode=True),
+    )
 
 
 def write_frame_like(
