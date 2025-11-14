@@ -55,7 +55,25 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
     _chembl_client: ChemblClientProtocol
     _config: EntityConfig
 
-    def __init__(self, chembl_client: ChemblClientProtocol, config: EntityConfig) -> None: ...
+    @classmethod
+    def _init_from_entity_config(
+        cls,
+        instance: "ChemblEntityFetcherBase",
+        chembl_client: ChemblClientProtocol,
+        *,
+        entity_config: EntityConfig,
+        batch_size: int | None = ...,
+        max_url_length: int | None = ...,
+    ) -> None: ...
+
+    def __init__(
+        self,
+        chembl_client: ChemblClientProtocol,
+        config: EntityConfig,
+        *,
+        batch_size: int | None = ...,
+        max_url_length: int | None = ...,
+    ) -> None: ...
 
     def _validate_identifiers(self, ids: Sequence[str]) -> list[str]: ...
 
