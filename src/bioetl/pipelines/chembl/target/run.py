@@ -70,7 +70,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             if "chembl_target_http" not in pipeline._registered_clients:
                 pipeline.register_client("chembl_target_http", bundle.api_client)
             chembl_client = bundle.chembl_client
-            pipeline._chembl_release = pipeline.fetch_chembl_release(chembl_client, log)
+            pipeline._set_chembl_release(
+                pipeline.fetch_chembl_release(chembl_client, log)
+            )
             target_client = cast(ChemblTargetClient, bundle.entity_client)
             if target_client is None:
                 msg = "Фабрика вернула пустой клиент для 'target'"
@@ -81,7 +83,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 iterator=target_client,
                 chembl_client=chembl_client,
                 select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline._chembl_release,
+                chembl_release=pipeline.chembl_release,
                 extra_filters={"batch_size": source_config.batch_size},
             )
 
@@ -101,7 +103,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=pipeline._chembl_release,
+                chembl_release=pipeline.chembl_release,
             )
             return pd.DataFrame()
 
@@ -152,14 +154,14 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             self.register_client("chembl_target_http", bundle.api_client)
 
         chembl_client = bundle.chembl_client
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
             log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_release=self._chembl_release,
+                chembl_release=self.chembl_release,
             )
             return pd.DataFrame()
 
@@ -196,7 +198,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             metadata_filters={
                 "select_fields": list(select_fields) if select_fields else None,
             },
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -204,7 +206,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             limit=limit,
             batches=stats.batches,
             api_calls=stats.api_calls,

@@ -68,19 +68,12 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._chembl_release: str | None = None
         self._last_batch_extract_stats: dict[str, Any] | None = None
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
         self._standard_types_cache: frozenset[str] | None = None
         self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
         self._output_schema = self._output_schema_entry.schema
         self._output_column_order = self._output_schema_entry.column_order
-
-    @property
-    def chembl_release(self) -> str | None:
-        """Return the cached ChEMBL release captured during extraction."""
-
-        return self._chembl_release
 
     def resolve_legacy_extract_ids(
         self,
@@ -219,7 +212,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             metadata_filters={
                 "select_fields": list(select_fields) if select_fields else None,
             },
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             id_normalizer=normalize_activity_id,
             sort_key=lambda pair: int(pair[0]),
             finalize=finalize_dataframe,
@@ -240,7 +233,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             batches=batch_stats.get("batches"),
             api_calls=batch_stats.get("api_calls"),
             cache_hits=batch_stats.get("cache_hits"),
@@ -270,7 +263,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if activity_iterator is None:
             msg = "Фабрика вернула пустой клиент для сущности 'activity'"
             raise RuntimeError(msg)
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
         select_fields = self._resolve_select_fields(
             source_raw,
@@ -313,7 +306,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 source_config=source_config,
             )
             chembl_client = bundle.chembl_client
-            typed_pipeline._chembl_release = typed_pipeline.fetch_chembl_release(chembl_client, log)
+            typed_pipeline._set_chembl_release(
+                typed_pipeline.fetch_chembl_release(chembl_client, log)
+            )
             activity_iterator = cast(ChemblActivityClient, bundle.entity_client)
             if activity_iterator is None:
                 msg = "Фабрика вернула пустой клиент для 'activity'"
@@ -324,7 +319,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 iterator=activity_iterator,
                 chembl_client=chembl_client,
                 select_fields=list(select_fields) if select_fields else None,
-                chembl_release=typed_pipeline._chembl_release,
+                chembl_release=typed_pipeline.chembl_release,
             )
 
         def empty_frame(
@@ -479,7 +474,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             chunk_records: dict[str, dict[str, Any]] = {}
 
             try:
-                cached_records = self._check_cache(chunk, self._chembl_release)
+                cached_records = self._check_cache(chunk, self.chembl_release)
                 if cached_records is not None:
                     from_cache = True
                     cache_hits += len(chunk)
@@ -499,7 +494,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                         if activity_value is None:
                             continue
                         chunk_records[str(activity_value)] = dict(item)
-                    self._store_cache(chunk, chunk_records, self._chembl_release)
+                    self._store_cache(chunk, chunk_records, self.chembl_release)
 
                 success_in_batch = 0
                 for key in chunk:
@@ -1222,7 +1217,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         metadata: dict[str, Any] = {
             "source_system": "ChEMBL_FALLBACK",
             "error_type": error.__class__.__name__ if error else None,
-            "chembl_release": self._chembl_release,
+            "chembl_release": self.chembl_release,
             "run_id": self.run_id,
             "timestamp": timestamp,
         }

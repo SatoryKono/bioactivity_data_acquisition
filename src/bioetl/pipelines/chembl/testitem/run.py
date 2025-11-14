@@ -44,7 +44,6 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._chembl_db_version: str | None = None
-        self._api_version: str | None = None
         self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
         self._output_schema = self._output_schema_entry.schema
         self._output_column_order = self._output_schema_entry.column_order
@@ -53,11 +52,6 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def chembl_db_version(self) -> str | None:
         """Return the cached ChEMBL DB version captured during extraction."""
         return self._chembl_db_version
-
-    @property
-    def api_version(self) -> str | None:
-        """Return the cached ChEMBL API version captured during extraction."""
-        return self._api_version
 
     def _fetch_chembl_release(
         self,
@@ -103,7 +97,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
         finally:
             self._chembl_db_version = release_value
-            self._api_version = api_version
+            self._set_api_version(api_version)
+            self._set_chembl_release(release_value)
             self.record_extract_metadata(
                 chembl_release=release_value,
                 requested_at_utc=request_timestamp,
@@ -147,7 +142,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 select_fields=list(select_fields) if select_fields else None,
                 page_size=source_config.page_size,
                 chembl_release=pipeline._chembl_db_version,
-                metadata={"api_version": pipeline._api_version},
+                metadata={"api_version": pipeline.api_version},
             )
 
         def empty_frame(_: SelfTestitemChemblPipeline, __: ChemblExtractionContext) -> pd.DataFrame:
@@ -164,7 +159,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=pipeline._chembl_db_version,
-                api_version=pipeline._api_version,
+                api_version=pipeline.api_version,
             )
             return pd.DataFrame()
 
@@ -175,7 +170,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         ) -> Mapping[str, Any]:
             return {
                 "chembl_db_version": pipeline._chembl_db_version,
-                "api_version": pipeline._api_version,
+                "api_version": pipeline.api_version,
                 "limit": pipeline.config.cli.limit,
             }
 
@@ -229,7 +224,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=self._chembl_db_version,
-                api_version=self._api_version,
+                api_version=self.api_version,
             )
             return pd.DataFrame()
 
@@ -269,7 +264,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             metadata_filters={
                 "select_fields": list(merged_select_fields) if merged_select_fields else None,
             },
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
@@ -278,7 +273,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             requested=len(ids),
             duration_ms=duration_ms,
             chembl_db_version=self._chembl_db_version,
-            api_version=self._api_version,
+            api_version=self.api_version,
             limit=limit,
             batches=stats.batches,
             api_calls=stats.api_calls,
@@ -321,7 +316,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         # Add version fields
         df["_chembl_db_version"] = self._chembl_db_version or ""
-        df["_api_version"] = self._api_version or ""
+        df["_api_version"] = self.api_version or ""
 
         # Deduplication
         df = self._deduplicate_molecules(df, log)
@@ -355,8 +350,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         enriched = dict(super().augment_metadata(metadata, df))
         if self._chembl_db_version:
             enriched["chembl_db_version"] = self._chembl_db_version
-        if self._api_version:
-            enriched["api_version"] = self._api_version
+        if self.api_version:
+            enriched["api_version"] = self.api_version
         return enriched
 
     # ------------------------------------------------------------------

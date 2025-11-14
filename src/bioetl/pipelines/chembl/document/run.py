@@ -85,7 +85,9 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             if document_client is None:
                 msg = "Фабрика вернула пустой клиент для 'document'"
                 raise RuntimeError(msg)
-            document_pipeline._chembl_release = document_pipeline.fetch_chembl_release(chembl_client, log)
+            document_pipeline._set_chembl_release(
+                document_pipeline.fetch_chembl_release(chembl_client, log)
+            )
             select_fields = document_pipeline._resolve_select_fields(
                 cast(SourceConfig[Any], cast(Any, typed_source_config)),
                 default_fields=API_DOCUMENT_FIELDS,
@@ -94,7 +96,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             context = ChemblExtractionContext(typed_source_config, document_client)
             context.chembl_client = chembl_client
             context.select_fields = tuple(select_fields) if select_fields else None
-            context.chembl_release = document_pipeline._chembl_release
+            context.chembl_release = document_pipeline.chembl_release
             return context
 
         def empty_frame(
@@ -170,7 +172,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             msg = "Фабрика вернула пустой клиент для 'document'"
             raise RuntimeError(msg)
 
-        self._chembl_release = self.fetch_chembl_release(chembl_client, log)
+        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
         resolved_select_fields = self._resolve_select_fields(
             source_raw, default_fields=list(API_DOCUMENT_FIELDS)
@@ -225,7 +227,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             max_batch_size=25,
             limit=limit,
             metadata_filters={"select_fields": merged_select_fields} if merged_select_fields else None,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             finalize_context=finalize_context,
             stats_attribute="_last_batch_extract_stats",
         )
@@ -235,7 +237,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
             batches=stats.batches,
             api_calls=stats.api_calls,
             cache_hits=stats.cache_hits,
