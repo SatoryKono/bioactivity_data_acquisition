@@ -9,7 +9,7 @@ from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
-from ..utils import coerce_bool
+from ..utils import coerce_bool, coerce_max_url_length
 
 
 class AssaySourceParameters(SourceParameters):
@@ -101,38 +101,5 @@ class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
         """Extend the base payload with assay-specific fields."""
 
         payload = super()._build_payload(config=config, parameters=parameters)
-        payload["max_url_length"] = cls._extract_max_url_length(config.parameters_mapping())
+        payload["max_url_length"] = coerce_max_url_length(config.parameters_mapping())
         return payload
-
-    @staticmethod
-    def _extract_max_url_length(parameters: Mapping[str, Any] | None) -> int:
-        """Extract max_url_length from parameters.
-
-        Parameters
-        ----------
-        parameters
-            Parameters mapping.
-
-        Returns
-        -------
-        int
-            Extracted max_url_length value.
-
-        Raises
-        ------
-        ValueError
-            If max_url_length is invalid.
-        """
-        mapping = parameters or {}
-        raw = mapping.get("max_url_length")
-        if raw is None:
-            return 2000
-        try:
-            value = int(raw)
-        except (TypeError, ValueError) as exc:
-            msg = "max_url_length must be coercible to an integer"
-            raise ValueError(msg) from exc
-        if value <= 0:
-            msg = "max_url_length must be a positive integer"
-            raise ValueError(msg)
-        return value
