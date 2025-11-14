@@ -274,11 +274,12 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
-        # Normalize identifiers
-        df = self._normalize_identifiers(df, log)
-
-        # Normalize string fields
-        df = self._normalize_string_fields(df, log)
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            order_columns=False,
+        )
 
         # Normalize numeric fields
         df = self._normalize_numeric_fields(df, log)
@@ -289,9 +290,6 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         # Add system fields
         df = self._add_system_fields(df, log)
-
-        # Ensure schema columns
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
 
         # Deduplicate by document_chembl_id before validation
         # Schema requires unique document_chembl_id, so we need to remove duplicates
@@ -310,8 +308,14 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                     removed_count=initial_count - deduped_count,
                 )
 
-        # Order columns according to schema
-        df = self._order_schema_columns(df, self._output_column_order)
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            normalize_identifiers=False,
+            normalize_strings=False,
+            order_columns=True,
+        )
 
         log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
         return df

@@ -323,14 +323,12 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         # Apply transform module: flatten nested objects and serialize arrays
         df = transform_testitem(df, self.config)
 
-        # Normalize identifiers
-        df = self._normalize_identifiers(df, log)
-
-        # Normalize string fields
-        df = self._normalize_string_fields(df, log)
-
-        # Ensure all schema columns exist with proper types
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            order_columns=False,
+        )
 
         # Normalize numeric fields (type coercion, negative values -> None)
         df = self._normalize_numeric_fields(df, log)
@@ -351,6 +349,15 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         # Sort by molecule_chembl_id for determinism
         if "molecule_chembl_id" in df.columns:
             df = df.sort_values("molecule_chembl_id").reset_index(drop=True)
+
+        df = self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            normalize_identifiers=False,
+            normalize_strings=False,
+            order_columns=False,
+        )
 
         # Reorder columns according to schema COLUMN_ORDER
         df = self._order_schema_columns(df, self._output_column_order)

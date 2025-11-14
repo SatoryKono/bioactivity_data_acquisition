@@ -191,6 +191,84 @@ class ChemblPipelineBase(PipelineBase):
         )
         self._chembl_release: str | None = None
 
+    # ------------------------------------------------------------------
+    # Normalization helpers
+    # ------------------------------------------------------------------
+
+    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        """Normalize identifier columns.
+
+        Subclasses are expected to override this method with domain specific
+        logic. The default implementation is a no-op so tests can provide
+        lightweight pipeline stubs without having to implement normalization.
+        """
+
+        return df
+
+    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        """Normalize free-text columns.
+
+        Subclasses are expected to override this method. The default
+        implementation is intentionally a no-op to avoid forcing all call sites
+        to provide custom behaviour.
+        """
+
+        return df
+
+    def _normalize_and_enforce_schema(
+        self,
+        df: pd.DataFrame,
+        column_order: Sequence[str],
+        log: BoundLogger,
+        *,
+        normalize_identifiers: bool = True,
+        normalize_strings: bool = True,
+        order_columns: bool = False,
+        copy: bool = True,
+    ) -> pd.DataFrame:
+        """Apply shared normalization steps and ensure schema columns.
+
+        Parameters
+        ----------
+        df
+            DataFrame to normalize.
+        column_order
+            Target schema column order used for enforcement and optional
+            ordering.
+        log
+            Logger used for diagnostic output.
+        normalize_identifiers
+            When True (default) invoke :meth:`_normalize_identifiers`.
+        normalize_strings
+            When True (default) invoke :meth:`_normalize_string_fields`.
+        order_columns
+            When True reorder columns using :meth:`_order_schema_columns`.
+        copy
+            Control whether the DataFrame should be copied before mutation.
+
+        Returns
+        -------
+        pd.DataFrame
+            Normalized DataFrame with all schema columns present.
+        """
+
+        working_df = df.copy() if copy else df
+
+        working_df = self._ensure_schema_columns(working_df, column_order, log)
+
+        if normalize_identifiers:
+            working_df = self._normalize_identifiers(working_df, log)
+
+        if normalize_strings:
+            working_df = self._normalize_string_fields(working_df, log)
+
+        working_df = self._ensure_schema_columns(working_df, column_order, log)
+
+        if order_columns:
+            working_df = self._order_schema_columns(working_df, column_order)
+
+        return working_df
+
     @property
     def chembl_release(self) -> str | None:
         """Return the cached ChEMBL release captured during extraction."""
