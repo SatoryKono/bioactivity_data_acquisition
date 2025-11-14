@@ -21,6 +21,7 @@ from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
+from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -32,25 +33,6 @@ from .transform import transform as transform_testitem
 SelfTestitemChemblPipeline = TypeVar(
     "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
 )
-
-# Required fields that must always be requested from the API.
-MUST_HAVE_FIELDS: tuple[str, ...] = (
-    # Scalar fields.
-    "molecule_chembl_id",
-    "pref_name",
-    "molecule_type",
-    "availability_type",
-    "chirality",
-    "first_approval",
-    "first_in_class",
-    "indication_class",
-    "helm_notation",
-    # Nested roots to ensure the server returns objects.
-    "molecule_properties",
-    "molecule_structures",
-    "molecule_hierarchy",
-)
-
 
 class TestItemChemblPipeline(ChemblPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
@@ -224,8 +206,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             build_context=build_context,
             id_column="molecule_chembl_id",
             summary_event="chembl_testitem.extract_summary",
-            must_have_fields=tuple(MUST_HAVE_FIELDS),
-            default_select_fields=MUST_HAVE_FIELDS,
+            must_have_fields=tuple(TESTITEM_MUST_HAVE_FIELDS),
+            default_select_fields=TESTITEM_MUST_HAVE_FIELDS,
             sort_by=("molecule_chembl_id",),
             empty_frame_factory=empty_frame,
             dry_run_handler=dry_run_handler,
@@ -274,7 +256,9 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         page_size = min(source_config.page_size, 25)
         limit = self.config.cli.limit
         resolved_select_fields = source_config.parameters.select_fields
-        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
+        merged_select_fields = self._merge_select_fields(
+            resolved_select_fields, TESTITEM_MUST_HAVE_FIELDS
+        )
         log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
 
         testitem_client = cast(ChemblTestitemClient, bundle.entity_client)

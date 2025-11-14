@@ -36,3 +36,21 @@ overrides.
   order.
 - New environment layers should mirror the defaults they override and stay
   minimal to simplify diffs.
+
+## Pipeline configuration registry
+
+The CLI registry at `src/bioetl/cli/cli_registry.py` defines the canonical
+mapping between pipeline commands and their default configuration YAML. The
+current matrix ensures there are no сиротские конфиги:
+
+| CLI command        | Provider | Entity    | Default config path                                   |
+| ------------------ | -------- | --------- | ----------------------------------------------------- |
+| `activity_chembl`  | `chembl` | `activity`| `configs/pipelines/activity/activity_chembl.yaml`     |
+| `assay_chembl`     | `chembl` | `assay`   | `configs/pipelines/assay/assay_chembl.yaml`           |
+| `document_chembl`  | `chembl` | `document`| `configs/pipelines/document/document_chembl.yaml`     |
+| `target_chembl`    | `chembl` | `target`  | `configs/pipelines/target/target_chembl.yaml`         |
+| `testitem_chembl`  | `chembl` | `testitem`| `configs/pipelines/testitem/testitem_chembl.yaml`     |
+
+Any новый конфиг должен появляться в этой таблице и в CLI-реестре; удаления
+без ссылок допускаются только вместе с записью в
+`configs/naming_exceptions.yaml`.

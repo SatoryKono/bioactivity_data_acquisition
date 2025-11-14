@@ -402,8 +402,9 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
             if not isinstance(identifier, str):
                 msg = f"identifier at position {idx} must be str, got {type(identifier)!r}"
                 raise TypeError(msg)
-            if identifier:
-                identifiers.append(identifier)
+            normalized = identifier.strip()
+            if normalized:
+                identifiers.append(normalized)
         return identifiers
 
     def _iter_chunks(self, identifiers: Sequence[str]) -> Iterator[Sequence[str]]:
@@ -474,7 +475,9 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
 
         if fields:
             _extend(fields)
-        elif self._config.default_fields:
+            return ordered
+
+        if self._config.default_fields:
             _extend(self._config.default_fields)
 
         if self._config.ordering:

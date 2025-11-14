@@ -513,7 +513,7 @@ determinism:
     business_key_fields: [activity_id, row_subtype, row_index]
 
 validation:
-  schema_out: bioetl.schemas.chembl_activity_schema.ActivitySchema
+  schema_out: bioetl.schemas.activity.ActivitySchema
 ```
 
 Вместо `extends` общий профиль подключается через `<<: !include`. Добавление

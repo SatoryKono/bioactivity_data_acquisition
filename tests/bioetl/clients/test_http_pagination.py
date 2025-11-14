@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 
 import pytest
 
 from bioetl.clients.http import Paginator, RetryingSession
-from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.core.http.api_client import CircuitBreakerOpenError, UnifiedAPIClient
 
 
 class _StubResponse:
@@ -58,7 +58,7 @@ def test_paginator_iterates_multiple_pages() -> None:
         },
     ])
     client = _StubClient(payloads)
-    session = RetryingSession(client)
+    session = RetryingSession(cast(UnifiedAPIClient, client))
     paginator = Paginator(session)
 
     pages = list(
@@ -73,7 +73,9 @@ def test_paginator_iterates_multiple_pages() -> None:
     assert len(pages) == 2
     assert [item["id"] for page in pages for item in page.items] == [1, 2, 3]
     assert client.calls[0][0] == "/activity.json"
-    assert client.calls[0][1]["limit"] == 2
+    first_params = client.calls[0][1]
+    assert first_params is not None
+    assert first_params["limit"] == 2
     assert client.calls[1][0] == "/activity.json?offset=2"
     assert client.calls[1][1] is None
 
@@ -87,7 +89,7 @@ def test_paginator_respects_limit() -> None:
         {"page_meta": {"next": None}, "activities": [{"id": 3}]},
     ])
     client = _StubClient(payloads)
-    session = RetryingSession(client)
+    session = RetryingSession(cast(UnifiedAPIClient, client))
     paginator = Paginator(session)
 
     pages = list(paginator.iterate_pages("/activity.json", limit=2, items_key="activities"))
@@ -102,7 +104,7 @@ def test_retrying_session_propagates_circuit_breaker() -> None:
     """RetryingSession must not swallow CircuitBreakerOpenError."""
 
     client = _FailingClient()
-    session = RetryingSession(client)
+    session = RetryingSession(cast(UnifiedAPIClient, client))
 
     with pytest.raises(CircuitBreakerOpenError):
         session.get_payload("/activity.json")

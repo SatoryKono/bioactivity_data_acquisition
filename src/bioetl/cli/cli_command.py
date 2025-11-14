@@ -22,6 +22,7 @@ from bioetl.core.runtime.pipeline_command_runner import (
     EnvironmentSetupError,
     PipelineCommandOptions,
     PipelineCommandRunner,
+    PipelineConfigFactory,
     PipelineDryRunPlan,
     PipelineExecutionPlan,
 )
@@ -90,7 +91,7 @@ class PipelineCliCommand(CliCommandBase):
         self._pipeline_class_name = pipeline_class_name
         self._command_config = command_config
         self._run_id: str | None = None
-        self._runner = runner or PipelineCommandRunner()
+        self._runner = runner
 
     def handle(
         self,
@@ -144,7 +145,7 @@ class PipelineCliCommand(CliCommandBase):
         )
 
         try:
-            plan = self._runner.prepare(options)
+            plan = self._get_runner().prepare(options)
         except EnvironmentSetupError as exc:
             self.emit_error(
                 template=CLI_ERROR_CONFIG,
@@ -238,6 +239,14 @@ class PipelineCliCommand(CliCommandBase):
         )
         self.exit(self.exit_code_error)
         raise AssertionError("unreachable exit path")
+
+    def _get_runner(self) -> PipelineCommandRunner:
+        if self._runner is not None:
+            return self._runner
+        config_factory = PipelineConfigFactory(
+            environment_loader=load_environment_settings,
+        )
+        return PipelineCommandRunner(config_factory=config_factory)
 
 def _parse_set_overrides(set_overrides: list[str]) -> dict[str, Any]:
     """Parse --set KEY=VALUE flags into a dictionary."""

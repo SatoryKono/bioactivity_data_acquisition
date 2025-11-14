@@ -74,6 +74,10 @@ def compute_duplicate_stats(
 
     subset = list(business_key_fields) if business_key_fields else None
     if subset:
+        subset = [column for column in subset if column in df.columns]
+        if not subset:
+            subset = None
+    if subset:
         deduplicated = df.drop_duplicates(subset=subset, keep="first")
     else:
         deduplicated = df.drop_duplicates(keep="first")

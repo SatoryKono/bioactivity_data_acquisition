@@ -19,7 +19,8 @@ VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
 
 
 def _default_vocab_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "configs" / "dictionaries"
+    # bioetl/vocab/service.py → bioetl (parents[2]) → src (parents[3]) → repo root
+    return Path(__file__).resolve().parents[3] / "configs" / "dictionaries"
 
 
 def _resolve_vocab_path() -> Path:

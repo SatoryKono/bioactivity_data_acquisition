@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
 from typing import Any
 
@@ -11,6 +10,10 @@ import pandera as pa
 from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
+from bioetl.schemas._validators import (
+    validate_json_series,
+    validate_optional_json_series,
+)
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
 
@@ -65,29 +68,6 @@ BUSINESS_KEY_FIELDS: list[str] = [
 
 ROW_HASH_FIELDS: list[str] = list(BASE_COLUMNS)
 
-def _is_valid_json_string(value: Any) -> bool:
-    if value is None or value is pd.NA:
-        return False
-    if not isinstance(value, str) or not value.strip():
-        return False
-    try:
-        json.loads(value)
-    except (TypeError, ValueError):
-        return False
-    return True
-
-
-def _validate_json_series(series: pd.Series) -> bool:
-    return bool(series.map(_is_valid_json_string).all())
-
-
-def _validate_optional_json_series(series: pd.Series) -> bool:
-    non_null = series.dropna()
-    if non_null.empty:
-        return True
-    return bool(non_null.map(_is_valid_json_string).all())
-
-
 def _time_window_consistent(row: pd.Series, **_: Any) -> bool:
     start = row["request_started_at"]
     finish = row["request_finished_at"]
@@ -124,12 +104,12 @@ columns: dict[str, Column] = {
     ),  # type: ignore[assignment]
     "request_params_json": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check(_validate_json_series, element_wise=False)],
+        checks=[Check(validate_json_series, element_wise=False)],
         nullable=False,
     ),  # type: ignore[assignment]
     "pagination_meta": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check(_validate_optional_json_series, element_wise=False)],
+        checks=[Check(validate_optional_json_series, element_wise=False)],
         nullable=True,
     ),  # type: ignore[assignment]
     "request_started_at": Column(

@@ -34,7 +34,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR = Path(__file__).parent / "bioetl" / "data"
 
 
 def _load_json(relative_path: str) -> Any:
@@ -140,7 +140,10 @@ def pipeline_config_fixture(tmp_output_dir: Path) -> PipelineConfig:
         sources={
             "chembl": SourceConfig(  # type: ignore[call-arg,dict-item]
                 enabled=True,
-                parameters={"base_url": "https://www.ebi.ac.uk/chembl/api/data"},
+                parameters={
+                    "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                    "max_url_length": 2000,
+                },
             )
         },
         cli=CLIConfig(date_tag="20240101"),  # type: ignore[attr-defined]

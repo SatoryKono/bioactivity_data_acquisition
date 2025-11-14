@@ -9,17 +9,10 @@ import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.clients.client_chembl_common import ChemblClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.core.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
-def mock_unified_client() -> MagicMock:
-    """Mock UnifiedAPIClient for testing."""
-    return MagicMock(spec=UnifiedAPIClient)
-
-
-@pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
-def mock_chembl_client(mock_unified_client: MagicMock) -> MagicMock:
+def mock_chembl_client() -> MagicMock:
     """Mock ChemblClient for testing."""
     mock_client = MagicMock(spec=ChemblClient)
     # Set up default return values for methods

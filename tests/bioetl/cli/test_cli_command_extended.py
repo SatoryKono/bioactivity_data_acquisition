@@ -17,6 +17,19 @@ from bioetl.cli.cli_command import (
     create_pipeline_command,
 )
 from bioetl.pipelines.errors import PipelineError, PipelineHTTPError
+from bioetl.config.models.base import PipelineMetadata
+from bioetl.config.models.cli import CLIConfig
+from bioetl.config.models.determinism import (
+    DeterminismConfig,
+    DeterminismHashingConfig,
+    DeterminismSortingConfig,
+)
+from bioetl.config.models.http import HTTPClientConfig, HTTPConfig, RetryConfig
+from bioetl.config.models.models import PipelineConfig
+from bioetl.config.models.paths import MaterializationConfig
+from bioetl.config.models.postprocess import PostprocessConfig
+from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.validation import ValidationConfig
 
 
 class DummyLogger:
@@ -49,26 +62,41 @@ class DummyPipeline:
         )
 
 
-def _make_pipeline_config(tmp_path: Path) -> SimpleNamespace:
-    cli_ns = SimpleNamespace(
-        dry_run=False,
-        verbose=False,
-        limit=None,
-        sample=None,
-        extended=False,
-        golden=None,
-        input_file=None,
-        fail_on_schema_drift=True,
-        validate_columns=True,
-        date_tag=None,
-    )
-    return SimpleNamespace(
-        cli=cli_ns,
-        validation=SimpleNamespace(strict=True, schema_out=True),
-        determinism=SimpleNamespace(environment=SimpleNamespace(timezone="UTC")),
-        materialization=SimpleNamespace(root=str(tmp_path / "materialized")),
-        postprocess=SimpleNamespace(correlation=SimpleNamespace(enabled=False)),
-        pipeline=SimpleNamespace(name="test"),
+def _make_pipeline_config(tmp_path: Path) -> PipelineConfig:
+    """Construct a real ``PipelineConfig`` for CLI contract tests."""
+
+    return PipelineConfig(  # type: ignore[call-arg]
+        version=1,
+        pipeline=PipelineMetadata(  # type: ignore[call-arg]
+            name="test_pipeline",
+            version="1.0.0",
+            description="Test pipeline",
+        ),
+        http=HTTPConfig(
+            default=HTTPClientConfig(
+                timeout_sec=30.0,
+                connect_timeout_sec=10.0,
+                read_timeout_sec=30.0,
+                retries=RetryConfig(total=3, backoff_multiplier=2.0, backoff_max=10.0),
+            ),
+        ),
+        materialization=MaterializationConfig(root=str(tmp_path / "materialized")),
+        determinism=DeterminismConfig(  # type: ignore[call-arg]
+            sort=DeterminismSortingConfig(by=[], ascending=[]),
+            hashing=DeterminismHashingConfig(business_key_fields=()),
+        ),
+        validation=ValidationConfig(schema_out=None, strict=True, coerce=True),
+        postprocess=PostprocessConfig(),
+        sources={
+            "chembl": SourceConfig(  # type: ignore[call-arg,dict-item]
+                enabled=True,
+                parameters={
+                    "base_url": "https://www.ebi.ac.uk/chembl/api/data",
+                    "max_url_length": 2000,
+                },
+            )
+        },
+        cli=CLIConfig(date_tag="20240101"),  # type: ignore[attr-defined]
     )
 
 

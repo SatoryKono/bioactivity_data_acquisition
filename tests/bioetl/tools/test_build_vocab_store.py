@@ -76,7 +76,7 @@ def test_atomic_write_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
     payload = {"key": "value"}
     called: list[Path] = []
 
-    def fake_fsync(fd: int) -> None:
+    def fake_fsync(_fd: int) -> None:
         called.append(target)
 
     monkeypatch.setattr(build_vocab_store.os, "fsync", fake_fsync)

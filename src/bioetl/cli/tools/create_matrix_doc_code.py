@@ -30,7 +30,7 @@ def main(
     artifacts: Path = typer.Option(
         Path("artifacts"),
         "--artifacts",
-        help="Directory for storing the Doc↔Code matrix artifacts.",
+        help="Directory for storing the Doc<->Code matrix artifacts.",
         exists=False,
         file_okay=False,
         dir_okay=True,
@@ -57,7 +57,7 @@ def main(
 
 app: TyperApp = create_simple_tool_app(
     name="bioetl-create-matrix-doc-code",
-    help_text="Generate the Doc↔Code matrix and export artifacts",
+    help_text="Generate the Doc<->Code matrix and export artifacts",
     main_fn=main,
 )
 

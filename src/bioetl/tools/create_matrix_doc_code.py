@@ -1,4 +1,4 @@
-"""Construct a Doc↔Code traceability matrix for pipeline contracts."""
+"""Construct a Doc<->Code traceability matrix for pipeline contracts."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class DocCodeMatrix:
 
 
 def build_matrix() -> list[dict[str, Any]]:
-    """Build the Doc↔Code traceability matrix entries."""
+    """Build the Doc<->Code traceability matrix entries."""
 
     matrix: list[dict[str, Any]] = []
 

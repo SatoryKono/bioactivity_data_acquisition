@@ -1,0 +1,5 @@
+---
+# ENF-004 whitelist of naming-rule exceptions.
+# Empty list indicates все конфиги соответствуют политике.
+exceptions: []
+

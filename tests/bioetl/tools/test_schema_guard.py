@@ -36,7 +36,7 @@ class DummyStage:
     def __enter__(self) -> DummyStage:
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> None:  # noqa: ANN001
+    def __exit__(self, _exc_type, _exc, _tb) -> None:  # noqa: ANN001
         return None
 
 

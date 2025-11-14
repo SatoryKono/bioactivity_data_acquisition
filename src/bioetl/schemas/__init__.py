@@ -11,6 +11,7 @@ import pandera as pa
 from bioetl.core.schema.vocabulary_bindings import SchemaVocabularyBinding
 
 from . import (
+    activity,
     chembl_activity_schema,
     chembl_assay_schema,
     chembl_document_schema,
@@ -33,17 +34,21 @@ __all__ = [
     "SchemaRegistry",
     "SCHEMA_REGISTRY",
     "get_schema",
+    "ActivitySchema",
     "ChemblActivitySchema",
     "ChemblAssaySchema",
     "ChemblDocumentSchema",
     "ChemblTargetSchema",
     "ChemblTestItemSchema",
+    "ACTIVITY_COLUMN_ORDER",
     "CHEMBL_ACTIVITY_COLUMN_ORDER",
     "CHEMBL_ASSAY_COLUMN_ORDER",
     "CHEMBL_DOCUMENT_COLUMN_ORDER",
     "CHEMBL_TARGET_COLUMN_ORDER",
     "CHEMBL_TESTITEM_COLUMN_ORDER",
+    "ACTIVITY_RELATIONS",
     "CHEMBL_ACTIVITY_RELATIONS",
+    "ACTIVITY_PROPERTY_KEYS",
     "CHEMBL_ACTIVITY_PROPERTY_KEYS",
     "SchemaMigration",
     "SchemaMigrationRegistry",
@@ -52,6 +57,11 @@ __all__ = [
     "SchemaVersionMismatchError",
     "SCHEMA_MIGRATION_REGISTRY",
 ]
+
+ActivitySchema = activity.ActivitySchema
+ACTIVITY_COLUMN_ORDER = activity.COLUMN_ORDER
+ACTIVITY_RELATIONS = activity.RELATIONS
+ACTIVITY_PROPERTY_KEYS = activity.ACTIVITY_PROPERTY_KEYS
 
 ChemblActivitySchema = chembl_activity_schema.ActivitySchema
 CHEMBL_ACTIVITY_COLUMN_ORDER = chembl_activity_schema.COLUMN_ORDER
@@ -661,6 +671,13 @@ def _register_builtin_schema(
 _register_builtin_schema(
     identifier="bioetl.schemas.chembl_activity_schema.ActivitySchema",
     module_path="bioetl.schemas.chembl_activity_schema",
+    schema_attr="ActivitySchema",
+    version_attr="SCHEMA_VERSION",
+    column_order_attr="COLUMN_ORDER",
+)
+_register_builtin_schema(
+    identifier="bioetl.schemas.activity.ActivitySchema",
+    module_path="bioetl.schemas.activity",
     schema_attr="ActivitySchema",
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",

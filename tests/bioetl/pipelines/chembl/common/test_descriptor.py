@@ -71,7 +71,7 @@ def test_run_extract_all_descriptor_applies_hooks(
     iterator = _DummyIterator(records)
 
     def build_context(
-        current_pipeline: _DummyChemblPipeline,
+        _current_pipeline: _DummyChemblPipeline,
         _: _DummySourceConfig,
         __: Any,
     ) -> ChemblExtractionContext:

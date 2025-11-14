@@ -47,7 +47,7 @@ def register_migrations() -> None:
 
     SCHEMA_MIGRATION_REGISTRY.register(
         SchemaMigration(
-            schema_identifier="bioetl.schemas.chembl_activity_schema.ActivitySchema",
+            schema_identifier="bioetl.schemas.activity.ActivitySchema",
             from_version="1.6.0",
             to_version="1.7.0",
             transform_fn=_rename_property,

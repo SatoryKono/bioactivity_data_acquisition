@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import typer
 
 from bioetl.tools import dup_finder
 
@@ -186,52 +185,18 @@ def test_write_errors_and_warnings(tmp_path: Path) -> None:
 
 
 def test_main_rejects_invalid_format(tmp_path: Path) -> None:
-    with pytest.raises(typer.BadParameter):
+    with pytest.raises(ValueError):
         dup_finder.main(root=tmp_path, out=tmp_path / "out", fmt="md,txt")
 
 
-class _LoggerStub:
-    def __init__(self) -> None:
-        self.messages: list[tuple[Any, dict[str, Any]]] = []
+def test_main_propagates_runtime_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def _raise(*_: Any, **__: Any) -> None:
+        raise RuntimeError("fail")
 
-    def error(self, event: Any, **kwargs: Any) -> None:
-        self.messages.append((event, kwargs))
+    monkeypatch.setattr(dup_finder, "run_dup_finder", _raise)
 
-
-class _UnifiedLoggerStub:
-    def __init__(self) -> None:
-        self.logger = _LoggerStub()
-
-    @staticmethod
-    def configure() -> None:
-        pass
-
-    def get(self, _: str) -> _LoggerStub:
-        return self.logger
-
-
-def test_main_handles_runtime_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    logger_stub = _UnifiedLoggerStub()
-    monkeypatch.setattr(dup_finder, "UnifiedLogger", logger_stub)
-    monkeypatch.setattr(dup_finder, "run_dup_finder", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("fail")))
-
-    def fake_exit(code: int, *, cause: Exception | None = None) -> None:
-        exit_exc = typer.Exit(code=code)
-        setattr(exit_exc, "code", code)
-        if cause is not None:
-            raise exit_exc from cause
-        raise exit_exc
-
-    monkeypatch.setattr(dup_finder.CliCommandBase, "exit", staticmethod(fake_exit))
-
-    with pytest.raises(typer.Exit) as excinfo:
+    with pytest.raises(RuntimeError):
         dup_finder.main(root=tmp_path, out=tmp_path / "out", fmt="md")
-
-    assert getattr(excinfo.value, "code", None) == 1
-    assert logger_stub.logger.messages
-    event, payload = logger_stub.logger.messages[0]
-    assert event == dup_finder.LogEvents.DUP_FINDER_FAILED
-    assert payload["exception_type"] == "RuntimeError"
 
 
 def test_classify_role_variants() -> None:
@@ -383,7 +348,7 @@ def test_parse_code_units_reports_os_error(tmp_path: Path, monkeypatch: pytest.M
     file_path = tmp_path / "src" / "pkg" / "missing.py"
     file_path.parent.mkdir(parents=True)
 
-    def fake_read_text(self: Path, encoding: str = "utf-8") -> str:  # noqa: ARG001
+    def fake_read_text(self: Path, _encoding: str = "utf-8") -> str:  # noqa: ARG001
         raise OSError("boom")
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)

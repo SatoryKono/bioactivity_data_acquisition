@@ -11,7 +11,7 @@ from pandera import Column, DataFrameSchema
 
 from bioetl.schemas import SchemaDescriptor, SchemaRegistry, _split_identifier
 from bioetl.schemas.base_abstract_schema import create_schema
-from bioetl.schemas.chembl_activity_schema import (
+from bioetl.schemas.activity import (
     _is_valid_activity_properties,
     _is_valid_activity_property_item,
 )

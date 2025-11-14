@@ -93,7 +93,7 @@ class TestPipelineLifecycle:
     ):
         """Test pipeline lifecycle with validation error."""
         pipeline_config_fixture.validation.schema_out = (
-            "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+            "bioetl.schemas.activity:ActivitySchema"
         )
         pipeline_config_fixture.validation.strict = True
         pipeline_config_fixture.determinism.sort.by = []

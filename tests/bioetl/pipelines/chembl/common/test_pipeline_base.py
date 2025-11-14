@@ -3,18 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any
 
 import pandas as pd
 import pytest
-
-if TYPE_CHECKING:
-    class MonkeyPatch(Protocol):
-        def setattr(self, target: Any, name: str, value: Any, raising: bool = ...) -> None:
-            ...
-else:
-    class MonkeyPatch:  # pragma: no cover - runtime placeholder
-        """Runtime placeholder for pytest monkeypatch fixture."""
+from pytest import MonkeyPatch
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig

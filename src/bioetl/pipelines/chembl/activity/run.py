@@ -38,7 +38,7 @@ from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.chembl_activity_schema import (
+from bioetl.schemas.activity import (
     ACTIVITY_PROPERTY_KEYS,
     RELATIONS,
 )
@@ -46,6 +46,7 @@ from bioetl.schemas.pipeline_contracts import get_out_schema
 from bioetl.vocab.service import required_vocab_ids
 
 from ...base import RunResult
+from .._constants import API_ACTIVITY_FIELDS
 from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -56,55 +57,6 @@ from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
-)
-
-API_ACTIVITY_FIELDS: tuple[str, ...] = (
-    "activity_id",
-    "assay_chembl_id",
-    "testitem_chembl_id",
-    "molecule_chembl_id",
-    "target_chembl_id",
-    "document_chembl_id",
-    "type",
-    "relation",
-    "value",
-    "units",
-    "standard_type",
-    "standard_relation",
-    "standard_value",
-    "standard_units",
-    "standard_text_value",
-    "standard_flag",
-    "upper_value",
-    "lower_value",
-    "pchembl_value",
-    "activity_comment",
-    "bao_endpoint",
-    "bao_format",
-    "bao_label",
-    "canonical_smiles",
-    "ligand_efficiency",
-    "target_organism",
-    "target_tax_id",
-    "data_validity_comment",
-    "potential_duplicate",
-    "activity_properties",
-    # New fields
-    "assay_type",
-    "assay_description",
-    "assay_organism",
-    "assay_tax_id",
-    "parent_molecule_chembl_id",
-    "molecule_pref_name",
-    "record_id",
-    "src_id",
-    "target_pref_name",
-    "text_value",
-    "standard_upper_value",
-    "uo_units",
-    "qudt_units",
-    # data_validity_description is retrieved separately via fetch_data_validity_lookup().
-    "curated_by",  # Used to compute curated: (curated_by IS NOT NULL) -> bool.
 )
 
 

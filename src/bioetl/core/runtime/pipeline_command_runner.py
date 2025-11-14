@@ -133,13 +133,13 @@ class PipelineConfigFactory:
         *,
         environment_loader: Callable[[], EnvironmentSettings] = load_environment_settings,
         environment_runtime_applier: Callable[[EnvironmentSettings], object] | None = None,
-        config_loader: Callable[..., PipelineConfig] = load_config,
+        config_loader: Callable[..., PipelineConfig] | None = None,
     ) -> None:
         self._environment_loader = environment_loader
         self._environment_runtime_applier = (
             environment_runtime_applier or _apply_runtime_overrides_safely
         )
-        self._config_loader = config_loader
+        self._config_loader = config_loader or load_config
 
     def create(self, options: PipelineCommandOptions) -> PipelineConfig:
         """Construct a PipelineConfig from CLI options."""

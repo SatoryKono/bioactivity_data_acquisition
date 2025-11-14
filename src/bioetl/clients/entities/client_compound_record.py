@@ -41,6 +41,9 @@ class ChemblCompoundRecordEntityClient:
         chunk_size: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``compound_record`` entries keyed by ``(molecule, document)`` pairs."""
+        effective_chunk_size = self._resolve_chunk_size(chunk_size)
+        page_size = self._resolve_page_size(page_limit)
+
         validated_pairs = self._prepare_pairs(pairs)
         if not validated_pairs:
             self._log.debug(
@@ -48,9 +51,6 @@ class ChemblCompoundRecordEntityClient:
                 message="No valid pairs to fetch",
             )
             return self._empty_frame(fields)
-
-        effective_chunk_size = self._resolve_chunk_size(chunk_size)
-        page_size = self._resolve_page_size(page_limit)
 
         records: list[dict[str, Any]] = []
         grouped_pairs = self._group_by_document(validated_pairs)
@@ -91,20 +91,17 @@ class ChemblCompoundRecordEntityClient:
         normalized: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = set()
 
-        for index, pair in enumerate(pairs):
+        for pair in pairs:
             if not isinstance(pair, tuple) or len(pair) != 2:
-                msg = f"pair at index {index} must be a tuple[str, str], got {pair!r}"
-                raise TypeError(msg)
+                continue
             molecule, document = pair
             if not isinstance(molecule, str) or not isinstance(document, str):
-                msg = (
-                    "compound record pairs must contain string identifiers, got "
-                    f"({type(molecule)!r}, {type(document)!r})"
-                )
-                raise TypeError(msg)
-            if not molecule or not document:
                 continue
-            key = (molecule, document)
+            molecule_clean = molecule.strip()
+            document_clean = document.strip()
+            if not molecule_clean or not document_clean:
+                continue
+            key = (molecule_clean, document_clean)
             if key not in seen:
                 seen.add(key)
                 normalized.append(key)

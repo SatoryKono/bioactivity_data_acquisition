@@ -10,22 +10,23 @@ import html
 import io
 import keyword
 import os
+import sys
 import tokenize
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
-from typing import Any, Literal, Protocol, cast
-
-import typer
+from typing import Any, Literal, Protocol, TextIO, cast
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools import get_project_root
 
 __all__ = ["main", "run_dup_finder"]
+
+DEFAULT_ROOT = get_project_root()
+DEFAULT_OUTPUT_DIR = DEFAULT_ROOT / "artifacts" / "dup_finder"
+_VALID_FORMATS = ("md", "csv")
 
 
 Kind = Literal["func", "class", "method"]
@@ -556,7 +557,22 @@ def _write_warnings(path: Path, warnings: Sequence[str]) -> None:
     os.replace(tmp, path)
 
 
-def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], clusters: Sequence[DuplicateCluster], pairs: Sequence[NearDuplicatePair], tests_present: bool) -> None:
+def _write_stream_block(stream: TextIO, content: str) -> None:
+    stream.write(content)
+    if not content.endswith("\n"):
+        stream.write("\n")
+
+
+def _render_to_stdout(
+    formats: Sequence[str],
+    units: Sequence[CodeUnit],
+    clusters: Sequence[DuplicateCluster],
+    pairs: Sequence[NearDuplicatePair],
+    tests_present: bool,
+    *,
+    stream: TextIO | None = None,
+) -> None:
+    handle = stream or sys.stdout
     if "csv" in formats:
         fieldnames = ["symbol", "path", "lines", "kind", "role", "norm_loc", "ast_hash"]
         output = io.StringIO()
@@ -574,8 +590,8 @@ def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], cluster
                     "ast_hash": unit.ast_hash,
                 }
             )
-        typer.echo("# dup_map.csv")
-        typer.echo(output.getvalue().rstrip())
+        _write_stream_block(handle, "# dup_map.csv")
+        _write_stream_block(handle, output.getvalue().rstrip())
     if "md" in formats:
         buffer = io.StringIO()
         buffer.write("# Shared code map\n\n")
@@ -615,8 +631,8 @@ def _render_to_stdout(formats: Sequence[str], units: Sequence[CodeUnit], cluster
                     f"| `{pair_label}` | {path_cell} | {pair.jaccard:.3f} | {pair.lcs_ratio:.3f} | "
                     f"{pair.divergences} | {reference_cell} |\n"
                 )
-        typer.echo("# dup_map.md")
-        typer.echo(buffer.getvalue().rstrip())
+        _write_stream_block(handle, "# dup_map.md")
+        _write_stream_block(handle, buffer.getvalue().rstrip())
 
 
 def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> None:
@@ -672,50 +688,34 @@ def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> 
         UnifiedLogger.reset()
 
 
-app = typer.Typer(no_args_is_help=True, add_completion=False)
-
-
-@app.command()
-def main(
-    root: Path = typer.Option(
-        get_project_root(),
-        "--root",
-        help="Repository root; the `src` subdirectory is used for analysis.",
-        show_default=True,
-    ),
-    out: Path | None = typer.Option(
-        get_project_root() / "artifacts" / "dup_finder",
-        "--out",
-        help="Directory for artifacts or '-' to stream to STDOUT.",
-        show_default=True,
-    ),
-    fmt: str = typer.Option(
-        "md,csv",
-        "--format",
-        help="Comma-separated list of formats: md,csv.",
-        show_default=True,
-    ),
-) -> None:
-    """CLI wrapper for the duplicate finder."""
-
-    formats = tuple(
-        dict.fromkeys(item.strip().lower() for item in fmt.split(",") if item.strip())
-    )
-    invalid = [item for item in formats if item not in {"md", "csv"}]
-    if invalid:
-        raise typer.BadParameter(f"Invalid formats: {', '.join(sorted(invalid))}")
-    try:
-        run_dup_finder(root, out, formats)
-    except Exception as exc:  # noqa: BLE001
-        log = UnifiedLogger.get(__name__)
-        CliCommandBase.emit_error(
-            template=CLI_ERROR_INTERNAL,
-            message=f"Duplicate finder failed: {exc}",
-            logger=log,
-            event=LogEvents.DUP_FINDER_FAILED,
-            context={"exception_type": type(exc).__name__, "exc_info": True},
+def _parse_formats(option: str) -> tuple[str, ...]:
+    normalized = tuple(
+        dict.fromkeys(
+            item.strip().lower()
+            for item in option.split(",")
+            if item.strip()
         )
-        CliCommandBase.exit(1, cause=exc)
+    )
+    if not normalized:
+        raise ValueError("At least one output format must be specified (md,csv).")
+    invalid = [item for item in normalized if item not in _VALID_FORMATS]
+    if invalid:
+        raise ValueError(f"Invalid formats: {', '.join(sorted(set(invalid)))}")
+    return normalized
+
+
+def main(
+    *,
+    root: Path | None = None,
+    out: Path | None = None,
+    fmt: str = "md,csv",
+) -> None:
+    """Validate parameters and execute the duplicate finder workflow."""
+
+    formats = _parse_formats(fmt)
+    resolved_root = root or DEFAULT_ROOT
+    resolved_out = out if out is not None else DEFAULT_OUTPUT_DIR
+    run_dup_finder(resolved_root, resolved_out, formats)
 
 
 if __name__ == "__main__":

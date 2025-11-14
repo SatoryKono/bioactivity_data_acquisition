@@ -12,7 +12,7 @@ from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.schemas.chembl_activity_schema import ActivitySchema
+from bioetl.schemas.activity import ActivitySchema
 
 
 @pytest.mark.unit

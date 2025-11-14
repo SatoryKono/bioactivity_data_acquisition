@@ -179,7 +179,7 @@ class TestQCMetrics:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that pipeline creates QC artifacts."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.activity:ActivitySchema"  # type: ignore[attr-defined]
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
 

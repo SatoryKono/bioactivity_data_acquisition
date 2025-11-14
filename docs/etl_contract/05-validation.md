@@ -147,9 +147,9 @@ so QC artifacts and `meta.yaml` capture the exact lineage.
 
 ```yaml
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_out: "bioetl.schemas.activity.ActivitySchema"
   schema_out_version: "1.7.0"
-  schema_in: "bioetl.schemas.chembl_activity_schema.ActivitySchema"
+  schema_in: "bioetl.schemas.activity.ActivitySchema"
   schema_in_version: "1.6.0"
   allow_schema_migration: true
   max_schema_migration_hops: 2

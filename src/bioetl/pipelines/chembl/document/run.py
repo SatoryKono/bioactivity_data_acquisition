@@ -21,6 +21,7 @@ from bioetl.core.schema import StringRule, normalize_string_columns
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
+from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
 from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -32,32 +33,6 @@ from .normalize import enrich_with_document_terms
 SelfChemblDocumentPipeline = TypeVar(
     "SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline"
 )
-
-API_DOCUMENT_FIELDS: tuple[str, ...] = (
-    "document_chembl_id",
-    "doc_type",
-    "journal",
-    "journal_full_title",
-    "doi",
-    "src_id",
-    "title",
-    "abstract",
-    "year",
-    "volume",
-    "issue",
-    "first_page",
-    "last_page",
-    "pubmed_id",
-    "authors",
-)
-
-# Required fields that must always be requested from the API.
-MUST_HAVE_FIELDS: tuple[str, ...] = (
-    "document_chembl_id",
-    "doi",
-    "issue",
-)
-
 
 class ChemblDocumentPipeline(ChemblPipelineBase):
     """ETL pipeline extracting document records from the ChEMBL API."""
@@ -175,7 +150,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             build_context=build_context,
             id_column="document_chembl_id",
             summary_event="chembl_document.extract_summary",
-            must_have_fields=MUST_HAVE_FIELDS,
+            must_have_fields=DOCUMENT_MUST_HAVE_FIELDS,
             default_select_fields=API_DOCUMENT_FIELDS,
             record_transform=record_transform,
             sort_by=("document_chembl_id",),
@@ -221,7 +196,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         )
         merged_select_fields = self._merge_select_fields(
             resolved_select_fields,
-            MUST_HAVE_FIELDS,
+            DOCUMENT_MUST_HAVE_FIELDS,
         )
 
         limit = self.config.cli.limit

@@ -408,7 +408,7 @@ sources:
     parameters:
       base_url: "https://www.ebi.ac.uk/chembl/api/data"
 validation:
-  schema_out: "bioetl.schemas.chembl_activity_schema:ActivitySchema"
+  schema_out: "bioetl.schemas.activity:ActivitySchema"
 """
         )
 

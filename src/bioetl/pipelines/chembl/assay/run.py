@@ -25,6 +25,7 @@ from bioetl.core.schema import (
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
+from .._constants import ASSAY_MUST_HAVE_FIELDS
 from ..common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -114,16 +115,6 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
             break
 
     return identifiers
-
-# Required fields that must always be requested from the API.
-MUST_HAVE_FIELDS: tuple[str, ...] = (
-    "assay_chembl_id",
-    #   "assay_category",
-    #   "assay_group",
-    #   "src_assay_id",
-    #   "curation_level",
-)
-
 
 class ChemblAssayPipeline(ChemblPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
@@ -309,8 +300,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             build_context=build_context,
             id_column="assay_chembl_id",
             summary_event="chembl_assay.extract_summary",
-            must_have_fields=MUST_HAVE_FIELDS,
-            default_select_fields=MUST_HAVE_FIELDS,
+            must_have_fields=ASSAY_MUST_HAVE_FIELDS,
+            default_select_fields=ASSAY_MUST_HAVE_FIELDS,
             post_processors=(post_process,),
             sort_by=("assay_chembl_id",),
             empty_frame_factory=empty_frame,
@@ -372,7 +363,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         limit = self.config.cli.limit
         resolved_select_fields = self._resolve_select_fields(source_raw)
-        merged_select_fields = self._merge_select_fields(resolved_select_fields, MUST_HAVE_FIELDS)
+        merged_select_fields = self._merge_select_fields(
+            resolved_select_fields, ASSAY_MUST_HAVE_FIELDS
+        )
 
         log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
             fields=merged_select_fields,

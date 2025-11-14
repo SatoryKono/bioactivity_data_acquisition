@@ -63,11 +63,22 @@ def get_typer() -> Any:
     return cast(Any, _load_typer())
 
 
+def _noop_callback() -> None:
+    """Placeholder group callback to force Typer into multi-command mode."""
+
+    return None
+
+
 def create_app(name: str, help_text: str) -> TyperApp:
     """Create a Typer application with completion disabled."""
 
     typer = _load_typer()
-    return typer.Typer(name=name, help=help_text, add_completion=False)
+    return typer.Typer(
+        name=name,
+        help=help_text,
+        add_completion=False,
+        callback=_noop_callback,
+    )
 
 
 def create_simple_tool_app(
@@ -76,10 +87,16 @@ def create_simple_tool_app(
     help_text: str,
     main_fn: Callable[..., Any],
 ) -> TyperApp:
-    """Create an application and register a single ``main`` command."""
+    """Create an application for a single callable executed without subcommands."""
 
-    app = create_app(name=name, help_text=help_text)
-    app.command()(main_fn)
+    typer = _load_typer()
+    app = typer.Typer(
+        name=name,
+        help=help_text,
+        add_completion=False,
+        invoke_without_command=True,
+    )
+    app.callback()(main_fn)
     return app
 
 

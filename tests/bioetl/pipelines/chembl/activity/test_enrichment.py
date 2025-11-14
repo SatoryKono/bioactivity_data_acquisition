@@ -15,7 +15,7 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.schemas.chembl_activity_schema import COLUMN_ORDER, ActivitySchema
+from bioetl.schemas.activity import COLUMN_ORDER, ActivitySchema
 
 
 @pytest.fixture

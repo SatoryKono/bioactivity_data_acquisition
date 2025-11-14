@@ -1,23 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Protocol
 
 import pytest
 from typer.testing import CliRunner  # pyright: ignore[reportMissingImports]
 
 from bioetl.cli.tools import build_vocab_store as build_vocab_store_cli
-
-
-class MonkeyPatchProtocol(Protocol):
-    def setattr(
-        self,
-        target: object,
-        name: str | None,
-        value: object,
-        raising: bool = ...,
-    ) -> None:
-        ...
 
 
 @pytest.fixture()
@@ -27,7 +15,7 @@ def runner() -> CliRunner:
 
 def test_build_vocab_store_success(
     tmp_path: Path,
-    monkeypatch: MonkeyPatchProtocol,
+    monkeypatch: pytest.MonkeyPatch,
     runner: CliRunner,
 ) -> None:
     captured: dict[str, Path] = {}
@@ -53,7 +41,7 @@ def test_build_vocab_store_success(
 
 def test_build_vocab_store_failure(
     tmp_path: Path,
-    monkeypatch: MonkeyPatchProtocol,
+    monkeypatch: pytest.MonkeyPatch,
     runner: CliRunner,
 ) -> None:
     def fake_build_vocab_store(*, src: Path, output: Path) -> Path:  # noqa: ARG001
