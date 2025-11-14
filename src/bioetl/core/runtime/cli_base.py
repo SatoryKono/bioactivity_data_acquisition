@@ -16,6 +16,7 @@ from bioetl.core.runtime.cli_errors import (
     CliErrorTemplate,
     LoggerLike,
     emit_cli_error,
+    emit_tool_error,
 )
 
 CommandCallable: TypeAlias = Callable[..., None]
@@ -79,13 +80,14 @@ class CliCommandBase:
     def handle_exception(self, exc: Exception) -> NoReturn:
         """Handle unexpected exceptions and terminate the process."""
 
-        self.emit_error(
+        emit_tool_error(
             template=self.error_template,
             message=f"Unhandled CLI exception: {exc}",
             logger=self.logger,
             context={"exception_type": exc.__class__.__name__},
+            exit_code=self.exit_code_error,
+            cause=exc,
         )
-        self.exit(self.exit_code_error)  # pragma: no cover - process termination path
 
     @staticmethod
     def emit_error(

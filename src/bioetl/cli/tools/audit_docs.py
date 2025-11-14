@@ -5,13 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools.audit_docs import run_audit
 
 typer: Any = get_typer()
@@ -33,7 +34,19 @@ def main(
     """Run the documentation audit workflow."""
 
     artifacts_path = artifacts.resolve()
-    run_audit(artifacts_dir=artifacts_path)
+    try:
+        run_audit(artifacts_dir=artifacts_path)
+    except Exception as exc:  # noqa: BLE001
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Documentation audit failed: {exc}",
+            context={
+                "command": "bioetl-audit-docs",
+                "artifacts": str(artifacts_path),
+                "exception_type": exc.__class__.__name__,
+            },
+            cause=exc,
+        )
     typer.echo(f"Audit completed, reports stored in {artifacts_path}")
     exit_with_code(0)
 

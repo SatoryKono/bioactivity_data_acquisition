@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.qc_boundary import collect_cli_qc_boundary_report
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
@@ -12,6 +12,7 @@ from bioetl.cli.tools.typer_helpers import (
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG
 
 typer: Any = get_typer()
 
@@ -36,7 +37,14 @@ def main() -> None:
             err=True,
             fg=typer.colors.RED,
         )
-    exit_with_code(1)
+    emit_tool_error(
+        template=CLI_ERROR_CONFIG,
+        message=f"{len(report.violations)} CLI↔QC boundary violations detected",
+        context={
+            "command": "bioetl-qc-boundary-check",
+            "violation_count": len(report.violations),
+        },
+    )
 
 
 app: TyperApp = create_simple_tool_app(

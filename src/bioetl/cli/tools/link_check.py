@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools.link_check import run_link_check as run_link_check_sync
 
 typer: Any = get_typer()
@@ -31,8 +32,16 @@ def main(
     try:
         exit_code = run_link_check(timeout_seconds=timeout_seconds)
     except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Link check execution failed: {exc}",
+            context={
+                "command": "bioetl-link-check",
+                "timeout_seconds": timeout_seconds,
+                "exception_type": exc.__class__.__name__,
+            },
+            cause=exc,
+        )
 
     if exit_code == 0:
         typer.echo("Link check completed successfully")
@@ -42,7 +51,16 @@ def main(
             err=True,
             fg=typer.colors.RED,
         )
-    exit_with_code(exit_code)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Link check failed with exit code {exit_code}",
+            context={
+                "command": "bioetl-link-check",
+                "timeout_seconds": timeout_seconds,
+                "lychee_exit_code": exit_code,
+            },
+        )
+    exit_with_code(0)
 
 
 app: TyperApp = create_simple_tool_app(

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools.semantic_diff import run_semantic_diff as run_semantic_diff_sync
 
 typer: Any = get_typer()
@@ -26,8 +27,15 @@ def main() -> None:
     try:
         report_path = run_semantic_diff()
     except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Semantic diff failed: {exc}",
+            context={
+                "command": "bioetl-semantic-diff",
+                "exception_type": exc.__class__.__name__,
+            },
+            cause=exc,
+        )
 
     typer.echo(f"Semantic diff report written to: {report_path.resolve()}")
     exit_with_code(0)

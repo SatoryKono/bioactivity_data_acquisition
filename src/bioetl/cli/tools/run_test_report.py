@@ -5,13 +5,14 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from bioetl.cli.tools import exit_with_code
+from bioetl.cli.tools import emit_tool_error, exit_with_code
 from bioetl.cli.tools.typer_helpers import (
     TyperApp,
     create_simple_tool_app,
     get_typer,
     run_app,
 )
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools.run_test_report import TEST_REPORTS_ROOT
 from bioetl.tools.run_test_report import (
     generate_test_report as generate_test_report_sync,
@@ -36,11 +37,20 @@ def main(
 ) -> None:
     """Run pytest and build the combined report."""
 
+    output_root_path = output_root.resolve()
     try:
-        exit_code = generate_test_report(output_root=output_root.resolve())
+        exit_code = generate_test_report(output_root=output_root_path)
     except Exception as exc:  # noqa: BLE001
-        typer.secho(str(exc), err=True, fg=typer.colors.RED)
-        exit_with_code(1, cause=exc)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Test report generation failed: {exc}",
+            context={
+                "command": "bioetl-run-test-report",
+                "output_root": str(output_root_path),
+                "exception_type": exc.__class__.__name__,
+            },
+            cause=exc,
+        )
 
     if exit_code == 0:
         typer.echo("Test report generated successfully")
@@ -50,7 +60,16 @@ def main(
             err=True,
             fg=typer.colors.RED,
         )
-    exit_with_code(exit_code)
+        emit_tool_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"pytest exited with code {exit_code}",
+            context={
+                "command": "bioetl-run-test-report",
+                "output_root": str(output_root_path),
+                "pytest_exit_code": exit_code,
+            },
+        )
+    exit_with_code(0)
 
 
 app: TyperApp = create_simple_tool_app(
