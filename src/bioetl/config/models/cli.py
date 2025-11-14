@@ -17,6 +17,14 @@ class CLIConfig(BaseModel):
         default_factory=tuple,
         description="Profiles requested via the --profile flag (in order).",
     )
+    environment_profiles: Sequence[str] = Field(
+        default_factory=tuple,
+        description="Environment profile files applied automatically (in order).",
+    )
+    environment: str | None = Field(
+        default=None,
+        description="Name of the BIOETL_ENV environment that contributed overrides.",
+    )
     dry_run: bool = Field(
         default=False, description="If true, skip the write/materialization stage."
     )

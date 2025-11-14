@@ -10,15 +10,172 @@ from typing import Any, TypeGuard, cast
 import yaml
 from yaml.nodes import ScalarNode
 
+from .environment import (
+    EnvironmentSettings,
+    build_env_override_mapping,
+    load_environment_settings,
+    resolve_env_layers,
+)
 from .models.base import PipelineConfig
 
 DEFAULTS_DIR = Path("configs/defaults")
-ENV_ROOT_DIR = Path("configs/env")
-ENVIRONMENT_VARIABLE = "BIOETL_ENV"
-VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 
 
+def load_raw_config(path: Path) -> dict[str, Any]:
+    """Load a configuration file with support for ``extends``."""
+
+    return _load_with_extends(path, stack=())
+
+
+def apply_profiles(
+    profile_paths: Sequence[Path],
+    *,
+    base_dir: Path,
+) -> tuple[dict[str, Any], list[Path]]:
+    """Apply profile files in order and return merged payload with metadata."""
+
+    merged: dict[str, Any] = {}
+    seen: set[Path] = set()
+    applied: list[Path] = []
+
+    for profile_path in profile_paths:
+        resolved_profile = _resolve_reference(profile_path, base=base_dir)
+        if resolved_profile in seen:
+            continue
+        profile_data = load_raw_config(resolved_profile)
+        merged = _deep_merge(merged, profile_data)
+        seen.add(resolved_profile)
+        applied.append(resolved_profile)
+
+    return merged, applied
+
+
+def apply_env_overrides(
+    payload: Mapping[str, Any],
+    *,
+    environment_files: Sequence[Path],
+    env_mapping: Mapping[str, str],
+    env_prefixes: Sequence[str],
+    runtime_overrides: Mapping[str, Any],
+) -> tuple[dict[str, Any], list[Path]]:
+    """Apply environment layers, short overrides, and prefixed env vars."""
+
+    merged: dict[str, Any] = dict(payload)
+    env_payload, applied_files = _load_layer_files(environment_files)
+    if env_payload:
+        merged = _deep_merge(merged, env_payload)
+    if runtime_overrides:
+        merged = _deep_merge(merged, runtime_overrides)
+    env_overrides = _collect_env_overrides(env_mapping, prefixes=env_prefixes)
+    if env_overrides:
+        merged = _deep_merge(merged, env_overrides)
+    return merged, applied_files
+
+
+def apply_cli_overrides(
+    payload: Mapping[str, Any],
+    *,
+    cli_overrides: Mapping[str, Any] | None,
+    cli_metadata: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Apply CLI ``--set`` overrides and attach metadata."""
+
+    merged: dict[str, Any] = dict(payload)
+    metadata: dict[str, Any] = dict(cli_metadata or {})
+
+    if cli_overrides:
+        cli_tree: dict[str, Any] = {}
+        parsed_overrides: dict[str, Any] = {}
+        for dotted_key, raw_value in cli_overrides.items():
+            parsed_value = _coerce_value(raw_value)
+            parsed_overrides[dotted_key] = parsed_value
+            _assign_nested(cli_tree, dotted_key.split("."), parsed_value)
+        merged = _deep_merge(merged, cli_tree)
+        metadata.setdefault("cli", {}).setdefault("set_overrides", {}).update(parsed_overrides)
+
+    if metadata:
+        merged = _deep_merge(merged, metadata)
+
+    return merged
+
+
+def finalize_pipeline_config(payload: Mapping[str, Any]) -> PipelineConfig:
+    """Validate the fully merged payload."""
+
+    return PipelineConfig.model_validate(payload)
+
+
+def _resolve_config_path(config_path: str | Path) -> Path:
+    """Normalize config path resolution logic."""
+
+    candidate = Path(config_path).expanduser()
+    if candidate.is_absolute():
+        path = candidate.resolve()
+    else:
+        cwd_path = (Path.cwd() / candidate).resolve()
+        if cwd_path.exists():
+            path = cwd_path
+        else:
+            path = candidate.resolve()
+
+    if not path.exists():
+        msg = f"Configuration file not found: {path}"
+        raise FileNotFoundError(msg)
+    return path
+
+
+def _load_layer_files(files: Sequence[Path]) -> tuple[dict[str, Any], list[Path]]:
+    """Load a sequence of YAML files and return the merged payload + list."""
+
+    payload: dict[str, Any] = {}
+    applied: list[Path] = []
+    seen: set[Path] = set()
+
+    for file_path in files:
+        resolved = file_path.resolve()
+        if resolved in seen:
+            continue
+        data = load_raw_config(resolved)
+        payload = _deep_merge(payload, data)
+        applied.append(resolved)
+        seen.add(resolved)
+
+    return payload, applied
+
+
+def _build_cli_metadata(
+    *,
+    profiles: Sequence[Path],
+    environment_profiles: Sequence[Path],
+    environment_name: str | None,
+    base_dir: Path,
+) -> dict[str, Any]:
+    """Collect CLI metadata about applied layers."""
+
+    cli_section: dict[str, Any] = {}
+
+    if profiles:
+        cli_section["profiles"] = [
+            _stringify_profile(profile, base=base_dir) for profile in profiles
+        ]
+    if environment_profiles:
+        cli_section["environment_profiles"] = [
+            _stringify_profile(profile, base=base_dir) for profile in environment_profiles
+        ]
+    if environment_name is not None:
+        cli_section["environment"] = environment_name
+
+    if not cli_section:
+        return {}
+
+    return {"cli": cli_section}
+
+
+def _selected_environment(settings: EnvironmentSettings) -> str | None:
+    """Return the active environment when explicitly provided via env/config."""
+
+    return settings.bioetl_env
 def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
     """Return True when ``value`` is an iterable but not a string-like object."""
     return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
@@ -37,55 +194,18 @@ def load_config(
     env: Mapping[str, str] | None = None,
     env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
     include_default_profiles: bool = False,
+    environment_settings: EnvironmentSettings | None = None,
 ) -> PipelineConfig:
     """Load, merge, and validate a pipeline configuration.
 
-    The loader performs the following steps:
-
-    1. Recursively resolves and merges any ``extends`` references declared by the
-       configuration file or by the optional ``profiles`` argument.
-    2. Applies overrides supplied via ``cli_overrides`` (such as ``--set`` flags).
-    3. Applies overrides from environment variables starting with one of the
-       ``env_prefixes`` (``BIOETL__`` or ``BIOACTIVITY__`` by default).
-    4. Validates the merged mapping against :class:`PipelineConfig`.
-
-    Parameters
-    ----------
-    config_path:
-        Path to the main pipeline configuration YAML file.
-    profiles:
-        Additional profile files to merge before the main configuration.
-    cli_overrides:
-        Mapping of dotted keys to override values coming from the CLI.
-    env:
-        Mapping used to resolve environment overrides. ``os.environ`` is used if
-        omitted.
-    env_prefixes:
-        Allowed prefixes for environment overrides.
-    include_default_profiles:
-        When ``True``, automatically prepends the built-in ``base`` and
-        ``determinism`` profiles.
+    Order слоёв: raw YAML → profiles → environment (файлы + env/short overrides)
+    → CLI overrides → финальная валидация.
     """
 
-    # Resolve relative paths relative to current working directory first
-    candidate = Path(config_path).expanduser()
-    if candidate.is_absolute():
-        path = candidate.resolve()
-    else:
-        # Try current working directory first for relative paths
-        cwd_path = (Path.cwd() / candidate).resolve()
-        if cwd_path.exists():
-            path = cwd_path
-        else:
-            # Fall back to resolving relative to candidate's parent
-            path = candidate.resolve()
-
-    if not path.exists():
-        msg = f"Configuration file not found: {path}"
-        raise FileNotFoundError(msg)
-
+    path = _resolve_config_path(config_path)
+    env_settings = environment_settings or load_environment_settings()
     env_mapping: Mapping[str, str] = env or os.environ
-    selected_environment = _select_environment(env_mapping)
+    selected_environment = _selected_environment(env_settings)
 
     requested_profiles: list[Path] = []
     if include_default_profiles:
@@ -93,71 +213,40 @@ def load_config(
     if profiles:
         requested_profiles.extend(Path(p).expanduser() for p in profiles)
 
-    merged: dict[str, Any] = {}
-    seen_profiles: set[Path] = set()
-    applied_profiles: list[Path] = []
-    for profile_path in requested_profiles:
-        resolved_profile = _resolve_reference(profile_path, base=path.parent)
-        if resolved_profile in seen_profiles:
-            continue
-        profile_data = _load_with_extends(resolved_profile, stack=())
-        merged = _deep_merge(merged, profile_data)
-        seen_profiles.add(resolved_profile)
-        applied_profiles.append(resolved_profile)
+    profile_payload, applied_profiles = apply_profiles(
+        requested_profiles,
+        base_dir=path.parent,
+    )
 
-    config_data = _load_with_extends(path, stack=())
-    merged = _deep_merge(merged, config_data)
+    merged = _deep_merge(profile_payload, load_raw_config(path))
 
-    applied_environment_profiles: list[Path] = []
-    if selected_environment is not None:
-        env_payload, applied_environment_profiles = _load_environment_overrides(
-            selected_environment, base=path.parent
-        )
-        if env_payload:
-            merged = _deep_merge(merged, env_payload)
+    env_layer_files = resolve_env_layers(
+        selected_environment,
+        base=path.parent,
+    )
+    merged, applied_environment_profiles = apply_env_overrides(
+        merged,
+        environment_files=env_layer_files,
+        env_mapping=env_mapping,
+        env_prefixes=env_prefixes,
+        runtime_overrides=build_env_override_mapping(env_settings),
+    )
 
-    cli_metadata: dict[str, Any] = {}
-    cli_section: dict[str, Any] | None = None
-    if applied_profiles:
-        if cli_section is None:
-            cli_section = {}
-        cli_section["profiles"] = [
-            _stringify_profile(p, base=path.parent) for p in applied_profiles
-        ]
-    if applied_environment_profiles:
-        if cli_section is None:
-            cli_section = {}
-        cli_section["environment_profiles"] = [
-            _stringify_profile(p, base=path.parent) for p in applied_environment_profiles
-        ]
-    if selected_environment is not None:
-        if cli_section is None:
-            cli_section = {}
-        cli_section["environment"] = selected_environment
-    if cli_section:
-        cli_metadata = {"cli": cli_section}
+    metadata = _build_cli_metadata(
+        profiles=applied_profiles,
+        environment_profiles=applied_environment_profiles,
+        environment_name=selected_environment,
+        base_dir=path.parent,
+    )
 
-    if cli_overrides:
-        cli_tree: dict[str, Any] = {}
-        parsed_overrides: dict[str, Any] = {}
-        for dotted_key, raw_value in cli_overrides.items():
-            parsed_value = _coerce_value(raw_value)
-            parsed_overrides[dotted_key] = parsed_value
-            _assign_nested(cli_tree, dotted_key.split("."), parsed_value)
-        merged = _deep_merge(merged, cli_tree)
-        if cli_metadata:
-            cli_metadata.setdefault("cli", {})
-        cli_metadata.setdefault("cli", {}).setdefault("set_overrides", {}).update(parsed_overrides)
-
-    if cli_metadata:
-        merged = _deep_merge(merged, cli_metadata)
-
-    env_overrides = _collect_env_overrides(env_mapping, prefixes=env_prefixes)
-    if env_overrides:
-        merged = _deep_merge(merged, env_overrides)
+    merged = apply_cli_overrides(
+        merged,
+        cli_overrides=cli_overrides,
+        cli_metadata=metadata,
+    )
 
     normalized = _migrate_legacy_sections(merged)
-    return PipelineConfig.model_validate(normalized)
+    return finalize_pipeline_config(normalized)
 
 
 def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:
@@ -418,44 +507,6 @@ def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -
         if scoped_tree:
             overrides = _deep_merge(overrides, scoped_tree)
     return overrides
-
-
-def _select_environment(env_mapping: Mapping[str, str]) -> str | None:
-    """Resolve and validate the active environment from the mapping."""
-    raw_value = env_mapping.get(ENVIRONMENT_VARIABLE)
-    if raw_value is None:
-        return None
-    normalized = raw_value.strip().lower()
-    if not normalized:
-        return None
-    if normalized not in VALID_ENVIRONMENTS:
-        msg = (
-            f"Unsupported environment '{raw_value}' for {ENVIRONMENT_VARIABLE}. "
-            f"Expected one of: {sorted(VALID_ENVIRONMENTS)}"
-        )
-        raise ValueError(msg)
-    return normalized
-
-
-def _load_environment_overrides(
-    environment: str,
-    *,
-    base: Path,
-) -> tuple[dict[str, Any], list[Path]]:
-    """Load environment-specific configuration layers and return applied files."""
-    env_directory = ENV_ROOT_DIR / environment
-    files = _discover_layer_files(env_directory, base=base, strict=True)
-    payload: dict[str, Any] = {}
-    applied: list[Path] = []
-    seen: set[Path] = set()
-    for file_path in files:
-        if file_path in seen:
-            continue
-        data = _load_with_extends(file_path, stack=())
-        payload = _deep_merge(payload, data)
-        applied.append(file_path)
-        seen.add(file_path)
-    return payload, applied
 
 
 def _discover_layer_files(

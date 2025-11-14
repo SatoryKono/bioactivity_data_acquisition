@@ -61,10 +61,11 @@ dev = [
     "bandit>=1.7.5",
     "safety>=2.3.5",
     "detect-secrets>=1.4.0",
+    "vulture>=2.11",
 ]
 
 [project.scripts]
-bioetl = "bioetl.cli.cli_app:run"
+bioetl = "bioetl.cli.cli_app:app"
 bioetl-audit-docs = "tools.audit_docs:app"
 bioetl-build-vocab-store = "tools.build_vocab_store:app"
 bioetl-catalog-code-symbols = "tools.catalog_code_symbols:app"

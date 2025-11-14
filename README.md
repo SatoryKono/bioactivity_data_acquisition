@@ -31,6 +31,7 @@ bioetl activity_chembl \
 
 # список команд и алиасов CLI
 python -m bioetl.cli.cli_app list
+bioetl list
 ```
 
 Обязательные флаги и параметры описаны в

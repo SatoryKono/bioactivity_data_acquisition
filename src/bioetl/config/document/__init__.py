@@ -50,10 +50,13 @@ class DocumentSourceParameters(SourceParameters):
             ):
                 select_fields = tuple(str(field) for field in select_fields_raw)
 
-        return cls(
-            base_url=data.get("base_url"),
-            select_fields=select_fields,
-        )
+        payload: dict[str, Any] = {}
+        if "base_url" in data:
+            payload["base_url"] = data.get("base_url")
+        if select_fields is not None:
+            payload["select_fields"] = select_fields
+
+        return cls.model_validate(payload)
 
 
 class DocumentSourceConfig(SourceConfig[DocumentSourceParameters]):
@@ -82,6 +85,6 @@ class DocumentSourceConfig(SourceConfig[DocumentSourceParameters]):
         DocumentSourceConfig
             Self with enforced limits.
         """
-        if self.batch_size > 25:
+        if self.batch_size is None or self.batch_size > 25:
             self.batch_size = 25
         return self

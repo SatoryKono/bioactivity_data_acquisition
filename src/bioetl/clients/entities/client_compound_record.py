@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
@@ -11,7 +12,11 @@ import pandas as pd
 from bioetl.clients.client_chembl_base import ChemblClientProtocol
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
-__all__ = ["ChemblCompoundRecordEntityClient"]
+__all__ = [
+    "ChemblCompoundRecordEntityClient",
+    "_compound_record_dedup_priority",
+    "_safe_bool",
+]
 
 
 class ChemblCompoundRecordEntityClient:
@@ -66,7 +71,8 @@ class ChemblCompoundRecordEntityClient:
                     )
                 )
 
-        frame = self._records_to_frame(records, fields)
+        deduplicated_records = self._deduplicate_records(records)
+        frame = self._records_to_frame(deduplicated_records, fields)
         self._log.info(
             LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,
             pairs_requested=len(validated_pairs),
@@ -181,6 +187,24 @@ class ChemblCompoundRecordEntityClient:
             frame = frame.sort_values(by=sort_columns, kind="mergesort")
         return frame.reset_index(drop=True)
 
+    def _deduplicate_records(
+        self,
+        records: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Deduplicate records per (molecule, document) pair using priority rules."""
+        best_by_pair: dict[tuple[str, str], dict[str, Any]] = {}
+        for record in records:
+            molecule = record.get("molecule_chembl_id")
+            document = record.get("document_chembl_id")
+            if not isinstance(molecule, str) or not isinstance(document, str):
+                continue
+            key = (molecule, document)
+            candidate = dict(record)
+            existing = best_by_pair.get(key)
+            if existing is None or _record_priority(candidate) < _record_priority(existing):
+                best_by_pair[key] = candidate
+        return list(best_by_pair.values())
+
     def _resolve_column_order(
         self,
         columns: Sequence[str],
@@ -216,4 +240,62 @@ class ChemblCompoundRecordEntityClient:
             msg = f"chunk_size must be positive, got {chunk_size}"
             raise ValueError(msg)
         return chunk_size
+
+
+def _compound_record_dedup_priority(
+    existing: Mapping[str, Any],
+    new: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    """Return the preferred record between two candidates."""
+    if _record_priority(new) < _record_priority(existing):
+        return new
+    return existing
+
+
+def _safe_bool(value: Any) -> bool:
+    """Convert common truthy/falsey payloads to ``bool`` safely."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            return False
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().casefold()
+        if not normalized:
+            return False
+        if normalized in {"1", "true", "yes", "y", "on", "t"}:
+            return True
+        if normalized in {"0", "false", "no", "n", "off", "f"}:
+            return False
+        return False
+    return bool(value)
+
+
+def _record_priority(record: Mapping[str, Any]) -> tuple[int, int, tuple[int, str]]:
+    """Compute the priority tuple for a compound record."""
+    curated_rank = 0 if _safe_bool(record.get("curated")) else 1
+    removed_rank = 0 if not _safe_bool(record.get("removed")) else 1
+    record_id_rank = _record_id_sort_key(record.get("record_id"))
+    return (curated_rank, removed_rank, record_id_rank)
+
+
+def _record_id_sort_key(value: Any) -> tuple[int, str]:
+    """Sort key that prefers numeric record ids and lower values."""
+    if isinstance(value, bool):
+        return (0, "00000000000000000001" if value else "00000000000000000000")
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
+            return (2, "")
+        numeric = int(value)
+        return (0, f"{numeric:020d}")
+    if isinstance(value, str):
+        normalized = value.strip()
+        if normalized.isdigit():
+            numeric = int(normalized)
+            return (0, f"{numeric:020d}")
+        return (1, normalized)
+    return (2, "")
 

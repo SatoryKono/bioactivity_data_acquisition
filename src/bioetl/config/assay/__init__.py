@@ -84,7 +84,8 @@ class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
         AssaySourceConfig
             Self with enforced limits.
         """
-        if self.batch_size > 25:
+        batch_size = self.batch_size
+        if batch_size is not None and batch_size > 25:
             self.batch_size = 25
         if self.max_url_length > 2000:
             self.max_url_length = 2000
@@ -94,7 +95,7 @@ class AssaySourceConfig(SourceConfig[AssaySourceParameters]):
     def _build_payload(
         cls,
         *,
-        config: SourceConfig,
+        config: SourceConfig[AssaySourceParameters],
         parameters: AssaySourceParameters,
     ) -> dict[str, Any]:
         """Extend the base payload with assay-specific fields."""

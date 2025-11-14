@@ -34,6 +34,12 @@ class SourceParameters(BaseModel):
 
         return {str(key): value for key, value in params.items()}
 
+    def __contains__(self, item: object) -> bool:
+        """Allow membership checks for backwards compatibility with mappings."""
+        if not isinstance(item, str):
+            return False
+        return item in self.model_dump()
+
 
 class SourceConfig(BaseModel, Generic[ParametersT]):
     """Unified per-source configuration model for pipelines and clients."""
@@ -57,7 +63,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         description="Batch size used when paginating requests for this source.",
     )
     parameters: ParametersT = Field(
-        default_factory=SourceParameters,
+        default_factory=lambda: cast(ParametersT, SourceParameters()),
         description="Free-form parameters consumed by source-specific components.",
     )
 
@@ -89,18 +95,18 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
                 return cast(ParametersT, params)
             return cast(ParametersT, SourceParameters(**SourceParameters._normalize_mapping(params)))
         if params is None:
-            return model()
+            return cast(ParametersT, model())
         if isinstance(params, model):
-            return params
+            return cast(ParametersT, params)
         if isinstance(params, SourceParameters):
-            return model(**params.model_dump())
+            return cast(ParametersT, model.from_mapping(params.model_dump()))
         if isinstance(params, Mapping):
-            return model.from_mapping(params)
+            return cast(ParametersT, model.from_mapping(params))
         as_dict = getattr(params, "model_dump", None)
         if callable(as_dict):
             dumped = as_dict()
             if isinstance(dumped, Mapping):
-                return model.from_mapping(dumped)
+                return cast(ParametersT, model.from_mapping(dumped))
         raise TypeError(
             f"{cls.__name__} parameters must be mapping-compatible; received {type(params)!r}"
         )
@@ -159,7 +165,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
 
         default_factory = field_info.default_factory
         if default_factory is not None:
-            produced = default_factory()
+            produced = cast(Any, default_factory)()
             if isinstance(produced, int):
                 return produced
         return None
@@ -178,6 +184,12 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         """Return a parameter value with a fallback."""
 
         return self.parameters_mapping().get(key, default)
+
+    def __contains__(self, item: object) -> bool:
+        """Enable mapping-like membership checks for compatibility."""
+        if not isinstance(item, str):
+            return False
+        return item in self.model_dump()
 
     def resolve_effective_batch_size(
         self,

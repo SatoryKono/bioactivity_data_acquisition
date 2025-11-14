@@ -1,4 +1,4 @@
-"""Высокоуровневые абстракции для запуска пайплайнов из CLI."""
+"""High-level abstractions for preparing and executing pipelines from the CLI."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ __all__ = [
 
 
 def _apply_runtime_overrides_safely(settings: EnvironmentSettings) -> None:
-    """Применить runtime-переопределения окружения, игнорируя возвращаемое значение."""
+    """Apply runtime overrides for environment settings, discarding the return value."""
 
     apply_runtime_overrides(settings)
 
@@ -43,7 +43,7 @@ def _replace_config_section(
     section: str,
     updates: Mapping[str, Any],
 ) -> PipelineConfig:
-    """Вернуть новый PipelineConfig с обновлённой секцией без мутаций."""
+    """Return a new PipelineConfig with an updated section without mutations."""
 
     if not updates:
         return config
@@ -54,18 +54,18 @@ def _replace_config_section(
 
 
 class PipelineFactory(Protocol):
-    """Контракт фабрики пайплайна, используемой CLI."""
+    """Contract for pipeline factories used by the CLI layer."""
 
     def __call__(self, config: PipelineConfig, run_id: str) -> PipelineBase:
         ...
 
 
 class PipelineCommandError(RuntimeError):
-    """Базовое исключение для ошибок подготовки CLI пайплайна."""
+    """Base exception for CLI pipeline preparation failures."""
 
 
 class EnvironmentSetupError(PipelineCommandError):
-    """Ошибка инициализации окружения перед запуском пайплайна."""
+    """Environment initialization failure prior to pipeline execution."""
 
     def __init__(self, original: Exception) -> None:
         super().__init__(str(original))
@@ -73,7 +73,7 @@ class EnvironmentSetupError(PipelineCommandError):
 
 
 class ConfigLoadError(PipelineCommandError):
-    """Ошибка загрузки конфигурации пайплайна."""
+    """Pipeline configuration loading error."""
 
     def __init__(self, original: Exception, *, missing_reference: bool = False) -> None:
         super().__init__(str(original))
@@ -83,7 +83,7 @@ class ConfigLoadError(PipelineCommandError):
 
 @dataclass(frozen=True)
 class PipelineCommandOptions:
-    """Нормализованные опции, полученные из CLI."""
+    """Normalized CLI options consumed by the runner."""
 
     config_path: Path
     output_dir: Path
@@ -101,14 +101,14 @@ class PipelineCommandOptions:
 
 @dataclass(frozen=True)
 class PipelineDryRunPlan:
-    """План выполнения, сигнализирующий о режиме dry-run."""
+    """Execution plan signalling dry-run mode."""
 
     config: PipelineConfig
 
 
 @dataclass
 class PipelineExecutionPlan:
-    """План запуска пайплайна, подготовленный раннером."""
+    """Execution plan prepared by the runner."""
 
     run_id: str
     config: PipelineConfig
@@ -116,7 +116,7 @@ class PipelineExecutionPlan:
     run_kwargs: dict[str, Any]
 
     def run(self, pipeline_factory: PipelineFactory) -> RunResult:
-        """Создать пайплайн через фабрику и выполнить его."""
+        """Instantiate the pipeline through a factory and execute it."""
 
         pipeline = pipeline_factory(self.config, self.run_id)
         return pipeline.run(
@@ -126,7 +126,7 @@ class PipelineExecutionPlan:
 
 
 class PipelineConfigFactory:
-    """Фабрика конфигурации пайплайна, учитывающая CLI-опции."""
+    """Factory that builds PipelineConfig instances from CLI options."""
 
     def __init__(
         self,
@@ -142,7 +142,7 @@ class PipelineConfigFactory:
         self._config_loader = config_loader
 
     def create(self, options: PipelineCommandOptions) -> PipelineConfig:
-        """Сконструировать ``PipelineConfig`` на основе CLI-опций."""
+        """Construct a PipelineConfig from CLI options."""
 
         try:
             environment_settings = self._environment_loader()
@@ -203,7 +203,7 @@ class PipelineConfigFactory:
 
 
 class PipelineCommandRunner:
-    """Высокоуровневый раннер для подготовки и выполнения пайплайна из CLI."""
+    """Runner that prepares and executes pipelines from CLI-provided options."""
 
     def __init__(
         self,
@@ -217,7 +217,7 @@ class PipelineCommandRunner:
         self._now_factory = now_factory or (lambda tz: datetime.now(tz))
 
     def prepare(self, options: PipelineCommandOptions) -> PipelineExecutionPlan | PipelineDryRunPlan:
-        """Подготовить план выполнения пайплайна."""
+        """Prepare an execution plan based on CLI options."""
 
         config = self._config_factory.create(options)
         log_level = "DEBUG" if options.verbose else "INFO"
@@ -231,7 +231,7 @@ class PipelineCommandRunner:
         timezone_name = config.determinism.environment.timezone
         try:
             tz = ZoneInfo(timezone_name)
-        except Exception:  # pragma: no cover - защитный fallback
+        except Exception:  # pragma: no cover - defensive fallback
             tz = ZoneInfo("UTC")
 
         if not config.cli.date_tag:

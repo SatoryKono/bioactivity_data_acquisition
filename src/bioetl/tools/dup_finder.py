@@ -22,6 +22,7 @@ import typer
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.tools import get_project_root
 
 __all__ = ["main", "run_dup_finder"]
@@ -707,7 +708,13 @@ def main(
         run_dup_finder(root, out, formats)
     except Exception as exc:  # noqa: BLE001
         log = UnifiedLogger.get(__name__)
-        log.error(LogEvents.DUP_FINDER_FAILED, error=str(exc), exception_type=type(exc).__name__)
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Duplicate finder failed: {exc}",
+            logger=log,
+            event=LogEvents.DUP_FINDER_FAILED,
+            context={"exception_type": type(exc).__name__, "exc_info": True},
+        )
         CliCommandBase.exit(1, cause=exc)
 
 

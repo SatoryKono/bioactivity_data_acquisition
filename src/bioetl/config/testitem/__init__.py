@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from pydantic import Field, PositiveInt
+from pydantic import ConfigDict, Field, PositiveInt
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -14,6 +14,7 @@ from ..models.source import SourceConfig, SourceParameters
 class TestItemSourceParameters(SourceParameters):
     """Free-form parameters specific to the testitem source."""
 
+    model_config = ConfigDict(extra="forbid")
     base_url: str | None = Field(
         default=None,
         description="Override for the ChEMBL API base URL when fetching testitems.",
@@ -77,7 +78,7 @@ class TestItemSourceParameters(SourceParameters):
         )
 
 
-class TestItemSourceConfig(SourceConfig):
+class TestItemSourceConfig(SourceConfig[TestItemSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)

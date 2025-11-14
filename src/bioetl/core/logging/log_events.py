@@ -40,7 +40,7 @@ class LogEvents(str, Enum):
     """Strongly typed registry of UnifiedLogger events."""
 
     @staticmethod
-    def _generate_next_value_(name: str, start: int, count: int, last_values: list[str]) -> str:
+    def _generate_next_value_(name: str, start: int, count: int, _last_values: list[str]) -> str:
         """Produce a dotted event identifier based on enum member naming."""
         parts = name.lower().split("_")
         namespace = parts[0] if parts else "event"

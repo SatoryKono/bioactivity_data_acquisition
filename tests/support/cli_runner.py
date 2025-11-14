@@ -41,3 +41,24 @@ def run_cli_command(
         check=False,
     )
 
+
+def run_cli_script(
+    args: Sequence[str],
+    *,
+    cwd: Path | None = None,
+    timeout: float = 60.0,
+    extra_env: Mapping[str, str] | None = None,
+    capture_output: bool = True,
+    text: bool = True,
+) -> subprocess.CompletedProcess[str]:
+    """Execute the installed BioETL console script."""
+    command: list[str] = ["bioetl", *args]
+    return subprocess.run(
+        command,
+        cwd=cwd or PROJECT_ROOT,
+        env=_build_env(extra_env),
+        capture_output=capture_output,
+        text=text,
+        timeout=timeout,
+        check=False,
+    )

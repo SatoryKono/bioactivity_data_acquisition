@@ -11,7 +11,6 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, cast
-from urllib.parse import urlparse
 
 import pandas as pd
 import pandera.errors
@@ -2073,116 +2072,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 return str(value)
         return None
 
-    @staticmethod
-    def _extract_page_items(
-        payload: Mapping[str, Any],
-        items_keys: Sequence[str] | None = None,
-    ) -> list[dict[str, Any]]:
-        preferred_keys: tuple[str, ...] = ("activities",)
-        if items_keys is None:
-            combined_keys = preferred_keys + ("data", "items", "results")
-        else:
-            combined_keys = tuple(dict.fromkeys((*preferred_keys, *items_keys)))
-        return ChemblPipelineBase._extract_page_items(payload, combined_keys)
-
-    @staticmethod
-    def _next_link(payload: Mapping[str, Any], base_url: str) -> str | None:
-        page_meta: Any = payload.get("page_meta")
-        if isinstance(page_meta, Mapping):
-            next_link_raw: Any = page_meta.get("next")  # pyright: ignore[reportUnknownMemberType,reportUnknownVariableType]
-            next_link: str | None = (
-                cast(str | None, next_link_raw) if next_link_raw is not None else None
-            )
-            if isinstance(next_link, str) and next_link:
-                # urlparse returns ParseResult with str path when input is str
-                base_url_str = str(base_url)
-                base_path_parse_result = urlparse(base_url_str)
-                base_path_raw = base_path_parse_result.path
-                base_path_str = (
-                    base_path_raw.decode("utf-8", "ignore")
-                    if isinstance(base_path_raw, (bytes, bytearray))
-                    else base_path_raw
-                )
-                base_path: str = base_path_str.rstrip("/")
-
-                # If next_link is a full URL, extract only the relative path
-                if next_link.startswith("http://") or next_link.startswith("https://"):
-                    parsed = urlparse(next_link)
-                    base_parsed = urlparse(base_url_str)
-
-                    # Get paths - urlparse returns str path when input is str
-                    parsed_path_raw = parsed.path
-                    base_path_raw = base_parsed.path
-                    path: str = (
-                        parsed_path_raw.decode("utf-8", "ignore")
-                        if isinstance(parsed_path_raw, (bytes, bytearray))
-                        else parsed_path_raw
-                    )
-                    base_path_from_url: str = (
-                        base_path_raw.decode("utf-8", "ignore")
-                        if isinstance(base_path_raw, (bytes, bytearray))
-                        else base_path_raw
-                    )
-
-                    # Normalize: remove trailing slashes for comparison
-                    path_normalized: str = path.rstrip("/")
-                    base_path_normalized: str = base_path_from_url.rstrip("/")
-
-                    # Remove base_path prefix from path if it exists
-                    # This ensures we only return the endpoint part relative to base_url
-                    if base_path_normalized and path_normalized.startswith(base_path_normalized):
-                        # Extract the part after base_path
-                        relative_path = path_normalized[len(base_path_normalized) :]
-                        # If empty, it means paths are identical - this shouldn't happen for pagination
-                        if not relative_path:
-                            return None
-                        # Ensure relative_path starts with /
-                        if not relative_path.startswith("/"):
-                            relative_path = f"/{relative_path}"
-                    else:
-                        # If base_path doesn't match, try to extract using /api/data/ pattern
-                        # ChEMBL API URLs typically follow: .../chembl/api/data/<endpoint>
-                        if "/api/data/" in path:
-                            # Extract everything after /api/data/
-                            parts = path.split("/api/data/", 1)
-                            if len(parts) > 1:
-                                relative_path = "/" + parts[1]
-                            else:
-                                # Shouldn't happen, but fallback
-                                relative_path = path
-                        else:
-                            # Fallback: use the path as-is (shouldn't normally happen)
-                            relative_path = path
-                            # Ensure it starts with /
-                            if not relative_path.startswith("/"):
-                                relative_path = f"/{relative_path}"
-
-                    # Add query string if present (preserve original query params)
-                    if parsed.query:
-                        relative_path = f"{relative_path}?{parsed.query}"
-
-                    return relative_path
-
-                # Handle relative URLs that redundantly include the base path
-                if base_path:
-                    normalized_base = base_path.lstrip("/")
-                    stripped_link = next_link.lstrip("/")
-
-                    if stripped_link.startswith(normalized_base + "/"):
-                        stripped_link = stripped_link[len(normalized_base) :]
-                    elif stripped_link == normalized_base:
-                        stripped_link = ""
-
-                    next_link = stripped_link
-
-                next_link = next_link.lstrip("/")
-                if next_link:
-                    next_link = f"/{next_link}"
-                else:
-                    next_link = "/"
-
-                return next_link
-        return None
 
     # ------------------------------------------------------------------
     # Transformation helpers

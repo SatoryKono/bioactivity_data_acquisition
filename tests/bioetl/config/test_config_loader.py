@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 
 from bioetl.config import loader as config_loader
+from bioetl.config.environment import EnvironmentSettings
 
 _deep_merge = config_loader._deep_merge  # pyright: ignore[reportPrivateUsage]
 _assign_nested = config_loader._assign_nested  # pyright: ignore[reportPrivateUsage]
@@ -291,6 +292,68 @@ http:
         )
 
         assert config.pipeline.name == "overridden"
+
+    def test_load_config_applies_layers_in_order(self, tmp_path: Path) -> None:
+        """Ensure precedence raw < profiles < env < CLI with metadata captured."""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(
+            """
+version: 1
+pipeline:
+  name: base
+  owner: base-owner
+  version: "1.0.0"
+http:
+  default:
+    timeout_sec: 30.0
+    connect_timeout_sec: 10.0
+    read_timeout_sec: 30.0
+"""
+        )
+
+        profile_file = tmp_path / "profiles" / "profile.yaml"
+        profile_file.parent.mkdir()
+        profile_file.write_text(
+            """
+pipeline:
+  name: profile
+"""
+        )
+
+        env_layer = tmp_path / "configs" / "env" / "dev" / "env.yaml"
+        env_layer.parent.mkdir(parents=True)
+        env_layer.write_text(
+            """
+pipeline:
+  name: env-file
+  description: env-layer
+"""
+        )
+
+        env_settings = EnvironmentSettings(BIOETL_ENV="dev")
+        env_mapping = {
+            "BIOETL__PIPELINE__NAME": "env-var",
+            "BIOETL__PIPELINE__OWNER": "env-owner",
+        }
+
+        config = load_config(
+            config_file,
+            profiles=[profile_file],
+            cli_overrides={"pipeline.name": "cli-name"},
+            env=env_mapping,
+            include_default_profiles=False,
+            environment_settings=env_settings,
+        )
+
+        assert config.pipeline.name == "cli-name"
+        assert config.pipeline.owner == "env-owner"
+        assert config.pipeline.description == "env-layer"
+        profiles = [profile.replace("\\", "/") for profile in config.cli.profiles]
+        assert profiles == ["profiles/profile.yaml"]
+        env_profiles = [profile.replace("\\", "/") for profile in config.cli.environment_profiles]
+        assert env_profiles == ["configs/env/dev/env.yaml"]
+        assert config.cli.environment == "dev"
+        assert config.cli.set_overrides["pipeline.name"] == "cli-name"
 
     def test_load_config_not_found(self) -> None:
         """Test loading non-existent configuration raises error."""

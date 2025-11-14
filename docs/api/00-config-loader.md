@@ -100,11 +100,15 @@ assert config.http.client.headers["User-Agent"] == "BioETL/1.0"
 ### Интеграция с окружением
 
 ```python
-from bioetl.config.environment import load_environment_settings, apply_runtime_overrides
+from bioetl.config.environment import (
+    load_environment_settings,
+    build_env_override_mapping,
+)
 
 settings = load_environment_settings()
-overrides = apply_runtime_overrides(settings)
+runtime_overrides = build_env_override_mapping(settings)
 ```
 
-`apply_runtime_overrides` (см. модуль `environment.py`) дополнит `os.environ`
-недостающими ключами `BIOETL__...`, используя загруженные значения.
+Полученный `runtime_overrides` можно детерминированно слить с результатом
+`load_config`. Для обратной совместимости оставлен `apply_runtime_overrides`,
+который синхронизирует `BIOETL__...` переменные в `os.environ`.

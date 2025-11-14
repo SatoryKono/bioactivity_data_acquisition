@@ -105,3 +105,36 @@ infrastructure:
   `materialization` covers file formats and partitioning, `logging` binds to
   UnifiedLogger, `telemetry` wires tracing/metrics exporters, and `cli`
   surfaces operator overrides (limit, sample, dry-run, etc.).
+
+## Lifecycle and precedence
+
+`bioetl.config` придерживается фиксированного жизненного цикла конфигурации. Все
+поля проходят одни и те же этапы, что гарантирует воспроизводимость и явные
+контракты:
+
+1. **Raw YAML** — основной файл пайплайна читается с поддержкой `extends` и
+   `!include`. На этом шаге допускается только чтение с диска.
+2. **Profiles** — к базовому содержимому последовательно применяются профили:
+   сначала `configs/defaults/*.yaml` (если включены), затем профили, запрошенные
+   через CLI (`--profile`) или указанные в конфиге. Каждый профиль может
+   расширяться через `extends`, порядок применения является детерминированным.
+3. **Environment layers** — после профилей подмешиваются файлы из
+   `configs/env/<BIOETL_ENV>/` и короткие переменные из `.env`. Модуль
+   `bioetl.config.environment` отвечает за поиск `.env`, валидацию `BIOETL_ENV`
+   (`dev`, `stage`, `prod`) и построение словаря `BIOETL__...`-overrides без
+   побочных эффектов.
+4. **CLI overrides** — последним слоем идут значения из `CLIConfig`. Флаги
+   `--set key=value` попадают в `CLIConfig.set_overrides`, разбиваются на
+   вложенные структуры и детерминированно перекрывают предыдущие слои.
+5. **Finalization** — объединённый маппинг валидируется через
+   `PipelineConfig`. Полученная модель неизменяемо передаётся пайплайнам;
+   дальнейшие изменения запрещены, чтобы потребители всегда работали с
+   финализированным состоянием.
+
+Приоритет слоёв: `raw YAML < profiles < env < CLI`. Любой новый уровень обязан
+явно документировать своё место в цепочке и использовать те же правила детерминизма
+(стабильный порядок ключей, UTC, отсутствие скрытых побочных эффектов).
+
+`CLIConfig.profiles`, `CLIConfig.environment_profiles` и `CLIConfig.environment`
+фиксируют, какие профили и env-слои были применены, что упрощает отладку и
+аудит overrides.

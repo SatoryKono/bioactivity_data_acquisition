@@ -61,6 +61,6 @@ def test_run_app_invokes_entrypoint() -> None:
 
     run_app(dummy_app)
 
-    assert calls == [((,), {})]
+    assert calls == [((), {})]
 
 

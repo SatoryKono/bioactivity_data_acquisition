@@ -1,16 +1,23 @@
 """Common command options and pipeline command factory for BioETL CLI."""
-
 from __future__ import annotations
 
 import importlib
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, NoReturn, Protocol, cast
+from typing import Any, NoReturn, cast
 
 import typer
+from structlog.stdlib import BoundLogger
 from typer.models import OptionInfo
 
-from bioetl.cli.pipeline_command_runner import (
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import (
+    CLI_ERROR_CONFIG,
+    CLI_ERROR_EXTERNAL_API,
+    CLI_ERROR_INTERNAL,
+)
+from bioetl.core.runtime.pipeline_command_runner import (
     ConfigLoadError,
     EnvironmentSetupError,
     PipelineCommandOptions,
@@ -18,8 +25,9 @@ from bioetl.cli.pipeline_command_runner import (
     PipelineDryRunPlan,
     PipelineExecutionPlan,
 )
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.pipeline_command_runner import (
+    load_environment_settings as _load_environment_settings,
+)
 from bioetl.pipelines.base import PipelineBase
 from bioetl.pipelines.errors import (
     PipelineError,
@@ -28,19 +36,9 @@ from bioetl.pipelines.errors import (
     PipelineTimeoutError,
 )
 
-__all__ = ["create_pipeline_command", "CommonOptions"]
+load_environment_settings = _load_environment_settings
 
-
-class LoggerProtocol(Protocol):
-    """Minimal logger contract consumed by the CLI factory."""
-
-    def info(self, event: str, /, **context: Any) -> Any:
-        """Log an informational event with structured context."""
-        ...
-
-    def error(self, event: str, /, **context: Any) -> Any:
-        """Log an error event with structured context."""
-        ...
+__all__ = ["create_pipeline_command", "CommonOptions", "load_environment_settings"]
 
 
 class CommonOptions:
@@ -149,8 +147,11 @@ class PipelineCliCommand(CliCommandBase):
             plan = self._runner.prepare(options)
         except EnvironmentSetupError as exc:
             self.emit_error(
-                "E002",
-                f"Environment validation failed: {exc}",
+                template=CLI_ERROR_CONFIG,
+                message=f"Environment validation failed: {exc}",
+                logger=self.logger,
+                event=LogEvents.CLI_RUN_ERROR,
+                context={"pipeline": self._command_config.name},
             )
             self.exit(2)
             return
@@ -159,7 +160,13 @@ class PipelineCliCommand(CliCommandBase):
                 message = f"Configuration file or referenced profile not found: {exc}"
             else:
                 message = f"Configuration validation failed: {exc}"
-            self.emit_error("E002", message)
+            self.emit_error(
+                template=CLI_ERROR_CONFIG,
+                message=message,
+                logger=self.logger,
+                event=LogEvents.CONFIG_INVALID,
+                context={"pipeline": self._command_config.name},
+            )
             self.exit(2)
             return
 
@@ -168,7 +175,13 @@ class PipelineCliCommand(CliCommandBase):
             self.exit(0)
 
         if not isinstance(plan, PipelineExecutionPlan):  # pragma: no cover - defensive guard
-            self.emit_error("E001", "Invalid pipeline execution plan generated")
+            self.emit_error(
+                template=CLI_ERROR_INTERNAL,
+                message="Invalid pipeline execution plan generated",
+                logger=self.logger,
+                event=LogEvents.CLI_RUN_ERROR,
+                context={"pipeline": self._command_config.name},
+            )
             self.exit(self.exit_code_error)
             return
 
@@ -242,9 +255,13 @@ def _validate_config_path(config_path: Path) -> None:
     """Validate that the configuration file exists."""
     resolved_path = config_path.expanduser().resolve()
     if not resolved_path.exists():
-        _echo_error(
-            "E002",
-            f"Configuration file not found: {resolved_path}. Provide a valid path via --config/-c.",
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message=(
+                f"Configuration file not found: {resolved_path}. Provide a valid path via --config/-c."
+            ),
+            event=LogEvents.CONFIG_MISSING,
+            context={"config_path": str(resolved_path)},
         )
         CliCommandBase.exit(2)
 
@@ -254,7 +271,12 @@ def _validate_output_dir(output_dir: Path) -> None:
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        _echo_error("E002", f"Cannot create output directory: {output_dir}. {exc}")
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message=f"Cannot create output directory: {output_dir}. {exc}",
+            event=LogEvents.CONFIG_INVALID,
+            context={"output_dir": str(output_dir)},
+        )
         CliCommandBase.exit(2)
 
 
@@ -370,7 +392,7 @@ def _resolve_pipeline_class(
     *,
     module_name: str,
     class_name: str,
-    log: LoggerProtocol,
+    log: BoundLogger,
     run_id: str,
     command_name: str,
 ) -> type[PipelineBase]:
@@ -378,53 +400,59 @@ def _resolve_pipeline_class(
     try:
         pipeline_module = importlib.import_module(module_name)
     except ModuleNotFoundError as exc:  # pragma: no cover - defensive guard
-        log.error(
-            LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
-            pipeline=command_name,
-            module=module_name,
-            class_name=class_name,
-            run_id=run_id,
-            error=str(exc),
-            exc_info=True,
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message="Pipeline module could not be resolved. Check installation.",
+            logger=log,
+            event=LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
+            context={
+                "pipeline": command_name,
+                "module": module_name,
+                "class_name": class_name,
+                "run_id": run_id,
+                "exc_info": True,
+            },
         )
-        _echo_error("E002", "Pipeline module could not be resolved. Check installation.")
         CliCommandBase.exit(2, cause=exc)
         raise
 
     try:
         pipeline_cls = getattr(pipeline_module, class_name)
     except AttributeError as exc:  # pragma: no cover - defensive guard
-        log.error(
-            LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
-            pipeline=command_name,
-            module=module_name,
-            class_name=class_name,
-            run_id=run_id,
-            error=str(exc),
-            exc_info=True,
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message="Pipeline class could not be resolved. Check installation.",
+            logger=log,
+            event=LogEvents.CLI_PIPELINE_CLASS_LOOKUP_FAILED,
+            context={
+                "pipeline": command_name,
+                "module": module_name,
+                "class_name": class_name,
+                "run_id": run_id,
+                "exc_info": True,
+            },
         )
-        _echo_error("E002", "Pipeline class could not be resolved. Check installation.")
         CliCommandBase.exit(2, cause=exc)
         raise
 
     if isinstance(pipeline_cls, type):
         if not issubclass(pipeline_cls, PipelineBase):
-            log.error(LogEvents.CLI_PIPELINE_CLASS_INVALID,
-                pipeline=command_name,
-                module=module_name,
-                class_name=class_name,
-                run_id=run_id,
+            CliCommandBase.emit_error(
+                template=CLI_ERROR_CONFIG,
+                message="Pipeline type mismatch. Expected PipelineBase subclass.",
+                logger=log,
+                event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
+                context={"pipeline": command_name, "module": module_name, "class_name": class_name},
             )
-            _echo_error("E002", "Pipeline type mismatch. Expected PipelineBase subclass.")
             CliCommandBase.exit(2)
     elif not callable(pipeline_cls):
-        log.error(LogEvents.CLI_PIPELINE_CLASS_INVALID,
-            pipeline=command_name,
-            module=module_name,
-            class_name=class_name,
-            run_id=run_id,
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_CONFIG,
+            message="Pipeline entry is not callable.",
+            logger=log,
+            event=LogEvents.CLI_PIPELINE_CLASS_INVALID,
+            context={"pipeline": command_name, "module": module_name, "class_name": class_name},
         )
-        _echo_error("E002", "Pipeline entry is not callable.")
         CliCommandBase.exit(2)
 
     return cast(type[PipelineBase], pipeline_cls)
@@ -433,49 +461,50 @@ def _resolve_pipeline_class(
 def _handle_pipeline_exception(
     *,
     exc: Exception,
-    log: LoggerProtocol,
+    log: BoundLogger,
     run_id: str,
     command_name: str,
 ) -> None:
     """Map runtime exceptions to deterministic exit codes and logs."""
 
+    context: dict[str, Any] = {
+        "run_id": run_id,
+        "pipeline": command_name,
+        "error_type": exc.__class__.__name__,
+        "cause": str(exc.__cause__) if exc.__cause__ else None,
+        "exc_info": True,
+    }
     if _is_requests_api_error(exc):
         _emit_external_api_failure(
             exc=exc,
             log=log,
-            run_id=run_id,
-            command_name=command_name,
+            context=context,
         )
 
     if isinstance(exc, (PipelineTimeoutError, PipelineHTTPError, PipelineNetworkError)):
         _emit_external_api_failure(
             exc=exc,
             log=log,
-            run_id=run_id,
-            command_name=command_name,
+            context=context,
         )
 
     if isinstance(exc, PipelineError):
-        log.error(LogEvents.CLI_RUN_ERROR,
-            run_id=run_id,
-            pipeline=command_name,
-            error=str(exc),
-            error_type=exc.__class__.__name__,
-            cause=str(exc.__cause__) if exc.__cause__ else None,
-            exc_info=True,
+        CliCommandBase.emit_error(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Pipeline finished with error: {exc}",
+            logger=log,
+            event=LogEvents.CLI_RUN_ERROR,
+            context=context,
         )
-        _echo_error("E001", f"Pipeline finished with error: {exc}")
         CliCommandBase.exit(1, cause=exc)
 
-    log.error(LogEvents.CLI_RUN_ERROR,
-        run_id=run_id,
-        pipeline=command_name,
-        error=str(exc),
-        error_type=exc.__class__.__name__,
-        cause=str(exc.__cause__) if exc.__cause__ else None,
-        exc_info=True,
+    CliCommandBase.emit_error(
+        template=CLI_ERROR_INTERNAL,
+        message=f"Pipeline execution failed: {exc}",
+        logger=log,
+        event=LogEvents.CLI_RUN_ERROR,
+        context=context,
     )
-    _echo_error("E001", f"Pipeline execution failed: {exc}")
     CliCommandBase.exit(1, cause=exc)
 
 
@@ -487,28 +516,20 @@ def _coerce_option_value(value: Any, *, default: Any | None = None) -> Any:
     return value if value is not ... else default
 
 
-def _echo_error(code: str, message: str) -> None:
-    """Emit a deterministic error message."""
-    CliCommandBase.emit_error(code, message)
-
-
 def _emit_external_api_failure(
     *,
     exc: Exception,
-    log: LoggerProtocol,
-    run_id: str,
-    command_name: str,
+    log: BoundLogger,
+    context: dict[str, Any],
 ) -> NoReturn:
     """Log external API failure context and exit with the dedicated error code."""
-    log.error(LogEvents.CLI_PIPELINE_API_ERROR,
-        run_id=run_id,
-        pipeline=command_name,
-        error=str(exc),
-        error_type=exc.__class__.__name__,
-        cause=str(exc.__cause__) if exc.__cause__ else None,
-        exc_info=True,
+    CliCommandBase.emit_error(
+        template=CLI_ERROR_EXTERNAL_API,
+        message=f"External API failure: {exc}",
+        logger=log,
+        event=LogEvents.CLI_PIPELINE_API_ERROR,
+        context={**context, "error_message": str(exc)},
     )
-    _echo_error("E003", f"External API failure: {exc}")
     CliCommandBase.exit(3, cause=exc)
     raise AssertionError("unreachable exit path")
 

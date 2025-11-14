@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.cli_runner import run_cli_command
+from tests.support.cli_runner import run_cli_command, run_cli_script
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -24,6 +24,13 @@ def test_list_command():
     """Test CLI list command from README."""
     result = run_cli_command(["list"], cwd=ROOT, timeout=30)
     assert result.returncode == 0, f"list command failed: {result.stderr}"
+
+
+@pytest.mark.integration
+def test_console_script_list_command():
+    """Ensure console script entrypoint lists commands."""
+    result = run_cli_script(["list"], cwd=ROOT, timeout=30)
+    assert result.returncode == 0, f"`bioetl list` failed: {result.stderr}"
 
 
 @pytest.mark.integration

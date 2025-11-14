@@ -75,7 +75,8 @@ def test_fetch_by_pairs_filters_invalid_pairs(monkeypatch: pytest.MonkeyPatch) -
         fields=["record_id"],
         chunk_size=1,
     )
-    assert result == {}
+    assert result.empty
+    assert result.columns.tolist() == ["record_id"]
 
 
 def test_fetch_by_pairs_chunking_and_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -103,14 +104,26 @@ def test_fetch_by_pairs_chunking_and_dedup(monkeypatch: pytest.MonkeyPatch) -> N
         chunk_size=1,
     )
 
+    assert {"record_id", "curated", "removed", "molecule_chembl_id", "document_chembl_id"}.issubset(
+        set(result.columns)
+    )
+
+    def _lookup_record(molecule: str, document: str) -> dict[str, Any]:
+        mask = (result["molecule_chembl_id"] == molecule) & (result["document_chembl_id"] == document)
+        matched = result.loc[mask]
+        assert len(matched) == 1
+        return cast(dict[str, Any], matched.iloc[0].to_dict())
+
     # Curated record wins.
-    assert result[("M1", "D1")]["record_id"] == "2"
+    assert _lookup_record("M1", "D1")["record_id"] == "2"
     # Removed False wins.
-    assert result[("M2", "D1")]["record_id"] == "5"
+    assert _lookup_record("M2", "D1")["record_id"] == "5"
     # Lowest record_id wins when other priorities tie.
-    assert result[("M3", "D1")]["record_id"] == "4"
+    assert _lookup_record("M3", "D1")["record_id"] == "4"
     # Failing document is ignored gracefully.
-    assert ("M4", "D2") not in result
+    assert not (
+        (result["molecule_chembl_id"] == "M4") & (result["document_chembl_id"] == "D2")
+    ).any()
 
     # Multiple chunked calls recorded.
     assert chembl_client.calls

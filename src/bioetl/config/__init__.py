@@ -12,11 +12,14 @@ __all__ = [
     "AssaySourceConfig",
     "AssaySourceParameters",
     "apply_runtime_overrides",
+    "build_env_override_mapping",
+    "build_env_override_mapping",
     "DocumentSourceConfig",
     "DocumentSourceParameters",
     "PipelineConfig",
     "load_config",
     "load_environment_settings",
+    "resolve_env_layers",
     "TargetSourceConfig",
     "TargetSourceParameters",
     "TestItemSourceConfig",
@@ -36,6 +39,8 @@ _LAZY_ATTRS = {
     "TestItemSourceParameters": "bioetl.config.testitem",
     "EnvironmentSettings": "bioetl.config.environment",
     "apply_runtime_overrides": "bioetl.config.environment",
+    "build_env_override_mapping": "bioetl.config.environment",
+    "resolve_env_layers": "bioetl.config.environment",
     "load_environment_settings": "bioetl.config.environment",
     "PipelineConfig": "bioetl.config.models",
     "load_config": "bioetl.config.loader",
@@ -63,7 +68,9 @@ if TYPE_CHECKING:
     from .environment import (
         EnvironmentSettings,
         apply_runtime_overrides,
+        build_env_override_mapping,
         load_environment_settings,
+        resolve_env_layers,
     )
     from .loader import load_config
     from .models.models import PipelineConfig

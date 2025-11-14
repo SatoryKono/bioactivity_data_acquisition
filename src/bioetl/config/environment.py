@@ -1,8 +1,11 @@
 """Environment-driven configuration helpers for BioETL.
 
-This module centralises environment variable handling and maps concise variables
-(for example, ``PUBMED_TOOL``) to nested ``BIOETL__...`` keys, enforcing a
-single source of truth and simplifying 12-Factor Config adoption.
+Responsibilities:
+
+- чтение `.env`/process env через `EnvironmentSettings`;
+- разрешение environment-слоёв (`configs/env/<name>`) без побочных эффектов;
+- построение детерминированных override-мэппингов для коротких переменных;
+- опциональная синхронизация `BIOETL__...` переменных для обратной совместимости.
 """
 
 from __future__ import annotations
@@ -10,13 +13,59 @@ from __future__ import annotations
 import os
 from collections.abc import MutableMapping
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
+_ENV_LAYER_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
+ENV_ROOT_DIR = Path("configs/env")
+
+
+class _EnvOverrideSpec:
+    """Internal spec describing mapping between short env vars and config paths."""
+
+    __slots__ = ("attr", "prefixed_key", "config_path")
+
+    def __init__(self, attr: str, prefixed_key: str, config_path: Iterable[str]) -> None:
+        self.attr = attr
+        self.prefixed_key = prefixed_key
+        self.config_path = tuple(config_path)
+
+
+_ENV_OVERRIDE_SPECS: tuple[_EnvOverrideSpec, ...] = (
+    _EnvOverrideSpec(
+        "pubmed_tool",
+        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL",
+        ("sources", "pubmed", "http", "identify", "tool"),
+    ),
+    _EnvOverrideSpec(
+        "pubmed_email",
+        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL",
+        ("sources", "pubmed", "http", "identify", "email"),
+    ),
+    _EnvOverrideSpec(
+        "pubmed_api_key",
+        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY",
+        ("sources", "pubmed", "http", "identify", "api_key"),
+    ),
+    _EnvOverrideSpec(
+        "crossref_mailto",
+        "BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO",
+        ("sources", "crossref", "identify", "mailto"),
+    ),
+    _EnvOverrideSpec(
+        "semantic_scholar_api_key",
+        "BIOETL__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY",
+        ("sources", "semantic_scholar", "http", "headers", "x-api-key"),
+    ),
+    _EnvOverrideSpec(
+        "iuphar_api_key",
+        "BIOETL__SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY",
+        ("sources", "iuphar", "http", "headers", "x-api-key"),
+    ),
+)
 
 
 class EnvironmentSettings(BaseSettings):
@@ -26,9 +75,10 @@ class EnvironmentSettings(BaseSettings):
         env_file=(".env",),
         env_file_encoding="utf-8",
         extra="ignore",
+        populate_by_name=True,
     )
 
-    bioetl_env: str = Field(default="dev", alias="BIOETL_ENV")
+    bioetl_env: str | None = Field(default=None, alias="BIOETL_ENV")
     pubmed_tool: str | None = Field(default=None, alias="PUBMED_TOOL")
     pubmed_email: str | None = Field(default=None, alias="PUBMED_EMAIL")
     pubmed_api_key: SecretStr | None = Field(default=None, alias="PUBMED_API_KEY")
@@ -42,11 +92,13 @@ class EnvironmentSettings(BaseSettings):
 
     @field_validator("bioetl_env")
     @classmethod
-    def _validate_environment(cls, value: str) -> str:
+    def _validate_environment(cls, value: str | None) -> str | None:
         """Normalise and validate the selected BioETL environment."""
+        if value is None:
+            return None
         normalized = value.strip().lower()
         if not normalized:
-            return "dev"
+            return None
         if normalized not in _VALID_ENVIRONMENTS:
             allowed = ", ".join(sorted(_VALID_ENVIRONMENTS))
             msg = f"BIOETL_ENV must be one of: {allowed}"
@@ -117,78 +169,129 @@ def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSet
     return EnvironmentSettings(**init_kwargs)
 
 
+def build_env_override_mapping(settings: EnvironmentSettings) -> dict[str, Any]:
+    """Return nested overrides derived from short environment variables."""
+
+    overrides: dict[str, Any] = {}
+
+    for spec in _ENV_OVERRIDE_SPECS:
+        value = _extract_plain_value(getattr(settings, spec.attr))
+        if value is None:
+            continue
+        _assign_nested_override(overrides, spec.config_path, value)
+
+    return overrides
+
+
+def resolve_env_layers(
+    environment: str | None,
+    *,
+    base: Path,
+    env_root: Path | None = None,
+) -> list[Path]:
+    """Discover environment-specific YAML layers for the selected environment."""
+
+    if environment is None:
+        return []
+
+    root_dir = env_root if env_root is not None else ENV_ROOT_DIR
+    target_dir = root_dir / environment
+    resolved_dir = _resolve_directory(target_dir, base=base)
+
+    if not resolved_dir.exists():
+        msg = f"Configuration directory not found for environment '{environment}': {resolved_dir}"
+        raise FileNotFoundError(msg)
+
+    files: set[Path] = set()
+    for pattern in _ENV_LAYER_PATTERNS:
+        for candidate in resolved_dir.glob(pattern):
+            if candidate.is_file():
+                files.add(candidate.resolve())
+
+    return sorted(files)
+
+
 def apply_runtime_overrides(
     settings: EnvironmentSettings,
     *,
     environ: MutableMapping[str, str] | None = None,
 ) -> dict[str, str]:
-    """Populate ``BIOETL__`` overrides from short environment variables.
-
-    Parameters
-    ----------
-    settings:
-        Previously loaded :class:`EnvironmentSettings`.
-    environ:
-        Target mapping to mutate. Defaults to :data:`os.environ`.
-
-    Returns
-    -------
-    dict[str, str]
-        Mapping of the keys that were newly injected into ``environ``.
-    """
+    """Populate ``BIOETL__`` overrides from short environment variables."""
 
     target = environ if environ is not None else os.environ
     applied: dict[str, str] = {}
 
-    def _set_if_missing(key: str, value: str | SecretStr | None) -> None:
-        """Populate ``target`` with ``key`` when the value is truthy and not yet set."""
-        if value is None:
-            return
-        if isinstance(value, SecretStr):
-            secret_value = value.get_secret_value()
-            if not secret_value:
-                return
-            value_str = secret_value
-        else:
-            value_str = value
-        if not value_str:
-            return
+    for key, value in _build_prefixed_runtime_variables(settings).items():
         if key in target:
-            return
-        target[key] = value_str
-        applied[key] = value_str
-
-    _set_if_missing(
-        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL",
-        settings.pubmed_tool,
-    )
-    _set_if_missing(
-        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL",
-        settings.pubmed_email,
-    )
-    _set_if_missing(
-        "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY",
-        settings.pubmed_api_key,
-    )
-    _set_if_missing(
-        "BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO",
-        settings.crossref_mailto,
-    )
-    _set_if_missing(
-        "BIOETL__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY",
-        settings.semantic_scholar_api_key,
-    )
-    _set_if_missing(
-        "BIOETL__SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY",
-        settings.iuphar_api_key,
-    )
+            continue
+        target[key] = value
+        applied[key] = value
 
     return applied
 
 
+def _extract_plain_value(value: str | SecretStr | None) -> str | None:
+    """Normalize env values (including SecretStr) into plain strings."""
+    if value is None:
+        return None
+    if isinstance(value, SecretStr):
+        plain = value.get_secret_value()
+    else:
+        plain = value
+    plain = plain.strip()
+    return plain or None
+
+
+def _assign_nested_override(
+    target: MutableMapping[str, Any],
+    path: Iterable[str],
+    value: str,
+) -> None:
+    """Assign a value to a nested dictionary without mutating siblings."""
+    current: MutableMapping[str, Any] = target
+    parts = tuple(path)
+    for part in parts[:-1]:
+        existing = current.get(part)
+        if not isinstance(existing, MutableMapping):
+            next_level: dict[str, Any] = {}
+            current[part] = next_level
+            current = next_level
+            continue
+        current = existing
+    current[parts[-1]] = value
+
+
+def _build_prefixed_runtime_variables(settings: EnvironmentSettings) -> dict[str, str]:
+    """Return mapping of ``BIOETL__...`` keys derived from short variables."""
+    overrides: dict[str, str] = {}
+    for spec in _ENV_OVERRIDE_SPECS:
+        value = _extract_plain_value(getattr(settings, spec.attr))
+        if value is None:
+            continue
+        overrides.setdefault(spec.prefixed_key, value)
+    return overrides
+
+
+def _resolve_directory(directory: Path, *, base: Path) -> Path:
+    """Resolve ``directory`` relative to ``base``/parents/current working dir."""
+    if directory.is_absolute():
+        return directory.resolve()
+
+    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
+    for root in search_roots:
+        candidate = (root / directory).resolve()
+        if candidate.exists():
+            return candidate
+
+    return (Path.cwd() / directory).resolve()
+
+
 __all__ = [
     "EnvironmentSettings",
+    "ENV_ROOT_DIR",
     "apply_runtime_overrides",
+    "build_env_override_mapping",
     "load_environment_settings",
+    "resolve_env_layers",
 ]
 

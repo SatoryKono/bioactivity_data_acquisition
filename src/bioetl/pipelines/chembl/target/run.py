@@ -203,13 +203,14 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             for item in iterator:
                 yield dict(item)
 
+        chunk_size = min(100, batch_size) if isinstance(batch_size, int) else 100
         dataframe, stats = self.run_batched_extraction(
             ids,
             id_column="target_chembl_id",
             fetcher=fetch_targets,
             select_fields=select_fields,
             batch_size=batch_size,
-            chunk_size=min(batch_size, 100),
+            chunk_size=chunk_size,
             max_batch_size=25,
             limit=limit,
             metadata_filters={

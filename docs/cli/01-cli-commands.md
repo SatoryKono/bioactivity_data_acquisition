@@ -17,6 +17,12 @@ All pipeline entry points share the same Typer invocation form:
 python -m bioetl.cli.cli_app <command> [OPTIONS]
 ```
 
+После установки пакета доступен идентичный консольный скрипт:
+
+```bash
+bioetl <command> [OPTIONS]
+```
+
 The CLI loads configuration layers in a fixed precedence: profiles declared via
 `extends` (typically `configs/defaults/base.yaml`,
 `configs/defaults/network.yaml`, and `configs/defaults/determinism.yaml`), then

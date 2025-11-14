@@ -13,7 +13,7 @@ from bioetl.config.models.models import (
     PipelineDomainConfig,
     PipelineInfrastructureConfig,
 )
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.core import APIClientFactory, UnifiedAPIClient
 
 
@@ -41,12 +41,14 @@ def pipeline_config() -> PipelineConfig:
         sources={
             "chembl": SourceConfig(
                 enabled=True,
-                parameters={"base_url": "https://www.ebi.ac.uk/chembl/api/data"},
+                parameters=SourceParameters.from_mapping(
+                    {"base_url": "https://www.ebi.ac.uk/chembl/api/data"}
+                ),
             ),
             "test_source": SourceConfig(
                 enabled=True,
                 http_profile="fast",
-                parameters={"base_url": "https://example.com/api"},
+                parameters=SourceParameters.from_mapping({"base_url": "https://example.com/api"}),
             ),
         },
     )
@@ -173,8 +175,7 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         # Add max_url_length to source parameters
         source_config = pipeline_config.sources["chembl"]
-        updated_parameters = dict(source_config.parameters or {})
-        updated_parameters["max_url_length"] = 2000
+        updated_parameters = source_config.parameters.model_copy(update={"max_url_length": 2000})
         pipeline_config.sources["chembl"] = source_config.model_copy(
             update={"parameters": updated_parameters}
         )
@@ -195,8 +196,7 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         # Add HTTP overrides to source config
         source_config = pipeline_config.sources["chembl"]
-        updated_parameters = dict(source_config.parameters or {})
-        updated_parameters["max_url_length"] = 2000
+        updated_parameters = source_config.parameters.model_copy(update={"max_url_length": 2000})
         pipeline_config.sources["chembl"] = source_config.model_copy(
             update={
                 "http": HTTPClientConfig(timeout_sec=45.0),

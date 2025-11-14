@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 import pytest
-from pydantic import Field
+from pydantic import Field, PositiveInt
 
 from bioetl.config.models import (
     CacheConfig,
@@ -179,8 +179,10 @@ class _DummySourceParameters(SourceParameters):
 
 
 class _DummySourceConfig(SourceConfig):
-    batch_size: int = Field(default=25)
-    parameters: _DummySourceParameters = Field(default_factory=_DummySourceParameters)
+    batch_size: PositiveInt | None = Field(default=25)
+    parameters: Mapping[str, Any] | _DummySourceParameters = Field(
+        default_factory=_DummySourceParameters
+    )
 
     parameters_model = _DummySourceParameters
     batch_field = "batch_size"
@@ -196,11 +198,13 @@ def test_source_config_parameters_mapping_handles_models() -> None:
 
 @pytest.mark.unit
 def test_specialized_source_config_builds_from_generic() -> None:
-    generic = SourceConfig(parameters={"foo": 9}, batch_size=10)
+    generic = SourceConfig(parameters=_DummySourceParameters(foo=9), batch_size=10)
 
     specialized = _DummySourceConfig.from_source_config(generic)
 
     assert isinstance(specialized, _DummySourceConfig)
-    assert specialized.parameters.foo == 9
+    specialized_parameters = specialized.parameters
+    assert isinstance(specialized_parameters, _DummySourceParameters)
+    assert specialized_parameters.foo == 9
     assert specialized.batch_size == 10
 

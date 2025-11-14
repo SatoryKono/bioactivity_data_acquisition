@@ -150,7 +150,20 @@ def create_app(
             typer.echo(warning_message, err=True)
             continue
 
-        _register_command(command_name, command_config)
+        try:
+            _register_command(command_name, command_config)
+        except Exception as exc:  # noqa: BLE001
+            _log.error(
+                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                command=command_name,
+                error=str(exc),
+                exc_info=True,
+            )
+            warning_message = f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})"
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
+            continue
 
         for alias in spec.aliases:
             if alias in registered_names:
@@ -180,7 +193,20 @@ def create_app(
                 typer.echo(warning_message)
                 typer.echo(warning_message, err=True)
                 continue
-            _register_command(alias, alias_config)
+            try:
+                _register_command(alias, alias_config)
+            except Exception as exc:  # noqa: BLE001
+                _log.error(
+                    LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                    command=alias,
+                    error=str(exc),
+                    exc_info=True,
+                )
+                warning_message = f"[bioetl-cli] WARN: Alias '{alias}' not loaded ({exc})"
+                warning_messages.append(warning_message)
+                typer.echo(warning_message)
+                typer.echo(warning_message, err=True)
+                continue
 
     extra_entries = sorted(set(registry.keys()) - registered_names)
     for command_name in extra_entries:
@@ -203,7 +229,19 @@ def create_app(
             continue
         if command_name in registered_names:
             continue
-        _register_command(command_name, command_config)
+        try:
+            _register_command(command_name, command_config)
+        except Exception as exc:  # noqa: BLE001
+            _log.error(
+                LogEvents.CLI_COMMAND_REGISTRATION_FAILED,
+                command=command_name,
+                error=str(exc),
+                exc_info=True,
+            )
+            warning_message = f"[bioetl-cli] WARN: Command '{command_name}' not loaded ({exc})"
+            warning_messages.append(warning_message)
+            typer.echo(warning_message)
+            typer.echo(warning_message, err=True)
     for tool_name, tool_config in tools.items():
         try:
             entrypoint = _load_tool_entrypoint(tool_config)

@@ -12,6 +12,6 @@ class BaseSourceParameters(SourceParameters):
     """Deprecated alias of :class:`bioetl.config.models.source.SourceParameters`."""
 
 
-class BaseSourceConfig(SourceConfig, Generic[ParametersT]):
+class BaseSourceConfig(SourceConfig[ParametersT], Generic[ParametersT]):
     """Deprecated alias of :class:`bioetl.config.models.source.SourceConfig`."""
 

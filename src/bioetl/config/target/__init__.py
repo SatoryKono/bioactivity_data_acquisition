@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pydantic import Field, PositiveInt, model_validator
+from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
@@ -14,6 +14,7 @@ from ..models.source import SourceConfig, SourceParameters
 class TargetSourceParameters(SourceParameters):
     """Free-form parameters specific to the target source."""
 
+    model_config = ConfigDict(extra="forbid")
     base_url: str | None = Field(
         default=None,
         description="Override for the ChEMBL API base URL when fetching targets.",
@@ -57,14 +58,14 @@ class TargetSourceParameters(SourceParameters):
         )
 
 
-class TargetSourceConfig(SourceConfig):
+class TargetSourceConfig(SourceConfig[TargetSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
     description: str | None = Field(default=None)
     http_profile: str | None = Field(default=None)
     http: HTTPClientConfig | None = Field(default=None)
-    batch_size: PositiveInt = Field(
+    batch_size: PositiveInt | None = Field(
         default=25,
         description="Effective batch size for pagination requests (capped at 25).",
     )
@@ -83,6 +84,6 @@ class TargetSourceConfig(SourceConfig):
         TargetSourceConfig
             Self with enforced limits.
         """
-        if self.batch_size > 25:
+        if self.batch_size is None or self.batch_size > 25:
             self.batch_size = 25
         return self

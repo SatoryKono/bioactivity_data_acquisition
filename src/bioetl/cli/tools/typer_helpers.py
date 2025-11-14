@@ -22,11 +22,11 @@ _typer_module: TyperModule | None = None
 class TyperApp(Protocol):
     """Typer application interface exposed to local utilities."""
 
-    def __call__(self, *args: Any, **kwargs: Any) -> None:
+    def __call__(self, *_args: Any, **_kwargs: Any) -> None:
         """Invoke the Typer application entrypoint."""
         ...
 
-    def command(self, *args: Any, **kwargs: Any) -> Callable[[_F], _F]:
+    def command(self, *_args: Any, **_kwargs: Any) -> Callable[[_F], _F]:
         """Register a Typer command callback."""
         ...
 

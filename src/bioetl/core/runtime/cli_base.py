@@ -3,14 +3,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, NoReturn, TypeAlias
+from typing import Any, Callable, ClassVar, Mapping, NoReturn, TypeAlias
 
 import typer
 from structlog.stdlib import BoundLogger
 
 from bioetl.cli.tools.typer_helpers import TyperApp
 from bioetl.cli.tools.typer_helpers import run_app as typer_run_app
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.runtime.cli_errors import (
+    CLI_ERROR_INTERNAL,
+    CliErrorTemplate,
+    LoggerLike,
+    emit_cli_error,
+)
 
 CommandCallable: TypeAlias = Callable[..., None]
 
@@ -37,6 +43,7 @@ class CliCommandBase:
     """Base class for CLI commands with consistent error handling."""
 
     exit_code_error: ClassVar[int] = 1
+    error_template: ClassVar[CliErrorTemplate] = CLI_ERROR_INTERNAL
 
     def __init__(self, *, logger: BoundLogger | None = None) -> None:
         """Initialize the command base with a bound logger."""
@@ -72,14 +79,32 @@ class CliCommandBase:
     def handle_exception(self, exc: Exception) -> NoReturn:
         """Handle unexpected exceptions and terminate the process."""
 
-        self.emit_error("E001", f"Unhandled CLI exception: {exc}")
+        self.emit_error(
+            template=self.error_template,
+            message=f"Unhandled CLI exception: {exc}",
+            logger=self.logger,
+            context={"exception_type": exc.__class__.__name__},
+        )
         self.exit(self.exit_code_error)  # pragma: no cover - process termination path
 
     @staticmethod
-    def emit_error(code: str, message: str) -> None:
+    def emit_error(
+        *,
+        template: CliErrorTemplate,
+        message: str,
+        logger: LoggerLike | None = None,
+        event: LogEvents | str = LogEvents.CLI_RUN_ERROR,
+        context: Mapping[str, Any] | None = None,
+    ) -> None:
         """Emit a structured error message in a deterministic format."""
 
-        typer.echo(f"[bioetl-cli] ERROR {code}: {message}", err=True)
+        emit_cli_error(
+            template=template,
+            message=message,
+            event=event,
+            logger=logger,
+            context=context,
+        )
 
     @staticmethod
     def exit(code: int, *, cause: Exception | None = None) -> NoReturn:

@@ -17,6 +17,7 @@ from . import (
     chembl_target_schema,
     chembl_testitem_schema,
 )
+from .migrations import load_builtin_migrations
 from .versioning import (
     SCHEMA_MIGRATION_REGISTRY,
     SchemaMigration,
@@ -699,8 +700,6 @@ _register_builtin_schema(
     version_attr="SCHEMA_VERSION",
     column_order_attr="COLUMN_ORDER",
 )
-
-from .migrations import load_builtin_migrations
 
 load_builtin_migrations()
 
