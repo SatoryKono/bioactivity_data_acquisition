@@ -38,6 +38,8 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     """ETL pipeline extracting document records from the ChEMBL API."""
 
     actor = "document_chembl"
+    id_column = "document_chembl_id"
+    extract_event_name = "chembl_document.extract_mode"
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -45,22 +47,6 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
         self._output_schema = self._output_schema_entry.schema
         self._output_column_order = self._output_schema_entry.column_order
-
-    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Fetch document payloads from ChEMBL using the unified HTTP client.
-
-        Checks for input_file in config.cli.input_file and calls extract_by_ids()
-        if present, otherwise calls extract_all().
-        """
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
-
-        return self._dispatch_extract_mode(
-            log,
-            event_name="chembl_document.extract_mode",
-            batch_callback=self.extract_by_ids,
-            full_callback=self.extract_all,
-            id_column_name="document_chembl_id",
-        )
 
     def extract_all(self) -> pd.DataFrame:
         """Extract all document records from ChEMBL using pagination."""
