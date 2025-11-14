@@ -87,23 +87,11 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         """
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
 
-        def legacy_activity_ids(bound_log: BoundLogger) -> Sequence[str] | None:
-            payload_activity_ids = kwargs.get("activity_ids")
-            if payload_activity_ids is None:
-                return None
-
-            bound_log.warning(LogEvents.CHEMBL_ACTIVITY_DEPRECATED_KWARGS,
-                message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
+        if "activity_ids" in kwargs:
+            raise TypeError(
+                "ChemblActivityPipeline.extract no longer accepts the 'activity_ids' "
+                "keyword argument. Provide identifiers via the CLI --input-file option."
             )
-            if isinstance(payload_activity_ids, Sequence) and not isinstance(
-                payload_activity_ids, (str, bytes)
-            ):
-                sequence_ids: Sequence[str | int] = cast(
-                    Sequence[str | int], payload_activity_ids
-                )
-                return [str(id_val) for id_val in sequence_ids]
-
-            return [str(payload_activity_ids)]
 
         return self._dispatch_extract_mode(
             log,
@@ -111,8 +99,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             batch_callback=self.extract_by_ids,
             full_callback=self.extract_all,
             id_column_name="activity_id",
-            legacy_id_resolver=legacy_activity_ids,
-            legacy_source="deprecated_kwargs",
         )
 
     def extract_all(self) -> pd.DataFrame:

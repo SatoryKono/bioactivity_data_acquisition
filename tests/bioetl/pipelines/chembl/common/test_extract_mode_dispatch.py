@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Sequence
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -52,52 +51,6 @@ def test_dispatch_extract_mode_prefers_cli_ids(
         "chembl_activity.extract_mode",
         mode="batch",
         source="cli_input",
-        ids_count=2,
-    )
-    assert result is batch_result
-
-
-@pytest.mark.unit
-def test_dispatch_extract_mode_uses_legacy_resolver(
-    pipeline_config_fixture: PipelineConfig,
-    run_id: str,
-) -> None:
-    """Ensure legacy identifier hooks are respected when provided."""
-
-    config = pipeline_config_fixture.model_copy(deep=True)
-    config.cli.input_file = None
-
-    pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
-
-    batch_result = pd.DataFrame({"activity_id": [10]})
-    batch_callback = MagicMock(return_value=batch_result)
-    full_callback = MagicMock(return_value=pd.DataFrame())
-    log = MagicMock(spec=BoundLogger)
-
-    def legacy_resolver(bound_log: BoundLogger) -> Sequence[str] | None:
-        bound_log.warning("chembl_activity.deprecated_kwargs", message="legacy path")
-        return ["101", "202"]
-
-    result = pipeline._dispatch_extract_mode(
-        log,
-        event_name="chembl_activity.extract_mode",
-        batch_callback=batch_callback,
-        full_callback=full_callback,
-        id_column_name="activity_id",
-        legacy_id_resolver=legacy_resolver,
-        legacy_source="deprecated_kwargs",
-    )
-
-    batch_callback.assert_called_once_with(["101", "202"])
-    full_callback.assert_not_called()
-    log.warning.assert_called_once_with(
-        "chembl_activity.deprecated_kwargs",
-        message="legacy path",
-    )
-    log.info.assert_called_once_with(
-        "chembl_activity.extract_mode",
-        mode="batch",
-        source="deprecated_kwargs",
         ids_count=2,
     )
     assert result is batch_result

@@ -19,6 +19,19 @@ from bioetl.schemas.chembl_activity_schema import ActivitySchema
 
 
 @pytest.mark.unit
+def test_extract_rejects_activity_ids_kwarg(
+    pipeline_config_fixture: PipelineConfig,
+    run_id: str,
+) -> None:
+    """Explicit keyword usage should direct callers to the CLI input mechanism."""
+
+    pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+    with pytest.raises(TypeError, match="--input-file"):
+        pipeline.extract(activity_ids=["123", "456"])
+
+
+@pytest.mark.unit
 class TestChemblActivityPipelineTransformations:
     """Test suite for ChemblActivityPipeline transformations."""
 
