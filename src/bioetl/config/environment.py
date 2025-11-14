@@ -15,6 +15,8 @@ from collections.abc import MutableMapping
 from pathlib import Path
 from typing import Any, Iterable
 
+from .utils import resolve_existing_directory
+
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -274,16 +276,8 @@ def _build_prefixed_runtime_variables(settings: EnvironmentSettings) -> dict[str
 
 def _resolve_directory(directory: Path, *, base: Path) -> Path:
     """Resolve ``directory`` relative to ``base``/parents/current working dir."""
-    if directory.is_absolute():
-        return directory.resolve()
 
-    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
-    for root in search_roots:
-        candidate = (root / directory).resolve()
-        if candidate.exists():
-            return candidate
-
-    return (Path.cwd() / directory).resolve()
+    return resolve_existing_directory(directory, base=base)
 
 
 __all__ = [

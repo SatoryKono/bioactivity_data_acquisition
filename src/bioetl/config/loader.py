@@ -17,6 +17,7 @@ from .environment import (
     resolve_env_layers,
 )
 from .models.base import PipelineConfig
+from .utils import resolve_existing_directory
 
 DEFAULTS_DIR = Path("configs/defaults")
 _LAYER_GLOB_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
@@ -631,16 +632,8 @@ def _discover_layer_files(
 
 def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
     """Resolve a directory relative to known roots."""
-    if directory.is_absolute():
-        return directory.resolve()
 
-    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
-    for root in search_roots:
-        candidate = (root / directory).resolve()
-        if candidate.exists():
-            return candidate
-
-    return (Path.cwd() / directory).resolve()
+    return resolve_existing_directory(directory, base=base)
 
 
 def _stringify_profile(profile: Path, *, base: Path) -> str:
