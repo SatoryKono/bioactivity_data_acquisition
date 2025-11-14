@@ -22,20 +22,10 @@ class ChemblDocumentClient(ChemblEntityFetcherBase):
         batch_size: int = 25,
         max_url_length: int | None = None,
     ) -> None:
-        """Initialize the document client wrapper.
-
-        Parameters
-        ----------
-        chembl_client:
-            Instance of ChemblClient used to perform API calls.
-        batch_size:
-            Batch size for pagination (max 25 for the ChEMBL API).
-        max_url_length:
-            Optional URL length limit; disables the check when None.
-        """
-        super().__init__(
-            chembl_client=chembl_client,
-            config=self.ENTITY_CONFIG,
+        self._init_from_entity_config(
+            self,
+            chembl_client,
+            entity_config=self.ENTITY_CONFIG,
             batch_size=batch_size,
             max_url_length=max_url_length,
         )

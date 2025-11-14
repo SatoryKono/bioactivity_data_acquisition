@@ -13,6 +13,7 @@ from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.clients.chembl_entity_registry import ChemblEntityRegistryError
 from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
@@ -344,5 +345,54 @@ class TestEntityConfigUsage:
         client = ChemblActivityClient(mock_chembl_client, batch_size=25)
         _ = client.fetch_by_ids(["CHEMBL123"])
         mock_chembl_client.paginate.assert_called_once()
+
+    @pytest.mark.parametrize(
+        "client_cls",
+        [
+            ChemblActivityClient,
+            ChemblTargetClient,
+            ChemblDocumentClient,
+            ChemblTestitemClient,
+        ],
+    )
+    def test_init_delegates_to_shared_entity_config(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        mock_chembl_client: MagicMock,
+        client_cls: type[ChemblEntityFetcherBase],
+    ) -> None:
+        """Инициализация клиента использует общий helper базового класса."""
+
+        captured: dict[str, Any] = {}
+
+        def fake_init(
+            self: ChemblEntityFetcherBase,
+            *,
+            chembl_client: Any,
+            config: EntityConfig,
+            batch_size: int | None = None,
+            max_url_length: int | None = None,
+        ) -> None:
+            captured.update(
+                {
+                    "self": self,
+                    "chembl_client": chembl_client,
+                    "config": config,
+                    "batch_size": batch_size,
+                    "max_url_length": max_url_length,
+                }
+            )
+
+        monkeypatch.setattr(
+            "bioetl.clients.client_chembl_entity_base.ChemblEntityFetcherBase.__init__",
+            fake_init,
+        )
+
+        client_cls(mock_chembl_client, batch_size=10, max_url_length=512)
+
+        assert captured["chembl_client"] is mock_chembl_client
+        assert captured["config"] is client_cls.ENTITY_CONFIG
+        assert captured["batch_size"] == 10
+        assert captured["max_url_length"] == 512
 
 

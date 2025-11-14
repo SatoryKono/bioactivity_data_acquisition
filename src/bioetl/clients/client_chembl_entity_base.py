@@ -75,6 +75,23 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
 
     _DEFAULT_PAGE_SIZE = 1000
 
+    @classmethod
+    def _init_from_entity_config(
+        cls,
+        instance: "ChemblEntityFetcherBase",
+        chembl_client: ChemblClientProtocol,
+        *,
+        entity_config: EntityConfig,
+        batch_size: int | None = None,
+        max_url_length: int | None = None,
+    ) -> None:
+        super(cls, instance).__init__(
+            chembl_client=chembl_client,
+            config=entity_config,
+            batch_size=batch_size,
+            max_url_length=max_url_length,
+        )
+
     def __init__(
         self,
         chembl_client: ChemblClientProtocol,
