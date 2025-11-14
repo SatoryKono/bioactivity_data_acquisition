@@ -5,6 +5,8 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from bioetl.core.io.units import QCUnits
+
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.qc.metrics import (
@@ -169,6 +171,27 @@ class TestQCMetrics:
         assert distribution["__other__"]["ratio"] == 0.6
         assert distribution["a"]["count"] == 1
         assert distribution["b"]["ratio"] == 0.2
+
+    def test_qc_units_generic_suffix_helper(self) -> None:
+        """`QCUnits.for_suffixes` should back the specialized helpers."""
+
+        df = pd.DataFrame(
+            {
+                "measurement_units": ["nM", "nM", "mM"],
+                "measurement_relation": ["=", "<", "="],
+                "other": [1, 2, 3],
+            }
+        )
+
+        generic = QCUnits.for_suffixes(df, ("units", "relation"))
+
+        assert set(generic) == {"measurement_relation", "measurement_units"}
+        assert QCUnits.for_units(df) == {
+            "measurement_units": generic["measurement_units"]
+        }
+        assert QCUnits.for_relation(df) == {
+            "measurement_relation": generic["measurement_relation"]
+        }
 
     def test_pipeline_qc_artifacts(
         self,

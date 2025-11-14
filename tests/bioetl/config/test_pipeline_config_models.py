@@ -21,6 +21,7 @@ from bioetl.config.models import (
     SourceConfig,
     SourceParameters,
 )
+from bioetl.config.models._proxy_utils import ProxyDefinition, build_section_proxies
 
 
 def _make_pipeline_config(**overrides: Any) -> PipelineConfig:
@@ -117,6 +118,42 @@ def test_pipeline_config_exposes_expected_sections() -> None:
 
 
 @pytest.mark.unit
+def test_build_section_proxies_supports_nested_paths() -> None:
+    class _Section:
+        def __init__(self) -> None:
+            self.value = 1
+
+    class _Container:
+        value: int
+
+        def __init__(self) -> None:
+            self.section = _Section()
+
+    proxies = build_section_proxies(
+        (ProxyDefinition(attr="value", path=("section", "value")),)
+    )
+
+    for attr, descriptor in proxies.items():
+        setattr(_Container, attr, descriptor)
+
+    instance = _Container()
+    assert instance.value == 1
+
+    instance.value = 7
+    assert instance.section.value == 7
+
+    readonly = build_section_proxies({"value": ("section", "value")}, default_read_only=True)
+    for attr, descriptor in readonly.items():
+        setattr(_Container, attr, descriptor)
+
+    second = _Container()
+    assert second.value == 1
+
+    with pytest.raises(AttributeError):
+        second.value = 5
+
+
+@pytest.mark.unit
 def test_pipeline_config_model_copy_replaces_sections() -> None:
     config = _make_pipeline_config()
 
@@ -153,6 +190,14 @@ def test_pipeline_common_facade_reflects_cli_section() -> None:
     assert isinstance(updated.common, PipelineCommonCompat)
     assert updated.common.limit == 9
     assert updated.common.dry_run is True
+
+
+@pytest.mark.unit
+def test_pipeline_common_facade_is_read_only() -> None:
+    config = _make_pipeline_config()
+
+    with pytest.raises(AttributeError):
+        config.common.limit = 3
 
 
 @pytest.mark.unit

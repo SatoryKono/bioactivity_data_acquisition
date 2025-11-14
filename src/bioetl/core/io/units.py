@@ -25,16 +25,24 @@ class QCUnits:
     def for_units(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Return value distributions for all columns ending with ``*_units``."""
 
-        return cls._compute(df, column_suffixes=cls.UNITS_SUFFIXES)
+        return cls._for_suffixes(df, column_suffixes=cls.UNITS_SUFFIXES)
 
     @classmethod
     def for_relation(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Return value distributions for all columns ending with ``*_relation``."""
 
-        return cls._compute(df, column_suffixes=cls.RELATION_SUFFIXES)
+        return cls._for_suffixes(df, column_suffixes=cls.RELATION_SUFFIXES)
 
     @classmethod
-    def _compute(
+    def for_suffixes(
+        cls, df: pd.DataFrame, column_suffixes: Sequence[str]
+    ) -> CategoricalDistribution:
+        """Return value distributions for the provided ``column_suffixes``."""
+
+        return cls._for_suffixes(df, column_suffixes=column_suffixes)
+
+    @classmethod
+    def _for_suffixes(
         cls,
         df: pd.DataFrame,
         *,
