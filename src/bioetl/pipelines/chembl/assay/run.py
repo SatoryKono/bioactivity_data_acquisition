@@ -18,9 +18,10 @@ from bioetl.config import AssaySourceConfig, PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
+    StringNormalizationConfig,
     StringRule,
     normalize_identifier_columns,
-    normalize_string_columns,
+    normalize_string_columns_with_config,
 )
 from bioetl.pipelines.assay.assay_enrichment import (
     enrich_with_assay_classifications,
@@ -525,19 +526,22 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         working_df = df.copy()
 
-        string_fields = [
-            "assay_type",
-            "assay_category",
-            "assay_organism",
-            "assay_strain",
-            "src_assay_id",
-            "assay_group",
-            "curation_level",
-        ]
+        config = StringNormalizationConfig(
+            columns=[
+                "assay_type",
+                "assay_category",
+                "assay_organism",
+                "assay_strain",
+                "src_assay_id",
+                "assay_group",
+                "curation_level",
+            ],
+            default_rule=StringRule(),
+        )
 
-        rules = {column: StringRule() for column in string_fields}
-
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        normalized_df, stats = normalize_string_columns_with_config(
+            working_df, config, copy=False
+        )
 
         # Проверка curation_level: если поле отсутствует в исходных данных, выставляем NULL
         if "curation_level" not in normalized_df.columns:

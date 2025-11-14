@@ -19,9 +19,10 @@ from bioetl.config import PipelineConfig, TargetSourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.normalizers import (
     IdentifierRule,
+    StringNormalizationConfig,
     StringRule,
     normalize_identifier_columns,
-    normalize_string_columns,
+    normalize_string_columns_with_config,
 )
 from bioetl.schemas.target import COLUMN_ORDER, TargetSchema
 
@@ -731,14 +732,14 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         """Normalize string fields by trimming whitespace."""
         working_df = df.copy()
 
-        rules = {
-            "pref_name": StringRule(),
-            "target_type": StringRule(),
-            "organism": StringRule(),
-            "tax_id": StringRule(),
-        }
+        config = StringNormalizationConfig(
+            columns=["pref_name", "target_type", "organism", "tax_id"],
+            default_rule=StringRule(),
+        )
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        normalized_df, stats = normalize_string_columns_with_config(
+            working_df, config, copy=False
+        )
 
         if stats.has_changes:
             log.debug(

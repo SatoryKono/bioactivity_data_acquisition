@@ -4,9 +4,11 @@ import pandas as pd
 
 from bioetl.core.normalizers import (
     IdentifierRule,
+    StringNormalizationConfig,
     StringRule,
     normalize_identifier_columns,
     normalize_string_columns,
+    normalize_string_columns_with_config,
 )
 
 
@@ -47,3 +49,29 @@ def test_normalize_string_columns_supports_title_case_and_max_length() -> None:
     assert normalized_df.loc[0, "label"] == "MIXED"
     assert pd.isna(normalized_df.loc[1, "label"])
     assert stats.processed == 2
+
+
+def test_normalize_string_columns_with_config_combines_columns_and_overrides() -> None:
+    df = pd.DataFrame(
+        {
+            "name": [" leucine kinase  ", None],
+            "label": ["  MIXED  whitespace\n", ""],
+            "organism": ["human", "yeast"],
+        },
+    )
+
+    normalized_df, stats = normalize_string_columns_with_config(
+        df,
+        StringNormalizationConfig(
+            columns=["name", "label"],
+            overrides={
+                "label": StringRule(collapse_whitespace=True, max_length=5),
+                "organism": StringRule(uppercase=True),
+            },
+        ),
+    )
+
+    assert normalized_df.loc[0, "name"] == "leucine kinase"
+    assert normalized_df.loc[0, "label"] == "MIXED"
+    assert normalized_df.loc[0, "organism"] == "HUMAN"
+    assert stats.processed == 4
