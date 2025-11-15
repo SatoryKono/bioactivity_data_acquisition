@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import pandas as pd
 from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
+from typing_extensions import Self
 
 from bioetl.clients.base import (
     build_filters_payload,
@@ -185,7 +186,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     #: Source label used when identifiers are provided via legacy hooks.
     legacy_extract_source: str = "legacy"
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
+    def build_descriptor(self: Self) -> ChemblExtractionDescriptor[Self]:
         """Return the descriptor used by :meth:`extract_all`."""
 
         msg = f"{type(self).__name__} must implement build_descriptor()"

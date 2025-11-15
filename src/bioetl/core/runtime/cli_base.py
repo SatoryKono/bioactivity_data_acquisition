@@ -108,18 +108,22 @@ class CliCommandBase:
     def handle_exception(self, exc: Exception) -> NoReturn:
         """Handle unexpected exceptions and terminate the process."""
 
-        self.emit_error(
-            template=self.error_template,
-            message=f"Unhandled CLI exception: {exc}",
-            logger=self.logger,
-            event=LogEvents.CLI_RUN_ERROR,
-            context={
-                "exception_type": exc.__class__.__name__,
-                "exc_info": True,
-            },
-            exit_code=self.exit_code_error,
-            cause=exc,
-        )
+        try:
+            self.emit_error(
+                template=self.error_template,
+                message=f"Unhandled CLI exception: {exc}",
+                logger=self.logger,
+                event=LogEvents.CLI_RUN_ERROR,
+                context={
+                    "exception_type": exc.__class__.__name__,
+                    "exc_info": True,
+                },
+                exit_code=self.exit_code_error,
+                cause=exc,
+            )
+        except typer.Exit:
+            raise
+        self.exit(self.exit_code_error, cause=exc)
 
     @staticmethod
     def emit_error(

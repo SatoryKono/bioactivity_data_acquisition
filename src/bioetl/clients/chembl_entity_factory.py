@@ -61,7 +61,7 @@ class ChemblClientBundle:
     chembl_client: ChemblClient
     entity_client: Any | None
     entity_config: Any | None
-    source_config: SourceConfig | None
+    source_config: SourceConfig[Any] | None
 
 
 class ChemblEntityClientFactory:
@@ -124,7 +124,7 @@ class ChemblEntityClientFactory:
         entity_name: str,
         *,
         source_name: str = "chembl",
-        source_config: SourceConfig | None = None,
+        source_config: SourceConfig[Any] | None = None,
         options: Mapping[str, Any] | None = None,
         chembl_client_kwargs: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,
@@ -231,7 +231,7 @@ class ChemblEntityClientFactory:
         self,
         *,
         source_name: str = "chembl",
-        source_config: SourceConfig | None = None,
+        source_config: SourceConfig[Any] | None = None,
         options: Mapping[str, Any] | None = None,
         fresh_http_client: bool = False,
     ) -> tuple[UnifiedAPIClient, str, Any]:
@@ -290,7 +290,7 @@ class ChemblEntityClientFactory:
         self._http_cache[cache_key] = http_client
         return http_client
 
-    def _resolve_source_config(self, source_name: str) -> SourceConfig:
+    def _resolve_source_config(self, source_name: str) -> SourceConfig[Any]:
         try:
             return self._config.sources[source_name]
         except KeyError as exc:
@@ -299,7 +299,7 @@ class ChemblEntityClientFactory:
 
     @staticmethod
     def _resolve_base_url(
-        source_config: SourceConfig | None,
+        source_config: SourceConfig[Any] | None,
         options: Mapping[str, Any] | None,
     ) -> str:
         candidate = None
@@ -321,7 +321,7 @@ class ChemblEntityClientFactory:
         return normalized.rstrip("/")
 
     @staticmethod
-    def _normalize_parameters(source_config: SourceConfig | None) -> Mapping[str, Any]:
+    def _normalize_parameters(source_config: SourceConfig[Any] | None) -> Mapping[str, Any]:
         if source_config is None:
             return {}
         return source_config.parameters_mapping()
@@ -330,7 +330,7 @@ class ChemblEntityClientFactory:
     def _build_entity_client(
         definition: ChemblEntityDefinition,
         chembl_client: ChemblClient,
-        source_config: SourceConfig | None,
+        source_config: SourceConfig[Any] | None,
         options: Mapping[str, Any] | None,
     ) -> Any:
         try:

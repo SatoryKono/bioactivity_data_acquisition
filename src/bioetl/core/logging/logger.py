@@ -121,6 +121,20 @@ class _SafeStreamHandler(logging.StreamHandler[TextIO]):
     def __init__(self) -> None:
         super().__init__(stream=sys.stderr)
 
+    def setStream(self, stream: TextIO | None) -> None:  # noqa: N802 - match logging API
+        target_stream: TextIO = stream if stream is not None else cast(TextIO, sys.stderr)
+        current = cast(TextIO | None, getattr(self, "stream", None))
+        if current is not None and getattr(current, "closed", False):
+            self.stream = target_stream
+            return
+        try:
+            super().setStream(target_stream)
+        except ValueError as exc:
+            if "I/O operation on closed file" in str(exc):
+                self.stream = target_stream
+                return
+            raise
+
     def emit(self, record: logging.LogRecord) -> None:
         stream: TextIO | None = cast(TextIO | None, getattr(self, "stream", None))
         if stream is None or getattr(stream, "closed", False):

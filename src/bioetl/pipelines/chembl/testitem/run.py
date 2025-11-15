@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -29,9 +29,6 @@ from ..common.descriptor import (
 )
 from .transform import transform as transform_testitem
 
-SelfTestitemChemblPipeline = TypeVar(
-    "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
-)
 
 class TestItemChemblPipeline(ChemblPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
@@ -43,7 +40,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._chembl_db_version: str | None = None
-        self.configure_output_schema(get_out_schema(self.pipeline_code))
+        self.configure_output_schema(get_out_schema("testitem_chembl"))
 
     @property
     def chembl_db_version(self) -> str | None:
@@ -107,13 +104,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(
-        self: SelfTestitemChemblPipeline,
-    ) -> ChemblExtractionDescriptor[SelfTestitemChemblPipeline]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
         """Return the descriptor powering testitem extraction."""
 
         def build_context(
-            pipeline: SelfTestitemChemblPipeline,
+            pipeline: "TestItemChemblPipeline",
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
@@ -142,11 +137,11 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 metadata={"api_version": pipeline.api_version},
             )
 
-        def empty_frame(_: SelfTestitemChemblPipeline, __: ChemblExtractionContext) -> pd.DataFrame:
+        def empty_frame(_: "TestItemChemblPipeline", __: ChemblExtractionContext) -> pd.DataFrame:
             return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
 
         def dry_run_handler(
-            pipeline: SelfTestitemChemblPipeline,
+            pipeline: "TestItemChemblPipeline",
             _: ChemblExtractionContext,
             log: BoundLogger,
             stage_start: float,
@@ -161,7 +156,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             return pd.DataFrame()
 
         def summary_extra(
-            pipeline: SelfTestitemChemblPipeline,
+            pipeline: "TestItemChemblPipeline",
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -171,7 +166,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 "limit": pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[SelfTestitemChemblPipeline](
+        descriptor = ChemblExtractionDescriptor["TestItemChemblPipeline"](
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,
@@ -186,6 +181,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
             hard_page_size_cap=None,
         )
+        return cast("ChemblExtractionDescriptor[ChemblPipelineBase]", descriptor)
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract molecule records by a specific list of IDs using batch extraction.
