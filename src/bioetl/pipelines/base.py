@@ -31,9 +31,11 @@ from bioetl.clients import client_exceptions
 from bioetl.config.models import PipelineConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core.io import (
     DeterministicWriteArtifacts,
     RunArtifacts,
+    WriteArtifacts,
     WriteResult,
     build_run_manifest_payload,
     build_write_artifacts,
@@ -165,6 +167,9 @@ class PipelineBase(ABC):
         load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
         self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
         self._qc_executor = QCMetricsExecutor()
+        self._qc_report_options: QCReportRuntimeOptions | None = None
+        self._qc_thresholds: dict[str, float] = {}
+        self._qc_fail_on_threshold: bool = False
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.
@@ -270,7 +275,7 @@ class PipelineBase(ABC):
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
         run_dir = run_directory if run_directory is not None else self.pipeline_directory
-        return io_plan_run_artifacts(
+        artifacts = io_plan_run_artifacts(
             stem=stem,
             run_directory=run_dir,
             logs_directory=self.logs_directory,
@@ -283,6 +288,43 @@ class PipelineBase(ABC):
             include_metadata=include_metadata,
             include_manifest=include_manifest,
             extras=extras,
+        )
+
+        options = self._qc_report_options
+        if options is None:
+            return artifacts
+
+        write = artifacts.write
+        quality_path = (
+            options.quality_path(stem=stem)
+            if write.quality_report is not None
+            else None
+        )
+        correlation_path = (
+            options.correlation_path(stem=stem)
+            if include_correlation and write.correlation_report is not None
+            else write.correlation_report
+        )
+        metrics_path = (
+            options.metrics_path(stem=stem)
+            if include_qc_metrics and write.qc_metrics is not None
+            else write.qc_metrics
+        )
+
+        overridden_write = WriteArtifacts(
+            dataset=write.dataset,
+            metadata=write.metadata,
+            quality_report=quality_path,
+            correlation_report=correlation_path,
+            qc_metrics=metrics_path,
+        )
+
+        return RunArtifacts(
+            write=overridden_write,
+            run_directory=artifacts.run_directory,
+            manifest=artifacts.manifest,
+            log_file=artifacts.log_file,
+            extras=dict(artifacts.extras),
         )
 
     def list_run_stems(self) -> Sequence[str]:
@@ -1486,12 +1528,16 @@ class PipelineBase(ABC):
             )
             validation_dict.update(self._validation_summary)
 
-        if metrics_summary:
-            quality_default: dict[str, Any] = {}
-            quality_dict = cast(dict[str, Any], metadata.setdefault("quality", quality_default))
-            metrics_default: dict[str, Any] = {}
-            metrics_dict = cast(dict[str, Any], quality_dict.setdefault("metrics", metrics_default))
+        quality_section: dict[str, Any] | None = None
+        if metrics_summary or self._qc_thresholds:
+            quality_section = cast(dict[str, Any], metadata.setdefault("quality", {}))
+        if metrics_summary and quality_section is not None:
+            metrics_dict = cast(dict[str, Any], quality_section.setdefault("metrics", {}))
             metrics_dict.update(metrics_summary)
+        if self._qc_thresholds and quality_section is not None:
+            thresholds_dict = cast(dict[str, Any], quality_section.setdefault("thresholds", {}))
+            thresholds_dict.update(self._qc_thresholds)
+            quality_section.setdefault("fail_on_violation", self._qc_fail_on_threshold)
 
         log.debug(LogEvents.WRITE_ARTIFACTS_PREPARED,
             rows=len(prepared.dataframe),
@@ -1584,6 +1630,9 @@ class PipelineBase(ABC):
         extended: bool = False,
         include_correlation: bool | None = None,
         include_qc_metrics: bool | None = None,
+        qc_reports: QCReportRuntimeOptions | None = None,
+        qc_thresholds: Mapping[str, float] | None = None,
+        fail_on_qc_violation: bool | None = None,
         **kwargs: object,
     ) -> RunResult:
         """Execute the pipeline lifecycle and return collected artifacts.
@@ -1620,6 +1669,10 @@ class PipelineBase(ABC):
         stage_durations_ms: dict[str, float] = {}
         self._stage_durations_ms = stage_durations_ms
         self._extract_metadata = {}
+        self._qc_report_options = qc_reports
+        self._qc_thresholds = dict(qc_thresholds or {})
+        if fail_on_qc_violation is not None:
+            self._qc_fail_on_threshold = bool(fail_on_qc_violation)
 
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         configured_mode = "extended" if effective_extended else None
@@ -1725,6 +1778,9 @@ class PipelineBase(ABC):
                     self.close_resources()
                 except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
                     log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
+                self._qc_report_options = None
+                self._qc_thresholds = {}
+                self._qc_fail_on_threshold = False
                 log.info(LogEvents.STAGE_CLEANUP_FINISH)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
