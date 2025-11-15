@@ -25,6 +25,7 @@ from bioetl.clients.base import (
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
+from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
@@ -165,7 +166,7 @@ class BatchExtractionContext:
 # Type checking uses Any for client parameters to avoid circular dependencies
 
 
-class ChemblPipelineBase(PipelineBase):
+class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
     This class provides common functionality for all ChEMBL pipelines,
@@ -210,7 +211,6 @@ class ChemblPipelineBase(PipelineBase):
             config,
             api_client_factory=self._client_factory,
         )
-        self._chembl_release: str | None = None
         self._api_version: str | None = None
 
     # ------------------------------------------------------------------
@@ -292,18 +292,9 @@ class ChemblPipelineBase(PipelineBase):
         return working_df
 
     @property
-    def chembl_release(self) -> str | None:
-        """Return the cached ChEMBL release captured during extraction."""
-        return self._chembl_release
-
-    @property
     def api_version(self) -> str | None:
         """Return the cached API version captured during extraction."""
         return self._api_version
-
-    def _set_chembl_release(self, value: str | None) -> None:
-        """Update the cached ChEMBL release used by the pipeline."""
-        self._chembl_release = value
 
     def _set_api_version(self, value: str | None) -> None:
         """Update the cached API version used by the pipeline."""
@@ -1161,7 +1152,7 @@ class ChemblPipelineBase(PipelineBase):
         )
 
         self.record_extract_metadata(
-            chembl_release=chembl_release or self._chembl_release,
+            chembl_release=chembl_release or self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
         )
