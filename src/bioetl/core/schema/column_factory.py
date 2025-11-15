@@ -66,6 +66,18 @@ class SchemaColumnFactory:
         )
 
     @classmethod
+    def _string_id(
+        cls,
+        pattern: str,
+        *,
+        nullable: bool = True,
+        unique: bool = False,
+    ) -> Column:
+        """Build a constrained string identifier column."""
+
+        return cls.string(pattern=pattern, nullable=nullable, unique=unique)
+
+    @classmethod
     def int64(
         cls,
         *,
@@ -147,23 +159,23 @@ class SchemaColumnFactory:
     def chembl_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
         """Build a column for ChEMBL identifiers."""
 
-        return cls.string(pattern=cls.CHEMBL_ID_PATTERN, nullable=nullable, unique=unique)
+        return cls._string_id(cls.CHEMBL_ID_PATTERN, nullable=nullable, unique=unique)
 
     @classmethod
     def bao_id(cls, *, nullable: bool = True) -> Column:
         """Build a column for BAO identifiers."""
 
-        return cls.string(pattern=cls.BAO_ID_PATTERN, nullable=nullable)
+        return cls._string_id(cls.BAO_ID_PATTERN, nullable=nullable)
 
     @classmethod
     def doi(cls, *, nullable: bool = True) -> Column:
         """Build a column for DOI values."""
 
-        return cls.string(pattern=cls.DOI_PATTERN, nullable=nullable)
+        return cls._string_id(cls.DOI_PATTERN, nullable=nullable)
 
     @classmethod
     def uuid(cls, *, nullable: bool = False, unique: bool = False) -> Column:
         """Build a UUID column in canonical format."""
 
-        return cls.string(pattern=cls.UUID_PATTERN, nullable=nullable, unique=unique)
+        return cls._string_id(cls.UUID_PATTERN, nullable=nullable, unique=unique)
 
