@@ -212,3 +212,26 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         if hard_cap is not None:
             candidate = min(candidate, hard_cap)
         return max(candidate, 1)
+
+
+def enforce_positive_int_cap(
+    config: "SourceConfig[Any]",
+    *,
+    field: str,
+    cap: int,
+) -> None:
+    """Ensure that a positive integer field does not exceed the provided cap.
+
+    Parameters
+    ----------
+    config
+        Source configuration instance whose field should be clamped.
+    field
+        Name of the model field to clamp.
+    cap
+        Maximum allowed value for the field.
+    """
+
+    current = getattr(config, field, None)
+    if current is None or int(current) > cap:
+        setattr(config, field, cap)

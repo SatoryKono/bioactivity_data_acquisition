@@ -10,7 +10,7 @@ from pydantic import ConfigDict, Field, PositiveInt, model_validator
 from bioetl.clients.base import normalize_select_fields
 
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig, SourceParameters
+from ..models.source import SourceConfig, SourceParameters, enforce_positive_int_cap
 
 
 class TargetSourceParameters(SourceParameters):
@@ -80,6 +80,5 @@ class TargetSourceConfig(SourceConfig[TargetSourceParameters]):
         TargetSourceConfig
             Self with enforced limits.
         """
-        if self.batch_size is None or self.batch_size > 25:
-            self.batch_size = 25
+        enforce_positive_int_cap(self, field="batch_size", cap=25)
         return self
