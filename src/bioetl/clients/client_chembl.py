@@ -231,18 +231,25 @@ class ChemblClient:
             records_fetched_delta=len(page.items),
         )
 
-    def fetch_entities(
+    def _fetch_entities(
         self,
-        entity: ChemblEntityClientProtocol,
+        entity: str,
         ids: Iterable[str],
         *,
         fields: Sequence[str] | None = None,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch entity records by identifiers using the provided client."""
+        """Fetch entity records by identifiers using a named entity adapter."""
+
+        attr_name = f"_{entity}_entity"
+        try:
+            entity_client: ChemblEntityClientProtocol = getattr(self, attr_name)
+        except AttributeError as exc:  # pragma: no cover - defensive branch
+            msg = f"ChemblClient does not define entity adapter '{entity}'."
+            raise AttributeError(msg) from exc
 
         identifiers = tuple(ids)
-        return entity.fetch_by_ids(
+        return entity_client.fetch_by_ids(
             identifiers,
             fields=fields,
             page_limit=page_limit,
@@ -260,8 +267,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch assay entries by ``assay_chembl_id`` and return a DataFrame."""
-        return self.fetch_entities(
-            self._assay_entity,
+        return self._fetch_entities(
+            "assay",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -279,8 +286,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch molecule entries by ``molecule_chembl_id`` and return a DataFrame."""
-        return self.fetch_entities(
-            self._molecule_entity,
+        return self._fetch_entities(
+            "molecule",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -298,8 +305,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``data_validity_lookup`` entries by comment and return a DataFrame."""
-        return self.fetch_entities(
-            self._data_validity_entity,
+        return self._fetch_entities(
+            "data_validity",
             comments,
             fields=fields,
             page_limit=page_limit,
@@ -337,8 +344,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``document_term`` entries by ``document_chembl_id``."""
-        return self.fetch_entities(
-            self._document_term_entity,
+        return self._fetch_entities(
+            "document_term",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -356,8 +363,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_class_map`` entries by ``assay_chembl_id``."""
-        return self.fetch_entities(
-            self._assay_class_map_entity,
+        return self._fetch_entities(
+            "assay_class_map",
             assay_ids,
             fields=fields,
             page_limit=page_limit,
@@ -395,8 +402,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_classification`` entries by ``assay_class_id``."""
-        return self.fetch_entities(
-            self._assay_classification_entity,
+        return self._fetch_entities(
+            "assay_classification",
             class_ids,
             fields=fields,
             page_limit=page_limit,
