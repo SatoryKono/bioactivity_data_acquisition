@@ -577,13 +577,6 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         # But we keep this method for consistency with other pipelines
         return record
 
-    @staticmethod
-    def _coerce_mapping(payload: Any) -> dict[str, Any]:
-        """Coerce payload to dictionary mapping."""
-        if isinstance(payload, Mapping):
-            return cast(dict[str, Any], payload)
-        return {}
-
     def _build_document_client(
         self,
         *,
