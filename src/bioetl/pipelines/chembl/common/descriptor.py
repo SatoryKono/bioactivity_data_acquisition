@@ -916,7 +916,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         return self.fetch_chembl_release(client, log)
 
     @staticmethod
-    def _extract_chembl_release(payload: Mapping[str, Any]) -> str | None:
+    def _extract_chembl_release(payload: Mapping[str, Any] | None) -> str | None:
         """Extract ChEMBL release version from status payload.
 
         Parameters
@@ -929,6 +929,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         str | None
             The release version string, or None if not found.
         """
+        if not payload:
+            return None
+
         for key in ("chembl_release", "chembl_db_version", "release", "version"):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():

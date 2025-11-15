@@ -8,8 +8,9 @@ from typing import Any
 from bioetl.core.logging import LogEvents
 
 
-def _enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
+def enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
     """Return True when an ``enabled`` flag is set for the provided config path."""
+
     if not config:
         return False
 
@@ -21,6 +22,12 @@ def _enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
         return False
 
     return bool(current) if current is not None else False
+
+
+def _enrich_flag(config: Mapping[str, Any] | None, path: Sequence[str]) -> bool:
+    """Backward-compatible alias for :func:`enrich_flag`."""
+
+    return enrich_flag(config, path)
 
 
 def _extract_enrich_config(
