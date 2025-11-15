@@ -18,6 +18,7 @@ from bioetl.pipelines.chembl.common import ChemblPipelineBase
 from bioetl.pipelines.chembl.document import run as document_run
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
+from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 
@@ -76,6 +77,52 @@ class _NormalizationProbePipeline(ChemblPipelineBase):
 @pytest.fixture
 def dummy_pipeline(pipeline_config_fixture: PipelineConfig, run_id: str) -> _DummyChemblPipeline:
     return _DummyChemblPipeline(config=pipeline_config_fixture, run_id=run_id)
+
+
+@pytest.mark.unit
+def test_initialize_output_schema_uses_registry_lookup(
+    dummy_pipeline: _DummyChemblPipeline,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    registry_entry = get_out_schema(dummy_pipeline.pipeline_code)
+    recorded: list[str] = []
+
+    def fake_get_out_schema(pipeline_code: str) -> SchemaRegistryEntry:
+        recorded.append(pipeline_code)
+        if pipeline_code == dummy_pipeline.pipeline_code:
+            return registry_entry
+        raise KeyError(pipeline_code)
+
+    monkeypatch.setattr(
+        "bioetl.pipelines.chembl.common.descriptor.get_out_schema",
+        fake_get_out_schema,
+    )
+
+    dummy_pipeline.initialize_output_schema()
+
+    assert recorded[-1] == dummy_pipeline.pipeline_code
+    assert recorded[0] == dummy_pipeline.actor
+    assert dummy_pipeline._output_schema_entry is registry_entry
+    assert dummy_pipeline._output_schema is registry_entry.schema
+    assert dummy_pipeline._output_column_order == registry_entry.column_order
+
+
+@pytest.mark.unit
+def test_initialize_output_schema_accepts_override(
+    dummy_pipeline: _DummyChemblPipeline,
+) -> None:
+    registry_entry = get_out_schema(dummy_pipeline.pipeline_code)
+    extra_cache = {"probe": "value"}
+
+    dummy_pipeline.initialize_output_schema(
+        registry_entry,
+        extra_cache=extra_cache,
+    )
+
+    assert dummy_pipeline._output_schema_entry is registry_entry
+    assert dummy_pipeline._output_schema is registry_entry.schema
+    assert dummy_pipeline._output_column_order == registry_entry.column_order
+    assert dummy_pipeline._output_schema_cache == extra_cache
 
 
 @pytest.mark.unit

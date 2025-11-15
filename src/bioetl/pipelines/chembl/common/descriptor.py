@@ -30,6 +30,7 @@ from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas import SchemaRegistryEntry
+from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from ...base import PipelineBase
 
@@ -231,6 +232,67 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema = schema_entry.schema
         self._output_column_order = tuple(schema_entry.column_order)
         self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
+
+    def resolve_output_schema_entry(self) -> SchemaRegistryEntry:
+        """Return the schema registry entry associated with this pipeline.
+
+        Subclasses may override this method when they need to fetch the
+        registry entry from a non-standard location. The default
+        implementation consults :func:`bioetl.schemas.pipeline_contracts.get_out_schema`
+        using the pipeline actor (when available) and finally falls back to the
+        configured :attr:`pipeline_code`.
+        """
+
+        candidates: list[str] = []
+
+        actor = getattr(self, "actor", None)
+        if isinstance(actor, str) and actor.strip():
+            actor_code = actor.strip()
+        else:
+            actor_code = None
+
+        pipeline_code = self.pipeline_code.strip()
+
+        if actor_code and actor_code != pipeline_code:
+            candidates.append(actor_code)
+
+        candidates.append(pipeline_code)
+
+        last_error: KeyError | None = None
+
+        for candidate in candidates:
+            try:
+                return get_out_schema(candidate)
+            except KeyError as exc:
+                last_error = exc
+                continue
+
+        if last_error is not None:
+            raise last_error
+
+        msg = "Unable to resolve pipeline output schema"
+        raise KeyError(msg)
+
+    def initialize_output_schema(
+        self,
+        schema_entry: SchemaRegistryEntry | None = None,
+        *,
+        extra_cache: dict[str, Any] | None = None,
+    ) -> None:
+        """Resolve and configure the pipeline output schema.
+
+        Parameters
+        ----------
+        schema_entry
+            Optional pre-resolved schema registry entry. When omitted the
+            registry entry is obtained via :meth:`resolve_output_schema_entry`.
+        extra_cache
+            Optional mapping propagated to :meth:`configure_output_schema` for
+            callers that need to seed schema-level caches.
+        """
+
+        resolved_entry = schema_entry or self.resolve_output_schema_entry()
+        self.configure_output_schema(resolved_entry, extra_cache=extra_cache)
 
     # ------------------------------------------------------------------
     # Normalization helpers

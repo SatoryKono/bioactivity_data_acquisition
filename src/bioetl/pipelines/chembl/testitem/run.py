@@ -18,7 +18,6 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
-from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from ..common.descriptor import (
@@ -43,7 +42,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._chembl_db_version: str | None = None
-        self.configure_output_schema(get_out_schema(self.pipeline_code))
+        self.initialize_output_schema()
 
     @property
     def chembl_db_version(self) -> str | None:
