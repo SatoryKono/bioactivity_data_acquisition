@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from bioetl.cli.tool_specs import TOOL_COMMAND_SPECS
 from bioetl.cli.tools._logic.cli_catalog_code_symbols import (
     extract_pipeline_base_signatures,
 )
@@ -122,3 +123,7 @@ def test_pipeline_base_signatures_consistent_with_docs() -> None:
             if doc_annotation is None or doc_annotation == "Any":
                 continue
             assert doc_annotation == runtime_annotation
+
+
+def test_semantic_diff_tool_is_declared() -> None:
+    assert any(spec.code == "semantic_diff" for spec in TOOL_COMMAND_SPECS)

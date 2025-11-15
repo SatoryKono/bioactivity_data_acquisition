@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 import typer
 
+from bioetl.cli.tool_specs import TOOL_COMMAND_SPECS
 from bioetl.core.logging import LogEvents
 from bioetl.core.runtime import cli_errors
 
@@ -67,5 +68,9 @@ def test_emit_tool_error_propagates_cause(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert exit_info.value.code == 1
     assert exit_info.value.__cause__ is root_exc
+
+
+def test_qc_boundary_tool_is_declared() -> None:
+    assert any(spec.code == "qc_boundary_check" for spec in TOOL_COMMAND_SPECS)
 
 
