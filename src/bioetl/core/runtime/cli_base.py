@@ -15,10 +15,39 @@ from bioetl.core.runtime.cli_errors import (
     CLI_ERROR_INTERNAL,
     CliErrorTemplate,
     LoggerLike,
-    emit_cli_error,
+    emit_cli_error_and_exit,
 )
 
 CommandCallable: TypeAlias = Callable[..., None]
+
+
+def run_typer_app(
+    app: TyperApp,
+    *,
+    preconfigured_logger: BoundLogger | None = None,
+) -> None:
+    """Execute a Typer application with unified error handling."""
+
+    logger = preconfigured_logger or UnifiedLogger.get(__name__)
+    try:
+        typer_run_app(app)
+    except typer.Exit:
+        raise
+    except typer.BadParameter:
+        raise
+    except Exception as exc:  # noqa: BLE001 - delegated structured handling
+        emit_cli_error_and_exit(
+            template=CLI_ERROR_INTERNAL,
+            message=f"Typer application failed: {exc}",
+            logger=logger,
+            event=LogEvents.CLI_RUN_ERROR,
+            context={
+                "exception_type": exc.__class__.__name__,
+                "exc_info": True,
+            },
+            exit_code=CliCommandBase.exit_code_error,
+            cause=exc,
+        )
 
 
 @dataclass(frozen=True)
@@ -30,13 +59,13 @@ class CliEntrypoint:
     def run(self) -> None:
         """Execute the configured Typer application."""
 
-        typer_run_app(self.app)
+        run_typer_app(self.app)
 
     @staticmethod
     def run_app(app: TyperApp) -> None:
         """Execute an arbitrary Typer application without instantiating the wrapper."""
 
-        typer_run_app(app)
+        run_typer_app(app)
 
 
 class CliCommandBase:
@@ -84,9 +113,13 @@ class CliCommandBase:
             message=f"Unhandled CLI exception: {exc}",
             logger=self.logger,
             event=LogEvents.CLI_RUN_ERROR,
-            context={"exception_type": exc.__class__.__name__},
-        )        
-        self.exit(self.exit_code_error)
+            context={
+                "exception_type": exc.__class__.__name__,
+                "exc_info": True,
+            },
+            exit_code=self.exit_code_error,
+            cause=exc,
+        )
 
     @staticmethod
     def emit_error(
@@ -101,14 +134,15 @@ class CliCommandBase:
     ) -> NoReturn:
         """Emit a structured error message and terminate the command."""
 
-        emit_cli_error(
+        emit_cli_error_and_exit(
             template=template,
             message=message,
             event=event,
             logger=logger,
             context=context,
+            exit_code=exit_code or CliCommandBase.exit_code_error,
+            cause=cause,
         )
-        CliCommandBase.exit(exit_code or CliCommandBase.exit_code_error, cause=cause)
 
     @staticmethod
     def exit(code: int, *, cause: Exception | None = None) -> NoReturn:
