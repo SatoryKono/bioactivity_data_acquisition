@@ -9,6 +9,8 @@ from re import Pattern
 
 import pandas as pd
 
+from bioetl.core.utils.mixins import CollectionFlagMixin
+
 __all__ = [
     "IdentifierRule",
     "IdentifierStats",
@@ -19,12 +21,12 @@ __all__ = [
 ]
 
 
-class _HasChangesMixin:
+class _HasChangesMixin(CollectionFlagMixin):
     """Mixin providing ``has_changes`` property based on ``per_column`` stats."""
 
     @property
     def has_changes(self) -> bool:  # pragma: no cover - trivial delegation
-        return bool(self.per_column)
+        return self.has_items(self.per_column)
 
 
 @dataclass(frozen=True)
