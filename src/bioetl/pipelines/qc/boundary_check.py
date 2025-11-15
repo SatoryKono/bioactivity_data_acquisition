@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Tuple
 
+from bioetl.core.utils.mixins import CollectionFlagMixin
 from bioetl.tools import qc_boundary as boundary_tools
 
 __all__ = [
@@ -38,7 +39,7 @@ class QCBoundaryViolation:
 
 
 @dataclass(frozen=True, slots=True)
-class QCBoundaryReport:
+class QCBoundaryReport(CollectionFlagMixin):
     """Результат анализа границы CLI ↔ QC."""
 
     package: str
@@ -48,7 +49,7 @@ class QCBoundaryReport:
     def has_violations(self) -> bool:
         """Признак наличия нарушений."""
 
-        return bool(self.violations)
+        return self.has_items(self.violations)
 
     def iter_paths(self) -> Iterable[Path]:
         """Перечислить пути исходников с нарушениями в детерминированном порядке."""
