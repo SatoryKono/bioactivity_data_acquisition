@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from bioetl.cli.cli_entrypoint import (
-    TyperApp,
-    create_simple_tool_app,
-    get_typer,
-    run_app,
-)
+from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
 from bioetl.cli.tools._logic import cli_catalog_code_symbols as cli_catalog_code_symbols_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
@@ -74,17 +69,13 @@ def cli_main(
     CliCommandBase.exit(0)
 
 
-app: TyperApp = create_simple_tool_app(
+app: TyperApp
+run: Callable[[], None]
+app, run = register_tool_app(
     name="bioetl-catalog-code-symbols",
     help_text="Build the code entity catalog and related reports",
     main_fn=cli_main,
 )
-
-
-def run() -> None:
-    """Execute the Typer application."""
-
-    run_app(app)
 
 
 if __name__ == "__main__":

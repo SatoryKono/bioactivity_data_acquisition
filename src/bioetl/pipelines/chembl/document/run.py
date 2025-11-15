@@ -28,6 +28,7 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from ..common.enrich import _enrich_flag, _extract_enrich_config
 from .normalize import enrich_with_document_terms
 
 SelfChemblDocumentPipeline = TypeVar(
@@ -537,51 +538,22 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
     def _should_enrich_document_terms(self) -> bool:
         """Return True when document_term enrichment is enabled in the config."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            document_section: Any = chembl_section.get("document")
-            if not isinstance(document_section, Mapping):
-                return False
-            document_section = cast(Mapping[str, Any], document_section)
-            enrich_section: Any = document_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            document_term_section: Any = enrich_section.get("document_term")
-            if not isinstance(document_term_section, Mapping):
-                return False
-            document_term_section = cast(Mapping[str, Any], document_term_section)
-            enabled: Any = document_term_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        return _enrich_flag(
+            chembl_config,
+            ("document", "enrich", "document_term", "enabled"),
+        )
 
     def _enrich_document_terms(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply document_term enrichment to the DataFrame."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Retrieve enrichment configuration.
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                document_section: Any = chembl_section.get("document")
-                if isinstance(document_section, Mapping):
-                    document_section = cast(Mapping[str, Any], document_section)
-                    enrich_section: Any = document_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        document_term_section: Any = enrich_section.get("document_term")
-                        if isinstance(document_term_section, Mapping):
-                            document_term_section = cast(Mapping[str, Any], document_term_section)
-                            enrich_cfg = dict(document_term_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        enrich_cfg = _extract_enrich_config(
+            chembl_config,
+            ("document", "enrich", "document_term"),
+            log=log,
+        )
 
         # Create or reuse the ChEMBL client.
         source_raw = self._resolve_source_config("chembl")

@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from bioetl.cli.cli_entrypoint import (
-    TyperApp,
-    create_simple_tool_app,
-    get_typer,
-    run_app,
-)
+from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
 from bioetl.cli.tools._logic import cli_create_matrix_doc_code as cli_create_matrix_doc_code_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
@@ -83,17 +78,13 @@ def cli_main(
     CliCommandBase.exit(0)
 
 
-app: TyperApp = create_simple_tool_app(
+app: TyperApp
+run: Callable[[], None]
+app, run = register_tool_app(
     name="bioetl-create-matrix-doc-code",
     help_text="Generate the Doc<->Code matrix and export artifacts",
     main_fn=cli_main,
 )
-
-
-def run() -> None:
-    """Execute the Typer application."""
-
-    run_app(app)
 
 
 if __name__ == "__main__":

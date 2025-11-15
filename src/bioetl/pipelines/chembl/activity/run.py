@@ -56,6 +56,7 @@ from .normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
+from ..common.enrich import _enrich_flag, _extract_enrich_config
 
 
 class ChemblActivityPipeline(ChemblPipelineBase):
@@ -768,53 +769,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def _should_enrich_compound_record(self) -> bool:
         """Return True when compound_record enrichment is enabled in the config."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            compound_record_section: Any = enrich_section.get("compound_record")
-            if not isinstance(compound_record_section, Mapping):
-                return False
-            compound_record_section = cast(Mapping[str, Any], compound_record_section)
-            enabled: Any = compound_record_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        return _enrich_flag(
+            chembl_config,
+            ("activity", "enrich", "compound_record", "enabled"),
+        )
 
     def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich the DataFrame with compound_record fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Retrieve enrichment configuration.
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        compound_record_section: Any = enrich_section.get("compound_record")
-                        if isinstance(compound_record_section, Mapping):
-                            compound_record_section = cast(
-                                Mapping[str, Any], compound_record_section
-                            )
-                            enrich_cfg = dict(compound_record_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        enrich_cfg = _extract_enrich_config(
+            chembl_config,
+            ("activity", "enrich", "compound_record"),
+            log=log,
+        )
 
         bundle = self._build_activity_enrichment_bundle(
             "compound_record",
@@ -827,51 +797,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def _should_enrich_assay(self) -> bool:
         """Return True when assay enrichment is enabled in the config."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            assay_section: Any = enrich_section.get("assay")
-            if not isinstance(assay_section, Mapping):
-                return False
-            assay_section = cast(Mapping[str, Any], assay_section)
-            enabled: Any = assay_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        return _enrich_flag(
+            chembl_config,
+            ("activity", "enrich", "assay", "enabled"),
+        )
 
     def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich the DataFrame with assay fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Retrieve enrichment configuration.
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        assay_section: Any = enrich_section.get("assay")
-                        if isinstance(assay_section, Mapping):
-                            assay_section = cast(Mapping[str, Any], assay_section)
-                            enrich_cfg = dict(assay_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        enrich_cfg = _extract_enrich_config(
+            chembl_config,
+            ("activity", "enrich", "assay"),
+            log=log,
+        )
 
         bundle = self._build_activity_enrichment_bundle(
             "assay",
@@ -884,51 +825,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def _should_enrich_data_validity(self) -> bool:
         """Return True when data_validity enrichment is enabled in the config."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            data_validity_section: Any = enrich_section.get("data_validity")
-            if not isinstance(data_validity_section, Mapping):
-                return False
-            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-            enabled: Any = data_validity_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        return _enrich_flag(
+            chembl_config,
+            ("activity", "enrich", "data_validity", "enabled"),
+        )
 
     def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich the DataFrame with data_validity_lookup fields."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Retrieve enrichment configuration.
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        data_validity_section: Any = enrich_section.get("data_validity")
-                        if isinstance(data_validity_section, Mapping):
-                            data_validity_section = cast(Mapping[str, Any], data_validity_section)
-                            enrich_cfg = dict(data_validity_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        enrich_cfg = _extract_enrich_config(
+            chembl_config,
+            ("activity", "enrich", "data_validity"),
+            log=log,
+        )
 
         # If data_validity_description already contains values (not all NA), log an informational message.
         if "data_validity_description" in df.columns:
@@ -952,51 +864,22 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
     def _should_enrich_molecule(self) -> bool:
         """Return True when molecule enrichment is enabled in the config."""
-        if not self.config.chembl:
-            return False
-        try:
-            chembl_section = self.config.chembl
-            activity_section: Any = chembl_section.get("activity")
-            if not isinstance(activity_section, Mapping):
-                return False
-            activity_section = cast(Mapping[str, Any], activity_section)
-            enrich_section: Any = activity_section.get("enrich")
-            if not isinstance(enrich_section, Mapping):
-                return False
-            enrich_section = cast(Mapping[str, Any], enrich_section)
-            molecule_section: Any = enrich_section.get("molecule")
-            if not isinstance(molecule_section, Mapping):
-                return False
-            molecule_section = cast(Mapping[str, Any], molecule_section)
-            enabled: Any = molecule_section.get("enabled")
-            return bool(enabled) if enabled is not None else False
-        except (AttributeError, KeyError, TypeError):
-            return False
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        return _enrich_flag(
+            chembl_config,
+            ("activity", "enrich", "molecule", "enabled"),
+        )
 
     def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
         """Enrich the DataFrame with molecule fields via join."""
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
 
-        # Retrieve enrichment configuration.
-        enrich_cfg: dict[str, Any] = {}
-        try:
-            if self.config.chembl:
-                chembl_section = self.config.chembl
-                activity_section: Any = chembl_section.get("activity")
-                if isinstance(activity_section, Mapping):
-                    activity_section = cast(Mapping[str, Any], activity_section)
-                    enrich_section: Any = activity_section.get("enrich")
-                    if isinstance(enrich_section, Mapping):
-                        enrich_section = cast(Mapping[str, Any], enrich_section)
-                        molecule_section: Any = enrich_section.get("molecule")
-                        if isinstance(molecule_section, Mapping):
-                            molecule_section = cast(Mapping[str, Any], molecule_section)
-                            enrich_cfg = dict(molecule_section)
-        except (AttributeError, KeyError, TypeError) as exc:
-            log.warning(LogEvents.ENRICHMENT_CONFIG_ERROR,
-                error=str(exc),
-                message="Using default enrichment config",
-            )
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        enrich_cfg = _extract_enrich_config(
+            chembl_config,
+            ("activity", "enrich", "molecule"),
+            log=log,
+        )
 
         bundle = self._build_activity_enrichment_bundle(
             "molecule",

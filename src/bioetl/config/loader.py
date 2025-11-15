@@ -7,6 +7,8 @@ from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, TypeGuard, cast
 
+from bioetl.core.utils.iterables import is_non_string_iterable
+
 import yaml
 from yaml.nodes import ScalarNode
 
@@ -176,11 +178,6 @@ def _selected_environment(settings: EnvironmentSettings) -> str | None:
     """Return the active environment when explicitly provided via env/config."""
 
     return settings.bioetl_env
-def _is_non_string_iterable(value: Any) -> TypeGuard[Iterable[Any]]:
-    """Return True when ``value`` is an iterable but not a string-like object."""
-    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
-
-
 def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
     """Return True when ``value`` is a list instance."""
     return isinstance(value, list)
@@ -472,7 +469,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
                 typed_sources: tuple[Mapping[str, Any], ...] = (
                     _normalize_merge_source(merge_value),
                 )
-            elif _is_non_string_iterable(merge_value):
+            elif is_non_string_iterable(merge_value):
                 merge_iterable: Iterable[Any] = merge_value
                 typed_sources = tuple(
                     _normalize_merge_source(source_any) for source_any in merge_iterable

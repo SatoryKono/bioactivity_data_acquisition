@@ -11,6 +11,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from bioetl.core.io import header_rows_serialize
+from bioetl.core.utils.iterables import is_non_string_iterable
 
 __all__ = [
     "serialize_target_arrays",
@@ -26,10 +27,6 @@ def _is_json_dict(value: Any) -> TypeGuard[JsonDict]:
     return isinstance(value, dict)
 
 
-def _is_iterable_of_objects(value: Any) -> TypeGuard[Iterable[Any]]:
-    return isinstance(value, Iterable) and not isinstance(value, (str, bytes))
-
-
 def _collect_dicts(source: Any) -> list[JsonDict]:
     """Collect dictionary entries from arbitrary source keeping order."""
 
@@ -38,7 +35,7 @@ def _collect_dicts(source: Any) -> list[JsonDict]:
         result.append(source)
         return result
 
-    if _is_iterable_of_objects(source):
+    if is_non_string_iterable(source):
         for element in source:
             element_any: Any = element
             if _is_json_dict(element_any):
