@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -16,6 +16,7 @@ from bioetl.core.logging import UnifiedLogger
 __all__ = [
     "ChemblClientProtocol",
     "ChemblEntityClientProtocol",
+    "ChemblEntityConfigMixin",
     "ChemblEntityFetcherBase",
     "EntityConfig",
 ]
@@ -68,6 +69,60 @@ class ChemblEntityClientProtocol(Protocol):
         page_size: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
         ...
+
+
+class ChemblEntityConfigMixin:
+    """Mixin, предоставляющий единообразную инициализацию для ChEMBL-клиентов."""
+
+    ENTITY_CONFIG: ClassVar[EntityConfig | None] = None
+    DEFAULT_BATCH_SIZE: ClassVar[int | None] = None
+    DEFAULT_MAX_URL_LENGTH: ClassVar[int | None] = None
+    REQUIRE_MAX_URL_LENGTH: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        chembl_client: ChemblClientProtocol,
+        *,
+        entity_config: EntityConfig | None = None,
+        batch_size: int | None = None,
+        max_url_length: int | None = None,
+    ) -> None:
+        config = entity_config or self.ENTITY_CONFIG
+        if config is None:
+            msg = (
+                "entity_config должен быть передан явным параметром "
+                "или определён как ENTITY_CONFIG в классе"
+            )
+            raise ValueError(msg)
+
+        resolved_batch_size = batch_size
+        if resolved_batch_size is None:
+            resolved_batch_size = self.DEFAULT_BATCH_SIZE
+        resolved_batch_size = self._normalize_batch_size(resolved_batch_size)
+
+        resolved_max_url_length = max_url_length
+        if resolved_max_url_length is None:
+            resolved_max_url_length = self.DEFAULT_MAX_URL_LENGTH
+        resolved_max_url_length = self._normalize_max_url_length(
+            resolved_max_url_length
+        )
+
+        if self.REQUIRE_MAX_URL_LENGTH and resolved_max_url_length is None:
+            msg = "max_url_length обязателен для данного клиента"
+            raise ValueError(msg)
+
+        super().__init__(
+            chembl_client=chembl_client,
+            config=config,
+            batch_size=resolved_batch_size,
+            max_url_length=resolved_max_url_length,
+        )
+
+    def _normalize_batch_size(self, batch_size: int | None) -> int | None:
+        return batch_size
+
+    def _normalize_max_url_length(self, max_url_length: int | None) -> int | None:
+        return max_url_length
 
 
 class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
