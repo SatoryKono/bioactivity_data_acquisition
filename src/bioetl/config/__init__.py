@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from typing import TYPE_CHECKING, Any
+
+from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
 
 __all__ = [
     "ActivitySourceConfig",
@@ -47,14 +48,12 @@ _LAZY_ATTRS = {
 }
 
 
+_CACHEABLE_EXPORTS = frozenset(_LAZY_ATTRS.keys())
+_lazy_resolver = resolve_lazy_attr(globals(), _LAZY_ATTRS, cache=_CACHEABLE_EXPORTS)
+
+
 def __getattr__(name: str) -> Any:
-    module_name = _LAZY_ATTRS.get(name)
-    if module_name is None:
-        raise AttributeError(name)
-    module = import_module(module_name)
-    value = getattr(module, name)
-    globals()[name] = value
-    return value
+    return _lazy_resolver(name)
 
 
 def __dir__() -> list[str]:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from bioetl.config.models.models import CLIConfig
 from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
+from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
 
 if TYPE_CHECKING:  # pragma: no cover - import for typing only
     from .base import PipelineBase, RunResult
@@ -28,6 +29,18 @@ _ALIAS_EXPORTS = {
     "TargetPipeline": "ChemblTargetPipeline",
     "TestItemPipeline": "TestItemChemblPipeline",
 }
+
+_lazy_mapping: dict[str, Any] = {
+    name: module for name, module in _LAZY_EXPORTS.items()
+}
+_lazy_mapping.update(
+    {
+        alias: (_LAZY_EXPORTS[target], target)
+        for alias, target in _ALIAS_EXPORTS.items()
+    }
+)
+
+_lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
 
 
 _BASE_EXPORTS = {
