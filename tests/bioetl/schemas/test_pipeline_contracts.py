@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import pytest
 
+import bioetl.schemas.pipeline_contracts as pipeline_contracts
+
 from bioetl.schemas.pipeline_contracts import (
     PipelineSchemaContract,
     get_business_key_fields,
@@ -11,6 +13,7 @@ from bioetl.schemas.pipeline_contracts import (
     get_in_schema,
     get_out_schema,
     get_pipeline_contract,
+    resolve_contract_sequence,
 )
 
 
@@ -46,4 +49,51 @@ def test_get_column_order_matches_schema_metadata() -> None:
 def test_unknown_pipeline_raises_key_error() -> None:
     with pytest.raises(KeyError):
         get_pipeline_contract("unknown_pipeline")
+
+
+class _StubDescriptor:
+    def __init__(
+        self,
+        *,
+        metadata: dict[str, object] | None = None,
+        column_order: tuple[str, ...] | None = None,
+        business_key_fields: tuple[str, ...] | None = None,
+    ) -> None:
+        self.metadata = metadata or {}
+        self.column_order = column_order or ()
+        self.business_key_fields = business_key_fields or ()
+
+
+def test_resolve_contract_sequence_prefers_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    contract = PipelineSchemaContract(
+        pipeline_code="stub",
+        schema_out="stub.schema",
+    )
+    descriptor = _StubDescriptor(
+        metadata={"business_key_fields": ["id", "source"]},
+        business_key_fields=("fallback",),
+    )
+
+    monkeypatch.setattr(pipeline_contracts, "get_schema", lambda identifier: descriptor)
+
+    resolved = resolve_contract_sequence(contract, "business_key_fields", "business_key_fields")
+
+    assert resolved == ("id", "source")
+
+
+def test_resolve_contract_sequence_uses_descriptor_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+    contract = PipelineSchemaContract(
+        pipeline_code="stub",
+        schema_out="stub.schema",
+    )
+    descriptor = _StubDescriptor(
+        metadata={},
+        column_order=("chembl_id", "pref_name"),
+    )
+
+    monkeypatch.setattr(pipeline_contracts, "get_schema", lambda identifier: descriptor)
+
+    resolved = resolve_contract_sequence(contract, "column_order", "column_order")
+
+    assert resolved == ("chembl_id", "pref_name")
 
