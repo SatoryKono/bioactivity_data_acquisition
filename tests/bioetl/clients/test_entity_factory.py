@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any
+from typing import Any, Mapping
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -11,14 +11,25 @@ import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
-from bioetl.clients.chembl_entity_registry import ChemblEntityRegistryError
+from bioetl.clients.chembl_entity_registry import (
+    ChemblEntityRegistryError,
+    get_entity_definition,
+)
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.client_chembl_entity_base import ChemblEntityFetcherBase
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.clients.entities.client_assay import ChemblAssayClient
+from bioetl.clients.entities.client_assay_class_map import ChemblAssayClassMapEntityClient
+from bioetl.clients.entities.client_assay_classification import (
+    ChemblAssayClassificationEntityClient,
+)
+from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
+from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
+from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
+from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 
@@ -178,6 +189,84 @@ class TestChemblEntityClientFactory:
         factory, _ = factory_with_http
         with pytest.raises(ValueError, match="не может быть пустым"):  # type: ignore[reportUnknownMemberType]
             factory.build("activity", options={"base_url": ""})
+
+
+class _DummyChemblClient:
+    def paginate(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        page_size: int = 200,
+        items_key: str | None = None,
+    ) -> Any:
+        return iter(())
+
+    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]:
+        return {}
+
+
+@pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
+@pytest.mark.parametrize(
+    ("entity_name", "expected_cls", "config_key", "options"),
+    [
+        ("activity", ChemblActivityClient, "activity", {}),
+        (
+            "assay",
+            ChemblAssayClient,
+            "assay",
+            {"max_url_length": 2048, "batch_size": 10},
+        ),
+        ("target", ChemblTargetClient, "target", {}),
+        ("document", ChemblDocumentClient, "document", {}),
+        ("testitem", ChemblTestitemClient, "testitem", {}),
+        (
+            "assay_classification",
+            ChemblAssayClassificationEntityClient,
+            "assay_classification",
+            {},
+        ),
+        (
+            "assay_class_map",
+            ChemblAssayClassMapEntityClient,
+            "assay_class_map",
+            {},
+        ),
+        (
+            "assay_parameters",
+            ChemblAssayParametersEntityClient,
+            "assay_parameters",
+            {},
+        ),
+        (
+            "document_term",
+            ChemblDocumentTermEntityClient,
+            "document_term",
+            {},
+        ),
+        ("molecule", ChemblMoleculeEntityClient, "molecule", {}),
+        (
+            "data_validity_lookup",
+            ChemblDataValidityEntityClient,
+            "data_validity_lookup",
+            {},
+        ),
+    ],
+)
+def test_registry_definition_builders_instantiate_clients(
+    entity_name: str,
+    expected_cls: type[Any],
+    config_key: str,
+    options: Mapping[str, Any],
+) -> None:
+    """Каждый builder из ChemblEntityRegistry создаёт корректный экземпляр клиента."""
+
+    definition = get_entity_definition(entity_name)
+    builder = definition.build_client
+    client = builder(_DummyChemblClient(), None, options or None)
+
+    assert isinstance(client, expected_cls)
+    assert definition.entity_config == get_entity_config(config_key)
 
 
 @pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
