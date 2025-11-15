@@ -17,7 +17,6 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
-from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
 from ..common.descriptor import (
@@ -120,7 +119,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self.configure_output_schema(get_out_schema(self.pipeline_code))
+        self.initialize_output_schema()
 
     # ------------------------------------------------------------------
     # Pipeline stages

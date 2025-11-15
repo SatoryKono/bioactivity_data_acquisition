@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -11,6 +11,7 @@ import pandas as pd
 
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
+from bioetl.core.utils.typechecks import is_dict
 
 __all__ = [
     "serialize_target_arrays",
@@ -22,22 +23,18 @@ __all__ = [
 JsonDict = dict[str, Any]
 
 
-def _is_json_dict(value: Any) -> TypeGuard[JsonDict]:
-    return isinstance(value, dict)
-
-
 def _collect_dicts(source: Any) -> list[JsonDict]:
     """Collect dictionary entries from arbitrary source keeping order."""
 
     result: list[JsonDict] = []
-    if _is_json_dict(source):
+    if is_dict(source):
         result.append(source)
         return result
 
     if is_non_string_iterable(source):
         for element in source:
             element_any: Any = element
-            if _is_json_dict(element_any):
+            if is_dict(element_any):
                 result.append(element_any)
 
     return result

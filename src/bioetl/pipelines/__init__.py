@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any
+from importlib import import_module
+from typing import TYPE_CHECKING, Any
 
 from bioetl.config.models.models import CLIConfig
 from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
 from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
 
-from .base import PipelineBase, RunResult
+if TYPE_CHECKING:  # pragma: no cover - import for typing only
+    from .base import PipelineBase, RunResult
 
 PipelineRunOptions = CLIConfig
 
@@ -41,8 +43,30 @@ _lazy_mapping.update(
 _lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
 
 
+_BASE_EXPORTS = {
+    "PipelineBase": "bioetl.pipelines.base",
+    "RunResult": "bioetl.pipelines.base",
+}
+
+
 def __getattr__(name: str) -> Any:
-    return _lazy_resolver(name)
+    if name in _BASE_EXPORTS:
+        module = import_module(_BASE_EXPORTS[name])
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
+    if name in _ALIAS_EXPORTS:
+        target = _ALIAS_EXPORTS[name]
+        value = getattr(__import__(__name__, fromlist=[target]), target)
+        globals()[name] = value
+        return value
+    module_name = _LAZY_EXPORTS.get(name)
+    if module_name is None:
+        raise AttributeError(name)
+    module = import_module(module_name)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value
 
 
 # pyright: ignore[reportUnsupportedDunderAll]
