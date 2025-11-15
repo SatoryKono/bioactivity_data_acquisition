@@ -115,14 +115,34 @@ def _ensure_mandatory_fields(
     return event_dict
 
 
+class _SafeStreamHandler(logging.StreamHandler):
+    """Stream handler that rebinds to the current ``sys.stderr`` if the active stream closes."""
+
+    def __init__(self) -> None:
+        super().__init__(stream=sys.stderr)
+
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        if getattr(self.stream, "closed", False):
+            self.setStream(sys.stderr)
+        try:
+            super().emit(record)
+        except ValueError as exc:
+            if "I/O operation on closed file" in str(exc):
+                self.handleError(record)
+                return
+            raise
+
+
 def _shared_processors(config: LogConfig) -> list[Any]:
+    exception_printer = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
+
     def _safe_exception_pretty_printer(
         logger: Any,
         method_name: str,
         event_dict: MutableMapping[str, Any],
     ) -> MutableMapping[str, Any]:
         try:
-            processed_event = _EXCEPTION_PRETTY_PRINTER(logger, method_name, event_dict)
+            processed_event = exception_printer(logger, method_name, event_dict)
             if isinstance(processed_event, MutableMapping):
                 return processed_event
             return event_dict
@@ -158,9 +178,6 @@ def _shared_processors(config: LogConfig) -> list[Any]:
     ]
 
 
-_EXCEPTION_PRETTY_PRINTER = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
-
-
 def _renderer_for(format: LogFormat) -> Any:
     if format is LogFormat.KEY_VALUE:
         return structlog.processors.KeyValueRenderer(
@@ -192,7 +209,7 @@ def configure_logging(
         ],
     )
 
-    handler = logging.StreamHandler()
+    handler = _SafeStreamHandler()
     handler.setFormatter(formatter)
 
     logging.basicConfig(handlers=[handler], level=_coerce_log_level(cfg.level), force=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Protocol
+from typing import Any, ClassVar, Protocol, cast
 from urllib.parse import urlencode
 
 import pandas as pd
@@ -112,7 +112,12 @@ class ChemblEntityConfigMixin:
             msg = "max_url_length обязателен для данного клиента"
             raise ValueError(msg)
 
-        super().__init__(
+        if not isinstance(self, ChemblEntityFetcherBase):
+            msg = "ChemblEntityConfigMixin требует базу ChemblEntityFetcherBase в MRO"
+            raise TypeError(msg)
+
+        ChemblEntityFetcherBase.__init__(
+            cast(ChemblEntityFetcherBase, self),
             chembl_client=chembl_client,
             config=config,
             batch_size=resolved_batch_size,
