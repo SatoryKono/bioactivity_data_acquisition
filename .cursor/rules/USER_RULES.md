@@ -1,6 +1,6 @@
 # USER_RULES.md — правила пользователя для Cursor
 
-Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `@refactoring_001`)
+Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `@test_refactoring_32`)
 Дата: 2025-10-29
 
 ## Назначение
@@ -61,6 +61,7 @@
 
    - Полная аннотация типов, `mypy --strict` без `type: ignore` в публичном API.
    - Пре‑коммиты: ruff, black, isort, mypy, pytest, coverage; запрет на коммиты, не прошедшие хуки.
+   - Минимальный порог покрытия `pytest --cov=src/bioetl` — 65%; падение ниже блокирует PR.
 
 ## Чего делать нельзя
 

@@ -1,6 +1,6 @@
 # PROJECT_RULES.md — правила проекта для Cursor
 
-Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `@refactoring_001`)
+Репозиторий: SatoryKono/bioactivity_data_acquisition (ветка `@test_refactoring_32`)
 Дата: 2025-10-29
 
 > Нормативные ключевые слова трактуются по RFC 2119.
@@ -72,6 +72,7 @@
 ## 11. Приёмка и CI‑гейты
 
 - Коммит/PR MUST блокироваться при нарушении любого из: ruff, black, isort, mypy‑strict, pytest, coverage threshold, pandera, QC.
+- Code coverage for `src/bioetl` MUST stay ≥65%; падение ниже блокирует merge.
 - Golden‑files MUST использоваться для критичных таблиц и обновляться строго через ожидаемый дифф.
 
 ## 12. Конфликты правил

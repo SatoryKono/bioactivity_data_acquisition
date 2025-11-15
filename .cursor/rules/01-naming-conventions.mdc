@@ -10,7 +10,7 @@ Keep doc navigation predictable.
 # RULES
 - Filenames in English, lowercase, words separated by hyphens.
 - Sequenced docs use two-digit prefix `NN-` (e.g., `01-overview.md`).
-- Directory landing pages named `INDEX.md` (section-level) and `README.md` (subdir overviews).
+- Landing-page naming details live in `docs-landing-pages-index-readme.mdc`.
 
 # EXAMPLES
 Valid: `docs/etl_contract/00-etl-overview.md`, `docs/pipelines/10-chembl-pipelines-catalog.md`
