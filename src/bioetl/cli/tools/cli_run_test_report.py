@@ -3,25 +3,51 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 
+from bioetl.cli._io import atomic_write_yaml
 from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
 from bioetl.cli.tools._logic import cli_run_test_report as cli_run_test_report_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 TEST_REPORTS_ROOT = cli_run_test_report_impl.TEST_REPORTS_ROOT
-generate_test_report = cli_run_test_report_impl.generate_test_report
 _blake2_digest = cli_run_test_report_impl._blake2_digest
 _load_pytest_summary = cli_run_test_report_impl._load_pytest_summary
 _compute_config_hash = cli_run_test_report_impl._compute_config_hash
-_write_yaml_atomic = cli_run_test_report_impl._write_yaml_atomic
+_compute_pipeline_version = cli_run_test_report_impl._compute_pipeline_version
+_read_git_commit = cli_run_test_report_impl._read_git_commit
+UnifiedLogger = cli_run_test_report_impl.UnifiedLogger
+
+
+def _write_yaml_atomic(path: Path, payload: Mapping[str, object]) -> None:
+    """Compatibility wrapper delegating to the shared atomic YAML helper."""
+
+    atomic_write_yaml(payload, path)
 resolve_artifact_paths = cli_run_test_report_impl.resolve_artifact_paths
 build_timestamp_directory_name = cli_run_test_report_impl.build_timestamp_directory_name
 datetime = cli_run_test_report_impl.datetime
 timezone = cli_run_test_report_impl.timezone
 uuid4 = cli_run_test_report_impl.uuid4
 subprocess = cli_run_test_report_impl.subprocess
+REPO_ROOT = cli_run_test_report_impl.REPO_ROOT
+
+
+def generate_test_report(output_root: Path | None = None) -> int:
+    """Wrapper forwarding dependencies to the logic implementation."""
+
+    return cli_run_test_report_impl.generate_test_report(
+        output_root=output_root,
+        subprocess_module=subprocess,
+        logger_cls=UnifiedLogger,
+        datetime_module=datetime,
+        uuid4_fn=uuid4,
+        resolve_artifacts_fn=resolve_artifact_paths,
+        repo_root=REPO_ROOT,
+        pipeline_version_fn=_compute_pipeline_version,
+        git_commit_fn=_read_git_commit,
+        config_hash_fn=_compute_config_hash,
+    )
 
 __all__ = (
     "TEST_REPORTS_ROOT",
@@ -29,13 +55,17 @@ __all__ = (
     "_blake2_digest",
     "_load_pytest_summary",
     "_compute_config_hash",
+    "_compute_pipeline_version",
+    "_read_git_commit",
     "_write_yaml_atomic",
+    "UnifiedLogger",
     "resolve_artifact_paths",
     "build_timestamp_directory_name",
     "datetime",
     "timezone",
     "uuid4",
     "subprocess",
+    "REPO_ROOT",
     "app",
     "cli_main",
     "run",
