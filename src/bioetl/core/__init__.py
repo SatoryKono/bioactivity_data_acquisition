@@ -6,6 +6,7 @@ This module re-exports the supported surface area from the reorganised
 
 from __future__ import annotations
 
+from .common import ChemblReleaseMixin
 from .http import (
     APIClientFactory,
     CircuitBreaker,
@@ -66,6 +67,8 @@ from .schema import (
 from .utils import clear_vocab_store_cache, get_ids, join_activity_with_molecule, load_vocab_store
 
 __all__ = [
+    # Common
+    "ChemblReleaseMixin",
     # HTTP
     "APIClientFactory",
     "CircuitBreaker",
