@@ -16,14 +16,19 @@ def chembl_config() -> EntityConfig:
     """Return a minimal EntityConfig for iterator tests."""
 
     return EntityConfig(
-        endpoint="/entity.json",
-        id_field="entity_id",
-        filter_param="entity_id__in",
-        items_key="entities",
-        log_prefix="entity",
-        default_fields=("entity_id",),
-        base_endpoint_length=10,
-        enable_url_length_check=True,
+        "/entity.json",
+        "entity_id",
+        "entity_id__in",
+        "entities",
+        "entity",
+        ("entity_id",),
+        False,
+        100,
+        None,
+        (),
+        {},
+        10,
+        True,
     )
 
 

@@ -4,18 +4,24 @@ globs: ["src/**/*.py"]
 alwaysApply: false
 ---
 
-# MANDATORY
+# Logging rules
+
+## Mandatory
+
 - Use `UnifiedLogger` only; no `print()` or stdlib `logging` in production code.
 - Set run context at process/pipeline start; mandatory fields auto-injected (run_id, pipeline, stage, timestamp_utc).
 - Redact secrets and sensitive identifiers.
 
-# LEVELS
+## Levels
+
 DEBUG, INFO (default), WARNING, ERROR, CRITICAL; include counts, durations, IDs.
 
-# EXAMPLE
+## Example
+
 ```python
 log.info("Extraction completed", source="chembl", rows=len(df), duration_ms=elapsed)
 ```
 
-# REFERENCE
+## Reference
+
 See [docs/styleguide/02-logging-guidelines.md](../../docs/styleguide/02-logging-guidelines.md) for detailed documentation.
