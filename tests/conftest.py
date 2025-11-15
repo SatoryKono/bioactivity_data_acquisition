@@ -27,6 +27,38 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:  # type: ignore[attr-defined]
+    """Provide no-op coverage options when ``pytest-cov`` is unavailable."""
+
+    try:
+        import pytest_cov  # type: ignore[reportMissingImports]
+
+        # ``pytest-cov`` is installed; defer to the plugin's own options.
+        return
+    except ModuleNotFoundError:
+        pass
+
+    group = parser.getgroup("cov")
+    group.addoption(
+        "--cov",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-report",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-fail-under",
+        action="store",
+        default=None,
+        help="stub option added because pytest-cov is not installed",
+    )
+
+
 @pytest.fixture  # type: ignore[misc]
 def tmp_output_dir(tmp_path: Path) -> Path:
     """Temporary directory for pipeline output artifacts."""
