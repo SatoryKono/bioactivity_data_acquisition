@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Type
 
 import pandas as pd
 import pytest
@@ -12,7 +12,13 @@ from pytest import MonkeyPatch
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
+from bioetl.pipelines.chembl.activity import run as activity_run
+from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.common import ChemblPipelineBase
+from bioetl.pipelines.chembl.document import run as document_run
+from bioetl.pipelines.chembl.target import run as target_run
+from bioetl.pipelines.chembl.testitem import run as testitem_run
+from bioetl.schemas.pipeline_contracts import get_out_schema
 
 
 class _DummyChemblPipeline(ChemblPipelineBase):
@@ -223,4 +229,39 @@ def test_normalize_and_enforce_schema_applies_shared_rules(
     assert normalized.loc[0, "row_index"] == 0
     # Original input should remain unchanged
     assert raw.loc[0, "identifier"] == " chembl123 "
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("pipeline_cls", "expected_code", "schema_suffix"),
+    [
+        (activity_run.ChemblActivityPipeline, "activity_chembl", "ActivitySchema"),
+        (assay_run.ChemblAssayPipeline, "assay_chembl", "AssaySchema"),
+        (document_run.ChemblDocumentPipeline, "document_chembl", "DocumentSchema"),
+        (target_run.ChemblTargetPipeline, "target_chembl", "TargetSchema"),
+        (testitem_run.TestItemChemblPipeline, "testitem_chembl", "TestItemSchema"),
+    ],
+)
+def test_pipeline_code_configures_output_schema(
+    pipeline_cls: Type[ChemblPipelineBase],
+    expected_code: str,
+    schema_suffix: str,
+    pipeline_config_fixture: PipelineConfig,
+    run_id: str,
+) -> None:
+    pipeline_metadata = pipeline_config_fixture.pipeline
+    config = pipeline_config_fixture.model_copy(
+        update={"pipeline": pipeline_metadata.model_copy(update={"name": expected_code})},
+    )
+
+    pipeline = pipeline_cls(config=config, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+    descriptor = get_out_schema(expected_code)
+
+    assert pipeline.pipeline_code == expected_code
+    assert pipeline._output_schema_entry is not None
+    assert pipeline._output_schema_entry.identifier.endswith(schema_suffix)
+    assert pipeline._output_schema_entry.identifier == descriptor.identifier
+    assert pipeline._output_schema is descriptor.schema
+    assert pipeline._output_column_order == descriptor.column_order
 

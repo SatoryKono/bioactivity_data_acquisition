@@ -37,7 +37,6 @@ from bioetl.core.schema import (
 from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
-from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas._validators import RELATIONS
 from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 from bioetl.schemas.pipeline_contracts import get_out_schema
@@ -72,9 +71,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         self._last_batch_extract_stats: dict[str, Any] | None = None
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
         self._standard_types_cache: frozenset[str] | None = None
-        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
-        self._output_schema = self._output_schema_entry.schema
-        self._output_column_order = self._output_schema_entry.column_order
+        self.configure_output_schema(get_out_schema(self.pipeline_code))
 
     def resolve_legacy_extract_ids(
         self,
