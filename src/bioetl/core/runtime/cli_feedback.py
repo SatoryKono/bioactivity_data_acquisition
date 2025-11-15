@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import click
 import typer
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -53,19 +54,19 @@ def emit_list_item(name: str, description: str, *, indent: int = 1) -> None:
 def emit_warning(message: str) -> None:
     """Emit a warning message with a unified prefix."""
 
-    typer.secho(_format(f"WARN: {message}"), err=True, fg=typer.colors.YELLOW)
+    click.secho(_format(f"WARN: {message}"), err=True, fg="yellow")
 
 
 def emit_error(message: str) -> None:
     """Emit an error message and log it."""
 
     UnifiedLogger.get(__name__).error(LogEvents.CLI_RUN_ERROR, message=message)
-    typer.secho(_format(f"ERROR: {message}"), err=True, fg=typer.colors.RED)
+    click.secho(_format(f"ERROR: {message}"), err=True, fg="red")
 
 
 def emit_success(message: str) -> None:
     """Emit a success message."""
 
-    typer.secho(_format(message), fg=typer.colors.GREEN)
+    click.secho(_format(message), fg="green")
 
 

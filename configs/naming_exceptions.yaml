@@ -1,5 +1,81 @@
 ---
 # ENF-004 whitelist of naming-rule exceptions.
 # Empty list indicates все конфиги соответствуют политике.
-exceptions: []
+exceptions:
+  - module: bioetl.pipelines.chembl.activity.extract
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.activity.transform
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.activity.validate
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.activity.write
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.assay.extract
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.assay.validate
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.assay.write
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.document.extract
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.document.transform
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.document.validate
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.document.write
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.target.extract
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.target.validate
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.target.normalize
+    reason: "Placeholder normalize shim until transform split completes"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.target.write
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.testitem.extract
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.testitem.validate
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.testitem.normalize
+    reason: "Placeholder normalize shim until transform split completes"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
+  - module: bioetl.pipelines.chembl.testitem.write
+    reason: "Stage wrapper awaiting CLI integration"
+    owner: "data-platform"
+    sunset_at: "2026-03-31"
 

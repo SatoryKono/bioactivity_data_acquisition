@@ -27,11 +27,21 @@
   (`get_pipeline_contract/get_out_schema/get_business_key_fields`), пайплайны
   ChEMBL и `PipelineBase` больше не хардкодят строковые идентификаторы схем; в
   docs обновлён раздел про контракты, добавлены юнит-тесты helper’ов.
+- Нормализована структура ChEMBL-пайплайнов: `PipelineBase` и ошибки перенесены
+  в `bioetl.core.pipeline`, общие helper’ы из `bioetl.pipelines.common/*` и
+  `pipelines/qc/*` вынесены в `bioetl.chembl.common`/`bioetl.qc`, каждая
+  сущность ChEMBL получила stage-модули (`extract/transform/validate/normalize/write`),
+  а отчёты `artifacts/pipelines_inventory.csv` и `artifacts/pipelines_orphans.csv`
+  фиксируют соответствие политике `PIPE-004`.
+- CLI-слой очищен от dev-инструментов: `bioetl.cli.cli_app` регистрирует
+  только пайплайновые команды и использует новый фасад
+  `bioetl.core.runtime.cli_feedback` для унифицированного вывода.
 
 ### Инструменты
 
 - `scripts/schema_guard.py` валидирует реестр схем (версии, дубликаты,
   hash-поля) и пишет отчёт `artifacts/schema_guard_report.md`.
-- Утилиты перенесены в `tools.*`, добавлены консольные entry points
-  `bioetl-*`, каталог `scripts/` удалён. Smoke-тесты CLI добавлены в
-  `tests/integration/cli/test_tools_cli.py`.
+- Все dev-утилиты перенесены из `bioetl.cli.tools.*` в `scripts/*.py`,
+  логика живёт в `bioetl.devtools.*`, а список миграций обновляется в
+  `artifacts/cli_tools_migration.csv`. Консольные entry points `bioetl-*`
+  удалены в пользу запуска `python scripts/<name>.py`.

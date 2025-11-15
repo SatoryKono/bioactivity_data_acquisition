@@ -14,7 +14,6 @@ from _pytest.capture import CaptureFixture
 from typer.models import OptionInfo
 
 from bioetl.cli.cli_command import create_pipeline_command
-from bioetl.cli.tool_specs import TOOL_COMMAND_SPECS
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cli import CLIConfig
 from bioetl.config.models.determinism import (
@@ -31,7 +30,7 @@ from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.validation import ValidationConfig
 from bioetl.core.io import WriteResult
-from bioetl.core.pipeline import PipelineBase, RunResult
+from bioetl.pipelines.base import PipelineBase, RunResult
 from bioetl.core.pipeline.errors import PipelineError, PipelineHTTPError
 from bioetl.core.runtime.cli_pipeline_runner import (
     parse_set_overrides,
@@ -165,14 +164,6 @@ def test_create_pipeline_command_signature_contract() -> None:
     assert list(signature.parameters) == expected_parameters
     for parameter in signature.parameters.values():
         assert isinstance(parameter.default, OptionInfo)
-
-
-def test_tool_specs_are_unique_and_descriptive() -> None:
-    codes = [spec.code for spec in TOOL_COMMAND_SPECS]
-    assert len(codes) == len(set(codes))
-    for spec in TOOL_COMMAND_SPECS:
-        assert spec.script_name.startswith("bioetl-")
-        assert spec.description
 
 
 def test_parse_set_overrides_invalid() -> None:

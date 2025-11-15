@@ -4,14 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from bioetl.cli.cli_registry import (
-    COMMAND_REGISTRY,
-    PIPELINE_REGISTRY,
-    TOOL_COMMANDS,
-    CommandConfig,
-)
-from bioetl.cli.tool_specs import TOOL_COMMAND_SPECS
-from bioetl.core.pipeline import PipelineBase
+from bioetl.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
+from bioetl.pipelines.base import PipelineBase
 
 
 def test_pipeline_registry_factories() -> None:
@@ -33,19 +27,5 @@ def test_pipeline_registry_factories() -> None:
         else:
             assert isinstance(config.default_config_path, Path)
             assert config.default_config_path.as_posix() == spec.default_config
-
-
-def test_tool_command_registry_metadata() -> None:
-    expected_modules = {
-        spec.code: (spec.script_name, spec.alias_module, spec.description)
-        for spec in TOOL_COMMAND_SPECS
-    }
-    assert set(TOOL_COMMANDS) == set(expected_modules)
-    for key, (script_name, module_path, description) in expected_modules.items():
-        tool_config = TOOL_COMMANDS[key]
-        assert tool_config.name == script_name
-        assert tool_config.module == module_path
-        assert tool_config.attribute == "main"
-        assert tool_config.description == description
 
 

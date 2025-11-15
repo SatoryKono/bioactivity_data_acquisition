@@ -3,16 +3,18 @@
 from __future__ import annotations
 
 import json
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize, serialize_array_fields
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "header_rows_serialize",
     "serialize_array_fields",
+    "transform",
     "validate_assay_parameters_truv",
 ]
 
@@ -230,3 +232,17 @@ def validate_assay_parameters_truv(
         log.debug(LogEvents.TRUV_VALIDATION_PASSED, rows_checked=len(df))
 
     return df
+
+
+def transform(
+    config: PipelineConfig,
+    run_id: str,
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Execute the concrete transform stage for assays."""
+
+    # Lazy import to avoid circular dependency during module import.
+    from .run import ChemblAssayPipeline
+
+    pipeline = ChemblAssayPipeline(config=config, run_id=run_id)
+    return pipeline.transform(df)

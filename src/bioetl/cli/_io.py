@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import subprocess
 from collections.abc import Mapping, Sequence
-from hashlib import blake2b, new as hashlib_new
+from hashlib import blake2b
+from hashlib import new as hashlib_new
 from pathlib import Path
 from typing import Any
 

@@ -9,14 +9,16 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
 from bioetl.core.utils.typechecks import is_dict
 
 __all__ = [
-    "serialize_target_arrays",
     "extract_and_serialize_component_synonyms",
     "flatten_target_components",
+    "serialize_target_arrays",
+    "transform",
 ]
 
 
@@ -242,3 +244,16 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
             df = df.drop(columns=[col])
 
     return df
+
+
+def transform(
+    config: PipelineConfig,
+    run_id: str,
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Invoke the target pipeline transform stage via the pipeline class."""
+
+    from .run import ChemblTargetPipeline
+
+    pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
+    return pipeline.transform(df)

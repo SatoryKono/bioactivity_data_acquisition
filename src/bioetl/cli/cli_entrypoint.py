@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol
+from typing import Any, Protocol, TypeVar, cast
 
 from ._typer_loader import TyperModule, _load_typer
 
@@ -16,6 +16,9 @@ __all__ = [
     "register_tool_app",
     "run_app",
 ]
+
+
+_F = TypeVar("_F", bound=Callable[..., Any])
 
 
 class TyperApp(Protocol):
@@ -50,12 +53,13 @@ def create_app(name: str, help_text: str) -> TyperApp:
     """Create a Typer application with completion disabled."""
 
     typer: TyperModule = get_typer()
-    return typer.Typer(
+    app = typer.Typer(
         name=name,
         help=help_text,
         add_completion=False,
         callback=_noop_callback,
     )
+    return cast(TyperApp, app)
 
 
 def run_app(app: TyperApp) -> None:

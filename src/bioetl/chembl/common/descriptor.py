@@ -33,7 +33,7 @@ from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
-from ...base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase", contravariant=True)
 

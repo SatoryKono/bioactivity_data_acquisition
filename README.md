@@ -227,7 +227,9 @@ detect-secrets scan src tests configs scripts docs README.md \
   `python scripts/run_test_report.py --output-root audit_results/test-reports`.
 
 Полный перечень служебных утилит с артефактами и примерами доступен в
-[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
+[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md). Матрица
+миграции из прежнего пространства `bioetl.cli.tools` приведена в
+`artifacts/cli_tools_migration.csv`.
 
 ## Architecture Decision Records (ADR)
 

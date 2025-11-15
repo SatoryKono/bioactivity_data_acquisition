@@ -12,16 +12,13 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from bioetl.cli.tool_specs import ToolCommandSpec, TOOL_COMMAND_SPECS
 from bioetl.core.pipeline import PipelineBase
 
 __all__ = [
     "CommandConfig",
     "PipelineCommandSpec",
-    "ToolCommandConfig",
     "PIPELINE_REGISTRY",
     "COMMAND_REGISTRY",
-    "TOOL_COMMANDS",
 ]
 
 
@@ -39,14 +36,6 @@ class CommandConfig:
 @dataclass(frozen=True)
 class PipelineCommandSpec:
     """Declarative pipeline command specification."""
-@dataclass(frozen=True)
-class ToolCommandConfig:
-    """Configuration for CLI utility commands declared in ``TOOL_COMMAND_SPECS``."""
-
-    name: str
-    module: str
-    attribute: str
-    description: str
 
     code: str
     description: str
@@ -211,19 +200,3 @@ COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = _create_command_regis
     PIPELINE_REGISTRY
 )
 
-
-def _build_tool_commands(
-    specs: Iterable[ToolCommandSpec],
-) -> dict[str, ToolCommandConfig]:
-    commands: dict[str, ToolCommandConfig] = {}
-    for spec in specs:
-        commands[spec.code] = ToolCommandConfig(
-            name=spec.script_name,
-            module=spec.alias_module,
-            attribute=spec.attribute,
-            description=spec.description,
-        )
-    return commands
-
-
-TOOL_COMMANDS: dict[str, ToolCommandConfig] = _build_tool_commands(TOOL_COMMAND_SPECS)

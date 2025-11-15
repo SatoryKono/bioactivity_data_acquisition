@@ -10,6 +10,12 @@ from typing import Any, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.chembl.common.descriptor import (
+    BatchExtractionContext,
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import TestItemSourceConfig
@@ -20,12 +26,6 @@ from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
-from bioetl.chembl.common.descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
 from .transform import transform as transform_testitem
 
 
@@ -135,14 +135,15 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             if testitem_client is None:
                 msg = "Фабрика вернула пустой клиент для 'testitem'"
                 raise RuntimeError(msg)
+            page_size = getattr(source_config, "page_size", None)
             return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=testitem_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                page_size=source_config.page_size,
-                chembl_release=pipeline.chembl_db_version,
-                metadata={"api_version": pipeline.api_version},
+                source_config,
+                testitem_client,
+                chembl_client,
+                list(select_fields) if select_fields else None,
+                page_size,
+                pipeline.chembl_db_version,
+                {"api_version": pipeline.api_version},
             )
 
         def empty_frame(_: "TestItemChemblPipeline", __: ChemblExtractionContext) -> pd.DataFrame:

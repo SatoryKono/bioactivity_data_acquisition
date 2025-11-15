@@ -16,6 +16,15 @@ canonical format `<NN>-<entity>-<source>-<topic>.md` (e.g.,
   репозитория, поэтому он утверждает изменения по пайплайнам и сопутствующим
   артефактам.【F:.github/CODEOWNERS†L5-L41】
 
+## Stage Layout Policy
+
+All ChEMBL pipelines follow the normative stage layout
+`src/bioetl/pipelines/<provider>/<entity>/<stage>.py`. Each entity now exposes
+thin stage wrappers (`extract.py`, `transform.py`, `validate.py`, `normalize.py`,
+`write.py`) that delegate to the corresponding pipeline class in `run.py`. The
+wrappers live alongside the legacy `normalize.py`/`transform.py` helpers and
+unlock CLI wiring without breaking backward-compatible imports.
+
 ## Public API Overview
 
 The pipelines expose the following public APIs:

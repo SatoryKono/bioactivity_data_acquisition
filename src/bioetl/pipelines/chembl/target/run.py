@@ -14,6 +14,13 @@ import pandas as pd
 from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
+from bioetl.chembl.common.descriptor import (
+    BatchExtractionContext,
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
+from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
@@ -22,13 +29,6 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
-from bioetl.chembl.common.descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
-from bioetl.chembl.common.normalize import normalize_identifiers
 from .transform import serialize_target_arrays
 
 
@@ -47,47 +47,52 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblTargetPipeline"]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
         """Return the descriptor powering target extraction."""
 
         def build_context(
-            pipeline: "ChemblTargetPipeline",
+            pipeline: ChemblPipelineBase,
             source_config: TargetSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            bundle = pipeline.build_chembl_entity_bundle(
+            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
+            bundle = typed_pipeline.build_chembl_entity_bundle(
                 "target",
                 source_name="chembl",
                 source_config=source_config,
             )
             if "chembl_target_http" not in pipeline._registered_clients:
-                pipeline.register_client("chembl_target_http", bundle.api_client)
+                typed_pipeline.register_client("chembl_target_http", bundle.api_client)
             chembl_client = bundle.chembl_client
-            pipeline._set_chembl_release(
-                pipeline.fetch_chembl_release(chembl_client, log)
+            typed_pipeline._set_chembl_release(
+                typed_pipeline.fetch_chembl_release(chembl_client, log)
             )
             target_client = cast(ChemblTargetClient, bundle.entity_client)
             if target_client is None:
                 msg = "Фабрика вернула пустой клиент для 'target'"
                 raise RuntimeError(msg)
             select_fields = source_config.parameters.select_fields
+            page_size = getattr(source_config, "page_size", None)
+            batch_size = getattr(source_config, "batch_size", None)
+            extra_filters = {"batch_size": batch_size} if batch_size else {}
             return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=target_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=pipeline.chembl_release,
-                extra_filters={"batch_size": source_config.batch_size},
+                source_config,
+                target_client,
+                chembl_client,
+                list(select_fields) if select_fields else None,
+                page_size,
+                typed_pipeline.chembl_release,
+                extra_filters=extra_filters,
             )
 
         def empty_frame(
-            _: "ChemblTargetPipeline",
+            _: ChemblPipelineBase,
             __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
 
         def dry_run_handler(
-            pipeline: "ChemblTargetPipeline",
+            pipeline: ChemblPipelineBase,
             _: ChemblExtractionContext,
             log: BoundLogger,
             stage_start: float,
@@ -101,13 +106,13 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             return pd.DataFrame()
 
         def summary_extra(
-            pipeline: "ChemblTargetPipeline",
+            pipeline: ChemblPipelineBase,
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             return {"limit": pipeline.config.cli.limit}
 
-        return ChemblExtractionDescriptor[ChemblTargetPipeline](
+        return ChemblExtractionDescriptor[ChemblPipelineBase](
             name="chembl_target",
             source_name="chembl",
             source_config_factory=TargetSourceConfig.from_source_config,

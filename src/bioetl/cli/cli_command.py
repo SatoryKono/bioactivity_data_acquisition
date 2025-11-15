@@ -11,18 +11,18 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.config.environment import load_environment_settings as _load_environment_settings
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import (
-    CLI_ERROR_CONFIG,
-    CLI_ERROR_EXTERNAL_API,
-    CLI_ERROR_INTERNAL,
-)
 from bioetl.core.pipeline import PipelineBase
 from bioetl.core.pipeline.errors import (
     PipelineError,
     PipelineHTTPError,
     PipelineNetworkError,
     PipelineTimeoutError,
+)
+from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import (
+    CLI_ERROR_CONFIG,
+    CLI_ERROR_EXTERNAL_API,
+    CLI_ERROR_INTERNAL,
 )
 from bioetl.core.runtime.cli_pipeline_runner import (
     ConfigLoadError,
@@ -273,16 +273,20 @@ def create_pipeline_command(
     pipeline_module_name = pipeline_class.__module__
     pipeline_class_name = pipeline_class.__name__
 
+    default_config = getattr(command_config, "default_config_path", None)
+    command_name = getattr(command_config, "name", pipeline_class.__name__)
+    default_output_dir = Path("data/output") / command_name
+
     def command(
         config: Path = typer.Option(
-            ...,
+            default_config if default_config is not None else ...,
             "--config",
             "-c",
             help="Path to configuration file",
             exists=False,
         ),
         output_dir: Path = typer.Option(
-            ...,
+            default_output_dir,
             "--output-dir",
             "-o",
             help="Output directory for pipeline artifacts",

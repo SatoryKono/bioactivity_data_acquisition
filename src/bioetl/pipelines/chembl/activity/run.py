@@ -17,6 +17,14 @@ import pandera.errors
 from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
+from bioetl.chembl.common.descriptor import (
+    BatchExtractionContext,
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+)
+from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
@@ -26,6 +34,7 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
+from bioetl.core.pipeline import RunResult
 from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
@@ -41,16 +50,7 @@ from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 from bioetl.schemas.pipeline_contracts import get_out_schema
 from bioetl.vocab.service import required_vocab_ids
 
-from ...base import RunResult
 from .._constants import API_ACTIVITY_FIELDS
-from bioetl.chembl.common.descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
-from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
-from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -406,7 +406,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             self.register_client(client_name, bundle.api_client)
         return bundle
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblActivityPipeline]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
         """Construct the descriptor driving the shared extraction template."""
 
         def build_context(
@@ -429,12 +429,14 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 msg = "Фабрика вернула пустой клиент для 'activity'"
                 raise RuntimeError(msg)
             select_fields = source_config.parameters.select_fields
+            page_size = getattr(source_config, "page_size", None)
             return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=activity_iterator,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                chembl_release=typed_pipeline.chembl_release,
+                source_config,
+                activity_iterator,
+                chembl_client,
+                list(select_fields) if select_fields else None,
+                page_size,
+                typed_pipeline.chembl_release,
             )
 
         def empty_frame(
@@ -444,26 +446,28 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
         def post_process(
-            pipeline: ChemblActivityPipeline,
+            pipeline: ChemblPipelineBase,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
             log: BoundLogger,
         ) -> pd.DataFrame:
-            df = pipeline._ensure_comment_fields(df, log)
+            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
+            df = typed_pipeline._ensure_comment_fields(df, log)
             chembl_client = cast(ChemblClient, context.chembl_client)
             if chembl_client is not None:
-                df = pipeline._extract_data_validity_descriptions(df, chembl_client, log)
-            pipeline._log_validity_comments_metrics(df, log)
+                df = typed_pipeline._extract_data_validity_descriptions(df, chembl_client, log)
+            typed_pipeline._log_validity_comments_metrics(df, log)
             return df
 
         def record_transform(
-            pipeline: ChemblActivityPipeline,
+            pipeline: ChemblPipelineBase,
             payload: Mapping[str, Any],
             context: ChemblExtractionContext,  # noqa: ARG001
         ) -> Mapping[str, Any]:
-            return pipeline._materialize_activity_record(payload)
+            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
+            return typed_pipeline._materialize_activity_record(payload)
 
-        return ChemblExtractionDescriptor[ChemblActivityPipeline](
+        return ChemblExtractionDescriptor[ChemblPipelineBase](
             name="chembl_activity",
             source_name="chembl",
             source_config_factory=ActivitySourceConfig.from_source_config,

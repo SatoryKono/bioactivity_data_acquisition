@@ -41,9 +41,8 @@ def _create_simple_tool_app(
         name=name,
         help=help_text,
         add_completion=False,
-        invoke_without_command=True,
     )
-    app.callback()(main_fn)
+    app.callback(invoke_without_command=True)(main_fn)
     return app
 
 
