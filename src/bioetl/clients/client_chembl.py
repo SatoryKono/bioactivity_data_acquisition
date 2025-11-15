@@ -231,7 +231,7 @@ class ChemblClient:
             records_fetched_delta=len(page.items),
         )
 
-    def _fetch_entity_by_ids(
+    def fetch_entities(
         self,
         entity: ChemblEntityClientProtocol,
         ids: Iterable[str],
@@ -240,6 +240,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch entity records by identifiers using the provided client."""
+
         identifiers = tuple(ids)
         return entity.fetch_by_ids(
             identifiers,
@@ -259,7 +260,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch assay entries by ``assay_chembl_id`` and return a DataFrame."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._assay_entity,
             ids,
             fields=fields,
@@ -278,7 +279,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch molecule entries by ``molecule_chembl_id`` and return a DataFrame."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._molecule_entity,
             ids,
             fields=fields,
@@ -297,7 +298,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``data_validity_lookup`` entries by comment and return a DataFrame."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._data_validity_entity,
             comments,
             fields=fields,
@@ -336,7 +337,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``document_term`` entries by ``document_chembl_id``."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._document_term_entity,
             ids,
             fields=fields,
@@ -355,7 +356,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_class_map`` entries by ``assay_chembl_id``."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._assay_class_map_entity,
             assay_ids,
             fields=fields,
@@ -394,7 +395,7 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_classification`` entries by ``assay_class_id``."""
-        return self._fetch_entity_by_ids(
+        return self.fetch_entities(
             self._assay_classification_entity,
             class_ids,
             fields=fields,

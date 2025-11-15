@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
+from bioetl.clients.client_chembl_entity_base import ChemblEntityClientProtocol
 from bioetl.core.http.api_client import UnifiedAPIClient
 
 
@@ -238,3 +239,50 @@ class TestChemblClient:
 
         # Should call handshake (which calls get) and then paginate
         assert mock_api_client.get.call_count >= 1
+
+    def test_fetch_entities_materializes_iterable(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """The helper must materialize the incoming iterable before delegating."""
+
+        client = ChemblClient(mock_api_client)
+        entity = MagicMock(spec=ChemblEntityClientProtocol)
+        expected_result = object()
+        entity.fetch_by_ids.return_value = expected_result
+
+        ids_iterable = (identifier for identifier in ["CHEMBL1", "CHEMBL2"])
+        fields = ("field_a", "field_b")
+        page_limit = 5
+
+        result = client.fetch_entities(
+            entity,
+            ids_iterable,
+            fields=fields,
+            page_limit=page_limit,
+        )
+
+        entity.fetch_by_ids.assert_called_once_with(
+            ("CHEMBL1", "CHEMBL2"),
+            fields=fields,
+            page_limit=page_limit,
+        )
+        assert result is expected_result
+
+    def test_fetch_assays_by_ids_delegates_to_helper(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Entity-specific wrapper should delegate to the shared helper."""
+
+        client = ChemblClient(mock_api_client)
+        sentinel = object()
+        client.fetch_entities = MagicMock(return_value=sentinel)  # type: ignore[method-assign]
+
+        result = client.fetch_assays_by_ids(["CHEMBL1"], fields=None, page_limit=None)
+
+        client.fetch_entities.assert_called_once_with(
+            client._assay_entity,
+            ["CHEMBL1"],
+            fields=None,
+            page_limit=None,
+        )
+        assert result is sentinel
