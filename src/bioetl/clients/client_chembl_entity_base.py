@@ -11,6 +11,7 @@ import pandas as pd
 
 from bioetl.clients.base import normalize_select_fields
 from bioetl.clients.chembl_config import EntityConfig
+from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.logging import UnifiedLogger
 
 __all__ = [
@@ -70,7 +71,7 @@ class ChemblEntityClientProtocol(Protocol):
         ...
 
 
-class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
+class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     """Универсальный DataFrame-клиент ChEMBL с единым поведением."""
 
     _DEFAULT_PAGE_SIZE = 1000
@@ -104,6 +105,7 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         batch_size: int | None = None,
         max_url_length: int | None = None,
     ) -> None:
+        super().__init__()
         if batch_size is not None and batch_size <= 0:
             msg = "batch_size must be a positive integer"
             raise ValueError(msg)
@@ -116,7 +118,6 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         self._batch_size = batch_size or config.chunk_size
         self._chunk_limit = max(1, min(config.chunk_size, self._batch_size))
         self._max_url_length = max_url_length
-        self._chembl_release: str | None = None
         self._log = UnifiedLogger.get(__name__).bind(
             component="chembl_entity",
             entity=config.log_prefix,
@@ -129,10 +130,6 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
     @property
     def chembl_client(self) -> ChemblClientProtocol:
         return self._chembl_client
-
-    @property
-    def chembl_release(self) -> str | None:
-        return self._chembl_release
 
     @property
     def batch_size(self) -> int:
@@ -159,14 +156,12 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         payload = self._chembl_client.handshake(endpoint)
         release = payload.get("chembl_db_version") or payload.get("chembl_release")
         if isinstance(release, str):
-            normalized = release.strip()
-            if normalized:
-                self._chembl_release = normalized
+            self._set_chembl_release(release)
         self._log.info(
             f"{self._config.log_prefix}.handshake",
             handshake_endpoint=endpoint,
             handshake_enabled=enabled,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
         )
         return payload
 
