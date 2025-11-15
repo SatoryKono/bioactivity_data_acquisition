@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -135,6 +135,9 @@ class RunResult:
         if self._dataframe is not None:
             return self._dataframe
         return pd.DataFrame()
+
+
+T_qc = TypeVar("T_qc")
 
 
 class PipelineBase(ABC):
@@ -388,6 +391,24 @@ class PipelineBase(ABC):
         except KeyError:
             return ()
 
+    def _build_qc_report(
+        self,
+        factory: Callable[..., T_qc],
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> T_qc:
+        """Execute a QC report factory with the pipeline defaults."""
+
+        business_key = self._business_key_fields()
+        return factory(
+            df,
+            business_key_fields=business_key or None,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
+
     def build_quality_report(
         self,
         df: pd.DataFrame,
@@ -396,13 +417,10 @@ class PipelineBase(ABC):
     ) -> pd.DataFrame | dict[str, object] | None:
         """Return a QC dataframe for the quality report artefact."""
 
-        business_key = self._business_key_fields()
-        return build_default_quality_report(
+        return self._build_qc_report(
+            build_default_quality_report,
             df,
-            business_key_fields=business_key or None,
-            plan=self.qc_plan,
             bundle=bundle,
-            executor=self._qc_executor,
         )
 
     def build_correlation_report(
@@ -413,13 +431,10 @@ class PipelineBase(ABC):
     ) -> pd.DataFrame | dict[str, object] | None:
         """Return a correlation report artefact payload."""
 
-        business_key = self._business_key_fields()
-        return build_default_correlation_report(
+        return self._build_qc_report(
+            build_default_correlation_report,
             df,
-            business_key_fields=business_key or None,
-            plan=self.qc_plan,
             bundle=bundle,
-            executor=self._qc_executor,
         )
 
     def build_qc_metrics(
