@@ -52,6 +52,7 @@ from .logging import (
 )
 from .runtime.cli_base import CliCommandBase, CliEntrypoint
 from .runtime.errors import BioETLError
+from .runtime.lazy_loader import resolve_lazy_attr
 from .runtime.load_meta_store import LoadMetaStore
 from .schema import (
     IdentifierRule,
@@ -138,12 +139,8 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "LoadMetaStore": ("bioetl.core.runtime.load_meta_store", "LoadMetaStore"),
 }
 
+_lazy_resolver = resolve_lazy_attr(globals(), _LAZY_EXPORTS, cache=True)
+
 
 def __getattr__(name: str) -> object:
-    if name in _LAZY_EXPORTS:
-        module_name, attr_name = _LAZY_EXPORTS[name]
-        module = __import__(module_name, fromlist=[attr_name])
-        value = getattr(module, attr_name)
-        globals()[name] = value
-        return value
-    raise AttributeError(f"module 'bioetl.core' has no attribute '{name}'")
+    return _lazy_resolver(name)

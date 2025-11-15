@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from importlib import import_module
 from typing import Any
 
 from bioetl.config.models.models import CLIConfig
 from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
+from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
 
 from .base import PipelineBase, RunResult
 
@@ -28,20 +28,21 @@ _ALIAS_EXPORTS = {
     "TestItemPipeline": "TestItemChemblPipeline",
 }
 
+_lazy_mapping: dict[str, Any] = {
+    name: module for name, module in _LAZY_EXPORTS.items()
+}
+_lazy_mapping.update(
+    {
+        alias: (_LAZY_EXPORTS[target], target)
+        for alias, target in _ALIAS_EXPORTS.items()
+    }
+)
+
+_lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
+
 
 def __getattr__(name: str) -> Any:
-    if name in _ALIAS_EXPORTS:
-        target = _ALIAS_EXPORTS[name]
-        value = getattr(__import__(__name__, fromlist=[target]), target)
-        globals()[name] = value
-        return value
-    module_name = _LAZY_EXPORTS.get(name)
-    if module_name is None:
-        raise AttributeError(name)
-    module = import_module(module_name)
-    value = getattr(module, name)
-    globals()[name] = value
-    return value
+    return _lazy_resolver(name)
 
 
 # pyright: ignore[reportUnsupportedDunderAll]
