@@ -933,6 +933,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             value = payload.get(key)
             if isinstance(value, str) and value.strip():
                 return value
+            if value is not None:
+                return str(value)
         return None
 
     # ------------------------------------------------------------------
