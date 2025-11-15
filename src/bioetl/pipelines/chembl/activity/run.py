@@ -30,7 +30,6 @@ from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
     format_failure_cases,
-    normalize_identifier_columns,
     normalize_string_columns,
     summarize_schema_errors,
 )
@@ -51,6 +50,7 @@ from ..common.descriptor import (
     ChemblPipelineBase,
 )
 from ..common.enrich import _enrich_flag, _extract_enrich_config
+from ..common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
@@ -1953,7 +1953,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             ),
         ]
 
-        normalized_df, stats = normalize_identifier_columns(df, rules)
+        normalized_df, stats = normalize_identifiers(df, rules)
 
         if stats.has_changes:
             log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
@@ -2578,27 +2578,19 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _add_row_metadata(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Add required row metadata fields (row_subtype, row_index)."""
 
-        df = df.copy()
-        if df.empty:
-            return df
+        result, metadata = add_row_metadata(df, subtype="activity")
 
-        # Add row_subtype: "activity" for all rows
-        if "row_subtype" not in df.columns:
-            df["row_subtype"] = "activity"
+        if metadata.subtype_added:
             log.debug(LogEvents.ROW_SUBTYPE_ADDED, value="activity")
-        elif df["row_subtype"].isna().all():
-            df["row_subtype"] = "activity"
+        elif metadata.subtype_filled:
             log.debug(LogEvents.ROW_SUBTYPE_FILLED, value="activity")
 
-        # Add row_index: sequential index starting from 0
-        if "row_index" not in df.columns:
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(df))
-        elif df["row_index"].isna().all():
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(df))
+        if metadata.index_added:
+            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(result))
+        elif metadata.index_filled:
+            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(result))
 
-        return df
+        return result
 
     def _normalize_data_types(
         self, df: pd.DataFrame, schema: Any, log: BoundLogger
