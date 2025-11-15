@@ -19,6 +19,14 @@ __all__ = [
 ]
 
 
+class _HasChangesMixin:
+    """Mixin providing ``has_changes`` property based on ``per_column`` stats."""
+
+    @property
+    def has_changes(self) -> bool:  # pragma: no cover - trivial delegation
+        return bool(self.per_column)
+
+
 @dataclass(frozen=True)
 class IdentifierRule:
     """Configuration describing how to normalize identifier columns."""
@@ -32,7 +40,7 @@ class IdentifierRule:
 
 
 @dataclass
-class IdentifierStats:
+class IdentifierStats(_HasChangesMixin):
     """Aggregate metrics produced by identifier normalization."""
 
     normalized: int = 0
@@ -49,10 +57,6 @@ class IdentifierStats:
         self.normalized += normalized_count
         self.invalid += invalid_count
 
-    @property
-    def has_changes(self) -> bool:
-        return bool(self.per_column)
-
 
 @dataclass(frozen=True)
 class StringRule:
@@ -68,7 +72,7 @@ class StringRule:
 
 
 @dataclass
-class StringStats:
+class StringStats(_HasChangesMixin):
     """Aggregate metrics produced by string normalization."""
 
     per_column: dict[str, int] = field(default_factory=dict)
@@ -77,10 +81,6 @@ class StringStats:
         if processed_count == 0:
             return
         self.per_column[column] = processed_count
-
-    @property
-    def has_changes(self) -> bool:
-        return bool(self.per_column)
 
     @property
     def processed(self) -> int:
