@@ -19,7 +19,6 @@ from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, normalize_string_columns
-from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
@@ -46,9 +45,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._last_batch_extract_stats: dict[str, Any] | None = None
-        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
-        self._output_schema = self._output_schema_entry.schema
-        self._output_column_order = self._output_schema_entry.column_order
+        self.configure_output_schema(get_out_schema(self.pipeline_code))
 
     def build_descriptor(
         self: SelfChemblDocumentPipeline,

@@ -22,7 +22,6 @@ from bioetl.core.schema import (
     normalize_identifier_columns,
     normalize_string_columns,
 )
-from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
@@ -125,9 +124,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
-        self._output_schema = self._output_schema_entry.schema
-        self._output_column_order = self._output_schema_entry.column_order
+        self.configure_output_schema(get_out_schema(self.pipeline_code))
 
     # ------------------------------------------------------------------
     # Pipeline stages

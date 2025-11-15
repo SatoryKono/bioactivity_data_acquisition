@@ -109,6 +109,20 @@ def test_document_source_config_defaults_batch_size() -> None:
 
 
 @pytest.mark.unit
+def test_document_source_config_clamps_batch_size_on_init() -> None:
+    config = DocumentSourceConfig(batch_size=100)
+
+    assert config.batch_size == 25
+
+
+@pytest.mark.unit
+def test_target_source_config_enforces_batch_limit() -> None:
+    config = TargetSourceConfig(batch_size=None)
+
+    assert config.batch_size == 25
+
+
+@pytest.mark.unit
 def test_assay_source_config_applies_max_url_length() -> None:
     source = SourceConfig(
         enabled=True,

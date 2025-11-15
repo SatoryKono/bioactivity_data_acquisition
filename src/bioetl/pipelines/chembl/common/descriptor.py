@@ -15,6 +15,7 @@ from typing import Any, Generic, Literal, TypeVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
+from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.base import (
@@ -28,6 +29,7 @@ from bioetl.core import APIClientFactory
 from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.schemas import SchemaRegistryEntry
 
 from ...base import PipelineBase
 
@@ -212,6 +214,23 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             api_client_factory=self._client_factory,
         )
         self._api_version: str | None = None
+        self._output_schema_entry: SchemaRegistryEntry | None = None
+        self._output_schema: DataFrameSchema | None = None
+        self._output_column_order: tuple[str, ...] = ()
+        self._output_schema_cache: dict[str, Any] = {}
+
+    def configure_output_schema(
+        self,
+        schema_entry: SchemaRegistryEntry,
+        *,
+        extra_cache: dict[str, Any] | None = None,
+    ) -> None:
+        """Configure runtime caches bound to the pipeline output schema."""
+
+        self._output_schema_entry = schema_entry
+        self._output_schema = schema_entry.schema
+        self._output_column_order = tuple(schema_entry.column_order)
+        self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
 
     # ------------------------------------------------------------------
     # Normalization helpers
