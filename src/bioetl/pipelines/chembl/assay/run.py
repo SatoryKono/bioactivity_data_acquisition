@@ -16,12 +16,7 @@ from bioetl.config import AssaySourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import (
-    IdentifierRule,
-    StringRule,
-    normalize_identifier_columns,
-    normalize_string_columns,
-)
+from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
@@ -31,6 +26,7 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from ..common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
@@ -513,7 +509,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             ),
         ]
 
-        normalized_df, stats = normalize_identifier_columns(df, rules)
+        normalized_df, stats = normalize_identifiers(df, rules)
 
         if stats.has_changes:
             log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
@@ -625,27 +621,19 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def _add_row_metadata(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Add required row metadata fields (row_subtype, row_index)."""
 
-        df = df.copy()
-        if df.empty:
-            return df
+        result, metadata = add_row_metadata(df, subtype="assay")
 
-        # Add row_subtype: "assay" for all rows
-        if "row_subtype" not in df.columns:
-            df["row_subtype"] = "assay"
+        if metadata.subtype_added:
             log.debug(LogEvents.ROW_SUBTYPE_ADDED, value="assay")
-        elif df["row_subtype"].isna().all():
-            df["row_subtype"] = "assay"
+        elif metadata.subtype_filled:
             log.debug(LogEvents.ROW_SUBTYPE_FILLED, value="assay")
 
-        # Add row_index: sequential index starting from 0
-        if "row_index" not in df.columns:
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(df))
-        elif df["row_index"].isna().all():
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(df))
+        if metadata.index_added:
+            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(result))
+        elif metadata.index_filled:
+            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(result))
 
-        return df
+        return result
 
     def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
         """Convert data types according to the registered output schema.

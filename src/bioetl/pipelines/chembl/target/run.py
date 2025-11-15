@@ -20,12 +20,7 @@ from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import (
-    IdentifierRule,
-    StringRule,
-    normalize_identifier_columns,
-    normalize_string_columns,
-)
+from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from ..common.descriptor import (
@@ -34,6 +29,7 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from ..common.normalize import normalize_identifiers
 from .transform import serialize_target_arrays
 
 
@@ -288,7 +284,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             ),
         ]
 
-        normalized_df, stats = normalize_identifier_columns(df, rules)
+        normalized_df, stats = normalize_identifiers(df, rules)
 
         invalid_info = stats.per_column.get("target_chembl_id")
         if invalid_info and invalid_info["invalid"] > 0:
