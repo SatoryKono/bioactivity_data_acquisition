@@ -92,6 +92,21 @@ class _SupportsReadline(Protocol):
         ...
 
 
+def strip_docstrings(body: list[ast.stmt]) -> list[ast.stmt]:
+    """Remove a leading docstring expression from a statement body."""
+
+    if not body:
+        return body
+    first = body[0]
+    if (
+        isinstance(first, ast.Expr)
+        and isinstance(first.value, ast.Constant)
+        and isinstance(first.value.value, str)
+    ):
+        return body[1:]
+    return body
+
+
 class _ASTNormalizer(ast.NodeTransformer):
     """Canonicalise AST nodes by stripping noise, sorting inputs, and normalising literals."""
 
@@ -99,25 +114,25 @@ class _ASTNormalizer(ast.NodeTransformer):
 
     def visit_Module(self, node: ast.Module) -> ast.Module:
         node = cast(ast.Module, self.generic_visit(node))
-        node.body = self._strip_docstring(node.body)
+        node.body = strip_docstrings(node.body)
         node.body = [stmt for stmt in node.body if stmt is not None]
         return node
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
         node = cast(ast.FunctionDef, self.generic_visit(node))
-        node.body = self._strip_docstring(node.body)
+        node.body = strip_docstrings(node.body)
         node.body = [stmt for stmt in node.body if stmt is not None]
         return node
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AST:
         node = cast(ast.AsyncFunctionDef, self.generic_visit(node))
-        node.body = self._strip_docstring(node.body)
+        node.body = strip_docstrings(node.body)
         node.body = [stmt for stmt in node.body if stmt is not None]
         return node
 
     def visit_ClassDef(self, node: ast.ClassDef) -> ast.AST:
         node = cast(ast.ClassDef, self.generic_visit(node))
-        node.body = self._strip_docstring(node.body)
+        node.body = strip_docstrings(node.body)
         node.body = [stmt for stmt in node.body if stmt is not None]
         return node
 
@@ -158,15 +173,6 @@ class _ASTNormalizer(ast.NodeTransformer):
         if isinstance(value, (int, float, complex)):
             return ast.copy_location(ast.Constant(value="NUM"), node)
         return node
-
-    @staticmethod
-    def _strip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
-        if not body:
-            return body
-        first = body[0]
-        if isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant) and isinstance(first.value.value, str):
-            return body[1:]
-        return body
 
     def _is_logging_call(self, node: ast.Call) -> bool:
         func = node.func
@@ -277,26 +283,7 @@ class _CodeUnitVisitor(ast.NodeVisitor):
 
     def visit_ClassDef(self, node: ast.ClassDef) -> Any:
         symbol = node.name
-        kind: Kind = "class"
-        norm_src, ast_hash, tokens, token_multiset = _normalise_node(node)
-        norm_loc = sum(1 for line in norm_src.splitlines() if line.strip())
-        snippet = _make_snippet(self._source_lines, node.lineno, node.end_lineno or node.lineno)
-        role = _classify_role(self._rel_path, symbol)
-        unit = CodeUnit(
-            symbol=symbol,
-            kind=kind,
-            role=role,
-            path=self._file_path,
-            rel_path=self._rel_path,
-            start_line=node.lineno,
-            end_line=node.end_lineno or node.lineno,
-            norm_src=norm_src,
-            norm_loc=norm_loc,
-            ast_hash=ast_hash,
-            tokens=tokens,
-            token_multiset=token_multiset,
-            snippet=snippet,
-        )
+        unit = self._make_code_unit(symbol=symbol, kind="class", node=node)
         self.units.append(unit)
         self._class_stack.append(symbol)
         self.generic_visit(node)
@@ -306,18 +293,24 @@ class _CodeUnitVisitor(ast.NodeVisitor):
     def _register_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         kind: Kind = "method" if self._class_stack else "func"
         symbol = ".".join([*self._class_stack, node.name]) if self._class_stack else node.name
+        unit = self._make_code_unit(symbol=symbol, kind=kind, node=node)
+        self.units.append(unit)
+
+    def _make_code_unit(self, *, symbol: str, kind: Kind, node: ast.AST) -> CodeUnit:
         norm_src, ast_hash, tokens, token_multiset = _normalise_node(node)
         norm_loc = sum(1 for line in norm_src.splitlines() if line.strip())
-        snippet = _make_snippet(self._source_lines, node.lineno, node.end_lineno or node.lineno)
+        start_line = getattr(node, "lineno", 0)
+        end_line = getattr(node, "end_lineno", None) or start_line
+        snippet = _make_snippet(self._source_lines, start_line, end_line)
         role = _classify_role(self._rel_path, symbol)
-        unit = CodeUnit(
+        return CodeUnit(
             symbol=symbol,
             kind=kind,
             role=role,
             path=self._file_path,
             rel_path=self._rel_path,
-            start_line=node.lineno,
-            end_line=node.end_lineno or node.lineno,
+            start_line=start_line,
+            end_line=end_line,
             norm_src=norm_src,
             norm_loc=norm_loc,
             ast_hash=ast_hash,
@@ -325,7 +318,6 @@ class _CodeUnitVisitor(ast.NodeVisitor):
             token_multiset=token_multiset,
             snippet=snippet,
         )
-        self.units.append(unit)
 
 
 def _classify_role(rel_path: Path, symbol: str) -> Role:
@@ -468,69 +460,102 @@ def _format_pair_reference(pair: NearDuplicatePair) -> str:
     )
 
 
+_CSV_FIELDNAMES = ("symbol", "path", "lines", "kind", "role", "norm_loc", "ast_hash")
+
+
+def _generate_csv_rows(units: Sequence[CodeUnit]) -> list[dict[str, str | int]]:
+    rows: list[dict[str, str | int]] = []
+    for unit in units:
+        rows.append(
+            {
+                "symbol": unit.symbol,
+                "path": unit.rel_path.as_posix(),
+                "lines": f"L{unit.start_line}-L{unit.end_line}",
+                "kind": unit.kind,
+                "role": unit.role,
+                "norm_loc": unit.norm_loc,
+                "ast_hash": unit.ast_hash,
+            }
+        )
+    return rows
+
+
+def _render_csv(units: Sequence[CodeUnit]) -> str:
+    rows = _generate_csv_rows(units)
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=_CSV_FIELDNAMES)
+    writer.writeheader()
+    for row in rows:
+        writer.writerow(row)
+    return output.getvalue()
+
+
 def _write_csv(path: Path, units: Sequence[CodeUnit]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
-    fieldnames = ["symbol", "path", "lines", "kind", "role", "norm_loc", "ast_hash"]
     with tmp.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
-        writer.writeheader()
-        for unit in units:
-            writer.writerow(
-                {
-                    "symbol": unit.symbol,
-                    "path": unit.rel_path.as_posix(),
-                    "lines": f"L{unit.start_line}-L{unit.end_line}",
-                    "kind": unit.kind,
-                    "role": unit.role,
-                    "norm_loc": unit.norm_loc,
-                    "ast_hash": unit.ast_hash,
-                }
-            )
+        handle.write(_render_csv(units))
     os.replace(tmp, path)
 
 
-def _write_markdown(path: Path, units: Sequence[CodeUnit], clusters: Sequence[DuplicateCluster], pairs: Sequence[NearDuplicatePair], tests_present: bool) -> None:
+def _render_markdown(
+    units: Sequence[CodeUnit],
+    clusters: Sequence[DuplicateCluster],
+    pairs: Sequence[NearDuplicatePair],
+    tests_present: bool,
+) -> str:
+    buffer = io.StringIO()
+    buffer.write("# Shared code map\n\n")
+    if not tests_present:
+        buffer.write("> ARCHIVE_TESTS: missing in branch\n\n")
+    buffer.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
+    buffer.write("| --- | --- | --- | --- | --- | --- | --- |\n")
+    for unit in units:
+        reference_cell = _format_reference_cell(unit)
+        buffer.write(
+            f"| `{unit.symbol}` | {unit.kind} | {unit.role} | "
+            f"L{unit.start_line}-L{unit.end_line} | {unit.norm_loc} | `{unit.ast_hash}` | {reference_cell} |\n"
+        )
+    buffer.write("\n## Duplicate clusters\n\n")
+    if not clusters:
+        buffer.write("No duplicates found.\n\n")
+    else:
+        for cluster in clusters:
+            buffer.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
+            for cluster_member in cluster.members:
+                buffer.write(
+                    f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
+                    f"[{cluster_member.reference}]\n"
+                )
+            buffer.write("\n")
+    buffer.write("## Near-duplicates\n\n")
+    if not pairs:
+        buffer.write("No similar fragments found.\n")
+    else:
+        buffer.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
+        buffer.write("| --- | --- | --- | --- | --- | --- |\n")
+        for pair in pairs:
+            pair_label = pair.pair_label
+            path_cell = f"{pair.unit_a.rel_path.as_posix()} ↔ {pair.unit_b.rel_path.as_posix()}"
+            reference_cell = _format_pair_reference(pair)
+            buffer.write(
+                f"| `{pair_label}` | {path_cell} | {pair.jaccard:.3f} | {pair.lcs_ratio:.3f} | "
+                f"{pair.divergences} | {reference_cell} |\n"
+            )
+    return buffer.getvalue()
+
+
+def _write_markdown(
+    path: Path,
+    units: Sequence[CodeUnit],
+    clusters: Sequence[DuplicateCluster],
+    pairs: Sequence[NearDuplicatePair],
+    tests_present: bool,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with tmp.open("w", encoding="utf-8") as handle:
-        handle.write("# Shared code map\n\n")
-        if not tests_present:
-            handle.write("> ARCHIVE_TESTS: missing in branch\n\n")
-        handle.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
-        handle.write("| --- | --- | --- | --- | --- | --- | --- |\n")
-        for unit in units:
-            reference_cell = _format_reference_cell(unit)
-            handle.write(
-                f"| `{unit.symbol}` | {unit.kind} | {unit.role} | "
-                f"L{unit.start_line}-L{unit.end_line} | {unit.norm_loc} | `{unit.ast_hash}` | {reference_cell} |\n"
-            )
-        handle.write("\n## Duplicate clusters\n\n")
-        if not clusters:
-            handle.write("No duplicates found.\n\n")
-        else:
-            for cluster in clusters:
-                handle.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
-                for cluster_member in cluster.members:
-                    handle.write(
-                        f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
-                        f"[{cluster_member.reference}]\n"
-                    )
-                handle.write("\n")
-        handle.write("## Near-duplicates\n\n")
-        if not pairs:
-            handle.write("No similar fragments found.\n")
-        else:
-            handle.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
-            handle.write("| --- | --- | --- | --- | --- | --- |\n")
-            for pair in pairs:
-                pair_label = pair.pair_label
-                path_cell = f"{pair.unit_a.rel_path.as_posix()} ↔ {pair.unit_b.rel_path.as_posix()}"
-                reference_cell = _format_pair_reference(pair)
-                handle.write(
-                    f"| `{pair_label}` | {path_cell} | {pair.jaccard:.3f} | {pair.lcs_ratio:.3f} | "
-                    f"{pair.divergences} | {reference_cell} |\n"
-                )
+        handle.write(_render_markdown(units, clusters, pairs, tests_present))
     os.replace(tmp, path)
 
 
@@ -574,65 +599,13 @@ def _render_to_stdout(
 ) -> None:
     handle = stream or sys.stdout
     if "csv" in formats:
-        fieldnames = ["symbol", "path", "lines", "kind", "role", "norm_loc", "ast_hash"]
-        output = io.StringIO()
-        csv_writer = csv.DictWriter(output, fieldnames=fieldnames)
-        csv_writer.writeheader()
-        for unit in units:
-            csv_writer.writerow(
-                {
-                    "symbol": unit.symbol,
-                    "path": unit.rel_path.as_posix(),
-                    "lines": f"L{unit.start_line}-L{unit.end_line}",
-                    "kind": unit.kind,
-                    "role": unit.role,
-                    "norm_loc": unit.norm_loc,
-                    "ast_hash": unit.ast_hash,
-                }
-            )
+        csv_content = _render_csv(units)
         _write_stream_block(handle, "# dup_map.csv")
-        _write_stream_block(handle, output.getvalue().rstrip())
+        _write_stream_block(handle, csv_content.rstrip())
     if "md" in formats:
-        buffer = io.StringIO()
-        buffer.write("# Shared code map\n\n")
-        if not tests_present:
-            buffer.write("> ARCHIVE_TESTS: missing in branch\n\n")
-        buffer.write("| Symbol | Kind | Role | Lines | Norm LOC | AST Hash | Reference |\n")
-        buffer.write("| --- | --- | --- | --- | --- | --- | --- |\n")
-        for unit in units:
-            reference_cell = _format_reference_cell(unit)
-            buffer.write(
-                f"| `{unit.symbol}` | {unit.kind} | {unit.role} | "
-                f"L{unit.start_line}-L{unit.end_line} | {unit.norm_loc} | `{unit.ast_hash}` | {reference_cell} |\n"
-            )
-        buffer.write("\n## Duplicate clusters\n\n")
-        if not clusters:
-            buffer.write("No duplicates found.\n\n")
-        else:
-            for cluster in clusters:
-                buffer.write(f"### AST Hash `{cluster.ast_hash}` — {len(cluster.members)} entries\n\n")
-                for cluster_member in cluster.members:
-                    buffer.write(
-                        f"- `{cluster_member.symbol}` ({cluster_member.kind}, {cluster_member.role}) — "
-                        f"[{cluster_member.reference}]\n"
-                    )
-                buffer.write("\n")
-        buffer.write("## Near-duplicates\n\n")
-        if not pairs:
-            buffer.write("No similar fragments found.\n")
-        else:
-            buffer.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
-            buffer.write("| --- | --- | --- | --- | --- | --- |\n")
-            for pair in pairs:
-                pair_label = pair.pair_label
-                path_cell = f"{pair.unit_a.rel_path.as_posix()} ↔ {pair.unit_b.rel_path.as_posix()}"
-                reference_cell = _format_pair_reference(pair)
-                buffer.write(
-                    f"| `{pair_label}` | {path_cell} | {pair.jaccard:.3f} | {pair.lcs_ratio:.3f} | "
-                    f"{pair.divergences} | {reference_cell} |\n"
-                )
+        markdown_content = _render_markdown(units, clusters, pairs, tests_present)
         _write_stream_block(handle, "# dup_map.md")
-        _write_stream_block(handle, buffer.getvalue().rstrip())
+        _write_stream_block(handle, markdown_content.rstrip())
 
 
 def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> None:
