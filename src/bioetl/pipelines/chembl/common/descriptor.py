@@ -313,11 +313,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     @property
     def api_version(self) -> str | None:
         """Return the cached API version captured during extraction."""
-        return self._api_version
+        return self._get_optional_string_value(
+            "_api_version", field_name="api_version"
+        )
 
     def _set_api_version(self, value: str | None) -> None:
         """Update the cached API version used by the pipeline."""
-        self._api_version = value
+        self._set_optional_string_value(
+            "_api_version", value, field_name="api_version"
+        )
 
     def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
         """Dispatch between batch and full extraction modes."""

@@ -48,7 +48,16 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     @property
     def chembl_db_version(self) -> str | None:
         """Return the cached ChEMBL DB version captured during extraction."""
-        return self._chembl_db_version
+        return self._get_optional_string_value(
+            "_chembl_db_version", field_name="chembl_db_version"
+        )
+
+    def _set_chembl_db_version(self, value: str | None) -> None:
+        """Update the cached ChEMBL DB version used by the pipeline."""
+
+        self._set_optional_string_value(
+            "_chembl_db_version", value, field_name="chembl_db_version"
+        )
 
     def _fetch_chembl_release(
         self,
@@ -93,7 +102,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         except Exception as exc:  # noqa: BLE001
             bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
         finally:
-            self._chembl_db_version = release_value
+            self._set_chembl_db_version(release_value)
             self._set_api_version(api_version)
             self._set_chembl_release(release_value)
             self.record_extract_metadata(
@@ -138,7 +147,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 chembl_client=chembl_client,
                 select_fields=list(select_fields) if select_fields else None,
                 page_size=source_config.page_size,
-                chembl_release=pipeline._chembl_db_version,
+                chembl_release=pipeline.chembl_db_version,
                 metadata={"api_version": pipeline.api_version},
             )
 
@@ -155,7 +164,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_db_version=pipeline._chembl_db_version,
+                chembl_db_version=pipeline.chembl_db_version,
                 api_version=pipeline.api_version,
             )
             return pd.DataFrame()
@@ -166,7 +175,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             return {
-                "chembl_db_version": pipeline._chembl_db_version,
+                "chembl_db_version": pipeline.chembl_db_version,
                 "api_version": pipeline.api_version,
                 "limit": pipeline.config.cli.limit,
             }
@@ -220,7 +229,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_db_version=self._chembl_db_version,
+                chembl_db_version=self.chembl_db_version,
                 api_version=self.api_version,
             )
             return pd.DataFrame()
@@ -269,7 +278,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_db_version=self._chembl_db_version,
+            chembl_db_version=self.chembl_db_version,
             api_version=self.api_version,
             limit=limit,
             batches=stats.batches,
@@ -312,7 +321,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         df = self._remove_extra_columns(df, log)
 
         # Add version fields
-        df["_chembl_db_version"] = self._chembl_db_version or ""
+        df["_chembl_db_version"] = self.chembl_db_version or ""
         df["_api_version"] = self.api_version or ""
 
         # Deduplication
@@ -345,8 +354,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         """Enrich metadata with ChEMBL versions."""
 
         enriched = dict(super().augment_metadata(metadata, df))
-        if self._chembl_db_version:
-            enriched["chembl_db_version"] = self._chembl_db_version
+        if self.chembl_db_version:
+            enriched["chembl_db_version"] = self.chembl_db_version
         if self.api_version:
             enriched["api_version"] = self.api_version
         return enriched
