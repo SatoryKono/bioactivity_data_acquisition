@@ -3,18 +3,17 @@
 from __future__ import annotations
 
 import json
-import os
 import shutil
 import subprocess
 import sys
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable
+from typing import Any, Callable
 from datetime import datetime, timezone
 from hashlib import blake2b
 from pathlib import Path
 from uuid import uuid4
 
-import yaml
-
+from bioetl.cli._io import atomic_write_yaml
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
@@ -92,25 +91,34 @@ def _compute_config_hash() -> str:
     return _blake2_digest(parts)
 
 
-def _write_yaml_atomic(path: Path, payload: Mapping[str, object]) -> None:
-    """Write YAML payload atomically to ``path``."""
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(payload, handle, sort_keys=False, allow_unicode=True)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(tmp_path, path)
-
-
-def generate_test_report(output_root: Path | None = None) -> int:
+def generate_test_report(
+    output_root: Path | None = None,
+    *,
+    subprocess_module: Any | None = None,
+    logger_cls: type[UnifiedLogger] | None = None,
+    datetime_module: type[datetime] | None = None,
+    uuid4_fn: Callable[[], Any] | None = None,
+    resolve_artifacts_fn: Callable[[Path], "TestReportArtifacts"] | None = None,
+    repo_root: Path | None = None,
+    pipeline_version_fn: Callable[[], str] | None = None,
+    git_commit_fn: Callable[[], str] | None = None,
+    config_hash_fn: Callable[[], str] | None = None,
+) -> int:
     """Generate pytest/coverage artifacts and return the pytest exit code."""
 
-    UnifiedLogger.configure()
-    run_id = uuid4().hex
-    trace_id = uuid4().hex
-    span_id = uuid4().hex[:16]
+    logger_type = logger_cls or UnifiedLogger
+    now_datetime = datetime_module or datetime
+    uuid_factory = uuid4_fn or uuid4
+    resolver = resolve_artifacts_fn or resolve_artifact_paths
+    repo_base = repo_root or REPO_ROOT
+    runner = subprocess_module or subprocess
 
-    UnifiedLogger.bind(
+    logger_type.configure()
+    run_id = uuid_factory().hex
+    trace_id = uuid_factory().hex
+    span_id = uuid_factory().hex[:16]
+
+    logger_type.bind(
         run_id=run_id,
         pipeline="test-reporting",
         stage="bootstrap",
@@ -119,14 +127,14 @@ def generate_test_report(output_root: Path | None = None) -> int:
         trace_id=trace_id,
         span_id=span_id,
     )
-    log = UnifiedLogger.get(__name__)
+    log = logger_type.get(__name__)
 
     target_root = output_root if output_root is not None else TEST_REPORTS_ROOT
 
-    timestamp = datetime.now(timezone.utc)
+    timestamp = now_datetime.now(timezone.utc)
     folder_name = build_timestamp_directory_name(timestamp)
     final_root = target_root / folder_name
-    tmp_root = target_root / f".{folder_name}-{uuid4().hex}.tmp"
+    tmp_root = target_root / f".{folder_name}-{uuid_factory().hex}.tmp"
 
     if final_root.exists():
         log.error(LogEvents.TARGET_DIRECTORY_EXISTS, path=str(final_root))
@@ -135,7 +143,7 @@ def generate_test_report(output_root: Path | None = None) -> int:
     log.info(LogEvents.PREPARING_DIRECTORIES, tmp_root=str(tmp_root), final_root=str(final_root))
     tmp_root.mkdir(parents=True, exist_ok=True)
 
-    artifacts = resolve_artifact_paths(tmp_root)
+    artifacts = resolver(tmp_root)
     html_dir = tmp_root / "coverage-html"
     html_dir.mkdir(parents=True, exist_ok=True)
 
@@ -149,12 +157,12 @@ def generate_test_report(output_root: Path | None = None) -> int:
         f"--cov-report=html:{html_dir}",
     ]
 
-    log.info(LogEvents.RUNNING_PYTEST, command=pytest_cmd, cwd=str(REPO_ROOT))
-    result = subprocess.run(pytest_cmd, cwd=REPO_ROOT, check=False)
+    log.info(LogEvents.RUNNING_PYTEST, command=pytest_cmd, cwd=str(repo_base))
+    result = runner.run(pytest_cmd, cwd=repo_base, check=False) if hasattr(runner, "run") else runner(pytest_cmd)
 
     status = "passed" if result.returncode == 0 else "failed"
-    UnifiedLogger.bind(stage="post-processing")
-    log = UnifiedLogger.get(__name__)
+    logger_type.bind(stage="post-processing")
+    log = logger_type.get(__name__)
     log.info(LogEvents.PYTEST_FINISHED, returncode=result.returncode, status=status)
 
     if not artifacts.pytest_report.exists():
@@ -164,9 +172,13 @@ def generate_test_report(output_root: Path | None = None) -> int:
     row_count, summary = _load_pytest_summary(artifacts.pytest_report)
     pytest_digest = _blake2_digest([artifacts.pytest_report.read_bytes()])
 
-    pipeline_version = _compute_pipeline_version()
-    git_commit = _read_git_commit()
-    config_hash = _compute_config_hash()
+    compute_version = pipeline_version_fn or _compute_pipeline_version
+    read_commit = git_commit_fn or _read_git_commit
+    compute_config_hash = config_hash_fn or _compute_config_hash
+
+    pipeline_version = compute_version()
+    git_commit = read_commit()
+    config_hash = compute_config_hash()
     business_key_hash = _blake2_digest(
         [
             pipeline_version.encode("utf-8"),
@@ -202,7 +214,7 @@ def generate_test_report(output_root: Path | None = None) -> int:
         row_count=row_count,
         coverage_xml=str(artifacts.coverage_xml),
     )
-    _write_yaml_atomic(artifacts.meta_yaml, meta_payload_with_summary)
+    atomic_write_yaml(meta_payload_with_summary, artifacts.meta_yaml)
 
     if html_dir.exists():
         shutil.rmtree(html_dir)

@@ -28,7 +28,7 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.enrich import _enrich_flag, _extract_enrich_config
+from ..common.enrich import _extract_enrich_config, enrich_flag
 from .normalize import enrich_with_document_terms
 
 SelfChemblDocumentPipeline = TypeVar(
@@ -537,7 +537,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
     def _should_enrich_document_terms(self) -> bool:
         """Return True when document_term enrichment is enabled in the config."""
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return _enrich_flag(
+        return enrich_flag(
             chembl_config,
             ("document", "enrich", "document_term", "enabled"),
         )

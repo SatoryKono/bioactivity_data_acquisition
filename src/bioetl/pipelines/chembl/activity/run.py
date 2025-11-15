@@ -49,7 +49,7 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.enrich import _enrich_flag, _extract_enrich_config
+from ..common.enrich import _extract_enrich_config, enrich_flag
 from ..common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay,
@@ -763,7 +763,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _should_enrich_compound_record(self) -> bool:
         """Return True when compound_record enrichment is enabled in the config."""
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return _enrich_flag(
+        return enrich_flag(
             chembl_config,
             ("activity", "enrich", "compound_record", "enabled"),
         )
@@ -791,7 +791,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _should_enrich_assay(self) -> bool:
         """Return True when assay enrichment is enabled in the config."""
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return _enrich_flag(
+        return enrich_flag(
             chembl_config,
             ("activity", "enrich", "assay", "enabled"),
         )
@@ -819,7 +819,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _should_enrich_data_validity(self) -> bool:
         """Return True when data_validity enrichment is enabled in the config."""
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return _enrich_flag(
+        return enrich_flag(
             chembl_config,
             ("activity", "enrich", "data_validity", "enabled"),
         )
@@ -858,7 +858,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     def _should_enrich_molecule(self) -> bool:
         """Return True when molecule enrichment is enabled in the config."""
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return _enrich_flag(
+        return enrich_flag(
             chembl_config,
             ("activity", "enrich", "molecule", "enabled"),
         )

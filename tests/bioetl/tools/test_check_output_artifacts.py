@@ -5,7 +5,6 @@ from typing import Any
 
 import pytest
 
-import bioetl.cli.tools.cli_check_output_artifacts as check_output_mod
 from bioetl.cli.tools.cli_check_output_artifacts import check_output_artifacts
 
 
@@ -49,12 +48,12 @@ def test_check_output_artifacts_reports_all_issues(
     monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.UnifiedLogger", facade)
     monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
     monkeypatch.setattr(
-        "bioetl.cli.tools.cli_check_output_artifacts._git_ls_files",
-        lambda path: [Path("data/output/tracked.csv"), Path("data/output/.gitkeep")],
+        "bioetl.cli.tools.cli_check_output_artifacts.git_ls",
+        lambda *paths: [Path("data/output/tracked.csv"), Path("data/output/.gitkeep")],
     )
     monkeypatch.setattr(
-        "bioetl.cli.tools.cli_check_output_artifacts._git_diff_cached",
-        lambda path: [Path("data/output/new.csv")],
+        "bioetl.cli.tools.cli_check_output_artifacts.git_diff_cached",
+        lambda *paths, **kwargs: [Path("data/output/new.csv")],
     )
 
     errors = check_output_artifacts(max_bytes=1)
@@ -76,27 +75,13 @@ def test_check_output_artifacts_passes_when_clean(
     facade = LoggerFacade()
     monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.UnifiedLogger", facade)
     monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
-    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts._git_ls_files", lambda path: [])
-    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts._git_diff_cached", lambda path: [])
+    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.git_ls", lambda *paths: [])
+    monkeypatch.setattr(
+        "bioetl.cli.tools.cli_check_output_artifacts.git_diff_cached",
+        lambda *paths, **kwargs: [],
+    )
 
     errors = check_output_artifacts()
 
     assert errors == []
     assert facade.logger.records[-1][0] == "info"
-
-
-def test_git_helpers_parse_output(monkeypatch: pytest.MonkeyPatch) -> None:
-    class Result:
-        def __init__(self, stdout: str) -> None:
-            self.stdout = stdout
-
-    def fake_run(args: list[str], **kwargs: Any) -> Result:
-        if "--name-only" in args:
-            return Result("data/output/new.csv\n\n")
-        return Result("data/output/tracked.csv\n")
-
-    monkeypatch.setattr("bioetl.cli.tools.cli_check_output_artifacts.subprocess.run", fake_run)
-    tracked = check_output_mod._git_ls_files("data/output")
-    staged = check_output_mod._git_diff_cached("data/output")
-    assert tracked == [Path("data/output/tracked.csv")]
-    assert staged == [Path("data/output/new.csv")]

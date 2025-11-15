@@ -15,7 +15,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, TextIO, cast
+from typing import Any, cast
 
 import structlog
 from structlog.contextvars import (
@@ -115,22 +115,14 @@ def _ensure_mandatory_fields(
     return event_dict
 
 
-class _SafeStreamHandler(logging.StreamHandler[TextIO]):
+class _SafeStreamHandler(logging.StreamHandler):
     """Stream handler that rebinds to the current ``sys.stderr`` if the active stream closes."""
 
     def __init__(self) -> None:
         super().__init__(stream=sys.stderr)
 
-    def setStream(self, stream: TextIO | None) -> None:  # noqa: N802 (match logging API)
-        current = cast(TextIO | None, getattr(self, "stream", None))
-        if current is not None and getattr(current, "closed", False):
-            self.stream = stream
-            return
-        super().setStream(stream)
-
-    def emit(self, record: logging.LogRecord) -> None:
-        stream = cast(TextIO | None, getattr(self, "stream", None))
-        if stream is None or getattr(stream, "closed", False):
+    def emit(self, record: logging.LogRecord) -> None:  # type: ignore[override]
+        if getattr(self.stream, "closed", False):
             self.setStream(sys.stderr)
         try:
             super().emit(record)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import io
 from pathlib import Path
 from typing import Any
 
@@ -168,6 +169,27 @@ def sample(value):
     assert "# dup_map.csv" in captured
     assert "# dup_map.md" in captured
     assert "ARCHIVE_TESTS" in captured
+
+
+def test_render_helpers_produce_consistent_csv_and_markdown(tmp_path: Path) -> None:
+    module_path = tmp_path / "src" / "pkg" / "helpers.py"
+    _write_module(
+        module_path,
+        """
+def alpha(value):
+    return value - 1
+        """,
+    )
+    units, errors = dup_finder._parse_code_units(module_path, tmp_path)
+    assert not errors
+    csv_content = dup_finder._render_csv(units)
+    reader = csv.DictReader(io.StringIO(csv_content))
+    rows = list(reader)
+    assert rows and rows[0]["symbol"] == "alpha"
+    assert rows[0]["path"] == "src/pkg/helpers.py"
+    markdown_content = dup_finder._render_markdown(units, [], [], tests_present=True)
+    assert markdown_content.startswith("# Shared code map\n\n")
+    assert "| `alpha` | func" in markdown_content
 
 
 def test_write_errors_and_warnings(tmp_path: Path) -> None:
@@ -348,7 +370,7 @@ def test_parse_code_units_reports_os_error(tmp_path: Path, monkeypatch: pytest.M
     file_path = tmp_path / "src" / "pkg" / "missing.py"
     file_path.parent.mkdir(parents=True)
 
-    def fake_read_text(self: Path, _encoding: str = "utf-8") -> str:  # noqa: ARG001
+    def fake_read_text(self: Path, *_: Any, **__: Any) -> str:
         raise OSError("boom")
 
     monkeypatch.setattr(Path, "read_text", fake_read_text)

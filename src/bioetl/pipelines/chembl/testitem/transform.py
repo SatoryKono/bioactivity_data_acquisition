@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 import pandas as pd
@@ -15,42 +15,6 @@ __all__ = [
     "flatten_object_col",
     "transform",
 ]
-
-_DEFAULT_FLATTEN_OBJECTS: dict[str, tuple[str, ...]] = {
-    "molecule_hierarchy": ("molecule_chembl_id", "parent_chembl_id"),
-    "molecule_properties": (
-        "alogp",
-        "aromatic_rings",
-        "cx_logd",
-        "cx_logp",
-        "cx_most_apka",
-        "cx_most_bpka",
-        "full_molformula",
-        "full_mwt",
-        "hba",
-        "hba_lipinski",
-        "hbd",
-        "hbd_lipinski",
-        "heavy_atoms",
-        "molecular_species",
-        "mw_freebase",
-        "mw_monoisotopic",
-        "num_lipinski_ro5_violations",
-        "num_ro5_violations",
-        "psa",
-        "qed_weighted",
-        "ro3_pass",
-        "rtb",
-    ),
-    "molecule_structures": (
-        "canonical_smiles",
-        "molfile",
-        "standard_inchi",
-        "standard_inchi_key",
-    ),
-}
-_DEFAULT_ARRAYS_SIMPLE: tuple[str, ...] = ("atc_classifications",)
-_DEFAULT_ARRAYS_OBJECTS: tuple[str, ...] = ("cross_references", "molecule_synonyms")
 
 
 def flatten_object_col(
@@ -104,7 +68,7 @@ def flatten_object_col(
 
     # Apply transformation to extract nested fields
     expanded = df[col].map(row_to_dict).apply(pd.Series)
-    expanded.columns = pd.Index([f"{prefix}{c}" for c in expanded.columns])
+    expanded.columns = [f"{prefix}{c}" for c in expanded.columns]
 
     # Drop original column and concatenate with expanded columns
     df = df.drop(columns=[col])
@@ -129,59 +93,46 @@ def transform(df: pd.DataFrame, cfg: Any) -> pd.DataFrame:
     """
     df = df.copy()
 
-    transform_cfg = getattr(cfg, "transform", None)
-    if transform_cfg is None and hasattr(cfg, "domain"):
-        transform_cfg = getattr(cfg.domain, "transform", None)
-
     # Check if flattening is enabled
-    enable_flatten = getattr(transform_cfg, "enable_flatten", True) if transform_cfg else True
+    enable_flatten = (
+        getattr(cfg.transform, "enable_flatten", True) if hasattr(cfg, "transform") else True
+    )
     enable_serialization = (
-        getattr(transform_cfg, "enable_serialization", True) if transform_cfg else True
+        getattr(cfg.transform, "enable_serialization", True) if hasattr(cfg, "transform") else True
     )
 
     # Flatten nested objects
-    flatten_objects: Mapping[str, Sequence[str]] | None = None
-    if transform_cfg and hasattr(transform_cfg, "flatten_objects"):
-        candidate = getattr(transform_cfg, "flatten_objects")
-        if isinstance(candidate, Mapping):
-            normalized: dict[str, Sequence[str]] = {}
-            for key, value in candidate.items():
-                if isinstance(key, str) and isinstance(value, Sequence) and not isinstance(
-                    value, (str, bytes)
-                ):
-                    normalized[key] = tuple(value)
-            flatten_objects = normalized or None
-
-    if enable_flatten:
-        objects_to_flatten = flatten_objects or _DEFAULT_FLATTEN_OBJECTS
-        for obj_col, fields in objects_to_flatten.items():
-            if isinstance(fields, Sequence) and not isinstance(fields, (str, bytes)):
-                df = flatten_object_col(df, obj_col, fields, prefix=f"{obj_col}__")
+    if enable_flatten and hasattr(cfg, "transform") and hasattr(cfg.transform, "flatten_objects"):
+        flatten_objects = cfg.transform.flatten_objects
+        if isinstance(flatten_objects, dict):
+            for obj_col, fields in flatten_objects.items():
+                if isinstance(fields, Sequence) and not isinstance(fields, (str, bytes)):
+                    df = flatten_object_col(df, obj_col, fields, prefix=f"{obj_col}__")
 
     # Serialize simple arrays
-    arrays_simple: Sequence[str] = ()
-    if transform_cfg and hasattr(transform_cfg, "arrays_simple_to_pipe"):
-        candidate = getattr(transform_cfg, "arrays_simple_to_pipe")
-        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-            arrays_simple = candidate
-    if enable_serialization:
-        simple_targets = arrays_simple or _DEFAULT_ARRAYS_SIMPLE
-        for col in simple_targets:
-            if col in df.columns:
-                df[col] = df[col].map(serialize_simple_list)
+    if (
+        enable_serialization
+        and hasattr(cfg, "transform")
+        and hasattr(cfg.transform, "arrays_simple_to_pipe")
+    ):
+        arrays_simple = cfg.transform.arrays_simple_to_pipe
+        if isinstance(arrays_simple, Sequence) and not isinstance(arrays_simple, (str, bytes)):
+            for col in arrays_simple:
+                if col in df.columns:
+                    df[col] = df[col].map(serialize_simple_list)
 
     # Serialize arrays of objects
-    arrays_objects: Sequence[str] = ()
-    if transform_cfg and hasattr(transform_cfg, "arrays_objects_to_header_rows"):
-        candidate = getattr(transform_cfg, "arrays_objects_to_header_rows")
-        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes)):
-            arrays_objects = candidate
-
-    if enable_serialization:
-        object_targets = arrays_objects or _DEFAULT_ARRAYS_OBJECTS
-        for col in object_targets:
-            if col in df.columns:
-                df[f"{col}__flat"] = df[col].map(serialize_objects)
-                df = df.drop(columns=[col])
+    if (
+        enable_serialization
+        and hasattr(cfg, "transform")
+        and hasattr(cfg.transform, "arrays_objects_to_header_rows")
+    ):
+        arrays_objects = cfg.transform.arrays_objects_to_header_rows
+        if isinstance(arrays_objects, Sequence) and not isinstance(arrays_objects, (str, bytes)):
+            for col in arrays_objects:
+                if col in df.columns:
+                    df[f"{col}__flat"] = df[col].map(serialize_objects)
+                    # Remove original column after serialization
+                    df = df.drop(columns=[col])
 
     return df

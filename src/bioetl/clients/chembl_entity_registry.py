@@ -149,22 +149,45 @@ def _extract_source_parameters(source: AnySourceConfig | None) -> Mapping[str, A
     return source.parameters_mapping()
 
 
+def _resolve_positive_setting(
+    name: str,
+    source: AnySourceConfig | None,
+    overrides: Mapping[str, Any] | None,
+    *,
+    default: int | None,
+    maximum: int | None = None,
+    allow_none: bool = False,
+) -> int | None:
+    candidate = _extract_mapping_value(overrides, name)
+    if candidate is None and source is not None:
+        candidate = getattr(source, name, None)
+    if candidate is None and source is not None:
+        parameters = _extract_source_parameters(source)
+        candidate = _extract_mapping_value(parameters, name)
+    if candidate is None:
+        if default is None:
+            return None
+        candidate = default
+    return _resolve_positive_int(
+        candidate,
+        field_name=name,
+        minimum=1,
+        maximum=maximum,
+        allow_none=allow_none,
+    )
+
+
 def _resolve_batch_size(
     source: AnySourceConfig | None,
     overrides: Mapping[str, Any] | None,
     *,
     default: int = 25,
 ) -> int:
-    candidate = _extract_mapping_value(overrides, "batch_size")
-    if candidate is None and source is not None:
-        candidate = getattr(source, "batch_size", None)
-    if candidate is None and source is not None:
-        parameters = _extract_source_parameters(source)
-        candidate = _extract_mapping_value(parameters, "batch_size")
-    resolved = _resolve_positive_int(
-        candidate if candidate is not None else default,
-        field_name="batch_size",
-        minimum=1,
+    resolved = _resolve_positive_setting(
+        "batch_size",
+        source,
+        overrides,
+        default=default,
         maximum=25,
     )
     return cast(int, resolved)
@@ -177,18 +200,11 @@ def _resolve_max_url_length(
     allow_none: bool = True,
     default: int | None = None,
 ) -> int | None:
-    candidate = _extract_mapping_value(overrides, "max_url_length")
-    if candidate is None and source is not None:
-        candidate = getattr(source, "max_url_length", None)
-    if candidate is None and source is not None:
-        parameters = _extract_source_parameters(source)
-        candidate = _extract_mapping_value(parameters, "max_url_length")
-    if candidate is None:
-        return default
-    return _resolve_positive_int(
-        candidate,
-        field_name="max_url_length",
-        minimum=1,
+    return _resolve_positive_setting(
+        "max_url_length",
+        source,
+        overrides,
+        default=default,
         allow_none=allow_none,
     )
 

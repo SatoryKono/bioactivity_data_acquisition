@@ -66,6 +66,7 @@ def test_cli_command_base_emits_error_on_unexpected_exception(monkeypatch: pytes
         logger: Any | None = None,
         event: Any | None = None,
         context: Any | None = None,
+        **kwargs: Any,
     ) -> None:
         recorded.update(
             {"template": template, "message": message, "logger": logger, "event": event, "context": context}

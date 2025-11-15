@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol, cast
 
-import yaml
+from bioetl.cli._io import atomic_write_yaml, hash_file
 
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.http.client_factory import for_tool
@@ -314,17 +314,6 @@ def _write_csv(rows: list[dict[str, Any]], path: Path) -> None:
     os.replace(tmp_path, path)
 
 
-def _blake2_checksum(path: Path) -> str:
-    """Compute a BLAKE2 checksum for a file."""
-    digest = hashlib.blake2b(digest_size=32)
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(64 * 1024), b""):
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _compute_business_key_hash(rows: list[dict[str, Any]]) -> str:
     """Compute a deterministic hash over dictionary/value/status triples."""
     digest = hashlib.blake2b(digest_size=32)
@@ -437,7 +426,7 @@ def audit_vocabularies(
 
     _write_csv(audit_rows, output_path)
 
-    checksum = _blake2_checksum(output_path)
+    checksum = hash_file(output_path)
     business_key_hash = _compute_business_key_hash(audit_rows)
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     release = _extract_release(vocab_store)
@@ -460,13 +449,7 @@ def audit_vocabularies(
         },
     }
 
-    meta_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_meta = meta_path.with_suffix(meta_path.suffix + ".tmp")
-    with tmp_meta.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(meta_payload, handle, sort_keys=True, allow_unicode=True)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(tmp_meta, meta_path)
+    atomic_write_yaml(meta_payload, meta_path, sort_keys=True)
 
     log.info(LogEvents.VOCAB_AUDIT_COMPLETED,
         rows=len(audit_rows),
