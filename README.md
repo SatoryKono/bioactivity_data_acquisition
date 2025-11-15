@@ -36,9 +36,10 @@ bioetl list
 
 Обязательные флаги и параметры описаны в
 `python -m bioetl.cli.cli_app --help`. Подробности см. в
-[`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и
-руководстве по конфигурации
-[`docs/configs/README.md`](docs/configs/README.md).
+[`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и руководстве по
+конфигурациям:
+[`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
+[`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
 ## Топология репозитория
 

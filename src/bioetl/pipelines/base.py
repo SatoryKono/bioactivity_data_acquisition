@@ -67,11 +67,11 @@ from bioetl.schemas import (
     SchemaVersionMismatchError,
     get_schema,
 )
-
-SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service
 from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
+
+SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 
 _NETWORK_ERROR_TYPES = (
     client_exceptions.Timeout,

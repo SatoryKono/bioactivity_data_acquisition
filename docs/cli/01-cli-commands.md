@@ -32,23 +32,23 @@ still allowing per-run overrides.
 
 ## Global options
 
-These switches are available to every pipeline command. Options without defaults
-must be supplied explicitly whenever the CLI reports them as required.
+Эти флаги объявлены в `bioetl.cli.cli_command.create_pipeline_command` и
+подключаются ко всем пайплайнам:
 
-| Flag                                            | Purpose                                                         | Default                  |
-| ----------------------------------------------- | --------------------------------------------------------------- | ------------------------ |
-| `--config, -c`                                  | Path to the pipeline configuration YAML.                        | —                        |
-| `--output-dir, -o`                              | Directory where pipeline artifacts are written.                 | —                        |
-| `--input-file, -i`                              | Optional CSV/Parquet containing seed IDs or records.            | —                        |
-| `--dry-run, -d`                                 | Load and validate configuration without executing the pipeline. | `False`                  |
-| `--verbose, -v`                                 | Enable verbose (DEBUG-level) logging.                           | `False`                  |
-| `--set, -S`                                     | Repeatable `KEY=VALUE` overrides applied after config merge.    | `[]`                     |
-| `--sample`                                      | Deterministically sample `N` rows from the input dataset.       | `None`                   |
-| `--limit`                                       | Process at most `N` rows (handy for smoke runs).                | `None`                   |
-| `--extended`                                    | Emit extended QC sidecars and metrics.                          | `False`                  |
-| `--golden`                                      | Path to a golden dataset for determinism checks.                | `None`                   |
-| `--fail-on-schema-drift / --allow-schema-drift` | Control whether schema drift raises or logs.                    | `--fail-on-schema-drift` |
-| `--validate-columns / --no-validate-columns`    | Toggle strict column validation in post-processing.             | `--validate-columns`     |
+| Flag                                            | Purpose                                                                      | Default                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------- | --------------------------- |
+| `--config, -c`                                  | Путь к YAML конфигурации пайплайна.                                          | Required                    |
+| `--output-dir, -o`                              | Каталог назначения для артефактов и QC.                                     | Required                    |
+| `--dry-run, -d`                                 | Загрузить и провалидировать конфиг без запуска стадий.                       | `False`                     |
+| `--verbose, -v`                                 | Включить подробное (DEBUG) логирование.                                      | `False`                     |
+| `--set, -S`                                     | Повторяемые `KEY=VALUE` оверрайды после merge профилей.                      | `[]`                        |
+| `--sample`                                      | Детминированно выбрать `N` строк входного набора.                            | `None`                      |
+| `--limit`                                       | Обработать не более `N` строк (smoke-run).                                   | `None`                      |
+| `--extended`                                    | Включить расширенную отчётность QC.                                          | `False`                     |
+| `--fail-on-schema-drift/--allow-schema-drift`   | Влияет на ошибку при дрейфе схемы (по умолчанию — аварийный выход).          | `--fail-on-schema-drift`    |
+| `--validate-columns/--no-validate-columns`      | Жёсткая проверка колонок и порядка перед экспортом.                          | `--validate-columns`        |
+| `--golden`                                      | Путь к golden-файлу для битовой проверки.                                    | `None`                      |
+| `--input-file, -i`                              | Доп. CSV/Parquet с seed-идентификаторами для выборочного извлечения.         | `None`                      |
 
 ## Доступные команды (актуально)
 
@@ -60,6 +60,21 @@ must be supplied explicitly whenever the CLI reports them as required.
 - `target_chembl` — ChEMBL target dimension pipeline.
 - `document_chembl` — ChEMBL document pipeline.
 - `testitem_chembl` — ChEMBL molecule/test item pipeline.
+
+## Planned commands
+
+Команды ниже присутствуют в реестре как карточки с `not_implemented_message` и
+появятся после реализации соответствующих пайплайнов:
+
+| Command             | Description                                                             | Status                             |
+| ------------------- | ----------------------------------------------------------------------- | ---------------------------------- |
+| `pubchem`           | Extract compound data from PubChem and normalize to the project schema. | PubChem pipeline not yet implemented |
+| `uniprot`           | Extract protein records from UniProt and normalize to the project schema. | UniProt pipeline not yet implemented |
+| `gtp_iuphar`        | Extract ligand and target data from IUPHAR and normalize to the project schema. | IUPHAR pipeline not yet implemented |
+| `openalex`          | Extract scholarly metadata from OpenAlex and normalize to the project schema. | OpenAlex pipeline not yet implemented |
+| `crossref`          | Extract bibliographic metadata from Crossref and normalize to the project schema. | Crossref pipeline not yet implemented |
+| `pubmed`            | Extract publication data from PubMed and normalize to the project schema. | PubMed pipeline not yet implemented |
+| `semantic_scholar`  | Extract publication data from Semantic Scholar and normalize to the project schema. | Semantic Scholar pipeline not yet implemented |
 
 ## Determinism building blocks
 
@@ -221,27 +236,6 @@ python -m bioetl.cli.cli_app testitem_chembl \
   --output-dir ./data/output/testitem \
   --sample 5
 ```
-
-### Не реализовано
-
-Следующие команды отсутствуют в `COMMAND_REGISTRY` и помечены как **not
-implemented**:
-
-- `activity`
-- `assay`
-- `document_pubmed`
-- `document_crossref`
-- `document_openalex`
-- `document_semantic_scholar`
-- `document`
-- `pubchem`
-- `uniprot`
-- `gtp_iuphar`
-- `openalex`
-- `crossref`
-- `pubmed`
-- `semantic_scholar`
-- `list`
 
 ## Summary matrix
 

@@ -27,16 +27,12 @@ installed environments and maps to the same Typer application. Its architecture
 is based on a **static command registry** that is built when the application
 starts.
 
-- **Command Registration**: The file
-  `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` defines the list
-  of all available pipeline commands (e.g., `activity_chembl`, `assay_chembl`,
-  `target_chembl`). It explicitly imports a `build_command_config` function for
-  each pipeline and uses these to construct a dictionary that maps command names
-  to their configurations.
-- **Application Startup**: The main application file,
-  `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]`, reads this static
-  registry and uses a factory pattern (`create_pipeline_command`) to generate
-  and register a Typer command for each entry.
+- **Command Registration**: `src/bioetl/cli/cli_registry.py` перечисляет все
+  доступные пайплайны, их описания и конфиги по умолчанию. Именно этот реестр
+  выступает единственным источником правды для CLI.
+- **Application Startup**: `src/bioetl/cli/cli_app.py` читает статический
+  реестр и, через фабрику `create_pipeline_command`, регистрирует Typer-команды
+  при запуске приложения.
 
 This approach is **not dynamic**. Adding a new pipeline requires explicitly
 adding its configuration to `registry.py`.
@@ -47,7 +43,7 @@ The single most important function of the CLI is to build the `PipelineConfig`
 object that will be passed to the pipeline. It does this by loading and merging
 settings from multiple sources in a strict order of precedence. This entire
 process is managed by the `load_config` function found in
-`[ref: repo:src/bioetl/config/loader.py@refactoring_001]`.
+`src/bioetl/config/loader.py`.
 
 The order of precedence is as follows (where 4 has the highest precedence and
 overrides all others):
@@ -63,8 +59,9 @@ overrides all others):
 1. **Environment Variables**: Environment variables have the highest precedence
    (e.g., `BIOETL__HTTP__DEFAULT__TIMEOUT_SEC=120`).
 
-This layered approach provides a powerful and flexible system for managing
-configurations.
+Подробно механизм слоёв и профилей описан в
+[`docs/configs/00-typed-configs-and-profiles.md`](../configs/00-typed-configs-and-profiles.md)
+и сопутствующих разделах каталога `docs/configs/`.
 
 ## 4. Key Flags and Behavior
 
@@ -104,28 +101,25 @@ The CLI maps specific families of exceptions to deterministic exit codes (see
 Direct imports of `requests` or `requests.exceptions` inside `src/bioetl/cli/**`
 are prohibited; all HTTP concerns flow through the client abstraction.
 
-A full list of commands and their specific flags can be found in the
-`[ref: repo:docs/cli/01-cli-commands.md@refactoring_001]`. For a detailed
-reference on exit codes, see
-`[ref: repo:docs/cli/02-cli-exit-codes.md@refactoring_001]`.
+Полный список команд и опций зафиксирован в
+[`docs/cli/01-cli-commands.md`](01-cli-commands.md), а кодов ошибок — в
+[`docs/cli/02-cli-exit-codes.md`](02-cli-exit-codes.md).
 
 ## 5. Command Catalog
 
-The Typer application defined in
-`[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]` loads the static
-registry from `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` and
-registers each pipeline command at startup. The resulting command surface is
-summarized below.
+The Typer application defined in `src/bioetl/cli/cli_app.py` loads the static
+registry from `src/bioetl/cli/cli_registry.py` and registers each pipeline
+command at startup. The resulting command surface is summarized below.
 
 | Command           | Invocation                                     | Description                                                                                 | Source                                                       |
 | ----------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Root              | `python -m bioetl.cli.cli_app`                 | Entry point that exposes all subcommands and global options.                                | `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]`      |
-| `list`            | `python -m bioetl.cli.cli_app list`            | Prints the names of every registered pipeline so operators can discover available commands. | `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]`      |
-| `activity_chembl` | `python -m bioetl.cli.cli_app activity_chembl` | Runs the ChEMBL activity ETL pipeline.                                                      | `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` |
-| `assay_chembl`    | `python -m bioetl.cli.cli_app assay_chembl`    | Runs the ChEMBL assay ETL pipeline.                                                         | `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` |
-| `document_chembl` | `python -m bioetl.cli.cli_app document_chembl` | Runs the ChEMBL document ETL pipeline with optional enrichers.                              | `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` |
-| `target_chembl`   | `python -m bioetl.cli.cli_app target_chembl`   | Runs the ChEMBL target ETL pipeline.                                                        | `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` |
-| `testitem_chembl` | `python -m bioetl.cli.cli_app testitem_chembl` | Runs the ChEMBL test item ETL pipeline.                                                     | `[ref: repo:src/bioetl/cli/cli_registry.py@refactoring_001]` |
+| Root              | `python -m bioetl.cli.cli_app`                 | Entry point that exposes all subcommands and global options.                                | `src/bioetl/cli/cli_app.py`      |
+| `list`            | `python -m bioetl.cli.cli_app list`            | Prints the names of every registered pipeline so operators can discover available commands. | `src/bioetl/cli/cli_app.py`      |
+| `activity_chembl` | `python -m bioetl.cli.cli_app activity_chembl` | Runs the ChEMBL activity ETL pipeline.                                                      | `src/bioetl/cli/cli_registry.py` |
+| `assay_chembl`    | `python -m bioetl.cli.cli_app assay_chembl`    | Runs the ChEMBL assay ETL pipeline.                                                         | `src/bioetl/cli/cli_registry.py` |
+| `document_chembl` | `python -m bioetl.cli.cli_app document_chembl` | Runs the ChEMBL document ETL pipeline with optional enrichers.                              | `src/bioetl/cli/cli_registry.py` |
+| `target_chembl`   | `python -m bioetl.cli.cli_app target_chembl`   | Runs the ChEMBL target ETL pipeline.                                                        | `src/bioetl/cli/cli_registry.py` |
+| `testitem_chembl` | `python -m bioetl.cli.cli_app testitem_chembl` | Runs the ChEMBL test item ETL pipeline.                                                     | `src/bioetl/cli/cli_registry.py` |
 
 Команды `activity`, `assay`, `document`, `document_pubmed`, `document_crossref`,
 `document_openalex`, `document_semantic_scholar`, `pubchem`, `uniprot`,
@@ -136,9 +130,9 @@ summarized below.
 ## 6. Global Options
 
 Every pipeline command shares a common set of options implemented in
-`[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`. These options are
-added when `create_pipeline_command` wires a pipeline into the Typer application
-defined in `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]`.
+`src/bioetl/cli/cli_command.py`. These options are added when
+`create_pipeline_command` wires a pipeline into the Typer application defined in
+`src/bioetl/cli/cli_app.py`.
 
 | Option                                        | Type             | Default  | Notes                                                                                            |
 | --------------------------------------------- | ---------------- | -------- | ------------------------------------------------------------------------------------------------ |
@@ -156,9 +150,8 @@ defined in `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]`.
 ## 7. Exit Codes at a Glance
 
 Error handling for every pipeline run is centralized in
-`[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`, which maps
-exceptions to exit codes documented in
-`[ref: repo:docs/cli/02-cli-exit-codes.md@refactoring_001]`. The following table
+`src/bioetl/cli/cli_command.py`, which maps exceptions to exit codes documented
+in [`docs/cli/02-cli-exit-codes.md`](02-cli-exit-codes.md). The following table
 summarizes the outcomes.
 
 | Exit Code | Meaning                        | Typical Triggers                                                                              |
@@ -170,9 +163,8 @@ summarizes the outcomes.
 ## 8. Usage Examples
 
 The snippets below demonstrate reproducible invocations that rely on the command
-definitions in `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]` and
-configuration handling in
-`[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`.
+definitions in `src/bioetl/cli/cli_app.py` and configuration handling in
+`src/bioetl/cli/cli_command.py`.
 
 1. List available pipelines
 

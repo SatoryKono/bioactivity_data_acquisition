@@ -1174,7 +1174,7 @@ def validate_pagination_params(params: dict) -> None:
 
 **См. также**: Детали реализации см. в
 [Pipeline Contract](../etl_contract/01-pipeline-contract.md) и
-[Activity Pipeline](activity-chembl/09-activity-chembl-extraction.md).
+[Activity Pipeline](chembl/activity/09-activity-chembl-extraction.md).
 
 ### TTL курсора
 
