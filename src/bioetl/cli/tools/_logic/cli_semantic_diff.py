@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import inspect
+import ast
 import json
 import re
 from pathlib import Path
@@ -10,6 +10,7 @@ from typing import Any
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
+from .signatures import signature_from_callable, signature_from_docs
 
 __all__ = ["run_semantic_diff"]
 
@@ -17,39 +18,6 @@ __all__ = ["run_semantic_diff"]
 PROJECT_ROOT = get_project_root()
 ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
 DOCS_ROOT = PROJECT_ROOT / "docs"
-
-
-def extract_method_signature_from_code(method: Any) -> dict[str, Any]:
-    """Serialize a function signature from live code."""
-    try:
-        sig = inspect.signature(method)
-        params = []
-        for param_name, param in sig.parameters.items():
-            params.append(
-                {
-                    "name": param_name,
-                    "kind": str(param.kind),
-                    "annotation": (
-                        str(param.annotation)
-                        if param.annotation != inspect.Parameter.empty
-                        else "Any"
-                    ),
-                    "default": (
-                        str(param.default) if param.default != inspect.Parameter.empty else None
-                    ),
-                }
-            )
-        return {
-            "name": method.__name__,
-            "parameters": params,
-            "return_annotation": (
-                str(sig.return_annotation)
-                if sig.return_annotation != inspect.Parameter.empty
-                else "Any"
-            ),
-        }
-    except Exception as exc:  # noqa: BLE001 - surface the failure
-        return {"error": str(exc)}
 
 
 def extract_pipeline_base_methods() -> dict[str, Any]:
@@ -60,8 +28,10 @@ def extract_pipeline_base_methods() -> dict[str, Any]:
     for method_name in ["extract", "transform", "validate", "write", "run"]:
         if hasattr(PipelineBase, method_name):
             method = getattr(PipelineBase, method_name)
-            if inspect.isfunction(method) or inspect.ismethod(method):
-                methods[method_name] = extract_method_signature_from_code(method)
+            if callable(method):
+                methods[method_name] = signature_from_callable(
+                    method, empty_annotation=None
+                )
     return methods
 
 
@@ -73,25 +43,26 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
 
     content = doc_file.read_text(encoding="utf-8")
     methods: dict[str, Any] = {}
-    pattern = r"def\s+(\w+)\s*\(([^)]*)\)\s*->\s*([^:]+):"
-    for match in re.finditer(pattern, content):
-        method_name = match.group(1)
-        params_str = match.group(2)
-        return_annotation = match.group(3).strip()
-        params: list[dict[str, Any]] = []
-        if params_str.strip():
-            for param in params_str.split(","):
-                param = param.strip()
-                if "=" in param:
-                    name, default = param.split("=", 1)
-                    params.append({"name": name.strip(), "default": default.strip()})
-                else:
-                    params.append({"name": param})
-        methods[method_name] = {
-            "name": method_name,
-            "parameters": params,
-            "return_annotation": return_annotation,
-        }
+
+    code_block_pattern = re.compile(r"```python(.*?)```", re.DOTALL)
+    for block in code_block_pattern.finditer(content):
+        block_content = block.group(1)
+        try:
+            module = ast.parse(block_content)
+        except SyntaxError:
+            continue
+        for node in module.body:
+            if isinstance(node, ast.ClassDef) and node.name == "PipelineBase":
+                for statement in node.body:
+                    if isinstance(statement, ast.FunctionDef):
+                        methods[statement.name] = signature_from_docs(
+                            statement, empty_annotation=None
+                        )
+                return methods
+
+    if not methods:
+        return {"error": "PipelineBase definition not found in documentation"}
+
     return methods
 
 
