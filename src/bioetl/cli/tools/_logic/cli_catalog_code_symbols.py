@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +9,7 @@ from typing import Any
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
+from .signatures import signature_from_callable
 
 __all__ = [
     "CodeCatalog",
@@ -43,35 +43,6 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def extract_method_signature(method: Any) -> dict[str, Any]:
-    """Extract a method signature description."""
-
-    sig = inspect.signature(method)
-    params: list[dict[str, Any]] = []
-    for param_name, param in sig.parameters.items():
-        params.append(
-            {
-                "name": param_name,
-                "kind": str(param.kind),
-                "annotation": (
-                    str(param.annotation) if param.annotation != inspect.Parameter.empty else None
-                ),
-                "default": (
-                    str(param.default) if param.default != inspect.Parameter.empty else None
-                ),
-            }
-        )
-
-    return {
-        "name": method.__name__,
-        "parameters": params,
-        "return_annotation": (
-            str(sig.return_annotation) if sig.return_annotation != inspect.Parameter.empty else None
-        ),
-        "is_abstract": bool(getattr(method, "__isabstractmethod__", False)),
-    }
-
-
 def extract_pipeline_base_signatures() -> dict[str, Any]:
     """Collect PipelineBase method signatures."""
 
@@ -79,21 +50,27 @@ def extract_pipeline_base_signatures() -> dict[str, Any]:
 
     signatures: dict[str, Any] = {}
 
+    import inspect
+
     for name, method in inspect.getmembers(PipelineBase, predicate=inspect.isfunction):
         if name.startswith("_"):
             continue
-        signatures[name] = extract_method_signature(method)
+        signatures[name] = signature_from_callable(method, include_abstract_flag=True)
 
     for name, bound_method in inspect.getmembers(PipelineBase, predicate=inspect.ismethod):
         if name.startswith("_"):
             continue
-        signatures.setdefault(name, extract_method_signature(bound_method))
+        signatures.setdefault(
+            name, signature_from_callable(bound_method, include_abstract_flag=True)
+        )
 
     for name, attr in PipelineBase.__dict__.items():
         if name.startswith("_"):
             continue
         if inspect.isfunction(attr) or inspect.ismethod(attr):
-            signatures.setdefault(name, extract_method_signature(attr))
+            signatures.setdefault(
+                name, signature_from_callable(attr, include_abstract_flag=True)
+            )
 
     return signatures
 
