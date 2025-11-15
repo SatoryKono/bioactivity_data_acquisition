@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import importlib
 from collections.abc import Iterable, Mapping
+from pathlib import Path
 from typing import Any, Callable, cast
 
 from bioetl.cli.cli_command import create_pipeline_command
@@ -29,6 +30,7 @@ from bioetl.cli.cli_registry import (
     PipelineCommandSpec,
     ToolCommandConfig,
 )
+from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 typer = cast(Any, importlib.import_module("typer"))
@@ -115,6 +117,79 @@ def create_app(
 
         for message in warning_messages:
             typer.echo(message)
+
+    @app.command(name="qc")
+    def qc_info(
+        pipeline: str = typer.Option(
+            None,
+            "--pipeline",
+            "-p",
+            help="Pipeline code used to resolve thresholds and report templates.",
+        ),
+        runtime_config: Path = typer.Option(
+            Path("configs/default.yml"),
+            "--runtime-config",
+            help="Path to the runtime configuration file.",
+        ),
+        materialization_root: Path | None = typer.Option(
+            None,
+            "--materialization-root",
+            "-m",
+            help=(
+                "Materialization root used to expand QC report templates. "
+                "Defaults to data/output/<pipeline> when --pipeline is provided."
+            ),
+        ),
+    ) -> None:
+        try:
+            runtime_settings = RuntimeConfig.load(runtime_config)
+        except FileNotFoundError as exc:
+            typer.secho(
+                f"[bioetl-cli] Runtime configuration not found: {runtime_config}",
+                err=True,
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=2) from exc
+        except ValueError as exc:
+            typer.secho(
+                f"[bioetl-cli] Runtime configuration is invalid: {exc}",
+                err=True,
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=2) from exc
+
+        typer.echo("[bioetl-cli] QC configuration summary:")
+        base_thresholds = runtime_settings.thresholds_for(None)
+        typer.echo("  Base thresholds:")
+        for key, value in sorted(base_thresholds.items()):
+            typer.echo(f"    {key}: {value}")
+        typer.echo(
+            f"  Fail on QC violation: {runtime_settings.qc.fail_on_threshold_violation}"
+        )
+
+        if not pipeline:
+            typer.echo(
+                "  Use --pipeline to view pipeline-specific thresholds and report layout."
+            )
+            return
+
+        pipeline_thresholds = runtime_settings.thresholds_for(pipeline)
+        typer.echo(f"  Thresholds for {pipeline}:")
+        for key, value in sorted(pipeline_thresholds.items()):
+            typer.echo(f"    {key}: {value}")
+
+        effective_root = (
+            materialization_root if materialization_root is not None else Path("data/output") / pipeline
+        )
+        report_options = runtime_settings.reports_for(
+            pipeline=pipeline,
+            materialization_root=effective_root,
+        )
+        typer.echo("  QC report templates:")
+        typer.echo(f"    directory: {report_options.directory}")
+        typer.echo(f"    quality_template: {report_options.quality_template}")
+        typer.echo(f"    correlation_template: {report_options.correlation_template}")
+        typer.echo(f"    metrics_template: {report_options.metrics_template}")
 
     registered_names: set[str] = set()
 

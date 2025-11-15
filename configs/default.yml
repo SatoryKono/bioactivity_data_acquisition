@@ -1,0 +1,28 @@
+version: 1
+
+qc:
+  enabled: true
+  fail_on_threshold_violation: false
+  thresholds:
+    duplicate_ratio: 0.0
+    missing_value_ratio: 0.05
+    fallback_usage_rate: 0.1
+    identifier_coverage: 0.95
+    min_doi_coverage: 0.3
+    max_year_out_of_range: 0.01
+    max_s2_access_denied: 0.05
+    max_title_fallback: 0.1
+    pipelines:
+      activity_chembl:
+        missing_value_ratio: 0.02
+      document_chembl:
+        min_doi_coverage: 0.4
+        identifier_coverage: 0.9
+  reports:
+    directory: "{materialization_root}/qc"
+    quality_template: "{stem}_quality_report.csv"
+    correlation_template: "{stem}_correlation_report.csv"
+    metrics_template: "{stem}_qc.csv"
+    pipelines:
+      document_chembl:
+        metrics_template: "{stem}_qc.json"

@@ -19,6 +19,7 @@ from bioetl.config.environment import (
 )
 from bioetl.config.loader import load_config
 from bioetl.config.models.models import PipelineConfig
+from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core import LoggerConfig, UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.pipelines.base import PipelineBase, RunResult
@@ -263,10 +264,23 @@ class PipelineCommandRunner:
         config_factory: PipelineConfigFactory | None = None,
         uuid_factory: Callable[[], str] | None = None,
         now_factory: Callable[[ZoneInfo], datetime] | None = None,
+        runtime_config_path: Path | None = None,
     ) -> None:
         self._config_factory = config_factory or PipelineConfigFactory()
         self._uuid_factory = uuid_factory or (lambda: str(uuid4()))
         self._now_factory = now_factory or (lambda tz: datetime.now(tz))
+        self._runtime_config_path = runtime_config_path
+        self._runtime_config: RuntimeConfig | None = None
+
+    def _get_runtime_config(self) -> RuntimeConfig:
+        if self._runtime_config is None:
+            try:
+                self._runtime_config = RuntimeConfig.load(self._runtime_config_path)
+            except FileNotFoundError as exc:
+                raise ConfigLoadError(exc, missing_reference=True) from exc
+            except ValueError as exc:
+                raise ConfigLoadError(exc) from exc
+        return self._runtime_config
 
     def prepare(self, options: PipelineCommandOptions) -> PipelineExecutionPlan | PipelineDryRunPlan:
         """Prepare an execution plan based on CLI options."""
@@ -293,7 +307,12 @@ class PipelineCommandRunner:
                 updates={"date_tag": self._now_factory(tz).strftime("%Y%m%d")},
             )
 
-        run_kwargs = self._build_run_kwargs(config=config, options=options)
+        runtime_config = self._get_runtime_config()
+        run_kwargs = self._build_run_kwargs(
+            config=config,
+            options=options,
+            runtime_config=runtime_config,
+        )
 
         return PipelineExecutionPlan(
             run_id=run_id,
@@ -307,6 +326,7 @@ class PipelineCommandRunner:
         *,
         config: PipelineConfig,
         options: PipelineCommandOptions,
+        runtime_config: RuntimeConfig,
     ) -> dict[str, Any]:
         postprocess_config = getattr(config, "postprocess", None)
         correlation_section = getattr(postprocess_config, "correlation", None)
@@ -314,10 +334,21 @@ class PipelineCommandRunner:
 
         effective_extended = bool(options.extended or getattr(config.cli, "extended", False))
 
+        pipeline_code = config.pipeline.name
+        materialization_root = Path(config.materialization.root)
+        qc_reports = runtime_config.reports_for(
+            pipeline=pipeline_code,
+            materialization_root=materialization_root,
+        )
+        qc_thresholds = runtime_config.thresholds_for(pipeline_code)
+
         return {
             "extended": effective_extended,
             "include_correlation": effective_extended or correlation_enabled,
             "include_qc_metrics": effective_extended,
+            "qc_reports": qc_reports,
+            "qc_thresholds": qc_thresholds,
+            "fail_on_qc_violation": runtime_config.qc.fail_on_threshold_violation,
         }
 
     def execute_plan(
