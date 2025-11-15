@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import json
 import os
 from collections.abc import Mapping
@@ -16,6 +15,7 @@ import pandas as pd
 import yaml
 
 from bioetl.core.logging import LogEvents
+from bioetl.tools import hash_file
 
 from .hashing import hash_from_mapping
 
@@ -403,11 +403,7 @@ def _relative_artifact_path(path: Path, base: Path) -> str:
 
 
 def _file_sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+    return hash_file(path)
 
 
 def build_run_manifest_payload(
