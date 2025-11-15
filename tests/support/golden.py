@@ -31,7 +31,7 @@ def load_json_dict(path: Path) -> dict[str, Any]:
 def normalize_meta_payload(meta: Mapping[str, Any]) -> dict[str, Any]:
     """Strip volatile ``meta.yaml`` fields for deterministic comparison."""
 
-    normalized = copy.deepcopy(meta)
+    normalized: dict[str, Any] = copy.deepcopy(dict(meta))
     dataset_path = normalized.get("dataset_path")
     if dataset_path:
         normalized["dataset_path"] = Path(str(dataset_path)).name
@@ -44,7 +44,7 @@ def normalize_meta_payload(meta: Mapping[str, Any]) -> dict[str, Any]:
 def normalize_manifest_payload(payload: Mapping[str, Any]) -> dict[str, Any]:
     """Strip volatile manifest fields and sort artefacts."""
 
-    normalized = copy.deepcopy(payload)
+    normalized: dict[str, Any] = copy.deepcopy(dict(payload))
     for key in ("generated_at_utc", "run_directory", "run_id"):
         normalized.pop(key, None)
 

@@ -24,7 +24,6 @@ from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.validation import ValidationConfig
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "bioetl" / "data"
 
@@ -91,14 +90,16 @@ def build_pipeline_config(output_root: Path) -> PipelineConfig:
         },
     )
 
-    return PipelineConfig(
-        version=1,
-        pipeline=PipelineMetadata(
-            name="activity_chembl",
-            version="1.0.0",
-            description="Test activity pipeline",
-        ),
-        domain=domain_config,
-        infrastructure=infrastructure_config,
+    pipeline_metadata = PipelineMetadata(
+        name="activity_chembl",
+        version="1.0.0",
+        description="Test activity pipeline",
     )
+    payload = {
+        "version": 1,
+        "pipeline": pipeline_metadata.model_dump(),
+        "domain": domain_config.model_dump(),
+        "infrastructure": infrastructure_config.model_dump(),
+    }
+    return PipelineConfig.model_validate(payload)
 

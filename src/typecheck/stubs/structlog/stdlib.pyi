@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-
 class BoundLogger:
     def bind(self, **kwargs: Any) -> BoundLogger: ...
 

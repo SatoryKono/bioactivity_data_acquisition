@@ -16,7 +16,6 @@ from bioetl.core.runtime.cli_errors import (
     CliErrorTemplate,
     LoggerLike,
     emit_cli_error,
-    emit_tool_error,
 )
 
 CommandCallable: TypeAlias = Callable[..., None]
@@ -86,8 +85,7 @@ class CliCommandBase:
             logger=self.logger,
             event=LogEvents.CLI_RUN_ERROR,
             context={"exception_type": exc.__class__.__name__},
-        )
-        self.exit(self.exit_code_error)
+        )        
         self.exit(self.exit_code_error)
 
     @staticmethod

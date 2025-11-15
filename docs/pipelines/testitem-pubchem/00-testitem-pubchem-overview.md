@@ -12,7 +12,7 @@ not perform any joins or enrichment with other data sources.
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 

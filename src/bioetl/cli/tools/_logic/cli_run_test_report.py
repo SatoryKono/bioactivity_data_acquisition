@@ -15,8 +15,7 @@ from uuid import uuid4
 
 import yaml
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
     TestReportMeta,

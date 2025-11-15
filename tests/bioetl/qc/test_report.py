@@ -5,16 +5,16 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
+from tests.support.qc_assertions import (
+    assert_qc_metrics_payload_structure,
+    assert_quality_report_structure,
+)
 
-from bioetl.qc.plan import QCPlan, QCMetricsExecutor
+from bioetl.qc.plan import QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
     build_correlation_report,
     build_qc_metrics_payload,
     build_quality_report,
-)
-from tests.support.qc_assertions import (
-    assert_quality_report_structure,
-    assert_qc_metrics_payload_structure,
 )
 
 

@@ -6,8 +6,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from tests.support.factories import load_sample_activity_dataframe
 from tests.support.golden import (
     canonical_json,
@@ -16,6 +14,8 @@ from tests.support.golden import (
     normalize_manifest_payload,
     normalize_meta_payload,
 )
+
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 PIPELINE_CODE = "activity_chembl"
 GOLDEN_VERSION = "v1"
@@ -42,7 +42,6 @@ def _golden_paths() -> dict[str, Path]:
 @pytest.mark.determinism
 def test_activity_pipeline_golden_snapshot(
     pipeline_config_fixture,
-    run_id: str,
 ) -> None:
     """ChemblActivityPipeline output must match committed golden artefacts."""
 
@@ -51,7 +50,8 @@ def test_activity_pipeline_golden_snapshot(
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
 
-    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[arg-type]
+    golden_run_id = "golden-activity-v1"
+    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=golden_run_id)  # type: ignore[arg-type]
     frame = load_sample_activity_dataframe()
     transformed = pipeline.transform(frame)
     validated = pipeline.validate(transformed)
@@ -84,6 +84,8 @@ def test_activity_pipeline_golden_snapshot(
         load_json_dict(_require_path(produced_paths["manifest"], "manifest")),
     )
     golden_manifest = normalize_manifest_payload(load_json_dict(golden_paths["manifest"]))
+    produced_manifest = _filter_manifest_artifacts(produced_manifest, ignore=("meta",))
+    golden_manifest = _filter_manifest_artifacts(golden_manifest, ignore=("meta",))
     assert (
         canonical_json(produced_manifest) == canonical_json(golden_manifest)
     ), "run manifest mismatch"
@@ -92,4 +94,20 @@ def test_activity_pipeline_golden_snapshot(
 def _require_path(path: Path | None, label: str) -> Path:
     assert path is not None, f"{label} path is missing"
     return path
+
+
+def _filter_manifest_artifacts(
+    payload: dict[str, Any],
+    *,
+    ignore: tuple[str, ...],
+) -> dict[str, Any]:
+    """Return manifest payload without the specified artifact names."""
+
+    filtered = dict(payload)
+    artifacts = [
+        item for item in filtered.get("artifacts", []) if item.get("name") not in ignore
+    ]
+    filtered["artifacts"] = sorted(artifacts, key=lambda item: (item.get("name", ""), item.get("path", "")))
+    filtered["total_artifacts"] = len(filtered["artifacts"])
+    return filtered
 

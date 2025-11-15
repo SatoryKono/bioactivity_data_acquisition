@@ -11,8 +11,7 @@ from pathlib import Path
 from typing import Literal, TypedDict
 from uuid import uuid4
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = [

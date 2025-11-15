@@ -11,8 +11,7 @@ import pandas as pd
 
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = ["join_activity_with_molecule"]
 

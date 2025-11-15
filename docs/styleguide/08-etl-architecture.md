@@ -50,7 +50,7 @@ Each external data source **MUST** have exactly one public pipeline:
 - **UniProt**: `UniProtTargetPipeline`
 - **PubMed**: `PubMedDocumentPipeline`
 
-### Valid Examples
+### Valid Examples — Star schema
 
 ```python
 from bioetl.pipelines.base import PipelineBase
@@ -192,7 +192,7 @@ Data **SHOULD** be organized in star schema:
 
 - `activity_fact`: Central activity measurements with foreign keys to dimensions
 
-### Valid Examples
+### Valid Examples — Adapter pattern
 
 ```python
 # Dimension table
@@ -239,7 +239,7 @@ class SourceAdapter(ABC):
         pass
 ```
 
-### Valid Examples
+### Valid Examples — Pipeline contract
 
 ```python
 class ChEMBLAdapter(SourceAdapter):
@@ -270,7 +270,7 @@ All pipelines **MUST** follow the standard contract:
 1. **validate**: Validate against schema
 1. **export**: Write to output files
 
-### Valid Examples
+### Valid Examples — Merge strategies
 
 ```python
 from bioetl.pipelines.base import PipelineBase

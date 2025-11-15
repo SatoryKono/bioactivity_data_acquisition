@@ -89,4 +89,3 @@ Authoring rules:
 Since every run records `schema_version`, `migrated_from_version`, and
 `migrations_applied` inside the validation summary and exported `meta.yaml`,
 operators can trace the origin of each artifact and audit upgrade rollouts.
-

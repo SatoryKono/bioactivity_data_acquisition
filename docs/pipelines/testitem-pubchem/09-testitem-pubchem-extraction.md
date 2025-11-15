@@ -16,7 +16,7 @@ specification for its future implementation.
 | ----------------- | ------------------ | --------------- |
 | **Pipeline Name** | `testitem_pubchem` | Not Implemented |
 
-# (not implemented)
+### Implementation status
 
 | **CLI Command** | `python -m bioetl.cli.cli_app testitem_pubchem` | Not
 Implemented | | **Config File** | \[ref:

@@ -5,8 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = ["run_link_check"]

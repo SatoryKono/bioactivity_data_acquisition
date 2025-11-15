@@ -52,7 +52,7 @@ class Config:
 Column order **MUST** match the order in the pipeline's `column_order`
 configuration.
 
-### Valid Examples
+### Valid Examples — Schema versioning
 
 ```python
 from pandera import DataFrameSchema, Column, Check
@@ -128,7 +128,7 @@ Schemas **MUST** be versioned to track changes:
 - Migration scripts for schema updates
 - Backward compatibility considerations
 
-### Valid Examples
+### Valid Examples — Controlled vocabularies
 
 ```python
 # Schema with explicit version
@@ -150,7 +150,7 @@ Valid values **SHOULD** reference controlled dictionaries:
 - UniProt for protein identifiers
 - IUPAC for units
 
-### Valid Examples
+### Valid Examples — Nullability
 
 ```python
 AssaySchema = DataFrameSchema(
@@ -188,7 +188,7 @@ Nullability **MUST** be explicitly defined for all columns:
 - `nullable=False`: Required field (default for primary keys)
 - `nullable=True`: Optional field (must be justified)
 
-### Valid Examples
+### Valid Examples — Data type coercion
 
 ```python
 ActivitySchema = DataFrameSchema(
@@ -229,7 +229,7 @@ All schemas **SHOULD** be registered in a central schema registry:
 
 ## References
 
-- Pandera documentation: https://pandera.readthedocs.io/
+- Pandera documentation: [pandera.readthedocs.io](https://pandera.readthedocs.io/)
 - Schema policy:
   [`docs/schemas/00-pandera-policy.md`](../schemas/00-pandera-policy.md)
 - Determinism guidelines:

@@ -26,7 +26,7 @@ This setting controls the format of logs written to standard output.
 
    **Example Text Output:**
 
-   ```
+   ```text
    2025-11-02T10:30:00.123Z [info     ] Extraction complete.         run_id=r-abc-123 stage=extract rows=5000
    ```
 

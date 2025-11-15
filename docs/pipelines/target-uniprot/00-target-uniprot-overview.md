@@ -17,7 +17,7 @@ ChEMBL target IDs to UniProt accessions, use the separate
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 

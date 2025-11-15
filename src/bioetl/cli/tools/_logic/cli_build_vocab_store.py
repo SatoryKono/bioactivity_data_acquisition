@@ -10,8 +10,7 @@ from typing import Any, cast
 
 import yaml
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
 
 __all__ = ["build_vocab_store"]

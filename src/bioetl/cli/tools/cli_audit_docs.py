@@ -6,13 +6,24 @@ from pathlib import Path
 from typing import Any, Callable
 
 from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
-from bioetl.cli.tools._logic import cli_audit_docs as cli_audit_docs_impl
+from bioetl.cli.tools._logic.cli_audit_docs import (
+    audit_broken_links,
+    extract_pipeline_info,
+    find_lychee_missing,
+    run_audit,
+)
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 
-_LOGIC_EXPORTS = getattr(cli_audit_docs_impl, "__all__", [])
-globals().update({symbol: getattr(cli_audit_docs_impl, symbol) for symbol in _LOGIC_EXPORTS})
-__all__ = [* _LOGIC_EXPORTS, "app", "cli_main", "run"]
+__all__ = [
+    "audit_broken_links",
+    "find_lychee_missing",
+    "extract_pipeline_info",
+    "run_audit",
+    "app",
+    "cli_main",
+    "run",
+]
 
 typer: Any = get_typer()
 

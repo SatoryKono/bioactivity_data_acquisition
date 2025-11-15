@@ -4,16 +4,19 @@ from __future__ import annotations
 
 import inspect
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 __all__ = ["PipelineConfig", "load_config"]
+
+if TYPE_CHECKING:
+    from bioetl.config import PipelineConfig, load_config
 
 
 def _patch_pytest_monkeypatch() -> None:
     """Allow pytest.MonkeyPatch.setattr to accept string targets without name."""
 
     try:
-        from pytest import MonkeyPatch  # type: ignore
+        from pytest import MonkeyPatch
     except ModuleNotFoundError:
         return
 
@@ -65,7 +68,7 @@ def _patch_pytest_monkeypatch() -> None:
 
         original_setattr(self, target, name, value, raising=raising)
 
-    MonkeyPatch.setattr = _compatible_setattr  # type: ignore[assignment]
+    MonkeyPatch.setattr = _compatible_setattr  # type: ignore[method-assign]
 
 
 _patch_pytest_monkeypatch()
@@ -74,6 +77,8 @@ _patch_pytest_monkeypatch()
 def __getattr__(name: str) -> Any:
     if name in __all__:
         config_module = import_module("bioetl.config")
-        return getattr(config_module, name)
+        value = getattr(config_module, name)
+        globals()[name] = value
+        return value
     msg = f"module 'bioetl' has no attribute '{name}'"
     raise AttributeError(msg)

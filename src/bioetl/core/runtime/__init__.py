@@ -3,14 +3,10 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import Any, Mapping
 
 from .cli_base import CliCommandBase, CliEntrypoint
 from .errors import BioETLError
-
-if TYPE_CHECKING:
-    from .load_meta_store import LoadMetaStore
-
 
 _LAZY_EXPORTS: Mapping[str, str] = {
     "LoadMetaStore": "bioetl.core.runtime.load_meta_store",

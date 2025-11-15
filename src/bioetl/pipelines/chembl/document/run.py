@@ -11,6 +11,7 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig
 from bioetl.config.models.models import PipelineConfig
@@ -82,10 +83,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             if "chembl_document_client" not in document_pipeline._registered_clients:
                 document_pipeline.register_client("chembl_document_client", bundle.api_client)
             chembl_client = bundle.chembl_client
-            document_client = cast(ChemblDocumentClient, bundle.entity_client)
-            if document_client is None:
-                msg = "Фабрика вернула пустой клиент для 'document'"
-                raise RuntimeError(msg)
+            document_client = document_pipeline._build_document_client(
+                chembl_client=bundle.chembl_client,
+                source_config=typed_source_config,
+            )
             document_pipeline._set_chembl_release(
                 document_pipeline.fetch_chembl_release(chembl_client, log)
             )
@@ -168,10 +169,10 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         if "chembl_document_client" not in self._registered_clients:
             self.register_client("chembl_document_client", bundle.api_client)
         chembl_client = bundle.chembl_client
-        document_client = cast(ChemblDocumentClient, bundle.entity_client)
-        if document_client is None:
-            msg = "Фабрика вернула пустой клиент для 'document'"
-            raise RuntimeError(msg)
+        document_client = self._build_document_client(
+            chembl_client=bundle.chembl_client,
+            source_config=source_config,
+        )
 
         self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
@@ -582,3 +583,24 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         if isinstance(payload, Mapping):
             return cast(dict[str, Any], payload)
         return {}
+
+    def _build_document_client(
+        self,
+        *,
+        chembl_client: ChemblClient,
+        source_config: DocumentSourceConfig,
+    ) -> ChemblDocumentClient:
+        """Instantiate a document client honoring runtime monkeypatching."""
+
+        batch_size = self._resolve_batch_size(source_config)
+        parameters = source_config.parameters_mapping()
+        max_url_candidate = parameters.get("max_url_length")
+        max_url_length: int | None = None
+        if isinstance(max_url_candidate, Integral):
+            candidate = int(max_url_candidate)
+            if candidate > 0:
+                max_url_length = candidate
+        client_kwargs: dict[str, Any] = {"batch_size": batch_size}
+        if max_url_length is not None:
+            client_kwargs["max_url_length"] = max_url_length
+        return ChemblDocumentClient(chembl_client, **client_kwargs)

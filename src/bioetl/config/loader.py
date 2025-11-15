@@ -7,10 +7,10 @@ from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
 from typing import Any, TypeGuard, cast
 
-from bioetl.core.utils.iterables import is_non_string_iterable
-
 import yaml
 from yaml.nodes import ScalarNode
+
+from bioetl.core.utils.iterables import is_non_string_iterable
 
 from .environment import (
     EnvironmentSettings,

@@ -354,7 +354,7 @@ The determinism policy is automatically enforced by the CLI.
 
 Example (smoke run against the PubMed document pipeline):
 
-```
+```powershell
 bioetl document-pubmed run ^
   --config configs/pipelines/document/document_pubmed.yaml ^
   --output-dir data/output/document/pubmed ^

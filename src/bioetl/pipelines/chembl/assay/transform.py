@@ -7,9 +7,8 @@ from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.core.logging import UnifiedLogger
-from bioetl.core.logging import LogEvents
 from bioetl.core.io import header_rows_serialize, serialize_array_fields
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "header_rows_serialize",

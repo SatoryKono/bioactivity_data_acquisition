@@ -26,6 +26,7 @@ from pandas import Series
 from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
+import bioetl.schemas.versioning as schema_versioning
 from bioetl.clients import client_exceptions
 from bioetl.config.models import PipelineConfig
 from bioetl.core import APIClientFactory
@@ -66,7 +67,7 @@ from bioetl.schemas import (
     SchemaVersionMismatchError,
     get_schema,
 )
-import bioetl.schemas.versioning as schema_versioning
+
 SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service

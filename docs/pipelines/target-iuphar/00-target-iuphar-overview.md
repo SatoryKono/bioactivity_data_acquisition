@@ -18,7 +18,7 @@ external sources (UniProt, ChEMBL) is handled by separate pipelines.
 
 The pipeline follows the standard ETL stages:
 
-```
+```text
 Extract → Transform → Validate → Write
 ```
 

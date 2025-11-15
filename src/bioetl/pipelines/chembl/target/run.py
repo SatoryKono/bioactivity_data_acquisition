@@ -14,6 +14,7 @@ import pandas as pd
 from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
+from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig

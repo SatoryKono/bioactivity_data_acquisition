@@ -5,24 +5,20 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from bioetl.cli.cli_entrypoint import TyperApp, get_typer, register_tool_app
-from bioetl.cli.tools._logic import cli_determinism_check as cli_determinism_check_impl
+from bioetl.cli.tools._logic.cli_determinism_check import (
+    DeterminismRunResult,
+    run_determinism_check,
+)
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
-_LOGIC_EXPORTS = getattr(cli_determinism_check_impl, "__all__", [])
-globals().update(
-    {symbol: getattr(cli_determinism_check_impl, symbol) for symbol in _LOGIC_EXPORTS}
-)
-run_determinism_check = getattr(cli_determinism_check_impl, "run_determinism_check")
-DeterminismRunResult = getattr(cli_determinism_check_impl, "DeterminismRunResult")
 __all__ = [
-    * _LOGIC_EXPORTS,
     "run_determinism_check",
     "DeterminismRunResult",
     "app",
     "cli_main",
     "run",
-]  # pyright: ignore[reportUnsupportedDunderAll]
+]
 
 typer: Any = get_typer()
 

@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from bioetl.clients.base import normalize_select_fields
+
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
 from ..utils import coerce_max_url_length

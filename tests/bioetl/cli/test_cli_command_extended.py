@@ -14,7 +14,6 @@ from _pytest.capture import CaptureFixture
 from typer.models import OptionInfo
 
 from bioetl.cli.cli_command import create_pipeline_command
-from bioetl.core.io import WriteResult
 from bioetl.config.models.base import PipelineMetadata
 from bioetl.config.models.cli import CLIConfig
 from bioetl.config.models.determinism import (
@@ -30,6 +29,7 @@ from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.validation import ValidationConfig
+from bioetl.core.io import WriteResult
 from bioetl.core.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,

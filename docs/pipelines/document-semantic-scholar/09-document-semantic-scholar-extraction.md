@@ -16,7 +16,7 @@ specification for its future implementation.
 | ----------------- | --------------------------- | --------------- |
 | **Pipeline Name** | `document_semantic_scholar` | Not Implemented |
 
-# (not implemented)
+### Implementation status
 
 | **CLI Command** | `python -m bioetl.cli.cli_app document_semantic_scholar` |
 Not Implemented | | **Config File** | \[ref:

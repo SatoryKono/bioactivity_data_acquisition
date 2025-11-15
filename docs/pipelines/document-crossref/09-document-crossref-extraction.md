@@ -16,7 +16,7 @@ specification for its future implementation.
 | ----------------- | ------------------- | --------------- |
 | **Pipeline Name** | `document_crossref` | Not Implemented |
 
-# (not implemented)
+### Implementation status
 
 | **CLI Command** | `python -m bioetl.cli.cli_app document_crossref` | Not
 Implemented | | **Config File** | \[ref:

@@ -7,8 +7,8 @@ import pytest
 
 from bioetl.schemas.versioning import (
     SchemaMigration,
-    SchemaMigrationRegistry,
     SchemaMigrationPathError,
+    SchemaMigrationRegistry,
 )
 
 

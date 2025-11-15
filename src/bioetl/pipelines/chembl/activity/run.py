@@ -38,8 +38,8 @@ from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
 from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 from bioetl.schemas._validators import RELATIONS
+from bioetl.schemas.chembl_activity_schema import ACTIVITY_PROPERTY_KEYS
 from bioetl.schemas.pipeline_contracts import get_out_schema
 from bioetl.vocab.service import required_vocab_ids
 
@@ -51,12 +51,12 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from ..common.enrich import _enrich_flag, _extract_enrich_config
 from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from ..common.enrich import _enrich_flag, _extract_enrich_config
 
 
 class ChemblActivityPipeline(ChemblPipelineBase):
@@ -82,7 +82,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         *args: object,
         **kwargs: object,
     ) -> Sequence[str] | None:
-        """Accept deprecated ``activity_ids`` keyword arguments."""
+        """Reject deprecated ``activity_ids`` keyword arguments."""
 
         payload_activity_ids = kwargs.get("activity_ids")
         if payload_activity_ids is None:
@@ -90,17 +90,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         log.warning(
             LogEvents.CHEMBL_ACTIVITY_DEPRECATED_KWARGS,
-            message="Using activity_ids in kwargs is deprecated. Use --input-file instead.",
+            message="Passing activity_ids directly is unsupported. Use --input-file instead.",
         )
-        if isinstance(payload_activity_ids, Sequence) and not isinstance(
-            payload_activity_ids, (str, bytes)
-        ):
-            sequence_ids: Sequence[str | int] = cast(
-                Sequence[str | int], payload_activity_ids
-            )
-            return [str(id_val) for id_val in sequence_ids]
-
-        return [str(payload_activity_ids)]
+        msg = (
+            "activity_ids keyword argument is no longer supported. "
+            "Provide identifiers via --input-file."
+        )
+        raise TypeError(msg)
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract activity records by a specific list of IDs using batch extraction.
@@ -2836,7 +2832,10 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         whitelist = self._get_data_validity_comment_whitelist()
         if not whitelist:
-            return
+            raise RuntimeError(
+                "data_validity_comment whitelist is empty. "
+                "Load vocab store before running validation.",
+            )
 
         series_candidate = df["data_validity_comment"].dropna()
         if len(series_candidate) == 0:

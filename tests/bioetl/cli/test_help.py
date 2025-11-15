@@ -12,8 +12,8 @@ from bioetl.cli.tools import create_matrix_doc_code as create_matrix_doc_code_cl
 from bioetl.cli.tools import determinism_check as determinism_check_cli
 from bioetl.cli.tools import doctest_cli as doctest_cli_cli
 from bioetl.cli.tools import inventory_docs as inventory_docs_cli
-from bioetl.cli.tools import qc_boundary_check as qc_boundary_check_cli
 from bioetl.cli.tools import link_check as link_check_cli
+from bioetl.cli.tools import qc_boundary_check as qc_boundary_check_cli
 from bioetl.cli.tools import remove_type_ignore as remove_type_ignore_cli
 from bioetl.cli.tools import run_test_report as run_test_report_cli
 from bioetl.cli.tools import schema_guard as schema_guard_cli

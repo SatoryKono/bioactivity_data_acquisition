@@ -8,10 +8,10 @@ from typing import Any, Callable, Literal, TypeVar
 import pandas as pd
 
 from bioetl.qc.plan import (
-    QCPlan,
     QC_PLAN_DEFAULT,
     QCMetricsBundle,
     QCMetricsExecutor,
+    QCPlan,
 )
 
 __all__ = [

@@ -16,7 +16,7 @@ specification for its future implementation.
 | ----------------- | ------------------- | --------------- |
 | **Pipeline Name** | `document_openalex` | Not Implemented |
 
-# (not implemented)
+### Implementation status
 
 | **CLI Command** | `python -m bioetl.cli.cli_app document_openalex` | Not
 Implemented | | **Config File** | \[ref:

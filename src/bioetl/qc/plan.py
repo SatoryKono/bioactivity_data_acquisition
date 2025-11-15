@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from threading import RLock
-from typing import TYPE_CHECKING, Callable, Mapping, MutableMapping, Sequence
+from typing import Callable, Mapping, MutableMapping, Sequence
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,10 +20,6 @@ from bioetl.qc.metrics import (
     compute_missingness,
     detect_iqr_outliers,
 )
-
-if TYPE_CHECKING:
-    from bioetl.core.io.units import QCUnits
-
 
 class QCPlan(BaseModel):
     """Declarative description of QC steps to execute for a pipeline."""

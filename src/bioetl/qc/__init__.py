@@ -8,16 +8,9 @@ delegate to this module when building QC artefacts.
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import Any, Mapping
 
 from .metrics import compute_correlation_matrix, compute_duplicate_stats, compute_missingness
-
-if TYPE_CHECKING:
-    from .report import (
-        build_correlation_report,
-        build_quality_report,
-        build_qc_metrics_payload,
-    )
 
 _LAZY_EXPORTS: Mapping[str, str] = {
     "build_correlation_report": "bioetl.qc.report",

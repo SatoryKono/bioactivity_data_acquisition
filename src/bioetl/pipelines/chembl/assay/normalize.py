@@ -54,6 +54,16 @@ def _stringify_records(records: Iterable[Mapping[Any, Any]]) -> list[dict[str, A
     return [_stringify_record_keys(record) for record in records]
 
 
+def _normalize_parameter_value(value: Any) -> Any:
+    """Convert pandas-centric nulls into plain None for JSON payloads."""
+
+    if value is pd.NA:
+        return None
+    if isinstance(value, float) and pd.isna(value):
+        return None
+    return value
+
+
 def enrich_with_assay_classifications(
     df_assay: pd.DataFrame,
     client: ChemblClient,
@@ -149,8 +159,9 @@ def enrich_with_assay_classifications(
             else:
                 entries = []
             for entry in entries:
-                record = dict(entry)
-                record.setdefault("assay_chembl_id", assay_id)
+                record: dict[str, Any] = dict(entry)
+                if "assay_chembl_id" not in record:
+                    record["assay_chembl_id"] = assay_id
                 flattened_rows.append(record)
         class_map_df = pd.DataFrame.from_records(flattened_rows, columns=list(class_map_fields))
 
@@ -192,9 +203,10 @@ def enrich_with_assay_classifications(
             classification_rows: list[dict[str, Any]] = []
             for class_id, payload in classification_df.items():
                 if isinstance(payload, Mapping):
-                    record = dict(payload)
-                    record.setdefault("assay_class_id", class_id)
-                    classification_rows.append(record)
+                    classification_record: dict[str, Any] = dict(payload)
+                    if "assay_class_id" not in classification_record:
+                        classification_record["assay_class_id"] = class_id
+                    classification_rows.append(classification_record)
             classification_df = pd.DataFrame.from_records(
                 classification_rows, columns=list(classification_fields)
             )
@@ -411,8 +423,9 @@ def enrich_with_assay_parameters(
             else:
                 payloads = []
             for payload in payloads:
-                record = dict(payload)
-                record.setdefault("assay_chembl_id", assay_id)
+                record: dict[str, Any] = dict(payload)
+                if "assay_chembl_id" not in record:
+                    record["assay_chembl_id"] = assay_id
                 flattened_rows.append(record)
         parameters_df = pd.DataFrame.from_records(flattened_rows, columns=list(fields))
 
@@ -461,7 +474,7 @@ def enrich_with_assay_parameters(
             param_record: dict[str, Any] = {}
             for field in fields:
                 if field != "assay_chembl_id":
-                    param_record[field] = param.get(field)
+                    param_record[field] = _normalize_parameter_value(param.get(field))
             params_list.append(param_record)
 
         # Serialize the array into a JSON string

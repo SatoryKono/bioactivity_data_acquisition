@@ -85,7 +85,11 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         batch_size: int | None = None,
         max_url_length: int | None = None,
     ) -> None:
-        super(cls, instance).__init__(
+        if not isinstance(instance, ChemblEntityFetcherBase):
+            msg = "instance must inherit from ChemblEntityFetcherBase"
+            raise TypeError(msg)
+        ChemblEntityFetcherBase.__init__(
+            instance,
             chembl_client=chembl_client,
             config=entity_config,
             batch_size=batch_size,

@@ -123,6 +123,7 @@ numerical data that may have minor, acceptable variations between runs.
 - **Usage**: This **MAY** be used for numerical columns in the primary dataset
   if byte-wise comparison is not feasible.
 - **Pseudocode**:
+
   ```python
   new_df = pd.read_parquet("output.parquet")
   golden_df = pd.read_parquet("golden/output.parquet")

@@ -174,7 +174,7 @@ definitions in `[ref: repo:src/bioetl/cli/cli_app.py@refactoring_001]` and
 configuration handling in
 `[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`.
 
-1. **List available pipelines**
+1. List available pipelines
 
    ```bash
    python -m bioetl.cli.cli_app list
@@ -184,7 +184,7 @@ configuration handling in
    `activity_chembl`, `assay_chembl`, and `document_chembl` sourced from the
    static registry.
 
-1. **Dry-run the ChEMBL activity pipeline**
+1. Dry-run the ChEMBL activity pipeline
 
    ```bash
    python -m bioetl.cli.cli_app activity_chembl \
@@ -196,7 +196,7 @@ configuration handling in
    *Expected output*: Configuration merge summary and validation logs with no
    CSV files written.
 
-1. **Run the ChEMBL document pipeline with deterministic profiles**
+1. Run the ChEMBL document pipeline with deterministic profiles
 
    ```bash
    python -m bioetl.cli.cli_app document_chembl \
@@ -208,7 +208,7 @@ configuration handling in
    *Expected output*: ETL progress logs, QC reports, and deterministic CSV
    outputs under `data/output/document/full_load`.
 
-1. **Execute a PubChem enrichment sample (not implemented)**
+1. Execute a PubChem enrichment sample (not implemented)
 
    ```bash
     # not implemented
