@@ -17,6 +17,13 @@ from bioetl.core.runtime.cli_errors import (
     CLI_ERROR_EXTERNAL_API,
     CLI_ERROR_INTERNAL,
 )
+from bioetl.core.pipeline import PipelineBase
+from bioetl.core.pipeline.errors import (
+    PipelineError,
+    PipelineHTTPError,
+    PipelineNetworkError,
+    PipelineTimeoutError,
+)
 from bioetl.core.runtime.cli_pipeline_runner import (
     ConfigLoadError,
     EnvironmentSetupError,
@@ -29,13 +36,6 @@ from bioetl.core.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,
     validate_output_dir,
-)
-from bioetl.pipelines.base import PipelineBase
-from bioetl.pipelines.errors import (
-    PipelineError,
-    PipelineHTTPError,
-    PipelineNetworkError,
-    PipelineTimeoutError,
 )
 
 load_environment_settings = _load_environment_settings

@@ -11,7 +11,7 @@ from bioetl.cli.cli_registry import (
     CommandConfig,
 )
 from bioetl.cli.tool_specs import TOOL_COMMAND_SPECS
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 def test_pipeline_registry_factories() -> None:

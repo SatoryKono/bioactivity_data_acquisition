@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from bioetl.pipelines.chembl.common.mixins import ChemblOptionalStringValueMixin
+from bioetl.chembl.common.mixins import ChemblOptionalStringValueMixin
 
 __all__ = ["ChemblReleaseMixin"]
 

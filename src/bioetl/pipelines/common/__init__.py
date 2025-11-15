@@ -1,5 +1,8 @@
-"""Common helpers shared across pipeline implementations."""
+"""Compatibility helpers for legacy ``bioetl.pipelines.common`` imports."""
 
-from .fs_utils import ensure_directory
+from __future__ import annotations
+
+from bioetl.utils.fs import ensure_directory
 
 __all__ = ["ensure_directory"]
+

@@ -8,7 +8,7 @@
   вынесены в `bioetl.pipelines.chembl._constants`, `ChemblPipelineBase`
   использует общие helpers из `bioetl.clients.base`, `Paginator` логирует
   страницы, а схемы/валидаторы получили единые проверки `RELATIONS`.
-- Устранён цикл `bioetl.config ↔ bioetl.pipelines.base`: пакет конфигурации
+- Устранён цикл `bioetl.config ↔ bioetl.core.pipeline`: пакет конфигурации
   переключён на ленивые реэкспорты, а `PipelineBase` использует новый
   `PipelineConfigProtocol` из `bioetl.core.config_contracts`, что разблокировало
   запуск тестов.

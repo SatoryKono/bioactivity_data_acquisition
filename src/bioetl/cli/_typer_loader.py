@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import importlib
+import sys
 from collections.abc import Callable
+from types import ModuleType
 from typing import Any, Protocol, cast
+
+
+def _get_helpers_module() -> ModuleType | None:
+    """Return the devtool typer_helpers module when already imported."""
+
+    return sys.modules.get("bioetl.devtools.typer_helpers")
 
 __all__ = ["TyperModule", "_load_typer"]
 
@@ -20,12 +28,31 @@ class TyperModule(Protocol):
 
 
 _typer_module: TyperModule | None = None
+_SENTINEL = object()
+
+
+def _sync_helper_cache(value: TyperModule | None) -> None:
+    """Keep ``bioetl.devtools.typer_helpers`` cache in sync when present."""
+
+    helpers_module = _get_helpers_module()
+    if helpers_module is None:
+        return
+    setattr(helpers_module, "_typer_module", value)
 
 
 def _load_typer() -> TyperModule:
     """Import ``typer`` and raise a descriptive error when the dependency is missing."""
 
     global _typer_module
+    helpers_module = _get_helpers_module()
+    helper_cache = (
+        getattr(helpers_module, "_typer_module", _SENTINEL) if helpers_module else _SENTINEL
+    )
+    if helper_cache is None:
+        _typer_module = None
+    elif helper_cache is not _SENTINEL and _typer_module is None:
+        _typer_module = cast(TyperModule, helper_cache)
+
     if _typer_module is not None:
         return _typer_module
 
@@ -36,5 +63,6 @@ def _load_typer() -> TyperModule:
         raise RuntimeError(msg) from exc
 
     _typer_module = cast(TyperModule, module)
+    _sync_helper_cache(_typer_module)
     return _typer_module
 

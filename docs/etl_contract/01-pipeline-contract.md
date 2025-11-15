@@ -114,7 +114,7 @@ would implement the required `extract` and `transform` methods.
 # file: src/bioetl/pipelines/my_api_pipeline.py
 import pandas as pd
 import requests
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 from bioetl.config.models.models import PipelineConfig
 
 

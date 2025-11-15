@@ -19,13 +19,13 @@ from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,

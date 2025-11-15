@@ -43,14 +43,14 @@ from bioetl.vocab.service import required_vocab_ids
 
 from ...base import RunResult
 from .._constants import API_ACTIVITY_FIELDS
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.enrich import ChemblEnrichmentScenario
-from ..common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,

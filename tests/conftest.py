@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
+from importlib import util as importlib_util
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -30,13 +31,9 @@ if str(SRC_DIR) not in sys.path:
 def pytest_addoption(parser: pytest.Parser) -> None:  # type: ignore[attr-defined]
     """Provide no-op coverage options when ``pytest-cov`` is unavailable."""
 
-    try:
-        import pytest_cov  # type: ignore[reportMissingImports]
-
+    if importlib_util.find_spec("pytest_cov") is not None:
         # ``pytest-cov`` is installed; defer to the plugin's own options.
         return
-    except ModuleNotFoundError:
-        pass
 
     group = parser.getgroup("cov")
     group.addoption(

@@ -7,7 +7,7 @@ import pandas as pd
 import pytest
 
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
-from bioetl.pipelines.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
 
 
 def _noop_transform(

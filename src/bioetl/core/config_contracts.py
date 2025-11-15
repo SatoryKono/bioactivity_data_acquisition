@@ -1,6 +1,6 @@
 """Typed contracts bridging configuration models и пайплайны.
 
-Модуль выделен отдельно, чтобы `bioetl.config` и `bioetl.pipelines.base`
+Модуль выделен отдельно, чтобы `bioetl.config` и `bioetl.core.pipeline`
 не импортировали друг друга напрямую. Протоколы описывают минимальный
 набор атрибутов, ожидаемый `PipelineBase`.
 

@@ -22,13 +22,13 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.normalize import normalize_identifiers
+from bioetl.chembl.common.normalize import normalize_identifiers
 from .transform import serialize_target_arrays
 
 

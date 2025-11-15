@@ -66,23 +66,6 @@ dev = [
 
 [project.scripts]
 bioetl = "bioetl.cli.cli_app:app"
-bioetl-audit-docs = "bioetl.cli.tools.cli_audit_docs:app"
-bioetl-build-vocab-store = "bioetl.cli.tools.cli_build_vocab_store:app"
-bioetl-dup-finder = "bioetl.cli.tools.cli_dup_finder:app"
-bioetl-catalog-code-symbols = "bioetl.cli.tools.cli_catalog_code_symbols:app"
-bioetl-check-comments = "bioetl.cli.tools.cli_check_comments:app"
-bioetl-check-output-artifacts = "bioetl.cli.tools.cli_check_output_artifacts:app"
-bioetl-create-matrix-doc-code = "bioetl.cli.tools.cli_create_matrix_doc_code:app"
-bioetl-determinism-check = "bioetl.cli.tools.cli_determinism_check:app"
-bioetl-doctest-cli = "bioetl.cli.tools.cli_doctest_cli:app"
-bioetl-inventory-docs = "bioetl.cli.tools.cli_inventory_docs:app"
-bioetl-link-check = "bioetl.cli.tools.cli_link_check:app"
-bioetl-remove-type-ignore = "bioetl.cli.tools.cli_remove_type_ignore:app"
-bioetl-run-test-report = "bioetl.cli.tools.cli_run_test_report:app"
-bioetl-schema-guard = "bioetl.cli.tools.cli_schema_guard:app"
-bioetl-semantic-diff = "bioetl.cli.tools.cli_semantic_diff:app"
-bioetl-vocab-audit = "bioetl.cli.tools.cli_vocab_audit:app"
-bioetl-qc-boundary-check = "bioetl.cli.tools.cli_qc_boundary_check:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -155,7 +138,7 @@ ignore_errors = true
 
 [[tool.mypy.overrides]]
 module = [
-    "bioetl.cli.tools.*",
+    "bioetl.devtools.*",
 ]
 ignore_errors = true
 
@@ -177,7 +160,7 @@ addopts = [
     "--cov=bioetl.cli.cli_command",
     "--cov=bioetl.cli.cli_entrypoint",
     "--cov=bioetl.cli.cli_registry",
-    "--cov=bioetl.cli.tools.typer_helpers",
+    "--cov=bioetl.devtools",
     "--cov=bioetl.core.runtime.cli_pipeline_runner",
     "--cov-report=term-missing",
     "--cov-report=html",

@@ -20,7 +20,7 @@ from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,

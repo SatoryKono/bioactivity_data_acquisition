@@ -25,14 +25,14 @@ def _purge_modules(prefixes: Iterable[str]) -> None:
 @pytest.mark.parametrize(
     "import_order",
     (
-        ("bioetl.config", "bioetl.pipelines.base"),
-        ("bioetl.pipelines.base", "bioetl.config"),
+        ("bioetl.config", "bioetl.core.pipeline"),
+        ("bioetl.core.pipeline", "bioetl.config"),
     ),
 )
 def test_config_and_pipeline_import_orders(import_order: tuple[str, str]) -> None:
     """Импорт в любом порядке не должен вызывать RecursionError."""
 
-    _purge_modules({"bioetl.config", "bioetl.pipelines"})
+    _purge_modules({"bioetl.config", "bioetl.core.pipeline"})
     for module_name in import_order:
         importlib.import_module(module_name)
 

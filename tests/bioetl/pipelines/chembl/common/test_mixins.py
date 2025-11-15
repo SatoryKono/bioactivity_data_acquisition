@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.common.descriptor import ChemblPipelineBase
-from bioetl.pipelines.chembl.common.mixins import ChemblOptionalStringValueMixin
+from bioetl.chembl.common.descriptor import ChemblPipelineBase
+from bioetl.chembl.common.mixins import ChemblOptionalStringValueMixin
 from bioetl.pipelines.chembl.testitem import run as testitem_run
 
 # Ensure CLI modules tracked by coverage are imported when running this focused test module.
@@ -17,8 +17,8 @@ import bioetl.cli.cli_app  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_command  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_entrypoint  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_registry  # noqa: F401  # pragma: no cover
-import bioetl.cli.tools.typer_helpers  # noqa: F401  # pragma: no cover
 import bioetl.core.runtime.cli_pipeline_runner  # noqa: F401  # pragma: no cover
+import bioetl.devtools.typer_helpers  # noqa: F401  # pragma: no cover
 
 
 class _OptionalStringProbe(ChemblOptionalStringValueMixin):

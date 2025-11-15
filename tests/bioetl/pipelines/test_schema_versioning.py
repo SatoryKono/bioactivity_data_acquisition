@@ -16,7 +16,7 @@ from bioetl.config.models.models import (
     PipelineMetadata,
     ValidationConfig,
 )
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 from bioetl.schemas import SchemaDescriptor, SchemaRegistry
 from bioetl.schemas.versioning import (
     SchemaMigration,
@@ -49,7 +49,7 @@ def schema_registry_setup(monkeypatch: pytest.MonkeyPatch) -> tuple[str, SchemaM
     migration_registry = SchemaMigrationRegistry()
     monkeypatch.setattr("bioetl.schemas.SCHEMA_REGISTRY", schema_registry)
     monkeypatch.setattr("bioetl.schemas.versioning.SCHEMA_MIGRATION_REGISTRY", migration_registry)
-    monkeypatch.setattr("bioetl.pipelines.base.SCHEMA_MIGRATION_REGISTRY", migration_registry)
+    monkeypatch.setattr("bioetl.core.pipeline.base.SCHEMA_MIGRATION_REGISTRY", migration_registry)
 
     schema_identifier = "tests.schemas.Versioned"
     schema = pa.DataFrameSchema(

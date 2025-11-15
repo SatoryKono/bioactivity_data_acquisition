@@ -22,13 +22,13 @@ from bioetl.core.schema import StringRule, normalize_string_columns
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.enrich import _extract_enrich_config, enrich_flag
+from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
 from .normalize import enrich_with_document_terms
 
 SelfChemblDocumentPipeline = TypeVar(

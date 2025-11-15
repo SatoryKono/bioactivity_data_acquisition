@@ -677,7 +677,7 @@ names or additional flags that differ from this standard contract.
 # file: src/bioetl/pipelines/minimal_example.py
 
 import pandas as pd
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 class MinimalPipeline(PipelineBase):

@@ -13,7 +13,7 @@ from tests.support.qc_assertions import (
 )
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 from bioetl.qc.plan import QCMetricsBundle, QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
     build_correlation_report,

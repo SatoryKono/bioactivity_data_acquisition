@@ -22,7 +22,7 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core import LoggerConfig, UnifiedLogger
 from bioetl.core.logging import LogEvents
-from bioetl.pipelines.base import PipelineBase, RunResult
+from bioetl.core.pipeline import PipelineBase, RunResult
 
 __all__ = [
     "ConfigLoadError",

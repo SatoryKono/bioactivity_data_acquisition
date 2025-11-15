@@ -16,7 +16,7 @@ from bioetl.config.models.source import SourceConfig
 from bioetl.core import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.pipelines.chembl.common import ChemblPipelineBase
+from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.pipelines.chembl.document import run as document_run
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
@@ -96,7 +96,7 @@ def test_initialize_output_schema_uses_registry_lookup(
         raise KeyError(pipeline_code)
 
     monkeypatch.setattr(
-        "bioetl.pipelines.chembl.common.descriptor.get_out_schema",
+        "bioetl.chembl.common.descriptor.get_out_schema",
         fake_get_out_schema,
     )
 

@@ -53,7 +53,7 @@ Each external data source **MUST** have exactly one public pipeline:
 ### Valid Examples — Star schema
 
 ```python
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 class ChEMBLActivityPipeline(PipelineBase):
@@ -273,7 +273,7 @@ All pipelines **MUST** follow the standard contract:
 ### Valid Examples — Merge strategies
 
 ```python
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 class ActivityPipeline(PipelineBase):

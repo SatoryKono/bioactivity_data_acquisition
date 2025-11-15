@@ -44,8 +44,8 @@ _lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
 
 
 _BASE_EXPORTS = {
-    "PipelineBase": "bioetl.pipelines.base",
-    "RunResult": "bioetl.pipelines.base",
+    "PipelineBase": "bioetl.core.pipeline",
+    "RunResult": "bioetl.core.pipeline",
 }
 
 
