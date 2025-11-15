@@ -112,7 +112,8 @@ class ChemblEntityConfigMixin:
             msg = "max_url_length обязателен для данного клиента"
             raise ValueError(msg)
 
-        super().__init__(
+        ChemblEntityFetcherBase.__init__(  # avoids mypy complaints in mixin
+            self,
             chembl_client=chembl_client,
             config=config,
             batch_size=resolved_batch_size,
