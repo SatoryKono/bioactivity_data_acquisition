@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-import yaml
 
 from bioetl.cli.tools._logic import cli_build_vocab_store as build_vocab_store
 
@@ -69,21 +68,6 @@ def test_utc_timestamp_format(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(build_vocab_store, "datetime", DummyDateTime)
     value = build_vocab_store._utc_timestamp()
     assert value == "2024-01-02T03:04:05Z"
-
-
-def test_atomic_write_yaml(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    target = tmp_path / "payload.yaml"
-    payload = {"key": "value"}
-    called: list[Path] = []
-
-    def fake_fsync(_fd: int) -> None:
-        called.append(target)
-
-    monkeypatch.setattr(build_vocab_store.os, "fsync", fake_fsync)
-    build_vocab_store._atomic_write_yaml(payload, target)
-    assert target.exists()
-    assert yaml.safe_load(target.read_text(encoding="utf-8")) == payload
-    assert called
 
 
 def test_extract_release_requires_mapping() -> None:

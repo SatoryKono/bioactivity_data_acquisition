@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import subprocess
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from bioetl.cli._io import git_diff_cached, git_ls
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
@@ -13,45 +14,31 @@ __all__ = ["MAX_BYTES", "check_output_artifacts"]
 
 MAX_BYTES = 1_000_000
 IGNORED_NAMES = {".gitkeep"}
-
-
-def _git_ls_files(path: str) -> list[Path]:
-    """Return repository-tracked files within ``path``."""
-    result = subprocess.run(
-        ["git", "ls-files", path],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return [Path(line) for line in files]
-
-
-def _git_diff_cached(path: str) -> list[Path]:
-    """Return staged files (added or modified) within ``path``."""
-    result = subprocess.run(
-        ["git", "diff", "--cached", "--name-only", "--diff-filter=AM", "--", path],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    files = [line.strip() for line in result.stdout.splitlines() if line.strip()]
-    return [Path(line) for line in files]
-
-
-def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
+def check_output_artifacts(
+    max_bytes: int = MAX_BYTES,
+    *,
+    git_ls_fn: Callable[[str], Sequence[Path]] | None = None,
+    git_diff_fn: Callable[[str], Sequence[Path]] | None = None,
+    get_root_fn: Callable[[], Path] | None = None,
+    logger_cls: type[UnifiedLogger] | None = None,
+) -> list[str]:
     """Validate `data/output` artifacts and return a list of issues."""
 
-    UnifiedLogger.configure()
-    log = UnifiedLogger.get(__name__)
+    logger_type = logger_cls or UnifiedLogger
+    logger_type.configure()
+    log = logger_type.get(__name__)
 
-    repo_root = get_project_root()
+    root_factory = get_root_fn or get_project_root
+    repo_root = root_factory()
     output_dir = repo_root / "data" / "output"
 
     log.info(LogEvents.CHECKING_OUTPUT_ARTIFACTS, output_dir=str(output_dir), max_bytes=max_bytes)
 
-    tracked = [p for p in _git_ls_files("data/output") if p.name not in IGNORED_NAMES]
-    staged = [p for p in _git_diff_cached("data/output") if p.name not in IGNORED_NAMES]
+    tracked_source = git_ls_fn or git_ls
+    staged_source = git_diff_fn or git_diff_cached
+
+    tracked = [p for p in tracked_source("data/output") if p.name not in IGNORED_NAMES]
+    staged = [p for p in staged_source("data/output") if p.name not in IGNORED_NAMES]
 
     errors: list[str] = []
 

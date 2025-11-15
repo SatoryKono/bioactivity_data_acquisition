@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
 
-import yaml
-
+from bioetl.cli._io import atomic_write_yaml
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.utils.vocab_store import VocabStoreError, clear_vocab_store_cache, load_vocab_store
 
@@ -20,17 +18,6 @@ def _utc_timestamp() -> str:
     """Return current UTC timestamp truncated to seconds in ISO-8601 format."""
     now = datetime.now(timezone.utc)
     return now.replace(microsecond=0).isoformat().replace("+00:00", "Z")
-
-
-def _atomic_write_yaml(payload: Mapping[str, Any], path: Path) -> None:
-    """Write YAML payload atomically to disk."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = path.with_suffix(path.suffix + ".tmp")
-    with tmp_path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(dict(payload), handle, sort_keys=False, allow_unicode=True)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.replace(tmp_path, path)
 
 
 def _extract_release(
@@ -116,6 +103,6 @@ def build_vocab_store(
     }
     aggregated_with_meta.update(aggregated)
 
-    _atomic_write_yaml(aggregated_with_meta, resolved_output)
+    atomic_write_yaml(aggregated_with_meta, resolved_output)
     log.info(LogEvents.VOCAB_STORE_BUILT, source=str(resolved_src), output=str(resolved_output))
     return resolved_output

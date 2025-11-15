@@ -13,10 +13,29 @@ _LOGIC_EXPORTS = getattr(cli_check_output_artifacts_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_check_output_artifacts_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-check_output_artifacts = getattr(cli_check_output_artifacts_impl, "check_output_artifacts")
+UnifiedLogger = cli_check_output_artifacts_impl.UnifiedLogger
+get_project_root = cli_check_output_artifacts_impl.get_project_root
+git_ls = cli_check_output_artifacts_impl.git_ls
+git_diff_cached = cli_check_output_artifacts_impl.git_diff_cached
+
+
+def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
+    """Public wrapper forwarding dependency overrides to the logic layer."""
+
+    return cli_check_output_artifacts_impl.check_output_artifacts(
+        max_bytes=max_bytes,
+        git_ls_fn=git_ls,
+        git_diff_fn=git_diff_cached,
+        get_root_fn=get_project_root,
+        logger_cls=UnifiedLogger,
+    )
 __all__ = [
     * _LOGIC_EXPORTS,
     "check_output_artifacts",
+    "UnifiedLogger",
+    "get_project_root",
+    "git_ls",
+    "git_diff_cached",
     "app",
     "cli_main",
     "run",
