@@ -121,17 +121,10 @@ class _SafeStreamHandler(logging.StreamHandler[TextIO]):
     def __init__(self) -> None:
         super().__init__(stream=sys.stderr)
 
-    def setStream(self, stream: TextIO | None) -> None:  # noqa: N802 (match logging API)
-        current = cast(TextIO | None, getattr(self, "stream", None))
-        if current is not None and getattr(current, "closed", False):
-            self.stream = stream
-            return
-        super().setStream(stream)
-
     def emit(self, record: logging.LogRecord) -> None:
-        stream = cast(TextIO | None, getattr(self, "stream", None))
+        stream: TextIO | None = cast(TextIO | None, getattr(self, "stream", None))
         if stream is None or getattr(stream, "closed", False):
-            self.setStream(sys.stderr)
+            self.setStream(cast(TextIO, sys.stderr))
         try:
             super().emit(record)
         except ValueError as exc:
