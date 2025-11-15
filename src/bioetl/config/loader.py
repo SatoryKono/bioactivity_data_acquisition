@@ -5,12 +5,13 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 import yaml
 from yaml.nodes import ScalarNode
 
 from bioetl.core.utils.iterables import is_non_string_iterable
+from bioetl.core.utils.typechecks import is_list
 
 from .environment import (
     EnvironmentSettings,
@@ -181,11 +182,6 @@ def _selected_environment(settings: EnvironmentSettings) -> str | None:
     """Return the active environment when explicitly provided via env/config."""
 
     return settings.bioetl_env
-def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
-    """Return True when ``value`` is a list instance."""
-    return isinstance(value, list)
-
-
 def load_config(
     config_path: str | Path,
     *,
@@ -502,7 +498,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         return result
 
-    if _is_any_list(payload):
+    if is_list(payload):
         payload_list: list[Any] = payload
         return [
             _apply_yaml_merge(element_any)

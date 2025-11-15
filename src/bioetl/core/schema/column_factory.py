@@ -15,10 +15,12 @@ from .vocabulary_bindings import VOCAB_METADATA_KEY
 class SchemaColumnFactory:
     """Factory for reusable Pandera columns."""
 
-    CHEMBL_ID_PATTERN: ClassVar[str] = r"^CHEMBL\d+$"
-    BAO_ID_PATTERN: ClassVar[str] = r"^BAO_\d{7}$"
-    DOI_PATTERN: ClassVar[str] = r"^10\.\d{4,9}/\S+$"
-    UUID_PATTERN: ClassVar[str] = r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+    ID_PATTERNS: ClassVar[dict[str, str]] = {
+        "chembl_id": r"^CHEMBL\d+$",
+        "bao_id": r"^BAO_\d{7}$",
+        "doi": r"^10\.\d{4,9}/\S+$",
+        "uuid": r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
+    }
 
     @classmethod
     def string(
@@ -76,6 +78,23 @@ class SchemaColumnFactory:
         """Build a constrained string identifier column."""
 
         return cls.string(pattern=pattern, nullable=nullable, unique=unique)
+
+    @classmethod
+    def identifier(
+        cls,
+        name: str,
+        *,
+        nullable: bool = True,
+        unique: bool = False,
+    ) -> Column:
+        """Build an identifier column defined in :data:`ID_PATTERNS`."""
+
+        try:
+            pattern = cls.ID_PATTERNS[name]
+        except KeyError as exc:  # pragma: no cover - defensive branch
+            message = ", ".join(sorted(cls.ID_PATTERNS))
+            raise KeyError(f"Unknown identifier '{name}'. Available: {message}.") from exc
+        return cls._string_id(pattern, nullable=nullable, unique=unique)
 
     @classmethod
     def int64(
@@ -159,23 +178,23 @@ class SchemaColumnFactory:
     def chembl_id(cls, *, nullable: bool = True, unique: bool = False) -> Column:
         """Build a column for ChEMBL identifiers."""
 
-        return cls._string_id(cls.CHEMBL_ID_PATTERN, nullable=nullable, unique=unique)
+        return cls.identifier("chembl_id", nullable=nullable, unique=unique)
 
     @classmethod
     def bao_id(cls, *, nullable: bool = True) -> Column:
         """Build a column for BAO identifiers."""
 
-        return cls._string_id(cls.BAO_ID_PATTERN, nullable=nullable)
+        return cls.identifier("bao_id", nullable=nullable)
 
     @classmethod
     def doi(cls, *, nullable: bool = True) -> Column:
         """Build a column for DOI values."""
 
-        return cls._string_id(cls.DOI_PATTERN, nullable=nullable)
+        return cls.identifier("doi", nullable=nullable)
 
     @classmethod
     def uuid(cls, *, nullable: bool = False, unique: bool = False) -> Column:
         """Build a UUID column in canonical format."""
 
-        return cls._string_id(cls.UUID_PATTERN, nullable=nullable, unique=unique)
+        return cls.identifier("uuid", nullable=nullable, unique=unique)
 

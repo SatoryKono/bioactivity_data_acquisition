@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, Type
 
 import pandas as pd
 import pytest
 from pytest import MonkeyPatch
+from structlog.testing import capture_logs
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core import UnifiedLogger
+from bioetl.core import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.common import ChemblPipelineBase
@@ -197,6 +199,37 @@ def test_dispatch_extract_mode_falls_back_to_full(
     assert list(result["identifier"]) == ["ALL"]
     assert "batch_called" not in execution
     assert execution["full_called"] is True
+
+
+@pytest.mark.integration
+def test_read_input_ids_logs_stage_and_path(
+    dummy_pipeline: _DummyChemblPipeline,
+    tmp_path: Path,
+) -> None:
+    UnifiedLogger.configure()
+
+    csv_path = tmp_path / "input_ids.csv"
+    pd.DataFrame({"identifier": ["CHEMBL1", "CHEMBL2"]}).to_csv(csv_path, index=False)
+
+    dummy_pipeline.config.cli.input_file = csv_path.name  # type: ignore[attr-defined]
+    dummy_pipeline.config.paths.input_root = str(tmp_path)  # type: ignore[attr-defined]
+
+    with capture_logs() as captured:
+        ids = dummy_pipeline._read_input_ids(  # noqa: SLF001
+            id_column_name="identifier",
+            limit=None,
+            sample=None,
+        )
+
+    assert ids == ["CHEMBL1", "CHEMBL2"]
+
+    log_events = [event for event in captured if event.get("event") == LogEvents.INPUT_IDS_READ]
+    assert log_events, "Expected INPUT_IDS_READ event to be emitted"
+    last_event = log_events[-1]
+    assert last_event.get("stage") == "extract"
+    assert last_event.get("path") == str(csv_path)
+
+    UnifiedLogger.reset()
 
 
 @pytest.mark.unit

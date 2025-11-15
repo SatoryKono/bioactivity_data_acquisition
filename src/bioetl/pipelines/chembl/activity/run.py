@@ -49,12 +49,126 @@ from ..common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
-from ..common.enrich import _extract_enrich_config, enrich_flag
+from ..common.enrich import ChemblEnrichmentScenario
 from ..common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay,
     enrich_with_compound_record,
     enrich_with_data_validity,
+)
+
+
+def _apply_compound_record_enrichment(
+    pipeline: "ChemblActivityPipeline",
+    df: pd.DataFrame,
+    chembl_client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: BoundLogger,
+) -> pd.DataFrame:
+    """Execute compound_record enrichment using the shared normalizer."""
+
+    log.debug("compound_record_enrichment_invoked", rows=len(df))
+    return enrich_with_compound_record(df, chembl_client, cfg)
+
+
+def _apply_assay_enrichment(
+    pipeline: "ChemblActivityPipeline",
+    df: pd.DataFrame,
+    chembl_client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: BoundLogger,
+) -> pd.DataFrame:
+    """Execute assay enrichment using the shared normalizer."""
+
+    log.debug("assay_enrichment_invoked", rows=len(df))
+    return enrich_with_assay(df, chembl_client, cfg)
+
+
+def _apply_data_validity_enrichment(
+    pipeline: "ChemblActivityPipeline",
+    df: pd.DataFrame,
+    chembl_client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: BoundLogger,
+) -> pd.DataFrame:
+    """Execute data_validity enrichment with pre-population diagnostics."""
+
+    if "data_validity_description" in df.columns:
+        non_na_count = int(df["data_validity_description"].notna().sum())
+        if non_na_count > 0:
+            log.info(
+                "enrichment_data_validity_description_already_filled",
+                non_na_count=non_na_count,
+                total_count=len(df),
+                message="data_validity_description already populated from extract, enrichment will update/overwrite",
+            )
+
+    return enrich_with_data_validity(df, chembl_client, cfg)
+
+
+def _apply_molecule_enrichment(
+    pipeline: "ChemblActivityPipeline",
+    df: pd.DataFrame,
+    chembl_client: ChemblClient,
+    cfg: Mapping[str, Any],
+    log: BoundLogger,
+) -> pd.DataFrame:
+    """Join molecule metadata and coalesce preferred names."""
+
+    df_join = join_activity_with_molecule(df, chembl_client, cfg)
+
+    if "molecule_name" in df_join.columns:
+        if "molecule_pref_name" not in df.columns:
+            df["molecule_pref_name"] = pd.NA
+        mask = df["molecule_pref_name"].isna() | (
+            df["molecule_pref_name"].astype("string").str.strip() == ""
+        )
+        if mask.any():
+            df_merged = df.merge(
+                df_join[["activity_id", "molecule_name"]],
+                on="activity_id",
+                how="left",
+                suffixes=("", "_join"),
+            )
+            df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
+            log.info(
+                LogEvents.MOLECULE_PREF_NAME_ENRICHED,
+                rows_enriched=int(mask.sum()),
+                total_rows=len(df),
+            )
+
+    return df
+
+
+_CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS: tuple[ChemblEnrichmentScenario, ...] = (
+    ChemblEnrichmentScenario(
+        name="compound_record",
+        entity_name="compound_record",
+        config_path=("activity", "enrich", "compound_record"),
+        client_name="chembl_enrichment_client",
+        transform=_apply_compound_record_enrichment,
+    ),
+    ChemblEnrichmentScenario(
+        name="assay",
+        entity_name="assay",
+        config_path=("activity", "enrich", "assay"),
+        client_name="chembl_enrichment_client",
+        transform=_apply_assay_enrichment,
+    ),
+    ChemblEnrichmentScenario(
+        name="molecule",
+        entity_name="molecule",
+        config_path=("activity", "enrich", "molecule"),
+        client_name="chembl_enrichment_client",
+        transform=_apply_molecule_enrichment,
+    ),
+    ChemblEnrichmentScenario(
+        name="data_validity",
+        entity_name="data_validity_lookup",
+        config_path=("activity", "enrich", "data_validity"),
+        client_name="chembl_enrichment_client",
+        transform=_apply_data_validity_enrichment,
+    ),
 )
 
 
@@ -65,6 +179,13 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     id_column = "activity_id"
     extract_event_name = "chembl_activity.extract_mode"
     legacy_extract_source = "deprecated_kwargs"
+
+    _ENRICHMENT_SCENARIOS: dict[str, ChemblEnrichmentScenario] = {
+        scenario.name: scenario for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS
+    }
+    _DEFAULT_ENRICHMENT_ORDER: tuple[str, ...] = tuple(
+        scenario.name for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS
+    )
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -621,21 +742,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             order_columns=False,
         )
 
-        # Enrichment: compound_record fields
-        if self._should_enrich_compound_record():
-            df = self._enrich_compound_record(df)
-
-        # Enrichment: assay fields
-        if self._should_enrich_assay():
-            df = self._enrich_assay(df)
-
-        # Enrichment: molecule fields
-        if self._should_enrich_molecule():
-            df = self._enrich_molecule(df)
-
-        # Enrichment: data_validity fields
-        if self._should_enrich_data_validity():
-            df = self._enrich_data_validity(df)
+        df = self.execute_enrichment_stages(df)
 
         # Finalize identifier columns BEFORE ordering to ensure all required columns exist
         df = self._finalize_identifier_columns(df, log)
@@ -644,6 +751,61 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         df = self._filter_invalid_required_fields(df, log)
 
         log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
+        return df
+
+    def execute_enrichment_stages(
+        self,
+        df: pd.DataFrame,
+        *,
+        stages: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Execute registered enrichment stages in a deterministic order."""
+
+        if df.empty:
+            return df
+
+        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+
+        if chembl_config is None:
+            selected = stages or self._DEFAULT_ENRICHMENT_ORDER
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG,
+                stages=selected,
+                message="chembl domain configuration missing; enrichment skipped",
+            )
+            return df
+
+        selected = tuple(stages) if stages is not None else self._DEFAULT_ENRICHMENT_ORDER
+
+        for stage_name in selected:
+            scenario = self._ENRICHMENT_SCENARIOS.get(stage_name)
+            if scenario is None:
+                log.debug(
+                    LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
+                    stage=stage_name,
+                    message="Enrichment scenario not registered",
+                )
+                continue
+
+            if not scenario.is_enabled(chembl_config):
+                log.debug(
+                    LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG,
+                    stage=stage_name,
+                    message="Scenario disabled in configuration",
+                )
+                continue
+
+            stage_log = log.bind(stage=scenario.name)
+            stage_log.info("enrichment_stage_start", rows=len(df))
+            enrich_cfg = scenario.extract_config(chembl_config, log=stage_log)
+            bundle = self._build_activity_enrichment_bundle(
+                scenario.entity_name,
+                client_name=scenario.client_name,
+            )
+            df = scenario.transform(self, df, bundle.chembl_client, enrich_cfg, stage_log)
+
+        log.debug(LogEvents.ENRICHMENT_STAGES_COMPLETED, stages=selected)
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -759,154 +921,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             yield
         finally:
             self.config = original_config
-
-    def _should_enrich_compound_record(self) -> bool:
-        """Return True when compound_record enrichment is enabled in the config."""
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return enrich_flag(
-            chembl_config,
-            ("activity", "enrich", "compound_record", "enabled"),
-        )
-
-    def _enrich_compound_record(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich the DataFrame with compound_record fields."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        enrich_cfg = _extract_enrich_config(
-            chembl_config,
-            ("activity", "enrich", "compound_record"),
-            log=log,
-        )
-
-        bundle = self._build_activity_enrichment_bundle(
-            "compound_record",
-            client_name="chembl_enrichment_client",
-        )
-        chembl_client = bundle.chembl_client
-
-        # Invoke the enrichment routine.
-        return enrich_with_compound_record(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_assay(self) -> bool:
-        """Return True when assay enrichment is enabled in the config."""
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return enrich_flag(
-            chembl_config,
-            ("activity", "enrich", "assay", "enabled"),
-        )
-
-    def _enrich_assay(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich the DataFrame with assay fields."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        enrich_cfg = _extract_enrich_config(
-            chembl_config,
-            ("activity", "enrich", "assay"),
-            log=log,
-        )
-
-        bundle = self._build_activity_enrichment_bundle(
-            "assay",
-            client_name="chembl_enrichment_client",
-        )
-        chembl_client = bundle.chembl_client
-
-        # Invoke the enrichment routine.
-        return enrich_with_assay(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_data_validity(self) -> bool:
-        """Return True when data_validity enrichment is enabled in the config."""
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return enrich_flag(
-            chembl_config,
-            ("activity", "enrich", "data_validity", "enabled"),
-        )
-
-    def _enrich_data_validity(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich the DataFrame with data_validity_lookup fields."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        enrich_cfg = _extract_enrich_config(
-            chembl_config,
-            ("activity", "enrich", "data_validity"),
-            log=log,
-        )
-
-        # If data_validity_description already contains values (not all NA), log an informational message.
-        if "data_validity_description" in df.columns:
-            non_na_count = int(df["data_validity_description"].notna().sum())
-            if non_na_count > 0:
-                log.info(
-                    "enrichment_data_validity_description_already_filled",
-                    non_na_count=non_na_count,
-                    total_count=len(df),
-                    message="data_validity_description already populated from extract, enrichment will update/overwrite",
-                )
-
-        bundle = self._build_activity_enrichment_bundle(
-            "data_validity_lookup",
-            client_name="chembl_enrichment_client",
-        )
-        chembl_client = bundle.chembl_client
-
-        # Invoke the enrichment routine (may update/overwrite extract data).
-        return enrich_with_data_validity(df, chembl_client, enrich_cfg)
-
-    def _should_enrich_molecule(self) -> bool:
-        """Return True when molecule enrichment is enabled in the config."""
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        return enrich_flag(
-            chembl_config,
-            ("activity", "enrich", "molecule", "enabled"),
-        )
-
-    def _enrich_molecule(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Enrich the DataFrame with molecule fields via join."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
-        enrich_cfg = _extract_enrich_config(
-            chembl_config,
-            ("activity", "enrich", "molecule"),
-            log=log,
-        )
-
-        bundle = self._build_activity_enrichment_bundle(
-            "molecule",
-            client_name="chembl_enrichment_client",
-        )
-        chembl_client = bundle.chembl_client
-
-        # Execute the join to fetch molecule_name.
-        df_join = join_activity_with_molecule(df, chembl_client, enrich_cfg)
-
-        # Coalesce joined molecule_name into molecule_pref_name when missing.
-        if "molecule_name" in df_join.columns:
-            if "molecule_pref_name" not in df.columns:
-                df["molecule_pref_name"] = pd.NA
-            # Fill molecule_pref_name using molecule_name where empty.
-            mask = df["molecule_pref_name"].isna() | (
-                df["molecule_pref_name"].astype("string").str.strip() == ""
-            )
-            if mask.any():
-                # Merge on activity_id to retrieve molecule_name.
-                df_merged = df.merge(
-                    df_join[["activity_id", "molecule_name"]],
-                    on="activity_id",
-                    how="left",
-                    suffixes=("", "_join"),
-                )
-                # Populate molecule_pref_name using molecule_name where empty.
-                df.loc[mask, "molecule_pref_name"] = df_merged.loc[mask, "molecule_name"]
-                log.info(LogEvents.MOLECULE_PREF_NAME_ENRICHED,
-                    rows_enriched=int(mask.sum()),
-                    total_rows=len(df),
-                )
-
-        return df
 
     def _extract_from_chembl(
         self,

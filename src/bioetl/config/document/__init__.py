@@ -5,12 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from pydantic import ConfigDict, Field, PositiveInt, model_validator
+from pydantic import ConfigDict, Field, PositiveInt
 
 from bioetl.clients.base import normalize_select_fields
 
+from ..common import BatchSizeLimitMixin
 from ..models.http import HTTPClientConfig
-from ..models.source import SourceConfig, SourceParameters, enforce_positive_int_cap
+from ..models.source import SourceConfig, SourceParameters
 
 
 class DocumentSourceParameters(SourceParameters):
@@ -55,7 +56,9 @@ class DocumentSourceParameters(SourceParameters):
         return cls.model_validate(payload)
 
 
-class DocumentSourceConfig(SourceConfig[DocumentSourceParameters]):
+class DocumentSourceConfig(
+    BatchSizeLimitMixin, SourceConfig[DocumentSourceParameters]
+):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -72,14 +75,3 @@ class DocumentSourceConfig(SourceConfig[DocumentSourceParameters]):
     batch_field = "batch_size"
     default_batch_size = 25
 
-    @model_validator(mode="after")
-    def enforce_limits(self) -> DocumentSourceConfig:
-        """Ensure the configured values adhere to documented constraints.
-
-        Returns
-        -------
-        DocumentSourceConfig
-            Self with enforced limits.
-        """
-        enforce_positive_int_cap(self, field="batch_size", cap=25)
-        return self

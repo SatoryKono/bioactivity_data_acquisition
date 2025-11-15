@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from .iterables import is_non_string_iterable
 from .mixins import CollectionFlagMixin
+from .typechecks import is_dict, is_list
 from .vocab_store import (
     DEFAULT_ALLOWED_STATUSES,
     VALID_ENTRY_STATUSES,
@@ -25,6 +26,8 @@ __all__ = [
     "CollectionFlagMixin",
     "clear_vocab_store_cache",
     "get_ids",
+    "is_dict",
+    "is_list",
     "is_non_string_iterable",
     "join_activity_with_molecule",
     "load_vocab_store",
