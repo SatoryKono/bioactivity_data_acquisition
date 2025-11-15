@@ -10,6 +10,7 @@ from click.testing import CliRunner  # type: ignore[reportMissingImports]
 from typer.main import get_command  # type: ignore[reportMissingImports]
 
 from bioetl.cli.cli_app import app, run  # type: ignore[reportUnknownVariableType]
+from bioetl.cli.cli_entrypoint import create_app  # type: ignore[reportUnknownVariableType]
 from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissingImports]
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
@@ -156,6 +157,45 @@ http:
         # Typer may output errors to stderr
         error_output = result.stdout + result.stderr  # type: ignore[reportUnknownMemberType]
         assert "not found" in error_output or "Error" in error_output
+
+
+@pytest.mark.unit  # type: ignore[reportUntypedClassDecorator,reportUnknownMemberType]
+class TestTyperDependencyHandling:
+    """Ensure CLI utilities fail fast when ``typer`` is unavailable."""
+
+    def test_loader_raises_runtime_error_when_typer_missing(self, monkeypatch):
+        """The shared loader should surface a descriptive error."""
+
+        import bioetl.cli._typer_loader as loader
+
+        monkeypatch.setattr(loader, "_typer_module", None)
+        def _raise(_: str) -> None:
+            raise ModuleNotFoundError("typer")
+
+        monkeypatch.setattr(
+            "bioetl.cli._typer_loader.importlib.import_module",
+            _raise,
+        )
+
+        with pytest.raises(RuntimeError, match="The `typer` dependency is unavailable"):
+            loader._load_typer()
+
+    def test_create_app_propagates_missing_typer_error(self, monkeypatch):
+        """Application helpers should propagate the missing dependency message."""
+
+        import bioetl.cli._typer_loader as loader
+
+        monkeypatch.setattr(loader, "_typer_module", None)
+        def _raise(_: str) -> None:
+            raise ModuleNotFoundError("typer")
+
+        monkeypatch.setattr(
+            "bioetl.cli._typer_loader.importlib.import_module",
+            _raise,
+        )
+
+        with pytest.raises(RuntimeError, match="The `typer` dependency is unavailable"):
+            create_app(name="demo", help_text="Demo app")
 
     def test_activity_command_with_limit(self, tmp_path: Path):
         """Test activity command with --limit option."""

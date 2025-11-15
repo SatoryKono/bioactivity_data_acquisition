@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from importlib import import_module
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from bioetl.config.models.models import CLIConfig
 from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
+from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
 
-from .base import PipelineBase, RunResult
+if TYPE_CHECKING:  # pragma: no cover - import for typing only
+    from .base import PipelineBase, RunResult
 
 PipelineRunOptions = CLIConfig
 
@@ -28,8 +30,31 @@ _ALIAS_EXPORTS = {
     "TestItemPipeline": "TestItemChemblPipeline",
 }
 
+_lazy_mapping: dict[str, Any] = {
+    name: module for name, module in _LAZY_EXPORTS.items()
+}
+_lazy_mapping.update(
+    {
+        alias: (_LAZY_EXPORTS[target], target)
+        for alias, target in _ALIAS_EXPORTS.items()
+    }
+)
+
+_lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
+
+
+_BASE_EXPORTS = {
+    "PipelineBase": "bioetl.pipelines.base",
+    "RunResult": "bioetl.pipelines.base",
+}
+
 
 def __getattr__(name: str) -> Any:
+    if name in _BASE_EXPORTS:
+        module = import_module(_BASE_EXPORTS[name])
+        value = getattr(module, name)
+        globals()[name] = value
+        return value
     if name in _ALIAS_EXPORTS:
         target = _ALIAS_EXPORTS[name]
         value = getattr(__import__(__name__, fromlist=[target]), target)

@@ -12,11 +12,12 @@ from __future__ import annotations
 from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Final, TypeGuard, cast
+from typing import Any, Final, cast
 
 import yaml
 
 from bioetl.core.runtime.errors import BioETLError
+from bioetl.core.utils.typechecks import is_dict, is_list
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}
 DEFAULT_ALLOWED_STATUSES: Final[set[str]] = {"active", "alias"}
@@ -27,10 +28,14 @@ class VocabStoreError(BioETLError):
 
 
 def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
-    if not isinstance(value, Mapping):
+    if is_dict(value):
+        candidate_mapping: Mapping[str, Any] = value
+    elif isinstance(value, Mapping):
+        candidate_mapping = cast(Mapping[str, Any], value)
+    else:
         raise VocabStoreError(f"Expected mapping for {context}, got {type(value)!r}")
 
-    keys_view = cast(Iterable[Any], value.keys())
+    keys_view = cast(Iterable[Any], candidate_mapping.keys())
 
     for key_obj in keys_view:
         if not isinstance(key_obj, str):
@@ -38,15 +43,11 @@ def _ensure_mapping(value: Any, *, context: str) -> Mapping[str, Any]:
                 f"Expected string keys for {context}, got key of type {type(key_obj)!r}"
             )
 
-    return cast(Mapping[str, Any], value)
-
-
-def _is_list_of_any(value: Any) -> TypeGuard[list[Any]]:
-    return isinstance(value, list)
+    return candidate_mapping
 
 
 def _ensure_list(value: Any, *, context: str) -> list[Any]:
-    if not _is_list_of_any(value):
+    if not is_list(value):
         raise VocabStoreError(f"Expected list for {context}, got {type(value)!r}")
 
     copied_list: list[Any] = list(value)

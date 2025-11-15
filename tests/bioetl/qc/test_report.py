@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
@@ -10,7 +12,9 @@ from tests.support.qc_assertions import (
     assert_quality_report_structure,
 )
 
-from bioetl.qc.plan import QCMetricsExecutor, QCPlan
+from bioetl.config.models.models import PipelineConfig
+from bioetl.pipelines.base import PipelineBase
+from bioetl.qc.plan import QCMetricsBundle, QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
     build_correlation_report,
     build_qc_metrics_payload,
@@ -294,3 +298,133 @@ class TestQCReport:
         report = build_correlation_report(bundle=bundle, plan=plan)
 
         assert report is None
+
+
+class _ProbePipeline(PipelineBase):
+    """Minimal pipeline exposing QC helpers for unit tests."""
+
+    def __init__(self, config: PipelineConfig, run_id: str) -> None:
+        super().__init__(config=config, run_id=run_id)
+        self._probe_plan = QCPlan(duplicates=False)
+
+    @property
+    def qc_plan(self) -> QCPlan:
+        return self._probe_plan
+
+    def _business_key_fields(self) -> tuple[str, ...]:
+        return ("activity_id",)
+
+    def extract(self) -> pd.DataFrame:
+        return pd.DataFrame({"activity_id": [1], "value": [2.0]})
+
+    def extract_all(self) -> pd.DataFrame:
+        return self.extract()
+
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        values = [int(identifier) for identifier in ids if identifier.isdigit()]
+        return pd.DataFrame({"activity_id": values})
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df
+
+
+@pytest.mark.unit
+class TestPipelineBaseQCDelegation:
+    """Behavioural tests for ``PipelineBase`` QC helper wiring."""
+
+    def test_build_qc_report_helper_forwards_arguments(
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+    ) -> None:
+        pipeline = _ProbePipeline(config=pipeline_config_fixture, run_id=run_id)
+        df = pd.DataFrame({"activity_id": [1], "value": [2.0]})
+        bundle = QCMetricsBundle()
+
+        captured: dict[str, object] = {}
+
+        def factory(dataframe: pd.DataFrame, **kwargs: object) -> str:
+            captured["df"] = dataframe
+            captured["kwargs"] = kwargs
+            return "sentinel"
+
+        result = pipeline._build_qc_report(  # type: ignore[attr-defined]
+            factory,
+            df,
+            bundle=bundle,
+        )
+
+        assert result == "sentinel"
+        assert captured["df"] is df
+        kwargs = captured["kwargs"]
+        assert isinstance(kwargs, dict)
+        assert kwargs["business_key_fields"] == ("activity_id",)
+        assert kwargs["plan"] is pipeline.qc_plan
+        assert kwargs["bundle"] is bundle
+        assert kwargs["executor"] is pipeline._qc_executor  # type: ignore[attr-defined]
+
+    def test_build_quality_report_uses_helper(
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pipeline = _ProbePipeline(config=pipeline_config_fixture, run_id=run_id)
+        df = pd.DataFrame({"activity_id": [1], "value": [2.0]})
+        bundle = QCMetricsBundle()
+        sentinel = object()
+        calls: dict[str, object] = {}
+
+        def fake_helper(
+            self: _ProbePipeline,
+            factory: object,
+            dataframe: pd.DataFrame,
+            *,
+            bundle: QCMetricsBundle | None = None,
+        ) -> object:
+            calls["factory"] = factory
+            calls["df"] = dataframe
+            calls["bundle"] = bundle
+            return sentinel
+
+        monkeypatch.setattr(_ProbePipeline, "_build_qc_report", fake_helper)
+
+        result = pipeline.build_quality_report(df, bundle=bundle)
+
+        assert result is sentinel
+        assert calls["factory"] is build_quality_report
+        assert calls["df"] is df
+        assert calls["bundle"] is bundle
+
+    def test_build_correlation_report_uses_helper(
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        pipeline = _ProbePipeline(config=pipeline_config_fixture, run_id=run_id)
+        df = pd.DataFrame({"activity_id": [1], "value": [2.0]})
+        bundle = QCMetricsBundle()
+        sentinel = object()
+        calls: dict[str, object] = {}
+
+        def fake_helper(
+            self: _ProbePipeline,
+            factory: object,
+            dataframe: pd.DataFrame,
+            *,
+            bundle: QCMetricsBundle | None = None,
+        ) -> object:
+            calls["factory"] = factory
+            calls["df"] = dataframe
+            calls["bundle"] = bundle
+            return sentinel
+
+        monkeypatch.setattr(_ProbePipeline, "_build_qc_report", fake_helper)
+
+        result = pipeline.build_correlation_report(df, bundle=bundle)
+
+        assert result is sentinel
+        assert calls["factory"] is build_correlation_report
+        assert calls["df"] is df
+        assert calls["bundle"] is bundle

@@ -192,6 +192,47 @@ class TestQCMetrics:
             "measurement_relation": generic["measurement_relation"]
         }
 
+    def test_qc_units_for_units_filters_suffixes(self) -> None:
+        """`QCUnits.for_units` must ignore columns without the expected suffix."""
+
+        df = pd.DataFrame(
+            {
+                "measurement_units": ["nM", "mM"],
+                "measurement": [1, 2],
+                "value_units": ["nM", "nM"],
+            }
+        )
+
+        result = QCUnits.for_units(df)
+
+        assert set(result.keys()) == {"measurement_units", "value_units"}
+
+    def test_qc_units_custom_match_lambda(self) -> None:
+        """Custom match functions should drive column selection deterministically."""
+
+        df = pd.DataFrame(
+            {
+                "value_units": ["nM", "mM"],
+                "value_relation": ["=", "<"],
+                "other": [1, 2],
+            }
+        )
+
+        result = QCUnits._from_dataframe(  # type: ignore[reportPrivateUsage]
+            df,
+            match=lambda column: column.startswith("value_"),
+        )
+
+        assert set(result.keys()) == {"value_units", "value_relation"}
+
+        empty = QCUnits._from_dataframe(  # type: ignore[reportPrivateUsage]
+            df,
+            match=lambda column: column.startswith("missing_"),
+        )
+
+        assert empty == {}
+
+
     def test_pipeline_qc_artifacts(
         self,
         pipeline_config_fixture: PipelineConfig,

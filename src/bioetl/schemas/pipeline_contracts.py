@@ -62,6 +62,36 @@ def _normalize_pipeline_code(pipeline_code: str) -> str:
     return normalized.lower()
 
 
+def resolve_contract_sequence(
+    contract: PipelineSchemaContract,
+    key: str,
+    fallback_attr: str,
+) -> tuple[str, ...]:
+    """Return metadata sequence ``key`` for ``contract`` with descriptor fallback."""
+
+    descriptor = contract.out_schema()
+    metadata = metadata_dict(descriptor.metadata)
+    normalized = normalize_sequence(metadata.get(key))
+    if normalized:
+        return normalized
+
+    if not hasattr(descriptor, fallback_attr):
+        msg = f"Schema descriptor for '{contract.pipeline_code}' does not expose '{fallback_attr}'."
+        raise AttributeError(msg)
+
+    fallback_value = getattr(descriptor, fallback_attr)
+    normalized_fallback = normalize_sequence(fallback_value)
+    if normalized_fallback:
+        return normalized_fallback
+    if isinstance(fallback_value, tuple):
+        return fallback_value
+    if isinstance(fallback_value, list):
+        return tuple(str(item) for item in fallback_value)
+    if fallback_value is None:
+        return ()
+    return (str(fallback_value),)
+
+
 def get_pipeline_contract(pipeline_code: str) -> PipelineSchemaContract:
     """Return the declarative contract for ``pipeline_code``."""
 
@@ -90,21 +120,13 @@ def get_in_schema(pipeline_code: str) -> SchemaRegistryEntry | None:
 def get_business_key_fields(pipeline_code: str) -> tuple[str, ...]:
     """Return declared business-key fields for the pipeline output schema."""
 
-    descriptor = get_out_schema(pipeline_code)
-    metadata = metadata_dict(descriptor.metadata)
-    normalized = normalize_sequence(metadata.get("business_key_fields"))
-    if normalized:
-        return normalized
-    return descriptor.business_key_fields
+    contract = get_pipeline_contract(pipeline_code)
+    return resolve_contract_sequence(contract, "business_key_fields", "business_key_fields")
 
 
 def get_column_order(pipeline_code: str) -> tuple[str, ...]:
     """Return the canonical column order for the pipeline output schema."""
 
-    descriptor = get_out_schema(pipeline_code)
-    metadata = metadata_dict(descriptor.metadata)
-    normalized = normalize_sequence(metadata.get("column_order"))
-    if normalized:
-        return normalized
-    return descriptor.column_order
+    contract = get_pipeline_contract(pipeline_code)
+    return resolve_contract_sequence(contract, "column_order", "column_order")
 
