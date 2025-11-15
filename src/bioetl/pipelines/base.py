@@ -49,6 +49,7 @@ from bioetl.core.io import (
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime.load_meta_store import LoadMetaStore
 from bioetl.core.schema import format_failure_cases, summarize_schema_errors
+from bioetl.pipelines.common import ensure_directory
 from bioetl.pipelines.errors import PipelineError, map_client_exc
 from bioetl.qc.plan import QC_PLAN_DEFAULT, QCMetricsBundle, QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
@@ -176,16 +177,14 @@ class PipelineBase(ABC):
 
     def _ensure_pipeline_directory_exists(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
-        directory = self.pipeline_directory
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+
+        return ensure_directory(self.pipeline_directory)
 
     def _ensure_logs_directory(self) -> Path:
         """Ensure the log folder exists for the pipeline."""
 
         directory = self.logs_root / self.pipeline_code
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+        return ensure_directory(directory)
 
     def _derive_trace_and_span(self) -> tuple[str, str]:
         seed = "".join(character for character in self.run_id if character.isalnum()) or "0"
