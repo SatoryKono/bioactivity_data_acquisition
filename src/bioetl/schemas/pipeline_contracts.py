@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from bioetl.schemas import SchemaRegistryEntry, get_schema
+from bioetl.schemas.metadata_utils import metadata_dict, normalize_sequence
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +91,10 @@ def get_business_key_fields(pipeline_code: str) -> tuple[str, ...]:
     """Return declared business-key fields for the pipeline output schema."""
 
     descriptor = get_out_schema(pipeline_code)
+    metadata = metadata_dict(descriptor.metadata)
+    normalized = normalize_sequence(metadata.get("business_key_fields"))
+    if normalized:
+        return normalized
     return descriptor.business_key_fields
 
 
@@ -97,5 +102,9 @@ def get_column_order(pipeline_code: str) -> tuple[str, ...]:
     """Return the canonical column order for the pipeline output schema."""
 
     descriptor = get_out_schema(pipeline_code)
+    metadata = metadata_dict(descriptor.metadata)
+    normalized = normalize_sequence(metadata.get("column_order"))
+    if normalized:
+        return normalized
     return descriptor.column_order
 
