@@ -41,21 +41,30 @@ def is_json_string(value: object, *, allow_empty: bool = False) -> bool:
     return True
 
 
+def _validate_json_series(
+    series: pd.Series,
+    *,
+    allow_empty: bool = False,
+    optional: bool = False,
+) -> bool:
+    """Shared implementation for JSON-series validators."""
+
+    candidate = series.dropna() if optional else series
+    if optional and candidate.empty:
+        return True
+    return bool(candidate.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all())
+
+
 def validate_json_series(series: pd.Series, *, allow_empty: bool = False) -> bool:
     """Vectorized validator ensuring every entry stores a JSON string."""
 
-    return bool(series.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all())
+    return _validate_json_series(series, allow_empty=allow_empty, optional=False)
 
 
 def validate_optional_json_series(series: pd.Series, *, allow_empty: bool = False) -> bool:
     """Vectorized validator ensuring optional JSON columns contain valid payloads when present."""
 
-    non_null = series.dropna()
-    if non_null.empty:
-        return True
-    return bool(
-        non_null.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all()
-    )
+    return _validate_json_series(series, allow_empty=allow_empty, optional=True)
 
 
 def is_activity_property_item(
