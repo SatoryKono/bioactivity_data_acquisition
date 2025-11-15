@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import hashlib
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.tools import get_project_root
+from bioetl.tools import get_project_root, hash_file
 
 __all__ = [
     "InventoryResult",
@@ -31,17 +30,6 @@ def _iter_markdown_files(root: Path) -> Iterable[Path]:
     for path in sorted(root.rglob("*.md")):
         if path.is_file():
             yield path
-
-
-def _sha256(path: Path) -> str:
-    """Compute the SHA-256 hash of the file at ``path``."""
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(64 * 1024), b""):
-            if not chunk:
-                break
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def collect_markdown_files(docs_root: Path | None = None) -> tuple[Path, ...]:
@@ -85,7 +73,7 @@ def write_inventory(
     with hashes_tmp.open("w", encoding="utf-8") as hashes_handle:
         for path in docs_files:
             relative = path.relative_to(project_root)
-            hashes_handle.write(f"{_sha256(path)}  {relative.as_posix()}\n")
+            hashes_handle.write(f"{hash_file(path)}  {relative.as_posix()}\n")
 
     inventory_tmp.replace(inventory_path)
     hashes_tmp.replace(hashes_path)

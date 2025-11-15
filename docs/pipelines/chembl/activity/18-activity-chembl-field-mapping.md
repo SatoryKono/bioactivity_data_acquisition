@@ -1091,7 +1091,9 @@ ______________________________________________________________________
 - Тип: `string` (nullable), должен быть валидным JSON массивом
 - Каждый элемент массива должен соответствовать структуре
   `ACTIVITY_PROPERTY_KEYS`
-- Валидация через функцию `_is_valid_activity_properties()`
+- Валидация через функцию `is_valid_activity_properties()`
+- Юнит-тесты `tests/bioetl/schemas/test_schema_helpers_extended.py` покрывают все ветви
+  проверки и Pandera-валидатор `activity_properties_validator`
 
 ______________________________________________________________________
 

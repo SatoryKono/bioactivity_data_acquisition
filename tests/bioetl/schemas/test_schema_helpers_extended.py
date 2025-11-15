@@ -12,8 +12,8 @@ from pandera import Column, DataFrameSchema
 from bioetl.schemas import SchemaDescriptor, SchemaRegistry, _split_identifier
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.chembl_activity_schema import (
-    _is_valid_activity_properties,
-    _is_valid_activity_property_item,
+    is_valid_activity_properties,
+    is_valid_activity_property_item,
 )
 from bioetl.schemas.schema_vocabulary_helper import (
     VOCAB_STORE_ENV_VAR,
@@ -31,7 +31,7 @@ def test_activity_property_item_validation_branches() -> None:
         "text_value": "note",
         "result_flag": True,
     }
-    assert _is_valid_activity_property_item(valid_item) is True
+    assert is_valid_activity_property_item(valid_item) is True
 
     replacements: list[tuple[str, object]] = [
         ("type", 123),
@@ -43,14 +43,14 @@ def test_activity_property_item_validation_branches() -> None:
     for key, replacement in replacements:
         bad: dict[str, object] = dict(valid_item)
         bad[key] = replacement
-        assert _is_valid_activity_property_item(bad) is False
+        assert is_valid_activity_property_item(bad) is False
 
     bad_flag = dict(valid_item, result_flag=2)
-    assert _is_valid_activity_property_item(bad_flag) is False
+    assert is_valid_activity_property_item(bad_flag) is False
 
     bad_keys = dict(valid_item)
     bad_keys.pop("type")
-    assert _is_valid_activity_property_item(bad_keys) is False
+    assert is_valid_activity_property_item(bad_keys) is False
 
 
 def test_activity_property_series_validator() -> None:
@@ -64,17 +64,17 @@ def test_activity_property_series_validator() -> None:
             "result_flag": True,
         }
     ]
-    assert _is_valid_activity_properties(None) is True
-    assert _is_valid_activity_properties(pd.NA) is True
-    assert _is_valid_activity_properties(float("nan")) is True
-    assert _is_valid_activity_properties("not-json") is False
-    assert _is_valid_activity_properties('"not list"') is False
+    assert is_valid_activity_properties(None) is True
+    assert is_valid_activity_properties(pd.NA) is True
+    assert is_valid_activity_properties(float("nan")) is True
+    assert is_valid_activity_properties("not-json") is False
+    assert is_valid_activity_properties('"not list"') is False
 
     invalid_item_payload = pd.Series([{"type": 1}]).to_json()
-    assert _is_valid_activity_properties(invalid_item_payload) is False
+    assert is_valid_activity_properties(invalid_item_payload) is False
 
     valid_payload_json = pd.Series(valid_payload).to_json()
-    assert _is_valid_activity_properties(valid_payload_json) is True
+    assert is_valid_activity_properties(valid_payload_json) is True
 
 
 def test_create_schema_order_validation() -> None:

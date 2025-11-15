@@ -9,6 +9,7 @@ from .descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from .normalize import RowMetadataChanges, add_row_metadata, normalize_identifiers
 
 __all__ = [
     "BatchExtractionContext",
@@ -16,5 +17,8 @@ __all__ = [
     "ChemblExtractionContext",
     "ChemblExtractionDescriptor",
     "ChemblPipelineBase",
+    "RowMetadataChanges",
+    "add_row_metadata",
+    "normalize_identifiers",
 ]
 

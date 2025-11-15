@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -52,4 +53,10 @@ def test_write_inventory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     assert result.inventory_path.exists()
     assert result.hashes_path.exists()
     assert "docs/a.md" in result.inventory_path.read_text(encoding="utf-8")
+
+    hashes_lines = result.hashes_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(hashes_lines) == 1
+    digest, recorded_path = hashes_lines[0].split(maxsplit=1)
+    assert recorded_path == "docs/a.md"
+    assert digest == hashlib.sha256(doc.read_bytes()).hexdigest()
 

@@ -10,7 +10,7 @@ from bioetl.config.document import DocumentSourceConfig
 from bioetl.config.models.io import IOConfig, IOInputConfig, IOOutputConfig
 from bioetl.config.models.logging import LoggingConfig
 from bioetl.config.models.runtime import RuntimeConfig
-from bioetl.config.models.source import SourceConfig
+from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.telemetry import TelemetryConfig
 from bioetl.config.target import TargetSourceConfig
 from bioetl.config.testitem import TestItemSourceConfig
@@ -162,3 +162,22 @@ def test_testitem_source_config_prefers_batch_size_field() -> None:
     result = TestItemSourceConfig.from_source_config(source)
 
     assert result.page_size == 180
+
+
+@pytest.mark.unit
+def test_source_parameters_contains_key_delegates_to_model_dump() -> None:
+    params = SourceParameters(alpha=1, beta="value")
+
+    assert SourceParameters.contains_key(params, "alpha") is True
+    assert SourceParameters.contains_key(params, "missing") is False
+    assert SourceParameters.contains_key(params, 123) is False
+
+
+@pytest.mark.unit
+def test_source_config_contains_uses_static_helper() -> None:
+    config = SourceConfig(enabled=False, description="demo")
+
+    assert "description" in config
+    assert "enabled" in config
+    assert "missing" not in config
+    assert 42 not in config
