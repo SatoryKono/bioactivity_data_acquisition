@@ -12,7 +12,7 @@ True
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol, TypeVar, runtime_checkable
 
 __all__ = [
     "PipelineCacheConfigProtocol",
@@ -28,7 +28,22 @@ __all__ = [
     "PipelineValidationConfigProtocol",
     "PipelineConfigProtocol",
     "SourceConfigProtocol",
+    "SupportsModelCopy",
 ]
+
+
+_SupportsModelCopyT = TypeVar("_SupportsModelCopyT", bound="SupportsModelCopy")
+
+
+class SupportsModelCopy(Protocol):
+    """Минимальный контракт, реализуемый pydantic-моделями с ``model_copy``."""
+
+    def model_copy(
+        self: _SupportsModelCopyT,
+        *,
+        update: Mapping[str, Any] | None = None,
+    ) -> _SupportsModelCopyT:
+        ...
 
 
 @runtime_checkable
@@ -120,22 +135,16 @@ class PipelineDeterminismSortingProtocol(Protocol):
 
 
 @runtime_checkable
-class PipelineDeterminismConfigProtocol(Protocol):
+class PipelineDeterminismConfigProtocol(SupportsModelCopy, Protocol):
     """Агрегированные настройки детерминизма."""
 
     environment: PipelineDeterminismEnvironmentProtocol
     hashing: PipelineDeterminismHashingProtocol
     sort: PipelineDeterminismSortingProtocol
-    def model_copy(
-        self,
-        *,
-        update: Mapping[str, Any] | None = None,
-    ) -> "PipelineDeterminismConfigProtocol":
-        ...
 
 
 @runtime_checkable
-class PipelineValidationConfigProtocol(Protocol):
+class PipelineValidationConfigProtocol(SupportsModelCopy, Protocol):
     """Ссылки на схемы и строгий режим валидации."""
 
     schema_in: str | None
@@ -146,12 +155,6 @@ class PipelineValidationConfigProtocol(Protocol):
     max_schema_migration_hops: int | None
     strict: bool
     coerce: bool
-    def model_copy(
-        self,
-        *,
-        update: Mapping[str, Any] | None = None,
-    ) -> "PipelineValidationConfigProtocol":
-        ...
 
 
 @runtime_checkable
@@ -162,7 +165,7 @@ class SourceConfigProtocol(Protocol):
 
 
 @runtime_checkable
-class PipelineConfigProtocol(Protocol):
+class PipelineConfigProtocol(SupportsModelCopy, Protocol):
     """Структурное представление, общее для лоадера и пайплайнов."""
 
     pipeline: PipelineMetadataProtocol
@@ -175,11 +178,5 @@ class PipelineConfigProtocol(Protocol):
     transform: PipelineTransformConfigProtocol
     sources: Mapping[str, SourceConfigProtocol]
     chembl: Mapping[str, Any] | None
-    def model_copy(
-        self,
-        *,
-        update: Mapping[str, Any] | None = None,
-    ) -> "PipelineConfigProtocol":
-        ...
 
 
