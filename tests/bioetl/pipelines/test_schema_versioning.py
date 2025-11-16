@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import Callable, Sequence
 
 import pandas as pd
 import pandera as pa
 import pytest
 from pandera import Column
 
+import bioetl.core.pipeline.base as pipeline_base_module
+import bioetl.schemas as schemas_module
+import bioetl.schemas.versioning as schemas_versioning_module
 from bioetl.config.models.http import HTTPClientConfig, HTTPConfig
 from bioetl.config.models.models import (
     MaterializationConfig,
@@ -16,7 +19,7 @@ from bioetl.config.models.models import (
     PipelineMetadata,
     ValidationConfig,
 )
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 from bioetl.schemas import SchemaDescriptor, SchemaRegistry
 from bioetl.schemas.versioning import (
     SchemaMigration,
@@ -34,7 +37,7 @@ class MinimalPipeline(PipelineBase):
     def extract_all(self) -> pd.DataFrame:  # pragma: no cover - unused
         return pd.DataFrame()
 
-    def extract_by_ids(self, ids: list[str]) -> pd.DataFrame:  # pragma: no cover - unused
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:  # pragma: no cover - unused
         return pd.DataFrame()
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - unused
@@ -47,9 +50,9 @@ def schema_registry_setup(monkeypatch: pytest.MonkeyPatch) -> tuple[str, SchemaM
 
     schema_registry = SchemaRegistry()
     migration_registry = SchemaMigrationRegistry()
-    monkeypatch.setattr("bioetl.schemas.SCHEMA_REGISTRY", schema_registry)
-    monkeypatch.setattr("bioetl.schemas.versioning.SCHEMA_MIGRATION_REGISTRY", migration_registry)
-    monkeypatch.setattr("bioetl.pipelines.base.SCHEMA_MIGRATION_REGISTRY", migration_registry)
+    monkeypatch.setattr(schemas_module, "SCHEMA_REGISTRY", schema_registry)
+    monkeypatch.setattr(schemas_versioning_module, "SCHEMA_MIGRATION_REGISTRY", migration_registry)
+    monkeypatch.setattr(pipeline_base_module, "SCHEMA_MIGRATION_REGISTRY", migration_registry)
 
     schema_identifier = "tests.schemas.Versioned"
     schema = pa.DataFrameSchema(

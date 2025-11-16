@@ -16,22 +16,21 @@ from bioetl.config import AssaySourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import (
-    IdentifierRule,
-    StringRule,
-    normalize_identifier_columns,
-    normalize_string_columns,
-)
-from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.pipeline_contracts import get_out_schema
+from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
-from ..common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    build_standard_chembl_context,
 )
+from bioetl.chembl.common.handlers import (
+    make_dry_run_handler,
+    make_empty_frame_factory,
+)
+from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
@@ -125,9 +124,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
-        self._output_schema = self._output_schema_entry.schema
-        self._output_column_order = self._output_schema_entry.column_order
+        self.initialize_output_schema()
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -150,51 +147,64 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             log: BoundLogger,
         ) -> ChemblExtractionContext:
             assay_pipeline = _require_assay_pipeline(pipeline)
-            bundle = assay_pipeline.build_chembl_entity_bundle(
+
+            def pre_release_hook(
+                p: SelfChemblAssayPipeline,
+                sc: AssaySourceConfig,
+                entity_client: Any,
+            ) -> None:
+                assay_client = cast(ChemblAssayClient, entity_client)
+                assay_client.handshake(
+                    endpoint=sc.parameters.handshake_endpoint,
+                    enabled=sc.parameters.handshake_enabled,
+                )
+
+            def release_resolver(
+                p: SelfChemblAssayPipeline,
+                chembl_client: Any,
+                log: BoundLogger,
+                entity_client: Any | None,
+            ) -> str | None:
+                if entity_client is None:
+                    return None
+                assay_client = cast(ChemblAssayClient, entity_client)
+                log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
+                    chembl_release=assay_client.chembl_release,
+                    handshake_endpoint=source_config.parameters.handshake_endpoint,
+                    handshake_enabled=source_config.parameters.handshake_enabled,
+                )
+                return assay_client.chembl_release
+
+            def select_fields_resolver(
+                p: SelfChemblAssayPipeline,
+                sc: AssaySourceConfig,
+            ) -> Sequence[str] | None:
+                raw_source = p._resolve_source_config("chembl")
+                return p._resolve_select_fields(raw_source)
+
+            def extra_filters_factory(sc: AssaySourceConfig, _: SelfChemblAssayPipeline) -> dict[str, Any]:
+                return {"max_url_length": sc.max_url_length}
+
+            context = build_standard_chembl_context(
+                assay_pipeline,
                 "assay",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            if "chembl_assay_http" not in assay_pipeline._registered_clients:
-                assay_pipeline.register_client("chembl_assay_http", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            assay_client = cast(ChemblAssayClient, bundle.entity_client)
-            if assay_client is None:
-                msg = "Фабрика вернула пустой клиент для 'assay'"
-                raise RuntimeError(msg)
-
-            assay_client.handshake(
-                endpoint=source_config.parameters.handshake_endpoint,
-                enabled=source_config.parameters.handshake_enabled,
-            )
-            assay_pipeline._set_chembl_release(assay_client.chembl_release)
-            log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-                chembl_release=assay_pipeline.chembl_release,
-                handshake_endpoint=source_config.parameters.handshake_endpoint,
-                handshake_enabled=source_config.parameters.handshake_enabled,
+                source_config,
+                log,
+                entity_client_type=ChemblAssayClient,
+                release_resolver=release_resolver,
+                select_fields_resolver=select_fields_resolver,
+                extra_filters_factory=extra_filters_factory,
+                pre_release_hook=pre_release_hook,
             )
 
-            raw_source = assay_pipeline._resolve_source_config("chembl")
-            select_fields = assay_pipeline._resolve_select_fields(raw_source)
             log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
-                fields=select_fields,
-                fields_count=len(select_fields) if select_fields else 0,
+                fields=context.select_fields,
+                fields_count=len(context.select_fields) if context.select_fields else 0,
             )
 
-            context = ChemblExtractionContext(source_config, assay_client)
-            context.chembl_client = chembl_client
-            context.select_fields = (
-                tuple(select_fields) if select_fields else None
-            )
-            context.chembl_release = assay_pipeline.chembl_release
-            context.extra_filters = {"max_url_length": source_config.max_url_length}
             return context
 
-        def empty_frame(
-            _: SelfChemblAssayPipeline,
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"assay_chembl_id": pd.Series(dtype="string")})
+        empty_frame = make_empty_frame_factory("assay_chembl_id")
 
         def post_process(
             pipeline: SelfChemblAssayPipeline,
@@ -238,21 +248,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return df
 
-        def dry_run_handler(
-            pipeline: SelfChemblAssayPipeline,
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
+        def get_metadata(pipeline: SelfChemblAssayPipeline) -> Mapping[str, Any]:
             assay_pipeline = _require_assay_pipeline(pipeline)
+            return {"chembl_release": assay_pipeline.chembl_release}
 
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=assay_pipeline.chembl_release,
-            )
-            return pd.DataFrame()
+        dry_run_handler = make_dry_run_handler(
+            LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
+            get_metadata,
+        )
 
         def summary_extra(
             pipeline: SelfChemblAssayPipeline,
@@ -516,7 +519,7 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             ),
         ]
 
-        normalized_df, stats = normalize_identifier_columns(df, rules)
+        normalized_df, stats = normalize_identifiers(df, rules)
 
         if stats.has_changes:
             log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
@@ -628,27 +631,19 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     def _add_row_metadata(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Add required row metadata fields (row_subtype, row_index)."""
 
-        df = df.copy()
-        if df.empty:
-            return df
+        result, metadata = add_row_metadata(df, subtype="assay")
 
-        # Add row_subtype: "assay" for all rows
-        if "row_subtype" not in df.columns:
-            df["row_subtype"] = "assay"
+        if metadata.subtype_added:
             log.debug(LogEvents.ROW_SUBTYPE_ADDED, value="assay")
-        elif df["row_subtype"].isna().all():
-            df["row_subtype"] = "assay"
+        elif metadata.subtype_filled:
             log.debug(LogEvents.ROW_SUBTYPE_FILLED, value="assay")
 
-        # Add row_index: sequential index starting from 0
-        if "row_index" not in df.columns:
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(df))
-        elif df["row_index"].isna().all():
-            df["row_index"] = range(len(df))
-            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(df))
+        if metadata.index_added:
+            log.debug(LogEvents.ROW_INDEX_ADDED, count=len(result))
+        elif metadata.index_filled:
+            log.debug(LogEvents.ROW_INDEX_FILLED, count=len(result))
 
-        return df
+        return result
 
     def _normalize_data_types(self, df: pd.DataFrame, schema: Any, log: Any) -> pd.DataFrame:
         """Convert data types according to the registered output schema.

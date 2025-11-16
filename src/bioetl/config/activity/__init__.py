@@ -8,6 +8,7 @@ from typing import Any
 from pydantic import ConfigDict, Field, PositiveInt, model_validator
 
 from bioetl.clients.base import normalize_select_fields
+
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
 from ..utils import coerce_max_url_length
@@ -83,8 +84,8 @@ class ActivitySourceConfig(SourceConfig[ActivitySourceParameters]):
         ActivitySourceConfig
             Self with enforced limits.
         """
-        if self.batch_size > 25:
-            self.batch_size = 25
+        if self.batch_size is not None and self.batch_size > 200:
+            self.batch_size = 200
         if self.max_url_length > 2000:
             self.max_url_length = 2000
         return self
@@ -93,7 +94,7 @@ class ActivitySourceConfig(SourceConfig[ActivitySourceParameters]):
     def _build_payload(
         cls,
         *,
-        config: SourceConfig,
+        config: SourceConfig[ActivitySourceParameters],
         parameters: ActivitySourceParameters,
     ) -> dict[str, Any]:
         """Extend the base payload with activity-specific fields."""

@@ -7,13 +7,12 @@ from typing import Any
 
 import pandas as pd
 import pandera as pa
+from functools import partial
+
 from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
-from bioetl.schemas._validators import (
-    validate_json_series,
-    validate_optional_json_series,
-)
+from bioetl.schemas._validators import validate_json_series
 from bioetl.schemas.base_abstract_schema import create_schema
 from bioetl.schemas.common_column_factory import SchemaColumnFactory
 from bioetl.schemas.common_schema import HTTP_URL_PATTERN
@@ -111,7 +110,7 @@ columns: dict[str, Column] = {
     ),  # type: ignore[assignment]
     "pagination_meta": Column(
         pa.String,  # type: ignore[arg-type]
-        checks=[Check(validate_optional_json_series, element_wise=False)],
+        checks=[Check(partial(validate_json_series, optional=True), element_wise=False)],
         nullable=True,
     ),  # type: ignore[assignment]
     "request_started_at": Column(

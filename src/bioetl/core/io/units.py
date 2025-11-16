@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Sequence
+from collections.abc import Callable, Sequence
 
 import pandas as pd
 
@@ -25,13 +25,23 @@ class QCUnits:
     def for_units(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Return value distributions for all columns ending with ``*_units``."""
 
-        return cls._for_suffixes(df, column_suffixes=cls.UNITS_SUFFIXES)
+        return cls._from_dataframe(
+            df,
+            match=lambda column: any(
+                column.endswith(suffix) for suffix in cls.UNITS_SUFFIXES
+            ),
+        )
 
     @classmethod
     def for_relation(cls, df: pd.DataFrame) -> CategoricalDistribution:
         """Return value distributions for all columns ending with ``*_relation``."""
 
-        return cls._for_suffixes(df, column_suffixes=cls.RELATION_SUFFIXES)
+        return cls._from_dataframe(
+            df,
+            match=lambda column: any(
+                column.endswith(suffix) for suffix in cls.RELATION_SUFFIXES
+            ),
+        )
 
     @classmethod
     def for_suffixes(
@@ -39,18 +49,28 @@ class QCUnits:
     ) -> CategoricalDistribution:
         """Return value distributions for the provided ``column_suffixes``."""
 
-        return cls._for_suffixes(df, column_suffixes=column_suffixes)
+        suffixes: tuple[str, ...] = tuple(column_suffixes)
+        return cls._from_dataframe(
+            df,
+            match=lambda column: any(column.endswith(suffix) for suffix in suffixes),
+        )
 
     @classmethod
-    def _for_suffixes(
+    def _from_dataframe(
         cls,
         df: pd.DataFrame,
         *,
-        column_suffixes: Sequence[str],
+        match: Callable[[str], bool],
     ) -> CategoricalDistribution:
+        matched = [column for column in df.columns if match(column)]
+        if not matched:
+            return {}
+        # Use the matched column names as suffixes to benefit from the deterministic
+        # ordering and aggregation implemented in ``compute_categorical_distributions``.
+        suffixes = tuple(dict.fromkeys(matched))
         return compute_categorical_distributions(
             df,
-            column_suffixes=column_suffixes,
+            column_suffixes=suffixes,
             top_n=cls.TOP_N,
             ratio_precision=cls.RATIO_PRECISION,
             other_bucket_label=cls.OTHER_BUCKET,

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import pandas as pd
 
 from bioetl.config.models.models import CLIConfig
+from bioetl.config.runtime import QCReportRuntimeOptions
 
 class WriteResult:
     dataset: Path
@@ -84,6 +85,9 @@ class PipelineBase:
         extended: bool = ...,
         include_correlation: bool | None = ...,
         include_qc_metrics: bool | None = ...,
+        qc_reports: QCReportRuntimeOptions | None = ...,
+        qc_thresholds: Mapping[str, float] | None = ...,
+        fail_on_qc_violation: bool | None = ...,
         **kwargs: Any,
     ) -> RunResult: ...
 

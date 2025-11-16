@@ -15,7 +15,6 @@ __all__ = [
     "RELATIONS",
     "is_json_string",
     "validate_json_series",
-    "validate_optional_json_series",
     "is_activity_property_item",
     "validate_activity_properties",
     "validate_membership_series",
@@ -41,21 +40,22 @@ def is_json_string(value: object, *, allow_empty: bool = False) -> bool:
     return True
 
 
-def validate_json_series(series: pd.Series, *, allow_empty: bool = False) -> bool:
-    """Vectorized validator ensuring every entry stores a JSON string."""
+def validate_json_series(
+    series: pd.Series,
+    *,
+    allow_empty: bool = False,
+    optional: bool = False,
+) -> bool:
+    """Vectorized validator ensuring entries store JSON strings.
 
-    return bool(series.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all())
+    When ``optional`` is set to ``True`` the validator ignores missing values
+    and accepts empty columns.
+    """
 
-
-def validate_optional_json_series(series: pd.Series, *, allow_empty: bool = False) -> bool:
-    """Vectorized validator ensuring optional JSON columns contain valid payloads when present."""
-
-    non_null = series.dropna()
-    if non_null.empty:
+    candidate = series.dropna() if optional else series
+    if optional and candidate.empty:
         return True
-    return bool(
-        non_null.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all()
-    )
+    return bool(candidate.map(lambda value: is_json_string(value, allow_empty=allow_empty)).all())
 
 
 def is_activity_property_item(

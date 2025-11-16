@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from structlog.stdlib import BoundLogger
 
@@ -21,6 +21,9 @@ _DEFAULT_ITEMS_KEYS: tuple[str, ...] = (
     "targets",
     "testitems",
     "molecules",
+    "assay_class_maps",
+    "assay_classifications",
+    "assay_parameters",
     "data",
     "items",
     "results",
@@ -70,12 +73,60 @@ class Paginator:
     ) -> Iterator[PageResult]:
         """Yield :class:`PageResult` objects for the provided endpoint."""
 
-        next_endpoint = endpoint
+        next_endpoint: str | None = endpoint
         emitted = 0
         pending_params = self._prepare_initial_params(params, page_size)
         page_index = 0
 
         while next_endpoint:
+            # Extract params from URL if present (for subsequent pages from next links)
+            # Always extract params from next_endpoint URL for pages after the first one
+            if page_index > 0:
+                # Check if next_endpoint contains query string
+                parsed = urlparse(next_endpoint)
+                if parsed.query:
+                    # Check if we need to override limit with page_size
+                    # Only override if page_size is specified and limit exists in URL
+                    query_params = parse_qs(parsed.query, keep_blank_values=True)
+                    has_limit_in_url = (
+                        self._limit_param_name
+                        and self._limit_param_name in query_params
+                    )
+                    needs_limit_override = (
+                        has_limit_in_url
+                        and self._limit_param_name
+                        and page_size is not None
+                        and page_size > 0
+                    )
+                    
+                    if needs_limit_override:
+                        # Extract and update params from URL to override limit
+                        extracted_params = self._extract_and_update_params_from_url(next_endpoint, page_size)
+                        if extracted_params is not None:
+                            pending_params = extracted_params
+                            self._log.debug(
+                                "Extracted params from next_endpoint URL to override limit",
+                                next_endpoint=next_endpoint,
+                                extracted_params=pending_params,
+                                page_size=page_size,
+                            )
+                        # Remove query string from endpoint since we're passing params separately
+                        next_endpoint = parsed.path or next_endpoint.split("?")[0]
+                    else:
+                        # Keep query string in endpoint, don't extract params
+                        # This preserves the original next link as-is
+                        pending_params = None
+                        self._log.debug(
+                            "Keeping query string in endpoint for next link",
+                            next_endpoint=next_endpoint,
+                        )
+                elif page_size is not None and page_size > 0:
+                    # No query string in URL, but we still need to set limit
+                    if pending_params is None:
+                        pending_params = {}
+                    if self._limit_param_name:
+                        pending_params[self._limit_param_name] = page_size
+
             normalized_endpoint = self._normalize_endpoint(next_endpoint)
             payload, response = self._session.get_payload(
                 normalized_endpoint,
@@ -90,7 +141,8 @@ class Paginator:
                     page_items = page_items[:remaining]
             page_length = len(page_items)
             emitted += page_length
-            params_snapshot = pending_params.copy() if pending_params is not None and page_index == 0 else None
+            # Log params for all pages to verify limit override is working
+            params_snapshot = pending_params.copy() if pending_params is not None else None
             log_kwargs: dict[str, Any] = {
                 "endpoint": normalized_endpoint,
                 "page_index": page_index,
@@ -111,7 +163,6 @@ class Paginator:
                 params=pending_params.copy() if pending_params is not None else None,
             )
 
-            pending_params = None
             page_index += 1
             next_endpoint = self._resolve_next_link(payload)
             self._log.debug(
@@ -120,6 +171,9 @@ class Paginator:
                 next_endpoint=next_endpoint,
                 page_index=page_index,
             )
+
+            # Reset pending_params for next iteration (will be extracted from next_endpoint URL if present)
+            pending_params = None
 
             if limit is not None and emitted >= limit:
                 break
@@ -157,8 +211,9 @@ class Paginator:
             return None
 
         prepared = dict(params)
+        # Always override limit with page_size if specified (don't use setdefault)
         if self._limit_param_name and page_size is not None and page_size > 0:
-            prepared.setdefault(self._limit_param_name, page_size)
+            prepared[self._limit_param_name] = page_size
         return prepared
 
     def _extract_items(
@@ -249,4 +304,37 @@ class Paginator:
         if parsed.query:
             return f"{relative}?{parsed.query}"
         return relative
+
+    def _extract_and_update_params_from_url(
+        self,
+        endpoint: str,
+        page_size: int | None,
+    ) -> dict[str, Any] | None:
+        """Extract query parameters from endpoint URL and update limit to match page_size.
+
+        This ensures that when ChEMBL API returns a next link with limit=25,
+        we override it with our desired page_size (e.g., 200).
+        """
+        parsed = urlparse(endpoint)
+        if not parsed.query:
+            # No query params in URL, return page_size as limit if specified
+            if self._limit_param_name and page_size is not None and page_size > 0:
+                return {self._limit_param_name: page_size}
+            return None
+
+        # Parse query string
+        query_params = parse_qs(parsed.query, keep_blank_values=True)
+        # Convert lists to single values (parse_qs returns lists)
+        params: dict[str, Any] = {}
+        for key, value_list in query_params.items():
+            if value_list and len(value_list) == 1:
+                params[key] = value_list[0]
+            elif value_list:
+                params[key] = value_list
+
+        # Override limit with page_size if specified
+        if self._limit_param_name and page_size is not None and page_size > 0:
+            params[self._limit_param_name] = page_size
+
+        return params if params else None
 

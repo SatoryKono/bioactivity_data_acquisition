@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
+from bioetl.clients.client_chembl_entity_base import ChemblEntityClientProtocol
 from bioetl.core.http.api_client import UnifiedAPIClient
 
 
@@ -238,3 +239,83 @@ class TestChemblClient:
 
         # Should call handshake (which calls get) and then paginate
         assert mock_api_client.get.call_count >= 1
+
+    def test_fetch_entities_helper_materializes_iterable(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """The helper must materialize the incoming iterable before delegating."""
+
+        client = ChemblClient(mock_api_client)
+        entity = MagicMock(spec=ChemblEntityClientProtocol)
+        expected_result = object()
+        entity.fetch_by_ids.return_value = expected_result
+
+        ids_iterable = (identifier for identifier in ["CHEMBL1", "CHEMBL2"])
+        fields = ("field_a", "field_b")
+        page_limit = 5
+
+        client._assay_entity = entity  # type: ignore[assignment]
+
+        result = client._fetch_entities(
+            "assay",
+            ids_iterable,
+            fields=fields,
+            page_limit=page_limit,
+        )
+
+        entity.fetch_by_ids.assert_called_once_with(
+            ("CHEMBL1", "CHEMBL2"),
+            fields=fields,
+            page_limit=page_limit,
+        )
+        assert result is expected_result
+
+    def test_fetch_assays_by_ids_delegates_to_helper(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Entity-specific wrapper should delegate to the shared helper."""
+
+        client = ChemblClient(mock_api_client)
+        sentinel = object()
+        client._fetch_entities = MagicMock(return_value=sentinel)  # type: ignore[method-assign]
+
+        result = client.fetch_assays_by_ids(["CHEMBL1"], fields=None, page_limit=None)
+
+        client._fetch_entities.assert_called_once_with(
+            "assay",
+            ["CHEMBL1"],
+            fields=None,
+            page_limit=None,
+        )
+        assert result is sentinel
+
+    def test_fetch_molecules_by_ids_delegates_to_helper(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Molecule wrapper should delegate to the shared helper."""
+
+        client = ChemblClient(mock_api_client)
+        sentinel = object()
+        client._fetch_entities = MagicMock(return_value=sentinel)  # type: ignore[method-assign]
+
+        result = client.fetch_molecules_by_ids(["CHEMBL123"], fields=None, page_limit=3)
+
+        client._fetch_entities.assert_called_once_with(
+            "molecule",
+            ["CHEMBL123"],
+            fields=None,
+            page_limit=3,
+        )
+        assert result is sentinel
+
+    def test_fetch_entities_unknown_entity_raises(
+        self, mock_api_client: MagicMock
+    ) -> None:
+        """Unknown entity names should surface a descriptive AttributeError."""
+
+        client = ChemblClient(mock_api_client)
+
+        with pytest.raises(AttributeError) as excinfo:
+            client._fetch_entities("missing", ["CHEMBL1"])
+
+        assert "missing" in str(excinfo.value)

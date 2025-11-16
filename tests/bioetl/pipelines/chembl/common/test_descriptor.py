@@ -8,7 +8,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.chembl.common.descriptor import (
+from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,

@@ -5,14 +5,14 @@ from __future__ import annotations
 import math
 import numbers
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.entities.client_activity import ChemblActivityClient
-from bioetl.core.logging import LogEvents
-from bioetl.core.logging import UnifiedLogger
+from bioetl.core.logging import LogEvents, UnifiedLogger
+
+if TYPE_CHECKING:
+    from bioetl.clients.client_chembl import ChemblClient
 
 __all__ = ["join_activity_with_molecule"]
 
@@ -59,7 +59,7 @@ def _canonical_record_id(value: Any) -> str:
 
 def join_activity_with_molecule(
     activity_ids: Sequence[str] | pd.DataFrame,
-    client: ChemblClient,
+    client: "ChemblClient",
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
     """
@@ -131,11 +131,13 @@ def join_activity_with_molecule(
 
 def _fetch_activity_by_ids(
     activity_ids: Sequence[str],
-    client: ChemblClient,
+    client: "ChemblClient",
     cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
     """Load activity records from the API for the provided activity_id list."""
+    from bioetl.clients.entities.client_activity import ChemblActivityClient
+
     fields = ["activity_id", "record_id", "molecule_chembl_id"]
     batch_size = cfg.get("batch_size", 25)
 
@@ -171,7 +173,7 @@ def _fetch_activity_by_ids(
 
 def _fetch_compound_records_by_ids(
     record_ids: list[str],
-    client: ChemblClient,
+    client: "ChemblClient",
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
@@ -268,7 +270,7 @@ def _fetch_compound_records_by_ids(
 
 def _fetch_molecules_for_join(
     molecule_ids: list[str],
-    client: ChemblClient,
+    client: "ChemblClient",
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
@@ -279,11 +281,22 @@ def _fetch_molecules_for_join(
     fields = ["molecule_chembl_id", "pref_name", "molecule_synonyms"]
     page_limit = cfg.get("page_limit", 1000)
 
-    return client.fetch_molecules_by_ids(
+    df = client.fetch_molecules_by_ids(
         ids=molecule_ids,
         fields=list(fields),
         page_limit=page_limit,
     )
+
+    result: dict[str, dict[str, Any]] = {}
+    if not df.empty and "molecule_chembl_id" in df.columns:
+        for _, row in df.iterrows():
+            mol_id = row.get("molecule_chembl_id")
+            if mol_id and not pd.isna(mol_id):
+                mol_id_str = str(mol_id).strip()
+                if mol_id_str:
+                    result[mol_id_str] = dict(row)
+
+    return result
 
 
 def _perform_joins(

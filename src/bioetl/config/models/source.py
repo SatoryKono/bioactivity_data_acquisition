@@ -34,11 +34,17 @@ class SourceParameters(BaseModel):
 
         return {str(key): value for key, value in params.items()}
 
-    def __contains__(self, item: object) -> bool:
-        """Allow membership checks for backwards compatibility with mappings."""
+    @staticmethod
+    def contains_key(model: BaseModel, item: object) -> bool:
+        """Return True when ``item`` references a serialized field on ``model``."""
+
         if not isinstance(item, str):
             return False
-        return item in self.model_dump()
+        return item in model.model_dump()
+
+    def __contains__(self, item: object) -> bool:
+        """Allow membership checks for backwards compatibility with mappings."""
+        return self.contains_key(self, item)
 
 
 class SourceConfig(BaseModel, Generic[ParametersT]):
@@ -187,9 +193,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
 
     def __contains__(self, item: object) -> bool:
         """Enable mapping-like membership checks for compatibility."""
-        if not isinstance(item, str):
-            return False
-        return item in self.model_dump()
+        return SourceParameters.contains_key(self, item)
 
     def resolve_effective_batch_size(
         self,
@@ -212,3 +216,26 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
         if hard_cap is not None:
             candidate = min(candidate, hard_cap)
         return max(candidate, 1)
+
+
+def enforce_positive_int_cap(
+    config: "SourceConfig[Any]",
+    *,
+    field: str,
+    cap: int,
+) -> None:
+    """Ensure that a positive integer field does not exceed the provided cap.
+
+    Parameters
+    ----------
+    config
+        Source configuration instance whose field should be clamped.
+    field
+        Name of the model field to clamp.
+    cap
+        Maximum allowed value for the field.
+    """
+
+    current = getattr(config, field, None)
+    if current is None or int(current) > cap:
+        setattr(config, field, cap)

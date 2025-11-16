@@ -11,6 +11,13 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.config.environment import load_environment_settings as _load_environment_settings
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.pipeline import PipelineBase
+from bioetl.core.pipeline.errors import (
+    PipelineError,
+    PipelineHTTPError,
+    PipelineNetworkError,
+    PipelineTimeoutError,
+)
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import (
     CLI_ERROR_CONFIG,
@@ -29,13 +36,6 @@ from bioetl.core.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,
     validate_output_dir,
-)
-from bioetl.pipelines.base import PipelineBase
-from bioetl.pipelines.errors import (
-    PipelineError,
-    PipelineHTTPError,
-    PipelineNetworkError,
-    PipelineTimeoutError,
 )
 
 load_environment_settings = _load_environment_settings
@@ -60,6 +60,7 @@ class CommonOptions:
         fail_on_schema_drift: bool = True,
         validate_columns: bool = True,
         golden: Path | None = None,
+        input_file: Path | None = None,
     ) -> None:
         """Capture shared pipeline CLI options in a normalized container."""
         self.config = config
@@ -73,6 +74,7 @@ class CommonOptions:
         self.fail_on_schema_drift = fail_on_schema_drift
         self.validate_columns = validate_columns
         self.golden = golden
+        self.input_file = input_file
 
 
 class PipelineCliCommand(CliCommandBase):
@@ -273,16 +275,20 @@ def create_pipeline_command(
     pipeline_module_name = pipeline_class.__module__
     pipeline_class_name = pipeline_class.__name__
 
+    default_config = getattr(command_config, "default_config_path", None)
+    command_name = getattr(command_config, "name", pipeline_class.__name__)
+    default_output_dir = Path("data/output") / command_name
+
     def command(
         config: Path = typer.Option(
-            ...,
+            default_config if default_config is not None else ...,
             "--config",
             "-c",
             help="Path to configuration file",
             exists=False,
         ),
         output_dir: Path = typer.Option(
-            ...,
+            default_output_dir,
             "--output-dir",
             "-o",
             help="Output directory for pipeline artifacts",

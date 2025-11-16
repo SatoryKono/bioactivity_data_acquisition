@@ -20,7 +20,7 @@ unprocessed data from the source.
 
 ```python
 import pandas as pd
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 class MyPipeline(PipelineBase):

@@ -36,9 +36,10 @@ bioetl list
 
 Обязательные флаги и параметры описаны в
 `python -m bioetl.cli.cli_app --help`. Подробности см. в
-[`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и
-руководстве по конфигурации
-[`docs/configs/README.md`](docs/configs/README.md).
+[`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и руководстве по
+конфигурациям:
+[`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
+[`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
 ## Топология репозитория
 
@@ -226,7 +227,9 @@ detect-secrets scan src tests configs scripts docs README.md \
   `python scripts/run_test_report.py --output-root audit_results/test-reports`.
 
 Полный перечень служебных утилит с артефактами и примерами доступен в
-[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md).
+[`docs/cli/03-cli-utilities.md`](docs/cli/03-cli-utilities.md). Матрица
+миграции из прежнего пространства `bioetl.cli.tools` приведена в
+`artifacts/cli_tools_migration.csv`.
 
 ## Architecture Decision Records (ADR)
 

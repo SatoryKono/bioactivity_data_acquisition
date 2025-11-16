@@ -6,11 +6,11 @@ import pandas as pd
 import pytest
 
 from bioetl.qc.plan import (
-    QCExecutionContext,
-    QCPlan,
-    QCMetricsExecutor,
-    QCMetricResult,
     QC_METRIC_REGISTRY,
+    QCExecutionContext,
+    QCMetricResult,
+    QCMetricsExecutor,
+    QCPlan,
     register_qc_metric,
 )
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report

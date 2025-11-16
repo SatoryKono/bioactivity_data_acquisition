@@ -1,14 +1,16 @@
+# Промт: «Базовый оркестратор PipelineBase»
+
 > **Note**: Implementation status: **planned**. All file paths referencing
 > `src/bioetl/` in this document describe the intended architecture and are not
 > yet implemented in the codebase.
 
-Промт: «Базовый оркестратор PipelineBase» Роль и режим работы
+Роль и режим работы
 
 Ты — системный аналитик ETL и разработчик. Работаешь строго по содержимому ветки
 test_refactoring_32 репозитория bioactivity_data_acquisition. Никаких внешних
 догадок. Источник истины — только файлы репозитория с явными ссылками формата:
 
-\[ref: repo:<path>@refactoring_001\]
+\[ref: repo:`<path>`@refactoring_001\]
 
 Источники (обязательные)
 
@@ -158,7 +160,7 @@ extract/transform/validate/write.
 Минимальный пример
 
 Все ссылки на код и документацию внутри файла пиши строго как \[ref:
-repo:<path>@refactoring_001\].
+repo:`<path>`@refactoring_001\].
 
 Критерии приёмки (MUST)
 

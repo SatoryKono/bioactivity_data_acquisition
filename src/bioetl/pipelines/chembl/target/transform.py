@@ -3,46 +3,73 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
-from typing import Any, TypeGuard, cast
+from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
+from bioetl.core.utils.typechecks import is_dict
 
 __all__ = [
-    "serialize_target_arrays",
     "extract_and_serialize_component_synonyms",
     "flatten_target_components",
+    "serialize_target_arrays",
+    "transform",
 ]
 
 
 JsonDict = dict[str, Any]
 
 
-def _is_json_dict(value: Any) -> TypeGuard[JsonDict]:
-    return isinstance(value, dict)
-
-
 def _collect_dicts(source: Any) -> list[JsonDict]:
     """Collect dictionary entries from arbitrary source keeping order."""
 
     result: list[JsonDict] = []
-    if _is_json_dict(source):
+    if is_dict(source):
         result.append(source)
         return result
 
     if is_non_string_iterable(source):
         for element in source:
             element_any: Any = element
-            if _is_json_dict(element_any):
+            if is_dict(element_any):
                 result.append(element_any)
 
     return result
 
+def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
+    """Return a deterministically ordered copy of ``items``.
+
+    The ChEMBL API does not guarantee ordering for nested arrays such as
+    ``target_components`` or ``cross_references``.  When these arrays are
+    serialized into pipe-delimited payloads even a different order of the same
+    logical records will change the resulting bytes and therefore the downstream
+    ``hash_row`` value.  Golden snapshot tests expect byte-for-byte identical
+    artefacts, so we sort nested dictionaries using their canonical JSON
+    representation to stabilize the serialization.
+    """
+
+    if not items:
+        return []
+
+    normalized: list[JsonDict] = []
+    for entry in items:
+        normalized_entry: JsonDict = dict(entry)
+        for key, value in list(normalized_entry.items()):
+            if isinstance(value, list):
+                nested_dicts = _collect_dicts(value)
+                if nested_dicts:
+                    normalized_entry[key] = _canonicalize_dicts(nested_dicts)
+        normalized.append(normalized_entry)
+
+    def _sort_key(entry: JsonDict) -> str:
+        return json.dumps(entry, ensure_ascii=False, sort_keys=True)
+
+    return sorted(normalized, key=_sort_key)
 
 def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested target_components data into flat columns.
@@ -80,6 +107,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Extract target_components
     comps_raw: Any = rec.get("target_components") or []
     comps: list[dict[str, Any]] = _collect_dicts(comps_raw)
+    comps = _canonicalize_dicts(comps)
 
     # Extract UniProt accessions
     accessions: list[str] = []
@@ -112,7 +140,10 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
 
     # Serialize target_component_synonyms
     if all_synonyms:
-        result["target_component_synonyms__flat"] = header_rows_serialize(all_synonyms)
+        canonical_synonyms = _canonicalize_dicts(all_synonyms)
+        result["target_component_synonyms__flat"] = header_rows_serialize(
+            canonical_synonyms
+        )
 
     # Serialize target_components
     if comps:
@@ -121,6 +152,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize cross_references from top-level
     xrefs_raw: Any = rec.get("cross_references") or []
     xrefs: list[dict[str, Any]] = _collect_dicts(xrefs_raw)
+    xrefs = _canonicalize_dicts(xrefs)    
     if xrefs:
         result["cross_references__flat"] = header_rows_serialize(xrefs)
 
@@ -246,3 +278,16 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
             df = df.drop(columns=[col])
 
     return df
+
+
+def transform(
+    config: PipelineConfig,
+    run_id: str,
+    df: pd.DataFrame,
+) -> pd.DataFrame:
+    """Invoke the target pipeline transform stage via the pipeline class."""
+
+    from .run import ChemblTargetPipeline
+
+    pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
+    return pipeline.transform(df)

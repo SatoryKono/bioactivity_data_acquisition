@@ -11,7 +11,11 @@ from typing import Any
 from bioetl.core.utils.vocab_store import (
     VocabStoreError,
     clear_vocab_store_cache,
+)
+from bioetl.core.utils.vocab_store import (
     get_ids as _core_get_ids,
+)
+from bioetl.core.utils.vocab_store import (
     load_vocab_store as _core_load_vocab_store,
 )
 

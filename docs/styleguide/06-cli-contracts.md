@@ -65,7 +65,7 @@ def extract_activity(source: str, batch_size: int, output: Path) -> None:
 
 All inputs **MUST** be validated before processing:
 
-### Valid Examples
+### Valid Examples — Exit codes
 
 ```python
 from pathlib import Path
@@ -101,7 +101,7 @@ CLI commands **MUST** use standardized exit codes:
 - **2**: Configuration error (invalid config, missing files)
 - **3**: External dependency error (API failure, network error)
 
-### Valid Examples
+### Valid Examples — Error messages
 
 ```python
 import sys
@@ -148,7 +148,7 @@ if not config_path.exists():
     raise typer.Exit(code=2)
 ```
 
-### Invalid Examples
+### Invalid Examples — Error messages
 
 ```python
 # Invalid: unclear error message
@@ -217,7 +217,7 @@ def process_large_dataset(input_path: Path) -> None:
 
 ## Command Structure
 
-### Valid Examples
+### Valid Examples — Command structure
 
 ```python
 import typer
@@ -265,5 +265,5 @@ if __name__ == "__main__":
 ## References
 
 - CLI documentation: [`docs/cli/`](../cli/)
-- Typer documentation: https://typer.tiangolo.com/
+- Typer documentation: [typer.tiangolo.com](https://typer.tiangolo.com/)
 - Exit codes: [`docs/cli/02-cli-exit-codes.md`](../cli/02-cli-exit-codes.md)

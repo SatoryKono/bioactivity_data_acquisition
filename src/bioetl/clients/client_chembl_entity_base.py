@@ -4,18 +4,20 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol, cast
 from urllib.parse import urlencode
 
 import pandas as pd
 
 from bioetl.clients.base import normalize_select_fields
 from bioetl.clients.chembl_config import EntityConfig
+from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.logging import UnifiedLogger
 
 __all__ = [
     "ChemblClientProtocol",
     "ChemblEntityClientProtocol",
+    "ChemblEntityConfigMixin",
     "ChemblEntityFetcherBase",
     "EntityConfig",
 ]
@@ -70,7 +72,66 @@ class ChemblEntityClientProtocol(Protocol):
         ...
 
 
-class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
+class ChemblEntityConfigMixin:
+    """Mixin, предоставляющий единообразную инициализацию для ChEMBL-клиентов."""
+
+    ENTITY_CONFIG: ClassVar[EntityConfig | None] = None
+    DEFAULT_BATCH_SIZE: ClassVar[int | None] = None
+    DEFAULT_MAX_URL_LENGTH: ClassVar[int | None] = None
+    REQUIRE_MAX_URL_LENGTH: ClassVar[bool] = False
+
+    def __init__(
+        self,
+        chembl_client: ChemblClientProtocol,
+        *,
+        entity_config: EntityConfig | None = None,
+        batch_size: int | None = None,
+        max_url_length: int | None = None,
+    ) -> None:
+        config = entity_config or self.ENTITY_CONFIG
+        if config is None:
+            msg = (
+                "entity_config должен быть передан явным параметром "
+                "или определён как ENTITY_CONFIG в классе"
+            )
+            raise ValueError(msg)
+
+        resolved_batch_size = batch_size
+        if resolved_batch_size is None:
+            resolved_batch_size = self.DEFAULT_BATCH_SIZE
+        resolved_batch_size = self._normalize_batch_size(resolved_batch_size)
+
+        resolved_max_url_length = max_url_length
+        if resolved_max_url_length is None:
+            resolved_max_url_length = self.DEFAULT_MAX_URL_LENGTH
+        resolved_max_url_length = self._normalize_max_url_length(
+            resolved_max_url_length
+        )
+
+        if self.REQUIRE_MAX_URL_LENGTH and resolved_max_url_length is None:
+            msg = "max_url_length обязателен для данного клиента"
+            raise ValueError(msg)
+
+        if not isinstance(self, ChemblEntityFetcherBase):
+            msg = "ChemblEntityConfigMixin требует базу ChemblEntityFetcherBase в MRO"
+            raise TypeError(msg)
+
+        ChemblEntityFetcherBase.__init__(
+            cast(ChemblEntityFetcherBase, self),
+            chembl_client=chembl_client,
+            config=config,
+            batch_size=resolved_batch_size,
+            max_url_length=resolved_max_url_length,
+        )
+
+    def _normalize_batch_size(self, batch_size: int | None) -> int | None:
+        return batch_size
+
+    def _normalize_max_url_length(self, max_url_length: int | None) -> int | None:
+        return max_url_length
+
+
+class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     """Универсальный DataFrame-клиент ChEMBL с единым поведением."""
 
     _DEFAULT_PAGE_SIZE = 1000
@@ -85,7 +146,11 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         batch_size: int | None = None,
         max_url_length: int | None = None,
     ) -> None:
-        super(cls, instance).__init__(
+        if not isinstance(instance, ChemblEntityFetcherBase):
+            msg = "instance must inherit from ChemblEntityFetcherBase"
+            raise TypeError(msg)
+        ChemblEntityFetcherBase.__init__(
+            instance,
             chembl_client=chembl_client,
             config=entity_config,
             batch_size=batch_size,
@@ -100,6 +165,7 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         batch_size: int | None = None,
         max_url_length: int | None = None,
     ) -> None:
+        super().__init__()
         if batch_size is not None and batch_size <= 0:
             msg = "batch_size must be a positive integer"
             raise ValueError(msg)
@@ -112,7 +178,6 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         self._batch_size = batch_size or config.chunk_size
         self._chunk_limit = max(1, min(config.chunk_size, self._batch_size))
         self._max_url_length = max_url_length
-        self._chembl_release: str | None = None
         self._log = UnifiedLogger.get(__name__).bind(
             component="chembl_entity",
             entity=config.log_prefix,
@@ -125,10 +190,6 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
     @property
     def chembl_client(self) -> ChemblClientProtocol:
         return self._chembl_client
-
-    @property
-    def chembl_release(self) -> str | None:
-        return self._chembl_release
 
     @property
     def batch_size(self) -> int:
@@ -155,14 +216,12 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         payload = self._chembl_client.handshake(endpoint)
         release = payload.get("chembl_db_version") or payload.get("chembl_release")
         if isinstance(release, str):
-            normalized = release.strip()
-            if normalized:
-                self._chembl_release = normalized
+            self._set_chembl_release(release)
         self._log.info(
             f"{self._config.log_prefix}.handshake",
             handshake_endpoint=endpoint,
             handshake_enabled=enabled,
-            chembl_release=self._chembl_release,
+            chembl_release=self.chembl_release,
         )
         return payload
 

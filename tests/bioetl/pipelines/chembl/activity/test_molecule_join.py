@@ -53,36 +53,22 @@ class TestActivityMoleculeJoin:
         molecule_join_config: dict[str, Any],
     ) -> None:
         """Test that molecule join adds expected columns."""
-        # Mock API responses
-        mock_chembl_client.paginate = MagicMock(  # type: ignore[method-assign]
-            return_value=iter(
+        # Mock fetch_molecules_by_ids to return DataFrame
+        mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
+            return_value=pd.DataFrame(
                 [
                     {
-                        "activity_id": 1,
-                        "record_id": 100,
                         "molecule_chembl_id": "CHEMBL1",
+                        "pref_name": "Aspirin",
+                        "molecule_synonyms": [],
                     },
                     {
-                        "activity_id": 2,
-                        "record_id": 101,
                         "molecule_chembl_id": "CHEMBL2",
+                        "pref_name": "Ibuprofen",
+                        "molecule_synonyms": [],
                     },
                 ]
             )
-        )
-        mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL1": {
-                    "molecule_chembl_id": "CHEMBL1",
-                    "pref_name": "Aspirin",
-                    "molecule_synonyms": [],
-                },
-                "CHEMBL2": {
-                    "molecule_chembl_id": "CHEMBL2",
-                    "pref_name": "Ibuprofen",
-                    "molecule_synonyms": [],
-                },
-            }
         )
 
         # Mock compound_record response
@@ -146,13 +132,15 @@ class TestActivityMoleculeJoin:
 
         mock_chembl_client.paginate = MagicMock(side_effect=mock_paginate)  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL1": {
-                    "molecule_chembl_id": "CHEMBL1",
-                    "pref_name": "Aspirin",
-                    "molecule_synonyms": [],
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "molecule_chembl_id": "CHEMBL1",
+                        "pref_name": "Aspirin",
+                        "molecule_synonyms": [],
+                    },
+                ]
+            )
         )
 
         result = join_activity_with_molecule(
@@ -180,13 +168,15 @@ class TestActivityMoleculeJoin:
         """Test that molecule_name uses pref_name when available."""
         mock_chembl_client.paginate = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL1": {
-                    "molecule_chembl_id": "CHEMBL1",
-                    "pref_name": "Aspirin",
-                    "molecule_synonyms": [],
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "molecule_chembl_id": "CHEMBL1",
+                        "pref_name": "Aspirin",
+                        "molecule_synonyms": [],
+                    },
+                ]
+            )
         )
 
         result = join_activity_with_molecule(
@@ -214,16 +204,18 @@ class TestActivityMoleculeJoin:
         """Test that molecule_name falls back to first synonym when pref_name is missing."""
         mock_chembl_client.paginate = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL2": {
-                    "molecule_chembl_id": "CHEMBL2",
-                    "pref_name": None,
-                    "molecule_synonyms": [
-                        {"molecule_synonym": "Synonym1"},
-                        {"molecule_synonym": "Synonym2"},
-                    ],
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "molecule_chembl_id": "CHEMBL2",
+                        "pref_name": None,
+                        "molecule_synonyms": [
+                            {"molecule_synonym": "Synonym1"},
+                            {"molecule_synonym": "Synonym2"},
+                        ],
+                    },
+                ]
+            )
         )
 
         result = join_activity_with_molecule(
@@ -305,7 +297,7 @@ class TestActivityMoleculeJoin:
         """Test handling of missing molecules in API response."""
         mock_chembl_client.paginate = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={}  # Empty response.
+            return_value=pd.DataFrame()  # Empty DataFrame.
         )
 
         result = join_activity_with_molecule(
@@ -331,13 +323,15 @@ class TestActivityMoleculeJoin:
         """Test that output contains only required columns."""
         mock_chembl_client.paginate = MagicMock(return_value=iter([]))  # type: ignore[method-assign]
         mock_chembl_client.fetch_molecules_by_ids = MagicMock(  # type: ignore[method-assign]
-            return_value={
-                "CHEMBL1": {
-                    "molecule_chembl_id": "CHEMBL1",
-                    "pref_name": "Aspirin",
-                    "molecule_synonyms": [],
-                },
-            }
+            return_value=pd.DataFrame(
+                [
+                    {
+                        "molecule_chembl_id": "CHEMBL1",
+                        "pref_name": "Aspirin",
+                        "molecule_synonyms": [],
+                    },
+                ]
+            )
         )
 
         result = join_activity_with_molecule(

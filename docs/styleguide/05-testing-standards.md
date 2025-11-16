@@ -29,7 +29,7 @@ Tests **MUST** use pytest markers to categorize test types:
 - `@pytest.mark.api`: External API tests (use mocks, not real API)
 - `@pytest.mark.benchmark`: Performance benchmark tests
 
-### Valid Examples
+### Valid Examples — No network calls
 
 ```python
 import pytest
@@ -61,7 +61,7 @@ def test_normalize_id_property(chembl_id: str):
 Unit tests **MUST NOT** make actual network requests. Use mocks or fixtures
 instead:
 
-### Valid Examples
+### Valid Examples — Mocked HTTP calls
 
 ```python
 from unittest.mock import Mock, patch
@@ -85,7 +85,7 @@ def test_process_data_with_fixture(sample_data_fixture):
     assert len(result) > 0
 ```
 
-### Invalid Examples
+### Invalid Examples — No network calls
 
 ```python
 # Invalid: real network call in unit test
@@ -110,7 +110,7 @@ behavior:
    structural comparison for metadata).
 1. Update golden files only when intentional changes occur and document the reason.
 
-### Valid Examples
+### Valid Examples — Golden tests
 
 ```python
 import pytest
@@ -137,7 +137,7 @@ def test_activity_schema_golden(golden_dir: Path):
 
 Use Hypothesis for property-based testing of critical transformations:
 
-### Valid Examples
+### Valid Examples — Property-based tests
 
 ```python
 from hypothesis import given, strategies as st
@@ -167,7 +167,7 @@ Test functions **MUST** follow the pattern: `test_*`
 
 Test classes **MUST** follow the pattern: `Test*`
 
-### Valid Examples
+### Valid Examples — Naming
 
 ```python
 # File: tests/bioetl/unit/test_normalizers.py
@@ -235,7 +235,7 @@ def golden_dir(tmp_path: Path) -> Path:
 
 API clients **MUST** have contract tests to verify behavior:
 
-### Valid Examples
+### Valid Examples — Contract tests
 
 ```python
 @pytest.mark.api
@@ -276,4 +276,4 @@ Tests **MUST** pass in CI before PR merge:
 
 - Pytest configuration: `pyproject.toml` (`[tool.pytest.ini_options]`)
 - Coverage configuration: `pyproject.toml` (`[tool.coverage.*]`)
-- Hypothesis documentation: https://hypothesis.readthedocs.io/
+- Hypothesis documentation: [hypothesis.readthedocs.io](https://hypothesis.readthedocs.io/)

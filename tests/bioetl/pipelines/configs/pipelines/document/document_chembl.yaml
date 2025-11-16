@@ -1,0 +1,3 @@
+extends:
+  - ../../../../../../configs/pipelines/document/document_chembl.yaml
+

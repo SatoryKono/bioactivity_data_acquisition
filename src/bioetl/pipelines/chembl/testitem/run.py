@@ -5,11 +5,22 @@ from __future__ import annotations
 import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
+from bioetl.chembl.common.descriptor import (
+    BatchExtractionContext,
+    ChemblExtractionContext,
+    ChemblExtractionDescriptor,
+    ChemblPipelineBase,
+    build_standard_chembl_context,
+)
+from bioetl.chembl.common.handlers import (
+    make_dry_run_handler,
+    make_empty_frame_factory,
+)
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import TestItemSourceConfig
@@ -18,21 +29,10 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
-from bioetl.schemas import SchemaRegistryEntry
-from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
-from ..common.descriptor import (
-    BatchExtractionContext,
-    ChemblExtractionContext,
-    ChemblExtractionDescriptor,
-    ChemblPipelineBase,
-)
 from .transform import transform as transform_testitem
 
-SelfTestitemChemblPipeline = TypeVar(
-    "SelfTestitemChemblPipeline", bound="TestItemChemblPipeline"
-)
 
 class TestItemChemblPipeline(ChemblPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
@@ -44,14 +44,21 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
         self._chembl_db_version: str | None = None
-        self._output_schema_entry: SchemaRegistryEntry = get_out_schema(self.pipeline_code)
-        self._output_schema = self._output_schema_entry.schema
-        self._output_column_order = self._output_schema_entry.column_order
+        self.initialize_output_schema()
 
     @property
     def chembl_db_version(self) -> str | None:
         """Return the cached ChEMBL DB version captured during extraction."""
-        return self._chembl_db_version
+        return self._get_optional_string_value(
+            "_chembl_db_version", field_name="chembl_db_version"
+        )
+
+    def _set_chembl_db_version(self, value: str | None) -> None:
+        """Update the cached ChEMBL DB version used by the pipeline."""
+
+        self._set_optional_string_value(
+            "_chembl_db_version", value, field_name="chembl_db_version"
+        )
 
     def _fetch_chembl_release(
         self,
@@ -96,7 +103,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         except Exception as exc:  # noqa: BLE001
             bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
         finally:
-            self._chembl_db_version = release_value
+            self._set_chembl_db_version(release_value)
             self._set_api_version(api_version)
             self._set_chembl_release(release_value)
             self.record_extract_metadata(
@@ -110,71 +117,57 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(
-        self: SelfTestitemChemblPipeline,
-    ) -> ChemblExtractionDescriptor[SelfTestitemChemblPipeline]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
         """Return the descriptor powering testitem extraction."""
 
         def build_context(
-            pipeline: SelfTestitemChemblPipeline,
+            pipeline: "TestItemChemblPipeline",
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            bundle = pipeline.build_chembl_entity_bundle(
+            def extra_filters_factory(_: TestItemSourceConfig, p: "TestItemChemblPipeline") -> dict[str, Any]:
+                return {"api_version": p.api_version}
+
+            context = build_standard_chembl_context(
+                pipeline,
                 "testitem",
-                source_name="chembl",
-                source_config=source_config,
+                source_config,
+                log,
+                entity_client_type=ChemblTestitemClient,
+                release_resolver=lambda p, c, l, _: p._fetch_chembl_release(c, l),
+                extra_filters_factory=extra_filters_factory,
+                chembl_release_override=pipeline.chembl_db_version,
             )
-            if "chembl_testitem_http" not in pipeline._registered_clients:
-                pipeline.register_client("chembl_testitem_http", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            pipeline._fetch_chembl_release(chembl_client, log)
+
             select_fields = source_config.parameters.select_fields
             log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-            testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
-            if testitem_client is None:
-                msg = "Фабрика вернула пустой клиент для 'testitem'"
-                raise RuntimeError(msg)
-            return ChemblExtractionContext(
-                source_config=source_config,
-                iterator=testitem_client,
-                chembl_client=chembl_client,
-                select_fields=list(select_fields) if select_fields else None,
-                page_size=source_config.page_size,
-                chembl_release=pipeline._chembl_db_version,
-                metadata={"api_version": pipeline.api_version},
-            )
 
-        def empty_frame(_: SelfTestitemChemblPipeline, __: ChemblExtractionContext) -> pd.DataFrame:
-            return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+            return context
 
-        def dry_run_handler(
-            pipeline: SelfTestitemChemblPipeline,
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_db_version=pipeline._chembl_db_version,
-                api_version=pipeline.api_version,
-            )
-            return pd.DataFrame()
+        def get_metadata(pipeline: "TestItemChemblPipeline") -> Mapping[str, Any]:
+            return {
+                "chembl_db_version": pipeline.chembl_db_version,
+                "api_version": pipeline.api_version,
+            }
+
+        empty_frame = make_empty_frame_factory("molecule_chembl_id")
+        dry_run_handler = make_dry_run_handler(
+            LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            get_metadata,
+        )
 
         def summary_extra(
-            pipeline: SelfTestitemChemblPipeline,
+            pipeline: "TestItemChemblPipeline",
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             return {
-                "chembl_db_version": pipeline._chembl_db_version,
+                "chembl_db_version": pipeline.chembl_db_version,
                 "api_version": pipeline.api_version,
                 "limit": pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[SelfTestitemChemblPipeline](
+        descriptor = ChemblExtractionDescriptor["TestItemChemblPipeline"](
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,
@@ -189,6 +182,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
             hard_page_size_cap=None,
         )
+        return cast("ChemblExtractionDescriptor[ChemblPipelineBase]", descriptor)
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract molecule records by a specific list of IDs using batch extraction.
@@ -223,7 +217,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
-                chembl_db_version=self._chembl_db_version,
+                chembl_db_version=self.chembl_db_version,
                 api_version=self.api_version,
             )
             return pd.DataFrame()
@@ -272,7 +266,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
-            chembl_db_version=self._chembl_db_version,
+            chembl_db_version=self.chembl_db_version,
             api_version=self.api_version,
             limit=limit,
             batches=stats.batches,
@@ -315,7 +309,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         df = self._remove_extra_columns(df, log)
 
         # Add version fields
-        df["_chembl_db_version"] = self._chembl_db_version or ""
+        df["_chembl_db_version"] = self.chembl_db_version or ""
         df["_api_version"] = self.api_version or ""
 
         # Deduplication
@@ -348,8 +342,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         """Enrich metadata with ChEMBL versions."""
 
         enriched = dict(super().augment_metadata(metadata, df))
-        if self._chembl_db_version:
-            enriched["chembl_db_version"] = self._chembl_db_version
+        if self.chembl_db_version:
+            enriched["chembl_db_version"] = self.chembl_db_version
         if self.api_version:
             enriched["api_version"] = self.api_version
         return enriched

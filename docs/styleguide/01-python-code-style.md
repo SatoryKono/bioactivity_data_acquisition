@@ -86,7 +86,7 @@ annotations:
 - **Overrides**: Some third-party modules may ignore missing imports (see
   `pyproject.toml`)
 
-### Valid Examples
+### Valid Examples — Type annotations
 
 ```python
 from typing import Sequence
@@ -111,7 +111,7 @@ class Config:
     batch_size: int = 1000
 ```
 
-### Invalid Examples
+### Invalid Examples — Type annotations
 
 ```python
 # Invalid: missing return type
@@ -137,7 +137,7 @@ The following patterns **SHALL NOT** be used:
 1. **Hidden side effects**: Functions should be pure where possible
 1. **Function calls in argument defaults**: Use `None` and check inside function
 
-### Valid Examples
+### Valid Examples — Code quality
 
 ```python
 # Valid: named constant
@@ -158,7 +158,7 @@ class DataProcessor:
         self.transformer = transformer
 ```
 
-### Invalid Examples
+### Invalid Examples — Code quality
 
 ```python
 # Invalid: magic number

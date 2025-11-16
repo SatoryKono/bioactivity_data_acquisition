@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
-
-from bioetl.core.io.units import QCUnits
+from tests.support.qc_assertions import (
+    assert_qc_artifact_set,
+    assert_qc_metrics_payload_structure,
+    assert_quality_report_structure,
+)
 
 from bioetl.config.models.models import PipelineConfig
+from bioetl.core.io.units import QCUnits
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.qc.metrics import (
     compute_categorical_distributions,
@@ -15,11 +19,6 @@ from bioetl.qc.metrics import (
     compute_missingness,
 )
 from bioetl.qc.report import build_qc_metrics_payload, build_quality_report
-from tests.support.qc_assertions import (
-    assert_quality_report_structure,
-    assert_qc_artifact_set,
-    assert_qc_metrics_payload_structure,
-)
 
 
 @pytest.mark.qc
@@ -192,6 +191,47 @@ class TestQCMetrics:
         assert QCUnits.for_relation(df) == {
             "measurement_relation": generic["measurement_relation"]
         }
+
+    def test_qc_units_for_units_filters_suffixes(self) -> None:
+        """`QCUnits.for_units` must ignore columns without the expected suffix."""
+
+        df = pd.DataFrame(
+            {
+                "measurement_units": ["nM", "mM"],
+                "measurement": [1, 2],
+                "value_units": ["nM", "nM"],
+            }
+        )
+
+        result = QCUnits.for_units(df)
+
+        assert set(result.keys()) == {"measurement_units", "value_units"}
+
+    def test_qc_units_custom_match_lambda(self) -> None:
+        """Custom match functions should drive column selection deterministically."""
+
+        df = pd.DataFrame(
+            {
+                "value_units": ["nM", "mM"],
+                "value_relation": ["=", "<"],
+                "other": [1, 2],
+            }
+        )
+
+        result = QCUnits._from_dataframe(  # type: ignore[reportPrivateUsage]
+            df,
+            match=lambda column: column.startswith("value_"),
+        )
+
+        assert set(result.keys()) == {"value_units", "value_relation"}
+
+        empty = QCUnits._from_dataframe(  # type: ignore[reportPrivateUsage]
+            df,
+            match=lambda column: column.startswith("missing_"),
+        )
+
+        assert empty == {}
+
 
     def test_pipeline_qc_artifacts(
         self,

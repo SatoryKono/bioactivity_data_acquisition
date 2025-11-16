@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-
-import pytest
 from importlib import import_module
 from pathlib import Path
+
+import pytest
 
 
 def _iter_executable_lines(source: str) -> list[int]:

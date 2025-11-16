@@ -230,8 +230,9 @@ def enrich_with_document_terms(
             else:
                 payloads = []
             for payload in payloads:
-                record = dict(payload)
-                record.setdefault("document_chembl_id", doc_id)
+                record: dict[str, Any] = dict(payload)
+                if "document_chembl_id" not in record:
+                    record["document_chembl_id"] = doc_id
                 flattened_rows.append(record)
         records_df = pd.DataFrame.from_records(flattened_rows, columns=list(set(fields + ["document_chembl_id"])))
 

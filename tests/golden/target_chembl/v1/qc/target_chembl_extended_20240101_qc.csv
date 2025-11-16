@@ -1,0 +1,2 @@
+"row_count","duplicate_count","duplicate_ratio","deduplicated_count","total_missing_values","columns_with_missing","units_distribution","relation_distribution","iqr_outliers","business_key_fields"
+"3","0","0.000000","3","8","organism, pref_name, protein_class_desc, protein_class_list, protein_class_top, species_group_flag, target_type, tax_id","{}","{}","{}","['target_chembl_id']"

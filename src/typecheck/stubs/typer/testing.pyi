@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
-
 class Result(Protocol):
     exit_code: int
     stdout: str

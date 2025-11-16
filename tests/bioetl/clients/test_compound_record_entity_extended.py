@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
 from typing import Any, Iterator, Mapping, cast
 
 import pytest
@@ -199,7 +198,7 @@ def test_document_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
         fake_init,
     )
 
-    ChemblDocumentClient(chembl_client=SimpleNamespace(), batch_size=7, max_url_length=42)
+    ChemblDocumentClient(chembl_client=DummyChemblClient(), batch_size=7, max_url_length=42)
 
     config = captured["config"]
     assert config.endpoint == "/document.json"
@@ -228,7 +227,7 @@ def test_testitem_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
         fake_init,
     )
 
-    ChemblTestitemClient(chembl_client=SimpleNamespace(), batch_size=11, max_url_length=None)
+    ChemblTestitemClient(chembl_client=DummyChemblClient(), batch_size=11, max_url_length=None)
 
     config = captured["config"]
     assert config.endpoint == "/molecule.json"

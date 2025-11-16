@@ -11,6 +11,7 @@ from .logger import (
     configure_logging,
     get_logger,
 )
+from .runtime import bind_pipeline_context, get_pipeline_logger, pipeline_stage
 
 __all__ = [
     "DEFAULT_LOG_LEVEL",
@@ -22,5 +23,8 @@ __all__ = [
     "configure_logging",
     "get_logger",
     "LogEvents",
+    "bind_pipeline_context",
+    "get_pipeline_logger",
+    "pipeline_stage",
 ]
 

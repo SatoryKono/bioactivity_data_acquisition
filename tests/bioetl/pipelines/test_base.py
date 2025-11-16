@@ -10,7 +10,7 @@ import pandas as pd
 import pytest
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.pipelines.base import PipelineBase, RunArtifacts
+from bioetl.core.pipeline import PipelineBase, RunArtifacts
 from tests.support.qc_assertions import assert_qc_artifact_set
 
 

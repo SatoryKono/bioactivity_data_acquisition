@@ -104,6 +104,19 @@ class ChemblClient:
         self._assay_classification_entity = ChemblAssayClassificationEntityClient(self)
         self._compound_record_entity = ChemblCompoundRecordEntityClient(self)
 
+    def circuit_breaker_time_until_half_open(self) -> float | None:
+        """Return the time in seconds until the circuit breaker transitions to half-open.
+        
+        Returns None if the circuit breaker is not in open state or if it's already
+        ready to transition to half-open.
+        
+        Returns
+        -------
+        float | None:
+            Time in seconds until half-open transition, or None if not applicable.
+        """
+        return self._client.circuit_breaker_time_until_half_open()
+
     # ------------------------------------------------------------------
     # Discovery / handshake
     # ------------------------------------------------------------------
@@ -153,8 +166,23 @@ class ChemblClient:
         params: Mapping[str, Any] | None = None,
         page_size: int = 200,
         items_key: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield paginated records and propagate public network exceptions from ``client_exceptions``."""
+        """Yield paginated records and propagate public network exceptions from ``client_exceptions``.
+
+        Parameters
+        ----------
+        endpoint
+            API endpoint path (e.g., "/activity.json").
+        params
+            Optional query parameters to include in requests.
+        page_size
+            Number of records per page (default: 200).
+        items_key
+            Key in response payload containing the items array (auto-detected if None).
+        limit
+            Maximum number of records to fetch across all pages. If None, fetches all available records.
+        """
 
         self.handshake()
         query: dict[str, Any] | None = dict(params) if params is not None else None
@@ -177,6 +205,7 @@ class ChemblClient:
                 params=query,
                 items_key=items_key,
                 page_size=page_size,
+                limit=limit,
             ):
                 self._record_pagination_snapshot(page, store, load_meta_id)
                 for item_raw in page.items:
@@ -231,17 +260,25 @@ class ChemblClient:
             records_fetched_delta=len(page.items),
         )
 
-    def _fetch_entity_by_ids(
+    def _fetch_entities(
         self,
-        entity: ChemblEntityClientProtocol,
+        entity: str,
         ids: Iterable[str],
         *,
         fields: Sequence[str] | None = None,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch entity records by identifiers using the provided client."""
+        """Fetch entity records by identifiers using a named entity adapter."""
+
+        attr_name = f"_{entity}_entity"
+        try:
+            entity_client: ChemblEntityClientProtocol = getattr(self, attr_name)
+        except AttributeError as exc:  # pragma: no cover - defensive branch
+            msg = f"ChemblClient does not define entity adapter '{entity}'."
+            raise AttributeError(msg) from exc
+
         identifiers = tuple(ids)
-        return entity.fetch_by_ids(
+        return entity_client.fetch_by_ids(
             identifiers,
             fields=fields,
             page_limit=page_limit,
@@ -259,8 +296,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch assay entries by ``assay_chembl_id`` and return a DataFrame."""
-        return self._fetch_entity_by_ids(
-            self._assay_entity,
+        return self._fetch_entities(
+            "assay",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -278,8 +315,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch molecule entries by ``molecule_chembl_id`` and return a DataFrame."""
-        return self._fetch_entity_by_ids(
-            self._molecule_entity,
+        return self._fetch_entities(
+            "molecule",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -297,8 +334,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``data_validity_lookup`` entries by comment and return a DataFrame."""
-        return self._fetch_entity_by_ids(
-            self._data_validity_entity,
+        return self._fetch_entities(
+            "data_validity",
             comments,
             fields=fields,
             page_limit=page_limit,
@@ -336,8 +373,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``document_term`` entries by ``document_chembl_id``."""
-        return self._fetch_entity_by_ids(
-            self._document_term_entity,
+        return self._fetch_entities(
+            "document_term",
             ids,
             fields=fields,
             page_limit=page_limit,
@@ -355,8 +392,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_class_map`` entries by ``assay_chembl_id``."""
-        return self._fetch_entity_by_ids(
-            self._assay_class_map_entity,
+        return self._fetch_entities(
+            "assay_class_map",
             assay_ids,
             fields=fields,
             page_limit=page_limit,
@@ -394,8 +431,8 @@ class ChemblClient:
         page_limit: int | None = None,
     ) -> pd.DataFrame:
         """Fetch ``assay_classification`` entries by ``assay_class_id``."""
-        return self._fetch_entity_by_ids(
-            self._assay_classification_entity,
+        return self._fetch_entities(
+            "assay_classification",
             class_ids,
             fields=fields,
             page_limit=page_limit,

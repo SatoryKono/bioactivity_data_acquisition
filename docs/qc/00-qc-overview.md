@@ -146,21 +146,21 @@ that mirror the manual checklist:
 
 1. **Pipeline execution** – run the CLI with determinism toggles, for example:
 
-   ```bash
-   python -m bioetl.cli.cli_app activity \
-     --config configs/pipelines/activity/activity_chembl.yaml \
-     --output-dir data/output/activity_chembl \
-     --set determinism.enabled=true
-   ```
+    ```bash
+    python -m bioetl.cli.cli_app activity \
+      --config configs/pipelines/activity/activity_chembl.yaml \
+      --output-dir data/output/activity_chembl \
+      --set determinism.enabled=true
+    ```
 
 1. **Artifact comparison & metric export** – feed the new run into the
    comparison tooling:
 
-   ```bash
-  python tools/compare_artifacts.py \
-    --new-dir data/output/activity_chembl/latest \
-    --golden-dir tests/golden/activity_chembl/v1
-   ```
+    ```bash
+    python tools/compare_artifacts.py \
+      --new-dir data/output/activity_chembl/latest \
+      --golden-dir tests/golden/activity_chembl/v1
+    ```
 
    The job publishes the dataset diff (if any), refreshed `qc_metrics.json`, and
    supporting manifests as CI artifacts.

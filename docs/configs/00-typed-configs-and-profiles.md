@@ -75,10 +75,10 @@ Pipeline-специфичные конфигурации находятся в �
 
 ### 1.3 Ленивые реэкспорты и интерфейсы
 
-Чтобы устранить цикл `bioetl.config ↔ bioetl.pipelines.base`, пакет
+Чтобы устранить цикл `bioetl.config ↔ bioetl.core.pipeline`, пакет
 `bioetl.config` теперь лениво подгружает специализированные модули через
-`__getattr__`, а полученные объекты кешируются.[ref:
-repo:src/bioetl/config/__init__.py] Импорт `PipelineConfig` или `load_config`
+`__getattr__`, а полученные объекты кешируются. [ref:
+repo:src/bioetl/config/**init__.py] Импорт `PipelineConfig` или `load_config`
 больше не требует загрузки `config.activity`, которая транзитивно тянула
 `bioetl.core.runtime` и наследника `PipelineBase`.
 
@@ -86,7 +86,7 @@ repo:src/bioetl/config/__init__.py] Импорт `PipelineConfig` или `load_c
 `PipelineConfigProtocol` и вспомогательные протоколы из
 `src/bioetl/core/config_contracts.py`, что убирает жёсткую привязку к
 Pydantic-классу и формализует минимальный контракт между конфигурацией и
-пайплайном.[ref: repo:src/bioetl/core/config_contracts.py][ref:
+пайплайном.[ref: repo:src/bioetl/core/config_contracts.py] [ref:
 repo:src/bioetl/pipelines/base.py]
 
 ## 2. Структура и типы `PipelineConfig`

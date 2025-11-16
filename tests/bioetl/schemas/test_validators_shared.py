@@ -24,4 +24,3 @@ def test_validate_relation_series_rejects_unknown_value() -> None:
 def test_validate_membership_series_strips_values() -> None:
     series = pd.Series([" A ", "B "])
     assert validate_membership_series(series, allowed=("A", "B"))
-

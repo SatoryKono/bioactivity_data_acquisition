@@ -24,7 +24,6 @@ from bioetl.schemas.chembl_metadata_schema import (
     LoadMetaSchema,
 )
 
-
 __all__ = ["LoadMetaStore"]
 
 

@@ -8,7 +8,11 @@ import pandas as pd
 import pytest
 
 from bioetl.clients import ChemblClient
-from bioetl.pipelines.chembl.assay.normalize import enrich_with_assay_parameters
+from bioetl.clients.client_exceptions import HTTPError
+from bioetl.pipelines.chembl.assay.normalize import (
+    enrich_with_assay_classifications,
+    enrich_with_assay_parameters,
+)
 
 
 @pytest.mark.unit
@@ -272,3 +276,117 @@ class TestAssayParametersEnrichment:
 
         assert params1[0]["type"] == "TEMPERATURE"
         assert params2[0]["type"] == "pH"
+
+    def test_enrich_parameters_handles_404_gracefully(self) -> None:
+        """Test that 404 errors are handled gracefully and return DataFrame with NA values."""
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+
+        mock_client = MagicMock(spec=ChemblClient)
+        # Simulate 404 HTTPError
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        http_error = HTTPError("404 Client Error: Not Found")
+        http_error.response = mock_response
+        mock_client.fetch_assay_parameters_by_assay_ids.side_effect = http_error
+
+        cfg = {"fields": ["assay_chembl_id", "type"], "page_limit": 1000, "active_only": True}
+
+        result = enrich_with_assay_parameters(df, mock_client, cfg)
+
+        assert "assay_parameters" in result.columns
+        assert pd.isna(result["assay_parameters"].iloc[0])
+
+    def test_enrich_parameters_raises_non_404_errors(self) -> None:
+        """Test that non-404 HTTP errors are re-raised."""
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+
+        mock_client = MagicMock(spec=ChemblClient)
+        # Simulate 500 HTTPError
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        http_error = HTTPError("500 Internal Server Error")
+        http_error.response = mock_response
+        mock_client.fetch_assay_parameters_by_assay_ids.side_effect = http_error
+
+        cfg = {"fields": ["assay_chembl_id", "type"], "page_limit": 1000, "active_only": True}
+
+        with pytest.raises(HTTPError):
+            enrich_with_assay_parameters(df, mock_client, cfg)
+
+
+@pytest.mark.unit
+class TestAssayClassificationsEnrichment:
+    """Test suite for assay_classifications enrichment."""
+
+    def test_enrich_classifications_handles_404_gracefully(self) -> None:
+        """Test that 404 errors are handled gracefully for classifications enrichment."""
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+
+        mock_client = MagicMock(spec=ChemblClient)
+        # Simulate 404 HTTPError for class_map fetch
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        http_error = HTTPError("404 Client Error: Not Found")
+        http_error.response = mock_response
+        mock_client.fetch_assay_class_map_by_assay_ids.side_effect = http_error
+
+        cfg = {
+            "class_map_fields": ["assay_chembl_id", "assay_class_id"],
+            "classification_fields": ["assay_class_id", "l1", "l2"],
+            "page_limit": 1000,
+        }
+
+        result = enrich_with_assay_classifications(df, mock_client, cfg)
+
+        assert "assay_classifications" in result.columns
+        assert "assay_class_id" in result.columns
+        assert pd.isna(result["assay_classifications"].iloc[0])
+        assert pd.isna(result["assay_class_id"].iloc[0])
+
+    def test_enrich_classifications_handles_404_on_classification_fetch(self) -> None:
+        """Test that 404 on classification fetch is handled gracefully."""
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+
+        mock_client = MagicMock(spec=ChemblClient)
+        # Return empty class_map to trigger classification fetch
+        mock_client.fetch_assay_class_map_by_assay_ids.return_value = pd.DataFrame(
+            columns=["assay_chembl_id", "assay_class_id"]
+        )
+        # Simulate 404 HTTPError for classification fetch
+        mock_response = MagicMock()
+        mock_response.status_code = 404
+        http_error = HTTPError("404 Client Error: Not Found")
+        http_error.response = mock_response
+        mock_client.fetch_assay_classifications_by_class_ids.side_effect = http_error
+
+        cfg = {
+            "class_map_fields": ["assay_chembl_id", "assay_class_id"],
+            "classification_fields": ["assay_class_id", "l1", "l2"],
+            "page_limit": 1000,
+        }
+
+        result = enrich_with_assay_classifications(df, mock_client, cfg)
+
+        assert "assay_classifications" in result.columns
+        assert "assay_class_id" in result.columns
+
+    def test_enrich_classifications_raises_non_404_errors(self) -> None:
+        """Test that non-404 HTTP errors are re-raised."""
+        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+
+        mock_client = MagicMock(spec=ChemblClient)
+        # Simulate 500 HTTPError
+        mock_response = MagicMock()
+        mock_response.status_code = 500
+        http_error = HTTPError("500 Internal Server Error")
+        http_error.response = mock_response
+        mock_client.fetch_assay_class_map_by_assay_ids.side_effect = http_error
+
+        cfg = {
+            "class_map_fields": ["assay_chembl_id", "assay_class_id"],
+            "classification_fields": ["assay_class_id", "l1", "l2"],
+            "page_limit": 1000,
+        }
+
+        with pytest.raises(HTTPError):
+            enrich_with_assay_classifications(df, mock_client, cfg)

@@ -5,12 +5,13 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, TypeGuard, cast
-
-from bioetl.core.utils.iterables import is_non_string_iterable
+from typing import Any, cast
 
 import yaml
 from yaml.nodes import ScalarNode
+
+from bioetl.core.utils.iterables import is_non_string_iterable
+from bioetl.core.utils.typechecks import is_list
 
 from .environment import (
     EnvironmentSettings,
@@ -18,6 +19,7 @@ from .environment import (
     load_environment_settings,
     resolve_env_layers,
 )
+from .helpers import build_env_overrides, resolve_directory
 from .models.base import PipelineConfig
 
 DEFAULTS_DIR = Path("configs/defaults")
@@ -87,13 +89,15 @@ def apply_cli_overrides(
     metadata: dict[str, Any] = dict(cli_metadata or {})
 
     if cli_overrides:
-        cli_tree: dict[str, Any] = {}
+        path_value_pairs: list[tuple[Sequence[str], Any]] = []
         parsed_overrides: dict[str, Any] = {}
         for dotted_key, raw_value in cli_overrides.items():
             parsed_value = _coerce_value(raw_value)
             parsed_overrides[dotted_key] = parsed_value
-            _assign_nested(cli_tree, dotted_key.split("."), parsed_value)
-        merged = _deep_merge(merged, cli_tree)
+            path_value_pairs.append((tuple(dotted_key.split(".")), parsed_value))
+        cli_tree = build_env_overrides(path_value_pairs)
+        if cli_tree:
+            merged = _deep_merge(merged, cli_tree)
         metadata.setdefault("cli", {}).setdefault("set_overrides", {}).update(parsed_overrides)
 
     if metadata:
@@ -178,11 +182,6 @@ def _selected_environment(settings: EnvironmentSettings) -> str | None:
     """Return the active environment when explicitly provided via env/config."""
 
     return settings.bioetl_env
-def _is_any_list(value: Any) -> TypeGuard[list[Any]]:
-    """Return True when ``value`` is a list instance."""
-    return isinstance(value, list)
-
-
 def load_config(
     config_path: str | Path,
     *,
@@ -499,7 +498,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
         return result
 
-    if _is_any_list(payload):
+    if is_list(payload):
         payload_list: list[Any] = payload
         return [
             _apply_yaml_merge(element_any)
@@ -564,12 +563,13 @@ def _deep_merge(
 
 def _assign_nested(target: MutableMapping[str, Any], parts: Sequence[str], value: Any) -> None:
     """Assign a value to a nested mapping according to dotted parts."""
-    current = target
-    for part in parts[:-1]:
-        if part not in current or not isinstance(current[part], MutableMapping):
-            current[part] = {}
-        current = current[part]
-    current[parts[-1]] = value
+
+    built = build_env_overrides(((tuple(parts), value),))
+    if not built:
+        return
+    merged = _deep_merge(target, built)
+    target.clear()
+    target.update(merged)
 
 
 def _coerce_value(value: Any) -> Any:
@@ -593,13 +593,14 @@ def _collect_env_overrides(env: Mapping[str, str], *, prefixes: Sequence[str]) -
             for key, value in env.items()
             if key.startswith(prefix) and key[len(prefix) :]
         )
-        scoped_tree: dict[str, Any] = {}
+        scoped_pairs: list[tuple[Sequence[str], Any]] = []
         for raw_key, raw_value in scoped_items:
             parts = [segment.strip().lower() for segment in raw_key.split("__") if segment.strip()]
             if not parts:
                 continue
             parsed_value = _coerce_value(raw_value)
-            _assign_nested(scoped_tree, parts, parsed_value)
+            scoped_pairs.append((tuple(parts), parsed_value))
+        scoped_tree = build_env_overrides(scoped_pairs)
         if scoped_tree:
             overrides = _deep_merge(overrides, scoped_tree)
     return overrides
@@ -612,7 +613,7 @@ def _discover_layer_files(
     strict: bool = False,
 ) -> list[Path]:
     """Discover configuration layer files under ``directory``."""
-    resolved_dir = _resolve_layer_directory(directory, base=base)
+    resolved_dir = resolve_directory(directory, base=base)
     if not resolved_dir.exists():
         if strict:
             msg = f"Configuration directory not found: {resolved_dir}"
@@ -624,20 +625,6 @@ def _discover_layer_files(
             if item.is_file():
                 files.add(item.resolve())
     return sorted(files)
-
-
-def _resolve_layer_directory(directory: Path, *, base: Path) -> Path:
-    """Resolve a directory relative to known roots."""
-    if directory.is_absolute():
-        return directory.resolve()
-
-    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
-    for root in search_roots:
-        candidate = (root / directory).resolve()
-        if candidate.exists():
-            return candidate
-
-    return (Path.cwd() / directory).resolve()
 
 
 def _stringify_profile(profile: Path, *, base: Path) -> str:

@@ -18,6 +18,7 @@ from . import (
     chembl_testitem_schema,
 )
 from .common_schema import HASH_COLUMN_NAMES
+from .metadata_utils import metadata_dict, normalize_sequence
 from .legacy_schemas import register_legacy_schema_modules
 from .versioning import (
     SCHEMA_MIGRATION_REGISTRY,
@@ -84,10 +85,7 @@ def _clone_schema_with_metadata(
     schema: pa.DataFrameSchema,
     extra_metadata: Mapping[str, object],
 ) -> pa.DataFrameSchema:
-    merged_metadata: dict[str, object] = {}
-    if schema.metadata:
-        merged_metadata.update(schema.metadata)
-    merged_metadata.update(dict(extra_metadata))
+    merged_metadata = metadata_dict(schema.metadata, extra_metadata)
 
     unique_value = schema.unique
     if isinstance(unique_value, list):
@@ -184,7 +182,7 @@ class SchemaDescriptor:
             )
             raise ValueError(msg)
 
-        metadata = self.schema.metadata or {}
+        metadata = metadata_dict(self.schema.metadata)
         metadata_name = metadata.get("name")
         if metadata_name is not None and str(metadata_name) != self.name:
             msg = (
@@ -209,7 +207,7 @@ class SchemaDescriptor:
             raise ValueError(msg)
 
         if "business_key_fields" in metadata:
-            metadata_business = _normalize_metadata_sequence(metadata["business_key_fields"])
+            metadata_business = normalize_sequence(metadata["business_key_fields"])
             if metadata_business != self.business_key_fields:
                 msg = (
                     f"Schema '{self.identifier}' metadata business_key_fields "
@@ -218,7 +216,7 @@ class SchemaDescriptor:
                 raise ValueError(msg)
 
         if "required_fields" in metadata:
-            metadata_required = _normalize_metadata_sequence(metadata["required_fields"])
+            metadata_required = normalize_sequence(metadata["required_fields"])
             if metadata_required != self.required_fields:
                 msg = (
                     f"Schema '{self.identifier}' metadata required_fields "
@@ -227,7 +225,7 @@ class SchemaDescriptor:
                 raise ValueError(msg)
 
         if "row_hash_fields" in metadata:
-            metadata_row_hash = _normalize_metadata_sequence(metadata["row_hash_fields"])
+            metadata_row_hash = normalize_sequence(metadata["row_hash_fields"])
             if metadata_row_hash != self.row_hash_fields:
                 msg = (
                     f"Schema '{self.identifier}' metadata row_hash_fields "
@@ -288,7 +286,7 @@ class SchemaDescriptor:
     def metadata(self) -> Mapping[str, object]:
         """Return an immutable copy of the schema metadata."""
 
-        return dict(self.schema.metadata or {})
+        return metadata_dict(self.schema.metadata)
 
     @classmethod
     def from_components(
@@ -312,9 +310,7 @@ class SchemaDescriptor:
             msg = f"Object '{identifier}' is not a pandera.DataFrameSchema"
             raise TypeError(msg)
 
-        metadata: dict[str, object] = dict(schema.metadata or {})
-        if extra_metadata:
-            metadata.update(dict(extra_metadata))
+        metadata = metadata_dict(schema.metadata, extra_metadata)
 
         resolved_name = name or str(metadata.get("name")) or schema.name or identifier.split(".")[-1]
         metadata["name"] = resolved_name
@@ -380,30 +376,8 @@ class SchemaDescriptor:
 SchemaRegistryEntry = SchemaDescriptor
 
 
-def _normalize_optional_sequence(values: Sequence[str] | None) -> tuple[str, ...]:
-    if values is None:
-        return ()
-    return tuple(values)
-
-
-def _normalize_metadata_sequence(value: object) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        return (value,)
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        return tuple(str(item) for item in value)
-    return ()
-
-
 def _normalize_binding_statuses(value: object) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, (str, bytes)):
-        return (str(value),)
-    if isinstance(value, Iterable) and not isinstance(value, (str, bytes)):
-        return tuple(str(item) for item in value)
-    return ()
+    return normalize_sequence(value)
 
 
 def _binding_from_metadata(payload: object) -> SchemaVocabularyBinding | None:
@@ -455,10 +429,17 @@ def _resolve_column_order(
     identifier: str,
 ) -> tuple[str, ...]:
     if column_order is None:
-        metadata = schema.metadata or {}
+        metadata = metadata_dict(schema.metadata)
         metadata_order = metadata.get("column_order")
         if metadata_order is not None:
-            column_order = tuple(metadata_order)  # type: ignore[assignment]
+            metadata_sequence = tuple(metadata_order)  # type: ignore[arg-type]
+            schema_columns = tuple(schema.columns.keys())
+            if metadata_sequence != schema_columns:
+                msg = (
+                    f"Schema '{identifier}' metadata column_order does not match schema column order."
+                )
+                raise ValueError(msg)
+            column_order = metadata_sequence  # type: ignore[assignment]
     if column_order is None:
         column_order = tuple(schema.columns.keys())
     normalized = tuple(column_order)
@@ -481,8 +462,8 @@ def _resolve_descriptor_sequence(
     key: str,
     values: Sequence[str] | None,
 ) -> tuple[str, ...]:
-    provided = _normalize_optional_sequence(values)
-    existing = _normalize_metadata_sequence(metadata.get(key))
+    provided = normalize_sequence(values)
+    existing = normalize_sequence(metadata.get(key))
     resolved = provided or existing
     if resolved:
         metadata[key] = resolved
@@ -529,7 +510,7 @@ class SchemaRegistry:
             )
             raise ValueError(msg)
 
-        metadata = descriptor.schema.metadata or {}
+        metadata = metadata_dict(descriptor.schema.metadata)
         metadata_version = metadata.get("version")
         if metadata_version is not None and str(metadata_version) != descriptor.version:
             msg = (
@@ -553,7 +534,15 @@ class SchemaRegistry:
             )
             raise ValueError(msg)
 
-        for hashed_column in HASH_COLUMN_NAMES:
+        hashed_columns_declared = [
+            name
+            for name in HASH_COLUMN_NAMES
+            if name in schema_columns or name in column_order
+        ]
+        if descriptor.identifier.startswith("bioetl.") and not hashed_columns_declared:
+            hashed_columns_declared = list(HASH_COLUMN_NAMES)
+
+        for hashed_column in hashed_columns_declared:
             if hashed_column not in schema_columns:
                 msg = f"Schema '{descriptor.identifier}' missing required column '{hashed_column}'"
                 raise ValueError(msg)

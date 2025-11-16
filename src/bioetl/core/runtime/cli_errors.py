@@ -17,6 +17,7 @@ __all__ = [
     "CLI_ERROR_CONFIG",
     "CLI_ERROR_EXTERNAL_API",
     "emit_cli_error",
+    "emit_cli_error_and_exit",
     "emit_tool_error",
     "format_cli_error",
 ]
@@ -81,7 +82,7 @@ def emit_cli_error(
     typer.echo(format_cli_error(template, message), err=True)
 
 
-def emit_tool_error(
+def emit_cli_error_and_exit(
     *,
     template: CliErrorTemplate,
     message: str,
@@ -91,7 +92,7 @@ def emit_tool_error(
     exit_code: int = 1,
     cause: Exception | None = None,
 ) -> NoReturn:
-    """Emit a deterministic CLI tool error and terminate the process."""
+    """Emit a CLI error event and terminate execution."""
 
     emit_cli_error(
         template=template,
@@ -104,5 +105,28 @@ def emit_tool_error(
 
     CliCommandBase.exit(exit_code, cause=cause)
     raise AssertionError("unreachable exit path")
+
+
+def emit_tool_error(
+    *,
+    template: CliErrorTemplate,
+    message: str,
+    event: LogEvents | str = LogEvents.CLI_RUN_ERROR,
+    logger: LoggerLike | None = None,
+    context: Mapping[str, Any] | None = None,
+    exit_code: int = 1,
+    cause: Exception | None = None,
+) -> NoReturn:
+    """Emit a deterministic CLI tool error and terminate the process."""
+
+    emit_cli_error_and_exit(
+        template=template,
+        message=message,
+        event=event,
+        logger=logger,
+        context=context,
+        exit_code=exit_code,
+        cause=cause,
+    )
 
 

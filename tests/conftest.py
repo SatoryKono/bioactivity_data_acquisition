@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager
+from importlib import util as importlib_util
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -25,6 +26,34 @@ SRC_DIR = PROJECT_ROOT / "src"
 
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:  # type: ignore[attr-defined]
+    """Provide no-op coverage options when ``pytest-cov`` is unavailable."""
+
+    if importlib_util.find_spec("pytest_cov") is not None:
+        # ``pytest-cov`` is installed; defer to the plugin's own options.
+        return
+
+    group = parser.getgroup("cov")
+    group.addoption(
+        "--cov",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-report",
+        action="append",
+        default=[],
+        help="stub option added because pytest-cov is not installed",
+    )
+    group.addoption(
+        "--cov-fail-under",
+        action="store",
+        default=None,
+        help="stub option added because pytest-cov is not installed",
+    )
 
 
 @pytest.fixture  # type: ignore[misc]

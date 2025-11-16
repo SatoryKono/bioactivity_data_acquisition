@@ -13,10 +13,12 @@ from __future__ import annotations
 import os
 from collections.abc import MutableMapping
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .helpers import build_env_overrides, coerce_bool, resolve_directory
 
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _ENV_LAYER_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
@@ -117,17 +119,9 @@ class EnvironmentSettings(BaseSettings):
     @classmethod
     def _coerce_bool(cls, value: Any) -> bool:
         """Coerce environment values into booleans."""
-        if isinstance(value, bool):
-            return value
         if value is None:
             return False
-        if isinstance(value, str):
-            normalized = value.strip().lower()
-            if normalized in {"1", "true", "yes", "on"}:
-                return True
-            if normalized in {"0", "false", "no", "off"}:
-                return False
-        return bool(value)
+        return coerce_bool(value)
 
     @field_validator("pubmed_tool")
     @classmethod
@@ -172,15 +166,14 @@ def load_environment_settings(*, env_file: Path | None = None) -> EnvironmentSet
 def build_env_override_mapping(settings: EnvironmentSettings) -> dict[str, Any]:
     """Return nested overrides derived from short environment variables."""
 
-    overrides: dict[str, Any] = {}
-
+    pairs: list[tuple[Sequence[str], str]] = []
     for spec in _ENV_OVERRIDE_SPECS:
         value = _extract_plain_value(getattr(settings, spec.attr))
         if value is None:
             continue
-        _assign_nested_override(overrides, spec.config_path, value)
+        pairs.append((spec.config_path, value))
 
-    return overrides
+    return build_env_overrides(pairs)
 
 
 def resolve_env_layers(
@@ -196,7 +189,7 @@ def resolve_env_layers(
 
     root_dir = env_root if env_root is not None else ENV_ROOT_DIR
     target_dir = root_dir / environment
-    resolved_dir = _resolve_directory(target_dir, base=base)
+    resolved_dir = resolve_directory(target_dir, base=base)
 
     if not resolved_dir.exists():
         msg = f"Configuration directory not found for environment '{environment}': {resolved_dir}"
@@ -242,25 +235,6 @@ def _extract_plain_value(value: str | SecretStr | None) -> str | None:
     return plain or None
 
 
-def _assign_nested_override(
-    target: MutableMapping[str, Any],
-    path: Iterable[str],
-    value: str,
-) -> None:
-    """Assign a value to a nested dictionary without mutating siblings."""
-    current: MutableMapping[str, Any] = target
-    parts = tuple(path)
-    for part in parts[:-1]:
-        existing = current.get(part)
-        if not isinstance(existing, MutableMapping):
-            next_level: dict[str, Any] = {}
-            current[part] = next_level
-            current = next_level
-            continue
-        current = existing
-    current[parts[-1]] = value
-
-
 def _build_prefixed_runtime_variables(settings: EnvironmentSettings) -> dict[str, str]:
     """Return mapping of ``BIOETL__...`` keys derived from short variables."""
     overrides: dict[str, str] = {}
@@ -270,20 +244,6 @@ def _build_prefixed_runtime_variables(settings: EnvironmentSettings) -> dict[str
             continue
         overrides.setdefault(spec.prefixed_key, value)
     return overrides
-
-
-def _resolve_directory(directory: Path, *, base: Path) -> Path:
-    """Resolve ``directory`` relative to ``base``/parents/current working dir."""
-    if directory.is_absolute():
-        return directory.resolve()
-
-    search_roots: list[Path] = [base, *base.parents, Path.cwd()]
-    for root in search_roots:
-        candidate = (root / directory).resolve()
-        if candidate.exists():
-            return candidate
-
-    return (Path.cwd() / directory).resolve()
 
 
 __all__ = [

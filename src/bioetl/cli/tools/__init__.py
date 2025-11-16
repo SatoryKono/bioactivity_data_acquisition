@@ -1,45 +1,27 @@
-"""Совместимый namespace для CLI-инструментов `bioetl.cli.tools`."""
+"""Совместимость с устаревшим пространством ``bioetl.cli.tools``."""
 
 from __future__ import annotations
 
-import sys
-from importlib import import_module
 from types import ModuleType
-from typing import Final
+from typing import Any
 
-_TOOL_ALIAS_TO_MODULE: Final[dict[str, str]] = {
-    "audit_docs": "cli_audit_docs",
-    "build_vocab_store": "cli_build_vocab_store",
-    "catalog_code_symbols": "cli_catalog_code_symbols",
-    "check_comments": "cli_check_comments",
-    "check_output_artifacts": "cli_check_output_artifacts",
-    "create_matrix_doc_code": "cli_create_matrix_doc_code",
-    "determinism_check": "cli_determinism_check",
-    "doctest_cli": "cli_doctest_cli",
-    "dup_finder": "cli_dup_finder",
-    "inventory_docs": "cli_inventory_docs",
-    "link_check": "cli_link_check",
-    "qc_boundary_check": "cli_qc_boundary_check",
-    "qc_boundary": "cli_qc_boundary",
-    "remove_type_ignore": "cli_remove_type_ignore",
-    "run_test_report": "cli_run_test_report",
-    "schema_guard": "cli_schema_guard",
-    "semantic_diff": "cli_semantic_diff",
-    "vocab_audit": "cli_vocab_audit",
-}
+from ._logic import LEGACY_TOOL_MAP, load_tool_module
 
-__all__ = sorted(_TOOL_ALIAS_TO_MODULE.keys())
+__all__ = ["LEGACY_TOOL_MAP", "load_tool_module"]
 
 
-def _load_module(module_name: str) -> ModuleType:
-    """Импортировать модуль CLI-инструмента с ленивой загрузкой."""
+def __getattr__(name: str) -> Any:
+    """Разрешить `import bioetl.cli.tools.<tool>` через новый devtools-модуль."""
 
-    return import_module(f"{__name__}.{module_name}")
+    try:
+        module = load_tool_module(name)
+    except ImportError as exc:  # pragma: no cover - защищаем от неверных имён
+        raise AttributeError(name) from exc
+    return module
 
 
-for alias, module_name in _TOOL_ALIAS_TO_MODULE.items():
-    module = _load_module(module_name)
-    if hasattr(module, "cli_main") and not hasattr(module, "main"):
-        module.main = module.cli_main  # type: ignore[attr-defined]
-    globals()[alias] = module
-    sys.modules[f"{__name__}.{alias}"] = module
+def __dir__() -> list[str]:
+    """Экспортировать атрибуты пакета и перечень поддерживаемых шорткатов."""
+
+    return sorted(set(__all__ + list(LEGACY_TOOL_MAP.keys())))
+

@@ -15,7 +15,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
-from typing import Any, cast
+from typing import Any, TextIO, cast
 
 import structlog
 from structlog.contextvars import (
@@ -115,14 +115,49 @@ def _ensure_mandatory_fields(
     return event_dict
 
 
+class _SafeStreamHandler(logging.StreamHandler[TextIO]):
+    """Stream handler that rebinds to the current ``sys.stderr`` if the active stream closes."""
+
+    def __init__(self) -> None:
+        super().__init__(stream=sys.stderr)
+
+    def setStream(self, stream: TextIO | None) -> None:  # noqa: N802 - match logging API
+        target_stream: TextIO = stream if stream is not None else cast(TextIO, sys.stderr)
+        current = cast(TextIO | None, getattr(self, "stream", None))
+        if current is not None and getattr(current, "closed", False):
+            self.stream = target_stream
+            return
+        try:
+            super().setStream(target_stream)
+        except ValueError as exc:
+            if "I/O operation on closed file" in str(exc):
+                self.stream = target_stream
+                return
+            raise
+
+    def emit(self, record: logging.LogRecord) -> None:
+        stream: TextIO | None = cast(TextIO | None, getattr(self, "stream", None))
+        if stream is None or getattr(stream, "closed", False):
+            self.setStream(cast(TextIO, sys.stderr))
+        try:
+            super().emit(record)
+        except ValueError as exc:
+            if "I/O operation on closed file" in str(exc):
+                self.handleError(record)
+                return
+            raise
+
+
 def _shared_processors(config: LogConfig) -> list[Any]:
+    exception_printer = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
+
     def _safe_exception_pretty_printer(
         logger: Any,
         method_name: str,
         event_dict: MutableMapping[str, Any],
     ) -> MutableMapping[str, Any]:
         try:
-            processed_event = _EXCEPTION_PRETTY_PRINTER(logger, method_name, event_dict)
+            processed_event = exception_printer(logger, method_name, event_dict)
             if isinstance(processed_event, MutableMapping):
                 return processed_event
             return event_dict
@@ -158,9 +193,6 @@ def _shared_processors(config: LogConfig) -> list[Any]:
     ]
 
 
-_EXCEPTION_PRETTY_PRINTER = structlog.processors.ExceptionPrettyPrinter(file=sys.stderr)
-
-
 def _renderer_for(format: LogFormat) -> Any:
     if format is LogFormat.KEY_VALUE:
         return structlog.processors.KeyValueRenderer(
@@ -184,15 +216,22 @@ def configure_logging(
         shared_processors = [*shared_processors, *additional_processors]
     renderer = _renderer_for(cfg.format)
 
+    # For stdlib ("foreign") log records, do NOT include
+    # `structlog.stdlib.filter_by_level` in the pre-chain because the
+    # ProcessorFormatter passes `logger=None` to processors for foreign
+    # records, and `filter_by_level` expects a real logger with
+    # `isEnabledFor`. Level filtering for structlog loggers is handled
+    # below via `structlog.stdlib.filter_by_level` in the structlog
+    # processor chain (or by the stdlib logger level for foreign logs).
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=[*shared_processors, structlog.stdlib.filter_by_level],
+        foreign_pre_chain=[*shared_processors],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
         ],
     )
 
-    handler = logging.StreamHandler()
+    handler = _SafeStreamHandler()
     handler.setFormatter(formatter)
 
     logging.basicConfig(handlers=[handler], level=_coerce_log_level(cfg.level), force=True)
@@ -200,6 +239,7 @@ def configure_logging(
     structlog.configure(
         processors=[
             *shared_processors,
+            # Apply level filtering within structlog pipeline (for structlog loggers).
             structlog.stdlib.filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],

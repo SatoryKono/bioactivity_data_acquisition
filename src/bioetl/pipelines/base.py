@@ -1,10 +1,3 @@
-"""Core pipeline orchestration utilities.
-
-This module intentionally focuses on filesystem layout responsibilities so that
-pipeline documentation can describe the exact artifact names and retention
-rules with executable references.
-"""
-
 from __future__ import annotations
 
 import hashlib
@@ -17,7 +10,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -26,13 +19,16 @@ from pandas import Series
 from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 
+import bioetl.schemas.versioning as schema_versioning
 from bioetl.clients import client_exceptions
 from bioetl.config.models import PipelineConfig
+from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core import APIClientFactory
 from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
 from bioetl.core.io import (
     DeterministicWriteArtifacts,
     RunArtifacts,
+    WriteArtifacts,
     WriteResult,
     build_run_manifest_payload,
     build_write_artifacts,
@@ -45,9 +41,16 @@ from bioetl.core.io import (
 from bioetl.core.io import (
     plan_run_artifacts as io_plan_run_artifacts,
 )
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.logging import (
+    LogEvents,
+    UnifiedLogger,
+    bind_pipeline_context,
+    get_pipeline_logger,
+    pipeline_stage,
+)
 from bioetl.core.runtime.load_meta_store import LoadMetaStore
 from bioetl.core.schema import format_failure_cases, summarize_schema_errors
+from bioetl.pipelines.common import ensure_directory
 from bioetl.pipelines.errors import PipelineError, map_client_exc
 from bioetl.qc.plan import QC_PLAN_DEFAULT, QCMetricsBundle, QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
@@ -66,11 +69,11 @@ from bioetl.schemas import (
     SchemaVersionMismatchError,
     get_schema,
 )
-import bioetl.schemas.versioning as schema_versioning
-SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service
 from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
+
+SCHEMA_MIGRATION_REGISTRY = schema_versioning.SCHEMA_MIGRATION_REGISTRY
 
 _NETWORK_ERROR_TYPES = (
     client_exceptions.Timeout,
@@ -135,6 +138,9 @@ class RunResult:
         return pd.DataFrame()
 
 
+T_qc = TypeVar("T_qc")
+
+
 class PipelineBase(ABC):
     """Shared orchestration helpers for ETL pipelines."""
 
@@ -164,6 +170,9 @@ class PipelineBase(ABC):
         load_meta_root = self.output_root.parent / "load_meta" / self.pipeline_code
         self.load_meta_store = LoadMetaStore(load_meta_root, dataset_format="parquet")
         self._qc_executor = QCMetricsExecutor()
+        self._qc_report_options: QCReportRuntimeOptions | None = None
+        self._qc_thresholds: dict[str, float] = {}
+        self._qc_fail_on_threshold: bool = False
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.
@@ -175,16 +184,43 @@ class PipelineBase(ABC):
 
     def _ensure_pipeline_directory_exists(self) -> Path:
         """Ensure the deterministic output folder exists for the pipeline."""
-        directory = self.pipeline_directory
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+
+        return ensure_directory(self.pipeline_directory)
 
     def _ensure_logs_directory(self) -> Path:
         """Ensure the log folder exists for the pipeline."""
 
         directory = self.logs_root / self.pipeline_code
-        directory.mkdir(parents=True, exist_ok=True)
-        return directory
+        return ensure_directory(directory)
+
+    def _make_pipeline_logger(
+        self,
+        *,
+        stage: str | None = None,
+        component: str | None = None,
+        path: Path | str | None = None,
+        logger_name: str | None = None,
+        **extra: Any,
+    ) -> BoundLogger:
+        """Return a runtime logger bound with common pipeline context."""
+
+        resolved_component = component
+        if resolved_component is None:
+            if stage in (None, "bootstrap"):
+                resolved_component = f"{self.pipeline_code}.pipeline"
+            elif stage is not None:
+                resolved_component = self._component_for_stage(stage)
+
+        return get_pipeline_logger(
+            pipeline=self.pipeline_code,
+            run_id=self.run_id,
+            dataset=self.pipeline_code,
+            stage=stage,
+            component=resolved_component,
+            path=path,
+            logger_name=logger_name or __name__,
+            **extra,
+        )
 
     def _derive_trace_and_span(self) -> tuple[str, str]:
         seed = "".join(character for character in self.run_id if character.isalnum()) or "0"
@@ -269,7 +305,7 @@ class PipelineBase(ABC):
 
         stem = self.build_run_stem(run_tag=run_tag, mode=mode)
         run_dir = run_directory if run_directory is not None else self.pipeline_directory
-        return io_plan_run_artifacts(
+        artifacts = io_plan_run_artifacts(
             stem=stem,
             run_directory=run_dir,
             logs_directory=self.logs_directory,
@@ -282,6 +318,43 @@ class PipelineBase(ABC):
             include_metadata=include_metadata,
             include_manifest=include_manifest,
             extras=extras,
+        )
+
+        options = self._qc_report_options
+        if options is None:
+            return artifacts
+
+        write = artifacts.write
+        quality_path = (
+            options.quality_path(stem=stem)
+            if write.quality_report is not None
+            else None
+        )
+        correlation_path = (
+            options.correlation_path(stem=stem)
+            if include_correlation and write.correlation_report is not None
+            else write.correlation_report
+        )
+        metrics_path = (
+            options.metrics_path(stem=stem)
+            if include_qc_metrics and write.qc_metrics is not None
+            else write.qc_metrics
+        )
+
+        overridden_write = WriteArtifacts(
+            dataset=write.dataset,
+            metadata=write.metadata,
+            quality_report=quality_path,
+            correlation_report=correlation_path,
+            qc_metrics=metrics_path,
+        )
+
+        return RunArtifacts(
+            write=overridden_write,
+            run_directory=artifacts.run_directory,
+            manifest=artifacts.manifest,
+            log_file=artifacts.log_file,
+            extras=dict(artifacts.extras),
         )
 
     def list_run_stems(self) -> Sequence[str]:
@@ -388,6 +461,24 @@ class PipelineBase(ABC):
         except KeyError:
             return ()
 
+    def _build_qc_report(
+        self,
+        factory: Callable[..., T_qc],
+        df: pd.DataFrame,
+        *,
+        bundle: QCMetricsBundle | None = None,
+    ) -> T_qc:
+        """Execute a QC report factory with the pipeline defaults."""
+
+        business_key = self._business_key_fields()
+        return factory(
+            df,
+            business_key_fields=business_key or None,
+            plan=self.qc_plan,
+            bundle=bundle,
+            executor=self._qc_executor,
+        )
+
     def build_quality_report(
         self,
         df: pd.DataFrame,
@@ -396,13 +487,10 @@ class PipelineBase(ABC):
     ) -> pd.DataFrame | dict[str, object] | None:
         """Return a QC dataframe for the quality report artefact."""
 
-        business_key = self._business_key_fields()
-        return build_default_quality_report(
+        return self._build_qc_report(
+            build_default_quality_report,
             df,
-            business_key_fields=business_key or None,
-            plan=self.qc_plan,
             bundle=bundle,
-            executor=self._qc_executor,
         )
 
     def build_correlation_report(
@@ -413,13 +501,10 @@ class PipelineBase(ABC):
     ) -> pd.DataFrame | dict[str, object] | None:
         """Return a correlation report artefact payload."""
 
-        business_key = self._business_key_fields()
-        return build_default_correlation_report(
+        return self._build_qc_report(
+            build_default_correlation_report,
             df,
-            business_key_fields=business_key or None,
-            plan=self.qc_plan,
             bundle=bundle,
-            executor=self._qc_executor,
         )
 
     def build_qc_metrics(
@@ -588,15 +673,19 @@ class PipelineBase(ABC):
         pd.DataFrame:
             The loaded DataFrame, optionally limited or sampled.
         """
-        log = UnifiedLogger.get(__name__)
-
         resolved_path = path.resolve()
 
+        log = self._make_pipeline_logger(
+            stage="extract",
+            path=resolved_path,
+            logger_name=__name__,
+        )
+
         if not resolved_path.exists():
-            log.warning(LogEvents.INPUT_FILE_NOT_FOUND, path=str(resolved_path))
+            log.warning(LogEvents.INPUT_FILE_NOT_FOUND)
             return pd.DataFrame()
 
-        log.info(LogEvents.READING_INPUT, path=str(resolved_path), limit=limit, sample=sample)
+        log.info(LogEvents.READING_INPUT, limit=limit, sample=sample)
 
         # Determine file format from extension
         # Note: pandas read methods have complex overloads; type checker cannot fully infer return type
@@ -606,7 +695,7 @@ class PipelineBase(ABC):
             else pd.read_csv(resolved_path, low_memory=False)  # pyright: ignore[reportUnknownMemberType]
         )
         if df.empty:
-            log.debug(LogEvents.INPUT_FILE_EMPTY, path=str(resolved_path))
+            log.debug(LogEvents.INPUT_FILE_EMPTY)
             return df
 
         # Apply limit if specified
@@ -653,7 +742,7 @@ class PipelineBase(ABC):
         list[str]:
             Sorted list of unique IDs from the input file.
         """
-        log = UnifiedLogger.get(__name__)
+        log = self._make_pipeline_logger(stage="extract", logger_name=__name__)
 
         if not self.config.cli.input_file:
             log.debug(LogEvents.NO_INPUT_FILE, id_column=id_column_name)
@@ -674,16 +763,17 @@ class PipelineBase(ABC):
                 # Path is relative, resolve via input_root
                 input_path = (input_root / input_path).resolve()
 
+        path_log = log.bind(path=str(input_path))
+
         df = self.read_input_table(input_path, limit=limit, sample=sample)
 
         if df.empty:
-            log.warning(LogEvents.INPUT_FILE_EMPTY_IDS, path=str(input_path), id_column=id_column_name)
+            path_log.warning(LogEvents.INPUT_FILE_EMPTY_IDS, id_column=id_column_name)
             return []
 
         if id_column_name not in df.columns:
             available_columns = list(df.columns)
-            log.error(LogEvents.INPUT_FILE_MISSING_ID_COLUMN,
-                path=str(input_path),
+            path_log.error(LogEvents.INPUT_FILE_MISSING_ID_COLUMN,
                 id_column=id_column_name,
                 available_columns=available_columns,
             )
@@ -694,8 +784,7 @@ class PipelineBase(ABC):
         ids: list[str] = df[id_column_name].dropna().astype(str).unique().tolist()
         ids.sort()  # Deterministic ordering
 
-        log.info(LogEvents.INPUT_IDS_READ,
-            path=str(input_path),
+        path_log.info(LogEvents.INPUT_IDS_READ,
             id_column=id_column_name,
             count=len(ids),
             limit=limit,
@@ -1485,12 +1574,16 @@ class PipelineBase(ABC):
             )
             validation_dict.update(self._validation_summary)
 
-        if metrics_summary:
-            quality_default: dict[str, Any] = {}
-            quality_dict = cast(dict[str, Any], metadata.setdefault("quality", quality_default))
-            metrics_default: dict[str, Any] = {}
-            metrics_dict = cast(dict[str, Any], quality_dict.setdefault("metrics", metrics_default))
+        quality_section: dict[str, Any] | None = None
+        if metrics_summary or self._qc_thresholds:
+            quality_section = cast(dict[str, Any], metadata.setdefault("quality", {}))
+        if metrics_summary and quality_section is not None:
+            metrics_dict = cast(dict[str, Any], quality_section.setdefault("metrics", {}))
             metrics_dict.update(metrics_summary)
+        if self._qc_thresholds and quality_section is not None:
+            thresholds_dict = cast(dict[str, Any], quality_section.setdefault("thresholds", {}))
+            thresholds_dict.update(self._qc_thresholds)
+            quality_section.setdefault("fail_on_violation", self._qc_fail_on_threshold)
 
         log.debug(LogEvents.WRITE_ARTIFACTS_PREPARED,
             rows=len(prepared.dataframe),
@@ -1583,6 +1676,9 @@ class PipelineBase(ABC):
         extended: bool = False,
         include_correlation: bool | None = None,
         include_qc_metrics: bool | None = None,
+        qc_reports: QCReportRuntimeOptions | None = None,
+        qc_thresholds: Mapping[str, float] | None = None,
+        fail_on_qc_violation: bool | None = None,
         **kwargs: object,
     ) -> RunResult:
         """Execute the pipeline lifecycle and return collected artifacts.
@@ -1606,8 +1702,7 @@ class PipelineBase(ABC):
         RunResult:
             All artifacts generated by the pipeline run.
         """
-        log = UnifiedLogger.get(__name__)
-        UnifiedLogger.bind(
+        bind_pipeline_context(
             run_id=self.run_id,
             pipeline=self.pipeline_code,
             dataset=self.pipeline_code,
@@ -1619,6 +1714,10 @@ class PipelineBase(ABC):
         stage_durations_ms: dict[str, float] = {}
         self._stage_durations_ms = stage_durations_ms
         self._extract_metadata = {}
+        self._qc_report_options = qc_reports
+        self._qc_thresholds = dict(qc_thresholds or {})
+        if fail_on_qc_violation is not None:
+            self._qc_fail_on_threshold = bool(fail_on_qc_violation)
 
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         configured_mode = "extended" if effective_extended else None
@@ -1637,42 +1736,76 @@ class PipelineBase(ABC):
             else effective_extended
         )
 
-        UnifiedLogger.bind(stage="bootstrap")
-        log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_path))
+        current_stage = "bootstrap"
+        bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
+        bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+        bootstrap_log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_path))
 
         try:
-            with UnifiedLogger.stage("extract", component=self._component_for_stage("extract")):
-                log.info(LogEvents.STAGE_EXTRACT_START)
+            current_stage = "extract"
+            with pipeline_stage(
+                current_stage,
+                pipeline=self.pipeline_code,
+                run_id=self.run_id,
+                dataset=self.pipeline_code,
+                component=self._component_for_stage(current_stage),
+                logger_name=__name__,
+            ) as extract_log:
+                extract_log.info(LogEvents.STAGE_EXTRACT_START)
                 extract_start = time.perf_counter()
                 extracted = self.extract(*args, **kwargs)
                 duration = (time.perf_counter() - extract_start) * 1000.0
-                stage_durations_ms["extract"] = duration
+                stage_durations_ms[current_stage] = duration
                 rows = self._safe_len(extracted)
-                log.info(LogEvents.STAGE_EXTRACT_FINISH, duration_ms=duration, rows=rows)
+                extract_log.info(LogEvents.STAGE_EXTRACT_FINISH, duration_ms=duration, rows=rows)
 
-            with UnifiedLogger.stage("transform", component=self._component_for_stage("transform")):
-                log.info(LogEvents.STAGE_TRANSFORM_START)
+            current_stage = "transform"
+            with pipeline_stage(
+                current_stage,
+                pipeline=self.pipeline_code,
+                run_id=self.run_id,
+                dataset=self.pipeline_code,
+                component=self._component_for_stage(current_stage),
+                logger_name=__name__,
+            ) as transform_log:
+                transform_log.info(LogEvents.STAGE_TRANSFORM_START)
                 transform_start = time.perf_counter()
                 transformed = self.transform(extracted)
                 duration = (time.perf_counter() - transform_start) * 1000.0
-                stage_durations_ms["transform"] = duration
+                stage_durations_ms[current_stage] = duration
                 rows = self._safe_len(transformed)
-                log.info(LogEvents.STAGE_TRANSFORM_FINISH, duration_ms=duration, rows=rows)
+                transform_log.info(LogEvents.STAGE_TRANSFORM_FINISH, duration_ms=duration, rows=rows)
 
             # transformed is always pd.DataFrame according to transform signature
             prepared_for_validation = self._apply_cli_sample(transformed)
 
-            with UnifiedLogger.stage("validate", component=self._component_for_stage("validate")):
-                log.info(LogEvents.STAGE_VALIDATE_START)
+            current_stage = "validate"
+            with pipeline_stage(
+                current_stage,
+                pipeline=self.pipeline_code,
+                run_id=self.run_id,
+                dataset=self.pipeline_code,
+                component=self._component_for_stage(current_stage),
+                logger_name=__name__,
+            ) as validate_log:
+                validate_log.info(LogEvents.STAGE_VALIDATE_START)
                 validate_start = time.perf_counter()
                 validated = self.validate(prepared_for_validation)
                 duration = (time.perf_counter() - validate_start) * 1000.0
-                stage_durations_ms["validate"] = duration
+                stage_durations_ms[current_stage] = duration
                 rows = self._safe_len(validated)
-                log.info(LogEvents.STAGE_VALIDATE_FINISH, duration_ms=duration, rows=rows)
+                validate_log.info(LogEvents.STAGE_VALIDATE_FINISH, duration_ms=duration, rows=rows)
 
-            with UnifiedLogger.stage("write", component=self._component_for_stage("write")):
-                log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_path))
+            current_stage = "write"
+            with pipeline_stage(
+                current_stage,
+                pipeline=self.pipeline_code,
+                run_id=self.run_id,
+                dataset=self.pipeline_code,
+                component=self._component_for_stage(current_stage),
+                logger_name=__name__,
+            ) as write_log:
+                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_path))
                 write_start = time.perf_counter()
                 result = self.write(
                     validated,
@@ -1682,19 +1815,24 @@ class PipelineBase(ABC):
                     include_qc_metrics=include_qc_metrics_flag,
                 )
                 duration = (time.perf_counter() - write_start) * 1000.0
-                stage_durations_ms["write"] = duration
-                log.info(LogEvents.STAGE_WRITE_FINISH,
+                stage_durations_ms[current_stage] = duration
+                write_log.info(
+                    LogEvents.STAGE_WRITE_FINISH,
                     duration_ms=duration,
                     dataset=str(result.write_result.dataset),
                 )
 
             self.apply_retention_policy()
-            log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
+            current_stage = "bootstrap"
+            bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
+            bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
             return result
 
         except PipelineError as exc:
-            log.error(LogEvents.STAGE_RUN_ERROR,
+            error_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+            error_log.error(
+                LogEvents.STAGE_RUN_ERROR,
                 error=str(exc),
                 error_type=exc.__class__.__name__,
                 exc_info=True,
@@ -1702,14 +1840,18 @@ class PipelineBase(ABC):
             raise
         except _NETWORK_ERROR_TYPES as exc:
             mapped = map_client_exc(exc)
-            log.error(LogEvents.STAGE_RUN_ERROR,
+            error_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+            error_log.error(
+                LogEvents.STAGE_RUN_ERROR,
                 error=str(mapped),
                 error_type=mapped.__class__.__name__,
                 exc_info=True,
             )
             raise mapped from exc
         except Exception as exc:
-            log.error(LogEvents.STAGE_RUN_ERROR,
+            error_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+            error_log.error(
+                LogEvents.STAGE_RUN_ERROR,
                 error=str(exc),
                 error_type=exc.__class__.__name__,
                 exc_info=True,
@@ -1717,14 +1859,25 @@ class PipelineBase(ABC):
             raise
 
         finally:
-            with UnifiedLogger.stage("cleanup", component=self._component_for_stage("cleanup")):
-                log.info(LogEvents.STAGE_CLEANUP_START)
+            current_stage = "cleanup"
+            with pipeline_stage(
+                current_stage,
+                pipeline=self.pipeline_code,
+                run_id=self.run_id,
+                dataset=self.pipeline_code,
+                component=self._component_for_stage(current_stage),
+                logger_name=__name__,
+            ) as cleanup_log:
+                cleanup_log.info(LogEvents.STAGE_CLEANUP_START)
                 self._cleanup_registered_clients()
                 try:
                     self.close_resources()
                 except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
-                    log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
-                log.info(LogEvents.STAGE_CLEANUP_FINISH)
+                    cleanup_log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
+                self._qc_report_options = None
+                self._qc_thresholds = {}
+                self._qc_fail_on_threshold = False
+                cleanup_log.info(LogEvents.STAGE_CLEANUP_FINISH)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate ``df`` against the configured Pandera schema.

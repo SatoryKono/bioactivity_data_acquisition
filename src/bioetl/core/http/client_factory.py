@@ -9,10 +9,9 @@ from bioetl.config.loader import load_config
 from bioetl.config.models.base import PipelineConfig
 from bioetl.config.models.http import HTTPClientConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.logging import LogEvents
+from bioetl.core.logging import LogEvents, UnifiedLogger
 
 from .api_client import UnifiedAPIClient, merge_http_configs
-from bioetl.core.logging import UnifiedLogger
 
 __all__ = ["APIClientFactory", "for_tool"]
 

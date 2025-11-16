@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, ClassVar
 
-from pydantic import ConfigDict, Field, PositiveInt, model_validator
+from pydantic import ConfigDict, Field, PositiveInt
 
 from bioetl.clients.base import normalize_select_fields
+
+from ..common import BatchSizeLimitMixin
 from ..models.http import HTTPClientConfig
 from ..models.source import SourceConfig, SourceParameters
 
@@ -23,6 +25,10 @@ class TargetSourceParameters(SourceParameters):
     select_fields: Sequence[str] | None = Field(
         default=None,
         description="Optional list of field names to fetch via `only` parameter.",
+    )
+    component_limit: PositiveInt | None = Field(
+        default=None,
+        description="Optional limit on the number of components to process per target (for testing/sampling).",
     )
 
     @classmethod
@@ -47,13 +53,20 @@ class TargetSourceParameters(SourceParameters):
         normalized = dict(cls._normalize_mapping(params))
         select_fields = normalize_select_fields(normalized.get("select_fields"))
 
+        component_limit = normalized.get("component_limit")
+        if component_limit is not None:
+            component_limit = int(component_limit)
+
         return cls(
             base_url=normalized.get("base_url"),
             select_fields=select_fields,
+            component_limit=component_limit,
         )
 
 
-class TargetSourceConfig(SourceConfig[TargetSourceParameters]):
+class TargetSourceConfig(
+    SourceConfig[TargetSourceParameters], BatchSizeLimitMixin
+):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -61,24 +74,12 @@ class TargetSourceConfig(SourceConfig[TargetSourceParameters]):
     http_profile: str | None = Field(default=None)
     http: HTTPClientConfig | None = Field(default=None)
     batch_size: PositiveInt | None = Field(
-        default=25,
+        default=200,
         description="Effective batch size for pagination requests (capped at 25).",
     )
     parameters: TargetSourceParameters = Field(default_factory=TargetSourceParameters)
 
     parameters_model = TargetSourceParameters
-    batch_field = "batch_size"
-    default_batch_size = 25
+    batch_field: ClassVar[str | None] = "batch_size"
+    default_batch_size: ClassVar[int | None] = 25
 
-    @model_validator(mode="after")
-    def enforce_limits(self) -> TargetSourceConfig:
-        """Ensure the configured values adhere to documented constraints.
-
-        Returns
-        -------
-        TargetSourceConfig
-            Self with enforced limits.
-        """
-        if self.batch_size is None or self.batch_size > 25:
-            self.batch_size = 25
-        return self
