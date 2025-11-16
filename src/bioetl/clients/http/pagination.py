@@ -85,18 +85,41 @@ class Paginator:
                 # Check if next_endpoint contains query string
                 parsed = urlparse(next_endpoint)
                 if parsed.query:
-                    # Extract and update params from URL
-                    extracted_params = self._extract_and_update_params_from_url(next_endpoint, page_size)
-                    if extracted_params is not None:
-                        pending_params = extracted_params
+                    # Check if we need to override limit with page_size
+                    # Only override if page_size is specified and limit exists in URL
+                    query_params = parse_qs(parsed.query, keep_blank_values=True)
+                    has_limit_in_url = (
+                        self._limit_param_name
+                        and self._limit_param_name in query_params
+                    )
+                    needs_limit_override = (
+                        has_limit_in_url
+                        and self._limit_param_name
+                        and page_size is not None
+                        and page_size > 0
+                    )
+                    
+                    if needs_limit_override:
+                        # Extract and update params from URL to override limit
+                        extracted_params = self._extract_and_update_params_from_url(next_endpoint, page_size)
+                        if extracted_params is not None:
+                            pending_params = extracted_params
+                            self._log.debug(
+                                "Extracted params from next_endpoint URL to override limit",
+                                next_endpoint=next_endpoint,
+                                extracted_params=pending_params,
+                                page_size=page_size,
+                            )
+                        # Remove query string from endpoint since we're passing params separately
+                        next_endpoint = parsed.path or next_endpoint.split("?")[0]
+                    else:
+                        # Keep query string in endpoint, don't extract params
+                        # This preserves the original next link as-is
+                        pending_params = None
                         self._log.debug(
-                            "Extracted params from next_endpoint URL",
+                            "Keeping query string in endpoint for next link",
                             next_endpoint=next_endpoint,
-                            extracted_params=pending_params,
-                            page_size=page_size,
                         )
-                    # Remove query string from endpoint since we're passing params separately
-                    next_endpoint = parsed.path or next_endpoint.split("?")[0]
                 elif page_size is not None and page_size > 0:
                     # No query string in URL, but we still need to set limit
                     if pending_params is None:

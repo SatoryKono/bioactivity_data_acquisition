@@ -33,6 +33,28 @@ from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_colu
 
 from .transform import serialize_target_arrays
 
+def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str, str, str]:
+    """Return deterministic sort key for protein class dictionaries."""
+
+    def _coerce_int(value: Any) -> int:
+        try:
+            if value is None:
+                return 0
+            if isinstance(value, bool):
+                return int(value)
+            if isinstance(value, (int, float)):
+                return int(value)
+            return int(str(value).strip())
+        except (TypeError, ValueError):
+            return 0
+
+    level = class_obj.get("class_level")
+    level_int = _coerce_int(level)
+    class_id = str(class_obj.get("protein_class_id") or "")
+    pref_name = str(class_obj.get("pref_name") or "")
+    canonical_json = json.dumps(class_obj, ensure_ascii=False, sort_keys=True)
+    level_flag = 1 if level is None else 0
+    return (level_flag, level_int, class_id, pref_name, canonical_json)
 
 class ChemblTargetPipeline(ChemblPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
@@ -378,7 +400,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         components.append(accession.strip())
 
                 if components:
-                    component_map[target_id] = components
+                    deduped_components = sorted({component.strip() for component in components})
+                    component_map[target_id] = deduped_components
             except Exception as exc:
                 log.warning(LogEvents.TARGET_COMPONENT_FETCH_ERROR,
                     target_chembl_id=target_id,
@@ -529,7 +552,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                 break
                     except HTTPError as exc:
                         # Handle 404 gracefully: some components may not have sequences
-                        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+                        # requests.exceptions.HTTPError always has a response attribute
+                        if exc.response is not None and exc.response.status_code == 404:
                             log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 component_id=component_id,
@@ -567,7 +591,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                         break
                             except HTTPError as retry_exc:
                                 # Handle 404 on retry as well
-                                if hasattr(retry_exc, "response") and retry_exc.response is not None and retry_exc.response.status_code == 404:
+                                # requests.exceptions.HTTPError always has a response attribute
+                                if retry_exc.response is not None and retry_exc.response.status_code == 404:
                                     log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                         target_chembl_id=target_id,
                                         component_id=component_id,
@@ -702,9 +727,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             unique_classes.append(class_obj)
 
                     # Sort by class_level for deterministic order
-                    unique_classes.sort(
-                        key=lambda x: (x.get("class_level") is None, x.get("class_level") or 0)
-                    )
+                    unique_classes.sort(key=_protein_class_sort_key)
 
                     classification_list_map[target_id] = unique_classes
 
