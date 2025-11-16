@@ -7,7 +7,6 @@ This directory stores documentation for the test item entity within the PubChem 
 | [00-testitem-pubchem-overview.md](00-testitem-pubchem-overview.md) | Pipeline overview |
 | [09-testitem-pubchem-extraction.md](09-testitem-pubchem-extraction.md) | Extraction stage |
 | [10-testitem-pubchem-transformation.md](10-testitem-pubchem-transformation.md) | Transformation stage |
-| [22-testitem-pubchem-transformation.md](22-testitem-pubchem-transformation.md) | Transformation stage |
 | [23-testitem-pubchem-validation.md](23-testitem-pubchem-validation.md) | Validation stage |
 | [24-testitem-pubchem-io.md](24-testitem-pubchem-io.md) | I/O contracts |
 | [25-testitem-pubchem-determinism.md](25-testitem-pubchem-determinism.md) | Determinism guarantees |

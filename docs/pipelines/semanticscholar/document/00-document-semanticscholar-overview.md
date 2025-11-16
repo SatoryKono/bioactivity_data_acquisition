@@ -1,4 +1,4 @@
-# 00 Document Semantic Scholar Overview
+﻿# 00 Document Semantic Scholar Overview
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -34,25 +34,25 @@ Extract → Transform → Validate → Write
 
 This pipeline documentation is organized by stage and topic:
 
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview (this file)
-- [09-document-semantic-scholar-extraction.md](09-document-semantic-scholar-extraction.md)
+- [09-document-semanticscholar-extraction.md](09-document-semanticscholar-extraction.md)
   — Extraction from Semantic Scholar Graph API
-- [10-document-semantic-scholar-transformation.md](10-document-semantic-scholar-transformation.md)
+- [10-document-semanticscholar-transformation.md](10-document-semanticscholar-transformation.md)
   — JSON parsing and field normalization
-- [11-document-semantic-scholar-validation.md](11-document-semantic-scholar-validation.md)
+- [11-document-semanticscholar-validation.md](11-document-semanticscholar-validation.md)
   — Pandera schemas and validation
-- [12-document-semantic-scholar-io.md](12-document-semantic-scholar-io.md) —
+- [12-document-semanticscholar-io.md](12-document-semanticscholar-io.md) —
   Output formats and atomic writing
-- [13-document-semantic-scholar-determinism.md](13-document-semantic-scholar-determinism.md)
+- [13-document-semanticscholar-determinism.md](13-document-semanticscholar-determinism.md)
   — Determinism, stable sort, hashing
-- [14-document-semantic-scholar-qc.md](14-document-semantic-scholar-qc.md) — QC
+- [14-document-semanticscholar-qc.md](14-document-semanticscholar-qc.md) — QC
   metrics and thresholds
-- [15-document-semantic-scholar-logging.md](15-document-semantic-scholar-logging.md)
+- [15-document-semanticscholar-logging.md](15-document-semanticscholar-logging.md)
   — Structured logging format
-- [16-document-semantic-scholar-cli.md](16-document-semantic-scholar-cli.md) —
+- [16-document-semanticscholar-cli.md](16-document-semanticscholar-cli.md) —
   CLI commands and flags
-- [17-document-semantic-scholar-config.md](17-document-semantic-scholar-config.md)
+- [17-document-semanticscholar-config.md](17-document-semanticscholar-config.md)
   — Configuration keys and profiles
 
 ## CLI Usage Example
@@ -61,13 +61,13 @@ This pipeline documentation is organized by stage and topic:
 # Standard extraction from Semantic Scholar (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
-  --output-dir data/output/document-semantic-scholar
+  --output-dir data/output/document-semanticscholar
 
 # With input file containing PMIDs (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
   --config configs/pipelines/semantic_scholar/document.yaml \
   --input-file data/input/pmids.csv \
-  --output-dir data/output/document-semantic-scholar
+  --output-dir data/output/document-semanticscholar
 ```
 
 ## Configuration
@@ -83,7 +83,7 @@ include:
 - QC thresholds for data completeness and access denial rate
 
 See
-[17-document-semantic-scholar-config.md](17-document-semantic-scholar-config.md)
+[17-document-semanticscholar-config.md](17-document-semanticscholar-config.md)
 for detailed configuration documentation.
 
 ## Related Documentation

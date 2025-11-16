@@ -24,6 +24,11 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    build_standard_chembl_context,
+)
+from bioetl.chembl.common.handlers import (
+    make_dry_run_handler,
+    make_empty_frame_factory,
 )
 from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
 from .normalize import (
@@ -142,51 +147,64 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             log: BoundLogger,
         ) -> ChemblExtractionContext:
             assay_pipeline = _require_assay_pipeline(pipeline)
-            bundle = assay_pipeline.build_chembl_entity_bundle(
+
+            def pre_release_hook(
+                p: SelfChemblAssayPipeline,
+                sc: AssaySourceConfig,
+                entity_client: Any,
+            ) -> None:
+                assay_client = cast(ChemblAssayClient, entity_client)
+                assay_client.handshake(
+                    endpoint=sc.parameters.handshake_endpoint,
+                    enabled=sc.parameters.handshake_enabled,
+                )
+
+            def release_resolver(
+                p: SelfChemblAssayPipeline,
+                chembl_client: Any,
+                log: BoundLogger,
+                entity_client: Any | None,
+            ) -> str | None:
+                if entity_client is None:
+                    return None
+                assay_client = cast(ChemblAssayClient, entity_client)
+                log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
+                    chembl_release=assay_client.chembl_release,
+                    handshake_endpoint=source_config.parameters.handshake_endpoint,
+                    handshake_enabled=source_config.parameters.handshake_enabled,
+                )
+                return assay_client.chembl_release
+
+            def select_fields_resolver(
+                p: SelfChemblAssayPipeline,
+                sc: AssaySourceConfig,
+            ) -> Sequence[str] | None:
+                raw_source = p._resolve_source_config("chembl")
+                return p._resolve_select_fields(raw_source)
+
+            def extra_filters_factory(sc: AssaySourceConfig, _: SelfChemblAssayPipeline) -> dict[str, Any]:
+                return {"max_url_length": sc.max_url_length}
+
+            context = build_standard_chembl_context(
+                assay_pipeline,
                 "assay",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            if "chembl_assay_http" not in assay_pipeline._registered_clients:
-                assay_pipeline.register_client("chembl_assay_http", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            assay_client = cast(ChemblAssayClient, bundle.entity_client)
-            if assay_client is None:
-                msg = "Фабрика вернула пустой клиент для 'assay'"
-                raise RuntimeError(msg)
-
-            assay_client.handshake(
-                endpoint=source_config.parameters.handshake_endpoint,
-                enabled=source_config.parameters.handshake_enabled,
-            )
-            assay_pipeline._set_chembl_release(assay_client.chembl_release)
-            log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-                chembl_release=assay_pipeline.chembl_release,
-                handshake_endpoint=source_config.parameters.handshake_endpoint,
-                handshake_enabled=source_config.parameters.handshake_enabled,
+                source_config,
+                log,
+                entity_client_type=ChemblAssayClient,
+                release_resolver=release_resolver,
+                select_fields_resolver=select_fields_resolver,
+                extra_filters_factory=extra_filters_factory,
+                pre_release_hook=pre_release_hook,
             )
 
-            raw_source = assay_pipeline._resolve_source_config("chembl")
-            select_fields = assay_pipeline._resolve_select_fields(raw_source)
             log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
-                fields=select_fields,
-                fields_count=len(select_fields) if select_fields else 0,
+                fields=context.select_fields,
+                fields_count=len(context.select_fields) if context.select_fields else 0,
             )
 
-            context = ChemblExtractionContext(source_config, assay_client)
-            context.chembl_client = chembl_client
-            context.select_fields = (
-                tuple(select_fields) if select_fields else None
-            )
-            context.chembl_release = assay_pipeline.chembl_release
-            context.extra_filters = {"max_url_length": source_config.max_url_length}
             return context
 
-        def empty_frame(
-            _: SelfChemblAssayPipeline,
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"assay_chembl_id": pd.Series(dtype="string")})
+        empty_frame = make_empty_frame_factory("assay_chembl_id")
 
         def post_process(
             pipeline: SelfChemblAssayPipeline,
@@ -230,21 +248,14 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             )
             return df
 
-        def dry_run_handler(
-            pipeline: SelfChemblAssayPipeline,
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
+        def get_metadata(pipeline: SelfChemblAssayPipeline) -> Mapping[str, Any]:
             assay_pipeline = _require_assay_pipeline(pipeline)
+            return {"chembl_release": assay_pipeline.chembl_release}
 
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=assay_pipeline.chembl_release,
-            )
-            return pd.DataFrame()
+        dry_run_handler = make_dry_run_handler(
+            LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
+            get_metadata,
+        )
 
         def summary_extra(
             pipeline: SelfChemblAssayPipeline,

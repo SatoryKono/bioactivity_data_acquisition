@@ -1,4 +1,4 @@
-# 69 Document Semantic Scholar I/O
+﻿# 69 Document Semantic Scholar I/O
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -23,7 +23,7 @@ Stable sorting by: `['semantic_scholar_id']`
 
 - [PipelineBase I/O and Artifacts](../00-pipeline-base.md#61-io-and-artifacts) —
   General I/O format, atomic writing, metadata structure
-- [70-document-semantic-scholar-determinism.md](70-document-semantic-scholar-determinism.md)
+- [70-document-semanticscholar-determinism.md](70-document-semanticscholar-determinism.md)
   — Determinism policy
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview

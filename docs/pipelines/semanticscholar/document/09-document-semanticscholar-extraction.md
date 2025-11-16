@@ -1,4 +1,4 @@
-# Pipeline: `document_semantic_scholar`
+﻿# Pipeline: `document_semantic_scholar`
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -22,7 +22,7 @@ specification for its future implementation.
 
 | **CLI Command** | `python -m bioetl.cli.cli_app document_semantic_scholar` |
 Not Implemented | | **Config File** | \[ref:
-repo:src/bioetl/configs/pipelines/semantic-scholar/document_semantic_scholar.yaml@refactoring_001\]
+repo:src/bioetl/configs/pipelines/semanticscholar/document_semantic_scholar.yaml@refactoring_001\]
 | Not Implemented | | **CLI Registration** | \[ref:
 repo:src/bioetl/cli/cli_registry.py@refactoring_001\] | Not Implemented |
 
@@ -311,7 +311,7 @@ def normalize_publication_types(types_list):
 This pipeline follows the standard
 `docs/configs/00-typed-configs-and-profiles.md`.
 
-Configuration file: `configs/pipelines/semantic-scholar-document.yaml`
+Configuration file: `configs/pipelines/semanticscholar-document.yaml`
 (`extends: "../base.yaml"`).
 
 ### 5.2 Main Configuration Overrides
@@ -444,7 +444,7 @@ qc:
 ### 5.5 Validation Rules
 
 - Uses
-  `PipelineConfig.validate_yaml('configs/pipelines/semantic-scholar-document.yaml')`.
+  `PipelineConfig.validate_yaml('configs/pipelines/semanticscholar-document.yaml')`.
 
 - Additional checks:
 
@@ -802,7 +802,7 @@ The pipeline uses the following exit codes:
 ```bash
 # (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
-  --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
+  --config configs/pipelines/semanticscholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar
 ```
 
@@ -811,7 +811,7 @@ python -m bioetl.cli.cli_app document_semantic_scholar \
 ```bash
 # (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
-  --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
+  --config configs/pipelines/semanticscholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \
   --dry-run
 ```
@@ -821,7 +821,7 @@ python -m bioetl.cli.cli_app document_semantic_scholar \
 ```bash
 # (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
-  --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
+  --config configs/pipelines/semanticscholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \
   --profile determinism
 ```
@@ -833,7 +833,7 @@ export SEMANTIC_SCHOLAR_API_KEY="your_api_key_here"
 
 # (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
-  --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
+  --config configs/pipelines/semanticscholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar
 ```
 
@@ -842,7 +842,7 @@ python -m bioetl.cli.cli_app document_semantic_scholar \
 ```bash
 # (not implemented)
 python -m bioetl.cli.cli_app document_semantic_scholar \
-  --config configs/pipelines/semantic-scholar/document_semantic_scholar.yaml \
+  --config configs/pipelines/semanticscholar/document_semantic_scholar.yaml \
   --output-dir data/output/document_semantic_scholar \
   --set sources.semantic_scholar.rate_limit.max_calls_per_sec_with_key=8 \
   --set sources.semantic_scholar.title_search.threshold=0.9 \
@@ -852,7 +852,7 @@ python -m bioetl.cli.cli_app document_semantic_scholar \
 ## 12. References
 
 - Configuration:
-  [`docs/pipelines/sources/semantic-scholar/00-configuration.md`](sources/semantic-scholar/00-configuration.md)
+  [`docs/pipelines/sources/semanticscholar/00-configuration.md`](sources/semanticscholar/00-configuration.md)
 - Semantic Scholar API: [Semantic Scholar API](https://api.semanticscholar.org/)
 - API Terms of Use:
   [Semantic Scholar API Terms of Use](https://www.semanticscholar.org/product/api/api-terms-of-use)

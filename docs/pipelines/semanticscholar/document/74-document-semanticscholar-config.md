@@ -1,4 +1,4 @@
-# 74 Document Semantic Scholar Config
+﻿# 74 Document Semantic Scholar Config
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -11,7 +11,7 @@ pipeline.
 
 ## Configuration File
 
-`src/bioetl/configs/pipelines/semantic-scholar/document.yaml`
+`src/bioetl/configs/pipelines/semanticscholar/document.yaml`
 
 ## Key Settings
 
@@ -23,4 +23,4 @@ pipeline.
 ## Related Documentation
 
 - [Typed Configurations](../configs/00-typed-configs-and-profiles.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)

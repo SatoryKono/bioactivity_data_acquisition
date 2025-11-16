@@ -1,4 +1,4 @@
-# 71 Document Semantic Scholar QC
+﻿# 71 Document Semantic Scholar QC
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -23,5 +23,5 @@ Scholar) pipeline.
 
 ## Related Documentation
 
-- [68-document-semantic-scholar-validation.md](68-document-semantic-scholar-validation.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [68-document-semanticscholar-validation.md](68-document-semanticscholar-validation.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)

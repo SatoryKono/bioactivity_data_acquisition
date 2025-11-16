@@ -19,6 +19,11 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    build_standard_chembl_context,
+)
+from bioetl.chembl.common.handlers import (
+    make_dry_run_handler,
+    make_empty_frame_factory,
 )
 from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
@@ -81,54 +86,29 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             log: BoundLogger,
         ) -> ChemblExtractionContext:
             typed_pipeline = cast("ChemblTargetPipeline", pipeline)
-            bundle = typed_pipeline.build_chembl_entity_bundle(
+
+            def extra_filters_factory(sc: TargetSourceConfig, _: ChemblPipelineBase) -> dict[str, Any]:
+                batch_size = getattr(sc, "batch_size", None)
+                return {"batch_size": batch_size} if batch_size else {}
+
+            return build_standard_chembl_context(
+                typed_pipeline,
                 "target",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            if "chembl_target_http" not in pipeline._registered_clients:
-                typed_pipeline.register_client("chembl_target_http", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            typed_pipeline._set_chembl_release(
-                typed_pipeline.fetch_chembl_release(chembl_client, log)
-            )
-            target_client = cast(ChemblTargetClient, bundle.entity_client)
-            if target_client is None:
-                msg = "Фабрика вернула пустой клиент для 'target'"
-                raise RuntimeError(msg)
-            select_fields = source_config.parameters.select_fields
-            page_size = getattr(source_config, "page_size", None)
-            batch_size = getattr(source_config, "batch_size", None)
-            extra_filters = {"batch_size": batch_size} if batch_size else {}
-            return ChemblExtractionContext(
                 source_config,
-                target_client,
-                chembl_client,
-                list(select_fields) if select_fields else None,
-                page_size,
-                typed_pipeline.chembl_release,
-                extra_filters=extra_filters,
+                log,
+                entity_client_type=ChemblTargetClient,
+                release_resolver=lambda p, c, l, _: p.fetch_chembl_release(c, l),
+                extra_filters_factory=extra_filters_factory,
             )
 
-        def empty_frame(
-            _: ChemblPipelineBase,
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"target_chembl_id": pd.Series(dtype="string")})
+        def get_metadata(pipeline: ChemblPipelineBase) -> Mapping[str, Any]:
+            return {"chembl_release": pipeline.chembl_release}
 
-        def dry_run_handler(
-            pipeline: ChemblPipelineBase,
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=pipeline.chembl_release,
-            )
-            return pd.DataFrame()
+        empty_frame = make_empty_frame_factory("target_chembl_id")
+        dry_run_handler = make_dry_run_handler(
+            LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
+            get_metadata,
+        )
 
         def summary_extra(
             pipeline: ChemblPipelineBase,

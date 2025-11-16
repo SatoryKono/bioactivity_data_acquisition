@@ -1,4 +1,4 @@
-# 67 Document Semantic Scholar Transformation
+﻿# 67 Document Semantic Scholar Transformation
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -36,9 +36,9 @@ field standardization.
 
 ## Related Documentation
 
-- [09-document-semantic-scholar-extraction.md](09-document-semantic-scholar-extraction.md)
+- [09-document-semanticscholar-extraction.md](09-document-semanticscholar-extraction.md)
   — Extraction stage
-- [68-document-semantic-scholar-validation.md](68-document-semantic-scholar-validation.md)
+- [68-document-semanticscholar-validation.md](68-document-semanticscholar-validation.md)
   — Validation stage
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview

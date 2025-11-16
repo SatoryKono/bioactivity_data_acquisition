@@ -1,4 +1,4 @@
-# 68 Document Semantic Scholar Validation
+﻿# 68 Document Semantic Scholar Validation
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -33,6 +33,6 @@ The pipeline uses `DocumentSemanticScholarSchema` for validation:
 
 ## Related Documentation
 
-- [69-document-semantic-scholar-io.md](69-document-semantic-scholar-io.md)
-- [71-document-semantic-scholar-qc.md](71-document-semantic-scholar-qc.md)
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [69-document-semanticscholar-io.md](69-document-semanticscholar-io.md)
+- [71-document-semanticscholar-qc.md](71-document-semanticscholar-qc.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)

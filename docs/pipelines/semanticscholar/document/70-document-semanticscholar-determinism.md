@@ -1,4 +1,4 @@
-# 70 Document Semantic Scholar Determinism
+﻿# 70 Document Semantic Scholar Determinism
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -17,7 +17,7 @@ Document (Semantic Scholar) pipeline.
 
 - [PipelineBase Determinism](../00-pipeline-base.md#6-determinism-and-artifacts)
   — General determinism policy, hash generation, canonicalization
-- [69-document-semantic-scholar-io.md](69-document-semantic-scholar-io.md) — I/O
+- [69-document-semanticscholar-io.md](69-document-semanticscholar-io.md) — I/O
   implementation
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview

@@ -1,4 +1,4 @@
-# 73 Document Semantic Scholar CLI
+﻿# 73 Document Semantic Scholar CLI
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -14,15 +14,15 @@ This document describes the pipeline-specific CLI configuration for the Document
 
 ```bash
 # not implemented
-python -m bioetl.cli.cli_app document --source semantic-scholar
+python -m bioetl.cli.cli_app document --source semanticscholar
 ```
 
 ## Examples
 
 ```bash
 # not implemented
-python -m bioetl.cli.cli_app document --source semantic-scholar \
-  --config configs/pipelines/semantic-scholar/document.yaml \
+python -m bioetl.cli.cli_app document --source semanticscholar \
+  --config configs/pipelines/semanticscholar/document.yaml \
   --output-dir data/output/document
 ```
 
@@ -30,7 +30,7 @@ python -m bioetl.cli.cli_app document --source semantic-scholar \
 
 - [PipelineBase Standard CLI Flags](../00-pipeline-base.md#81-standard-cli-flags)
   — General CLI flag descriptions and exit codes
-- [74-document-semantic-scholar-config.md](74-document-semantic-scholar-config.md)
+- [74-document-semanticscholar-config.md](74-document-semanticscholar-config.md)
   — Configuration details
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview

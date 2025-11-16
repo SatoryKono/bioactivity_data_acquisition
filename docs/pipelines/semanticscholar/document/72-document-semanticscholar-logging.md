@@ -1,4 +1,4 @@
-# 72 Document Semantic Scholar Logging
+﻿# 72 Document Semantic Scholar Logging
 
 > **Status:** pipeline not yet implemented (CLI command missing in `COMMAND_REGISTRY`).
 
@@ -17,5 +17,5 @@ Document (Semantic Scholar) pipeline.
 
 - [PipelineBase Logging Structure](../00-pipeline-base.md#51-logging-structure)
   — General logging format, mandatory fields, stage-specific events
-- [00-document-semantic-scholar-overview.md](00-document-semantic-scholar-overview.md)
+- [00-document-semanticscholar-overview.md](00-document-semanticscholar-overview.md)
   — Pipeline overview

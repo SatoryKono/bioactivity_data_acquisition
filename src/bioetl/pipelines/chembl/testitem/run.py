@@ -15,6 +15,11 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    build_standard_chembl_context,
+)
+from bioetl.chembl.common.handlers import (
+    make_dry_run_handler,
+    make_empty_frame_factory,
 )
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
@@ -120,49 +125,36 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            bundle = pipeline.build_chembl_entity_bundle(
+            def extra_filters_factory(_: TestItemSourceConfig, p: "TestItemChemblPipeline") -> dict[str, Any]:
+                return {"api_version": p.api_version}
+
+            context = build_standard_chembl_context(
+                pipeline,
                 "testitem",
-                source_name="chembl",
-                source_config=source_config,
+                source_config,
+                log,
+                entity_client_type=ChemblTestitemClient,
+                release_resolver=lambda p, c, l, _: p._fetch_chembl_release(c, l),
+                extra_filters_factory=extra_filters_factory,
+                chembl_release_override=pipeline.chembl_db_version,
             )
-            if "chembl_testitem_http" not in pipeline._registered_clients:
-                pipeline.register_client("chembl_testitem_http", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            pipeline._fetch_chembl_release(chembl_client, log)
+
             select_fields = source_config.parameters.select_fields
             log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-            testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
-            if testitem_client is None:
-                msg = "Фабрика вернула пустой клиент для 'testitem'"
-                raise RuntimeError(msg)
-            page_size = getattr(source_config, "page_size", None)
-            return ChemblExtractionContext(
-                source_config,
-                testitem_client,
-                chembl_client,
-                list(select_fields) if select_fields else None,
-                page_size,
-                pipeline.chembl_db_version,
-                {"api_version": pipeline.api_version},
-            )
 
-        def empty_frame(_: "TestItemChemblPipeline", __: ChemblExtractionContext) -> pd.DataFrame:
-            return pd.DataFrame({"molecule_chembl_id": pd.Series(dtype="string")})
+            return context
 
-        def dry_run_handler(
-            pipeline: "TestItemChemblPipeline",
-            _: ChemblExtractionContext,
-            log: BoundLogger,
-            stage_start: float,
-        ) -> pd.DataFrame:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_db_version=pipeline.chembl_db_version,
-                api_version=pipeline.api_version,
-            )
-            return pd.DataFrame()
+        def get_metadata(pipeline: "TestItemChemblPipeline") -> Mapping[str, Any]:
+            return {
+                "chembl_db_version": pipeline.chembl_db_version,
+                "api_version": pipeline.api_version,
+            }
+
+        empty_frame = make_empty_frame_factory("molecule_chembl_id")
+        dry_run_handler = make_dry_run_handler(
+            LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            get_metadata,
+        )
 
         def summary_extra(
             pipeline: "TestItemChemblPipeline",
