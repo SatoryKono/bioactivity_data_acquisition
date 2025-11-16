@@ -33,6 +33,7 @@ from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_colu
 
 from .transform import serialize_target_arrays
 
+
 def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str, str, str]:
     """Return deterministic sort key for protein class dictionaries."""
 
@@ -516,6 +517,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         for target_id in target_ids_to_enrich:
             try:
                 # Step 1: Get target components
+                # Note: We don't pass limit to paginate() here because component_limit filters
+                # the results after processing, and we want to ensure deterministic results.
+                # The break statement below will stop iteration early when component_limit is reached.
                 component_ids: list[str] = []
                 for item in chembl_client.paginate(
                     "/target_component.json",

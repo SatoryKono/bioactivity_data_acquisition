@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from tests.support.factories import load_sample_target_dataframe
@@ -61,10 +62,50 @@ def test_target_pipeline_golden_snapshot(
 
     golden_run_id = "golden-target-v1"
     pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=golden_run_id)  # type: ignore[arg-type]
+    
+    # Mock HTTP client to avoid real API calls in golden tests
     frame = load_sample_target_dataframe()
-    transformed = pipeline.transform(frame)
-    validated = pipeline.validate(transformed)
-    result = pipeline.write(validated, pipeline.pipeline_directory, extended=True)
+    
+    # Create deterministic mock data for target_component endpoint
+    # Return empty data to match existing golden files where uniprot_accessions is "[]"
+    def create_mock_paginate(target_id: str) -> list[dict[str, Any]]:
+        """Create deterministic mock component data for a target."""
+        # Return empty components to match golden file expectations
+        # Golden file shows uniprot_accessions as "[]" for all targets
+        return []
+    
+    # Create mock chembl_client with paginate method
+    mock_chembl_client = MagicMock()
+    def paginate_side_effect(endpoint: str, **kwargs: Any) -> Any:
+        """Mock paginate method that returns deterministic component data."""
+        if endpoint == "/target_component.json":
+            target_id = kwargs.get("params", {}).get("target_chembl_id")
+            if target_id:
+                components = create_mock_paginate(target_id)
+                return iter(components)
+        # Return empty iterators for other endpoints to avoid HTTP calls
+        # This ensures deterministic golden test results
+        return iter([])
+    
+    mock_chembl_client.paginate.side_effect = paginate_side_effect
+    mock_chembl_client.handshake.return_value = {"chembl_db_version": "36", "chembl_release": "ChEMBL_36"}
+    mock_chembl_client.circuit_breaker_time_until_half_open.return_value = None
+    
+    # Create mock bundle
+    mock_bundle = Mock()
+    mock_bundle.chembl_client = mock_chembl_client
+    mock_bundle.api_client = Mock()
+    mock_bundle.entity_client = Mock()
+    
+    # Patch build_chembl_entity_bundle to return mock bundle
+    with patch.object(
+        pipeline,
+        "build_chembl_entity_bundle",
+        return_value=mock_bundle,
+    ):
+        transformed = pipeline.transform(frame)
+        validated = pipeline.validate(transformed)
+        result = pipeline.write(validated, pipeline.pipeline_directory, extended=True)
 
     produced_paths: dict[str, Path | None] = {
         "dataset": result.write_result.dataset,

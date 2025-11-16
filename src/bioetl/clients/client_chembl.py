@@ -166,8 +166,23 @@ class ChemblClient:
         params: Mapping[str, Any] | None = None,
         page_size: int = 200,
         items_key: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[Mapping[str, Any]]:
-        """Yield paginated records and propagate public network exceptions from ``client_exceptions``."""
+        """Yield paginated records and propagate public network exceptions from ``client_exceptions``.
+
+        Parameters
+        ----------
+        endpoint
+            API endpoint path (e.g., "/activity.json").
+        params
+            Optional query parameters to include in requests.
+        page_size
+            Number of records per page (default: 200).
+        items_key
+            Key in response payload containing the items array (auto-detected if None).
+        limit
+            Maximum number of records to fetch across all pages. If None, fetches all available records.
+        """
 
         self.handshake()
         query: dict[str, Any] | None = dict(params) if params is not None else None
@@ -190,6 +205,7 @@ class ChemblClient:
                 params=query,
                 items_key=items_key,
                 page_size=page_size,
+                limit=limit,
             ):
                 self._record_pagination_snapshot(page, store, load_meta_id)
                 for item_raw in page.items:
