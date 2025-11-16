@@ -1,0 +1,26 @@
+{
+  "molecule_chembl_id": ["CHEMBL1", "CHEMBL2", "CHEMBL3"],
+  "pref_name": ["Molecule 1", "Molecule 2", null],
+  "molecule_type": ["Small molecule", "Small molecule", null],
+  "max_phase": [4, 3, null],
+  "first_approval": [2020, 2019, null],
+  "first_in_class": [1, 0, null],
+  "availability_type": [1, 2, null],
+  "black_box_warning": [0, 1, null],
+  "chirality": [1, 0, null],
+  "dosed_ingredient": [1, 0, null],
+  "helm_notation": [null, null, null],
+  "indication_class": ["Anticancer", "Antibiotic", null],
+  "inorganic_flag": [0, 0, null],
+  "natural_product": [0, 1, null],
+  "prodrug": [0, 0, null],
+  "structure_type": ["MOL", "MOL", null],
+  "therapeutic_flag": [1, 1, null],
+  "molecule_hierarchy": [{"molecule_chembl_id": "CHEMBL1", "parent_chembl_id": null}, {"molecule_chembl_id": "CHEMBL2", "parent_chembl_id": "CHEMBL1"}, null],
+  "molecule_structures": [{"canonical_smiles": "CCO", "standard_inchi_key": "LFQSCWFLJHTTHZ-UHFFFAOYSA-N"}, {"canonical_smiles": "CCN", "standard_inchi_key": "ALYNCZNDIQEVRV-UHFFFAOYSA-N"}, null],
+  "molecule_properties": [{"full_mwt": 46.07, "alogp": 0.31, "hba": 1, "hbd": 1}, {"full_mwt": 45.08, "alogp": 0.20, "hba": 1, "hbd": 0}, null],
+  "atc_classifications": [["A01AA", "A01AB"], ["B01AA"], null],
+  "cross_references": [[{"xref_id": "X1", "xref_name": "N1"}], null, null],
+  "molecule_synonyms": [[{"synonym": "Syn1"}], null, null]
+}
+

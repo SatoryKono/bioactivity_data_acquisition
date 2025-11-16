@@ -30,6 +30,7 @@ normalization.
 - Target lookup and enrichment
 - Assay class mapping via BAO ontology
 - Fallback handling for missing enrichments
+- **404 Error Handling**: If ChEMBL API endpoints for `assay_class_map` or `assay_parameter` return 404 (endpoint not available in this ChEMBL release), the pipeline logs a warning and continues with `NA` values in the enrichment columns (`assay_classifications`, `assay_class_id`, `assay_parameters`). Non-404 HTTP errors are still raised as exceptions.
 
 ## Related Documentation
 

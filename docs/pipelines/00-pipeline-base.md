@@ -47,6 +47,32 @@ dataclasses for structured results. The implementation is based on Python's
 
 [ref: repo:src/bioetl/pipelines/base.py@refactoring_001]
 
+```python
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+
+class PipelineBase:
+    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame:
+        ...
+
+    def transform(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        ...
+
+    def validate(self, dataframe: pd.DataFrame) -> pd.DataFrame:
+        ...
+
+    def write(self, dataframe: pd.DataFrame, output_path: Path) -> "RunResult":
+        ...
+
+    def run(self, output_path: Path, *args: Any, **kwargs: Any) -> "RunResult":
+        ...
+```
+
 ### Result Types
 
 These dataclasses define the expected structure of the results returned by the

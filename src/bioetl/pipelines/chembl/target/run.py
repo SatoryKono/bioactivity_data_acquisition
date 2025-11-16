@@ -22,10 +22,12 @@ from bioetl.chembl.common.descriptor import (
 )
 from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
+from bioetl.clients.client_exceptions import HTTPError
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
+from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
@@ -191,7 +193,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             select_fields=select_fields,
             batch_size=batch_size,
             chunk_size=chunk_size,
-            max_batch_size=25,
+            max_batch_size=200,
             limit=limit,
             metadata_filters={
                 "select_fields": list(select_fields) if select_fields else None,
@@ -368,7 +370,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 for item in chembl_client.paginate(
                     "/target_component.json",
                     params={"target_chembl_id": target_id},
-                    page_size=25,
+                    page_size=200,
                     items_key="target_components",
                 ):
                     accession = item.get("accession")
@@ -483,6 +485,11 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
 
+        # Get component_limit from config if available
+        component_limit: int | None = None
+        if hasattr(source_config, "parameters") and hasattr(source_config.parameters, "component_limit"):
+            component_limit = source_config.parameters.component_limit
+
         for target_id in target_ids_to_enrich:
             try:
                 # Step 1: Get target components
@@ -490,12 +497,14 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 for item in chembl_client.paginate(
                     "/target_component.json",
                     params={"target_chembl_id": target_id},
-                    page_size=25,
+                    page_size=200,
                     items_key="target_components",
                 ):
                     component_id = item.get("component_id")
                     if component_id is not None:
                         component_ids.append(str(component_id))
+                        if component_limit is not None and len(component_ids) >= component_limit:
+                            break
 
                 if not component_ids:
                     continue
@@ -508,7 +517,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         for seq_item in chembl_client.paginate(
                             "/component_sequence.json",
                             params={"component_id": component_id},
-                            page_size=25,
+                            page_size=200,
                             items_key="component_sequences",
                         ):
                             component_type = seq_item.get("component_type")
@@ -518,6 +527,67 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             ):
                                 protein_component_ids.append(component_id)
                                 break
+                    except HTTPError as exc:
+                        # Handle 404 gracefully: some components may not have sequences
+                        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                target_chembl_id=target_id,
+                                component_id=component_id,
+                                error=f"Component sequence not found (404): {component_id}",
+                            )
+                            # Skip this component - it doesn't have a sequence
+                            continue
+                        # Re-raise other HTTP errors
+                        raise
+                    except CircuitBreakerOpenError as exc:
+                        # Wait for circuit breaker to transition to half-open, then retry once
+                        wait_time = chembl_client.circuit_breaker_time_until_half_open()
+                        if wait_time is not None and wait_time > 0:
+                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                target_chembl_id=target_id,
+                                component_id=component_id,
+                                error=str(exc),
+                                wait_time=wait_time,
+                            )
+                            time.sleep(min(wait_time + 1.0, 60.0))  # Wait with small buffer, max 60s
+                            try:
+                                # Retry once after waiting
+                                for seq_item in chembl_client.paginate(
+                                    "/component_sequence.json",
+                                    params={"component_id": component_id},
+                                    page_size=200,
+                                    items_key="component_sequences",
+                                ):
+                                    component_type = seq_item.get("component_type")
+                                    if (
+                                        isinstance(component_type, str)
+                                        and component_type.upper() == "PROTEIN"
+                                    ):
+                                        protein_component_ids.append(component_id)
+                                        break
+                            except HTTPError as retry_exc:
+                                # Handle 404 on retry as well
+                                if hasattr(retry_exc, "response") and retry_exc.response is not None and retry_exc.response.status_code == 404:
+                                    log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                        target_chembl_id=target_id,
+                                        component_id=component_id,
+                                        error=f"Component sequence not found (404) on retry: {component_id}",
+                                    )
+                                    # Skip this component
+                                    continue
+                                raise
+                            except Exception as retry_exc:
+                                log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                    target_chembl_id=target_id,
+                                    component_id=component_id,
+                                    error=str(retry_exc),
+                                )
+                        else:
+                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                target_chembl_id=target_id,
+                                component_id=component_id,
+                                error=str(exc),
+                            )
                     except Exception as exc:
                         log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                             target_chembl_id=target_id,
@@ -535,7 +605,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         for class_item in chembl_client.paginate(
                             "/component_class.json",
                             params={"component_id": component_id},
-                            page_size=25,
+                            page_size=200,
                             items_key="component_classes",
                         ):
                             protein_class_id = class_item.get("protein_class_id")
@@ -560,7 +630,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         for node_item in chembl_client.paginate(
                             "/protein_classification.json",
                             params={"protein_classification_id": protein_class_id},
-                            page_size=25,
+                            page_size=200,
                             items_key="protein_classifications",
                         ):
                             node_metadata = {
@@ -579,7 +649,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             for path_item in chembl_client.paginate(
                                 "/protein_family_classification.json",
                                 params={"protein_classification_id": protein_class_id},
-                                page_size=25,
+                                page_size=200,
                                 items_key="protein_family_classifications",
                             ):
                                 for i in range(1, 9):

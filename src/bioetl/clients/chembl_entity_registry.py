@@ -188,7 +188,7 @@ def _resolve_batch_size(
         source,
         overrides,
         default=default,
-        maximum=25,
+        maximum=200,
     )
     return cast(int, resolved)
 

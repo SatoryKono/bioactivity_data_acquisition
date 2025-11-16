@@ -23,6 +23,7 @@ from bioetl.cli.cli_registry import (
     CommandConfig,
     PipelineCommandSpec,
 )
+from bioetl.cli.run_chembl_all import run_chembl_all_command
 from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime import cli_feedback
@@ -106,6 +107,60 @@ def create_app(
         for message in warning_messages:
             cli_feedback.emit_warning(message)
 
+    @app.command(name="run-chembl-all")
+    def run_chembl_all_wrapper(
+        output_root: Path = typer.Option(
+            ...,
+            "--output-root",
+            "-o",
+            help="Корневая директория для артефактов всех пайплайнов",
+        ),
+        configs_dir: Path = typer.Option(
+            Path("configs"),
+            "--configs-dir",
+            help="Корневая директория конфигов",
+        ),
+        limit: int | None = typer.Option(
+            None,
+            "--limit",
+            help="Ограничить количество строк для каждого пайплайна (для тестирования)",
+            min=1,
+        ),
+        extended: bool = typer.Option(
+            False,
+            "--extended",
+            help="Включить расширенные QC-артефакты",
+        ),
+        golden: Path | None = typer.Option(
+            None,
+            "--golden",
+            help="Путь к golden-набору для сравнения (опционально)",
+            exists=False,
+        ),
+        verbose: bool = typer.Option(
+            False,
+            "--verbose",
+            "-v",
+            help="Включить подробное логирование",
+        ),
+        dry_run: bool = typer.Option(
+            False,
+            "--dry-run",
+            "-d",
+            help="Проверить конфигурацию без выполнения",
+        ),
+    ) -> None:
+        """Последовательно запустить все ChEMBL-пайплайны и собрать единый отчёт."""
+        run_chembl_all_command(
+            output_root=output_root,
+            configs_dir=configs_dir,
+            limit=limit,
+            extended=extended,
+            golden=golden,
+            verbose=verbose,
+            dry_run=dry_run,
+        )
+
     @app.command(name="qc")
     def qc_info(
         pipeline: str = typer.Option(
@@ -180,7 +235,7 @@ def create_app(
             pipeline_class=config.pipeline_class,
             command_config=config,
         )
-        app.command(name=name)(command_func)
+        app.command(name=name, help=config.description)(command_func)
         registered_names.add(name)
 
     for spec in specs:

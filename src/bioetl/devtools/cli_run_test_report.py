@@ -91,6 +91,12 @@ def _compute_config_hash() -> str:
     return _blake2_digest(parts)
 
 
+def _write_yaml_atomic(path: Path, payload: dict[str, Any]) -> None:
+    """Compatibility shim around :func:`atomic_write_yaml`."""
+
+    atomic_write_yaml(payload, path)
+
+
 def generate_test_report(
     output_root: Path | None = None,
     *,
@@ -214,7 +220,7 @@ def generate_test_report(
         row_count=row_count,
         coverage_xml=str(artifacts.coverage_xml),
     )
-    atomic_write_yaml(meta_payload_with_summary, artifacts.meta_yaml)
+    _write_yaml_atomic(artifacts.meta_yaml, meta_payload_with_summary)
 
     if html_dir.exists():
         shutil.rmtree(html_dir)

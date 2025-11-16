@@ -125,7 +125,7 @@ class EntityConfig:
     ...     log_prefix="activity",
     ...     default_fields=("activity_id", "standard_value"),
     ...     ordering=("activity_id",),
-    ...     chunk_size=25,
+    ...     chunk_size=200,
     ... )
     >>> config.iter_default_filters()
     <generator object ...>

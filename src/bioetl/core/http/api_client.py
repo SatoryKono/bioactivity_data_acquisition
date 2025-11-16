@@ -234,6 +234,25 @@ class CircuitBreaker:
         with self._lock:
             return self._failure_count
 
+    def time_until_half_open(self) -> float | None:
+        """Return the time in seconds until the circuit breaker transitions to half-open.
+        
+        Returns None if the circuit breaker is not in open state or if it's already
+        ready to transition to half-open.
+        
+        Returns
+        -------
+        float | None:
+            Time in seconds until half-open transition, or None if not applicable.
+        """
+        with self._lock:
+            if self._state != "open" or self._last_failure_time is None:
+                return None
+            elapsed = time.monotonic() - self._last_failure_time
+            if elapsed >= self._timeout:
+                return 0.0
+            return self._timeout - elapsed
+
 
 def _parse_retry_after(value: str | None) -> float | None:
     if not value:
@@ -321,6 +340,19 @@ class UnifiedAPIClient:
 
     def close(self) -> None:
         self._session.close()
+
+    def circuit_breaker_time_until_half_open(self) -> float | None:
+        """Return the time in seconds until the circuit breaker transitions to half-open.
+        
+        Returns None if the circuit breaker is not in open state or if it's already
+        ready to transition to half-open.
+        
+        Returns
+        -------
+        float | None:
+            Time in seconds until half-open transition, or None if not applicable.
+        """
+        return self._circuit_breaker.time_until_half_open()
 
     # ------------------------------------------------------------------
     # Request execution

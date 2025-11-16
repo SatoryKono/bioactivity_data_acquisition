@@ -60,6 +60,7 @@ class CommonOptions:
         fail_on_schema_drift: bool = True,
         validate_columns: bool = True,
         golden: Path | None = None,
+        input_file: Path | None = None,
     ) -> None:
         """Capture shared pipeline CLI options in a normalized container."""
         self.config = config
@@ -73,6 +74,7 @@ class CommonOptions:
         self.fail_on_schema_drift = fail_on_schema_drift
         self.validate_columns = validate_columns
         self.golden = golden
+        self.input_file = input_file
 
 
 class PipelineCliCommand(CliCommandBase):

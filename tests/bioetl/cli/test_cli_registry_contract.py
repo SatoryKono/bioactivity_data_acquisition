@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from bioetl.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
-from bioetl.pipelines.base import PipelineBase
+from bioetl.core.pipeline import PipelineBase
 
 
 def test_pipeline_registry_factories() -> None:

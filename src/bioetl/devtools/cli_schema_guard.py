@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from bioetl.config import loader
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas import SCHEMA_REGISTRY
 from bioetl.tools import get_project_root
@@ -20,9 +21,7 @@ CONFIGS = PROJECT_ROOT / "configs" / "pipelines" / "chembl"
 def _validate_config(config_path: Path) -> tuple[bool, dict[str, Any]]:
     """Load a pipeline config and return validation metadata."""
     try:
-        from bioetl.config.loader import load_config
-
-        config = load_config(config_path)
+        config = loader.load_config(config_path)
         return True, {
             "config": config,
             "pipeline_name": getattr(getattr(config, "pipeline", None), "name", None),

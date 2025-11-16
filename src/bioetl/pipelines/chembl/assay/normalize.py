@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_exceptions import HTTPError
 from bioetl.core.io import ensure_columns
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_assay_enrichment_schema import (
@@ -141,11 +142,30 @@ def enrich_with_assay_classifications(
 
     # Step 1: fetch ASSAY_CLASS_MAP by assay_chembl_id.
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASS_MAP, ids_count=len(set(assay_ids)))
-    class_map_df = client.fetch_assay_class_map_by_assay_ids(
-        assay_ids,
-        fields=list(class_map_fields),
-        page_limit=page_limit,
-    )
+    try:
+        class_map_df = client.fetch_assay_class_map_by_assay_ids(
+            assay_ids,
+            fields=list(class_map_fields),
+            page_limit=page_limit,
+        )
+    except HTTPError as exc:
+        # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
+        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+            log.warning(
+                "enrichment.external_api_404",
+                endpoint="assay_class_map",
+                message="ChEMBL API endpoint not found (404). Skipping classifications enrichment.",
+                error_code="external_api_404",
+            )
+            # Return DataFrame with NA values for classification columns
+            df_assay = df_assay.copy()
+            if "assay_classifications" not in df_assay.columns:
+                df_assay["assay_classifications"] = pd.NA
+            if "assay_class_id" not in df_assay.columns:
+                df_assay["assay_class_id"] = pd.NA
+            return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
+        # Re-raise other HTTP errors
+        raise
 
     if isinstance(class_map_df, Mapping):
         flattened_rows: list[dict[str, Any]] = []
@@ -194,11 +214,25 @@ def enrich_with_assay_classifications(
     classification_dict: dict[str, dict[str, Any]] = {}
     if all_class_ids:
         log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS, class_ids_count=len(all_class_ids))
-        classification_df = client.fetch_assay_classifications_by_class_ids(
-            list(all_class_ids),
-            fields=list(classification_fields),
-            page_limit=page_limit,
-        )
+        try:
+            classification_df = client.fetch_assay_classifications_by_class_ids(
+                list(all_class_ids),
+                fields=list(classification_fields),
+                page_limit=page_limit,
+            )
+        except HTTPError as exc:
+            # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
+            if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+                log.warning(
+                    "enrichment.external_api_404",
+                    endpoint="assay_classification",
+                    message="ChEMBL API endpoint not found (404). Continuing without classification details.",
+                    error_code="external_api_404",
+                )
+                classification_df = pd.DataFrame(columns=list(classification_fields))
+            else:
+                # Re-raise other HTTP errors
+                raise
         if isinstance(classification_df, Mapping):
             classification_rows: list[dict[str, Any]] = []
             for class_id, payload in classification_df.items():
@@ -406,12 +440,29 @@ def enrich_with_assay_parameters(
 
     # Fetch ASSAY_PARAMETERS by assay_chembl_id
     log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_PARAMETERS, ids_count=len(set(assay_ids)))
-    parameters_df = client.fetch_assay_parameters_by_assay_ids(
-        assay_ids,
-        fields=list(fields),
-        page_limit=page_limit,
-        active_only=active_only,
-    )
+    try:
+        parameters_df = client.fetch_assay_parameters_by_assay_ids(
+            assay_ids,
+            fields=list(fields),
+            page_limit=page_limit,
+            active_only=active_only,
+        )
+    except HTTPError as exc:
+        # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
+        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+            log.warning(
+                "enrichment.external_api_404",
+                endpoint="assay_parameter",
+                message="ChEMBL API endpoint not found (404). Skipping parameters enrichment.",
+                error_code="external_api_404",
+            )
+            # Return DataFrame with NA values for parameters column
+            df_assay = df_assay.copy()
+            if "assay_parameters" not in df_assay.columns:
+                df_assay["assay_parameters"] = pd.NA
+            return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
+        # Re-raise other HTTP errors
+        raise
 
     if isinstance(parameters_df, Mapping):
         flattened_rows: list[dict[str, Any]] = []

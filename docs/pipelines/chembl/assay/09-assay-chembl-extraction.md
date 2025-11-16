@@ -97,7 +97,19 @@ class AssayInputSchema(pa.DataFrameModel):
 
 ## 2. Процесс извлечения (Extract)
 
-### 2.1 Инициализация пайплайна
+### 2.1 ChEMBL API Endpoints
+
+Пайплайн использует следующие ChEMBL API эндпоинты:
+
+- **Основной эндпоинт**: `/assay.json` — извлечение метаданных assay
+- **Обогащения** (используются на этапе transform):
+  - `/assay_class_map.json` — маппинг assay → assay_class_id (может возвращать 404 в некоторых релизах ChEMBL)
+  - `/assay_classification.json` — детали классификаций по assay_class_id (может возвращать 404)
+  - `/assay_parameter.json` — параметры assay (может возвращать 404 в некоторых релизах ChEMBL)
+
+**Обработка 404**: Если эндпоинты обогащений возвращают 404, пайплайн логирует предупреждение и продолжает работу с `NA` значениями в соответствующих колонках. Другие HTTP ошибки (400, 500, и т.д.) приводят к падению пайплайна.
+
+### 2.2 Инициализация пайплайна
 
 **Класс:** `ChemblAssayPipeline` (`src/bioetl/pipelines/chembl/assay.py`)
 
@@ -130,7 +142,7 @@ chembl_base_url: str  # URL для воспроизводимости
 1. Кэш-ключи **ОБЯЗАТЕЛЬНО** содержат release:
    `assay:{release}:{assay_chembl_id}`
 
-### 2.2 Режимы извлечения
+### 2.3 Режимы извлечения
 
 Pipeline поддерживает два режима извлечения:
 
@@ -145,7 +157,7 @@ Pipeline поддерживает два режима извлечения:
   `extract_by_ids()`
 - Если `--input-file` не указан, вызывается `extract_all()`
 
-### 2.3 Полное извлечение (Full Pagination)
+### 2.4 Полное извлечение (Full Pagination)
 
 **Метод:** `ChemblAssayPipeline.extract_all()`
 
@@ -153,7 +165,7 @@ Pipeline поддерживает два режима извлечения:
 
 **Описание:** Итерируется по всем доступным ассаям через пагинацию ChEMBL API.
 
-### 2.4 Батчевое извлечение из ChEMBL API
+### 2.5 Батчевое извлечение из ChEMBL API
 
 **Метод:** `ChemblAssayPipeline.extract_by_ids()`
 
@@ -257,7 +269,7 @@ def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
     return extracted_dataframe
 ```
 
-### 2.3 Fallback механизм
+### 2.6 Fallback механизм
 
 **Условия активации:**
 
@@ -291,7 +303,7 @@ def _create_fallback_record(self, assay_id: str, error: Exception = None) -> dic
     }
 ```
 
-### 2.4 Развертывание вложенных структур
+### 2.7 Развертывание вложенных структур
 
 **ВАЖНО:** Текущая реализация "берет первый параметр" **НЕВЕРНА** и приводит к
 потере данных. Требуется рефакторинг.
@@ -571,7 +583,7 @@ def _expand_assay_classifications(self, assay_data: dict) -> pd.DataFrame:
     return pd.DataFrame()
 ```
 
-### 2.5 Обогащение данными (Enrichment)
+### 2.8 Обогащение данными (Enrichment)
 
 **См. также**: Детали реализации см. в
 [Pipeline Contract](../etl_contract/01-pipeline-contract.md).

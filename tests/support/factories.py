@@ -50,6 +50,78 @@ def load_sample_activity_dataframe() -> pd.DataFrame:
     return frame
 
 
+def load_sample_assay_dataframe() -> pd.DataFrame:
+    """Return the canonical sample assay DataFrame used in tests."""
+
+    dataset: dict[str, list[Any]] = load_test_json("sample_assay_data.json")
+    frame = pd.DataFrame(dataset)
+
+    # Explicit nullable integer columns for deterministic schema assertions.
+    nullable_columns = ("confidence_score",)
+    for column in nullable_columns:
+        if column in dataset:
+            frame[column] = pd.Series(dataset[column], dtype="Int64")
+
+    return frame
+
+
+def load_sample_document_dataframe() -> pd.DataFrame:
+    """Return the canonical sample document DataFrame used in tests."""
+
+    dataset: dict[str, list[Any]] = load_test_json("sample_document_data.json")
+    frame = pd.DataFrame(dataset)
+
+    # Explicit nullable integer columns for deterministic schema assertions.
+    nullable_columns = ("pubmed_id", "year", "authors_count")
+    for column in nullable_columns:
+        if column in dataset:
+            frame[column] = pd.Series(dataset[column], dtype="Int64")
+
+    return frame
+
+
+def load_sample_target_dataframe() -> pd.DataFrame:
+    """Return the canonical sample target DataFrame used in tests."""
+
+    dataset: dict[str, list[Any]] = load_test_json("sample_target_data.json")
+    frame = pd.DataFrame(dataset)
+
+    # Explicit nullable integer columns for deterministic schema assertions.
+    nullable_columns = ("species_group_flag", "component_count")
+    for column in nullable_columns:
+        if column in dataset:
+            frame[column] = pd.Series(dataset[column], dtype="Int64")
+
+    return frame
+
+
+def load_sample_testitem_dataframe() -> pd.DataFrame:
+    """Return the canonical sample testitem DataFrame used in tests."""
+
+    dataset: dict[str, list[Any]] = load_test_json("sample_testitem_data.json")
+    frame = pd.DataFrame(dataset)
+
+    # Explicit nullable integer columns for deterministic schema assertions.
+    nullable_columns = (
+        "max_phase",
+        "first_approval",
+        "first_in_class",
+        "availability_type",
+        "black_box_warning",
+        "chirality",
+        "dosed_ingredient",
+        "inorganic_flag",
+        "natural_product",
+        "prodrug",
+        "therapeutic_flag",
+    )
+    for column in nullable_columns:
+        if column in dataset:
+            frame[column] = pd.Series(dataset[column], dtype="Int64")
+
+    return frame
+
+
 def build_pipeline_config(output_root: Path) -> PipelineConfig:
     """Construct a deterministic ``PipelineConfig`` for tests."""
 

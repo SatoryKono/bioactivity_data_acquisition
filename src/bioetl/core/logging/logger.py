@@ -216,8 +216,15 @@ def configure_logging(
         shared_processors = [*shared_processors, *additional_processors]
     renderer = _renderer_for(cfg.format)
 
+    # For stdlib ("foreign") log records, do NOT include
+    # `structlog.stdlib.filter_by_level` in the pre-chain because the
+    # ProcessorFormatter passes `logger=None` to processors for foreign
+    # records, and `filter_by_level` expects a real logger with
+    # `isEnabledFor`. Level filtering for structlog loggers is handled
+    # below via `structlog.stdlib.filter_by_level` in the structlog
+    # processor chain (or by the stdlib logger level for foreign logs).
     formatter = structlog.stdlib.ProcessorFormatter(
-        foreign_pre_chain=[*shared_processors, structlog.stdlib.filter_by_level],
+        foreign_pre_chain=[*shared_processors],
         processors=[
             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
             renderer,
@@ -232,6 +239,7 @@ def configure_logging(
     structlog.configure(
         processors=[
             *shared_processors,
+            # Apply level filtering within structlog pipeline (for structlog loggers).
             structlog.stdlib.filter_by_level,
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],

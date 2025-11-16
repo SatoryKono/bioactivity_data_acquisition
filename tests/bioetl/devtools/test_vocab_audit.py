@@ -5,7 +5,7 @@ from typing import Any, Iterator, Mapping
 
 import pytest
 
-from bioetl.devtools import cli_vocab_audit as vocab_audit
+import bioetl.devtools.cli_vocab_audit as vocab_audit
 from bioetl.core.utils import VocabStoreError
 
 

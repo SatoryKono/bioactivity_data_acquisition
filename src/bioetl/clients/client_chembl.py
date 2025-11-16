@@ -104,6 +104,19 @@ class ChemblClient:
         self._assay_classification_entity = ChemblAssayClassificationEntityClient(self)
         self._compound_record_entity = ChemblCompoundRecordEntityClient(self)
 
+    def circuit_breaker_time_until_half_open(self) -> float | None:
+        """Return the time in seconds until the circuit breaker transitions to half-open.
+        
+        Returns None if the circuit breaker is not in open state or if it's already
+        ready to transition to half-open.
+        
+        Returns
+        -------
+        float | None:
+            Time in seconds until half-open transition, or None if not applicable.
+        """
+        return self._client.circuit_breaker_time_until_half_open()
+
     # ------------------------------------------------------------------
     # Discovery / handshake
     # ------------------------------------------------------------------

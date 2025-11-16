@@ -190,6 +190,8 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
     "ignore::pandas.errors.PerformanceWarning",
     "ignore::UserWarning:.*pandera.*",
+    "ignore:Module.*was never imported.*:UserWarning",
+    "ignore:.*coverage.*:UserWarning",
 ]
 
 [tool.coverage.run]
@@ -209,6 +211,9 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@abstractmethod",
 ]
+show_missing = false
+skip_covered = false
+skip_empty = false
 
 [tool.black]
 line-length = 100

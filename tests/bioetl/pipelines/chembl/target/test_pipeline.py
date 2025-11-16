@@ -197,17 +197,22 @@ class TestChemblTargetPipeline:
         chembl_client_mock = Mock()
         chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
 
+        mock_bundle = Mock()
+        mock_bundle.chembl_client = chembl_client_mock
+        mock_bundle.api_client = Mock()
+        mock_bundle.entity_client = Mock()
+
         with (
             patch.object(
                 pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), "https://chembl.test"),
+                "build_chembl_entity_bundle",
+                return_value=mock_bundle,
             ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
+            patch.object(
+                pipeline,
+                "fetch_chembl_release",
+                return_value="33",
             ),
-            patch("bioetl.pipelines.chembl.target.run.ChemblTargetClient", return_value=Mock()),
         ):
             result = pipeline.extract_all()  # type: ignore[misc]
 
@@ -223,15 +228,21 @@ class TestChemblTargetPipeline:
         chembl_client_mock = Mock()
         chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
 
+        mock_bundle = Mock()
+        mock_bundle.chembl_client = chembl_client_mock
+        mock_bundle.api_client = Mock()
+        mock_bundle.entity_client = Mock()
+
         with (
             patch.object(
                 pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), "https://chembl.test"),
+                "build_chembl_entity_bundle",
+                return_value=mock_bundle,
             ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
+            patch.object(
+                pipeline,
+                "fetch_chembl_release",
+                return_value="33",
             ),
         ):
             result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
@@ -285,15 +296,16 @@ class TestChemblTargetPipeline:
         chembl_client_mock = Mock()
         chembl_client_mock.paginate.return_value = []
 
+        mock_bundle = Mock()
+        mock_bundle.chembl_client = chembl_client_mock
+        mock_bundle.api_client = Mock()
+        mock_bundle.entity_client = Mock()
+
         with (
             patch.object(
                 pipeline,
-                "prepare_chembl_client",
-                return_value=(Mock(), {}),
-            ),
-            patch(
-                "bioetl.pipelines.chembl.target.run.ChemblClient",
-                return_value=chembl_client_mock,
+                "build_chembl_entity_bundle",
+                return_value=mock_bundle,
             ),
         ):
             result = pipeline._enrich_protein_classifications(

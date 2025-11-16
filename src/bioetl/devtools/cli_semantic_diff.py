@@ -10,6 +10,7 @@ from typing import Any
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
+
 from .signatures import signature_from_callable, signature_from_docs
 
 __all__ = ["run_semantic_diff"]
@@ -42,28 +43,58 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
         return {"error": f"Documentation file not found: {doc_file}"}
 
     content = doc_file.read_text(encoding="utf-8")
-    methods: dict[str, Any] = {}
+    target_method_names = {"extract", "transform", "validate", "write", "run"}
 
     code_block_pattern = re.compile(r"```python(.*?)```", re.DOTALL)
+    
+    # Собираем все определения класса PipelineBase из всех блоков
+    all_class_definitions: list[dict[str, Any]] = []
+    
     for block in code_block_pattern.finditer(content):
         block_content = block.group(1)
         try:
             module = ast.parse(block_content)
         except SyntaxError:
             continue
+        
         for node in module.body:
             if isinstance(node, ast.ClassDef) and node.name == "PipelineBase":
+                class_methods: dict[str, Any] = {}
+                has_init = False
+                
                 for statement in node.body:
                     if isinstance(statement, ast.FunctionDef):
-                        methods[statement.name] = signature_from_docs(
-                            statement, empty_annotation=None
-                        )
-                return methods
-
-    if not methods:
+                        if statement.name == "__init__":
+                            has_init = True
+                        if statement.name in target_method_names:
+                            class_methods[statement.name] = signature_from_docs(
+                                statement, empty_annotation=None
+                            )
+                
+                if class_methods:
+                    all_class_definitions.append({
+                        "methods": class_methods,
+                        "has_init": has_init,
+                        "method_count": len(class_methods),
+                    })
+    
+    # Выбираем наиболее полное определение:
+    # 1. Приоритет: определение с __init__ (более полное)
+    # 2. Если нет __init__, выбираем с наибольшим количеством методов
+    if not all_class_definitions:
         return {"error": "PipelineBase definition not found in documentation"}
-
-    return methods
+    
+    # Сначала ищем определение с __init__
+    preferred = next(
+        (defn for defn in all_class_definitions if defn["has_init"]),
+        None
+    )
+    
+    # Если нет определения с __init__, выбираем с наибольшим количеством методов
+    if preferred is None:
+        preferred = max(all_class_definitions, key=lambda x: x["method_count"])
+    
+    return preferred["methods"]
 
 
 def extract_config_fields_from_code() -> dict[str, Any]:
@@ -115,19 +146,118 @@ def extract_config_fields_from_docs() -> dict[str, Any]:
 
 
 def extract_cli_flags_from_code() -> list[dict[str, Any]]:
-    """Return a curated list of known CLI flags."""
+    """Extract CLI flags from create_pipeline_command function using AST parsing."""
     try:
-        # Automatic extraction is complex; return curated defaults.
-        return [
-            {"name": "--config", "required": True, "description": "Path to config file"},
-            {"name": "--output-dir", "required": True, "description": "Output directory"},
-            {"name": "--dry-run", "required": False, "description": "Dry run mode"},
-            {"name": "--limit", "required": False, "description": "Limit rows"},
-            {"name": "--set", "required": False, "description": "Override config"},
-            {"name": "--verbose", "required": False, "description": "Verbose output"},
+        cli_file = PROJECT_ROOT / "src" / "bioetl" / "cli" / "cli_command.py"
+        if not cli_file.exists():
+            return [{"error": f"CLI file not found: {cli_file}"}]
+
+        content = cli_file.read_text(encoding="utf-8")
+        module = ast.parse(content)
+
+        flags: list[dict[str, Any]] = []
+
+        # Находим функцию create_pipeline_command
+        for node in module.body:
+            if isinstance(node, ast.FunctionDef) and node.name == "create_pipeline_command":
+                # Ищем вложенную функцию command
+                for stmt in node.body:
+                    if isinstance(stmt, ast.FunctionDef) and stmt.name == "command":
+                        # Парсим параметры функции command
+                        for arg in stmt.args.args:
+                            if arg.annotation:
+                                # Находим соответствующий default (если есть)
+                                arg_idx = stmt.args.args.index(arg)
+                                default_value = None
+                                if arg_idx < len(stmt.args.defaults):
+                                    default_value = stmt.args.defaults[arg_idx]
+
+                                # Проверяем, является ли default вызовом typer.Option
+                                if (
+                                    default_value
+                                    and isinstance(default_value, ast.Call)
+                                    and isinstance(default_value.func, ast.Attribute)
+                                    and isinstance(default_value.func.value, ast.Name)
+                                    and default_value.func.value.id == "typer"
+                                    and default_value.func.attr == "Option"
+                                ):
+                                    flag_info = _parse_typer_option(
+                                        default_value, arg.annotation
+                                    )
+                                    if flag_info:
+                                        flags.append(flag_info)
+                        break
+
+        return flags if flags else [
+            {"error": "No CLI flags found in create_pipeline_command"}
         ]
     except Exception as exc:  # noqa: BLE001
         return [{"error": str(exc)}]
+
+
+def _parse_typer_option(call_node: ast.Call, annotation: ast.expr) -> dict[str, Any] | None:
+    """Parse a typer.Option() call node and extract flag information."""
+    try:
+        # Первый позиционный аргумент - это default value
+        # Второй и далее - это имена флагов (--flag, -f)
+        # help - это keyword argument
+
+        flag_name: str | None = None
+        shorthand: str | None = None
+        description: str | None = None
+        required = False
+
+        # Проверяем первый позиционный аргумент (default value)
+        if call_node.args:
+            first_arg = call_node.args[0]
+            # Если это Ellipsis (...), то флаг обязательный
+            if isinstance(first_arg, ast.Constant) and first_arg.value is ...:
+                required = True
+            elif isinstance(first_arg, ast.Constant):
+                # Есть дефолтное значение, значит не обязательный
+                required = False
+            else:
+                # Сложное выражение (например, default_config if ... else ...)
+                # Считаем обязательным, если есть Ellipsis в выражении
+                required = _has_ellipsis(first_arg)
+
+        # Ищем строковые аргументы (имена флагов)
+        for arg in call_node.args[1:]:
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                if arg.value.startswith("--"):
+                    flag_name = arg.value
+                elif arg.value.startswith("-") and len(arg.value) == 2:
+                    shorthand = arg.value
+
+        # Ищем keyword arguments
+        for kw in call_node.keywords:
+            if kw.arg == "help" and isinstance(kw.value, ast.Constant):
+                if isinstance(kw.value.value, str):
+                    description = kw.value.value
+            elif kw.arg is None:  # **kwargs
+                # Пропускаем
+                pass
+
+        if flag_name:
+            return {
+                "name": flag_name,
+                "shorthand": shorthand,
+                "required": required,
+                "description": description or "",
+            }
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _has_ellipsis(node: ast.AST) -> bool:
+    """Check if AST node contains Ellipsis (...)."""
+    if isinstance(node, ast.Constant) and node.value is ...:
+        return True
+    for child in ast.iter_child_nodes(node):
+        if _has_ellipsis(child):
+            return True
+    return False
 
 
 def extract_cli_flags_from_docs() -> list[dict[str, Any]]:

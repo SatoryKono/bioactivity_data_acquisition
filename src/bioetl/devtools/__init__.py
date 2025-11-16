@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
-__all__: list[str] = []
+from . import cli_vocab_audit
+
+__all__ = ["cli_vocab_audit"]
 
 

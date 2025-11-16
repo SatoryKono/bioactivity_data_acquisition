@@ -72,7 +72,7 @@
 ## 11. Приёмка и CI‑гейты
 
 - Коммит/PR MUST блокироваться при нарушении любого из: ruff, black, isort, mypy‑strict, pytest, coverage threshold, pandera, QC.
-- Code coverage for `src/bioetl` MUST stay ≥65%; падение ниже блокирует merge.
+- Code coverage for `src/bioetl` MUST stay ≥85%; падение ниже блокирует merge.
 - Golden‑files MUST использоваться для критичных таблиц и обновляться строго через ожидаемый дифф.
 
 ## 12. Конфликты правил

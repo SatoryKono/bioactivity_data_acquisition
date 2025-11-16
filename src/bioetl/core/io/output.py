@@ -242,16 +242,18 @@ def write_dataset_atomic(df: pd.DataFrame, path: Path, *, config: PipelineConfig
     csv_config = config.determinism.serialization.csv
     float_format = f"%.{config.determinism.float_precision}f"
     quoting_value = _csv_quoting(config)
-    df.to_csv(
-        path_or_buf=str(tmp_path),
-        index=False,
-        sep=csv_config.separator,
-        na_rep=csv_config.na_rep,
-        encoding="utf-8",
-        quoting=quoting_value,
-        lineterminator="\n",
-        float_format=float_format,
-    )
+    with tmp_path.open("w", encoding="utf-8", newline="") as handle:
+        df.to_csv(
+            path_or_buf=handle,
+            index=False,
+            sep=csv_config.separator,
+            na_rep=csv_config.na_rep,
+            quoting=quoting_value,
+            lineterminator="\n",
+            float_format=float_format,
+        )
+        handle.flush()
+        os.fsync(handle.fileno())
     os.replace(tmp_path, path)
 
 

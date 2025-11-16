@@ -2283,4 +2283,3 @@ class PipelineBase(ABC):
             seed=seed,
         )
         return sampled.reset_index(drop=True)
-

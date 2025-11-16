@@ -43,6 +43,8 @@ def run_cli_command(
         env=_build_env(extra_env),
         capture_output=capture_output,
         text=text,
+        encoding="utf-8" if text else None,
+        errors="replace" if text else None,
         timeout=timeout,
         check=False,
     )

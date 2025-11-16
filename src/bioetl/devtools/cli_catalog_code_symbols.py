@@ -14,6 +14,7 @@ from .signatures import signature_from_callable
 __all__ = [
     "CodeCatalog",
     "catalog_code_symbols",
+    "extract_method_signature",
 ]
 
 
@@ -41,6 +42,15 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         handle.flush()
     tmp.replace(path)
+
+
+def extract_method_signature(callable_obj: Any) -> dict[str, Any]:
+    """Return a normalised signature description for ``callable_obj``."""
+
+    if not callable(callable_obj):
+        msg = f"Object {callable_obj!r} is not callable"
+        raise TypeError(msg)
+    return signature_from_callable(callable_obj, include_abstract_flag=True)
 
 
 def extract_pipeline_base_signatures() -> dict[str, Any]:
