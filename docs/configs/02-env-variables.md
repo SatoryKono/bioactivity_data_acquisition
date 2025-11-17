@@ -74,6 +74,9 @@ export BIOETL__DETERMINISM__HASHING__ALGORITHM=blake2b
    переменные окружения (GitHub Actions, Argo, Airflow и т.п.).
 1. После обновления `.env` выполните `export $(grep -v '^#' .env | xargs)` (или
    аналог для вашей оболочки), затем `pip install -e .[dev]` и `pytest`.
+1. Проверьте настройки через `bioetl config inspect` (см.
+   [`docs/cli/config-inspect.md`](../cli/config-inspect.md)), чтобы убедиться,
+   что значения применились.
 1. Проверьте объединённый runtime-конфиг через `bioetl qc --runtime-config`
    (например, `bioetl qc --runtime-config configs/default.yml --pipeline
    activity_chembl`) и убедитесь, что CLI выводит ожидаемые значения; подробная

@@ -61,6 +61,15 @@ still allowing per-run overrides.
 - `document_chembl` — ChEMBL document pipeline.
 - `testitem_chembl` — ChEMBL molecule/test item pipeline.
 
+## Утилиты конфигурации
+
+- `config inspect` — вспомогательный сабкоманд `bioetl config inspect`, который
+  загружает, мерджит и печатает `PipelineConfig` без запуска пайплайна. Команда
+  принимает те же `--set/--limit/--sample` флаги, что и основные entrypoints, и
+  позволяет быстро проверить новые секции (`postprocess`, `fallbacks`) или
+  влияние env-переменных. Полная справка в
+  [`docs/cli/config-inspect.md`](config-inspect.md).
+
 ## Planned commands
 
 Команды ниже присутствуют в реестре как карточки с `not_implemented_message` и
