@@ -105,6 +105,7 @@ repo:src/bioetl/pipelines/base.py]
 | `PipelineConfig` | `paths`           | `PathsConfig`             | No       | см. таблицу ниже | Каталоги ввода/вывода.[ref: repo:src/bioetl/config/models/paths.py]                         |
 | `PipelineConfig` | `determinism`     | `DeterminismConfig`       | No       | см. таблицу ниже | Политика детерминизма выгрузок.[ref: repo:src/bioetl/config/models/determinism.py]          |
 | `PipelineConfig` | `materialization` | `MaterializationConfig`   | No       | см. таблицу ниже | Настройки записи артефактов.[ref: repo:src/bioetl/config/models/paths.py]                   |
+| `PipelineConfig` | `postprocess`     | `PostprocessConfig`       | No       | см. таблицу ниже | Контроль postprocess-отчётов (`docs/configs/03-postprocess.md`).                               |
 | `PipelineConfig` | `fallbacks`       | `FallbacksConfig`         | No       | см. таблицу ниже | Поведение fallback-механизмов.[ref: repo:src/bioetl/config/models/fallbacks.py]             |
 | `PipelineConfig` | `validation`      | `ValidationConfig`        | No       | см. таблицу ниже | Ссылки на Pandera-схемы и строгий режим.[ref: repo:src/bioetl/config/models/validation.py]  |
 | `PipelineConfig` | `sources{}`       | `Dict[str, SourceConfig]` | No       | `{}`             | Переопределения для отдельных источников.[ref: repo:src/bioetl/config/models/source.py]     |
@@ -262,6 +263,28 @@ repo:src/bioetl/pipelines/base.py]
 | `exporter`       | `str \| None`   | `null`  | Тип экспортера (`jaeger`, `otlp`, `console`).[ref: repo:src/bioetl/config/models/telemetry.py] |
 | `endpoint`       | `str \| None`   | `null`  | URL конечной точки телеметрии.[ref: repo:src/bioetl/config/models/telemetry.py]                |
 | `sampling_ratio` | `PositiveFloat` | `1.0`   | Доля выборки трасс.[ref: repo:src/bioetl/config/models/telemetry.py]                           |
+
+### 2.10 `postprocess`
+
+| Key                              | Type  | Default | Description |
+| -------------------------------- | ----- | ------- | ----------- |
+| `postprocess.correlation.enabled` | `bool` | `false` | Включает генерацию correlation-report без обязательного `--extended`. См. [`docs/configs/03-postprocess.md`](03-postprocess.md). |
+
+`postprocess` живёт в доменной секции (`PipelineDomainConfig`). Это значит, что
+даже при отсутствии прямых ссылок в пайплайне включённая настройка будет доступна
+в `config.postprocess`. Проверить итоговый payload удобно через `bioetl config
+inspect --set postprocess.correlation.enabled=true`.
+
+### 2.11 `fallbacks`
+
+| Key                  | Type                 | Default | Description |
+| -------------------- | -------------------- | ------- | ----------- |
+| `fallbacks.enabled`  | `bool`               | `true`  | Глобально включает fallback-стратегии для источников и нормализаторов. |
+| `fallbacks.max_depth` | `PositiveInt \| None` | `null`  | Ограничивает глубину вложенных fallback-вызовов (по умолчанию не ограничено). |
+
+Значения попадают в `PipelineDomainConfig`, поэтому их можно безопасно менять
+через профили. Для отладки используйте `bioetl config inspect --format json`,
+чтобы убедиться, что ограничения применились поверх профиля `base.yaml`.
 
 ## 3. Валидация и отчёт об ошибках
 
@@ -531,6 +554,11 @@ python -m bioetl.cli.cli_app activity \
   --set http.default.timeout_sec=90 \
   --set determinism.sort.by='["activity_id"]'
 ```
+
+Для просмотра итогового payload воспользуйтесь `bioetl config inspect` (см.
+[`docs/cli/config-inspect.md`](../cli/config-inspect.md)). Команда выводит
+подключённые профили и ключевые доменные флаги (`postprocess`, `fallbacks`) без
+запуска пайплайна.
 
 ### 7.2 Переменные окружения
 

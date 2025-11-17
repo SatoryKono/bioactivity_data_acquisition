@@ -16,6 +16,12 @@ This document describes configuration for the Target (ChEMBL) pipeline.
 - `sources.chembl.max_url_length`: ≤ 2000
 - `determinism.sort.by`: `['target_chembl_id']`
 - `qc.thresholds.target.duplicate_ratio`: 0.0
+- `postprocess.correlation.enabled`: Emits enrichment correlation metrics.
+- `fallbacks.enabled`/`fallbacks.max_depth`: Manage fallback behavior when
+  lookups fail.
+
+Validate the merged view with `bioetl config inspect --config
+configs/pipelines/target/target_chembl.yaml`.
 
 ## Related Documentation
 

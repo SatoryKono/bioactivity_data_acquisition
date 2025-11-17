@@ -32,6 +32,11 @@ bioetl activity_chembl \
 # список команд и алиасов CLI
 python -m bioetl.cli.cli_app list
 bioetl list
+
+# быстро проверить итоговую конфигурацию
+bioetl config inspect \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --format yaml
 ```
 
 Обязательные флаги и параметры описаны в
@@ -40,6 +45,39 @@ bioetl list
 конфигурациям:
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
+
+## Пример конфига пайплайна
+
+`bioetl` использует типизированные профили. Ниже сокращённый пример
+`configs/pipelines/activity/activity_chembl.yaml`, демонстрирующий новые секции
+`postprocess` и `fallbacks`:
+
+```yaml
+<<: !include ../../defaults/base.yaml
+<<: !include ../../defaults/determinism.yaml
+<<: !include ../../defaults/postprocess.yaml
+
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+
+postprocess:
+  correlation:
+    enabled: false
+
+fallbacks:
+  enabled: true
+  max_depth: null
+
+sources:
+  chembl:
+    batch_size: 20
+```
+
+Перед запуском можно выполнить `bioetl config inspect --config ...` и убедиться,
+что профили и `--set` overrides попали в итоговый payload. Более детально
+механизм описан в [`docs/cli/config-inspect.md`](docs/cli/config-inspect.md) и
+[`docs/configs/03-postprocess.md`](docs/configs/03-postprocess.md).
 
 ## Топология репозитория
 

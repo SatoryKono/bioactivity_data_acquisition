@@ -32,6 +32,13 @@ The configuration extends the following profiles:
 - `determinism.sort.by`: Sort keys `['document_chembl_id']`
 - `determinism.hash_policy`: Hash generation policy (SHA256)
 
+### Post-processing and fallbacks
+
+- `postprocess.correlation.enabled`: Enables correlation reports for document
+  QC.
+- `fallbacks.enabled` / `fallbacks.max_depth`: Control fallback row synthesis
+  when enrichment APIs fail.
+
 ### QC Thresholds
 
 - `qc.thresholds.document.duplicate_ratio`: Maximum duplicate ratio (0.0)
@@ -45,6 +52,9 @@ Configuration can be overridden via:
 - Environment variables (highest priority)
 - `--set` CLI flags
 - Configuration file values (lowest priority)
+
+Run `bioetl config inspect --config configs/pipelines/document/document_chembl.yaml`
+to validate these sections without executing the pipeline.
 
 ## Related Documentation
 
