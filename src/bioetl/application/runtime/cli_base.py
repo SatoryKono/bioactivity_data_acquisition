@@ -10,8 +10,8 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.cli.cli_entrypoint import TyperApp
 from bioetl.cli.cli_entrypoint import run_app as typer_run_app
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.runtime.cli_errors import (
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
+from bioetl.application.runtime.cli_errors import (
     CLI_ERROR_INTERNAL,
     CliErrorTemplate,
     LoggerLike,

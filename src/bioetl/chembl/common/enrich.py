@@ -6,7 +6,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.logging import LogEvents
 
 if TYPE_CHECKING:  # pragma: no cover - import guard for type checking only
     import pandas as pd

@@ -10,7 +10,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io import header_rows_serialize
+from bioetl.infrastructure.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
 from bioetl.core.utils.typechecks import is_dict
 

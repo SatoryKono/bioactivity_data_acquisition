@@ -13,7 +13,7 @@ from typing import Any, TypeVar
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.logging import LogEvents
 
 from .descriptor import ChemblExtractionContext, ChemblPipelineBase
 

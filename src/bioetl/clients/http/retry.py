@@ -9,8 +9,8 @@ from requests import Response
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.client_exceptions import RequestException
-from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.http import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = ["RetryingSession"]
 

@@ -7,7 +7,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import pandas as pd
 
-from bioetl.core.io.output import WriteResult
+from bioetl.infrastructure.io.output import WriteResult
 
 QUALITY_COLUMNS: tuple[str, ...] = (
     "section",

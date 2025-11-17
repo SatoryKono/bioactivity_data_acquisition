@@ -16,7 +16,7 @@ from typing import Any, Final, cast
 
 import yaml
 
-from bioetl.core.runtime.errors import BioETLError
+from bioetl.application.runtime.errors import BioETLError
 from bioetl.core.utils.typechecks import is_dict, is_list
 
 VALID_ENTRY_STATUSES: Final[set[str]] = {"active", "alias", "deprecated"}

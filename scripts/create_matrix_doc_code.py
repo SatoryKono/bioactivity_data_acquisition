@@ -8,10 +8,10 @@ from typing import Any, Callable
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_create_matrix_doc_code as cli_create_matrix_doc_code_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.http.api_client import CircuitBreakerOpenError
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
-from bioetl.core.runtime.errors import BioETLError
+from bioetl.infrastructure.http.api_client import CircuitBreakerOpenError
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
+from bioetl.application.runtime.errors import BioETLError
 
 DocCodeMatrix = cli_create_matrix_doc_code_impl.DocCodeMatrix
 build_matrix = cli_create_matrix_doc_code_impl.build_matrix

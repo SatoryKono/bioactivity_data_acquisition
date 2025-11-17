@@ -7,8 +7,8 @@ from typing import Any, Callable
 
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_remove_type_ignore as cli_remove_type_ignore_impl
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 TYPE_IGNORE_PATTERN = cli_remove_type_ignore_impl.TYPE_IGNORE_PATTERN
 _iter_python_files = cli_remove_type_ignore_impl._iter_python_files

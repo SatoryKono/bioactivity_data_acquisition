@@ -22,7 +22,7 @@ system.
 All external API calls **MUST** use `UnifiedAPIClient`:
 
 ```python
-from bioetl.core.http.api_client import UnifiedAPIClient, APIConfig
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient, APIConfig
 
 # Configuration
 config = APIConfig(
@@ -48,7 +48,7 @@ client = UnifiedAPIClient(config)
 Retries **MUST** use exponential backoff with jitter:
 
 ```python
-from bioetl.core.http.api_client import RetryPolicy
+from bioetl.infrastructure.http.api_client import RetryPolicy
 
 retry_policy = RetryPolicy(
     max_attempts=3,
@@ -69,7 +69,7 @@ Retries **SHOULD** give up on:
 ### Valid Example: Rate-Limited Fetch Loop
 
 ```python
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 
 client = UnifiedAPIClient(
     APIConfig(
@@ -92,7 +92,7 @@ response = client.get("/compound/cid/123/json")
 Rate limiting **MUST** use token bucket algorithm with jitter:
 
 ```python
-from bioetl.core.http.api_client import APIConfig
+from bioetl.infrastructure.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -123,7 +123,7 @@ for i in range(100):
 Circuit breaker **MUST** protect against cascading failures:
 
 ```python
-from bioetl.core.http.api_client import CircuitBreakerConfig
+from bioetl.infrastructure.http.api_client import CircuitBreakerConfig
 
 circuit_breaker = CircuitBreakerConfig(
     failure_threshold=5,  # Open after 5 failures
@@ -145,7 +145,7 @@ circuit_breaker = CircuitBreakerConfig(
 Expensive API calls **SHOULD** use TTL-based caching:
 
 ```python
-from bioetl.core.http.api_client import APIConfig
+from bioetl.infrastructure.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -180,7 +180,7 @@ response2 = client.get("/compound/cid/123")  # Cache hit (no API call)
 All requests **MUST** have strict timeouts:
 
 ```python
-from bioetl.core.http.api_client import APIConfig
+from bioetl.infrastructure.http.api_client import APIConfig
 
 config = APIConfig(
     name="pubchem",
@@ -207,7 +207,7 @@ except TimeoutError:
 All requests **MUST** include proper User-Agent header:
 
 ```python
-from bioetl.core.http.api_client import APIConfig
+from bioetl.infrastructure.http.api_client import APIConfig
 
 config = APIConfig(
     name="chembl",
@@ -239,7 +239,7 @@ Pagination **MUST** be handled consistently:
 ### Valid Example: API Error Handling
 
 ```python
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 
 
 def fetch_all_pages(client: UnifiedAPIClient, endpoint: str):
@@ -285,7 +285,7 @@ The following errors **SHOULD NOT** trigger retries:
 ### Valid Examples
 
 ```python
-from bioetl.core.http.api_client import APIError
+from bioetl.infrastructure.http.api_client import APIError
 
 try:
     response = client.get("/data/123")

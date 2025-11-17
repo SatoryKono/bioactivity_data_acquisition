@@ -1847,7 +1847,7 @@ JSON. Подробности о системе логирования см. в
 инициализации:
 
 ```python
-from bioetl.core.logging import UnifiedLogger, LoggerConfig
+from bioetl.infrastructure.logging import UnifiedLogger, LoggerConfig
 
 config = LoggerConfig(
     level="INFO",  # или "DEBUG", "WARNING", "ERROR"

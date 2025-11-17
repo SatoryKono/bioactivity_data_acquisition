@@ -1,6 +1,6 @@
 import re
 
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.logging import LogEvents
 
 
 def test_log_event_values_format() -> None:

@@ -29,9 +29,9 @@ from bioetl.cli.cli_registry import (
 )
 from bioetl.cli.run_chembl_all import run_chembl_all_command
 from bioetl.config.runtime import Config as RuntimeConfig
-from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.runtime import cli_feedback
-from bioetl.core.runtime.cli_pipeline_runner import (
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
+from bioetl.application.runtime import cli_feedback
+from bioetl.application.runtime.cli_pipeline_runner import (
     ConfigLoadError,
     EnvironmentSetupError,
     PipelineCommandOptions,

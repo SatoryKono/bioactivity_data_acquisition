@@ -26,9 +26,9 @@ from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import TestItemSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.http import UnifiedAPIClient
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
+from bioetl.infrastructure.http import UnifiedAPIClient
+from bioetl.infrastructure.logging import LogEvents
+from bioetl.domain.schema import StringRule, StringStats, normalize_string_columns
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from .transform import transform as transform_testitem

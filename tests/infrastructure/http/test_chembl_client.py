@@ -8,7 +8,7 @@ import pytest
 
 from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
 from bioetl.clients.client_chembl_entity_base import ChemblEntityClientProtocol
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture

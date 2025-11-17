@@ -6,7 +6,7 @@ from typing import Callable, Iterator
 
 import pytest
 
-from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
+from bioetl.application.runtime.lazy_loader import resolve_lazy_attr
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-"""ChEMBL-specific API helpers built on top of :mod:`bioetl.core.http`."""
+"""ChEMBL-specific API helpers built on top of :mod:`bioetl.infrastructure.http`."""
 
 from __future__ import annotations
 
@@ -23,11 +23,11 @@ from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntit
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.http import PageResult, Paginator, RetryingSession
 from bioetl.config.loader import _load_yaml
-from bioetl.core.http import UnifiedAPIClient
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.http import UnifiedAPIClient
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 if TYPE_CHECKING:
-    from bioetl.core.runtime.load_meta_store import LoadMetaStore
+    from bioetl.application.runtime.load_meta_store import LoadMetaStore
 
 __all__ = ["ChemblClient", "_resolve_status_endpoint"]
 

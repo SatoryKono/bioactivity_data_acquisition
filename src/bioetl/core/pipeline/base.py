@@ -31,8 +31,8 @@ from bioetl.clients import client_exceptions
 from bioetl.config.models import PipelineConfig
 from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core import APIClientFactory
-from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient
-from bioetl.core.io import (
+from bioetl.infrastructure.http import CircuitBreakerOpenError, UnifiedAPIClient
+from bioetl.infrastructure.io import (
     DeterministicWriteArtifacts,
     RunArtifacts,
     WriteArtifacts,
@@ -45,10 +45,10 @@ from bioetl.core.io import (
     write_json_atomic,
     write_yaml_atomic,
 )
-from bioetl.core.io import (
+from bioetl.infrastructure.io import (
     plan_run_artifacts as io_plan_run_artifacts,
 )
-from bioetl.core.logging import (
+from bioetl.infrastructure.logging import (
     LogEvents,
     UnifiedLogger,
     bind_pipeline_context,
@@ -56,8 +56,8 @@ from bioetl.core.logging import (
     pipeline_stage,
 )
 from bioetl.core.pipeline.errors import PipelineError, map_client_exc
-from bioetl.core.runtime.load_meta_store import LoadMetaStore
-from bioetl.core.schema import format_failure_cases, summarize_schema_errors
+from bioetl.application.runtime.load_meta_store import LoadMetaStore
+from bioetl.domain.schema import format_failure_cases, summarize_schema_errors
 from bioetl.qc.plan import QC_PLAN_DEFAULT, QCMetricsBundle, QCMetricsExecutor, QCPlan
 from bioetl.qc.report import (
     build_correlation_report as build_default_correlation_report,

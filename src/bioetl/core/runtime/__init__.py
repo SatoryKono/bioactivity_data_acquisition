@@ -1,33 +1,27 @@
-"""Runtime primitives and compatibility helpers for BioETL core."""
+"""Shim package that re-exports ``bioetl.application.runtime``."""
 
 from __future__ import annotations
 
-from importlib import import_module
-from typing import Any, Mapping
+import importlib
+import sys
+from typing import Sequence
 
-from .cli_base import CliCommandBase, CliEntrypoint
-from .errors import BioETLError
+_TARGET = "bioetl.application.runtime"
+_SUBMODULES: Sequence[str] = (
+    "cli_base",
+    "cli_errors",
+    "cli_feedback",
+    "cli_pipeline_runner",
+    "errors",
+    "lazy_loader",
+    "load_meta_store",
+)
 
-_LAZY_EXPORTS: Mapping[str, str] = {
-    "LoadMetaStore": "bioetl.core.runtime.load_meta_store",
-    "RunArtifacts": "bioetl.core.io",
-    "WriteArtifacts": "bioetl.core.io",
-    "WriteResult": "bioetl.core.io",
-}
+_target_pkg = importlib.import_module(_TARGET)
+__all__ = getattr(_target_pkg, "__all__", ())
+globals().update({name: getattr(_target_pkg, name) for name in __all__})
 
-
-def __getattr__(name: str) -> Any:
-    module_name = _LAZY_EXPORTS.get(name)
-    if module_name is None:
-        raise AttributeError(name)
-    module = import_module(module_name)
-    return getattr(module, name)
-
-
-__all__ = [
-    "BioETLError",
-    "CliCommandBase",
-    "CliEntrypoint",
-    *sorted(_LAZY_EXPORTS),
-]
-
+for module_name in _SUBMODULES:
+    sys.modules[f"{__name__}.{module_name}"] = importlib.import_module(
+        f"{_TARGET}.{module_name}"
+    )

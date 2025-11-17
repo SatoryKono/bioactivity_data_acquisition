@@ -18,8 +18,8 @@ from bioetl.config.models.models import (
 )
 from bioetl.config.models.paths import PathsConfig
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.core.logging import UnifiedLogger
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.logging import UnifiedLogger
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 

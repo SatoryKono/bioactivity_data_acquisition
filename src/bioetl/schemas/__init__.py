@@ -8,7 +8,7 @@ from importlib import import_module
 
 import pandera as pa
 
-from bioetl.core.schema.vocabulary_bindings import SchemaVocabularyBinding
+from bioetl.domain.schema.vocabulary_bindings import SchemaVocabularyBinding
 
 from . import (
     chembl_activity_schema,

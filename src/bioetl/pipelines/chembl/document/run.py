@@ -17,8 +17,8 @@ from bioetl.config import DocumentSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, normalize_string_columns
+from bioetl.infrastructure.logging import LogEvents
+from bioetl.domain.schema import StringRule, normalize_string_columns
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
 from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS

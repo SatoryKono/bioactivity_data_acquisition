@@ -1,30 +1,23 @@
-"""Structured logging primitives for the BioETL core package."""
+"""Shim package that re-exports ``bioetl.infrastructure.logging``."""
 
-from .log_events import LogEvents
-from .logger import (
-    DEFAULT_LOG_LEVEL,
-    MANDATORY_FIELDS,
-    LogConfig,
-    LogFormat,
-    LoggerConfig,
-    UnifiedLogger,
-    configure_logging,
-    get_logger,
+from __future__ import annotations
+
+import importlib
+import sys
+from typing import Sequence
+
+_TARGET = "bioetl.infrastructure.logging"
+_SUBMODULES: Sequence[str] = (
+    "log_events",
+    "logger",
+    "runtime",
 )
-from .runtime import bind_pipeline_context, get_pipeline_logger, pipeline_stage
 
-__all__ = [
-    "DEFAULT_LOG_LEVEL",
-    "LogConfig",
-    "LogFormat",
-    "MANDATORY_FIELDS",
-    "LoggerConfig",
-    "UnifiedLogger",
-    "configure_logging",
-    "get_logger",
-    "LogEvents",
-    "bind_pipeline_context",
-    "get_pipeline_logger",
-    "pipeline_stage",
-]
+_target_pkg = importlib.import_module(_TARGET)
+__all__ = getattr(_target_pkg, "__all__", ())
+globals().update({name: getattr(_target_pkg, name) for name in __all__})
 
+for module_name in _SUBMODULES:
+    sys.modules[f"{__name__}.{module_name}"] = importlib.import_module(
+        f"{_TARGET}.{module_name}"
+    )

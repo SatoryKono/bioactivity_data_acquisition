@@ -15,8 +15,8 @@ from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.infrastructure.logging import LogEvents
+from bioetl.domain.schema import IdentifierRule, StringRule, normalize_string_columns
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
 from bioetl.chembl.common.descriptor import (

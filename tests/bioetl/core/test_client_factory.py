@@ -77,7 +77,7 @@ class TestAPIClientFactory:
         """Test building a client with default configuration."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -93,7 +93,7 @@ class TestAPIClientFactory:
         """Test building a client with source name."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -107,7 +107,7 @@ class TestAPIClientFactory:
         """Test building a client with HTTP profile."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -123,7 +123,7 @@ class TestAPIClientFactory:
         factory = APIClientFactory(pipeline_config)
         overrides = HTTPClientConfig(timeout_sec=60.0)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -137,7 +137,7 @@ class TestAPIClientFactory:
         """Test building a client with custom name."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -158,7 +158,7 @@ class TestAPIClientFactory:
         """Test building a client for a specific source."""
         factory = APIClientFactory(pipeline_config)
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -180,7 +180,7 @@ class TestAPIClientFactory:
             update={"parameters": updated_parameters}
         )
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 
@@ -204,7 +204,7 @@ class TestAPIClientFactory:
             }
         )
 
-        with patch("bioetl.core.http.client_factory.UnifiedAPIClient") as mock_client_class:
+        with patch("bioetl.infrastructure.http.client_factory.UnifiedAPIClient") as mock_client_class:
             mock_client = MagicMock(spec=UnifiedAPIClient)
             mock_client_class.return_value = mock_client
 

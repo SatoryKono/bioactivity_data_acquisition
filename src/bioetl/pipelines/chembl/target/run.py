@@ -32,9 +32,9 @@ from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.http import CircuitBreakerOpenError
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.infrastructure.http import CircuitBreakerOpenError
+from bioetl.infrastructure.logging import LogEvents
+from bioetl.domain.schema import IdentifierRule, StringRule, normalize_string_columns
 
 from .transform import serialize_target_arrays
 

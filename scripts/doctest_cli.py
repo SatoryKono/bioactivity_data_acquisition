@@ -6,8 +6,8 @@ from typing import Any, Callable
 
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_doctest_cli as cli_doctest_cli_impl
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 CLIExample = cli_doctest_cli_impl.CLIExample
 extract_cli_examples = cli_doctest_cli_impl.extract_cli_examples

@@ -6,7 +6,7 @@ from builtins import ConnectionError as BuiltinConnectionError
 from builtins import TimeoutError as BuiltinTimeoutError
 
 from bioetl.clients import client_exceptions
-from bioetl.core.http import CircuitBreakerOpenError
+from bioetl.infrastructure.http import CircuitBreakerOpenError
 
 __all__ = [
     "PipelineError",

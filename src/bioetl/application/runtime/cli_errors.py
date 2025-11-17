@@ -7,7 +7,7 @@ from typing import Any, Mapping, MutableMapping, NoReturn, Protocol
 
 import typer
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "CliErrorCode",
@@ -101,7 +101,7 @@ def emit_cli_error_and_exit(
         logger=logger,
         context=context,
     )
-    from bioetl.core.runtime.cli_base import CliCommandBase
+    from bioetl.application.runtime.cli_base import CliCommandBase
 
     CliCommandBase.exit(exit_code, cause=cause)
     raise AssertionError("unreachable exit path")

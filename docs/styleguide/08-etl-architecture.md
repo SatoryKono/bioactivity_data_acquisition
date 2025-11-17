@@ -132,7 +132,7 @@ All pipelines **MUST** use unified components:
 ### UnifiedLogger
 
 ```python
-from bioetl.core.logging import UnifiedLogger
+from bioetl.infrastructure.logging import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)
 
@@ -157,7 +157,7 @@ class MyPipeline(PipelineBase):
 ### UnifiedAPIClient
 
 ```python
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 
 
 class MyPipeline(PipelineBase):

@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 from bioetl.core.utils import join_activity_with_molecule
 
 

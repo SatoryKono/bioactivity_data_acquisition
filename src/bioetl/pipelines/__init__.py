@@ -6,8 +6,8 @@ from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
 from bioetl.config.models.models import CLIConfig
-from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
-from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
+from bioetl.infrastructure.io import RunArtifacts, WriteArtifacts, WriteResult
+from bioetl.application.runtime.lazy_loader import resolve_lazy_attr
 
 if TYPE_CHECKING:  # pragma: no cover - import for typing only
     from .base import PipelineBase, RunResult

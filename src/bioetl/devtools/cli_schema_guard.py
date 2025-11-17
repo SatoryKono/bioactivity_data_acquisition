@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from bioetl.config import loader
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.schemas import SCHEMA_REGISTRY
 from bioetl.tools import get_project_root
 

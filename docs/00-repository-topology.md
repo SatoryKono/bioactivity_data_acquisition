@@ -7,22 +7,32 @@ rules for storing deterministic artifacts.
 
 ### `src/`
 
-Primary application and pipeline code. Modules are organized by component type
-(clients, normalizers, pipelines, writers) and implement the contracts defined
-in `docs/etl_contract/` and `docs/pipelines/`. The Typer CLI lives in
-`src/bioetl/cli/` and depends on shared abstractions such as
-`bioetl.clients.client_exceptions` instead of direct HTTP libraries. CLI
-configuration models are imported from
-`bioetl.config.models.models` (or `.policies` for policy objects),
-ensuring that
-runtime options derive from the typed configuration registry.
+Primary application and pipeline code. The layered layout is:
+
+- `src/bioetl/application/` — orchestration logic such as the runtime and CLI
+  helpers that coordinate ETL pipelines.
+- `src/bioetl/infrastructure/` — adapters for HTTP, IO, logging, and other
+  external concerns.
+- `src/bioetl/domain/` — domain-specific schemas, mixins, and validators.
+- `src/bioetl/pipelines/` — concrete pipeline implementations that depend on
+  the layers above.
+
+The Typer CLI lives in `src/bioetl/cli/` and depends on the application layer,
+which in turn consumes typed configuration models from
+`bioetl.config.models.models` (or `.policies` for policy objects). Runtime
+options always derive from the configuration registry.
 
 ### `tests/`
 
-Unit, integration, and golden tests reside under `tests/bioetl/`. Directory
-structure mirrors `src/` to simplify navigation and example discovery. Shared
-fixtures live in `tests/bioetl/conftest.py`, while reusable helpers are grouped
-inside `tests/bioetl/unit/utils/`.
+Unit, integration, and golden tests reside under `tests/`. The tree mirrors the
+layered source layout:
+
+- `tests/application/**` for runtime and CLI orchestration coverage.
+- `tests/infrastructure/**` for HTTP/IO/logging adapter coverage.
+- `tests/bioetl/**` retains the remaining pipeline and integration suites.
+
+Shared fixtures live in `tests/bioetl/conftest.py`, while reusable helpers are
+grouped inside `tests/support/`.
 
 ### `configs/`
 

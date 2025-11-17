@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from bioetl.core.logging import LogConfig, LogEvents, LogFormat, UnifiedLogger
+from bioetl.infrastructure.logging import LogConfig, LogEvents, LogFormat, UnifiedLogger
 
 
 @pytest.fixture(autouse=True)

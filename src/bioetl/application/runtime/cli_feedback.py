@@ -7,7 +7,7 @@ from typing import Any
 import click
 import typer
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "emit_section",

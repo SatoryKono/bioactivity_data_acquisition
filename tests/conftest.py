@@ -14,7 +14,7 @@ import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 from tests.support.factories import (
     build_pipeline_config,
     load_sample_activity_dataframe,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from bioetl.core.runtime.lazy_loader import resolve_lazy_attr
+from bioetl.application.runtime.lazy_loader import resolve_lazy_attr
 
 __all__ = [
     "ActivitySourceConfig",
