@@ -1,8 +1,10 @@
 # 2. Pipeline Configuration
 
-> **Note**: Implementation status: **planned**. All file paths referencing
-> `src/bioetl/` in this document describe the intended architecture and are not
-> yet implemented in the codebase.
+> **Note**: Implementation status: **implemented**. The behaviors described
+> below are enforced today by the Pydantic models in
+> `src/bioetl/config/models/`, with `src/bioetl/config/models/base.py` (and its
+> sibling modules such as `http.py`, `cache.py`, and `paths.py`) serving as the
+> authoritative source of truth for the runtime contract.
 
 ## Overview
 
@@ -15,9 +17,11 @@ All configuration files are validated at runtime against a set of strongly-typed
 Pydantic models located in `src/bioetl/config/models/`. The models are organized
 into logical modules (base, http, cache, paths, determinism, validation,
 transform, postprocess, source, cli, fallbacks) and are all re-exported through
-`src/bioetl/config/models/__init__.py` for backward compatibility. This ensures
-that all configurations are well-formed and contain all necessary parameters
-before the pipeline begins execution.
+`src/bioetl/config/models/__init__.py` for backward compatibility. These modules
+(especially `base.py`, which stitches together the full `PipelineConfig` model)
+form the canonical specification for what the YAML must contain, ensuring that
+all configurations are well-formed and contain all necessary parameters before
+the pipeline begins execution.
 
 ## Configuration Skeleton
 
