@@ -6,10 +6,19 @@ import inspect
 from importlib import import_module
 from typing import TYPE_CHECKING, Any
 
-__all__ = ["PipelineConfig", "load_config"]
+__all__ = ["PipelineConfig", "load_config", "BaseApiClient", "IParser", "INormalizer"]
 
 if TYPE_CHECKING:
+    from bioetl.base_classes import BaseApiClient, IParser, INormalizer
     from bioetl.config import PipelineConfig, load_config
+
+_EXPORTS: dict[str, tuple[str, str]] = {
+    "PipelineConfig": ("bioetl.config", "PipelineConfig"),
+    "load_config": ("bioetl.config", "load_config"),
+    "BaseApiClient": ("bioetl.base_classes", "BaseApiClient"),
+    "IParser": ("bioetl.base_classes", "IParser"),
+    "INormalizer": ("bioetl.base_classes", "INormalizer"),
+}
 
 
 def _patch_pytest_monkeypatch() -> None:
@@ -75,9 +84,11 @@ _patch_pytest_monkeypatch()
 
 
 def __getattr__(name: str) -> Any:
-    if name in __all__:
-        config_module = import_module("bioetl.config")
-        value = getattr(config_module, name)
+    target = _EXPORTS.get(name)
+    if target is not None:
+        module_name, attr_name = target
+        module = import_module(module_name)
+        value = getattr(module, attr_name)
         globals()[name] = value
         return value
     msg = f"module 'bioetl' has no attribute '{name}'"

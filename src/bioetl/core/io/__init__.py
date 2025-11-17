@@ -1,5 +1,6 @@
 """Deterministic I/O helpers for the BioETL core package."""
 
+from .base_writer import BaseDatasetWriter
 from .frame import ensure_columns
 from .hashing import compute_hash, hash_from_mapping
 from .output import (
@@ -29,6 +30,7 @@ from .serialization import (
 from .units import QCUnits
 
 __all__ = [
+    "BaseDatasetWriter",
     "DeterministicWriteArtifacts",
     "QCUnits",
     "RunArtifacts",
