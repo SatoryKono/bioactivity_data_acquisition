@@ -52,6 +52,10 @@ domain:
       - assay_id
   fallbacks:
     enabled: true
+    policy: ordered
+    sources:
+      - cache
+      - semantic_scholar.title_search
   sources:
     chembl:
       enabled: true
@@ -95,7 +99,8 @@ infrastructure:
 - **`domain.*`**: Business-facing controls. `validation` binds the pipeline to
   Pandera schemas, `transform` describes flattening/serialization rules,
   `postprocess` defines hashing/QC enrichments, `fallbacks` centralizes
-  resilience policies, and `sources` enumerates provider overrides (ChemBL,
+  resilience policies through `fallbacks.policy` (`ordered`, `best_effort`,
+  `strict`) and the prioritized `fallbacks.sources` list, and `sources` enumerates provider overrides (ChemBL,
   UniProt, PubChem, etc.). The optional `chembl` block captures enrichment knobs
   specific to the ChemBL adapters.
 - **`infrastructure.*`**: Cross-cutting platform controls. `runtime` sets

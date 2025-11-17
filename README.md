@@ -41,6 +41,38 @@ bioetl list
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
+### Настройка fallback-источников
+
+Пайплайны теперь управляют стратегией отката через блок `fallbacks` в YAML.
+Минимальный пример:
+
+```yaml
+fallbacks:
+  enabled: true
+  policy: ordered  # проход по источникам до первого успешного результата
+  sources:
+    - cache
+    - semantic_scholar.title_search
+```
+
+`policy` поддерживает значения `ordered`, `best_effort` и `strict`. Первое
+значение (по умолчанию) прерывает обход после первого валидного ответа,
+`best_effort` агрегирует ответы всех источников, а `strict` требует успешной
+отработки каждого источника иначе run завершится с ошибкой.
+
+Операторы могут экспериментировать без редактирования YAML напрямую:
+
+```bash
+bioetl document_chembl \
+  --config configs/pipelines/document/document_chembl.yaml \
+  --output-dir data/output/document/full_load \
+  --set fallbacks.policy=strict \
+  --set fallbacks.sources='["cache","semantic_scholar.title_search"]'
+```
+
+Команда выше жёстко требует прохождения обоих fallback-источников и делает
+поведение воспроизводимым для расследований инцидентов.
+
 ## Топология репозитория
 
 Слои кода, тестов, конфигураций и артефактов описаны в разделе
