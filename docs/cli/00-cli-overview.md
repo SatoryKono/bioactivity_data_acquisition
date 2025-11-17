@@ -200,6 +200,23 @@ definitions in `src/bioetl/cli/cli_app.py` and configuration handling in
    *Expected output*: ETL progress logs, QC reports, and deterministic CSV
    outputs under `data/output/document/full_load`.
 
+1. Override fallback sequencing for incident triage
+
+   ```bash
+   python -m bioetl.cli.cli_app document_chembl \
+     --config configs/pipelines/document/document_chembl.yaml \
+     --output-dir data/output/document/full_load \
+     --set fallbacks.policy=best_effort \
+     --set fallbacks.sources='["cache","semantic_scholar.title_search"]'
+   ```
+
+   *Expected behavior*: the CLI captures the requested fallback policy inside
+   `PipelineConfig.fallbacks`, so the pipeline probes every listed source and
+   aggregates partial responses instead of short-circuiting after the first
+   success. Operators can switch to `strict` to fail fast whenever any fallback
+   source is unavailable, mirroring the semantics defined in
+   [`docs/configs/00-typed-configs-and-profiles.md`](../configs/00-typed-configs-and-profiles.md).
+
 1. Execute a PubChem enrichment sample (not implemented)
 
    ```bash

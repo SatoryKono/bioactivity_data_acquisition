@@ -77,6 +77,11 @@ export BIOETL__DETERMINISM__HASHING__ALGORITHM=blake2b
 1. Проверьте настройки через `bioetl config inspect` (см.
    [`docs/cli/config-inspect.md`](../cli/config-inspect.md)), чтобы убедиться,
    что значения применились.
+1. Проверьте объединённый runtime-конфиг через `bioetl qc --runtime-config`
+   (например, `bioetl qc --runtime-config configs/default.yml --pipeline
+   activity_chembl`) и убедитесь, что CLI выводит ожидаемые значения; подробная
+   справка доступна в разделе
+   [CLI](../cli/01-cli-commands.md#qc-runtime-configuration-inspector).
 
 Эти рекомендации помогают сохранить детерминизм и повторяемость окружения.
 

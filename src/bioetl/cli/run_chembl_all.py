@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -65,39 +67,37 @@ class AggregatedResults:
 
 
 def _load_qc_metrics(qc_path: Path | None) -> dict[str, Any] | None:
-    """Загрузить QC-метрики из JSON-файла."""
+    """Загрузить QC-метрики из JSON или CSV файла."""
     if qc_path is None or not qc_path.exists():
         return None
     try:
         content = qc_path.read_text(encoding="utf-8")
-        data: dict[str, Any] = json.loads(content)
-        return data
+        # Пытаемся загрузить как JSON
+        if qc_path.suffix.lower() == ".json":
+            data: dict[str, Any] = json.loads(content)
+            return data
+        # Для CSV файлов возвращаем None (можно расширить в будущем)
+        # так как CSV требует парсинга и преобразования в структуру
+        return None
     except Exception as exc:  # noqa: BLE001
         _log.warning("Failed to load QC metrics", path=str(qc_path), error=str(exc))
         return None
 
 
-def _find_qc_files(run_directory: Path, pipeline_name: str) -> tuple[Path | None, Path | None]:
-    """Найти файлы QC-отчётов в директории выполнения."""
+def _find_qc_files(run_result: RunResult) -> tuple[Path | None, Path | None]:
+    """Найти файлы QC-отчётов из результата выполнения пайплайна."""
     quality_report: Path | None = None
     qc_metrics: Path | None = None
 
-    # Ищем в qc-поддиректории
-    qc_dir = run_directory / "qc"
-    if qc_dir.exists():
-        # Ищем quality_report
-        for pattern in [f"{pipeline_name}_quality_report.csv", "*_quality_report.csv"]:
-            matches = list(qc_dir.glob(pattern))
-            if matches:
-                quality_report = matches[0]
-                break
+    # Используем пути из write_result
+    if run_result.write_result.quality_report and run_result.write_result.quality_report.exists():
+        quality_report = run_result.write_result.quality_report
 
-        # Ищем qc_metrics JSON
-        for pattern in [f"{pipeline_name}_qc.json", "*_qc.json"]:
-            matches = list(qc_dir.glob(pattern))
-            if matches:
-                qc_metrics = matches[0]
-                break
+    # Используем qc_metrics из write_result или qc_summary
+    if run_result.write_result.qc_metrics and run_result.write_result.qc_metrics.exists():
+        qc_metrics = run_result.write_result.qc_metrics
+    elif run_result.qc_summary and run_result.qc_summary.exists():
+        qc_metrics = run_result.qc_summary
 
     return quality_report, qc_metrics
 
@@ -109,7 +109,7 @@ def _run_single_pipeline(
     logger: BoundLogger,
 ) -> PipelineRunResult:
     """Запустить один пайплайн и вернуть результат."""
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
     logger.info(
         LogEvents.PIPELINE_RUN_START,
         pipeline=pipeline_name,
@@ -153,11 +153,11 @@ def _run_single_pipeline(
                 duration_ms=0.0,
             )
 
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
 
         # Загружаем QC-метрики
-        quality_report_path, qc_metrics_path = _find_qc_files(result.run_directory, pipeline_name)
+        quality_report_path, qc_metrics_path = _find_qc_files(result)
         qc_metrics = _load_qc_metrics(qc_metrics_path)
 
         logger.info(
@@ -180,7 +180,7 @@ def _run_single_pipeline(
         )
 
     except Exception as exc:  # noqa: BLE001
-        end_time = datetime.now()
+        end_time = datetime.now(timezone.utc)
         duration_ms = (end_time - start_time).total_seconds() * 1000
         error_msg = str(exc)
 
@@ -202,7 +202,7 @@ def _run_single_pipeline(
 
 def _aggregate_results(results: list[PipelineRunResult], run_id: str, start_time: datetime) -> AggregatedResults:
     """Агрегировать результаты всех пайплайнов."""
-    end_time = datetime.now()
+    end_time = datetime.now(timezone.utc)
     total_duration_ms = sum(r.duration_ms for r in results)
     total_rows = sum(r.row_count for r in results)
     successful = sum(1 for r in results if r.success)
@@ -248,8 +248,8 @@ def _write_summary_report(aggregated: AggregatedResults, output_root: Path) -> P
         "# ChEMBL All Pipelines Summary Report",
         "",
         f"**Run ID:** {aggregated.run_id}",
-        f"**Start Time:** {aggregated.start_time.isoformat()}",
-        f"**End Time:** {aggregated.end_time.isoformat() if aggregated.end_time else 'N/A'}",
+        f"**Start Time:** {aggregated.start_time.isoformat().replace('+00:00', 'Z')}",
+        f"**End Time:** {aggregated.end_time.isoformat().replace('+00:00', 'Z') if aggregated.end_time else 'N/A'}",
         f"**Total Duration:** {aggregated.total_duration_ms:.2f} ms",
         "",
         "## Summary",
@@ -271,7 +271,7 @@ def _write_summary_report(aggregated: AggregatedResults, output_root: Path) -> P
             lines.append("")
             continue
 
-        status = "✅ Success" if result.success else "❌ Failed"
+        status = "[OK] Success" if result.success else "[ERROR] Failed"
         lines.append(f"### {pipeline_name}")
         lines.append(f"- **Status:** {status}")
         lines.append(f"- **Rows:** {result.row_count:,}")
@@ -284,7 +284,10 @@ def _write_summary_report(aggregated: AggregatedResults, output_root: Path) -> P
         lines.append("")
 
     content = "\n".join(lines)
-    report_path.write_text(content, encoding="utf-8")
+    # Атомарная запись файла
+    tmp_path = report_path.with_suffix(".tmp.md")
+    tmp_path.write_text(content, encoding="utf-8")
+    os.replace(tmp_path, report_path)
 
     return report_path
 
@@ -298,8 +301,8 @@ def _write_qc_json(aggregated: AggregatedResults, output_root: Path) -> Path:
 
     qc_data: dict[str, Any] = {
         "run_id": aggregated.run_id,
-        "start_time": aggregated.start_time.isoformat(),
-        "end_time": aggregated.end_time.isoformat() if aggregated.end_time else None,
+        "start_time": aggregated.start_time.isoformat().replace("+00:00", "Z"),
+        "end_time": aggregated.end_time.isoformat().replace("+00:00", "Z") if aggregated.end_time else None,
         "total_duration_ms": aggregated.total_duration_ms,
         "summary": aggregated.summary,
         "pipeline_qc_metrics": {},
@@ -313,7 +316,7 @@ def _write_qc_json(aggregated: AggregatedResults, output_root: Path) -> Path:
     # Атомарная запись JSON
     tmp_path = qc_path.with_suffix(".tmp.json")
     tmp_path.write_text(json.dumps(qc_data, indent=2, sort_keys=True), encoding="utf-8")
-    tmp_path.replace(qc_path)
+    os.replace(tmp_path, qc_path)
 
     return qc_path
 
@@ -364,7 +367,7 @@ def run_chembl_all_command(
     from uuid import uuid4
 
     run_id = str(uuid4())
-    start_time = datetime.now()
+    start_time = datetime.now(timezone.utc)
 
     # Настройка логирования
     log_level = "DEBUG" if verbose else "INFO"
@@ -379,14 +382,34 @@ def run_chembl_all_command(
         extended=extended,
     )
 
-    # Создаём runner
+    # Создаём runner с общим run_id для всех пайплайнов
+    # Используем общий run_id с суффиксами для каждого пайплайна
+    base_run_id = run_id
+    pipeline_run_ids: dict[str, str] = {}
+    for idx, pipeline_name in enumerate(CHEMBL_PIPELINES):
+        # Создаём уникальный run_id для каждого пайплайна на основе общего
+        pipeline_run_ids[pipeline_name] = f"{base_run_id}-{idx:02d}-{pipeline_name}"
+
+    # Фабрика для генерации run_id для каждого пайплайна
+    def make_uuid_factory(pipeline_name: str) -> Callable[[], str]:
+        pipeline_run_id = pipeline_run_ids[pipeline_name]
+
+        def uuid_factory() -> str:
+            return pipeline_run_id
+
+        return uuid_factory
+
     config_factory = PipelineConfigFactory(environment_loader=load_environment_settings)
-    runner = PipelineCommandRunner(config_factory=config_factory)
 
     results: list[PipelineRunResult] = []
 
     # Запускаем каждый пайплайн последовательно
     for pipeline_name in CHEMBL_PIPELINES:
+        # Создаём runner с фабрикой run_id для этого пайплайна
+        runner = PipelineCommandRunner(
+            config_factory=config_factory,
+            uuid_factory=make_uuid_factory(pipeline_name),
+        )
         # Определяем конфиг и output_dir для каждого пайплайна
         config_factory_func = COMMAND_REGISTRY.get(pipeline_name)
         if config_factory_func is None:
@@ -468,7 +491,7 @@ def run_chembl_all_command(
     )
 
     # Выводим итоги
-    typer.echo("\n✅ ChEMBL All Pipelines Run Complete")
+    typer.echo("\n[OK] ChEMBL All Pipelines Run Complete")
     typer.echo(f"   Successful: {aggregated.summary['successful']}/{aggregated.summary['total_pipelines']}")
     typer.echo(f"   Total Rows: {aggregated.summary['total_rows']:,}")
     typer.echo(f"   Summary Report: {summary_report}")
@@ -476,9 +499,9 @@ def run_chembl_all_command(
 
     # Выход с кодом ошибки, если были неудачи
     if aggregated.summary["failed"] > 0:
-        typer.echo(f"\n❌ {aggregated.summary['failed']} pipeline(s) failed")
+        typer.echo(f"\n[ERROR] {aggregated.summary['failed']} pipeline(s) failed")
         raise typer.Exit(code=1)
 
-    typer.echo("\n✅ All pipelines completed successfully")
+    typer.echo("\n[OK] All pipelines completed successfully")
     raise typer.Exit(code=0)
 

@@ -1512,6 +1512,7 @@ class PipelineBase(ABC):
         correlation_config = getattr(postprocess_config, "correlation", None)
         correlation_default = bool(getattr(correlation_config, "enabled", False))
 
+        # Run correlation report generation if enabled in the config or via extended mode.
         include_correlation_flag = (
             bool(include_correlation)
             if include_correlation is not None
@@ -1725,6 +1726,7 @@ class PipelineBase(ABC):
         postprocess_config = getattr(self.config, "postprocess", None)
         correlation_config = getattr(postprocess_config, "correlation", None)
         correlation_default = bool(getattr(correlation_config, "enabled", False))
+        # Run correlation report generation if enabled in the config or via extended mode.
         include_correlation_flag = (
             bool(include_correlation)
             if include_correlation is not None

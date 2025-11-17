@@ -189,6 +189,25 @@ repo:src/bioetl/pipelines/base.py]
 |                   | `filename_template` | `null`          | Jinja-шаблон имени файла.[ref: repo:src/bioetl/configs/models.py†L128-L131]                         |
 | `fallbacks`       | `enabled`           | `true`          | Включает fallback-стратегии.[ref: repo:src/bioetl/configs/models.py†L139-L146]                      |
 |                   | `max_depth`         | `null`          | Ограничение глубины fallback.[ref: repo:src/bioetl/configs/models.py†L139-L146]                     |
+|                   | `policy`            | `"ordered"`    | Стратегия обхода источников: `ordered` (по порядку, стоп при успехе), `best_effort` (пробуем все, агрегируем частичные результаты), `strict` (все источники обязательны).[ref: repo:src/bioetl/configs/models.py†L139-L146] |
+|                   | `sources[]`         | `Sequence[str]` | `[]`             | Приоритетный список fallback-источников (например, `cache`, `semantic_scholar.title_search`).[ref: repo:src/bioetl/configs/models.py†L139-L146] |
+
+`fallbacks.policy` управляет поведением менеджера fallback'ов:
+
+- `ordered` (значение по умолчанию) — источники из `fallbacks.sources` перебираются последовательно; первый успешный результат завершает обход.
+- `best_effort` — все источники опрашиваются независимо; любые валидные записи агрегируются, а ошибки логируются, но не приводят к аварийному завершению.
+- `strict` — каждый источник в списке считается обязательным; если хотя бы один вернул ошибку или пустой ответ, пайплайн фиксирует отказ (обычно с кодом CLI `3`).
+
+Пример объявления блока `fallbacks`:
+
+```yaml
+fallbacks:
+  enabled: true
+  policy: ordered
+  sources:
+    - cache
+    - semantic_scholar.title_search
+```
 | `validation`      | `schema_in`         | `null`          | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/config/models.py†L258-L270]                      |
 |                   | `schema_out`        | `null`          | Путь к выходной схеме.[ref: repo:src/bioetl/config/models.py†L262-L270]                             |
 |                   | `schema_in_version` | `null`          | Ожидаемая версия входной схемы; требует `schema_in`.[ref: repo:src/bioetl/config/models.py†L266-L274] |
@@ -392,6 +411,10 @@ CLI `--set` overrides (глубокий merge по ключам)
     default_format: parquet
   fallbacks:
     enabled: true
+    policy: ordered
+    sources:
+      - cache
+      - semantic_scholar.title_search
   determinism:
     enabled: true
     hash_policy_version: "1.0.0"
