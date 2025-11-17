@@ -46,22 +46,6 @@ def _apply_runtime_overrides_safely(settings: EnvironmentSettings) -> None:
     apply_runtime_overrides(settings)
 
 
-def _replace_config_section(
-    config: PipelineConfig,
-    *,
-    section: str,
-    updates: Mapping[str, Any],
-) -> PipelineConfig:
-    """Return a new PipelineConfig with an updated section without mutations."""
-
-    if not updates:
-        return config
-
-    section_model = getattr(config, section)
-    updated_section = section_model.model_copy(update=dict(updates))
-    return config.model_copy(update={section: updated_section})
-
-
 class PipelineFactory(Protocol):
     """Contract for pipeline factories used by the CLI layer."""
 
@@ -233,24 +217,14 @@ class PipelineConfigFactory:
         if options.input_file is not None:
             cli_updates["input_file"] = str(options.input_file)
 
-        pipeline_config = _replace_config_section(
-            pipeline_config,
-            section="cli",
-            updates=cli_updates,
-        )
-
+        overrides: dict[str, Any] = {
+            "cli": cli_updates,
+            "materialization": {"root": str(options.output_dir)},
+        }
         if not options.validate_columns:
-            pipeline_config = _replace_config_section(
-                pipeline_config,
-                section="validation",
-                updates={"strict": False},
-            )
+            overrides["validation"] = {"strict": False}
 
-        pipeline_config = _replace_config_section(
-            pipeline_config,
-            section="materialization",
-            updates={"root": str(options.output_dir)},
-        )
+        pipeline_config = pipeline_config.apply_overrides(overrides)
 
         return pipeline_config
 
@@ -301,10 +275,8 @@ class PipelineCommandRunner:
             tz = ZoneInfo("UTC")
 
         if not config.cli.date_tag:
-            config = _replace_config_section(
-                config,
-                section="cli",
-                updates={"date_tag": self._now_factory(tz).strftime("%Y%m%d")},
+            config = config.apply_overrides(
+                {"cli": {"date_tag": self._now_factory(tz).strftime("%Y%m%d")}}
             )
 
         runtime_config = self._get_runtime_config()
