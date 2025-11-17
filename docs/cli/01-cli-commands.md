@@ -119,6 +119,36 @@ emitting structured diagnostics that pinpoint the drift.
 
 ## Command reference
 
+### `qc` (runtime configuration inspector)
+
+- **Signature**: `python -m bioetl.cli.cli_app qc [OPTIONS]`
+- **Purpose**: Inspect the merged runtime configuration (thresholds, QC report
+  templates, and `fail_on_threshold_violation`) without running any pipelines.
+- **Options**:
+  - `--runtime-config PATH` (default: `configs/default.yml`) — points to the
+    runtime configuration bundle that layers environment overrides and
+    short-form variables.
+  - `--pipeline, -p` — when specified, prints pipeline-specific thresholds and
+    QC report templates after the base section.
+  - `--materialization-root, -m` — overrides the root directory used to expand
+    QC templates; defaults to `data/output/<pipeline>` when `--pipeline` is
+    passed.
+- **Output**: emits a "QC configuration summary" section that lists base
+  thresholds, the `fail_on_threshold_violation` flag, and pipeline-specific
+  thresholds/templates, allowing operators to verify that `.env` overrides and
+  CLI `--set` values have been merged correctly.
+
+#### Example: verify merged runtime configuration
+
+```bash
+BIOETL_ENV=dev bioetl qc --runtime-config configs/default.yml --pipeline activity_chembl
+```
+
+The command exits with `0` after printing the merged configuration layers,
+helping you confirm that environment variables and runtime YAML edits were
+applied as expected. A non-zero exit code indicates that the runtime
+configuration file could not be located or failed validation.
+
 ### `activity_chembl`
 
 - **Signature**: `python -m bioetl.cli.cli_app activity_chembl [OPTIONS]`
