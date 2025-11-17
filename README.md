@@ -29,6 +29,12 @@ bioetl activity_chembl \
   --output-dir ./data/output \
   --sample 5
 
+# включить опциональный correlation report
+bioetl activity_chembl \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --output-dir ./data/output \
+  --set postprocess.correlation.enabled=true
+
 # список команд и алиасов CLI
 python -m bioetl.cli.cli_app list
 bioetl list
@@ -42,7 +48,7 @@ bioetl config inspect \
 Обязательные флаги и параметры описаны в
 `python -m bioetl.cli.cli_app --help`. Подробности см. в
 [`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и руководстве по
-конфигурациям:
+конфигурациям (включая описание `postprocess.correlation`):
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 

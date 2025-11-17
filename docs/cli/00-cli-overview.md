@@ -51,8 +51,11 @@ overrides all others):
 **Order of Precedence (Lowest to Highest):**
 
 1. **Base Profiles**: Files listed in the `extends` key are loaded first. This
-   typically includes `base.yaml` and can also include `network.yaml` (for
-   network settings) and `determinism.yaml` (for reproducibility settings).
+   typically includes `base.yaml`, the shared `postprocess.yaml` (for
+   correlation/QC toggles documented in
+   [`docs/configs/00-typed-configs-and-profiles.md#27-postprocess`](../configs/00-typed-configs-and-profiles.md#27-postprocess)),
+   and can also include `network.yaml` (for network settings) and
+   `determinism.yaml` (for reproducibility settings).
 1. **Pipeline Config**: The main pipeline-specific YAML file provided via
    `--config`.
 1. **CLI `--set` Flags**: Key-value pairs from the `--set` flag are merged next.

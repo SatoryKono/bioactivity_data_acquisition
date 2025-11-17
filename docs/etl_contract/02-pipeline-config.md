@@ -102,6 +102,10 @@ infrastructure:
   pipeline configurations to avoid repetition.
 - **`domain.*`**: Business-facing controls. `validation` binds the pipeline to
   Pandera schemas, `transform` describes flattening/serialization rules,
+  `postprocess` defines hashing/QC enrichments (see the
+  [postprocess configuration section](../configs/00-typed-configs-and-profiles.md#27-postprocess)
+  for the list of keys and defaults, including the optional correlation report),
+  `fallbacks` centralizes resilience policies, and `sources` enumerates provider overrides (ChemBL,
   `postprocess` defines hashing/QC enrichments, `fallbacks` centralizes
   resilience policies through `fallbacks.policy` (`ordered`, `best_effort`,
   `strict`) and the prioritized `fallbacks.sources` list, and `sources` enumerates provider overrides (ChemBL,
