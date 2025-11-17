@@ -5,7 +5,7 @@ import pytest
 
 from bioetl.core.schema.normalizers import IdentifierStats, StringStats
 from bioetl.core.utils.mixins import CollectionFlagMixin
-from bioetl.pipelines.qc.boundary_check import QCBoundaryReport, QCBoundaryViolation
+from bioetl.qc.boundary_check import QCBoundaryReport, QCBoundaryViolation
 
 
 @pytest.mark.parametrize(
