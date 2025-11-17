@@ -198,8 +198,29 @@ repo:src/bioetl/pipelines/base.py]
 |                   | `coerce`            | `true`          | Приводит типы в Pandera.[ref: repo:src/bioetl/config/models.py†L284-L288]                           |
 | `cli`             | `profiles[]`        | `[]`            | Профили, переданные через `--profile`.[ref: repo:src/bioetl/configs/models.py†L304-L316]            |
 |                   | `dry_run`           | `false`         | Флаг `--dry-run`.[ref: repo:src/bioetl/configs/models.py†L308-L316]                                 |
+
 |                   | `limit`             | `null`          | Лимит записей (`--limit`).[ref: repo:src/bioetl/configs/models.py†L309-L312]                        |
 |                   | `set_overrides{}`   | `{}`            | Пары `--set key=value`.[ref: repo:src/bioetl/configs/models.py†L313-L316]                           |
+
+### 2.7 `postprocess`
+
+`PostprocessConfig` управляет тем, какие дополнительные QC-артефакты создаются
+после основного датасета. На данный момент блок содержит единственный
+подраздел `correlation`, но он строго типизирован (Pydantic `extra="forbid"`),
+поэтому любое неизвестное поле приведёт к ошибке во время загрузки конфига.
+
+| Section                   | Key       | Type  | Default | Description |
+| ------------------------- | --------- | ----- | ------- | ----------- |
+| `postprocess.correlation` | `enabled` | bool  | `false` | Включает генерацию `*_correlation_report.csv` с парными коэффициентами корреляции по всем числовым столбцам. Когда значение `true`, пайплайн записывает отчёт рядом с основным артефактом, добавляет checksum (`corr_sha256`) и путь (`corr_report_path`) в `meta.yaml`, а golden-тесты ожидают наличие файла. При `false` блок остаётся выключенным и не создаёт дополнительных файлов.[ref: repo:src/bioetl/config/models/postprocess.py] |
+
+Профиль [`configs/defaults/postprocess.yaml`](../../configs/defaults/postprocess.yaml)
+всегда устанавливает `enabled: false`, чтобы опциональный отчёт не появлялся
+без явного запроса. Корреляцию можно включить в YAML (`postprocess:
+  correlation:
+    enabled: true`) или точечно через CLI: `--set postprocess.correlation.enabled=true`.
+При необходимости отключить отчёт даже при наличии кастомного профиля,
+используйте `--set postprocess.correlation.enabled=false`.
+
 | `sources.<id>`    | `enabled`           | `true`          | Отключение источника.[ref: repo:src/bioetl/configs/models.py†L324-L341]                             |
 |                   | `description`       | `null`          | Описание источника.[ref: repo:src/bioetl/configs/models.py†L325-L341]                               |
 |                   | `http_profile`      | `null`          | Ссылка на HTTP-профиль.[ref: repo:src/bioetl/configs/models.py†L326-L333]                           |
@@ -207,7 +228,7 @@ repo:src/bioetl/pipelines/base.py]
 |                   | `batch_size`        | `null`          | Размер батча для пагинации.[ref: repo:src/bioetl/configs/models.py†L334-L337]                       |
 |                   | `parameters{}`      | `{}`            | Произвольные параметры источника.[ref: repo:src/bioetl/configs/models.py†L338-L341]                 |
 
-### 2.7 `determinism`
+### 2.8 `determinism`
 
 | Key                                   | Type             | Default                           | Description                                                                                                                                             |
 | ------------------------------------- | ---------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -245,7 +266,7 @@ repo:src/bioetl/pipelines/base.py]
   `validation.schema_out`, иначе валидация отклонит конфиг.\[ref:
   repo:src/bioetl/configs/models.py†L381-L388\]
 
-### 2.8 `logging`
+### 2.9 `logging`
 
 | Key                | Type            | Default              | Description                                                                        |
 | ------------------ | --------------- | -------------------- | ---------------------------------------------------------------------------------- |
@@ -254,7 +275,7 @@ repo:src/bioetl/pipelines/base.py]
 | `with_timestamps`  | `bool`          | `true`               | Включает UTC метки времени.[ref: repo:src/bioetl/config/models/logging.py]         |
 | `context_fields[]` | `Sequence[str]` | `(pipeline, run_id)` | Обязательные поля контекста в логе.[ref: repo:src/bioetl/config/models/logging.py] |
 
-### 2.9 `telemetry`
+### 2.10 `telemetry`
 
 | Key              | Type            | Default | Description                                                                                    |
 | ---------------- | --------------- | ------- | ---------------------------------------------------------------------------------------------- |
@@ -519,7 +540,11 @@ validation:
 Вместо `extends` общий профиль подключается через `<<: !include`. Добавление
 локальных секций (`sources.chembl`, `determinism`, `validation`) происходит
 поверх общей карты `profile_common`, а списки объединяются стандартным YAML
-merge-key.
+merge-key. Профиль
+[`defaults/postprocess.yaml`](../../configs/defaults/postprocess.yaml) в этой
+сборке подтягивает настройки из §2.7 (`postprocess`) и оставляет корреляционный
+отчёт выключенным, пока он явно не включён в конфиге или через `--set
+postprocess.correlation.enabled=true`.
 
 ## 7. Переопределения через CLI и переменные окружения
 
