@@ -157,7 +157,7 @@ class QCMetricsExecutor:
         effective_plan = plan or QC_PLAN_DEFAULT
         key_fields = tuple(business_key_fields or ())
 
-        from bioetl.core.io.units import QCUnits as _QCUnits
+        from bioetl.infrastructure.io.units import QCUnits as _QCUnits
 
         duplicates = (
             compute_duplicate_stats(df, business_key_fields=key_fields or None)

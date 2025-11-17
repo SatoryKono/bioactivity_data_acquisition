@@ -13,8 +13,8 @@
 The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to
 interact with external data sources. This client provides a centralized,
 configurable, and resilient layer for all outgoing HTTP requests. The runtime
-implementation is provided by `bioetl.core.http.api_client`, and
-`bioetl.core.http.client_factory` wires concrete `UnifiedAPIClient` instances
+implementation is provided by `bioetl.infrastructure.http.api_client`, and
+`bioetl.infrastructure.http.client_factory` wires concrete `UnifiedAPIClient` instances
 from validated pipeline configuration.
 
 The primary goals of this unified client are:
@@ -244,7 +244,7 @@ appear in a JSON log file.
   "event": "retrying_request",
   "level": "warning",
   "timestamp": "2024-10-28T14:30:01.123Z",
-  "logger": "bioetl.core.http.api_client",
+  "logger": "bioetl.infrastructure.http.api_client",
   "context": {
     "run_id": "activity_20241028142959",
     "stage": "extract",
@@ -317,7 +317,7 @@ appear in a JSON log file.
 # 2. Merge it with the pipeline's main config.
 # 3. Instantiate the client using the final config.
 
-from bioetl.core.http.api_client import UnifiedAPIClient, APIConfig
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient, APIConfig
 from bioetl.config.loader import load_config
 
 # This is what happens inside the framework:

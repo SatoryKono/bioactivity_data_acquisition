@@ -8,8 +8,8 @@ from typing import Any, Callable, Mapping
 from bioetl.cli._io import atomic_write_yaml
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_run_test_report as cli_run_test_report_impl
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 TEST_REPORTS_ROOT = cli_run_test_report_impl.TEST_REPORTS_ROOT
 _blake2_digest = cli_run_test_report_impl._blake2_digest

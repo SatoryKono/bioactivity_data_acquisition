@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_inventory_docs as cli_inventory_docs_impl
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 _LOGIC_EXPORTS = getattr(cli_inventory_docs_impl, "__all__", [])
 globals().update({symbol: getattr(cli_inventory_docs_impl, symbol) for symbol in _LOGIC_EXPORTS})

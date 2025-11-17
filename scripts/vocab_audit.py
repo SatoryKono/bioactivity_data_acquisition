@@ -8,10 +8,10 @@ from typing import TYPE_CHECKING, Any, Callable
 from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 from bioetl.devtools import cli_vocab_audit as cli_vocab_audit_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
-from bioetl.core.http.api_client import CircuitBreakerOpenError
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
-from bioetl.core.runtime.errors import BioETLError
+from bioetl.infrastructure.http.api_client import CircuitBreakerOpenError
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
+from bioetl.application.runtime.errors import BioETLError
 
 _LOGIC_EXPORTS = getattr(cli_vocab_audit_impl, "__all__", [])
 globals().update({symbol: getattr(cli_vocab_audit_impl, symbol) for symbol in _LOGIC_EXPORTS})

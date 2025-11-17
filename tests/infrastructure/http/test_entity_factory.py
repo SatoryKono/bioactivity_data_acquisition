@@ -31,7 +31,7 @@ from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 
 
 @pytest.fixture  # type: ignore[reportUntypedFunctionDecorator,reportUnknownMemberType]
@@ -58,7 +58,7 @@ def factory_with_http(
 
     factory = ChemblEntityClientFactory(pipeline_config_fixture)
     patcher = patch(
-        "bioetl.core.http.client_factory.APIClientFactory.for_source",
+        "bioetl.infrastructure.http.client_factory.APIClientFactory.for_source",
         return_value=mock_api_client,
     )
     mock_for_source = patcher.start()

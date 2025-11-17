@@ -33,7 +33,7 @@
 
 ## Структурная обработка ошибок
 
-- Все инструменты **должны** использовать `bioetl.core.runtime.cli_errors.emit_tool_error`.
+- Все инструменты **должны** использовать `bioetl.application.runtime.cli_errors.emit_tool_error`.
 - Helper логирует событие `LogEvents.CLI_RUN_ERROR`, добавляет `error_code/label`
   и печатает детерминированную строку `[bioetl-cli] ERROR <code>: <message>` в
   `stderr`.

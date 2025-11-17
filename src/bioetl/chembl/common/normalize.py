@@ -7,7 +7,7 @@ from typing import Iterable
 
 import pandas as pd
 
-from bioetl.core.schema.normalizers import (
+from bioetl.domain.schema.normalizers import (
     IdentifierRule,
     IdentifierStats,
     normalize_identifier_columns,
@@ -45,7 +45,7 @@ def normalize_identifiers(
     df:
         Input DataFrame to normalize.
     rules:
-        Iterable of :class:`~bioetl.core.schema.normalizers.IdentifierRule` instances
+        Iterable of :class:`~bioetl.domain.schema.normalizers.IdentifierRule` instances
         describing how each identifier column should be processed.
     copy:
         When ``True`` (default) operate on a copy of ``df``.

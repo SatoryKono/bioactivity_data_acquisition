@@ -11,7 +11,7 @@ from tests.support.qc_assertions import (
 )
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io.units import QCUnits
+from bioetl.infrastructure.io.units import QCUnits
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.qc.metrics import (
     compute_categorical_distributions,

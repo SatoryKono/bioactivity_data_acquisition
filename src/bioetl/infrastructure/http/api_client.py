@@ -19,7 +19,7 @@ from requests import Response
 from requests.exceptions import HTTPError, RequestException, Timeout
 
 from bioetl.config.models.http import CircuitBreakerConfig, HTTPClientConfig
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "TokenBucketLimiter",

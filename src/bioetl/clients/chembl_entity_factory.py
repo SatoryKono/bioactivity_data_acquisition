@@ -9,9 +9,9 @@ from bioetl.clients.chembl_entity_registry import ChemblEntityDefinition, get_en
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core.http.api_client import UnifiedAPIClient
-from bioetl.core.http.client_factory import APIClientFactory
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.client_factory import APIClientFactory
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = ["ChemblClientBundle", "ChemblEntityClientFactory"]
 

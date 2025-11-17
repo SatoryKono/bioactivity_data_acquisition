@@ -20,8 +20,7 @@ from bioetl.config.environment import (
 from bioetl.config.loader import load_config
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import Config as RuntimeConfig
-from bioetl.core import LoggerConfig, UnifiedLogger
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.logging import LogEvents, LoggerConfig, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase, RunResult
 
 __all__ = [

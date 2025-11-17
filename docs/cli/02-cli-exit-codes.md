@@ -50,7 +50,7 @@ external API failures exit with code `3`.
 | `2`       | `typer.BadParameter`                                                                                    | CLI option validators `[ref: repo:src/bioetl/cli/cli_command.py@refactoring_001]`              | Mutually exclusive `--sample/--limit`, out-of-range sample size, or unsupported `--mode`.                      |
 
 Инструменты из `scripts/*.py` используют тот же контракт через
-`bioetl.core.runtime.cli_errors.emit_tool_error`. Внешние HTTP/ChEMBL ошибки завершаются кодом
+`bioetl.application.runtime.cli_errors.emit_tool_error`. Внешние HTTP/ChEMBL ошибки завершаются кодом
 `3`, остальные — кодом `1`, при этом stderr сообщение стандартизовано и
 дублируется структурным логом `LogEvents.CLI_RUN_ERROR`.
 
@@ -101,7 +101,7 @@ Example: upstream API returned HTTP 503 after exhausting retries.
 
 ```shell
 $ python -m bioetl.cli.cli_app activity_chembl --config configs/pipelines/activity/activity_chembl.yaml
-[2025-01-15T09:12:44Z] WARNING bioetl.core.http.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
+[2025-01-15T09:12:44Z] WARNING bioetl.infrastructure.http.api_client retry_after_header wait_seconds=2.0 retry_after_raw="2"
 [2025-01-15T09:12:47Z] ERROR   cli.activity external_api_failure error="503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json"
 [ERROR] External API failure: 503 Server Error: Service Unavailable for url: https://www.ebi.ac.uk/chembl/api/data/activity.json
 $ echo $?

@@ -27,9 +27,9 @@ from bioetl.clients.base import (
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
-from bioetl.core.common import ChemblReleaseMixin
-from bioetl.core.http import UnifiedAPIClient
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.domain.common import ChemblReleaseMixin
+from bioetl.infrastructure.http import UnifiedAPIClient
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 

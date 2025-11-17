@@ -29,10 +29,10 @@ from bioetl.config.models.paths import MaterializationConfig
 from bioetl.config.models.postprocess import PostprocessConfig
 from bioetl.config.models.source import SourceConfig, SourceParameters
 from bioetl.config.models.validation import ValidationConfig
-from bioetl.core.io import WriteResult
+from bioetl.infrastructure.io import WriteResult
 from bioetl.core.pipeline import PipelineBase, RunResult
 from bioetl.core.pipeline.errors import PipelineError, PipelineHTTPError
-from bioetl.core.runtime.cli_pipeline_runner import (
+from bioetl.application.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,
     validate_output_dir,
@@ -201,12 +201,12 @@ def _prepare_command(
 
     env_settings = SimpleNamespace()
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_environment_settings",
+        "bioetl.application.runtime.cli_pipeline_runner.load_environment_settings",
         value=lambda: env_settings,
     )
     applied: dict[str, Any] = {}
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.apply_runtime_overrides",
+        "bioetl.application.runtime.cli_pipeline_runner.apply_runtime_overrides",
         value=lambda settings: applied.setdefault("settings", settings),
     )
 
@@ -214,7 +214,7 @@ def _prepare_command(
         return _make_pipeline_config(tmp_path)
 
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_config",
+        "bioetl.application.runtime.cli_pipeline_runner.load_config",
         value=fake_load_config,
     )
 
@@ -222,7 +222,7 @@ def _prepare_command(
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.get", value=lambda _: logger)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.configure", value=lambda _: None)
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.uuid4",
+        "bioetl.application.runtime.cli_pipeline_runner.uuid4",
         value=lambda: uuid.UUID("00000000-0000-0000-0000-000000000000"),
     )
 
@@ -258,12 +258,12 @@ def test_command_dry_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Non
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.configure", value=lambda _: None)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.get", value=lambda _: DummyLogger())
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_environment_settings",
+        "bioetl.application.runtime.cli_pipeline_runner.load_environment_settings",
         value=lambda: SimpleNamespace(),
     )
-    monkeypatch.setattr("bioetl.core.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
+    monkeypatch.setattr("bioetl.application.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_config",
+        "bioetl.application.runtime.cli_pipeline_runner.load_config",
         value=lambda **_: _make_pipeline_config(tmp_path),
     )
     config_path = tmp_path / "config.yaml"
@@ -358,10 +358,10 @@ def test_command_limit_sample_conflict(monkeypatch: pytest.MonkeyPatch, tmp_path
 
 def test_command_environment_settings_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_environment_settings",
+        "bioetl.application.runtime.cli_pipeline_runner.load_environment_settings",
         value=lambda: (_ for _ in ()).throw(ValueError("bad env")),
     )
-    monkeypatch.setattr("bioetl.core.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
+    monkeypatch.setattr("bioetl.application.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.configure", value=lambda _: None)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.get", value=lambda _: DummyLogger())
 
@@ -386,10 +386,10 @@ def test_command_load_config_failures(monkeypatch: pytest.MonkeyPatch, tmp_path:
     output_dir = tmp_path / "out"
 
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_environment_settings",
+        "bioetl.application.runtime.cli_pipeline_runner.load_environment_settings",
         value=lambda: SimpleNamespace(),
     )
-    monkeypatch.setattr("bioetl.core.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
+    monkeypatch.setattr("bioetl.application.runtime.cli_pipeline_runner.apply_runtime_overrides", value=lambda _: None)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.configure", value=lambda _: None)
     monkeypatch.setattr("bioetl.cli.cli_command.UnifiedLogger.get", value=lambda _: DummyLogger())
 
@@ -403,7 +403,7 @@ def test_command_load_config_failures(monkeypatch: pytest.MonkeyPatch, tmp_path:
         return create_pipeline_command(pipeline_class=PIPELINE_CLASS, command_config=command_config)
 
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_config",
+        "bioetl.application.runtime.cli_pipeline_runner.load_config",
         value=lambda **_: (_ for _ in ()).throw(FileNotFoundError("missing profile")),
     )
     command = make_command()
@@ -412,7 +412,7 @@ def test_command_load_config_failures(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert exit_info.value.code == 2
 
     monkeypatch.setattr(
-        "bioetl.core.runtime.cli_pipeline_runner.load_config",
+        "bioetl.application.runtime.cli_pipeline_runner.load_config",
         value=lambda **_: (_ for _ in ()).throw(ValueError("validation fail")),
     )
     command = make_command()

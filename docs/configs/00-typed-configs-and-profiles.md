@@ -80,7 +80,7 @@ Pipeline-специфичные конфигурации находятся в �
 `__getattr__`, а полученные объекты кешируются. [ref:
 repo:src/bioetl/config/**init__.py] Импорт `PipelineConfig` или `load_config`
 больше не требует загрузки `config.activity`, которая транзитивно тянула
-`bioetl.core.runtime` и наследника `PipelineBase`.
+`bioetl.application.runtime` и наследника `PipelineBase`.
 
 Базовый слой оркестрации теперь типизирует конфигурацию через
 `PipelineConfigProtocol` и вспомогательные протоколы из

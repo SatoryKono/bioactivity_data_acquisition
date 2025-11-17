@@ -15,8 +15,8 @@ from uuid import uuid4
 
 import pandas as pd
 
-from bioetl.core.io import hash_from_mapping
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.io import hash_from_mapping
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_metadata_schema import (
     BUSINESS_KEY_FIELDS,
     COLUMN_ORDER,

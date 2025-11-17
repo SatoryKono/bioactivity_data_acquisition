@@ -87,7 +87,7 @@ def my_function():
 1. Replace the logger acquisition and logging calls.
 
 ```python
-from bioetl.core.logging import UnifiedLogger
+from bioetl.infrastructure.logging import UnifiedLogger
 
 log = UnifiedLogger.get(__name__)  # <-- Change this line
 

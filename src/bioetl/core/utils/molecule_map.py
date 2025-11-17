@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 if TYPE_CHECKING:
     from bioetl.clients.client_chembl import ChemblClient

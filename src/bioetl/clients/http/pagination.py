@@ -10,7 +10,7 @@ from urllib.parse import parse_qs, urlparse
 from structlog.stdlib import BoundLogger
 
 from bioetl.clients.http.retry import RetryingSession
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = ["PageResult", "Paginator"]
 

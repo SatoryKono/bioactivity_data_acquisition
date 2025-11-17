@@ -10,7 +10,7 @@ import typer
 from structlog.stdlib import BoundLogger
 
 from bioetl.config.environment import load_environment_settings as _load_environment_settings
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.core.pipeline import PipelineBase
 from bioetl.core.pipeline.errors import (
     PipelineError,
@@ -18,13 +18,13 @@ from bioetl.core.pipeline.errors import (
     PipelineNetworkError,
     PipelineTimeoutError,
 )
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import (
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import (
     CLI_ERROR_CONFIG,
     CLI_ERROR_EXTERNAL_API,
     CLI_ERROR_INTERNAL,
 )
-from bioetl.core.runtime.cli_pipeline_runner import (
+from bioetl.application.runtime.cli_pipeline_runner import (
     ConfigLoadError,
     EnvironmentSetupError,
     PipelineCommandOptions,

@@ -1,6 +1,6 @@
 """Core pipeline interfaces and errors."""
 
-from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
+from bioetl.infrastructure.io import RunArtifacts, WriteArtifacts, WriteResult
 
 from .base import PipelineBase, RunResult
 from .errors import (

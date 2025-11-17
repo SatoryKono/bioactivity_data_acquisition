@@ -9,8 +9,8 @@ from typing import Any, cast
 import pandas as pd
 
 from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.io import ensure_columns
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.io import ensure_columns
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_document_enrichment_schema import DOCUMENT_TERMS_ENRICHMENT_SCHEMA
 
 __all__ = ["enrich_with_document_terms", "aggregate_terms", "_escape_pipe"]

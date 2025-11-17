@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.infrastructure.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_assay,
     enrich_with_compound_record,

@@ -13,7 +13,7 @@ from requests.exceptions import RequestException
 
 from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.http.api_client import CircuitBreakerOpenError
+from bioetl.infrastructure.http.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.chembl.activity import run
 from bioetl.schemas.chembl_activity_schema import ActivitySchema
 

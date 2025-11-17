@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Callable, Literal, TextIO
 import pandas as pd
 import yaml
 
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.logging import LogEvents
 from bioetl.tools import hash_file
 
 from .hashing import hash_from_mapping

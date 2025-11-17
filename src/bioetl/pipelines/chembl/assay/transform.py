@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING, Any, cast
 import pandas as pd
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.io import header_rows_serialize, serialize_array_fields
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.io import header_rows_serialize, serialize_array_fields
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "header_rows_serialize",

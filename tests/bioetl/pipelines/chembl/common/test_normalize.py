@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.core.schema import IdentifierRule
+from bioetl.domain.schema import IdentifierRule
 from bioetl.chembl.common.normalize import (
     RowMetadataChanges,
     add_row_metadata,

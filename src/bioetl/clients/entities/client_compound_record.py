@@ -10,7 +10,7 @@ from typing import Any
 import pandas as pd
 
 from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 
 __all__ = [
     "ChemblCompoundRecordEntityClient",

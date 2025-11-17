@@ -17,7 +17,7 @@ import bioetl.cli.cli_app  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_command  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_entrypoint  # noqa: F401  # pragma: no cover
 import bioetl.cli.cli_registry  # noqa: F401  # pragma: no cover
-import bioetl.core.runtime.cli_pipeline_runner  # noqa: F401  # pragma: no cover
+import bioetl.application.runtime.cli_pipeline_runner  # noqa: F401  # pragma: no cover
 import bioetl.devtools.typer_helpers  # noqa: F401  # pragma: no cover
 
 

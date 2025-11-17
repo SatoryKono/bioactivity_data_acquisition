@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from bioetl.core.common import ChemblReleaseMixin
+from bioetl.domain.common import ChemblReleaseMixin
 
 
 class _BaseStub:

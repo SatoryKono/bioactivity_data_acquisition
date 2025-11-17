@@ -9,7 +9,7 @@ from re import Pattern
 
 import pandas as pd
 
-from bioetl.core.utils.mixins import CollectionFlagMixin
+from bioetl.domain.common.collections import CollectionFlagMixin
 
 __all__ = [
     "IdentifierRule",

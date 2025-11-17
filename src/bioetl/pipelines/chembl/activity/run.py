@@ -32,10 +32,10 @@ from bioetl.config import ActivitySourceConfig
 from bioetl.config.models.determinism import DeterminismSortingConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.http.api_client import CircuitBreakerOpenError
-from bioetl.core.logging import LogEvents
+from bioetl.infrastructure.http.api_client import CircuitBreakerOpenError
+from bioetl.infrastructure.logging import LogEvents
 from bioetl.core.pipeline import RunResult
-from bioetl.core.schema import (
+from bioetl.domain.schema import (
     IdentifierRule,
     StringRule,
     format_failure_cases,

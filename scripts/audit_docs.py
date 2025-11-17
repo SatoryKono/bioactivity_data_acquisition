@@ -12,8 +12,8 @@ from bioetl.devtools.cli_audit_docs import (
     find_lychee_missing,
     run_audit,
 )
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_INTERNAL
 
 __all__ = [
     "audit_broken_links",

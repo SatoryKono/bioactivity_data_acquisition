@@ -9,8 +9,8 @@ from bioetl.devtools.cli_determinism_check import (
     DeterminismRunResult,
     run_determinism_check,
 )
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.application.runtime.cli_base import CliCommandBase
+from bioetl.application.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 
 __all__ = [
     "run_determinism_check",

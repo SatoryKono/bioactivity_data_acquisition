@@ -11,8 +11,8 @@ import pandas as pd
 
 from bioetl.clients.base import normalize_select_fields
 from bioetl.clients.chembl_config import EntityConfig
-from bioetl.core.common import ChemblReleaseMixin
-from bioetl.core.logging import UnifiedLogger
+from bioetl.domain.common import ChemblReleaseMixin
+from bioetl.infrastructure.logging import UnifiedLogger
 
 __all__ = [
     "ChemblClientProtocol",

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterable
 
-from bioetl.core.runtime.errors import BioETLError
+from bioetl.application.runtime.errors import BioETLError
 
 
 @dataclass(frozen=True, slots=True)

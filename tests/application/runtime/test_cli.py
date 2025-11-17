@@ -15,7 +15,7 @@ from bioetl.clients.client_exceptions import Timeout  # type: ignore[reportMissi
 from bioetl.config import (
     load_config,  # type: ignore[reportMissingImports,reportAttributeAccessIssue]
 )
-from bioetl.core.runtime.cli_pipeline_runner import (
+from bioetl.application.runtime.cli_pipeline_runner import (
     parse_set_overrides,
     validate_config_path,
     validate_output_dir,
@@ -455,7 +455,7 @@ validation:
             patch(
                 "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline"
             ) as mock_pipeline_class,
-            patch("bioetl.core.logging.UnifiedLogger.configure") as mock_logger_configure,
+            patch("bioetl.infrastructure.logging.UnifiedLogger.configure") as mock_logger_configure,
         ):
             mock_pipeline = MagicMock()
             mock_result = MagicMock()

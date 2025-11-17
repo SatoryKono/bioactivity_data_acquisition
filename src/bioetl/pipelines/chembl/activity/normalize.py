@@ -9,8 +9,8 @@ import numpy as np
 import pandas as pd
 
 from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.io import ensure_columns
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.io import ensure_columns
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.schemas.chembl_activity_enrichment_schema import (
     ASSAY_ENRICHMENT_SCHEMA,
     COMPOUND_RECORD_ENRICHMENT_SCHEMA,

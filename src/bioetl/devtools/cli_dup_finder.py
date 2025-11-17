@@ -19,7 +19,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any, Literal, Protocol, TextIO, cast
 
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = ["main", "run_dup_finder"]

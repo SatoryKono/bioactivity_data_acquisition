@@ -16,8 +16,8 @@ from typing import Any, Protocol, cast
 from bioetl.cli._io import atomic_write_yaml, hash_file
 
 from bioetl.clients.client_chembl import ChemblClient
-from bioetl.core.http.client_factory import for_tool
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.http.client_factory import for_tool
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.core.utils.vocab_store import VocabStoreError, load_vocab_store
 from bioetl.tools.chembl_stub import get_offline_new_client
 

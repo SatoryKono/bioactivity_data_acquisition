@@ -6,7 +6,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from bioetl.cli._io import git_diff_cached, git_ls
-from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.infrastructure.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
 
 __all__ = ["MAX_BYTES", "check_output_artifacts"]
