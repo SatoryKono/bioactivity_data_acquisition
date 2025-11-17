@@ -11,6 +11,9 @@ repository layout.
 - **[ETL Contract](etl_contract/00-etl-overview.md)** — pipeline lifecycle and
   `PipelineBase` contract. Implementations are under
   `src/bioetl/pipelines/`, with validation tests in `tests/bioetl/pipelines/`.
+- **[Interface Reference](etl_contract/interfaces.md)** — canonical definitions
+  for `PipelineBase`, `BaseApiClient`, `IParser`, `INormalizer`, and
+  `BaseDatasetWriter`.
 - **[Source Architecture](sources/00-sources-architecture.md)** — client/parser
   stack for external systems. Source adapters are in `src/bioetl/sources/`;
   interface coverage is documented in `sources/01-interface-matrix.md`.
