@@ -7,6 +7,7 @@ This module re-exports the supported surface area from the reorganised
 from __future__ import annotations
 
 from importlib import import_module
+import warnings
 
 from .common import ChemblReleaseMixin
 from .http import (
@@ -132,6 +133,10 @@ __all__ = [
     "normalize_string_columns",
     "format_failure_cases",
     "summarize_schema_errors",
+    # Deprecated exports (kept for backwards compatibility)
+    "BaseApiClient",
+    "IParser",
+    "INormalizer",
 ]
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
@@ -143,5 +148,31 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
 
 _lazy_resolver = resolve_lazy_attr(globals(), _LAZY_EXPORTS, cache=True)
 
+_DEPRECATED_EXPORTS: dict[str, tuple[str, str, str]] = {
+    "BaseApiClient": (
+        "bioetl.base_classes",
+        "BaseApiClient",
+        "'BaseApiClient' is now provided via 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated and will be removed in a future release.",
+    ),
+    "IParser": (
+        "bioetl.base_classes",
+        "IParser",
+        "'IParser' moved to 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated.",
+    ),
+    "INormalizer": (
+        "bioetl.base_classes",
+        "INormalizer",
+        "'INormalizer' moved to 'bioetl.base_classes'. Importing it from 'bioetl.core' is deprecated.",
+    ),
+}
+
+
 def __getattr__(name: str) -> object:
+    if name in _DEPRECATED_EXPORTS:
+        module_name, attr_name, message = _DEPRECATED_EXPORTS[name]
+        warnings.warn(message, DeprecationWarning, stacklevel=2)
+        module = import_module(module_name)
+        attr = getattr(module, attr_name)
+        globals()[name] = attr
+        return attr
     return _lazy_resolver(name)
