@@ -16,6 +16,12 @@ This document describes configuration for the TestItem (ChEMBL) pipeline.
 - `sources.chembl.max_url_length`: ≤ 2000
 - `determinism.sort.by`: `['molecule_chembl_id']`
 - `qc.thresholds.testitem.duplicate_ratio`: 0.0
+- `postprocess.correlation.enabled`: Enables molecule-level correlation reports.
+- `fallbacks.enabled`/`fallbacks.max_depth`: Control fallback row creation for
+  degraded ChemBL responses.
+
+`bioetl config inspect --config configs/pipelines/testitem/testitem_chembl.yaml`
+shows the resolved values before execution.
 
 ## Related Documentation
 
