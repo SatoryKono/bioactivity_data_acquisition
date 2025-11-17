@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Iterable, Tuple
 
 from bioetl.core.utils.mixins import CollectionFlagMixin
-from bioetl.tools import qc_boundary as boundary_tools
+from bioetl.domain.qc import boundary_tools
 
 __all__ = [
     "DEFAULT_PACKAGE",
