@@ -1564,10 +1564,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if whitelist and non_null_comments_series is not None:
             whitelist_set: set[str] = set(whitelist)
 
-            def _is_unknown(value: str) -> bool:
-                return value not in whitelist_set
-
-            unknown_mask = non_null_comments_series.map(_is_unknown).astype(bool)
+            unknown_mask = non_null_comments_series.map(
+                lambda value: self._is_unknown_value(value, whitelist_set)
+            ).astype(bool)
             unknown_count = int(unknown_mask.sum())
             if unknown_count > 0:
                 unknown_values = {
@@ -1610,6 +1609,23 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             raise
 
         return values
+
+    def _is_unknown_value(self, value: str, whitelist_set: set[str]) -> bool:
+        """Check if a value is not in the whitelist set.
+
+        Parameters
+        ----------
+        value
+            The value to check.
+        whitelist_set
+            Set of allowed values.
+
+        Returns
+        -------
+        bool
+            True if value is not in whitelist_set, False otherwise.
+        """
+        return value not in whitelist_set
 
     def _get_standard_types(self) -> frozenset[str]:
         """Return cached set of allowed standard_type values."""
@@ -2835,10 +2851,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         non_null_comments_series = series_candidate.astype("string")
         whitelist_set: set[str] = set(whitelist)
 
-        def _is_unknown(value: str) -> bool:
-            return value not in whitelist_set
-
-        unknown_mask = non_null_comments_series.map(_is_unknown).astype(bool)
+        unknown_mask = non_null_comments_series.map(
+            lambda value: self._is_unknown_value(value, whitelist_set)
+        ).astype(bool)
         unknown_count = int(unknown_mask.sum())
 
         if unknown_count > 0:
