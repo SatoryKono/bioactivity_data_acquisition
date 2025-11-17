@@ -1,16 +1,21 @@
 # Specification: HTTP Clients, Retries, and Request Rules
 
-> **Note**: Implementation status: **planned**. All file paths referencing
-> `src/bioetl/` in this document describe the intended architecture and are not
-> yet implemented in the codebase.
+> **Note**: Implementation status: **implemented**. The primary runtime
+> implementation lives in
+> [`src/bioetl/core/http/api_client.py`](../../src/bioetl/core/http/api_client.py),
+> with the supporting client factory in
+> [`src/bioetl/core/http/client_factory.py`](../../src/bioetl/core/http/client_factory.py).
+> All references in this document describe the current behavior of those
+> modules.
 
 ## 1. Overview and Goals
 
 The `bioetl` framework relies on a unified HTTP client, `UnifiedAPIClient`, to
 interact with external data sources. This client provides a centralized,
-configurable, and resilient layer for all outgoing HTTP requests. Its
-implementation can be found in
-`[ref: repo:src/bioetl/core/api_client.py@refactoring_001]`.
+configurable, and resilient layer for all outgoing HTTP requests. The runtime
+implementation is provided by `bioetl.core.http.api_client`, and
+`bioetl.core.http.client_factory` wires concrete `UnifiedAPIClient` instances
+from validated pipeline configuration.
 
 The primary goals of this unified client are:
 
@@ -64,7 +69,7 @@ configuration file.
 | `rate_limit_period`    | `1.0`   | The time period in seconds for the rate limit.                                                              |
 | `rate_limit_jitter`    | `True`  | Adds a small, random delay to requests to avoid thundering herd problems.                                   |
 | `cb_failure_threshold` | `5`     | Number of consecutive failures before the circuit breaker opens.                                            |
-| `cb_timeout`           | `60.0`  | Time in seconds the circuit breaker will stay open before transitioning to half-open.                       |
+| `cb_timeout`           | `60.0`  | Time in seconds the circuit breaker stays open before transitioning to half-open.                       |
 
 **Merge Order:** Configuration is merged in the following order (later items
 override earlier ones):
@@ -96,13 +101,13 @@ The `TokenBucketLimiter` protects upstream services by throttling the number of
 simultaneous requests. Each call to `_execute` acquires a token before a request
 is sent; once the configured budget is exhausted, callers block until the bucket
 is refilled and optionally incur a small, random jitter to desynchronise
-bursts.【F:src/bioetl/core/api_client.py†L325-L384】【F:src/bioetl/core/api_client.py†L1292-L1363】
+bursts.【F:src/bioetl/core/http/api_client.py†L325-L384】【F:src/bioetl/core/http/api_client.py†L1292-L1363】
 The limiter is parameterised through `APIConfig.rate_limit_max_calls`,
 `APIConfig.rate_limit_period`, and `APIConfig.rate_limit_jitter`, which are
 populated from `RateLimitConfig` entries in `PipelineConfig`. The factory wiring
 these values enforces that each source inherits the correct `max_calls` and
 `period` from its HTTP profile or per-source
-override.【F:src/bioetl/core/client_factory.py†L51-L170】 In practice this means
+override.【F:src/bioetl/core/http/client_factory.py†L51-L170】 In practice this means
 the maximum in-flight requests across worker threads equals
 `rate_limit.max_calls`, refreshed every `rate_limit.period` seconds.
 
@@ -135,11 +140,11 @@ If a `Retry-After` header is present in a `429` or `503` response, its value
 
 - A retry that follows a `Retry-After` header waits for the advised duration and
   then re-acquires the token bucket permit, preventing retry storms that could
-  violate upstream quotas.【F:src/bioetl/core/api_client.py†L1292-L1363】
+  violate upstream quotas.【F:src/bioetl/core/http/api_client.py†L1292-L1363】
 - Jitter is applied both when the limiter hands out tokens and when calculating
   exponential backoff delays, which keeps parallel workers from re-issuing
   retries in lockstep. This stabilises aggregate QPS under high
-  contention.【F:src/bioetl/core/api_client.py†L325-L384】
+  contention.【F:src/bioetl/core/http/api_client.py†L325-L384】
 
 ## 5. Circuit Breaker
 
@@ -160,7 +165,7 @@ cascading failures. The circuit breaker has three states:
 | Key                                   | Default | Description                                                                                     |
 | ------------------------------------- | ------- | ----------------------------------------------------------------------------------------------- |
 | `circuit_breaker.failure_threshold`   | `5`     | Number of consecutive failures before the circuit breaker opens.                                |
-| `circuit_breaker.timeout`             | `60.0`  | Time in seconds the circuit breaker will stay open before transitioning to half-open.           |
+| `circuit_breaker.timeout`             | `60.0`  | Time in seconds the circuit breaker stays open before transitioning to half-open.           |
 | `circuit_breaker.half_open_max_calls` | `1`     | Maximum number of calls allowed in half-open state before transitioning back to closed or open. |
 
 **State Transitions:**
@@ -222,12 +227,12 @@ derive metrics such as:
   attached to the log context.
 - `http.rate_limiter.wait_seconds`: timer populated whenever the token bucket
   forces a wait, capturing both short and long
-  waits.【F:src/bioetl/core/api_client.py†L344-L368】
+  waits.【F:src/bioetl/core/http/api_client.py†L344-L368】
 - `http.retries.total`: counter derived from `retrying_request` events and
   `attempt` metadata.
 - `http.retry_after.seconds`: gauge summarising parsed `Retry-After` values so
   that alerting can react to upstream
-  back-pressure.【F:src/bioetl/core/api_client.py†L1292-L1363】
+  back-pressure.【F:src/bioetl/core/http/api_client.py†L1292-L1363】
 
 ### Example Log Record
 
@@ -329,7 +334,7 @@ client = UnifiedAPIClient(api_config)
 
 # Making a request
 try:
-    # This call will automatically handle retries, rate limits, etc.
+    # This call automatically handles retries, rate limits, etc.
     data = client.request_json("/my-data")
 except RequestException as e:
     print(f"Request failed after all retries: {e}")
@@ -373,7 +378,7 @@ profiles. When the CLI loads this configuration it is validated into
 `PipelineConfig`; `APIClientFactory` then materialises per-source `APIConfig`
 objects using the merged rate-limit and retry values so that every
 `UnifiedAPIClient` shares the same
-guardrails.【F:src/bioetl/config/models.py†L513-L527】【F:src/bioetl/core/client_factory.py†L51-L170】
+guardrails.【F:src/bioetl/config/models.py†L513-L527】【F:src/bioetl/core/http/client_factory.py†L51-L170】
 Trace metadata such as `trace_id` and `request_id` are bound separately through
 `UnifiedLogger.set_context`, allowing downstream logs and metrics to be
 correlated with this configuration.
