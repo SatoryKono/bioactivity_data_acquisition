@@ -10,8 +10,10 @@ Responsibilities:
 
 from __future__ import annotations
 
+import logging
 import os
-from collections.abc import MutableMapping
+import warnings
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
@@ -20,9 +22,33 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .helpers import build_env_overrides, coerce_bool, resolve_directory
 
+
+_LOGGER = logging.getLogger(__name__)
+
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _ENV_LAYER_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 ENV_ROOT_DIR = Path("configs/env")
+
+
+def _warn_deprecated_env_prefixes(environ: Mapping[str, str] | None = None) -> None:
+    """Emit deprecation warnings for legacy ``BIOACTIVITY__`` variables."""
+
+    target = environ if environ is not None else os.environ
+    for key in target:
+        if not key.startswith("BIOACTIVITY__"):
+            continue
+        message = (
+            f"Environment variable {key} uses deprecated prefix BIOACTIVITY__. "
+            "Please migrate to BIOETL__."
+        )
+        warnings.warn(message, DeprecationWarning, stacklevel=2)
+        try:
+            _LOGGER.warning(message)
+        except Exception:  # noqa: BLE001 - logging should never break imports
+            continue
+
+
+_warn_deprecated_env_prefixes()
 
 
 class _EnvOverrideSpec:

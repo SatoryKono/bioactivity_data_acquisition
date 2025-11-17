@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from bioetl.cli.cli_registry import COMMAND_REGISTRY, PIPELINE_REGISTRY, CommandConfig
 from bioetl.core.pipeline import PipelineBase
 
@@ -11,10 +9,6 @@ from bioetl.core.pipeline import PipelineBase
 def test_pipeline_registry_factories() -> None:
     for spec in PIPELINE_REGISTRY:
         factory = COMMAND_REGISTRY[spec.code]
-        if spec.pipeline_path is None:
-            with pytest.raises(NotImplementedError):
-                factory()
-            continue
 
         config = factory()
         assert isinstance(config, CommandConfig)

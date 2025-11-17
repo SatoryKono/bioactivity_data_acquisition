@@ -342,6 +342,7 @@ class PipelineCommandRunner:
         )
         qc_thresholds = runtime_config.thresholds_for(pipeline_code)
 
+        # Run correlation report generation if enabled in the config or via extended mode.
         return {
             "extended": effective_extended,
             "include_correlation": effective_extended or correlation_enabled,

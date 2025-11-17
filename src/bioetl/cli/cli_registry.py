@@ -151,6 +151,10 @@ PIPELINE_REGISTRY: tuple[PipelineCommandSpec, ...] = (
         pipeline_path="bioetl.pipelines.chembl.document.run.ChemblDocumentPipeline",
         default_config="configs/pipelines/document/document_chembl.yaml",
     ),
+)
+
+# Not implemented yet — placeholder for future pipelines.
+PLACEHOLDER_PIPELINES: tuple[PipelineCommandSpec, ...] = (
     PipelineCommandSpec(
         code="pubchem",
         description="Extract compound data from PubChem and normalize to the project schema.",
