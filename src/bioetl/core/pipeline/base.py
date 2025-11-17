@@ -28,7 +28,7 @@ from structlog.stdlib import BoundLogger
 
 import bioetl.schemas.versioning as schema_versioning
 from bioetl.clients import client_exceptions
-from bioetl.config.models import PipelineConfig
+from bioetl.config.models.models import PipelineConfig
 from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core import APIClientFactory
 from bioetl.core.http import CircuitBreakerOpenError, UnifiedAPIClient

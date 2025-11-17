@@ -251,7 +251,7 @@ export BIOETL__SOURCES__CHEMBL__BATCH_SIZE=5
 
 **Формат имени переменной:**
 
-- Префикс: `BIOETL__` или `BIOACTIVITY__`
+- Префикс: `BIOETL__`
 - Вложенные ключи разделяются двойным подчёркиванием `__`
 - Пример: `BIOETL__SOURCES__CHEMBL__BATCH_SIZE=25`
 

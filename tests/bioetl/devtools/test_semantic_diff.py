@@ -60,7 +60,9 @@ def _install_dummy_pipeline_base(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _install_dummy_config_models(monkeypatch: pytest.MonkeyPatch) -> None:
-    module = ModuleType("bioetl.config.models")
+    package = ModuleType("bioetl.config.models")
+    package.__path__ = []
+    monkeypatch.setitem(sys.modules, "bioetl.config.models", package)
 
     class DummyField(SimpleNamespace):
         def is_required(self) -> bool:
@@ -68,14 +70,18 @@ def _install_dummy_config_models(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class DummyModel:
         model_fields = {
-            "name": DummyField(annotation=str, default="demo", _required=False),
-            "count": DummyField(annotation=int, default=None, _required=True),
+            "pipeline": DummyField(annotation=str, default="demo", _required=False),
+            "version": DummyField(annotation=int, default=1, _required=True),
         }
 
-    setattr(module, "PipelineConfig", DummyModel)
-    setattr(module, "PipelineMetadata", DummyModel)
-    setattr(module, "DeterminismConfig", DummyModel)
-    monkeypatch.setitem(sys.modules, "bioetl.config.models", module)
+    models_module = ModuleType("bioetl.config.models.models")
+    setattr(models_module, "PipelineConfig", DummyModel)
+    setattr(models_module, "PipelineMetadata", DummyModel)
+    monkeypatch.setitem(sys.modules, "bioetl.config.models.models", models_module)
+
+    policies_module = ModuleType("bioetl.config.models.policies")
+    setattr(policies_module, "DeterminismConfig", DummyModel)
+    monkeypatch.setitem(sys.modules, "bioetl.config.models.policies", policies_module)
 
 
 def test_extractors_and_compare_methods(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

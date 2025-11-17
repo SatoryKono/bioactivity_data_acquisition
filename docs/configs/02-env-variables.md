@@ -8,7 +8,7 @@
 1. Профили (`configs/defaults`, `--profile`) последовательно накладываются.
 1. Environment-слой: `configs/env/<BIOETL_ENV>` (если переменная задана),
    «короткие» переменные (`PUBMED_TOOL`, `SEMANTIC_SCHOLAR_API_KEY` и т.д.) и
-   любые `BIOETL__`/`BIOACTIVITY__` overrides объединяются в единый детерминированный
+   любые `BIOETL__` overrides объединяются в единый детерминированный
    слой.
 1. CLI `--set key=value` применяются последними и фиксируются в метаданных.
 
@@ -37,7 +37,11 @@ dev-окружения (`.env.dev.template`) и CI (`.env.ci.template`). Клю�
 BIOETL__SECTION__SUBSECTION__KEY=value
 ```
 
-- Префикс (`BIOETL__`, `BIOACTIVITY__`) обязательный.
+- Префикс `BIOETL__` обязательный.
+
+> **Важно:** наследие `BIOACTIVITY__` удалено. Если конфигурации
+> всё ещё используют этот префикс, обновите переменные окружения
+> и убедитесь, что CLI/CI переходит на `BIOETL__`.
 - Двойное подчеркивание отделяет уровень вложенности.
 - Значения приводятся через `yaml.safe_load`, поэтому можно передавать числа,
   булевы и списки.
@@ -47,7 +51,7 @@ BIOETL__SECTION__SUBSECTION__KEY=value
 ```bash
 export BIOETL__PIPELINE__NAME=activity_override
 export BIOETL__IO__OUTPUT__PARTITION_BY='["year"]'
-export BIOACTIVITY__RUNTIME__PARALLELISM=8
+export BIOETL__RUNTIME__PARALLELISM=8
 export BIOETL__DETERMINISM__HASHING__ALGORITHM=blake2b
 ```
 

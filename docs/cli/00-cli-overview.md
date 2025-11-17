@@ -89,7 +89,7 @@ The CLI maps specific families of exceptions to deterministic exit codes (see
   and `ValueError` emitted by `bioetl.config.loader.load_config` or environment
   validation trigger exit code `2`. CLI modules MUST import configuration models
   exclusively from `bioetl.config.models.models` /
-  `bioetl.config.models.policies` (legacy re-exports are deprecated).
+  `bioetl.config.models.policies` (legacy re-exports were removed).
 - **Runtime validation failures**: Pandera or pipeline validation errors that
   bubble up as `ValueError` or domain exceptions produce exit code `1` with
   structured logging.

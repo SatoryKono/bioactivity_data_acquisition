@@ -37,6 +37,17 @@
   только пайплайновые команды и использует новый фасад
   `bioetl.core.runtime.cli_feedback` для унифицированного вывода.
 
+### Удалено
+
+- Удалён устаревший слой `bioetl.config.models`: корневой пакет больше не
+  реэкспортирует модели, а модуль `bioetl/config/models.py` исключён. Импорты
+  должны указывать на `bioetl.config.models.models` или `.policies`.
+- Пакет `bioetl.core` перестал прокидывать `BaseApiClient`, `IParser` и
+  `INormalizer`; используйте `bioetl.base_classes` напрямую.
+- Убран легаси-префикс `BIOACTIVITY__` и связанные DeprecationWarning — для
+  оверрайдов конфигурации теперь поддерживается только `BIOETL__` (при
+  необходимости можно передать пользовательский префикс в `load_config`).
+
 ### Инструменты
 
 - `scripts/schema_guard.py` валидирует реестр схем (версии, дубликаты,

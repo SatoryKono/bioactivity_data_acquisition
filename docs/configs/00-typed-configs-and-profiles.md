@@ -19,16 +19,14 @@ configuration system, based on the implementation in
 
 ### 1.1 Структура модулей
 
-> **Новое API.** Внутренний код должен импортировать
-> конфигурации из `bioetl.config.models.models`
+> **Нормативный API.** Все импорты конфигураций должны идти из
+> `bioetl.config.models.models`
 > (структурные модели) и `bioetl.config.models.policies`
 > (policy-объекты: HTTP, детерминизм, логирование и т.д.).
-> Пакет `bioetl.config.models` и файл
-> `bioetl/config/models.py` теперь рассматриваются как
-> легаси-слой совместимости: они только реэкспортируют новые
-> модули и помечены DeprecationWarning. Внешние пользователи
-> могут продолжать их использовать до полного удаления, но
-> внутренние импорты обязаны перейти на новые пути.
+> Устаревший слой `bioetl.config.models` больше не экспортирует
+> классы — он остался только как пакет для вложенных модулей.
+> Если где-то ещё встречается `from bioetl.config.models import ...`,
+> обновите импорты на новые пути.
 
 Модели конфигурации организованы в модульную структуру:
 
@@ -55,9 +53,9 @@ configuration system, based on the implementation in
 - `src/bioetl/config/models/telemetry.py` - `TelemetryConfig`
 
 Исторические точки входа `bioetl.config.models` (пакет) и
-`bioetl/config/models.py` продолжают реэкспортировать эти классы,
-но **считаются deprecated** и служат только для внешней совместимости.
-Внутренние импорты должны использовать `bioetl.config.models.models`
+`bioetl/config/models.py` больше не реэкспортируют модели: пакет остался
+только как namespace для модулей `models.py`/`policies.py`. Любые импорты
+должны ссылаться напрямую на `bioetl.config.models.models`
 и/или `bioetl.config.models.policies`.
 
 ### 1.2 Pipeline-специфичные конфигурации
@@ -208,14 +206,14 @@ fallbacks:
     - cache
     - semantic_scholar.title_search
 ```
-| `validation`      | `schema_in`         | `null`          | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/config/models.py†L258-L270]                      |
-|                   | `schema_out`        | `null`          | Путь к выходной схеме.[ref: repo:src/bioetl/config/models.py†L262-L270]                             |
-|                   | `schema_in_version` | `null`          | Ожидаемая версия входной схемы; требует `schema_in`.[ref: repo:src/bioetl/config/models.py†L266-L274] |
-|                   | `schema_out_version`| `null`          | Ожидаемая версия выходной схемы; требует `schema_out`.[ref: repo:src/bioetl/config/models.py†L270-L276] |
-|                   | `allow_schema_migration` | `false`     | Разрешает применение зарегистрированных миграций при дрейфе версий.[ref: repo:src/bioetl/config/models.py†L274-L302] |
-|                   | `max_schema_migration_hops` | `3`       | Максимальная длина цепочки миграций (переходов между версиями).[ref: repo:src/bioetl/config/models.py†L278-L302] |
-|                   | `strict`            | `true`          | Требует строгого порядка колонок.[ref: repo:src/bioetl/config/models.py†L282-L288]                  |
-|                   | `coerce`            | `true`          | Приводит типы в Pandera.[ref: repo:src/bioetl/config/models.py†L284-L288]                           |
+| `validation`      | `schema_in`         | `null`          | Путь к входной Pandera-схеме.[ref: repo:src/bioetl/config/models/validation.py†L13-L16]                      |
+|                   | `schema_out`        | `null`          | Путь к выходной схеме.[ref: repo:src/bioetl/config/models/validation.py†L17-L20]                             |
+|                   | `schema_in_version` | `null`          | Ожидаемая версия входной схемы; требует `schema_in`.[ref: repo:src/bioetl/config/models/validation.py†L21-L24] |
+|                   | `schema_out_version`| `null`          | Ожидаемая версия выходной схемы; требует `schema_out`.[ref: repo:src/bioetl/config/models/validation.py†L25-L28] |
+|                   | `allow_schema_migration` | `false`     | Разрешает применение зарегистрированных миграций при дрейфе версий.[ref: repo:src/bioetl/config/models/validation.py†L29-L32] |
+|                   | `max_schema_migration_hops` | `3`       | Максимальная длина цепочки миграций (переходов между версиями).[ref: repo:src/bioetl/config/models/validation.py†L33-L36] |
+|                   | `strict`            | `true`          | Требует строгого порядка колонок.[ref: repo:src/bioetl/config/models/validation.py†L37-L39]                  |
+|                   | `coerce`            | `true`          | Приводит типы в Pandera.[ref: repo:src/bioetl/config/models/validation.py†L40-L41]                           |
 | `cli`             | `profiles[]`        | `[]`            | Профили, переданные через `--profile`.[ref: repo:src/bioetl/configs/models.py†L304-L316]            |
 |                   | `dry_run`           | `false`         | Флаг `--dry-run`.[ref: repo:src/bioetl/configs/models.py†L308-L316]                                 |
 
@@ -369,7 +367,7 @@ base.yaml (общий профиль через `<<: !include ../profiles/base.y
         ↓
 CLI `--set` overrides (глубокий merge по ключам)
         ↓
-переменные окружения BIOETL__/BIOACTIVITY__ (наивысший приоритет)
+переменные окружения BIOETL__ (наивысший приоритет)
 ```
 
 Псевдокод соответствует `load_config`: профили из `extends` обрабатываются

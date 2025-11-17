@@ -6,6 +6,8 @@ This module re-exports the supported surface area from the reorganised
 
 from __future__ import annotations
 
+from importlib import import_module
+
 from .common import ChemblReleaseMixin
 from .http import (
     APIClientFactory,
@@ -140,7 +142,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
 }
 
 _lazy_resolver = resolve_lazy_attr(globals(), _LAZY_EXPORTS, cache=True)
-
 
 def __getattr__(name: str) -> object:
     return _lazy_resolver(name)
