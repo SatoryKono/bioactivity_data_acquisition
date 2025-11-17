@@ -1,4 +1,8 @@
-"""Compatibility shim re-exporting canonical pipeline configuration models."""
+"""
+Typed configuration models for pipeline execution.
+
+Includes global runtime settings, profiles, postprocess and fallback logic.
+"""
 
 from __future__ import annotations
 

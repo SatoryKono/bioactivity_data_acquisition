@@ -12,7 +12,7 @@ class FallbacksConfig(BaseModel):
 
     enabled: bool = Field(
         default=True,
-        description="Whether the pipeline should attempt configured fallback strategies.",
+        description="Enable fallback logic for external sources",
     )
     max_depth: PositiveInt | None = Field(
         default=None,
