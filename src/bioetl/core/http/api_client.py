@@ -6,7 +6,7 @@ import random
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -18,6 +18,7 @@ import requests as _requests
 from requests import Response
 from requests.exceptions import HTTPError, RequestException, Timeout
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.config.models.http import CircuitBreakerConfig, HTTPClientConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
@@ -290,7 +291,10 @@ def _deep_merge(
     return base
 
 
-class UnifiedAPIClient:
+_DEFAULT_BATCH_SIZE = 50
+
+
+class UnifiedAPIClient(BaseApiClient):
     """HTTP client providing retries, timeouts, and rate limiting."""
 
     def __init__(
@@ -340,6 +344,37 @@ class UnifiedAPIClient:
 
     def close(self) -> None:
         self._session.close()
+
+    def batch_get(
+        self,
+        endpoints: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        batch_size: int | None = None,
+    ) -> Iterator[Response]:
+        """Yield responses for ``endpoints`` using ``get`` calls in batches."""
+
+        size = batch_size or _DEFAULT_BATCH_SIZE
+        if size <= 0:
+            msg = "batch_size must be greater than zero"
+            raise ValueError(msg)
+        for start in range(0, len(endpoints), size):
+            for endpoint in endpoints[start : start + size]:
+                yield self.get(endpoint, params=params, headers=headers)
+
+    def search(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_size: int | None = None,
+    ) -> Iterator[Any]:
+        """Generic paginated search helper (override per-source)."""
+
+        msg = "search is not implemented on the base UnifiedAPIClient"
+        raise NotImplementedError(msg)
 
     def circuit_breaker_time_until_half_open(self) -> float | None:
         """Return the time in seconds until the circuit breaker transitions to half-open.
