@@ -25,10 +25,13 @@ bioetl <command> [OPTIONS]
 
 The CLI loads configuration layers in a fixed precedence: profiles declared via
 `extends` (typically `configs/defaults/base.yaml`,
-`configs/defaults/network.yaml`, and `configs/defaults/determinism.yaml`), then
-the pipeline YAML passed with `--config`, then any `--set` overrides, and
-finally environment variables. This merge order keeps defaults predictable while
-still allowing per-run overrides.
+`configs/defaults/network.yaml`, `configs/defaults/determinism.yaml`, and the
+post-processing defaults in `configs/defaults/postprocess.yaml`), then the
+pipeline YAML passed with `--config`, then any `--set` overrides, and finally
+environment variables. This merge order keeps defaults predictable while still
+allowing per-run overrides. The postprocess profile simply injects the
+[`postprocess.correlation.enabled` defaults documented in the spec](../configs/00-typed-configs-and-profiles.md#27-postprocess)
+so that the optional correlation report is opt-in rather than surprising.
 
 ## Global options
 
@@ -50,6 +53,27 @@ still allowing per-run overrides.
 | `--golden`                                      | Путь к golden-файлу для битовой проверки.                                    | `None`                      |
 | `--input-file, -i`                              | Доп. CSV/Parquet с seed-идентификаторами для выборочного извлечения.         | `None`                      |
 
+
+### Correlation report toggle
+
+Все команды автоматически подмешивают профиль
+[`configs/defaults/postprocess.yaml`](../../configs/defaults/postprocess.yaml),
+поэтому `postprocess.correlation.enabled` остаётся `false`, пока оператор
+явно его не переключит. Чтобы добавить корреляционный отчёт
+(`*_correlation_report.csv`) в набор QC-артефактов, передайте CLI override:
+
+```bash
+python -m bioetl.cli.cli_app activity_chembl \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --output-dir ./data/output/activity \
+  --set postprocess.correlation.enabled=true
+```
+
+Любой командой можно принудительно отключить отчёт даже при наличии
+пользовательских профилей (`--set postprocess.correlation.enabled=false`).
+Полное описание поведения приведено в разделе
+[`postprocess`](../configs/00-typed-configs-and-profiles.md#27-postprocess).
+
 ## Доступные команды (актуально)
 
 Список синхронизирован с `bioetl.cli.cli_registry.COMMAND_REGISTRY` и отражает
@@ -60,6 +84,15 @@ still allowing per-run overrides.
 - `target_chembl` — ChEMBL target dimension pipeline.
 - `document_chembl` — ChEMBL document pipeline.
 - `testitem_chembl` — ChEMBL molecule/test item pipeline.
+
+## Утилиты конфигурации
+
+- `config inspect` — вспомогательный сабкоманд `bioetl config inspect`, который
+  загружает, мерджит и печатает `PipelineConfig` без запуска пайплайна. Команда
+  принимает те же `--set/--limit/--sample` флаги, что и основные entrypoints, и
+  позволяет быстро проверить новые секции (`postprocess`, `fallbacks`) или
+  влияние env-переменных. Полная справка в
+  [`docs/cli/config-inspect.md`](config-inspect.md).
 
 ## Planned commands
 
@@ -119,6 +152,36 @@ emitting structured diagnostics that pinpoint the drift.
 
 ## Command reference
 
+### `qc` (runtime configuration inspector)
+
+- **Signature**: `python -m bioetl.cli.cli_app qc [OPTIONS]`
+- **Purpose**: Inspect the merged runtime configuration (thresholds, QC report
+  templates, and `fail_on_threshold_violation`) without running any pipelines.
+- **Options**:
+  - `--runtime-config PATH` (default: `configs/default.yml`) — points to the
+    runtime configuration bundle that layers environment overrides and
+    short-form variables.
+  - `--pipeline, -p` — when specified, prints pipeline-specific thresholds and
+    QC report templates after the base section.
+  - `--materialization-root, -m` — overrides the root directory used to expand
+    QC templates; defaults to `data/output/<pipeline>` when `--pipeline` is
+    passed.
+- **Output**: emits a "QC configuration summary" section that lists base
+  thresholds, the `fail_on_threshold_violation` flag, and pipeline-specific
+  thresholds/templates, allowing operators to verify that `.env` overrides and
+  CLI `--set` values have been merged correctly.
+
+#### Example: verify merged runtime configuration
+
+```bash
+BIOETL_ENV=dev bioetl qc --runtime-config configs/default.yml --pipeline activity_chembl
+```
+
+The command exits with `0` after printing the merged configuration layers,
+helping you confirm that environment variables and runtime YAML edits were
+applied as expected. A non-zero exit code indicates that the runtime
+configuration file could not be located or failed validation.
+
 ### `activity_chembl`
 
 - **Signature**: `python -m bioetl.cli.cli_app activity_chembl [OPTIONS]`
@@ -127,9 +190,9 @@ emitting structured diagnostics that pinpoint the drift.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, and any
   applicable `--set` overrides.
-- **Default profiles**: Always merges `configs/defaults/base.yaml` and
-  `configs/defaults/determinism.yaml`; network defaults can be layered when
-  referenced in the pipeline YAML.
+- **Default profiles**: Always merges `configs/defaults/base.yaml`,
+  `configs/defaults/determinism.yaml`, and `configs/defaults/postprocess.yaml`;
+  network defaults can be layered when referenced in the pipeline YAML.
 - **Deterministic output**: Rows are sorted by `assay_id`, `testitem_id`, then
   `activity_id`; `hash_row` and `hash_business_key` are produced with SHA256
   using the canonicalisation rules from the determinism profile. The run emits a
@@ -150,8 +213,8 @@ python -m bioetl.cli.cli_app activity_chembl \
 - **Purpose**: Retrieve and normalise assay metadata from ChEMBL `/assay.json`.
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`.
-- **Default profiles**: `base.yaml` and `determinism.yaml`, with optional
-  network profile via the pipeline config.
+- **Default profiles**: `base.yaml`, `determinism.yaml`, and
+  `postprocess.yaml`, with optional network profile via the pipeline config.
 - **Deterministic output**: Sorted by `assay_id` before export; SHA256 hashes
   cover the business key and entire row, ensuring reproducible QC and golden
   comparisons.
@@ -173,9 +236,9 @@ python -m bioetl.cli.cli_app assay_chembl \
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`
   (for example, to toggle enrichment services).
-- **Default profiles**: `base.yaml` + `determinism.yaml`; additional
-  network-specific overrides come from the pipeline YAML, including dedicated
-  HTTP profiles for external enrichers.
+- **Default profiles**: `base.yaml` + `determinism.yaml` + `postprocess.yaml`;
+  additional network-specific overrides come from the pipeline YAML, including
+  dedicated HTTP profiles for external enrichers.
 - **Deterministic output**: Sorted by `target_id` and hashed with SHA256; the
   determinism profile guarantees stable canonicalisation, while the pipeline
   config fixes enrichment thresholds and QC expectations.
@@ -198,8 +261,9 @@ python -m bioetl.cli.cli_app target_chembl \
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--mode` (for example `chembl` vs `all`),
   `--limit`, `--sample`, `--golden`, `--set`.
-- **Default profiles**: `base.yaml` and `determinism.yaml`; enrichment adapters
-  inherit network defaults specified in the document pipeline config.
+- **Default profiles**: `base.yaml`, `determinism.yaml`, и `postprocess.yaml`;
+  enrichment adapters inherit network defaults specified in the document
+  pipeline config.
 - **Deterministic output**: Sorted by `year` and `document_id`, with SHA256
   hashes covering both the full row and business keys. The adapter settings
   ensure canonical source precedence while still producing deterministic outputs
@@ -222,8 +286,8 @@ python -m bioetl.cli.cli_app document_chembl \
 - **Required options**: `--config`, `--output-dir`.
 - **Optional options**: `--dry-run`, `--limit`, `--sample`, `--golden`, `--set`
   (for example, toggling PubChem enrichment).
-- **Default profiles**: `base.yaml`, `determinism.yaml`, plus any network
-  overrides included in the pipeline config.
+- **Default profiles**: `base.yaml`, `determinism.yaml`, `postprocess.yaml`,
+  plus any network overrides included in the pipeline config.
 - **Deterministic output**: Sorted by `testitem_id` and hashed
   deterministically; outputs and QC sidecars inherit the shared determinism
   policy.
@@ -241,11 +305,11 @@ python -m bioetl.cli.cli_app testitem_chembl \
 
 | Command           | Data domain                                    | Primary configuration                             | Default profiles applied                                                                                    |
 | ----------------- | ---------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `activity_chembl` | ChEMBL activity fact table                     | `configs/pipelines/activity/activity_chembl.yaml` | `configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`, optional `configs/defaults/network.yaml` |
-| `assay_chembl`    | ChEMBL assay dimension                         | `configs/pipelines/assay/assay_chembl.yaml`       | `base.yaml`, `determinism.yaml`, optional `network.yaml`                                                    |
-| `target_chembl`   | ChEMBL target dimension                        | `configs/pipelines/target/target_chembl.yaml`     | `base.yaml`, `determinism.yaml`, optional `network.yaml`                                                    |
-| `document_chembl` | ChEMBL documents with optional adapters        | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml`                                                    |
-| `testitem_chembl` | ChEMBL molecules with PubChem enrichment hooks | `configs/pipelines/testitem/testitem_chembl.yaml` | `base.yaml`, `determinism.yaml`, optional `network.yaml`                                                    |
+| `activity_chembl` | ChEMBL activity fact table                     | `configs/pipelines/activity/activity_chembl.yaml` | `configs/defaults/base.yaml`, `configs/defaults/determinism.yaml`, `configs/defaults/postprocess.yaml`, optional `configs/defaults/network.yaml` |
+| `assay_chembl`    | ChEMBL assay dimension                         | `configs/pipelines/assay/assay_chembl.yaml`       | `base.yaml`, `determinism.yaml`, `postprocess.yaml`, optional `network.yaml`                                                                        |
+| `target_chembl`   | ChEMBL target dimension                        | `configs/pipelines/target/target_chembl.yaml`     | `base.yaml`, `determinism.yaml`, `postprocess.yaml`, optional `network.yaml`                                                                        |
+| `document_chembl` | ChEMBL documents with optional adapters        | `configs/pipelines/document/document_chembl.yaml` | `base.yaml`, `determinism.yaml`, `postprocess.yaml`, optional `network.yaml`                                                                        |
+| `testitem_chembl` | ChEMBL molecules with PubChem enrichment hooks | `configs/pipelines/testitem/testitem_chembl.yaml` | `base.yaml`, `determinism.yaml`, `postprocess.yaml`, optional `network.yaml`                                                                        |
 
 Each matrix entry links the CLI command to its authoritative configuration
 bundle, making it easy to trace which YAML files—and therefore which typed

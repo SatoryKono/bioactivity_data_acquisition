@@ -264,6 +264,30 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
+    def _is_target_in_set(self, value: object, target_ids_set: set[str]) -> bool:
+        """Check if value is a valid target ID in the given set.
+
+        Parameters
+        ----------
+        value:
+            Value to check (can be None, pd.NA, numeric, or string).
+        target_ids_set:
+            Set of target IDs to check against.
+
+        Returns
+        -------
+        bool:
+            True if value is a non-empty string that exists in target_ids_set, False otherwise.
+        """
+        if value is None or value is pd.NA:
+            return False
+        if isinstance(value, Real) and math.isnan(float(value)):
+            return False
+        normalized = str(value).strip()
+        if not normalized:
+            return False
+        return normalized in target_ids_set
+
     def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Harmonize identifier column names."""
         df = df.copy()
@@ -353,17 +377,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         component_map: dict[str, list[str]] = {}
         target_ids_set: set[str] = set(target_ids_to_enrich)
 
-        def _is_target(value: object) -> bool:
-            if value is None or value is pd.NA:
-                return False
-            if isinstance(value, Real) and math.isnan(float(value)):
-                return False
-            normalized = str(value).strip()
-            if not normalized:
-                return False
-            return normalized in target_ids_set
-
-        target_membership = df["target_chembl_id"].map(_is_target)
+        target_membership = df["target_chembl_id"].map(
+            lambda x: self._is_target_in_set(x, target_ids_set)
+        )
 
         log.info(LogEvents.ENRICH_TARGET_COMPONENTS_START, target_count=len(target_ids_to_enrich))
 
@@ -475,17 +491,9 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         classification_top_map: dict[str, dict[str, Any]] = {}
         target_ids_set: set[str] = set(target_ids_to_enrich)
 
-        def _is_target(value: object) -> bool:
-            if value is None or value is pd.NA:
-                return False
-            if isinstance(value, Real) and math.isnan(float(value)):
-                return False
-            normalized = str(value).strip()
-            if not normalized:
-                return False
-            return normalized in target_ids_set
-
-        target_membership = df["target_chembl_id"].map(_is_target)
+        target_membership = df["target_chembl_id"].map(
+            lambda x: self._is_target_in_set(x, target_ids_set)
+        )
 
         log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
 

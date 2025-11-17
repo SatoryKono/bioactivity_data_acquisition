@@ -37,6 +37,12 @@ The configuration extends the following profiles:
 - `postprocess.correlation.enabled`: Enable correlation report generation
   (default: false)
 
+### Fallbacks
+
+- `fallbacks.enabled`: Global toggle for fallback record synthesis.
+- `fallbacks.max_depth`: Optional cap for nested fallback retries (default:
+  unlimited).
+
 ### QC Thresholds
 
 - `qc.thresholds.activity.duplicate_ratio`: Maximum duplicate ratio (0.0)
@@ -49,6 +55,9 @@ Configuration can be overridden via:
 1. Environment variables (highest priority)
 1. `--set` CLI flags
 1. Configuration file values (lowest priority)
+
+Use `bioetl config inspect --config configs/pipelines/activity/activity_chembl.yaml`
+to review the fully merged payload before executing the pipeline.
 
 ## Related Documentation
 

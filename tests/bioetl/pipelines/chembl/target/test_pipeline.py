@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.pipelines.chembl.target import run as target_run
@@ -200,7 +201,7 @@ class TestChemblTargetPipeline:
         mock_bundle = Mock()
         mock_bundle.chembl_client = chembl_client_mock
         mock_bundle.api_client = Mock()
-        mock_bundle.entity_client = Mock()
+        mock_bundle.entity_client = Mock(spec=ChemblTargetClient)
 
         with (
             patch.object(
@@ -231,7 +232,7 @@ class TestChemblTargetPipeline:
         mock_bundle = Mock()
         mock_bundle.chembl_client = chembl_client_mock
         mock_bundle.api_client = Mock()
-        mock_bundle.entity_client = Mock()
+        mock_bundle.entity_client = Mock(spec=ChemblTargetClient)
 
         with (
             patch.object(

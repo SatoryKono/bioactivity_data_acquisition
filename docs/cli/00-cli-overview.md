@@ -51,8 +51,11 @@ overrides all others):
 **Order of Precedence (Lowest to Highest):**
 
 1. **Base Profiles**: Files listed in the `extends` key are loaded first. This
-   typically includes `base.yaml` and can also include `network.yaml` (for
-   network settings) and `determinism.yaml` (for reproducibility settings).
+   typically includes `base.yaml`, the shared `postprocess.yaml` (for
+   correlation/QC toggles documented in
+   [`docs/configs/00-typed-configs-and-profiles.md#27-postprocess`](../configs/00-typed-configs-and-profiles.md#27-postprocess)),
+   and can also include `network.yaml` (for network settings) and
+   `determinism.yaml` (for reproducibility settings).
 1. **Pipeline Config**: The main pipeline-specific YAML file provided via
    `--config`.
 1. **CLI `--set` Flags**: Key-value pairs from the `--set` flag are merged next.
@@ -199,6 +202,23 @@ definitions in `src/bioetl/cli/cli_app.py` and configuration handling in
 
    *Expected output*: ETL progress logs, QC reports, and deterministic CSV
    outputs under `data/output/document/full_load`.
+
+1. Override fallback sequencing for incident triage
+
+   ```bash
+   python -m bioetl.cli.cli_app document_chembl \
+     --config configs/pipelines/document/document_chembl.yaml \
+     --output-dir data/output/document/full_load \
+     --set fallbacks.policy=best_effort \
+     --set fallbacks.sources='["cache","semantic_scholar.title_search"]'
+   ```
+
+   *Expected behavior*: the CLI captures the requested fallback policy inside
+   `PipelineConfig.fallbacks`, so the pipeline probes every listed source and
+   aggregates partial responses instead of short-circuiting after the first
+   success. Operators can switch to `strict` to fail fast whenever any fallback
+   source is unavailable, mirroring the semantics defined in
+   [`docs/configs/00-typed-configs-and-profiles.md`](../configs/00-typed-configs-and-profiles.md).
 
 1. Execute a PubChem enrichment sample (not implemented)
 
