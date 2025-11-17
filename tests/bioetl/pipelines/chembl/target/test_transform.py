@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any
 from unittest.mock import MagicMock
@@ -190,6 +191,63 @@ class TestSerializeTargetArrays:
         assert result["target_component_synonyms__flat"].iloc[0] != ""
         assert "syn_type" in result["target_component_synonyms__flat"].iloc[0]
         assert "synonyms" in result["target_component_synonyms__flat"].iloc[0]
+
+    def test_serialization_is_deterministic(self) -> None:
+        """Ensure nested array order does not impact serialized payloads."""
+
+        def _build_frame(xref_order: list[str], component_order: list[int]) -> pd.DataFrame:
+            base_components = {
+                1: {
+                    "component_id": 1,
+                    "accession": "P12341",
+                    "target_component_synonyms": [
+                        {"syn_type": "GENE_SYMBOL", "synonyms": ["EGFR", "ERBB1"]}
+                    ],
+                },
+                2: {
+                    "component_id": 2,
+                    "accession": "P12342",
+                    "target_component_synonyms": [
+                        {"syn_type": "UNIPROT", "synonyms": "P002"}
+                    ],
+                },
+            }
+
+            ordered_components = [copy.deepcopy(base_components[idx]) for idx in component_order]
+            return pd.DataFrame(
+                {
+                    "target_chembl_id": ["CHEMBL1"],
+                    "cross_references": [
+                        [
+                            {"xref_id": xref_order[0], "xref_src": "SRC", "xref_name": "Name"},
+                            {"xref_id": xref_order[1], "xref_src": "SRC", "xref_name": "Name"},
+                        ]
+                    ],
+                    "target_components": [ordered_components],
+                }
+            )
+
+        df_one = _build_frame(["X2", "X1"], [2, 1])
+        df_two = _build_frame(["X1", "X2"], [1, 2])
+
+        mock_config = MagicMock()
+        mock_config.transform.arrays_to_header_rows = ["cross_references", "target_components"]
+
+        result_one = serialize_target_arrays(df_one, mock_config)
+        result_two = serialize_target_arrays(df_two, mock_config)
+
+        assert (
+            result_one["cross_references__flat"].iloc[0]
+            == result_two["cross_references__flat"].iloc[0]
+        )
+        assert (
+            result_one["target_components__flat"].iloc[0]
+            == result_two["target_components__flat"].iloc[0]
+        )
+        assert (
+            result_one["target_component_synonyms__flat"].iloc[0]
+            == result_two["target_component_synonyms__flat"].iloc[0]
+        )
 
     def test_empty_arrays(self) -> None:
         """Test serialization of empty arrays."""

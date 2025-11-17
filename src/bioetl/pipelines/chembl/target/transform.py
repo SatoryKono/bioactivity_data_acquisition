@@ -42,6 +42,37 @@ def _collect_dicts(source: Any) -> list[JsonDict]:
     return result
 
 
+def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
+    """Return a deterministically ordered copy of ``items``.
+
+    The ChEMBL API does not guarantee ordering for nested arrays such as
+    ``target_components`` or ``cross_references``.  When these arrays are
+    serialized into pipe-delimited payloads even a different order of the same
+    logical records will change the resulting bytes and therefore the downstream
+    ``hash_row`` value.  Golden snapshot tests expect byte-for-byte identical
+    artefacts, so we sort nested dictionaries using their canonical JSON
+    representation to stabilize the serialization.
+    """
+
+    if not items:
+        return []
+
+    normalized: list[JsonDict] = []
+    for entry in items:
+        normalized_entry: JsonDict = dict(entry)
+        for key, value in list(normalized_entry.items()):
+            if isinstance(value, list):
+                nested_dicts = _collect_dicts(value)
+                if nested_dicts:
+                    normalized_entry[key] = _canonicalize_dicts(nested_dicts)
+        normalized.append(normalized_entry)
+
+    def _sort_key(entry: JsonDict) -> str:
+        return json.dumps(entry, ensure_ascii=False, sort_keys=True)
+
+    return sorted(normalized, key=_sort_key)
+
+
 def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested target_components data into flat columns.
 
@@ -78,6 +109,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Extract target_components
     comps_raw: Any = rec.get("target_components") or []
     comps: list[dict[str, Any]] = _collect_dicts(comps_raw)
+    comps = _canonicalize_dicts(comps)
 
     # Extract UniProt accessions
     accessions: list[str] = []
@@ -110,7 +142,10 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
 
     # Serialize target_component_synonyms
     if all_synonyms:
-        result["target_component_synonyms__flat"] = header_rows_serialize(all_synonyms)
+        canonical_synonyms = _canonicalize_dicts(all_synonyms)
+        result["target_component_synonyms__flat"] = header_rows_serialize(
+            canonical_synonyms
+        )
 
     # Serialize target_components
     if comps:
@@ -119,6 +154,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize cross_references from top-level
     xrefs_raw: Any = rec.get("cross_references") or []
     xrefs: list[dict[str, Any]] = _collect_dicts(xrefs_raw)
+    xrefs = _canonicalize_dicts(xrefs)
     if xrefs:
         result["cross_references__flat"] = header_rows_serialize(xrefs)
 
