@@ -38,6 +38,11 @@ bioetl activity_chembl \
 # список команд и алиасов CLI
 python -m bioetl.cli.cli_app list
 bioetl list
+
+# быстро проверить итоговую конфигурацию
+bioetl config inspect \
+  --config configs/pipelines/activity/activity_chembl.yaml \
+  --format yaml
 ```
 
 Обязательные флаги и параметры описаны в
@@ -46,6 +51,70 @@ bioetl list
 конфигурациям (включая описание `postprocess.correlation`):
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
+
+## Пример конфига пайплайна
+
+`bioetl` использует типизированные профили. Ниже сокращённый пример
+`configs/pipelines/activity/activity_chembl.yaml`, демонстрирующий новые секции
+`postprocess` и `fallbacks`:
+
+```yaml
+<<: !include ../../defaults/base.yaml
+<<: !include ../../defaults/determinism.yaml
+<<: !include ../../defaults/postprocess.yaml
+
+pipeline:
+  name: activity_chembl
+  version: "1.0.0"
+
+postprocess:
+  correlation:
+    enabled: false
+
+fallbacks:
+  enabled: true
+  max_depth: null
+
+sources:
+  chembl:
+    batch_size: 20
+```
+
+Перед запуском можно выполнить `bioetl config inspect --config ...` и убедиться,
+что профили и `--set` overrides попали в итоговый payload. Более детально
+механизм описан в [`docs/cli/config-inspect.md`](docs/cli/config-inspect.md) и
+[`docs/configs/03-postprocess.md`](docs/configs/03-postprocess.md).
+### Настройка fallback-источников
+
+Пайплайны теперь управляют стратегией отката через блок `fallbacks` в YAML.
+Минимальный пример:
+
+```yaml
+fallbacks:
+  enabled: true
+  policy: ordered  # проход по источникам до первого успешного результата
+  sources:
+    - cache
+    - semantic_scholar.title_search
+```
+
+`policy` поддерживает значения `ordered`, `best_effort` и `strict`. Первое
+значение (по умолчанию) прерывает обход после первого валидного ответа,
+`best_effort` агрегирует ответы всех источников, а `strict` требует успешной
+отработки каждого источника иначе run завершится с ошибкой.
+
+Операторы могут экспериментировать без редактирования YAML напрямую:
+
+```bash
+bioetl document_chembl \
+  --config configs/pipelines/document/document_chembl.yaml \
+  --output-dir data/output/document/full_load \
+  --set fallbacks.policy=strict \
+  --set fallbacks.sources='["cache","semantic_scholar.title_search"]'
+```
+
+Команда выше жёстко требует прохождения обоих fallback-источников и делает
+поведение воспроизводимым для расследований инцидентов.
 
 ## Топология репозитория
 

@@ -3,16 +3,20 @@
 Console entry points should target :func:`bioetl.cli.cli_app.run`.
 Legacy module :mod:`bioetl.cli.main` was removed; use this module exclusively.
 
-This module creates the Typer application and registers all pipeline commands
-from the static registry.
+This module creates the Typer application, registers all pipeline commands
+from the static registry, and exposes utility helpers such as
+``bioetl config inspect``.
 """
 
 from __future__ import annotations
 
 import importlib
+import json
 from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any, Callable, cast
+from typing import Any, Callable, Mapping as MappingType, cast
+
+import yaml
 
 from bioetl.cli.cli_command import create_pipeline_command
 from bioetl.cli.cli_entrypoint import TyperApp, run_app
@@ -27,12 +31,33 @@ from bioetl.cli.run_chembl_all import run_chembl_all_command
 from bioetl.config.runtime import Config as RuntimeConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.core.runtime import cli_feedback
+from bioetl.core.runtime.cli_pipeline_runner import (
+    ConfigLoadError,
+    EnvironmentSetupError,
+    PipelineCommandOptions,
+    PipelineConfigFactory,
+    parse_set_overrides,
+    validate_config_path,
+    validate_output_dir,
+)
 
 typer = cast(Any, importlib.import_module("typer"))
 
 _log = UnifiedLogger.get(__name__)
 
 __all__ = ["app", "create_app", "run"]
+
+
+def _render_config_payload(payload: MappingType[str, Any], format_name: str) -> str:
+    """Serialize a configuration mapping into YAML or JSON."""
+
+    normalized = format_name.lower()
+    if normalized == "yaml":
+        return yaml.safe_dump(payload, sort_keys=False, allow_unicode=True)
+    if normalized == "json":
+        return json.dumps(payload, ensure_ascii=False, indent=2)
+    msg = "--format must be either 'yaml' or 'json'"
+    raise ValueError(msg)
 
 
 def create_app(
@@ -52,6 +77,12 @@ def create_app(
         name="bioetl",
         help_text="BioETL command-line interface for executing ETL pipelines.",
     )
+
+    config_app = typer.Typer(
+        help="Configuration helpers (inspection, validation, metadata).",
+        no_args_is_help=True,
+    )
+    app.add_typer(config_app, name="config")
 
     @app.command(name="list")
     def list_commands() -> None:
@@ -227,6 +258,167 @@ def create_app(
         cli_feedback.emit_kv("quality_template", report_options.quality_template, indent=2)
         cli_feedback.emit_kv("correlation_template", report_options.correlation_template, indent=2)
         cli_feedback.emit_kv("metrics_template", report_options.metrics_template, indent=2)
+
+    @config_app.command(name="inspect")
+    def config_inspect(
+        config: Path = typer.Option(
+            ...,
+            "--config",
+            "-c",
+            help="Path to the YAML configuration file",
+            exists=False,
+        ),
+        output_dir: Path = typer.Option(
+            Path("data/output/_inspect"),
+            "--output-dir",
+            "-o",
+            help="Output directory used to resolve materialization paths",
+        ),
+        output_format: str = typer.Option(
+            "yaml",
+            "--format",
+            "-f",
+            help="Serialization format for the merged configuration (yaml/json)",
+        ),
+        set_overrides: list[str] = typer.Option(
+            [],
+            "--set",
+            "-S",
+            help="Override individual keys using dotted notation (KEY=VALUE)",
+        ),
+        sample: int | None = typer.Option(
+            None,
+            "--sample",
+            help="Deterministically sample N rows to preview transforms",
+            min=1,
+        ),
+        limit: int | None = typer.Option(
+            None,
+            "--limit",
+            help="Process at most N rows during inspection",
+            min=1,
+        ),
+        extended: bool = typer.Option(
+            False,
+            "--extended",
+            help="Mark the config as extended to preview QC/correlation artifacts",
+        ),
+        fail_on_schema_drift: bool = typer.Option(
+            True,
+            "--fail-on-schema-drift/--allow-schema-drift",
+            help="Control strict column validation when materializing the config",
+        ),
+        validate_columns: bool = typer.Option(
+            True,
+            "--validate-columns/--no-validate-columns",
+            help="Toggle Pandera column validation flag",
+        ),
+        golden: Path | None = typer.Option(
+            None,
+            "--golden",
+            help="Optional path to a golden dataset for metadata previews",
+            exists=False,
+        ),
+        input_file: Path | None = typer.Option(
+            None,
+            "--input-file",
+            "-i",
+            help="Optional seed file wired into config.cli.input_file",
+            exists=False,
+        ),
+    ) -> None:
+        """Load, merge, and print a typed configuration without executing a pipeline."""
+
+        if limit is not None and sample is not None:
+            raise typer.BadParameter("--limit and --sample are mutually exclusive")
+
+        try:
+            config_path = validate_config_path(config)
+        except FileNotFoundError as exc:
+            raise typer.BadParameter(str(exc))
+
+        try:
+            resolved_output_dir = validate_output_dir(output_dir)
+        except OSError as exc:
+            raise typer.BadParameter(str(exc))
+
+        try:
+            cli_overrides = parse_set_overrides(set_overrides) if set_overrides else {}
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc))
+
+        options = PipelineCommandOptions(
+            config_path=config_path,
+            output_dir=resolved_output_dir,
+            dry_run=True,
+            verbose=False,
+            set_overrides=cli_overrides,
+            sample=sample,
+            limit=limit,
+            extended=extended,
+            fail_on_schema_drift=fail_on_schema_drift,
+            validate_columns=validate_columns,
+            golden=golden,
+            input_file=input_file,
+        )
+
+        factory = PipelineConfigFactory()
+        try:
+            pipeline_config = factory.create(options)
+        except EnvironmentSetupError as exc:
+            cli_feedback.emit_error(f"Environment validation failed: {exc}")
+            raise typer.Exit(code=2) from exc
+        except ConfigLoadError as exc:
+            if exc.missing_reference:
+                message = f"Configuration file or referenced profile not found: {exc}"
+            else:
+                message = f"Configuration validation failed: {exc}"
+            cli_feedback.emit_error(message)
+            raise typer.Exit(code=2) from exc
+
+        cli_feedback.emit_section("Configuration summary")
+        cli_feedback.emit_kv("config_path", str(config_path), indent=1)
+        cli_feedback.emit_kv("pipeline", pipeline_config.pipeline.name, indent=1)
+        cli_feedback.emit_kv("version", pipeline_config.pipeline.version, indent=1)
+        owner = pipeline_config.pipeline.owner or "n/a"
+        cli_feedback.emit_kv("owner", owner, indent=1)
+        cli_feedback.emit_kv("output_dir", str(resolved_output_dir), indent=1)
+
+        if pipeline_config.cli.profiles:
+            cli_feedback.emit_line("Profiles:", indent=1)
+            for profile in pipeline_config.cli.profiles:
+                cli_feedback.emit_line(f"- {profile}", indent=2)
+        if pipeline_config.cli.environment_profiles:
+            cli_feedback.emit_line("Environment profiles:", indent=1)
+            for profile in pipeline_config.cli.environment_profiles:
+                cli_feedback.emit_line(f"- {profile}", indent=2)
+        if pipeline_config.cli.environment:
+            cli_feedback.emit_kv("environment", pipeline_config.cli.environment, indent=1)
+
+        cli_feedback.emit_line("Domain toggles:", indent=1)
+        cli_feedback.emit_kv(
+            "postprocess.correlation.enabled",
+            pipeline_config.postprocess.correlation.enabled,
+            indent=2,
+        )
+        cli_feedback.emit_kv(
+            "fallbacks.enabled",
+            pipeline_config.fallbacks.enabled,
+            indent=2,
+        )
+        cli_feedback.emit_kv(
+            "fallbacks.max_depth",
+            pipeline_config.fallbacks.max_depth or "unbounded",
+            indent=2,
+        )
+
+        cli_feedback.emit_section("Normalized configuration")
+        payload = pipeline_config.model_dump(mode="json")
+        try:
+            serialized = _render_config_payload(payload, output_format)
+        except ValueError as exc:
+            raise typer.BadParameter(str(exc))
+        typer.echo(serialized)
 
     registered_names: set[str] = set()
 

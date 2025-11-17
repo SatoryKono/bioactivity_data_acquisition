@@ -106,10 +106,16 @@ def apply_cli_overrides(
     return merged
 
 
-def finalize_pipeline_config(payload: Mapping[str, Any]) -> PipelineConfig:
-    """Validate the fully merged payload."""
+def validate_config(payload: Mapping[str, Any]) -> PipelineConfig:
+    """Validate the fully merged payload via the Pydantic schema."""
 
     return PipelineConfig.model_validate(payload)
+
+
+def finalize_pipeline_config(payload: Mapping[str, Any]) -> PipelineConfig:
+    """Backward compatible alias for :func:`validate_config`."""
+
+    return validate_config(payload)
 
 
 def _resolve_config_path(config_path: str | Path) -> Path:
@@ -242,7 +248,7 @@ def load_config(
     )
 
     normalized = _migrate_legacy_sections(merged)
-    return finalize_pipeline_config(normalized)
+    return validate_config(normalized)
 
 
 def _load_with_extends(path: Path, *, stack: Iterable[Path]) -> dict[str, Any]:

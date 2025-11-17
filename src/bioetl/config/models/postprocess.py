@@ -23,5 +23,5 @@ class PostprocessConfig(BaseModel):
 
     correlation: PostprocessCorrelationConfig = Field(
         default_factory=PostprocessCorrelationConfig,
-        description="Correlation report controls.",
+        description="Postprocess correlation report settings",
     )
