@@ -48,7 +48,7 @@ create the final configuration.
 ## 2. Type-Safe Configuration
 
 All HTTP client settings are defined in the `PipelineConfig` Pydantic model
-(`[ref: repo:src/bioetl/config/models.py@refactoring_001]`). The newly created
+(`[ref: repo:src/bioetl/config/models/http.py]`). The newly created
 `configs/defaults/network.yaml` provides a standard set of these values.
 
 **Key Configuration Fields (`APIConfig` in `api_client.py`):**
@@ -378,7 +378,7 @@ profiles. When the CLI loads this configuration it is validated into
 `PipelineConfig`; `APIClientFactory` then materialises per-source `APIConfig`
 objects using the merged rate-limit and retry values so that every
 `UnifiedAPIClient` shares the same
-guardrails.【F:src/bioetl/config/models.py†L513-L527】【F:src/bioetl/core/http/client_factory.py†L51-L170】
+guardrails.【F:src/bioetl/config/models/http.py†L13-L118】【F:src/bioetl/core/http/client_factory.py†L51-L170】
 Trace metadata such as `trace_id` and `request_id` are bound separately through
 `UnifiedLogger.set_context`, allowing downstream logs and metrics to be
 correlated with this configuration.

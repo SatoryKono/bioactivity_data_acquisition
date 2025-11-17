@@ -194,7 +194,7 @@ def load_config(
     profiles: Sequence[str | Path] | None = None,
     cli_overrides: Mapping[str, Any] | None = None,
     env: Mapping[str, str] | None = None,
-    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+    env_prefixes: Sequence[str] = ("BIOETL__",),
     include_default_profiles: bool = False,
     environment_settings: EnvironmentSettings | None = None,
 ) -> PipelineConfig:

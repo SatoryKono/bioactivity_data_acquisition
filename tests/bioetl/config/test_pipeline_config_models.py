@@ -7,12 +7,7 @@ from typing import Any, Mapping
 import pytest
 from pydantic import Field, PositiveInt
 
-from bioetl.config.models import (
-    CacheConfig,
-    DeterminismConfig,
-    DeterminismSortingConfig,
-    HTTPClientConfig,
-    HTTPConfig,
+from bioetl.config.models.models import (
     PipelineCommonCompat,
     PipelineConfig,
     PipelineDomainConfig,
@@ -20,6 +15,13 @@ from bioetl.config.models import (
     PipelineMetadata,
     SourceConfig,
     SourceParameters,
+)
+from bioetl.config.models.policies import (
+    CacheConfig,
+    DeterminismConfig,
+    DeterminismSortingConfig,
+    HTTPClientConfig,
+    HTTPConfig,
 )
 from bioetl.config.models._proxy_utils import ProxyDefinition, build_section_proxies
 
