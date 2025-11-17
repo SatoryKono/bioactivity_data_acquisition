@@ -20,6 +20,21 @@ orchestrated by the `run()` method. Its primary purpose is to abstract away the
 boilerplate of pipeline orchestration, allowing developers to focus on
 source-specific business logic.
 
+### Unified mixins and ChEMBL base
+
+To simplify the upcoming ChEMBL refactor, a thin `UnifiedPipelineBase`
+(`src/bioetl/pipelines/unified_base.py`) composes a set of mixins defined in
+`src/bioetl/pipelines/mixins.py`. These mixins encapsulate reusable
+responsibilities such as structured logging, the release handshake, paginated
+extraction helpers, schema validation hooks, a normalised transform flow, and
+IO adapters around the deterministic writers.
+
+The unified base currently delegates to the original `PipelineBase.run()` and
+`PipelineBase.write()` implementations, but exposes higher-level helpers such as
+`stage_logger`, `perform_handshake()`, `iterate_pages()`, and `save_results()`.
+Future pipelines can adopt the mixins incrementally without rewriting their
+entire lifecycle.
+
 **Boundaries of Responsibility:**
 
 - **`PipelineBase` (Framework)** is responsible for:
