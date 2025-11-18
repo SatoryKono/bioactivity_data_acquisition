@@ -169,6 +169,7 @@ class TestTyperDependencyHandling:
         import bioetl.cli._typer_loader as loader
 
         monkeypatch.setattr(loader, "_typer_module", None)
+
         def _raise(_: str) -> None:
             raise ModuleNotFoundError("typer")
 
@@ -186,6 +187,7 @@ class TestTyperDependencyHandling:
         import bioetl.cli._typer_loader as loader
 
         monkeypatch.setattr(loader, "_typer_module", None)
+
         def _raise(_: str) -> None:
             raise ModuleNotFoundError("typer")
 

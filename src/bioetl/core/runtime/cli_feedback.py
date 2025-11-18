@@ -68,5 +68,3 @@ def emit_success(message: str) -> None:
     """Emit a success message."""
 
     click.secho(_format(message), fg="green")
-
-

@@ -207,9 +207,7 @@ class TestSerializeTargetArrays:
                 2: {
                     "component_id": 2,
                     "accession": "P12342",
-                    "target_component_synonyms": [
-                        {"syn_type": "UNIPROT", "synonyms": "P002"}
-                    ],
+                    "target_component_synonyms": [{"syn_type": "UNIPROT", "synonyms": "P002"}],
                 },
             }
 
@@ -248,7 +246,7 @@ class TestSerializeTargetArrays:
             result_one["target_component_synonyms__flat"].iloc[0]
             == result_two["target_component_synonyms__flat"].iloc[0]
         )
-        
+
     def test_empty_arrays(self) -> None:
         """Test serialization of empty arrays."""
         df = pd.DataFrame(

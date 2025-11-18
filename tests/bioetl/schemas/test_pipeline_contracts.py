@@ -5,7 +5,6 @@ from __future__ import annotations
 import pytest
 
 import bioetl.schemas.pipeline_contracts as pipeline_contracts
-
 from bioetl.schemas.pipeline_contracts import (
     PipelineSchemaContract,
     get_business_key_fields,
@@ -81,7 +80,9 @@ def test_resolve_contract_sequence_prefers_metadata(monkeypatch: pytest.MonkeyPa
     assert resolved == ("id", "source")
 
 
-def test_resolve_contract_sequence_uses_descriptor_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_resolve_contract_sequence_uses_descriptor_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     contract = PipelineSchemaContract(
         pipeline_code="stub",
         schema_out="stub.schema",
@@ -96,4 +97,3 @@ def test_resolve_contract_sequence_uses_descriptor_fallback(monkeypatch: pytest.
     resolved = resolve_contract_sequence(contract, "column_order", "column_order")
 
     assert resolved == ("chembl_id", "pref_name")
-

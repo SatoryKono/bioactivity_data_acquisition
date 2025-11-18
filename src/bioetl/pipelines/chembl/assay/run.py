@@ -3,42 +3,41 @@
 from __future__ import annotations
 
 import re
-import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, TypeVar, cast
+from typing import Any, Callable, TypeVar, cast
 
 import pandas as pd
-from pandas import Series
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.config import AssaySourceConfig
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core import UnifiedLogger
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
-
-from .._constants import ASSAY_MUST_HAVE_FIELDS
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    build_standard_chembl_context,
+    FinalizeCallable,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
     make_empty_frame_factory,
 )
-from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.chembl.common.normalize import add_row_metadata
+from bioetl.clients.entities.client_assay import ChemblAssayClient
+from bioetl.config import AssaySourceConfig
+from bioetl.config.models.models import PipelineConfig
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import IdentifierRule, StringRule
+from bioetl.core.schema.normalizers import StringStats
+from bioetl.core.io import header_rows_serialize
+from bioetl.pipelines.mixins import NestedColumnSpec
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
+
+from .._constants import ASSAY_MUST_HAVE_FIELDS
 from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
 )
-from .transform import (
-    serialize_array_fields,
-    validate_assay_parameters_truv,
-)
+from .transform import validate_assay_parameters_truv
 
 SelfChemblAssayPipeline = TypeVar("SelfChemblAssayPipeline", bound="ChemblAssayPipeline")
 
@@ -115,12 +114,15 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
     return identifiers
 
-class ChemblAssayPipeline(ChemblPipelineBase):
+
+class ChemblAssayPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
     actor = "assay_chembl"
     id_column = "assay_chembl_id"
     extract_event_name = "chembl_assay.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -130,10 +132,10 @@ class ChemblAssayPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(
+    def descriptor_spec(
         self: SelfChemblAssayPipeline,
-    ) -> ChemblExtractionDescriptor[SelfChemblAssayPipeline]:
-        """Return the descriptor powering the shared extraction template."""
+    ) -> ChemblDescriptorSpec[SelfChemblAssayPipeline]:
+        """Return the declarative descriptor specification."""
 
         def _require_assay_pipeline(pipeline: ChemblPipelineBase) -> ChemblAssayPipeline:
             if isinstance(pipeline, ChemblAssayPipeline):
@@ -141,67 +143,60 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             msg = "ChemblAssayPipeline instance required"
             raise TypeError(msg)
 
-        def build_context(
+        def pre_release_hook(
             pipeline: SelfChemblAssayPipeline,
             source_config: AssaySourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            assay_pipeline = _require_assay_pipeline(pipeline)
-
-            def pre_release_hook(
-                p: SelfChemblAssayPipeline,
-                sc: AssaySourceConfig,
-                entity_client: Any,
-            ) -> None:
-                assay_client = cast(ChemblAssayClient, entity_client)
-                assay_client.handshake(
-                    endpoint=sc.parameters.handshake_endpoint,
-                    enabled=sc.parameters.handshake_enabled,
-                )
-
-            def release_resolver(
-                p: SelfChemblAssayPipeline,
-                chembl_client: Any,
-                log: BoundLogger,
-                entity_client: Any | None,
-            ) -> str | None:
-                if entity_client is None:
-                    return None
-                assay_client = cast(ChemblAssayClient, entity_client)
-                log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-                    chembl_release=assay_client.chembl_release,
-                    handshake_endpoint=source_config.parameters.handshake_endpoint,
-                    handshake_enabled=source_config.parameters.handshake_enabled,
-                )
-                return assay_client.chembl_release
-
-            def select_fields_resolver(
-                p: SelfChemblAssayPipeline,
-                sc: AssaySourceConfig,
-            ) -> Sequence[str] | None:
-                raw_source = p._resolve_source_config("chembl")
-                return p._resolve_select_fields(raw_source)
-
-            def extra_filters_factory(sc: AssaySourceConfig, _: SelfChemblAssayPipeline) -> dict[str, Any]:
-                return {"max_url_length": sc.max_url_length}
-
-            context = build_standard_chembl_context(
-                assay_pipeline,
-                "assay",
-                source_config,
-                log,
-                entity_client_type=ChemblAssayClient,
-                release_resolver=release_resolver,
-                select_fields_resolver=select_fields_resolver,
-                extra_filters_factory=extra_filters_factory,
-                pre_release_hook=pre_release_hook,
+            entity_client: Any,
+        ) -> None:
+            assay_client = cast(ChemblAssayClient, entity_client)
+            pipeline.perform_handshake(
+                assay_client,
+                source_config.parameters.handshake_endpoint,
+                enabled=source_config.parameters.handshake_enabled,
+            )
+            log = pipeline.logger_for(stage="extract")
+            log.info(
+                LogEvents.CHEMBL_ASSAY_HANDSHAKE,
+                chembl_release=assay_client.chembl_release,
+                handshake_endpoint=source_config.parameters.handshake_endpoint,
+                handshake_enabled=source_config.parameters.handshake_enabled,
             )
 
-            log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
+        def release_resolver(
+            pipeline: SelfChemblAssayPipeline,
+            chembl_client: Any,
+            log: BoundLogger,
+            entity_client: Any | None,
+        ) -> str | None:
+            if entity_client is None:
+                return None
+            assay_client = cast(ChemblAssayClient, entity_client)
+            return assay_client.chembl_release
+
+        def select_fields_resolver(
+            pipeline: SelfChemblAssayPipeline,
+            _: AssaySourceConfig,
+        ) -> Sequence[str] | None:
+            raw_source = pipeline._resolve_source_config("chembl")
+            return pipeline._resolve_select_fields(raw_source)
+
+        def extra_filters_factory(
+            source_config: AssaySourceConfig,
+            _: SelfChemblAssayPipeline,
+        ) -> dict[str, Any]:
+            return {"max_url_length": source_config.max_url_length}
+
+        def after_build(
+            pipeline: SelfChemblAssayPipeline,
+            context: ChemblExtractionContext,
+            _: AssaySourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            log.debug(
+                LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
                 fields=context.select_fields,
                 fields_count=len(context.select_fields) if context.select_fields else 0,
             )
-
             return context
 
         empty_frame = make_empty_frame_factory("assay_chembl_id")
@@ -219,7 +214,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
             for must_field in ("assay_category", "assay_group", "src_assay_id"):
                 if must_field not in df.columns or df[must_field].isna().all():
-                    log.warning(LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
+                    log.warning(
+                        LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
                         field=must_field,
                         note="Field not returned by API; check select_fields/only",
                     )
@@ -230,7 +226,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 actual_fields = set(df.columns)
                 missing_in_response = sorted(expected_fields - actual_fields)
                 if missing_in_response:
-                    log.warning(LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
+                    log.warning(
+                        LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
                         missing_fields=missing_in_response,
                         requested_fields_count=len(select_fields),
                         received_fields_count=len(actual_fields),
@@ -263,17 +260,26 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             assay_pipeline = _require_assay_pipeline(pipeline)
-
             return {
                 "handshake_endpoint": context.source_config.parameters.handshake_endpoint,
                 "limit": assay_pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[SelfChemblAssayPipeline](
+        context_spec = ChemblContextSpec(
+            entity_name="assay",
+            entity_client_type=ChemblAssayClient,
+            release_resolver=release_resolver,
+            select_fields_resolver=select_fields_resolver,
+            extra_filters_factory=extra_filters_factory,
+            pre_release_hook=pre_release_hook,
+            after_build=after_build,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_assay",
             source_name="chembl",
             source_config_factory=AssaySourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="assay_chembl_id",
             summary_event="chembl_assay.extract_summary",
             must_have_fields=ASSAY_MUST_HAVE_FIELDS,
@@ -285,198 +291,110 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract assay records by a specific list of IDs using batch extraction.
-
-        Parameters
-        ----------
-        ids:
-            Sequence of assay_chembl_id values to extract.
-
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted assay records.
-        """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
-
-        source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "assay",
-            source_name="chembl",
-            source_config=source_config,
+    def id_extraction_metadata_filters(
+        self,
+        select_fields: Sequence[str] | None,
+        typed_source_config: AssaySourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> Mapping[str, Any] | None:
+        payload: dict[str, Any] = {}
+        base_filters = super().id_extraction_metadata_filters(
+            select_fields,
+            typed_source_config,
+            descriptor,
         )
-        if "chembl_assay_http" not in self._registered_clients:
-            self.register_client("chembl_assay_http", bundle.api_client)
+        if base_filters:
+            payload.update(base_filters)
+        payload["max_url_length"] = typed_source_config.max_url_length
+        return payload
 
-        assay_client = cast(ChemblAssayClient, bundle.entity_client)
-        if assay_client is None:
-            msg = "Фабрика вернула пустой клиент для 'assay'"
-            raise RuntimeError(msg)
+    def id_extraction_empty_frame_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: AssaySourceConfig,
+    ) -> Callable[[], pd.DataFrame]:
+        def factory() -> pd.DataFrame:
+            return pd.DataFrame({self.id_column: pd.Series(dtype="string")})
 
-        assay_client.handshake(
-            endpoint=source_config.parameters.handshake_endpoint,
-            enabled=source_config.parameters.handshake_enabled,
-        )
-        self._set_chembl_release(assay_client.chembl_release)
+        return factory
 
-        log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-            chembl_release=self.chembl_release,
-            handshake_endpoint=source_config.parameters.handshake_endpoint,
-            handshake_enabled=source_config.parameters.handshake_enabled,
-        )
-
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=self.chembl_release,
-            )
-            return pd.DataFrame()
-
-        limit = self.config.cli.limit
-        resolved_select_fields = self._resolve_select_fields(source_raw)
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields, ASSAY_MUST_HAVE_FIELDS
-        )
-
-        log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
-            fields=merged_select_fields,
-            fields_count=len(merged_select_fields) if merged_select_fields else 0,
-        )
-
-        def fetch_assays(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = assay_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        def finalize_dataframe(
-            dataframe: pd.DataFrame, context: BatchExtractionContext
-        ) -> pd.DataFrame:
-            if dataframe.empty:
-                return dataframe
-
-            for must_field in ("assay_category", "assay_group", "src_assay_id"):
-                if must_field not in dataframe.columns or dataframe[must_field].isna().all():
-                    log.warning(LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
-                        field=must_field,
-                        note="Field not returned by API; check select_fields/only",
-                    )
-
-            if context.select_fields:
-                expected_fields = set(context.select_fields)
-                actual_fields = set(dataframe.columns)
-                missing_in_response = sorted(expected_fields - actual_fields)
-                if missing_in_response:
-                    log.warning(LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
-                        missing_fields=missing_in_response,
-                        requested_fields_count=len(context.select_fields),
-                        received_fields_count=len(actual_fields),
-                        chembl_release=self.chembl_release,
-                        message=(
-                            "Fields requested in select_fields but missing in API response: "
-                            f"{missing_in_response}"
-                        ),
-                    )
-
-            dataframe = self._check_missing_columns(
-                dataframe,
-                log,
-                select_fields=list(context.select_fields) if context.select_fields else None,
-            )
+    def finalize_batch(
+        self,
+        dataframe: pd.DataFrame,
+        context: BatchExtractionContext,
+    ) -> pd.DataFrame:
+        if dataframe.empty:
             return dataframe
 
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="assay_chembl_id",
-            fetcher=fetch_assays,
-            select_fields=merged_select_fields or None,
-            batch_size=assay_client.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(merged_select_fields) if merged_select_fields else None,
-                "max_url_length": source_config.max_url_length,
-            },
-            chembl_release=self.chembl_release,
-            finalize=finalize_dataframe,
-        )
+        log = context.log
+        for must_field in ("assay_category", "assay_group", "src_assay_id"):
+            if must_field not in dataframe.columns or dataframe[must_field].isna().all():
+                log.warning(
+                    LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
+                    field=must_field,
+                    note="Field not returned by API; check select_fields/only",
+                )
 
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
+        if context.select_fields:
+            expected_fields = set(context.select_fields)
+            actual_fields = set(dataframe.columns)
+            missing_in_response = sorted(expected_fields - actual_fields)
+            if missing_in_response:
+                log.warning(
+                    LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
+                    missing_fields=missing_in_response,
+                    requested_fields_count=len(context.select_fields),
+                    received_fields_count=len(actual_fields),
+                    chembl_release=self.chembl_release,
+                    message=(
+                        "Fields requested in select_fields but missing in API response: "
+                        f"{missing_in_response}"
+                    ),
+                )
+
+        dataframe = self._check_missing_columns(
+            dataframe,
+            log,
+            select_fields=list(context.select_fields) if context.select_fields else None,
         )
         return dataframe
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw assay data by normalizing identifiers, types, and nested structures."""
-
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("transform"))
-
-        df = df.copy()
-
-        df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-
-        if df.empty:
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="pre_transform")
+        working_df = df.copy()
+        working_df = self._harmonize_identifier_columns(working_df, log)
+        working_df = self._ensure_schema_columns(
+            working_df,
+            self._output_column_order,
+            log,
+        )
+        if working_df.empty:
             log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
-            return df
+        return working_df
 
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="assay_domain")
+        working_df = self._enrich_with_related_data(df, log)
+        working_df = self._normalize_nested_structures(working_df, log)
+        working_df = self._serialize_nested_columns(working_df, log)
+        working_df = self._add_row_metadata(working_df, log)
+        return self._normalize_data_types(working_df, self._output_schema, log)
 
-        df = self._normalize_identifiers(df, log)
-        df = self._normalize_string_fields(df, log)
-        df = self._enrich_with_related_data(df, log)
-        df = self._normalize_nested_structures(df, log)
-        df = self._serialize_array_fields(df, log)
-        df = self._add_row_metadata(df, log)
-        df = self._normalize_data_types(df, self._output_schema, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-        df = self._order_schema_columns(df, self._output_column_order)
-
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
-        return df
+    def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="post_transform")
+        return self._normalize_and_enforce_schema(
+            df,
+            self._output_column_order,
+            log,
+            normalize_identifiers=False,
+            normalize_strings=False,
+            order_columns=True,
+            copy=False,
+        )
 
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Serialize array-of-object fields to header+rows format."""
-        df = df.copy()
-
-        # Get arrays_to_header_rows from config
-        arrays_to_serialize: list[str] = list(self.config.transform.arrays_to_header_rows)
-
-        if arrays_to_serialize:
-            df_result: pd.DataFrame = serialize_array_fields(df, arrays_to_serialize)
-            for column in arrays_to_serialize:
-                if column in df_result.columns:
-                    column_as_string: Series = df_result[column].astype("string")
-                    filled_column: Series = column_as_string.copy()
-                    filled_column[column_as_string.isna()] = ""
-                    empty_mask: Series = filled_column.eq("")
-                    if bool(empty_mask.any()):
-                        df_result.loc[empty_mask, column] = pd.NA
-            df = df_result
-            log.debug(LogEvents.ARRAY_FIELDS_SERIALIZED, columns=arrays_to_serialize)
-
-        return df
 
     def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Harmonize identifier column names (e.g., assay_id -> assay_chembl_id)."""
@@ -502,10 +420,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
 
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers with regex validation."""
-
-        rules = [
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
             IdentifierRule(
                 name="chembl",
                 columns=[
@@ -517,32 +433,9 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 ],
                 pattern=r"^CHEMBL\d+$",
             ),
-        ]
+        )
 
-        normalized_df, stats = normalize_identifiers(df, rules)
-
-        if stats.has_changes:
-            log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
-                normalized_count=stats.normalized,
-                invalid_count=stats.invalid,
-                columns=list(stats.per_column.keys()),
-            )
-
-        return normalized_df
-
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields (assay_type, assay_category, assay_organism, curation_level).
-
-        Important: all fields are sourced directly from the API payload—no surrogate computations.
-        - assay_category: pulled from ASSAYS.ASSAY_CATEGORY (not assay_type or BAO).
-        - assay_strain: sourced from ASSAYS.ASSAY_STRAIN (not target/organism).
-        - src_assay_id: sourced from ASSAYS.SRC_ASSAY_ID (not alternative sources).
-        - assay_group: sourced from ASSAYS.ASSAY_GROUP.
-        - curation_level: taken from an explicit column when available, otherwise NULL.
-        """
-
-        working_df = df.copy()
-
+    def string_rules(self) -> Mapping[str, StringRule]:
         string_fields = [
             "assay_type",
             "assay_category",
@@ -552,25 +445,41 @@ class ChemblAssayPipeline(ChemblPipelineBase):
             "assay_group",
             "curation_level",
         ]
+        return {column: StringRule() for column in string_fields}
 
-        rules = {column: StringRule() for column in string_fields}
-
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
-        # Ensure curation_level defaults to NULL when absent in the payload.
-        if "curation_level" not in normalized_df.columns:
-            normalized_df["curation_level"] = pd.NA
-            log.warning(LogEvents.CURATION_LEVEL_MISSING,
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        if "curation_level" not in df.columns:
+            df["curation_level"] = pd.NA
+            log.warning(
+                LogEvents.CURATION_LEVEL_MISSING,
                 message="curation_level not found in API response, setting to NULL",
             )
+        return super().postprocess_string_columns(df, stats, log)
 
-        if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
+    def nested_column_specs(self) -> Sequence[NestedColumnSpec]:
+        transform_cfg = getattr(self.config, "transform", None)
+        arrays_to_serialize = list(getattr(transform_cfg, "arrays_to_header_rows", ()))
+
+        if not arrays_to_serialize:
+            return ()
+
+        def _serialize(value: Any, _log: Any = None) -> str:
+            return header_rows_serialize(value)
+
+        return tuple(
+            NestedColumnSpec(
+                column=column,
+                serializer=_serialize,
+                preserve_null_like=True,
+                empty_string_to_null=True,
             )
-
-        return normalized_df
+            for column in arrays_to_serialize
+        )
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Process nested structures (assay_parameters, assay_classifications).
@@ -619,12 +528,13 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     updated_rows += 1
 
             if updated_rows > 0:
-                log.debug(LogEvents.ASSAY_CLASS_ID_EXTRACTED_FROM_CLASSIFICATIONS,
+                log.debug(
+                    LogEvents.ASSAY_CLASS_ID_EXTRACTED_FROM_CLASSIFICATIONS,
                     rows_updated=updated_rows,
                 )
 
         # Note: assay_parameters and assay_classifications are serialized in
-        # _serialize_array_fields() and preserved in the final schema.
+        # _serialize_nested_columns() and preserved in the final schema.
 
         return df
 
@@ -722,13 +632,15 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
-                    log.warning(LogEvents.MISSING_FIELD_NOT_REQUESTED,
+                    log.warning(
+                        LogEvents.MISSING_FIELD_NOT_REQUESTED,
                         column=column,
                         chembl_release=self.chembl_release,
                         message=f"Field {column} not found in API response and was not requested in select_fields",
                     )
                 else:
-                    log.warning(LogEvents.MISSING_FIELD_IN_RESPONSE,
+                    log.warning(
+                        LogEvents.MISSING_FIELD_IN_RESPONSE,
                         column=column,
                         chembl_release=self.chembl_release,
                         message=f"Field {column} was requested but not found in API response",
@@ -745,14 +657,16 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
-                    log.warning(LogEvents.MISSING_COLUMN_NOT_REQUESTED,
+                    log.warning(
+                        LogEvents.MISSING_COLUMN_NOT_REQUESTED,
                         column=column,
                         version_introduced=version,
                         chembl_release=self.chembl_release,
                         message=f"Column {column} not found in API response and was not requested in select_fields, setting to NULL",
                     )
                 else:
-                    log.warning(LogEvents.MISSING_OPTIONAL_COLUMN,
+                    log.warning(
+                        LogEvents.MISSING_OPTIONAL_COLUMN,
                         column=column,
                         version_introduced=version,
                         chembl_release=self.chembl_release,
@@ -760,7 +674,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     )
 
         if missing_in_response or missing_columns:
-            log.debug(LogEvents.MISSING_COLUMNS_HANDLED,
+            log.debug(
+                LogEvents.MISSING_COLUMNS_HANDLED,
                 missing_in_response=missing_in_response if missing_in_response else None,
                 missing_columns=missing_columns if missing_columns else None,
                 missing_in_select_fields=sorted(missing_in_select_fields)
@@ -780,7 +695,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         try:
             source_raw = self._resolve_source_config("chembl")
         except KeyError as exc:
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
                 source="chembl",
                 message="Skipping enrichment: source configuration not available",
                 error=str(exc),
@@ -797,22 +713,30 @@ class ChemblAssayPipeline(ChemblPipelineBase):
         # Retrieve enrichment configuration from config.chembl.assay.enrich.
         chembl_config = getattr(self.config, "chembl", None)
         if chembl_config is None:
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config not found"
+            )
             return df
 
         if not isinstance(chembl_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config is not a Mapping"
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG,
+                message="ChEMBL config is not a Mapping",
             )
             return df
 
         assay_config = cast(Mapping[str, Any], chembl_config).get("assay")
         if not isinstance(assay_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_ASSAY_CONFIG, message="Assay config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_ASSAY_CONFIG, message="Assay config not found"
+            )
             return df
 
         enrich_config = cast(Mapping[str, Any], assay_config).get("enrich")
         if not isinstance(enrich_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG, message="Enrich config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG, message="Enrich config not found"
+            )
             return df
 
         # Enrich with classification data.
@@ -830,13 +754,15 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                 filled_count = int(df["assay_class_id"].notna().sum())
                 total_count = len(df)
                 if filled_count == 0:
-                    log.warning(LogEvents.ASSAY_CLASS_ID_EMPTY_AFTER_ENRICHMENT,
+                    log.warning(
+                        LogEvents.ASSAY_CLASS_ID_EMPTY_AFTER_ENRICHMENT,
                         total_assays=total_count,
                         filled_count=0,
                         message="assay_class_id is empty after enrichment. Check if ASSAY_CLASS_MAP contains data for these assays.",
                     )
                 else:
-                    log.debug(LogEvents.ASSAY_CLASS_ID_ENRICHMENT_STATS,
+                    log.debug(
+                        LogEvents.ASSAY_CLASS_ID_ENRICHMENT_STATS,
                         total_assays=total_count,
                         filled_count=filled_count,
                         empty_count=total_count - filled_count,
@@ -847,7 +773,8 @@ class ChemblAssayPipeline(ChemblPipelineBase):
                     message="assay_class_id column is missing after enrichment",
                 )
         else:
-            log.warning(LogEvents.ENRICHMENT_CLASSIFICATIONS_DISABLED,
+            log.warning(
+                LogEvents.ENRICHMENT_CLASSIFICATIONS_DISABLED,
                 message="Enrichment for classifications is not configured. assay_class_id will remain NULL.",
             )
 

@@ -159,4 +159,3 @@ class TestChemblEntityFetcherBase:
         assert fetcher._resolve_page_size(10, None) == 10  # type: ignore[attr-defined]
         assert fetcher._resolve_page_size(100, None) == 25  # type: ignore[attr-defined]
         assert fetcher._resolve_page_size(50, 5) == 5  # type: ignore[attr-defined]
-

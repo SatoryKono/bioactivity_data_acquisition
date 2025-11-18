@@ -5,14 +5,14 @@
 раздел индекса `docs/api/INDEX.md`.
 
 > **Импорт моделей.** Все примеры ниже используют
-> `bioetl.config.models.models.PipelineConfig`. Путь
-> `bioetl.config.models`/`bioetl/config/models.py` допускается только для внешней
-> совместимости и помечен DeprecationWarning.
+> `bioetl.config.models.models.PipelineConfig`. Точка входа
+> `bioetl.config.models` больше не экспортирует модели; обновите импорты,
+> если проект ещё опирался на устаревший путь.
 
 ## `load_config`
 
 **Сигнатура**:
-`load_config(config_path: str | Path, *, profiles: Sequence[str | Path] | None = None, cli_overrides: Mapping[str, Any] | None = None, env: Mapping[str, str] | None = None, env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"), include_default_profiles: bool = False) -> PipelineConfig`
+`load_config(config_path: str | Path, *, profiles: Sequence[str | Path] | None = None, cli_overrides: Mapping[str, Any] | None = None, env: Mapping[str, str] | None = None, env_prefixes: Sequence[str] = ("BIOETL__",), include_default_profiles: bool = False) -> PipelineConfig`
 
 **Источник**: `src/bioetl/config/loader.py`
 

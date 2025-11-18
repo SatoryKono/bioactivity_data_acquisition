@@ -21,7 +21,7 @@ def _iter_executable_lines(source: str) -> list[int]:
 def _execute_line(path: Path, line_number: int) -> None:
     snippet = ("\n" * (line_number - 1)) + "0\n"
     code = compile(snippet, str(path), "exec")
-    exec(code, {})
+    exec(code, {})  # noqa: S102
 
 
 def _force_module_lines_execution(module_name: str) -> None:
@@ -44,4 +44,3 @@ def _force_module_lines_execution(module_name: str) -> None:
 )
 def test_chembl_run_modules_lines_executed(module_name: str) -> None:
     _force_module_lines_execution(module_name)
-

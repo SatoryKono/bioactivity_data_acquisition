@@ -8,5 +8,3 @@ from typer.testing import CliRunner
 def runner() -> CliRunner:
     """Return a CliRunner instance for Typer tests."""
     return CliRunner()
-
-

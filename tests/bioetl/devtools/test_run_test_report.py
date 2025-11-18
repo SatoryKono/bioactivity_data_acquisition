@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
 import yaml
@@ -51,7 +51,7 @@ class UUIDIterator:
     def __init__(self, values: Iterable[str]) -> None:
         self._iterator: Iterator[str] = iter(values)
 
-    def __call__(self) -> "_UUIDWrapper":
+    def __call__(self) -> _UUIDWrapper:
         value = next(self._iterator)
         return _UUIDWrapper(value)
 
@@ -128,7 +128,9 @@ def test_generate_test_report_success(
     monkeypatch.setattr(run_test_report, "_read_git_commit", lambda: "deadbeef")  # type: ignore[attr-defined]
     monkeypatch.setattr(run_test_report, "_compute_config_hash", lambda: "hash123")  # type: ignore[attr-defined]
     monkeypatch.setattr(run_test_report, "datetime", FakeDateTime)
-    monkeypatch.setattr(run_test_report, "uuid4", UUIDIterator(["runid" * 8, "trace" * 8, "span" * 8, "temp" * 8]))
+    monkeypatch.setattr(
+        run_test_report, "uuid4", UUIDIterator(["runid" * 8, "trace" * 8, "span" * 8, "temp" * 8])
+    )
 
     artifacts_holder: list[TestReportArtifacts] = []
 
@@ -141,10 +143,14 @@ def test_generate_test_report_success(
 
     monkeypatch.setattr(run_test_report, "resolve_artifact_paths", capture_artifacts)
 
-    def fake_subprocess_run(cmd: list[str], cwd: Path | None = None, check: bool = False) -> FakeCompletedProcess:
+    def fake_subprocess_run(
+        cmd: list[str], cwd: Path | None = None, check: bool = False
+    ) -> FakeCompletedProcess:
         assert cmd[1:3] == ["-m", "pytest"]
         artifacts = artifacts_holder[0]
-        artifacts.pytest_report.write_text(json.dumps({"summary": {"collected": 1, "passed": 1}}), encoding="utf-8")
+        artifacts.pytest_report.write_text(
+            json.dumps({"summary": {"collected": 1, "passed": 1}}), encoding="utf-8"
+        )
         artifacts.coverage_xml.write_text("<coverage></coverage>", encoding="utf-8")
         return FakeCompletedProcess(returncode=0)
 
@@ -172,7 +178,9 @@ def test_generate_test_report_fails_when_directory_exists(
     output_root.mkdir()
     facade = StubUnifiedLogger()
     monkeypatch.setattr(run_test_report, "UnifiedLogger", facade)
-    monkeypatch.setattr(run_test_report, "uuid4", UUIDIterator(["runid" * 8, "trace" * 8, "span" * 8, "temp" * 8]))
+    monkeypatch.setattr(
+        run_test_report, "uuid4", UUIDIterator(["runid" * 8, "trace" * 8, "span" * 8, "temp" * 8])
+    )
     monkeypatch.setattr(run_test_report, "datetime", FakeDateTime)
 
     folder_name = run_test_report.build_timestamp_directory_name(FakeDateTime.now())  # type: ignore[arg-type]
@@ -182,4 +190,3 @@ def test_generate_test_report_fails_when_directory_exists(
     exit_code = run_test_report.generate_test_report(output_root)
 
     assert exit_code == 1
-

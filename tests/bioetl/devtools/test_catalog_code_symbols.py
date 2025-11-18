@@ -39,7 +39,9 @@ def _install_dummy_modules(monkeypatch: pytest.MonkeyPatch) -> None:
     base_module.PipelineBase = DummyPipelineBase
     monkeypatch.setitem(sys.modules, "bioetl.core.pipeline", base_module)
 
-    config_module = ModuleType("bioetl.config.models")
+    config_package = ModuleType("bioetl.config.models")
+    config_package.__path__ = []
+    monkeypatch.setitem(sys.modules, "bioetl.config.models", config_package)
 
     class DummyField(SimpleNamespace):
         def is_required(self) -> bool:
@@ -47,13 +49,18 @@ def _install_dummy_modules(monkeypatch: pytest.MonkeyPatch) -> None:
 
     class DummyModel:
         model_fields = {
-            "name": DummyField(annotation=str, default="demo", _required=False),
+            "pipeline": DummyField(annotation=str, default="demo", _required=False),
+            "version": DummyField(annotation=int, default=1, _required=True),
         }
 
-    config_module.PipelineConfig = DummyModel
-    config_module.PipelineMetadata = DummyModel
-    config_module.DeterminismConfig = DummyModel
-    monkeypatch.setitem(sys.modules, "bioetl.config.models", config_module)
+    models_module = ModuleType("bioetl.config.models.models")
+    models_module.PipelineConfig = DummyModel
+    models_module.PipelineMetadata = DummyModel
+    monkeypatch.setitem(sys.modules, "bioetl.config.models.models", models_module)
+
+    policies_module = ModuleType("bioetl.config.models.policies")
+    policies_module.DeterminismConfig = DummyModel
+    monkeypatch.setitem(sys.modules, "bioetl.config.models.policies", policies_module)
 
     cli_module = ModuleType("bioetl.cli.cli_registry")
     cli_module.COMMAND_REGISTRY = {"activity": object(), "assay": object()}

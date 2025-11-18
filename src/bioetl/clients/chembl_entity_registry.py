@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, MutableMapping
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Callable, Mapping, MutableMapping, cast
+from typing import Any, cast
 
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.client_chembl_entity_base import ChemblClientProtocol

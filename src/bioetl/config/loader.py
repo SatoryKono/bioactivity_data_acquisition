@@ -126,10 +126,7 @@ def _resolve_config_path(config_path: str | Path) -> Path:
         path = candidate.resolve()
     else:
         cwd_path = (Path.cwd() / candidate).resolve()
-        if cwd_path.exists():
-            path = cwd_path
-        else:
-            path = candidate.resolve()
+        path = cwd_path if cwd_path.exists() else candidate.resolve()
 
     if not path.exists():
         msg = f"Configuration file not found: {path}"
@@ -188,13 +185,15 @@ def _selected_environment(settings: EnvironmentSettings) -> str | None:
     """Return the active environment when explicitly provided via env/config."""
 
     return settings.bioetl_env
+
+
 def load_config(
     config_path: str | Path,
     *,
     profiles: Sequence[str | Path] | None = None,
     cli_overrides: Mapping[str, Any] | None = None,
     env: Mapping[str, str] | None = None,
-    env_prefixes: Sequence[str] = ("BIOETL__", "BIOACTIVITY__"),
+    env_prefixes: Sequence[str] = ("BIOETL__",),
     include_default_profiles: bool = False,
     environment_settings: EnvironmentSettings | None = None,
 ) -> PipelineConfig:
@@ -458,6 +457,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
             merge_value = typed_payload.get("<<")
 
         if merge_value is not None:
+
             def _normalize_merge_source(candidate: Any) -> Mapping[str, Any]:
                 """Normalize individual YAML merge candidates into mappings."""
                 merged_candidate_any: Any = _apply_yaml_merge(candidate)
@@ -480,9 +480,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
                     _normalize_merge_source(source_any) for source_any in merge_iterable
                 )
             else:
-                typed_sources = (
-                    _normalize_merge_source(merge_value),
-                )
+                typed_sources = (_normalize_merge_source(merge_value),)
 
             for merged_source in typed_sources:
                 result = _deep_merge(result, merged_source)
@@ -506,10 +504,7 @@ def _apply_yaml_merge(payload: Any) -> Any:
 
     if is_list(payload):
         payload_list: list[Any] = payload
-        return [
-            _apply_yaml_merge(element_any)
-            for element_any in payload_list
-        ]
+        return [_apply_yaml_merge(element_any) for element_any in payload_list]
 
     return payload
 

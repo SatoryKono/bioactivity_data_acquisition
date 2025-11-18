@@ -256,7 +256,7 @@ def compute_categorical_distributions(
         if len(prioritized) > top_n:
             retained = prioritized[:top_n]
             remainder_count = sum(count for _, count in prioritized[top_n:])
-            merged: dict[str, int] = {key: count for key, count in retained}
+            merged: dict[str, int] = dict(retained)
             if remainder_count > 0:
                 merged[other_bucket_label] = merged.get(other_bucket_label, 0) + remainder_count
             final_items = merged.items()
@@ -269,8 +269,7 @@ def compute_categorical_distributions(
             continue
 
         ratio_entries: list[tuple[str, int, Decimal]] = [
-            (value, count, Decimal(count) / Decimal(total_count))
-            for value, count in ordered
+            (value, count, Decimal(count) / Decimal(total_count)) for value, count in ordered
         ]
         quantized = _ensure_ratio_sum(ratio_entries, precision=ratio_precision)
 
@@ -294,6 +293,8 @@ def compute_categorical_distributions(
         distributions[column] = inner
 
     return distributions
+
+
 def compute_missingness(df: pd.DataFrame) -> MissingnessStats:
     """Return per-column missing value statistics with stable ordering."""
 

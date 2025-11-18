@@ -17,4 +17,3 @@ class ChemblMoleculeEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBas
     """Client for retrieving ``molecule`` records from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("molecule")
-

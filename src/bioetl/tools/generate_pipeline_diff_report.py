@@ -8,9 +8,10 @@ import itertools
 import json
 import os
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable, Sequence, cast
+from typing import cast
 
 PIPELINE_ENTITIES: Sequence[str] = ("activity", "assay", "document", "target", "testitem")
 MODULE_PRIORITY: Sequence[str] = ("run.py", "transform.py", "normalize.py")
@@ -54,16 +55,19 @@ def _format_import(node: ast.stmt) -> str:
 
 
 def _sort_import_aliases(node: ast.stmt) -> None:
-    if isinstance(node, ast.Import):
-        node.names.sort(key=lambda alias: alias.name)
-    elif isinstance(node, ast.ImportFrom):
+    if isinstance(node, (ast.Import, ast.ImportFrom)):
         node.names.sort(key=lambda alias: alias.name)
 
 
 def _normalize_module_source(module: ast.Module) -> str:
     body = list(module.body)
     docstring_node: ast.stmt | None = None
-    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
         docstring_node = body[0]
         body = body[1:]
     import_nodes: list[ast.stmt] = []
@@ -131,7 +135,10 @@ def _detect_side_effects(node: ast.AST) -> dict[str, list[str]]:
             lowered = name.lower()
             if "log" in lowered:
                 logging_calls.add(name)
-            if any(marker in lowered for marker in ("write", "open", "read", "dump", "save", "load", "request")):
+            if any(
+                marker in lowered
+                for marker in ("write", "open", "read", "dump", "save", "load", "request")
+            ):
                 io_calls.add(name)
     return {
         "logging": sorted(logging_calls),
@@ -171,7 +178,9 @@ def _signature_for_function(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str
     return ", ".join(parts)
 
 
-def _format_arg(arg: ast.arg, default: ast.expr | None = None, omit_annotation: bool = False) -> str:
+def _format_arg(
+    arg: ast.arg, default: ast.expr | None = None, omit_annotation: bool = False
+) -> str:
     name = arg.arg
     annotation_part = ""
     if not omit_annotation and arg.annotation is not None:
@@ -345,7 +354,9 @@ def analyze_pipeline(root: Path, entity: str) -> PipelineAnalysis:
         ast_dumps.append(ast.dump(ast.parse(analysis.normalized_source), include_attributes=False))
         token_union.update(analysis.module_tokens)
     pipeline_hash = hashlib.blake2b("".join(ast_dumps).encode("utf-8"), digest_size=16).hexdigest()
-    return PipelineAnalysis(entity=entity, modules=modules, pipeline_hash=pipeline_hash, pipeline_tokens=token_union)
+    return PipelineAnalysis(
+        entity=entity, modules=modules, pipeline_hash=pipeline_hash, pipeline_tokens=token_union
+    )
 
 
 def _jaccard(a: set[str], b: set[str]) -> float:
@@ -443,9 +454,16 @@ def _diff_blocks(
     return entries
 
 
-def compare_pipelines(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis) -> dict[str, list[DiffEntry]]:
+def compare_pipelines(
+    pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis
+) -> dict[str, list[DiffEntry]]:
     diff_entries: dict[str, list[DiffEntry]] = {}
-    module_names = sorted(set(pipeline_a.modules) | set(pipeline_b.modules), key=lambda name: MODULE_PRIORITY.index(name) if name in MODULE_PRIORITY else len(MODULE_PRIORITY))
+    module_names = sorted(
+        set(pipeline_a.modules) | set(pipeline_b.modules),
+        key=lambda name: MODULE_PRIORITY.index(name)
+        if name in MODULE_PRIORITY
+        else len(MODULE_PRIORITY),
+    )
     for module_name in module_names:
         module_a = pipeline_a.modules.get(module_name)
         module_b = pipeline_b.modules.get(module_name)
@@ -461,9 +479,15 @@ def compare_pipelines(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis
             info_a = module_a.definitions.get(qualname) if module_a else None
             info_b = module_b.definitions.get(qualname) if module_b else None
             if info_a is None and module_a is not None:
-                info_a = next((block for block in module_a.module_level_blocks if block.qualname == qualname), None)
+                info_a = next(
+                    (block for block in module_a.module_level_blocks if block.qualname == qualname),
+                    None,
+                )
             if info_b is None and module_b is not None:
-                info_b = next((block for block in module_b.module_level_blocks if block.qualname == qualname), None)
+                info_b = next(
+                    (block for block in module_b.module_level_blocks if block.qualname == qualname),
+                    None,
+                )
             diff_list = _diff_blocks(
                 pipeline_a.entity,
                 pipeline_b.entity,
@@ -479,10 +503,19 @@ def compare_pipelines(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis
     return diff_entries
 
 
-def build_ast_table(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, module_name: str) -> list[list[str]]:
+def build_ast_table(
+    pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, module_name: str
+) -> list[list[str]]:
     module_a = pipeline_a.modules.get(module_name)
     module_b = pipeline_b.modules.get(module_name)
-    header = ["Definition", f"{pipeline_a.entity} signature", f"{pipeline_b.entity} signature", "Side effects", "Exceptions", "Status"]
+    header = [
+        "Definition",
+        f"{pipeline_a.entity} signature",
+        f"{pipeline_b.entity} signature",
+        "Side effects",
+        "Exceptions",
+        "Status",
+    ]
     rows: list[list[str]] = [header]
     qualnames: set[str] = set()
     if module_a:
@@ -495,9 +528,15 @@ def build_ast_table(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, 
         info_a = module_a.definitions.get(qualname) if module_a else None
         info_b = module_b.definitions.get(qualname) if module_b else None
         if info_a is None and module_a:
-            info_a = next((block for block in module_a.module_level_blocks if block.qualname == qualname), None)
+            info_a = next(
+                (block for block in module_a.module_level_blocks if block.qualname == qualname),
+                None,
+            )
         if info_b is None and module_b:
-            info_b = next((block for block in module_b.module_level_blocks if block.qualname == qualname), None)
+            info_b = next(
+                (block for block in module_b.module_level_blocks if block.qualname == qualname),
+                None,
+            )
         signature_a = info_a.signature if info_a else "—"
         signature_b = info_b.signature if info_b else "—"
         side_effects_a = info_a.side_effects if info_a else {}
@@ -522,7 +561,16 @@ def build_ast_table(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, 
             status = f"only in {pipeline_b.entity}"
         else:
             status = "—"
-        rows.append([qualname, signature_a or "—", signature_b or "—", side_effects_repr, exceptions_repr, status])
+        rows.append(
+            [
+                qualname,
+                signature_a or "—",
+                signature_b or "—",
+                side_effects_repr,
+                exceptions_repr,
+                status,
+            ]
+        )
     return rows
 
 
@@ -539,11 +587,15 @@ def _format_table(rows: list[list[str]]) -> str:
     lines.append(separator)
 
     for row in sanitized_rows[1:]:
-        lines.append(" | ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=False)))
+        lines.append(
+            " | ".join(cell.ljust(width) for cell, width in zip(row, widths, strict=False))
+        )
     return "\n".join(lines)
 
 
-def _cluster_definitions(pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, module_name: str) -> list[str]:
+def _cluster_definitions(
+    pipeline_a: PipelineAnalysis, pipeline_b: PipelineAnalysis, module_name: str
+) -> list[str]:
     module_a = pipeline_a.modules.get(module_name)
     module_b = pipeline_b.modules.get(module_name)
     if module_a is None or module_b is None:
@@ -617,7 +669,9 @@ def generate_report(root: Path, output_path: Path) -> None:
             module_b = pipeline_b.modules.get(module_name)
             status_a = "absent" if module_a is None else "present"
             status_b = "absent" if module_b is None else "present"
-            lines.append(f"- File status: {pipeline_a.entity} — {status_a}, {pipeline_b.entity} — {status_b}")
+            lines.append(
+                f"- File status: {pipeline_a.entity} — {status_a}, {pipeline_b.entity} — {status_b}"
+            )
             hash_a = module_a.module_hash if module_a is not None else "absent"
             hash_b = module_b.module_hash if module_b is not None else "absent"
             lines.append(f"- AST hash: {hash_a} ↔ {hash_b}")
@@ -636,6 +690,7 @@ def generate_report(root: Path, output_path: Path) -> None:
             capped_entries = entries[:remaining_budget]
             hotspot_total += len(capped_entries)
             for idx, entry in enumerate(capped_entries, 1):
+
                 def format_ref(path: Path | None, span: tuple[int, int] | None) -> str:
                     if path is None or span is None:
                         return "absent"
@@ -656,9 +711,13 @@ def generate_report(root: Path, output_path: Path) -> None:
                 lines.append(entry.diff_text)
                 lines.append("```\n")
             if len(entries) > len(capped_entries):
-                lines.append(f"_Only the first {len(capped_entries)} hotspots of {len(entries)} are shown for module {module_name}._\n")
+                lines.append(
+                    f"_Only the first {len(capped_entries)} hotspots of {len(entries)} are shown for module {module_name}._\n"
+                )
         if truncation_flag:
-            lines.append(f"_First {hotspot_total} hotspots of {total_entries} are shown for pair {entity_a} ↔ {entity_b}._\n")
+            lines.append(
+                f"_First {hotspot_total} hotspots of {total_entries} are shown for pair {entity_a} ↔ {entity_b}._\n"
+            )
         if hotspot_total < 10:
             lines.append(f"_Warning: only {hotspot_total} key differences identified (<10)._")
         lines.append("---\n")
@@ -675,4 +734,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

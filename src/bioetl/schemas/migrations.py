@@ -12,4 +12,3 @@ def load_builtin_migrations() -> None:
     """Register built-in schema migrations (no-op on this branch)."""
 
     return None
-

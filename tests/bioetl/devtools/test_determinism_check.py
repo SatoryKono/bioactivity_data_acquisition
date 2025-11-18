@@ -71,7 +71,9 @@ def test_run_determinism_check_success(tmp_path: Path, monkeypatch: pytest.Monke
     assert "Determinism Check Report" in content
 
 
-def test_run_determinism_check_handles_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_determinism_check_handles_failures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(determinism_check, "UnifiedLogger", DummyUnifiedLogger)
     monkeypatch.setattr(determinism_check, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(determinism_check, "ARTIFACTS_DIR", tmp_path / "artifacts")
@@ -138,4 +140,3 @@ def test_run_determinism_check_second_run_failure(
     result = results["activity_chembl"]
     assert not result.deterministic
     assert result.errors == ("Run 2 failed with exit code 2: crash",)
-

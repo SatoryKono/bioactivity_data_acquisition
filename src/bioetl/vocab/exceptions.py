@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from bioetl.core.runtime.errors import BioETLError
 
@@ -39,4 +39,3 @@ class VocabularyValidationError(BioETLError):
         super().__init__("Values do not satisfy vocabulary bindings.")
         self.violations: tuple[VocabularyViolation, ...] = violations_tuple
         self.context: dict[str, object] = {"violations": details}
-

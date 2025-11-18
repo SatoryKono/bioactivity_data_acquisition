@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
 def _noop_transform(
@@ -56,11 +56,7 @@ def test_execute_enrichment_stages_runs_registered_scenario(
     config_with_enrich = pipeline.config.model_copy(
         update={
             "domain": {
-                "chembl": {
-                    "activity": {
-                        "enrich": {"dummy": {"enabled": True, "custom": "value"}}
-                    }
-                }
+                "chembl": {"activity": {"enrich": {"dummy": {"enabled": True, "custom": "value"}}}}
             }
         }
     )
@@ -138,11 +134,7 @@ def test_execute_enrichment_stages_skips_disabled_scenario(
     config_with_enrich = pipeline.config.model_copy(
         update={
             "domain": {
-                "chembl": {
-                    "activity": {
-                        "enrich": {"dummy": {"enabled": False, "custom": "value"}}
-                    }
-                }
+                "chembl": {"activity": {"enrich": {"dummy": {"enabled": False, "custom": "value"}}}}
             }
         }
     )
@@ -182,12 +174,8 @@ def test_execute_enrichment_stages_skips_disabled_scenario(
         raising=False,
     )
 
-    def fail_if_called(
-        self: ChemblActivityPipeline, entity_name: str, *, client_name: str
-    ) -> None:
-        raise AssertionError(
-            "Enrichment bundle should not be requested when scenario is disabled"
-        )
+    def fail_if_called(self: ChemblActivityPipeline, entity_name: str, *, client_name: str) -> None:
+        raise AssertionError("Enrichment bundle should not be requested when scenario is disabled")
 
     monkeypatch.setattr(
         ChemblActivityPipeline,
@@ -201,4 +189,3 @@ def test_execute_enrichment_stages_skips_disabled_scenario(
     assert not called
     assert list(result.columns) == ["activity_id"]
     assert result.equals(df)
-

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Tuple
 
 from bioetl.core.utils.mixins import CollectionFlagMixin
 from bioetl.tools import qc_boundary as boundary_tools
@@ -29,7 +29,7 @@ class QCBoundaryViolation:
 
     module: str
     qc_module: str
-    import_chain: Tuple[str, ...]
+    import_chain: tuple[str, ...]
     source_path: Path
 
     def format_chain(self) -> str:
@@ -85,6 +85,3 @@ def collect_cli_qc_boundary_report(
         )
     normalized_tuple = tuple(normalized)
     return QCBoundaryReport(package=effective_package, violations=normalized_tuple)
-
-
-

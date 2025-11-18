@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
+from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
 from bioetl.devtools.cli_determinism_check import (
     DeterminismRunResult,
     run_determinism_check,
 )
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 __all__ = [
     "run_determinism_check",
@@ -63,9 +64,7 @@ def cli_main(
             exit_code=1,
         )
 
-    non_deterministic = [
-        name for name, item in results.items() if not item.deterministic
-    ]
+    non_deterministic = [name for name, item in results.items() if not item.deterministic]
     first_result = next(iter(results.values()))
 
     if non_deterministic:
@@ -85,8 +84,7 @@ def cli_main(
         )
 
     typer.echo(
-        "All inspected pipelines are deterministic. "
-        f"Report: {first_result.report_path.resolve()}"
+        f"All inspected pipelines are deterministic. Report: {first_result.report_path.resolve()}"
     )
     CliCommandBase.exit(0)
 

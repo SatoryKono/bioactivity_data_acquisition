@@ -44,4 +44,3 @@ def test_get_offline_new_client_returns_deterministic_client() -> None:
         }
     ]
     assert list(client.assay.filter())[0]["assay_type"] == "B"
-

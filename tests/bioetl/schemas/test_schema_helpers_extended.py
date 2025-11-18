@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -83,10 +84,14 @@ def test_create_schema_order_validation() -> None:
         "value": Column(str),
     }
     with pytest.raises(ValueError, match="missing columns"):
-        create_schema(columns=schema_columns, version="1.0", name="TestSchema", column_order=("id", "missing"))
+        create_schema(
+            columns=schema_columns, version="1.0", name="TestSchema", column_order=("id", "missing")
+        )
 
     with pytest.raises(ValueError, match="duplicates"):
-        create_schema(columns=schema_columns, version="1.0", name="TestSchema", column_order=("id", "id"))
+        create_schema(
+            columns=schema_columns, version="1.0", name="TestSchema", column_order=("id", "id")
+        )
 
 
 def _build_simple_schema() -> DataFrameSchema:
@@ -138,12 +143,14 @@ def test_schema_registry_metadata_mismatch(monkeypatch: pytest.MonkeyPatch) -> N
 
 def test_schema_registry_dynamic_import(monkeypatch: pytest.MonkeyPatch) -> None:
     module = ModuleType("tests.schemas.dynamic_module")
-    schema = _build_simple_schema().set_metadata({"version": "1.2.3", "column_order": ("id", "value")})  # type: ignore[attr-defined]
-    setattr(module, "DynamicSchema", schema)
-    setattr(module, "SCHEMA_VERSION", "1.2.3")
-    setattr(module, "COLUMN_ORDER", ("id", "value"))
-    setattr(module, "BUSINESS_KEY_FIELDS", ("id",))
-    setattr(module, "REQUIRED_FIELDS", ("value",))
+    schema = _build_simple_schema().set_metadata(
+        {"version": "1.2.3", "column_order": ("id", "value")}
+    )  # type: ignore[attr-defined]
+    module.DynamicSchema = schema
+    module.SCHEMA_VERSION = "1.2.3"
+    module.COLUMN_ORDER = "id", "value"
+    module.BUSINESS_KEY_FIELDS = ("id",)
+    module.REQUIRED_FIELDS = ("value",)
     monkeypatch.setitem(sys.modules, module.__name__, module)
 
     registry = SchemaRegistry()
@@ -155,7 +162,9 @@ def test_schema_registry_dynamic_import(monkeypatch: pytest.MonkeyPatch) -> None
 
 
 def test_schema_descriptor_vocabulary_bindings() -> None:
-    column = Column(str, metadata={"vocabulary": {"id": "test_vocab", "allowed_statuses": ("active",)}})
+    column = Column(
+        str, metadata={"vocabulary": {"id": "test_vocab", "allowed_statuses": ("active",)}}
+    )
     schema = DataFrameSchema({"value": column})
     descriptor = SchemaDescriptor.from_components(
         identifier="pkg.vocab.Schema",
@@ -178,14 +187,16 @@ def test_split_identifier_errors() -> None:
         _split_identifier("pkg:")
 
 
-def test_required_vocab_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_required_vocab_ids(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     helper = importlib.import_module("bioetl.schemas.schema_vocabulary_helper")
     store = {"valid": {"ids": ["one", "two"], "status": ["active", "inactive"]}}
 
     def fake_load() -> dict[str, Any]:
         return store
 
-    monkeypatch.setenv(VOCAB_STORE_ENV_VAR, "/tmp/dictionaries")
+    monkeypatch.setenv(VOCAB_STORE_ENV_VAR, str(tmp_path / "dictionaries"))
     monkeypatch.setattr(helper, "load_vocab_store", lambda path: fake_load())
     refresh_vocab_store_cache()
     assert required_vocab_ids("valid") == {"one", "two"}
@@ -203,4 +214,3 @@ def test_required_vocab_ids(monkeypatch: pytest.MonkeyPatch) -> None:
     refresh_vocab_store_cache()
     with pytest.raises(RuntimeError, match="Unable to load vocabulary"):
         required_vocab_ids("valid")
-

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from types import MappingProxyType
-from typing import Any, Callable, Iterator, Mapping, Sequence
+from typing import Any
 
 __all__ = [
     "DedupStrategy",
@@ -173,20 +174,18 @@ class EntityConfig:
             _ensure_non_empty(self.log_prefix, field_name="log_prefix"),
         )
 
-        if isinstance(self.default_fields, tuple):
-            default_fields = self.default_fields
-        else:
-            default_fields = tuple(self.default_fields)
+        default_fields = (
+            self.default_fields
+            if isinstance(self.default_fields, tuple)
+            else tuple(self.default_fields)
+        )
         object.__setattr__(
             self,
             "default_fields",
             _normalize_field_names(default_fields),
         )
 
-        if isinstance(self.ordering, tuple):
-            ordering = self.ordering
-        else:
-            ordering = tuple(self.ordering)
+        ordering = self.ordering if isinstance(self.ordering, tuple) else tuple(self.ordering)
         object.__setattr__(
             self,
             "ordering",
@@ -201,13 +200,8 @@ class EntityConfig:
             raise ValueError(msg)
 
         if self.max_page_size is not None:
-            if not isinstance(self.max_page_size, int) or isinstance(
-                self.max_page_size, bool
-            ):
-                msg = (
-                    f"max_page_size должен быть целым числом, "
-                    f"получено {self.max_page_size!r}"
-                )
+            if not isinstance(self.max_page_size, int) or isinstance(self.max_page_size, bool):
+                msg = f"max_page_size должен быть целым числом, получено {self.max_page_size!r}"
                 raise TypeError(msg)
             if self.max_page_size <= 0:
                 msg = "max_page_size должен быть положительным, если задан"
@@ -227,8 +221,7 @@ class EntityConfig:
             Пары (ключ, значение) из словаря filters в отсортированном порядке.
         """
 
-        for item in self.filters.items():
-            yield item
+        yield from self.filters.items()
 
 
 class EntityConfigRegistry:
@@ -527,4 +520,3 @@ for name, config in _PREDEFINED_CONFIGS:
 
 # Алиас для testitem использует ту же конфигурацию, что и molecule.
 register_entity_config("testitem", get_entity_config("molecule"))
-

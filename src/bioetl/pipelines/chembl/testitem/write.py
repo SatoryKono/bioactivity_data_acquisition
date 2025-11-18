@@ -2,26 +2,15 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
-
-import pandas as pd
-
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.pipeline import RunResult
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 from .run import TestItemChemblPipeline
 
 __all__ = ["write"]
 
+PIPELINE, _STAGES = build_stage_functions(
+    TestItemChemblPipeline,
+    stages=("write",),
+)
 
-def write(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-    output_path: Path,
-    **kwargs: Any,
-) -> RunResult:
-    pipeline = TestItemChemblPipeline(config=config, run_id=run_id)
-    return pipeline.write(df, output_path, **kwargs)
-
+write = _STAGES["write"]

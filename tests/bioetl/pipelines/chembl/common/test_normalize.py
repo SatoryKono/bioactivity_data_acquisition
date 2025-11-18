@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import pandas as pd
 
-from bioetl.core.schema import IdentifierRule
 from bioetl.chembl.common.normalize import (
     RowMetadataChanges,
     add_row_metadata,
     normalize_identifiers,
 )
+from bioetl.core.schema import IdentifierRule
 
 
 def test_normalize_identifiers_applies_rules() -> None:

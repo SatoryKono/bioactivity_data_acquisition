@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Generic, Literal, TypeVar, cast
@@ -30,12 +31,115 @@ from bioetl.core import APIClientFactory
 from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
+from bioetl.core.pipeline.errors import PipelineError
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
-from bioetl.core.pipeline import PipelineBase
+PipelineT = TypeVar(
+    "PipelineT",
+    bound="ChemblPipelineBase",
+    contravariant=True,
+)  # noqa: UP037
+FetcherCallable = Callable[[Sequence[str], "BatchExtractionContext"], Any]  # noqa: UP037
+FetcherFactory = Callable[
+    ["ChemblExtractionContext", BoundLogger],
+    FetcherCallable,
+]  # noqa: UP037
+FinalizeCallable = Callable[
+    [pd.DataFrame, "BatchExtractionContext"],
+    pd.DataFrame,
+]  # noqa: UP037
+FinalizeFactory = Callable[
+    ["ChemblExtractionContext", BoundLogger],
+    FinalizeCallable,
+]  # noqa: UP037
+FinalizeContextCallable = Callable[["BatchExtractionContext"], None]  # noqa: UP037
+FinalizeContextFactory = Callable[
+    ["ChemblExtractionContext", BoundLogger],
+    FinalizeContextCallable,
+]  # noqa: UP037
+DryRunHandler = Callable[
+    ["ChemblPipelineBase", "ChemblExtractionContext", BoundLogger],
+    pd.DataFrame,
+]  # noqa: UP037
+SummaryFactory = Callable[
+    ["ChemblExtractionContext", "BatchExtractionStats"],
+    Mapping[str, Any],
+]  # noqa: UP037
 
-PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase", contravariant=True)
+
+@dataclass(slots=True)
+class ChemblContextSpec(Generic[PipelineT]):
+    """Declarative configuration for building :class:`ChemblExtractionContext`."""
+
+    entity_name: str
+    entity_client_type: type[Any] | None = None
+    release_resolver: (
+        Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None
+    ) = None
+    select_fields_resolver: Callable[[PipelineT, Any], Sequence[str] | None] | None = None
+    extra_filters_factory: Callable[[Any, PipelineT], dict[str, Any]] | None = None
+    client_registry_name: str | Callable[[PipelineT], str | None] | None = None
+    chembl_release_override: str | Callable[[PipelineT], str | None] | None = None
+    page_size_resolver: Callable[[Any], int | None] | None = None
+    pre_release_hook: Callable[[PipelineT, Any, Any], None] | None = None
+    after_build: (
+        Callable[[PipelineT, ChemblExtractionContext, Any, BoundLogger], ChemblExtractionContext]
+        | None
+    ) = None
+    builder: (
+        Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None
+    ) = None
+
+
+@dataclass(slots=True)
+class ChemblDescriptorSpec(Generic[PipelineT]):
+    """Declarative descriptor schema consumed by :class:`ChemblDescriptorBuilderMixin`."""
+
+    name: str
+    source_name: str
+    source_config_factory: Callable[[SourceConfig[Any]], Any]
+    context: ChemblContextSpec[PipelineT]
+    id_column: str
+    summary_event: str
+    must_have_fields: Sequence[str] = ()
+    default_select_fields: Sequence[str] | None = None
+    record_transform: (
+        Callable[
+            [PipelineT, Mapping[str, Any], ChemblExtractionContext],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
+    post_processors: Sequence[
+        Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
+    ] = ()
+    sort_by: Sequence[str] | str | None = None
+    empty_frame_factory: (
+        Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None
+    ) = None
+    dry_run_handler: (
+        Callable[
+            [PipelineT, ChemblExtractionContext, BoundLogger, float],
+            pd.DataFrame,
+        ]
+        | None
+    ) = None
+    summary_extra: (
+        Callable[
+            [PipelineT, pd.DataFrame, ChemblExtractionContext],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
+    hard_page_size_cap: int | None = 25
+
+
+SelfDescriptorT = TypeVar(
+    "SelfDescriptorT",
+    bound="ChemblDescriptorBuilderMixin[Any]",
+)  # noqa: UP037
 
 
 @dataclass(slots=True)
@@ -55,19 +159,20 @@ class ChemblExtractionContext:
 
 
 def build_standard_chembl_context(
-    pipeline: "ChemblPipelineBase",
+    pipeline: ChemblPipelineBase,
     entity_name: str,
     source_config: Any,
     log: BoundLogger,
     *,
     entity_client_type: type[Any] | None = None,
-    release_resolver: Callable[["ChemblPipelineBase", Any, BoundLogger, Any | None], str | None] | None = None,
-    select_fields_resolver: Callable[["ChemblPipelineBase", Any], Sequence[str] | None] | None = None,
-    extra_filters_factory: Callable[[Any, "ChemblPipelineBase"], dict[str, Any]] | None = None,
+    release_resolver: Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None]
+    | None = None,
+    select_fields_resolver: Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None = None,
+    extra_filters_factory: Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None = None,
     client_registry_name: str | None = None,
     chembl_release_override: str | None = None,
     page_size_resolver: Callable[[Any], int | None] | None = None,
-    pre_release_hook: Callable[["ChemblPipelineBase", Any, Any], None] | None = None,
+    pre_release_hook: Callable[[ChemblPipelineBase, Any, Any], None] | None = None,
 ) -> ChemblExtractionContext:
     """Унифицированная фабрика для создания ChemblExtractionContext.
 
@@ -177,7 +282,9 @@ def build_standard_chembl_context(
         extra_filters = {}
 
     # Определяем значение для chembl_release в контексте
-    context_release = chembl_release_override if chembl_release_override is not None else release_value
+    context_release = (
+        chembl_release_override if chembl_release_override is not None else release_value
+    )
 
     # Создаем контекст
     return ChemblExtractionContext(
@@ -203,24 +310,214 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
     summary_event: str
     must_have_fields: Sequence[str] = ()
     default_select_fields: Sequence[str] | None = None
-    record_transform: Callable[
-        [PipelineT, Mapping[str, Any], ChemblExtractionContext],
-        Mapping[str, Any],
-    ] | None = None
+    record_transform: (
+        Callable[
+            [PipelineT, Mapping[str, Any], ChemblExtractionContext],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
     post_processors: Sequence[
         Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
     ] = ()
     sort_by: Sequence[str] | str | None = None
     empty_frame_factory: Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None = None
-    dry_run_handler: Callable[
-        [PipelineT, ChemblExtractionContext, BoundLogger, float],
-        pd.DataFrame,
-    ] | None = None
+    dry_run_handler: (
+        Callable[
+            [PipelineT, ChemblExtractionContext, BoundLogger, float],
+            pd.DataFrame,
+        ]
+        | None
+    ) = None
     hard_page_size_cap: int | None = 25
-    summary_extra: Callable[
-        [PipelineT, pd.DataFrame, ChemblExtractionContext],
-        Mapping[str, Any],
-    ] | None = None
+    summary_extra: (
+        Callable[
+            [PipelineT, pd.DataFrame, ChemblExtractionContext],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
+
+
+class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
+    """Mixin providing declarative descriptor construction for Chembl pipelines."""
+
+    def descriptor_spec(self: SelfDescriptorT) -> ChemblDescriptorSpec[SelfDescriptorT]:
+        """Return the specification consumed by :meth:`build_descriptor`."""
+
+        msg = f"{type(self).__name__} must implement descriptor_spec()"
+        raise NotImplementedError(msg)
+
+    def build_descriptor(self: SelfDescriptorT) -> ChemblExtractionDescriptor[SelfDescriptorT]:
+        """Construct a descriptor instance based on :meth:`descriptor_spec`."""
+
+        spec = self.descriptor_spec()
+        build_context = self._build_context_callable(spec)
+        empty_frame_factory = spec.empty_frame_factory or self._default_empty_frame_factory(
+            spec.id_column
+        )
+
+        return ChemblExtractionDescriptor[SelfDescriptorT](
+            name=spec.name,
+            source_name=spec.source_name,
+            source_config_factory=spec.source_config_factory,
+            build_context=build_context,
+            id_column=spec.id_column,
+            summary_event=spec.summary_event,
+            must_have_fields=tuple(spec.must_have_fields),
+            default_select_fields=spec.default_select_fields,
+            record_transform=spec.record_transform,
+            post_processors=tuple(spec.post_processors),
+            sort_by=spec.sort_by,
+            empty_frame_factory=empty_frame_factory,
+            dry_run_handler=spec.dry_run_handler,
+            summary_extra=spec.summary_extra,
+            hard_page_size_cap=spec.hard_page_size_cap,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _build_context_callable(
+        self: SelfDescriptorT,
+        spec: ChemblDescriptorSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]:
+        context_spec = spec.context
+
+        def build_context(
+            pipeline: ChemblPipelineBase,
+            source_config: Any,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+
+            if context_spec.builder is not None:
+                context = context_spec.builder(typed_pipeline, source_config, log)
+            else:
+                release_resolver = self._wrap_release_resolver(context_spec)
+                select_fields_resolver = self._wrap_select_fields_resolver(context_spec)
+                extra_filters_factory = self._wrap_extra_filters_factory(context_spec)
+                pre_release_hook = self._wrap_pre_release_hook(context_spec)
+                client_registry_name = self._resolve_context_value(
+                    context_spec.client_registry_name,
+                    typed_pipeline,
+                )
+                chembl_release_override = self._resolve_context_value(
+                    context_spec.chembl_release_override,
+                    typed_pipeline,
+                )
+
+                context = build_standard_chembl_context(
+                    typed_pipeline,
+                    context_spec.entity_name,
+                    source_config,
+                    log,
+                    entity_client_type=context_spec.entity_client_type,
+                    release_resolver=release_resolver,
+                    select_fields_resolver=select_fields_resolver,
+                    extra_filters_factory=extra_filters_factory,
+                    client_registry_name=client_registry_name,
+                    chembl_release_override=chembl_release_override,
+                    page_size_resolver=context_spec.page_size_resolver,
+                    pre_release_hook=pre_release_hook,
+                )
+
+            if context_spec.after_build is not None:
+                context = context_spec.after_build(
+                    typed_pipeline,
+                    context,
+                    source_config,
+                    log,
+                )
+
+            return context
+
+        return build_context
+
+    def _wrap_release_resolver(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None:
+        resolver = context_spec.release_resolver
+        if resolver is None:
+            return None
+
+        def wrapper(
+            pipeline: ChemblPipelineBase,
+            client: Any,
+            log: BoundLogger,
+            entity_client: Any | None,
+        ) -> str | None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return resolver(typed_pipeline, client, log, entity_client)
+
+        return wrapper
+
+    def _wrap_select_fields_resolver(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None:
+        resolver = context_spec.select_fields_resolver
+        if resolver is None:
+            return None
+
+        def wrapper(pipeline: ChemblPipelineBase, source_config: Any) -> Sequence[str] | None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return resolver(typed_pipeline, source_config)
+
+        return wrapper
+
+    def _wrap_extra_filters_factory(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None:
+        factory = context_spec.extra_filters_factory
+        if factory is None:
+            return None
+
+        def wrapper(source_config: Any, pipeline: ChemblPipelineBase) -> dict[str, Any]:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return factory(source_config, typed_pipeline)
+
+        return wrapper
+
+    def _wrap_pre_release_hook(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, Any], None] | None:
+        hook = context_spec.pre_release_hook
+        if hook is None:
+            return None
+
+        def wrapper(pipeline: ChemblPipelineBase, source_config: Any, entity_client: Any) -> None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            hook(typed_pipeline, source_config, entity_client)
+
+        return wrapper
+
+    @staticmethod
+    def _resolve_context_value(
+        candidate: str | Callable[[SelfDescriptorT], str | None] | None,
+        pipeline: SelfDescriptorT,
+    ) -> str | None:
+        if candidate is None:
+            return None
+        if callable(candidate):
+            return candidate(pipeline)
+        return candidate
+
+    @staticmethod
+    def _default_empty_frame_factory(
+        id_column: str,
+    ) -> Callable[[ChemblPipelineBase, ChemblExtractionContext], pd.DataFrame]:
+        def empty_frame(
+            _: ChemblPipelineBase,
+            __: ChemblExtractionContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({id_column: pd.Series(dtype="string")})
+
+        return empty_frame
 
 
 @dataclass(slots=True)
@@ -303,8 +600,12 @@ class BatchExtractionContext:
         if kwargs:
             self.stats.extra.update(kwargs)
 
+
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
+
+
+from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
 
 
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
@@ -357,6 +658,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema: DataFrameSchema | None = None
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
+        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None
 
     def configure_output_schema(
         self,
@@ -371,6 +673,13 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_column_order = tuple(schema_entry.column_order)
         self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
 
+    def get_descriptor_strategy_factory(self) -> DescriptorStrategyFactory:
+        """Return (and lazily construct) the batching strategy factory."""
+
+        if self._descriptor_strategy_factory is None:
+            self._descriptor_strategy_factory = DescriptorStrategyFactory()
+        return self._descriptor_strategy_factory
+
     def resolve_output_schema_entry(self) -> SchemaRegistryEntry:
         """Return the schema registry entry associated with this pipeline.
 
@@ -384,10 +693,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         candidates: list[str] = []
 
         actor = getattr(self, "actor", None)
-        if isinstance(actor, str) and actor.strip():
-            actor_code = actor.strip()
-        else:
-            actor_code = None
+        actor_code = stripped if isinstance(actor, str) and (stripped := actor.strip()) else None
 
         pipeline_code = self.pipeline_code.strip()
 
@@ -513,33 +819,66 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     @property
     def api_version(self) -> str | None:
         """Return the cached API version captured during extraction."""
-        return self._get_optional_string_value(
-            "_api_version", field_name="api_version"
-        )
+        return self._get_optional_string_value("_api_version", field_name="api_version")
 
     def _set_api_version(self, value: str | None) -> None:
         """Update the cached API version used by the pipeline."""
-        self._set_optional_string_value(
-            "_api_version", value, field_name="api_version"
-        )
+        self._set_optional_string_value("_api_version", value, field_name="api_version")
 
-    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+        **legacy_kwargs: object,
+    ) -> pd.DataFrame:
         """Dispatch between batch and full extraction modes."""
 
-        log = UnifiedLogger.get(__name__).bind(
-            component=self._component_for_stage("extract")
-        )
-
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
         event_name = self.extract_event_name or f"{self.pipeline_code}.extract_mode"
         id_column_name = self.id_column or self._get_id_column_name()
+        normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
+
+        if mode is PipelineExtractionMode.BATCH:
+            if not normalized_ids:
+                msg = "batch extraction requires non-empty ids"
+                raise PipelineError(msg)
+            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            log.info(
+                event_name,
+                mode="batch",
+                source=source,
+                ids_count=len(normalized_ids),
+            )
+            return self.extract_by_ids(normalized_ids)
+
+        if mode is PipelineExtractionMode.FULL:
+            log.info(event_name, mode="full")
+            return self.extract_all()
+
+        if normalized_ids:
+            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            log.info(
+                event_name,
+                mode="batch",
+                source=source,
+                ids_count=len(normalized_ids),
+            )
+            return self.extract_by_ids(normalized_ids)
 
         legacy_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None
+        if legacy_kwargs and not self.has_legacy_extract_support():
+            unexpected = ", ".join(sorted(legacy_kwargs))
+            msg = (
+                f"extract() received unsupported keyword arguments: {unexpected}. "
+                "Provide identifiers via --input-file."
+            )
+            raise TypeError(msg)
+
         if self.has_legacy_extract_support():
 
             def _legacy(bound_log: BoundLogger) -> Sequence[str] | None:
-                return self.resolve_legacy_extract_ids(
-                    bound_log, *args, **kwargs
-                )
+                return self.resolve_legacy_extract_ids(bound_log, **legacy_kwargs)
 
             legacy_resolver = _legacy
 
@@ -936,7 +1275,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             dataframe = pd.DataFrame({descriptor.id_column: pd.Series(dtype="object")})
 
         if descriptor.sort_by and not dataframe.empty:
-            if isinstance(descriptor.sort_by, Sequence) and not isinstance(descriptor.sort_by, (str, bytes)):
+            if isinstance(descriptor.sort_by, Sequence) and not isinstance(
+                descriptor.sort_by, (str, bytes)
+            ):
                 sort_columns = list(descriptor.sort_by)
             else:
                 sort_columns = [str(descriptor.sort_by)]
@@ -960,6 +1301,242 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         log.info(descriptor.summary_event, **summary_payload)
         return dataframe
+
+    def run_descriptor_extraction(
+        self: PipelineT,
+        descriptor: ChemblExtractionDescriptor[PipelineT],
+        ids: Sequence[str] | None,
+        *,
+        summary_event: str,
+        source_config: Any | None = None,
+        dry_run_event: str | None = None,
+        dry_run_handler: DryRunHandler | None = None,
+        fetcher: FetcherCallable | None = None,
+        fetcher_factory: FetcherFactory | None = None,
+        finalize: FinalizeCallable | None = None,
+        finalize_factory: FinalizeFactory | None = None,
+        finalize_context: FinalizeContextCallable | None = None,
+        finalize_context_factory: FinalizeContextFactory | None = None,
+        summary_extra: Mapping[str, Any] | None = None,
+        summary_extra_factory: SummaryFactory | None = None,
+        metadata_filters: Mapping[str, Any] | None = None,
+        chembl_release_override: str | None = None,
+        fetch_mode: Literal["default", "delegated"] = "default",
+        stats_attribute: str | None = None,
+        id_normalizer: Callable[[Any], tuple[str | None, Any]] | None = None,
+        empty_frame_factory: Callable[[], pd.DataFrame] | None = None,
+        **batch_kwargs: Any,
+    ) -> tuple[pd.DataFrame, BatchExtractionStats]:
+        """Execute descriptor-driven ID extraction with shared orchestration.
+
+        Parameters
+        ----------
+        descriptor
+            Экземпляр :class:`ChemblExtractionDescriptor`, описывающий сущность,
+            фабрики контекста и вспомогательные функции финализации.
+        ids
+            Набор идентификаторов для выборки. При ``None`` поведение определяется
+            дескриптором (например, полная выгрузка).
+        summary_event
+            Имя события структурированного логирования для финального summary.
+        source_config
+            Предварительно типизированный конфиг источника; если не указан, он
+            будет построен из ``descriptor.source_name``.
+        dry_run_event
+            Имя события, публикуемого при dry-run.
+        dry_run_handler
+            Пользовательский обработчик dry-run (например, генерация фиктивных
+            данных). Если не задан, используется фабрика пустого DataFrame.
+        fetcher / fetcher_factory
+            Итератор по данным или фабрика, получающая контекст дескриптора.
+        finalize / finalize_factory / finalize_context(...)
+            Хуки для постобработки батчей и формирования агрегированной
+            статистики.
+        summary_extra / summary_extra_factory
+            Дополнительные поля, включаемые в payload события summary.
+        metadata_filters
+            Фильтры, передаваемые в фабрику контекста/клиент. Используются для
+            ограничения полей ответа.
+        chembl_release_override
+            Позволяет переопределить релиз из конфигурации/handshake.
+        fetch_mode
+            Управляет режимом перебора (``"default"`` или ``"delegated"``).
+        stats_attribute
+            Имя атрибута, куда будет записан :class:`BatchExtractionStats`.
+        id_normalizer
+            Колбек для приведения идентификаторов перед вызовом fetcher.
+        empty_frame_factory
+            Колбек, который возвращает предзаполненный пустой DataFrame для
+            dry-run и случаев отсутствия данных.
+        batch_kwargs
+            Остальные параметры пробрасываются в :meth:`run_batched_extraction`.
+
+        Returns
+        -------
+        tuple[pd.DataFrame, BatchExtractionStats]
+            Кортеж из результирующего DataFrame и агрегированной статистики,
+            включающей количество батчей, вызовов API и т.д.
+        """
+        """Execute descriptor-driven ID extraction with shared orchestration."""
+
+        if not summary_event:
+            msg = "summary_event must be provided"
+            raise ValueError(msg)
+
+        canonical_ids = tuple(ids or ())
+        stage_start = time.perf_counter()
+        rows_hint = len(canonical_ids)
+        stage_logger = getattr(self, "stage_logger", None)
+        if callable(stage_logger):
+            logger_cm = stage_logger("extract", rows=rows_hint)
+        else:
+            fallback_log = UnifiedLogger.get(__name__).bind(
+                component=f"{self.pipeline_code}.extract"
+            )
+            logger_cm = nullcontext(fallback_log)
+
+        with logger_cm as log:
+            if source_config is None:
+                source_raw = self._resolve_source_config(descriptor.source_name)
+                typed_source_config = descriptor.source_config_factory(source_raw)
+            else:
+                typed_source_config = source_config
+
+            context = descriptor.build_context(self, typed_source_config, log)
+            context.source_config = typed_source_config
+
+            descriptor_empty_factory = descriptor.empty_frame_factory
+            effective_empty_factory = empty_frame_factory
+            if effective_empty_factory is None and descriptor_empty_factory is not None:
+                def _descriptor_empty_factory() -> pd.DataFrame:
+                    return descriptor_empty_factory(self, context)
+
+                effective_empty_factory = _descriptor_empty_factory
+
+            effective_fetcher = fetcher
+            if effective_fetcher is None and fetcher_factory is not None:
+                effective_fetcher = fetcher_factory(context, log)
+            if effective_fetcher is None:
+                entity_client = context.iterator
+                iterate_candidate = getattr(entity_client, "iterate_by_ids", None)
+                if not callable(iterate_candidate):
+                    msg = "Descriptor context does not expose iterate_by_ids()"
+                    raise RuntimeError(msg)
+
+                def _default_fetcher(
+                    batch_ids: Sequence[str],
+                    batch_context: BatchExtractionContext,
+                ) -> Iterable[Mapping[str, Any]]:
+                    iterator = iterate_candidate(
+                        batch_ids,
+                        select_fields=batch_context.select_fields or None,
+                    )
+                    for item in iterator:
+                        yield dict(item)
+
+                effective_fetcher = _default_fetcher
+
+            effective_finalize = finalize
+            if effective_finalize is None and finalize_factory is not None:
+                effective_finalize = finalize_factory(context, log)
+
+            effective_finalize_context = finalize_context
+            if effective_finalize_context is None and finalize_context_factory is not None:
+                effective_finalize_context = finalize_context_factory(context, log)
+
+            resolved_release = context.chembl_release or self.chembl_release
+            release_metadata: dict[str, Any] = {}
+            chembl_client = context.chembl_client
+            if chembl_client is not None:
+                release_candidate, metadata = self.resolve_chembl_release(
+                    chembl_client,
+                    log,
+                    context.iterator,
+                )
+                if release_candidate is not None:
+                    resolved_release = release_candidate
+                if metadata:
+                    release_metadata.update(metadata)
+
+            if chembl_release_override is not None:
+                resolved_release = chembl_release_override
+
+            if resolved_release is not None:
+                self._set_chembl_release(resolved_release)
+
+            if self.config.cli.dry_run:
+                stats = BatchExtractionStats(requested=len(canonical_ids))
+                if dry_run_handler is not None:
+                    dataframe = dry_run_handler(self, context, log)
+                elif effective_empty_factory is not None:
+                    dataframe = effective_empty_factory()
+                else:
+                    dataframe = pd.DataFrame()
+                dry_run_payload: dict[str, Any] = {
+                    "dry_run": True,
+                    "requested": len(canonical_ids),
+                    "rows": int(dataframe.shape[0]),
+                }
+                if resolved_release is not None:
+                    dry_run_payload["chembl_release"] = resolved_release
+                if release_metadata:
+                    dry_run_payload.update(release_metadata)
+                if summary_extra:
+                    dry_run_payload.update(summary_extra)
+                if dry_run_event:
+                    log.info(dry_run_event, **dry_run_payload)
+                return dataframe, stats
+
+            batch_args = dict(batch_kwargs)
+            if "id_column" not in batch_args or batch_args["id_column"] is None:
+                batch_args["id_column"] = descriptor.id_column
+            if batch_args.get("select_fields") is None and context.select_fields is not None:
+                batch_args["select_fields"] = context.select_fields
+            if metadata_filters is not None:
+                batch_args["metadata_filters"] = metadata_filters
+            if effective_empty_factory is not None:
+                batch_args["empty_frame_factory"] = effective_empty_factory
+            if effective_finalize is not None:
+                batch_args["finalize"] = effective_finalize
+            if effective_finalize_context is not None:
+                batch_args["finalize_context"] = effective_finalize_context
+            if stats_attribute is not None:
+                batch_args["stats_attribute"] = stats_attribute
+            if id_normalizer is not None:
+                batch_args["id_normalizer"] = id_normalizer
+            if resolved_release is not None:
+                batch_args["chembl_release"] = resolved_release
+            batch_args["fetcher"] = effective_fetcher
+
+            dataframe, stats = self.run_batched_extraction(
+                canonical_ids,
+                fetch_mode=fetch_mode,
+                **batch_args,
+            )
+
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            summary_payload: dict[str, Any] = {
+                "rows": int(dataframe.shape[0]),
+                "requested": len(canonical_ids),
+                "duration_ms": duration_ms,
+            }
+            if resolved_release is not None:
+                summary_payload["chembl_release"] = resolved_release
+            if stats.batches is not None:
+                summary_payload["batches"] = stats.batches
+            if stats.api_calls is not None:
+                summary_payload["api_calls"] = stats.api_calls
+            if stats.cache_hits is not None:
+                summary_payload["cache_hits"] = stats.cache_hits
+            if release_metadata:
+                summary_payload.update(release_metadata)
+            if summary_extra:
+                summary_payload.update(summary_extra)
+            if summary_extra_factory is not None:
+                summary_payload.update(summary_extra_factory(context, stats))
+
+            log.info(summary_event, **summary_payload)
+            return dataframe, stats
 
     # ------------------------------------------------------------------
     # API client management
@@ -1073,7 +1650,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 status = handshake()
                 if isinstance(status, Mapping):
                     status_mapping = cast(Mapping[str, Any], status)
-                    candidate = status_mapping.get("chembl_db_version") or status_mapping.get("chembl_release")
+                    candidate = status_mapping.get("chembl_db_version") or status_mapping.get(
+                        "chembl_release"
+                    )
                     if isinstance(candidate, str):
                         release_value = candidate
                         log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
@@ -1109,6 +1688,30 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             return release_value
         self.record_extract_metadata(requested_at_utc=datetime.now(timezone.utc))
         return None
+
+    def resolve_chembl_release(
+        self,
+        chembl_client: UnifiedAPIClient | Any,  # pyright: ignore[reportAny]
+        log: BoundLogger,
+        entity_client: Any | None = None,  # noqa: ARG002
+    ) -> tuple[str | None, dict[str, Any]]:
+        """Resolve Chembl release number and metadata for the current run.
+
+        Subclasses may override this hook to provide additional metadata derived
+        from entity clients (например, `api_version` у test item пайплайна).
+
+        Returns
+        -------
+        tuple[str | None, dict[str, Any]]
+            Кортеж из версии релиза (если найдена) и дополнительных полей,
+            которые попадут в финальные логи/manifest.
+        """
+        """Resolve Chembl release and optional metadata for ID extractions."""
+
+        if self.chembl_release:
+            return self.chembl_release, {}
+        release_value = self.fetch_chembl_release(chembl_client, log)
+        return release_value, {}
 
     def _fetch_chembl_release(
         self,
@@ -1303,78 +1906,42 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
 
-        normalizer: Callable[[Any], tuple[str | None, Any]]
-
-        if id_normalizer is not None:
-            normalizer = id_normalizer
-        else:
-
-            def _default_normalizer(raw: Any) -> tuple[str | None, Any]:
-                if raw is None:
-                    return None, None
-                candidate = str(raw).strip()
-                if not candidate:
-                    return None, None
-                return candidate, None
-
-            normalizer = _default_normalizer
-
-        canonical_pairs: list[tuple[str, Any]] = []
-        seen: set[str] = set()
-        for raw in ids:
-            canonical, metadata = normalizer(raw)
-            if canonical is None:
-                continue
-            if canonical in seen:
-                continue
-            seen.add(canonical)
-            canonical_pairs.append((canonical, metadata))
-
-        if sort_key:
-            canonical_pairs.sort(key=sort_key)
-        else:
-            canonical_pairs.sort(key=lambda pair: pair[0])
-
-        if limit is not None:
-            effective_limit = max(int(limit), 0)
-            canonical_pairs = canonical_pairs[:effective_limit]
-
-        unique_ids = [identifier for identifier, _ in canonical_pairs]
-        id_metadata_map = dict(canonical_pairs)
-
-        stats = BatchExtractionStats(requested=len(unique_ids))
-
-        if batch_size is None:
-            try:
-                source_config = self._resolve_source_config("chembl")
-                batch_size = self._resolve_batch_size(source_config)
-            except Exception:
-                batch_size = 25
-
-        effective_batch_size = max(int(batch_size or 1), 1)
-        if max_batch_size is not None:
-            effective_batch_size = min(effective_batch_size, int(max_batch_size))
-
-        if chunk_size is None:
-            effective_chunk_size = effective_batch_size
-        else:
-            effective_chunk_size = max(int(chunk_size), 1)
-            if max_batch_size is not None:
-                effective_chunk_size = min(effective_chunk_size, int(max_batch_size))
-
         merged_select_fields = self._merge_select_fields(select_fields, required_fields)
         select_fields_tuple: tuple[str, ...] = tuple(merged_select_fields or ())
 
+        strategy_factory = self.get_descriptor_strategy_factory()
+        plan = strategy_factory.build_plan(
+            pipeline=self,
+            ids=ids,
+            id_column=id_column,
+            select_fields=select_fields_tuple,
+            fetcher=fetcher,
+            fetch_mode=fetch_mode,
+            limit=limit,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            max_batch_size=max_batch_size,
+            id_normalizer=id_normalizer,
+            sort_key=sort_key,
+            transform_item=transform_item,
+            finalize=finalize,
+            finalize_context=finalize_context,
+            empty_frame_factory=empty_frame_factory,
+            stats_attribute=stats_attribute,
+            log=log,
+            started_at=method_start,
+        )
+
         extra_filter_payload: dict[str, Any] = {
-            "requested_ids": unique_ids,
-            "batch_size": effective_batch_size,
+            "requested_ids": list(plan.context.ids),
+            "batch_size": plan.context.batch_size,
         }
         if metadata_filters:
             extra_filter_payload.update(dict(metadata_filters))
-        filters_payload, compact_filters = build_filters_payload(
+        _filters_payload, compact_filters = build_filters_payload(
             mode="ids",
-            limit=limit,
-            page_size=effective_batch_size,
+            limit=plan.context.limit,
+            page_size=plan.context.batch_size,
             select_fields=merged_select_fields,
             extra_filters=extra_filter_payload,
         )
@@ -1385,133 +1952,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        context = BatchExtractionContext(
-            ids=tuple(unique_ids),
-            id_column=id_column,
-            select_fields=select_fields_tuple,
-            limit=int(limit) if limit is not None else None,
-            batch_size=effective_batch_size,
-            chunk_size=effective_chunk_size,
-            stats=stats,
-            log=log,
-            metadata={identifier: id_metadata_map.get(identifier) for identifier in unique_ids},
-        )
-        context.extra.setdefault("id_metadata", context.metadata)
-
-        records: list[dict[str, Any]] = []
-        delegated_summary: Mapping[str, Any] | None = None
-
-        try:
-            if not unique_ids:
-                dataframe = (
-                    empty_frame_factory()
-                    if empty_frame_factory is not None
-                    else pd.DataFrame({id_column: pd.Series(dtype="string")})
-                )
-                stats.rows = int(dataframe.shape[0])
-                stats.duration_ms = (time.perf_counter() - method_start) * 1000.0
-                return dataframe, stats
-
-            if fetch_mode == "delegated":
-                fetch_result = fetcher(tuple(unique_ids), context)
-                delegated_payload: Any | None = None
-                items_iter: Iterable[Mapping[str, Any]]
-                if isinstance(fetch_result, tuple) and fetch_result:
-                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result[0])
-                    if len(fetch_result) > 1:
-                        delegated_payload = fetch_result[1]
-                else:
-                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result)
-
-                for item in items_iter:
-                    record = dict(item)
-                    if transform_item is not None:
-                        record = dict(transform_item(record, context))
-                    records.append(record)
-
-                if isinstance(delegated_payload, BatchExtractionStats):
-                    stats.batches = delegated_payload.batches
-                    stats.api_calls = delegated_payload.api_calls
-                    stats.cache_hits = delegated_payload.cache_hits
-                    stats.set_extra(**delegated_payload.extra)
-                elif isinstance(delegated_payload, Mapping):
-                    delegated_summary = cast(Mapping[str, Any], delegated_payload)
-            else:
-                for start_idx in range(0, len(unique_ids), effective_chunk_size):
-                    batch_ids = tuple(unique_ids[start_idx : start_idx + effective_chunk_size])
-                    context.increment_batches()
-                    fetch_output = fetcher(batch_ids, context)
-                    batch_items_iter: Iterable[Mapping[str, Any]]
-                    if isinstance(fetch_output, tuple) and fetch_output:
-                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output[0])
-                        if len(fetch_output) > 1 and isinstance(fetch_output[1], Mapping):
-                            delegated_summary = cast(Mapping[str, Any], fetch_output[1])
-                    else:
-                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output)
-
-                    for item in batch_items_iter:
-                        record = dict(item)
-                        if transform_item is not None:
-                            record = dict(transform_item(record, context))
-                        records.append(record)
-                        if limit is not None and len(records) >= int(limit):
-                            break
-                    if limit is not None and len(records) >= int(limit):
-                        break
-
-            if limit is not None and len(records) > int(limit):
-                records = records[: int(limit)]
-
-            dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-            if dataframe.empty:
-                dataframe = (
-                    empty_frame_factory()
-                    if empty_frame_factory is not None
-                    else pd.DataFrame({id_column: pd.Series(dtype="string")})
-                )
-            elif id_column in dataframe.columns:
-                dataframe = dataframe.sort_values(id_column).reset_index(drop=True)
-
-            if finalize is not None:
-                dataframe = finalize(dataframe, context)
-
-            duration_ms = (time.perf_counter() - method_start) * 1000.0
-            stats.rows = int(dataframe.shape[0])
-            stats.duration_ms = duration_ms
-
-            if delegated_summary is not None:
-                context.extra.setdefault("delegated_summary", dict(delegated_summary))
-                if "batches" in delegated_summary and isinstance(
-                    delegated_summary.get("batches"), int
-                ):
-                    stats.batches = int(delegated_summary["batches"])
-                if "api_calls" in delegated_summary and isinstance(
-                    delegated_summary.get("api_calls"), int
-                ):
-                    stats.api_calls = int(delegated_summary["api_calls"])
-                if "cache_hits" in delegated_summary and isinstance(
-                    delegated_summary.get("cache_hits"), int
-                ):
-                    stats.cache_hits = int(delegated_summary["cache_hits"])
-                extra_payload = {
-                    key: value
-                    for key, value in delegated_summary.items()
-                    if key not in {"batches", "api_calls", "cache_hits"}
-                }
-                if extra_payload:
-                    stats.set_extra(**extra_payload)
-
-            return dataframe, stats
-        finally:
-            if finalize_context is not None:
-                finalize_context(context)
-
-            if stats_attribute and hasattr(self, stats_attribute):
-                override = context.extra.get("stats_attribute_override")
-                if override is not None:
-                    setattr(self, stats_attribute, override)
-                else:
-                    setattr(self, stats_attribute, stats.as_dict())
+        return plan.execute()
 
     def extract_ids_paginated(
         self,
@@ -1598,10 +2039,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                 page_items = self._extract_page_items(payload, items_keys=items_keys)
 
                 for item in page_items:
-                    if process_item:
-                        processed_item = process_item(dict(item))
-                    else:
-                        processed_item = dict(item)
+                    item_dict = dict(item)
+                    processed_item = process_item(item_dict) if process_item else item_dict
                     all_records.append(processed_item)
 
                 if limit is not None and len(all_records) >= limit:
@@ -1609,7 +2048,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     break
 
             except Exception as exc:
-                log.warning(LogEvents.EXTRACT_IDS_PAGINATED_BATCH_ERROR,
+                log.warning(
+                    LogEvents.EXTRACT_IDS_PAGINATED_BATCH_ERROR,
                     batch_ids=batch_ids,
                     error=str(exc),
                     exc_info=True,
@@ -1622,7 +2062,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             dataframe = dataframe.sort_values(id_column).reset_index(drop=True)
 
         duration_ms = (time.perf_counter() - method_start) * 1000.0
-        log.info(LogEvents.EXTRACT_IDS_PAGINATED_SUMMARY,
+        log.info(
+            LogEvents.EXTRACT_IDS_PAGINATED_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(unique_ids),
             batches=batches,

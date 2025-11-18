@@ -4,19 +4,19 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Type
+from typing import Any
 
 import pandas as pd
 import pytest
 from pytest import MonkeyPatch
 from structlog.testing import capture_logs
 
+from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import LogEvents, UnifiedLogger
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.pipelines.chembl.document import run as document_run
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
@@ -61,9 +61,7 @@ class _NormalizationProbePipeline(ChemblPipelineBase):
 
         normalized = df.copy()
         if "identifier" in normalized.columns:
-            normalized["identifier"] = (
-                normalized["identifier"].astype(str).str.strip().str.upper()
-            )
+            normalized["identifier"] = normalized["identifier"].astype(str).str.strip().str.upper()
         return normalized
 
     def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:  # noqa: PLR6301
@@ -323,7 +321,7 @@ def test_normalize_and_enforce_schema_applies_shared_rules(
     ],
 )
 def test_pipeline_code_configures_output_schema(
-    pipeline_cls: Type[ChemblPipelineBase],
+    pipeline_cls: type[ChemblPipelineBase],
     expected_code: str,
     schema_suffix: str,
     pipeline_config_fixture: PipelineConfig,
@@ -344,4 +342,3 @@ def test_pipeline_code_configures_output_schema(
     assert pipeline._output_schema_entry.identifier == descriptor.identifier
     assert pipeline._output_schema is descriptor.schema
     assert pipeline._output_column_order == descriptor.column_order
-

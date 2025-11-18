@@ -45,7 +45,9 @@ def test_activity_pipeline_golden_snapshot(
 ) -> None:
     """ChemblActivityPipeline output must match committed golden artefacts."""
 
-    pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+    pipeline_config_fixture.validation.schema_out = (
+        "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+    )
     pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
@@ -55,7 +57,7 @@ def test_activity_pipeline_golden_snapshot(
     frame = load_sample_activity_dataframe()
     transformed = pipeline.transform(frame)
     validated = pipeline.validate(transformed)
-    result = pipeline.write(validated, pipeline.pipeline_directory, extended=True)
+    result = pipeline.save_results(validated, pipeline.pipeline_directory, extended=True)
 
     produced_paths: dict[str, Path | None] = {
         "dataset": result.write_result.dataset,
@@ -86,9 +88,9 @@ def test_activity_pipeline_golden_snapshot(
     golden_manifest = normalize_manifest_payload(load_json_dict(golden_paths["manifest"]))
     produced_manifest = _filter_manifest_artifacts(produced_manifest, ignore=("meta",))
     golden_manifest = _filter_manifest_artifacts(golden_manifest, ignore=("meta",))
-    assert (
-        canonical_json(produced_manifest) == canonical_json(golden_manifest)
-    ), "run manifest mismatch"
+    assert canonical_json(produced_manifest) == canonical_json(golden_manifest), (
+        "run manifest mismatch"
+    )
 
 
 def _require_path(path: Path | None, label: str) -> Path:
@@ -104,10 +106,9 @@ def _filter_manifest_artifacts(
     """Return manifest payload without the specified artifact names."""
 
     filtered = dict(payload)
-    artifacts = [
-        item for item in filtered.get("artifacts", []) if item.get("name") not in ignore
-    ]
-    filtered["artifacts"] = sorted(artifacts, key=lambda item: (item.get("name", ""), item.get("path", "")))
+    artifacts = [item for item in filtered.get("artifacts", []) if item.get("name") not in ignore]
+    filtered["artifacts"] = sorted(
+        artifacts, key=lambda item: (item.get("name", ""), item.get("path", ""))
+    )
     filtered["total_artifacts"] = len(filtered["artifacts"])
     return filtered
-

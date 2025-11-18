@@ -167,5 +167,3 @@ def validate_relation_series(
 
     domain = allowed if allowed is not None else RELATIONS
     return validate_membership_series(series, allowed=domain)
-
-

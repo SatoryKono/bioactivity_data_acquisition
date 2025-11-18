@@ -51,7 +51,10 @@ class SchemaColumnFactory:
             if not normalized_vocab:
                 message = "vocabulary identifier must be a non-empty string."
                 raise ValueError(message)
-            metadata_payload: dict[str, object] = {"id": normalized_vocab, "required": bool(vocabulary_required)}
+            metadata_payload: dict[str, object] = {
+                "id": normalized_vocab,
+                "required": bool(vocabulary_required),
+            }
             if vocabulary_allowed_statuses:
                 metadata_payload["allowed_statuses"] = tuple(
                     str(status) for status in vocabulary_allowed_statuses
@@ -197,4 +200,3 @@ class SchemaColumnFactory:
         """Build a UUID column in canonical format."""
 
         return cls.identifier("uuid", nullable=nullable, unique=unique)
-

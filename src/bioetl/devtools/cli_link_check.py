@@ -70,7 +70,8 @@ def run_link_check(timeout_seconds: int = 300) -> int:
             text=True,
             timeout=timeout_seconds,
         )
-        log.info(LogEvents.LYCHEE_FINISHED,
+        log.info(
+            LogEvents.LYCHEE_FINISHED,
             returncode=result.returncode,
             stdout=result.stdout[:2000],
             stderr=result.stderr[:2000],

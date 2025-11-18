@@ -12,43 +12,20 @@ from __future__ import annotations
 
 import logging
 import os
-import warnings
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Iterable, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .helpers import build_env_overrides, coerce_bool, resolve_directory
 
-
 _LOGGER = logging.getLogger(__name__)
 
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _ENV_LAYER_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 ENV_ROOT_DIR = Path("configs/env")
-
-
-def _warn_deprecated_env_prefixes(environ: Mapping[str, str] | None = None) -> None:
-    """Emit deprecation warnings for legacy ``BIOACTIVITY__`` variables."""
-
-    target = environ if environ is not None else os.environ
-    for key in target:
-        if not key.startswith("BIOACTIVITY__"):
-            continue
-        message = (
-            f"Environment variable {key} uses deprecated prefix BIOACTIVITY__. "
-            "Please migrate to BIOETL__."
-        )
-        warnings.warn(message, DeprecationWarning, stacklevel=2)
-        try:
-            _LOGGER.warning(message)
-        except Exception:  # noqa: BLE001 - logging should never break imports
-            continue
-
-
-_warn_deprecated_env_prefixes()
 
 
 class _EnvOverrideSpec:
@@ -253,10 +230,7 @@ def _extract_plain_value(value: str | SecretStr | None) -> str | None:
     """Normalize env values (including SecretStr) into plain strings."""
     if value is None:
         return None
-    if isinstance(value, SecretStr):
-        plain = value.get_secret_value()
-    else:
-        plain = value
+    plain = value.get_secret_value() if isinstance(value, SecretStr) else value
     plain = plain.strip()
     return plain or None
 
@@ -280,4 +254,3 @@ __all__ = [
     "load_environment_settings",
     "resolve_env_layers",
 ]
-

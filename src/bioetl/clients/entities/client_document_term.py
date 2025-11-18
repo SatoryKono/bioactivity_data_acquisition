@@ -11,10 +11,7 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblDocumentTermEntityClient"]
 
 
-class ChemblDocumentTermEntityClient(
-    ChemblEntityConfigMixin, ChemblEntityFetcherBase
-):
+class ChemblDocumentTermEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
     """Client for retrieving ``document_term`` records from the ChEMBL API."""
 
     ENTITY_CONFIG = get_entity_config("document_term")
-

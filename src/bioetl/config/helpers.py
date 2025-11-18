@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, MutableMapping
+from collections.abc import Iterable, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 
 def coerce_bool(value: Any) -> bool:
@@ -68,4 +68,3 @@ def build_env_overrides(
 
 
 __all__ = ["build_env_overrides", "coerce_bool", "resolve_directory"]
-

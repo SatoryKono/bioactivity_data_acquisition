@@ -36,7 +36,8 @@ class APIClientFactory:
 
         http_config = self._resolve_http_config(profile=profile, overrides=overrides)
         client_name = name or source or profile or "default"
-        self._log.debug(LogEvents.CLIENT_FACTORY_BUILD,
+        self._log.debug(
+            LogEvents.CLIENT_FACTORY_BUILD,
             client=client_name,
             profile=profile or "default",
             base_url=base_url,

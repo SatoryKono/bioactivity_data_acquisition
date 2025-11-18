@@ -52,9 +52,7 @@ class TestChemblTargetPipeline:
         mock_client.handshake.return_value = {"chembl_db_version": "31"}
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._fetch_chembl_release(
-            mock_client, log
-        )  # noqa: SLF001  # type: ignore[arg-type,attr-defined]
+        result = pipeline._fetch_chembl_release(mock_client, log)  # noqa: SLF001  # type: ignore[arg-type,attr-defined]
 
         assert result == "31"
 
@@ -72,9 +70,7 @@ class TestChemblTargetPipeline:
         )
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._harmonize_identifier_columns(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._harmonize_identifier_columns(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         assert "target_chembl_id" in result.columns
         assert "target_id" not in result.columns
@@ -115,9 +111,7 @@ class TestChemblTargetPipeline:
         )
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._normalize_string_fields(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._normalize_string_fields(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         assert result["pref_name"].iloc[0] == "Target 1"
         assert result["organism"].iloc[0] == "Human"
@@ -261,9 +255,7 @@ class TestChemblTargetPipeline:
         df = pd.DataFrame()
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._enrich_protein_classifications(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         assert result.empty
 
@@ -276,9 +268,7 @@ class TestChemblTargetPipeline:
         df = pd.DataFrame({"pref_name": ["Target 1"]})
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._enrich_protein_classifications(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         assert len(result) == 1
         assert "pref_name" in result.columns
@@ -311,9 +301,7 @@ class TestChemblTargetPipeline:
                 return_value=mock_bundle,
             ),
         ):
-            result = pipeline._enrich_protein_classifications(
-                df, log
-            )  # noqa: SLF001  # type: ignore[arg-type]
+            result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         assert "protein_class_list" in result.columns
         assert "protein_class_top" in result.columns
@@ -333,9 +321,7 @@ class TestChemblTargetPipeline:
         )
 
         log = UnifiedLogger.get(__name__)
-        result = pipeline._enrich_protein_classifications(
-            df, log
-        )  # noqa: SLF001  # type: ignore[arg-type]
+        result = pipeline._enrich_protein_classifications(df, log)  # noqa: SLF001  # type: ignore[arg-type]
 
         # Data should not be overwritten
         assert result["protein_class_list"].iloc[0] == '[{"protein_class_id": "1"}]'

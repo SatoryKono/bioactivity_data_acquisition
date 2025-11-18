@@ -63,5 +63,4 @@ def test_test_report_meta_to_ordered_dict() -> None:
 
 
 def test_test_reports_root_points_to_output_dir() -> None:
-    assert TEST_REPORTS_ROOT == Path("data/output/test-reports")
-
+    assert Path("data/output/test-reports") == TEST_REPORTS_ROOT

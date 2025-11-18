@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
+from bioetl.core.runtime.cli_base import CliCommandBase
+from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
 from bioetl.devtools.cli_audit_docs import (
     audit_broken_links,
     extract_pipeline_info,
     find_lychee_missing,
     run_audit,
 )
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 __all__ = [
     "audit_broken_links",
@@ -38,7 +39,7 @@ def cli_main(
         dir_okay=True,
         readable=True,
         writable=True,
-    )
+    ),
 ) -> None:
     """Run the documentation audit workflow."""
 

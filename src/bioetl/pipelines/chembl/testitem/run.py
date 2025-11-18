@@ -1,21 +1,19 @@
 """TestItem pipeline implementation for ChEMBL."""
 
 from __future__ import annotations
-
-import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
@@ -28,18 +26,24 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
+from bioetl.core.schema import StringRule
+from bioetl.core.schema.normalizers import StringStats
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from .transform import transform as transform_testitem
 
 
-class TestItemChemblPipeline(ChemblPipelineBase):
+class TestItemChemblPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
 
     actor = "testitem_chembl"
     id_column = "molecule_chembl_id"
     extract_event_name = "chembl_testitem.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED
+    id_chunk_size_cap = 25
+    id_max_batch_size = 25
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -49,102 +53,83 @@ class TestItemChemblPipeline(ChemblPipelineBase):
     @property
     def chembl_db_version(self) -> str | None:
         """Return the cached ChEMBL DB version captured during extraction."""
-        return self._get_optional_string_value(
-            "_chembl_db_version", field_name="chembl_db_version"
-        )
+        return self._get_optional_string_value("_chembl_db_version", field_name="chembl_db_version")
 
     def _set_chembl_db_version(self, value: str | None) -> None:
         """Update the cached ChEMBL DB version used by the pipeline."""
 
-        self._set_optional_string_value(
-            "_chembl_db_version", value, field_name="chembl_db_version"
-        )
+        self._set_optional_string_value("_chembl_db_version", value, field_name="chembl_db_version")
 
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
     ) -> str | None:
-        """Capture ChEMBL release and API version from status endpoint."""
+        """Capture ChEMBL release and API version from the status endpoint."""
 
-        if log is None:
-            bound_log: BoundLogger = UnifiedLogger.get(__name__).bind(
-                component=f"{self.pipeline_code}.extract"
-            )
-        else:
-            bound_log = log
-
+        bound_log = log or self.logger_for(stage="extract", component="status")
         request_timestamp = datetime.now(timezone.utc)
         release_value: str | None = None
         api_version: str | None = None
 
-        try:
-            status_payload: dict[str, Any] = {}
-            handshake_candidate = getattr(client, "handshake", None)
-            if callable(handshake_candidate):
-                status_payload = self._coerce_mapping(handshake_candidate("/status"))
-            else:
-                get_candidate = getattr(client, "get", None)
-                if callable(get_candidate):
-                    response = get_candidate("/status.json")
-                    json_candidate = getattr(response, "json", None)
-                    if callable(json_candidate):
-                        status_payload = self._coerce_mapping(json_candidate())
-
-            if status_payload:
-                release_value = self._extract_chembl_release(status_payload)
-                api_candidate = status_payload.get("api_version")
-                if isinstance(api_candidate, str) and api_candidate.strip():
-                    api_version = api_candidate
-                bound_log.info(LogEvents.CHEMBL_TESTITEM_STATUS,
-                    chembl_db_version=release_value,
-                    api_version=api_version,
+        status_payload: Mapping[str, Any] | None = None
+        for endpoint in ("/status", "/status.json"):
+            try:
+                status_payload = self.perform_handshake(client, endpoint)
+            except Exception as exc:  # noqa: BLE001
+                bound_log.warning(
+                    LogEvents.CHEMBL_TESTITEM_STATUS_FAILED,
+                    endpoint=endpoint,
+                    error=str(exc),
                 )
-        except Exception as exc:  # noqa: BLE001
-            bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
-        finally:
-            self._set_chembl_db_version(release_value)
-            self._set_api_version(api_version)
-            self._set_chembl_release(release_value)
-            self.record_extract_metadata(
-                chembl_release=release_value,
-                requested_at_utc=request_timestamp,
+                continue
+            if status_payload:
+                break
+
+        if status_payload:
+            coerced_payload = self._coerce_mapping(status_payload)
+            release_value = self._extract_chembl_release(coerced_payload)
+            api_candidate = coerced_payload.get("api_version")
+            if isinstance(api_candidate, str) and api_candidate.strip():
+                api_version = api_candidate
+            bound_log.info(
+                LogEvents.CHEMBL_TESTITEM_STATUS,
+                chembl_db_version=release_value,
+                api_version=api_version,
             )
 
+        self._set_chembl_db_version(release_value)
+        self._set_api_version(api_version)
+        self._set_chembl_release(release_value)
+        self.record_extract_metadata(
+            chembl_release=release_value,
+            requested_at_utc=request_timestamp,
+        )
+
         return release_value
+
+    def resolve_chembl_release(
+        self,
+        chembl_client: UnifiedAPIClient | Any,  # noqa: ANN401
+        log: BoundLogger,
+        entity_client: Any | None = None,  # noqa: ARG002
+    ) -> tuple[str | None, dict[str, Any]]:
+        release_value = self._fetch_chembl_release(chembl_client, log)
+        metadata: dict[str, Any] = {}
+        if self.chembl_db_version:
+            metadata["chembl_db_version"] = self.chembl_db_version
+        if self.api_version:
+            metadata["api_version"] = self.api_version
+        return release_value, metadata
 
     # ------------------------------------------------------------------
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
-        """Return the descriptor powering testitem extraction."""
+    def descriptor_spec(self) -> ChemblDescriptorSpec["TestItemChemblPipeline"]:
+        """Return the declarative descriptor specification for test items."""
 
-        def build_context(
-            pipeline: "TestItemChemblPipeline",
-            source_config: TestItemSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            def extra_filters_factory(_: TestItemSourceConfig, p: "TestItemChemblPipeline") -> dict[str, Any]:
-                return {"api_version": p.api_version}
-
-            context = build_standard_chembl_context(
-                pipeline,
-                "testitem",
-                source_config,
-                log,
-                entity_client_type=ChemblTestitemClient,
-                release_resolver=lambda p, c, l, _: p._fetch_chembl_release(c, l),
-                extra_filters_factory=extra_filters_factory,
-                chembl_release_override=pipeline.chembl_db_version,
-            )
-
-            select_fields = source_config.parameters.select_fields
-            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-
-            return context
-
-        def get_metadata(pipeline: "TestItemChemblPipeline") -> Mapping[str, Any]:
+        def get_metadata(pipeline: TestItemChemblPipeline) -> Mapping[str, Any]:
             return {
                 "chembl_db_version": pipeline.chembl_db_version,
                 "api_version": pipeline.api_version,
@@ -157,7 +142,7 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         )
 
         def summary_extra(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: TestItemChemblPipeline,
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -167,11 +152,44 @@ class TestItemChemblPipeline(ChemblPipelineBase):
                 "limit": pipeline.config.cli.limit,
             }
 
-        descriptor = ChemblExtractionDescriptor["TestItemChemblPipeline"](
+        def after_build(
+            pipeline: TestItemChemblPipeline,
+            context: ChemblExtractionContext,
+            source_config: TestItemSourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            select_fields = source_config.parameters.select_fields
+            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
+            return context
+
+        def release_resolver(
+            pipeline: TestItemChemblPipeline,
+            client: Any,
+            log: BoundLogger,
+            _: Any,
+        ) -> str | None:
+            return pipeline._fetch_chembl_release(client, log)
+
+        def extra_filters_factory(
+            _: TestItemSourceConfig,
+            pipeline: TestItemChemblPipeline,
+        ) -> dict[str, Any]:
+            return {"api_version": pipeline.api_version}
+
+        context_spec = ChemblContextSpec(
+            entity_name="testitem",
+            entity_client_type=ChemblTestitemClient,
+            release_resolver=release_resolver,
+            extra_filters_factory=extra_filters_factory,
+            chembl_release_override=lambda pipeline: pipeline.chembl_db_version,
+            after_build=after_build,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="molecule_chembl_id",
             summary_event="chembl_testitem.extract_summary",
             must_have_fields=tuple(TESTITEM_MUST_HAVE_FIELDS),
@@ -182,97 +200,35 @@ class TestItemChemblPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
             hard_page_size_cap=None,
         )
-        return cast("ChemblExtractionDescriptor[ChemblPipelineBase]", descriptor)
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract molecule records by a specific list of IDs using batch extraction.
-
-        Parameters
-        ----------
-        ids:
-            Sequence of molecule_chembl_id values to extract.
-
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted molecule records.
-        """
+    def id_extraction_select_fields(
+        self,
+        source_config: Any,
+        typed_source_config: TestItemSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> list[str] | None:
+        resolved = typed_source_config.parameters.select_fields
+        merged = self._merge_select_fields(resolved, TESTITEM_MUST_HAVE_FIELDS)
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged)
+        return merged
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "testitem",
-            source_name="chembl",
-            source_config=source_config,
-        )
-        if "chembl_testitem_http" not in self._registered_clients:
-            self.register_client("chembl_testitem_http", bundle.api_client)
-        chembl_client = bundle.chembl_client
-        self._fetch_chembl_release(chembl_client, log)
+    def id_extraction_batch_size(
+        self,
+        typed_source_config: TestItemSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> int:
+        page_size = getattr(typed_source_config, "page_size", None)
+        if isinstance(page_size, int) and page_size > 0:
+            return min(page_size, 25)
+        return 25
 
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_db_version=self.chembl_db_version,
-                api_version=self.api_version,
-            )
-            return pd.DataFrame()
-
-        page_size = min(source_config.page_size, 25)
-        limit = self.config.cli.limit
-        resolved_select_fields = source_config.parameters.select_fields
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields, TESTITEM_MUST_HAVE_FIELDS
-        )
-        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
-
-        testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
-        if testitem_client is None:
-            msg = "Фабрика вернула пустой клиент для 'testitem'"
-            raise RuntimeError(msg)
-
-        def fetch_testitems(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = testitem_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="molecule_chembl_id",
-            fetcher=fetch_testitems,
-            select_fields=merged_select_fields or None,
-            batch_size=page_size,
-            chunk_size=min(page_size, 25),
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(merged_select_fields) if merged_select_fields else None,
-            },
-            chembl_release=self.chembl_release,
-        )
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_db_version=self.chembl_db_version,
-            api_version=self.api_version,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
-        return dataframe
+    def id_extraction_empty_frame_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: TestItemSourceConfig,
+    ) -> Callable[[], pd.DataFrame]:
+        return pd.DataFrame
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw molecule data by normalizing fields and extracting nested properties."""
@@ -391,68 +347,38 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers and InChI keys."""
-
-        if df.empty:
-            return df
-
-        working_df = df.copy()
-
-        inchi_key_col = (
-            "molecule_structures__standard_inchi_key"
-            if "molecule_structures__standard_inchi_key" in working_df.columns
-            else "standard_inchi_key"
-        )
-
-        rules: dict[str, StringRule] = {}
-        if "molecule_chembl_id" in working_df.columns:
-            rules["molecule_chembl_id"] = StringRule()
-        if inchi_key_col in working_df.columns:
-            rules[inchi_key_col] = StringRule(uppercase=True)
-
-        if rules:
-            normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-        else:
-            normalized_df = working_df
-            stats = StringStats()
-
-        if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-        else:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
-
-        return normalized_df
-
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields: trim, replace empty strings with NaN."""
-
-        if df.empty:
-            return df
-
-        working_df = df.copy()
-
-        rules = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
+            "molecule_chembl_id": StringRule(),
+            "molecule_structures__standard_inchi_key": StringRule(uppercase=True),
+            "standard_inchi_key": StringRule(uppercase=True),
             "pref_name": StringRule(),
             "molecule_type": StringRule(),
             "molecule_structures__canonical_smiles": StringRule(),
             "canonical_smiles": StringRule(),
         }
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
         if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
+            log.debug(
+                LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+            log.debug(
+                LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
+            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
             log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED)
-
-        return normalized_df
+        return df
 
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         specs = dict(super()._schema_column_specs())
@@ -670,7 +596,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:
-            log.warning(LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
+            log.warning(
+                LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
                 empty_fields=highly_empty_fields,
                 message=(
                     f"Fields with >95% empty values detected: {highly_empty_fields}. "
@@ -690,7 +617,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
 
         if extra_columns:
             df = df.drop(columns=list(extra_columns))
-            log.debug(LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
+            log.debug(
+                LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
                 removed_columns=list(extra_columns),
                 remaining_columns=list(df.columns),
             )
@@ -749,7 +677,8 @@ class TestItemChemblPipeline(ChemblPipelineBase):
         rows_after = len(df)
         dropped = rows_before - rows_after
         if dropped > 0:
-            log.info(LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
+            log.info(
+                LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
                 rows_before=rows_before,
                 rows_after=rows_after,
                 dropped=dropped,

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import copy
 import json
-from pathlib import Path
-from typing import Any, Mapping
+from collections.abc import Mapping
+from pathlib import Path, PureWindowsPath
+from typing import Any
 
 import yaml
 
@@ -34,7 +35,12 @@ def normalize_meta_payload(meta: Mapping[str, Any]) -> dict[str, Any]:
     normalized: dict[str, Any] = copy.deepcopy(dict(meta))
     dataset_path = normalized.get("dataset_path")
     if dataset_path:
-        normalized["dataset_path"] = Path(str(dataset_path)).name
+        dataset_str = str(dataset_path)
+        candidate = Path(dataset_str)
+        name = candidate.name
+        if name == dataset_str and "\\" in dataset_str:
+            name = PureWindowsPath(dataset_str).name
+        normalized["dataset_path"] = name
     normalized.pop("generated_at_utc", None)
     normalized.pop("run_id", None)
     normalized["stage_durations_ms"] = {}
@@ -61,4 +67,3 @@ def canonical_json(payload: Mapping[str, Any]) -> str:
     """Serialize payload to canonical JSON string."""
 
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-

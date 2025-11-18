@@ -98,5 +98,3 @@ def format_failure_cases(
         formatted["sample"] = sample_records
 
     return formatted
-
-

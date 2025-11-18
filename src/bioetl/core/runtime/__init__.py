@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from importlib import import_module
-from typing import Any, Mapping
+from typing import Any
 
 from .cli_base import CliCommandBase, CliEntrypoint
 from .errors import BioETLError
@@ -30,4 +31,3 @@ __all__ = [
     "CliEntrypoint",
     *sorted(_LAZY_EXPORTS),
 ]
-

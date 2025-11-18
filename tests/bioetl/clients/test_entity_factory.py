@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -24,12 +25,12 @@ from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
 from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
+from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
-from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 
@@ -305,30 +306,32 @@ class TestEntityClientProtocol:
         iterate_sig = inspect.signature(client.iterate_records)
         assert {"params", "limit", "fields", "page_size"} <= set(iterate_sig.parameters)
 
-    def test_fetch_by_ids_returns_dataframe(
+    def test_fetch_by_ids_returns_result(
         self,
         mock_chembl_client: MagicMock,
     ) -> None:
-        """Проверяет, что fetch_by_ids возвращает DataFrame."""
+        """Проверяет, что fetch_by_ids возвращает EntityFetchResult."""
 
         # Настраиваем мок для возврата данных
         mock_record = {"activity_id": "CHEMBL123", "standard_value": 1.0}
         mock_chembl_client.paginate.return_value = iter([mock_record])
         client = ChemblActivityClient(mock_chembl_client, batch_size=25)
         result = client.fetch_by_ids(["CHEMBL123"])
-        assert isinstance(result, pd.DataFrame)
-        assert len(result) >= 0  # Может быть пустым, если мок не настроен правильно
+        assert result.endpoint == client.ENTITY_CONFIG.endpoint  # type: ignore[attr-defined]
+        assert isinstance(result.frame, pd.DataFrame)
+        assert len(result.frame) >= 0
 
-    def test_fetch_all_returns_dataframe(
+    def test_fetch_all_returns_result(
         self,
         mock_chembl_client: MagicMock,
     ) -> None:
-        """Проверяет, что fetch_all возвращает DataFrame."""
+        """Проверяет, что fetch_all возвращает EntityFetchResult."""
 
         mock_chembl_client.paginate.return_value = iter([])
         client = ChemblActivityClient(mock_chembl_client, batch_size=25)
         result = client.fetch_all(limit=10)
-        assert isinstance(result, pd.DataFrame)
+        assert isinstance(result.frame, pd.DataFrame)
+        assert result.paging.limit == 10
 
     def test_iterate_records_returns_iterator(
         self,
@@ -389,7 +392,8 @@ class TestEntityConfigUsage:
             ]
         )
         client = ChemblActivityClient(mock_chembl_client, batch_size=25)
-        frame = client.fetch_by_ids(["CHEMBL1"], fields=("activity_id", "extra"))
+        result = client.fetch_by_ids(["CHEMBL1"], fields=("activity_id", "extra"))
+        frame = result.frame
         params = mock_chembl_client.paginate.call_args.kwargs["params"]
         assert params["only"] == "activity_id,extra"
         assert frame.columns.tolist() == ["activity_id", "extra"]
@@ -421,7 +425,8 @@ class TestEntityConfigUsage:
             ]
         )
         client = ChemblActivityClient(mock_chembl_client, batch_size=25)
-        frame = client.fetch_all(fields=("extra", "activity_id"), limit=2)
+        result = client.fetch_all(fields=("extra", "activity_id"), limit=2)
+        frame = result.frame
         assert frame.columns.tolist() == ["extra", "activity_id"]
 
     def test_client_uses_base_methods_not_duplicates(
@@ -483,5 +488,3 @@ class TestEntityConfigUsage:
         assert captured["config"] is client_cls.ENTITY_CONFIG
         assert captured["batch_size"] == 10
         assert captured["max_url_length"] == 512
-
-

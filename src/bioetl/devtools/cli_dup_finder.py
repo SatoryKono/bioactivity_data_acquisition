@@ -30,7 +30,9 @@ _VALID_FORMATS = ("md", "csv")
 
 
 Kind = Literal["func", "class", "method"]
-Role = Literal["extract", "transform", "validate", "write", "run", "client", "schema", "util", "log", "cli"]
+Role = Literal[
+    "extract", "transform", "validate", "write", "run", "client", "schema", "util", "log", "cli"
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,8 +90,7 @@ class NearDuplicatePair:
 
 
 class _SupportsReadline(Protocol):
-    def readline(self) -> str:
-        ...
+    def readline(self) -> str: ...
 
 
 def strip_docstrings(body: list[ast.stmt]) -> list[ast.stmt]:
@@ -160,7 +161,9 @@ class _ASTNormalizer(ast.NodeTransformer):
             else:
                 fallback.append((key_expr, value_expr))
         sortable.sort(key=lambda item: item[0])
-        new_keys: list[ast.expr | None] = [item[1] for item in sortable] + [item[0] for item in fallback]
+        new_keys: list[ast.expr | None] = [item[1] for item in sortable] + [
+            item[0] for item in fallback
+        ]
         new_values: list[ast.expr] = [item[2] for item in sortable] + [item[1] for item in fallback]
         node.keys = new_keys
         node.values = new_values
@@ -176,11 +179,12 @@ class _ASTNormalizer(ast.NodeTransformer):
 
     def _is_logging_call(self, node: ast.Call) -> bool:
         func = node.func
-        if isinstance(func, ast.Name) and func.id == "print":
-            return True
-        if isinstance(func, ast.Attribute) and func.attr in self._LOG_ATTRS:
-            return True
-        return False
+        return (
+            isinstance(func, ast.Name)
+            and func.id == "print"
+            or isinstance(func, ast.Attribute)
+            and func.attr in self._LOG_ATTRS
+        )
 
 
 def _compute_canonical_dump(node: ast.AST) -> str:
@@ -234,9 +238,7 @@ def _tokenize_norm_source(norm_src: str) -> tuple[str, ...]:
         if tok_type in {tokenize.NEWLINE, tokenize.NL, tokenize.INDENT, tokenize.DEDENT}:
             continue
         if tok_type == tokenize.NAME:
-            if tok_string in {"NUM", "STR", "NAME"}:
-                tokens.append(tok_string)
-            elif keyword.iskeyword(tok_string):
+            if tok_string in {"NUM", "STR", "NAME"} or keyword.iskeyword(tok_string):
                 tokens.append(tok_string)
             else:
                 tokens.append("NAME")
@@ -321,7 +323,7 @@ class _CodeUnitVisitor(ast.NodeVisitor):
 
 
 def _classify_role(rel_path: Path, symbol: str) -> Role:
-    parts = {part for part in rel_path.parts}
+    parts = set(rel_path.parts)
     filename = rel_path.name
     lowered_symbol = symbol.lower()
     if "clients" in parts:
@@ -372,7 +374,9 @@ def _collect_python_files(root: Path) -> tuple[list[Path], list[str]]:
     return python_files, warnings
 
 
-def _parse_code_units(file_path: Path, project_root: Path) -> tuple[list[CodeUnit], list[ParseError]]:
+def _parse_code_units(
+    file_path: Path, project_root: Path
+) -> tuple[list[CodeUnit], list[ParseError]]:
     try:
         source = file_path.read_text(encoding="utf-8")
     except OSError as exc:
@@ -396,18 +400,16 @@ def _build_clusters(units: Sequence[CodeUnit]) -> list[DuplicateCluster]:
     clusters: list[DuplicateCluster] = []
     for ast_hash, members in buckets.items():
         if len(members) > 1:
-            ordered = tuple(sorted(members, key=lambda item: (item.rel_path.as_posix(), item.start_line)))
+            ordered = tuple(
+                sorted(members, key=lambda item: (item.rel_path.as_posix(), item.start_line))
+            )
             clusters.append(DuplicateCluster(ast_hash=ast_hash, members=ordered))
     clusters.sort(key=lambda cluster: (len(cluster.members), cluster.ast_hash), reverse=True)
     return clusters
 
 
 def _build_near_duplicates(units: Sequence[CodeUnit]) -> list[NearDuplicatePair]:
-    candidates = [
-        unit
-        for unit in units
-        if "tests" not in unit.rel_path.parts
-    ]
+    candidates = [unit for unit in units if "tests" not in unit.rel_path.parts]
     pairs: list[NearDuplicatePair] = []
     for left, right in combinations(candidates, 2):
         if left.ast_hash == right.ast_hash:
@@ -436,7 +438,14 @@ def _build_near_duplicates(units: Sequence[CodeUnit]) -> list[NearDuplicatePair]
                 divergences=divergence_str,
             )
         )
-    pairs.sort(key=lambda item: (-item.jaccard, -item.lcs_ratio, item.unit_a.reference, item.unit_b.reference))
+    pairs.sort(
+        key=lambda item: (
+            -item.jaccard,
+            -item.lcs_ratio,
+            item.unit_a.reference,
+            item.unit_b.reference,
+        )
+    )
     return pairs
 
 
@@ -532,7 +541,9 @@ def _render_markdown(
     if not pairs:
         buffer.write("No similar fragments found.\n")
     else:
-        buffer.write("| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n")
+        buffer.write(
+            "| Member | Path | Similarity Jaccard | Similarity LCS | Divergences | References |\n"
+        )
         buffer.write("| --- | --- | --- | --- | --- | --- |\n")
         for pair in pairs:
             pair_label = pair.pair_label
@@ -645,12 +656,15 @@ def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> 
         if "csv" in formats:
             _write_csv(out_dir / "dup_map.csv", code_units)
         if "md" in formats:
-            _write_markdown(out_dir / "dup_map.md", code_units, clusters, near_duplicates, tests_present)
+            _write_markdown(
+                out_dir / "dup_map.md", code_units, clusters, near_duplicates, tests_present
+            )
         if parse_errors:
             _write_errors(out_dir / "errors.csv", parse_errors)
         if directory_warnings:
             _write_warnings(out_dir / "warnings.log", directory_warnings)
-        log.info(LogEvents.ARTIFACTS_WRITTEN,
+        log.info(
+            LogEvents.ARTIFACTS_WRITTEN,
             csv="csv" in formats,
             markdown="md" in formats,
             errors=len(parse_errors),
@@ -663,11 +677,7 @@ def run_dup_finder(root: Path, out_dir: Path | None, formats: Sequence[str]) -> 
 
 def _parse_formats(option: str) -> tuple[str, ...]:
     normalized = tuple(
-        dict.fromkeys(
-            item.strip().lower()
-            for item in option.split(",")
-            if item.strip()
-        )
+        dict.fromkeys(item.strip().lower() for item in option.split(",") if item.strip())
     )
     if not normalized:
         raise ValueError("At least one output format must be specified (md,csv).")
@@ -693,4 +703,3 @@ def main(
 
 if __name__ == "__main__":
     main()
-

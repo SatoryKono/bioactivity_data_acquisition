@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable, Mapping, Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -46,27 +47,10 @@ def _apply_runtime_overrides_safely(settings: EnvironmentSettings) -> None:
     apply_runtime_overrides(settings)
 
 
-def _replace_config_section(
-    config: PipelineConfig,
-    *,
-    section: str,
-    updates: Mapping[str, Any],
-) -> PipelineConfig:
-    """Return a new PipelineConfig with an updated section without mutations."""
-
-    if not updates:
-        return config
-
-    section_model = getattr(config, section)
-    updated_section = section_model.model_copy(update=dict(updates))
-    return config.model_copy(update={section: updated_section})
-
-
 class PipelineFactory(Protocol):
     """Contract for pipeline factories used by the CLI layer."""
 
-    def __call__(self, config: PipelineConfig, run_id: str) -> PipelineBase:
-        ...
+    def __call__(self, config: PipelineConfig, run_id: str) -> PipelineBase: ...
 
 
 class PipelineCommandError(RuntimeError):
@@ -172,9 +156,7 @@ def validate_output_dir(output_dir: Path) -> Path:
     try:
         resolved_path.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
-        raise OSError(
-            f"Cannot create output directory: {resolved_path}. {exc}"
-        ) from exc
+        raise OSError(f"Cannot create output directory: {resolved_path}. {exc}") from exc
     return resolved_path
 
 
@@ -233,24 +215,14 @@ class PipelineConfigFactory:
         if options.input_file is not None:
             cli_updates["input_file"] = str(options.input_file)
 
-        pipeline_config = _replace_config_section(
-            pipeline_config,
-            section="cli",
-            updates=cli_updates,
-        )
-
+        overrides: dict[str, Any] = {
+            "cli": cli_updates,
+            "materialization": {"root": str(options.output_dir)},
+        }
         if not options.validate_columns:
-            pipeline_config = _replace_config_section(
-                pipeline_config,
-                section="validation",
-                updates={"strict": False},
-            )
+            overrides["validation"] = {"strict": False}
 
-        pipeline_config = _replace_config_section(
-            pipeline_config,
-            section="materialization",
-            updates={"root": str(options.output_dir)},
-        )
+        pipeline_config = pipeline_config.apply_overrides(overrides)
 
         return pipeline_config
 
@@ -282,7 +254,9 @@ class PipelineCommandRunner:
                 raise ConfigLoadError(exc) from exc
         return self._runtime_config
 
-    def prepare(self, options: PipelineCommandOptions) -> PipelineExecutionPlan | PipelineDryRunPlan:
+    def prepare(
+        self, options: PipelineCommandOptions
+    ) -> PipelineExecutionPlan | PipelineDryRunPlan:
         """Prepare an execution plan based on CLI options."""
 
         config = self._config_factory.create(options)
@@ -301,10 +275,8 @@ class PipelineCommandRunner:
             tz = ZoneInfo("UTC")
 
         if not config.cli.date_tag:
-            config = _replace_config_section(
-                config,
-                section="cli",
-                updates={"date_tag": self._now_factory(tz).strftime("%Y%m%d")},
+            config = config.apply_overrides(
+                {"cli": {"date_tag": self._now_factory(tz).strftime("%Y%m%d")}}
             )
 
         runtime_config = self._get_runtime_config()
@@ -389,4 +361,3 @@ class PipelineCommandRunner:
         logger.info(LogEvents.PIPELINE_RUN_FINISH, **finish_context)
 
         return result
-

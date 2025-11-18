@@ -43,5 +43,3 @@ class PipelineDomainConfig(BaseModel):
         default=None,
         description="ChEMBL domain configuration, e.g., descriptor enrichment hints.",
     )
-
-

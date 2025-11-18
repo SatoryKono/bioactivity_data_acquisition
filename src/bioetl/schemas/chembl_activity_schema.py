@@ -218,5 +218,3 @@ __all__ = [
     "activity_properties_validator",
     "ActivitySchema",
 ]
-
-

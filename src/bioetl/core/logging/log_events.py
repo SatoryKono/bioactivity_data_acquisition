@@ -13,7 +13,7 @@ class LogEventString(str):
     __slots__ = ("legacy",)
     legacy: str
 
-    def __new__(cls, dotted: str) -> "LogEventString":
+    def __new__(cls, dotted: str) -> LogEventString:
         """Create a string preserving both dotted and underscore legacy forms."""
         obj = super().__new__(cls, dotted)
         obj.legacy = dotted.replace(".", "_")
@@ -66,6 +66,7 @@ class LogEvents(str, Enum):
         if isinstance(value, LogEventString):
             return value.legacy
         return str(value).replace(".", "_")
+
     CLI_RUN_START = auto()
     CLI_RUN_FINISH = auto()
     CLI_RUN_ERROR = auto()
@@ -386,4 +387,3 @@ class LogEvents(str, Enum):
     WRITING_META = auto()
     WRITING_METADATA = auto()
     WRITING_QC_ARTIFACT = auto()
-

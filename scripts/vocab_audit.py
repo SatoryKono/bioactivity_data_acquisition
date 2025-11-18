@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_vocab_audit as cli_vocab_audit_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
 from bioetl.core.runtime.errors import BioETLError
+from bioetl.devtools import cli_vocab_audit as cli_vocab_audit_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_vocab_audit_impl, "__all__", [])
 globals().update({symbol: getattr(cli_vocab_audit_impl, symbol) for symbol in _LOGIC_EXPORTS})
-VocabAuditResult = getattr(cli_vocab_audit_impl, "VocabAuditResult")
-audit_vocabularies = getattr(cli_vocab_audit_impl, "audit_vocabularies")
+VocabAuditResult = cli_vocab_audit_impl.VocabAuditResult
+audit_vocabularies = cli_vocab_audit_impl.audit_vocabularies
 __all__ = [
-    * _LOGIC_EXPORTS,
+    *_LOGIC_EXPORTS,
     "VocabAuditResult",
     "audit_vocabularies",
     "app",

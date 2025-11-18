@@ -70,11 +70,9 @@ def required_vocab_ids(
         )
         raise RuntimeError(message) from exc
 
-    normalized = set(str(value) for value in values)
+    normalized = {str(value) for value in values}
     if not normalized:
-        message = (
-            f"Vocabulary '{name}' is empty. Update dictionary definitions before continuing."
-        )
+        message = f"Vocabulary '{name}' is empty. Update dictionary definitions before continuing."
         raise RuntimeError(message)
     return normalized
 
@@ -87,4 +85,3 @@ __all__ = [
     "refresh_vocab_store_cache",
     "required_vocab_ids",
 ]
-

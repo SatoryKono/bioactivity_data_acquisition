@@ -255,12 +255,10 @@ def mock_chembl_client_with_data(
 
 
 @pytest.fixture  # type: ignore[misc]
-def mock_chembl_responses_for_endpoint() -> (
-    Callable[
-        [dict[str, Any] | list[dict[str, Any]], str, int | None],
-        tuple[MagicMock, MagicMock],
-    ]
-):
+def mock_chembl_responses_for_endpoint() -> Callable[
+    [dict[str, Any] | list[dict[str, Any]], str, int | None],
+    tuple[MagicMock, MagicMock],
+]:
     """Factory fixture for constructing ChEMBL endpoint responses."""
 
     def _create_responses(
@@ -277,10 +275,7 @@ def mock_chembl_responses_for_endpoint() -> (
         mock_status_response.headers = {}
 
         items: list[dict[str, Any]]
-        if isinstance(endpoint_data, dict):
-            items = [endpoint_data]
-        else:
-            items = list(endpoint_data)
+        items = [endpoint_data] if isinstance(endpoint_data, dict) else list(endpoint_data)
 
         effective_count = len(items) if count is None else count
 

@@ -185,12 +185,8 @@ class TestQCMetrics:
         generic = QCUnits.for_suffixes(df, ("units", "relation"))
 
         assert set(generic) == {"measurement_relation", "measurement_units"}
-        assert QCUnits.for_units(df) == {
-            "measurement_units": generic["measurement_units"]
-        }
-        assert QCUnits.for_relation(df) == {
-            "measurement_relation": generic["measurement_relation"]
-        }
+        assert QCUnits.for_units(df) == {"measurement_units": generic["measurement_units"]}
+        assert QCUnits.for_relation(df) == {"measurement_relation": generic["measurement_relation"]}
 
     def test_qc_units_for_units_filters_suffixes(self) -> None:
         """`QCUnits.for_units` must ignore columns without the expected suffix."""
@@ -232,7 +228,6 @@ class TestQCMetrics:
 
         assert empty == {}
 
-
     def test_pipeline_qc_artifacts(
         self,
         pipeline_config_fixture: PipelineConfig,
@@ -240,14 +235,16 @@ class TestQCMetrics:
         sample_activity_data: pd.DataFrame,
     ):
         """Test that pipeline creates QC artifacts."""
-        pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+        pipeline_config_fixture.validation.schema_out = (
+            "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+        )
         pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
         pipeline_config_fixture.determinism.hashing.business_key_fields = ("activity_id",)  # type: ignore[attr-defined]
 
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[arg-type]
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result = pipeline.save_results(sample_activity_data, artifacts.run_directory)
 
         assert_qc_artifact_set(result.write_result)
 

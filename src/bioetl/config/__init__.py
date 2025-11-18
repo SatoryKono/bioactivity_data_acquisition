@@ -43,7 +43,7 @@ _LAZY_ATTRS = {
     "build_env_override_mapping": "bioetl.config.environment",
     "resolve_env_layers": "bioetl.config.environment",
     "load_environment_settings": "bioetl.config.environment",
-    "PipelineConfig": "bioetl.config.models",
+    "PipelineConfig": "bioetl.config.models.models",
     "load_config": "bioetl.config.loader",
 }
 

@@ -1,2 +1,1 @@
 """Activity pipeline tests."""
-

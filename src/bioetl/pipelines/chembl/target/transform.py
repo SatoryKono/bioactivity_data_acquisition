@@ -9,10 +9,10 @@ import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
 from bioetl.core.utils.typechecks import is_dict
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 __all__ = [
     "extract_and_serialize_component_synonyms",
@@ -40,6 +40,7 @@ def _collect_dicts(source: Any) -> list[JsonDict]:
                 result.append(element_any)
 
     return result
+
 
 def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
     """Return a deterministically ordered copy of ``items``.
@@ -70,6 +71,7 @@ def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
         return json.dumps(entry, ensure_ascii=False, sort_keys=True)
 
     return sorted(normalized, key=_sort_key)
+
 
 def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested target_components data into flat columns.
@@ -141,9 +143,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize target_component_synonyms
     if all_synonyms:
         canonical_synonyms = _canonicalize_dicts(all_synonyms)
-        result["target_component_synonyms__flat"] = header_rows_serialize(
-            canonical_synonyms
-        )
+        result["target_component_synonyms__flat"] = header_rows_serialize(canonical_synonyms)
 
     # Serialize target_components
     if comps:
@@ -152,7 +152,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize cross_references from top-level
     xrefs_raw: Any = rec.get("cross_references") or []
     xrefs: list[dict[str, Any]] = _collect_dicts(xrefs_raw)
-    xrefs = _canonicalize_dicts(xrefs)    
+    xrefs = _canonicalize_dicts(xrefs)
     if xrefs:
         result["cross_references__flat"] = header_rows_serialize(xrefs)
 
@@ -214,9 +214,12 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     # Get arrays to serialize from config
     arrays_to_serialize: list[str] = []
     try:
-        if hasattr(config, "transform") and config.transform is not None:
-            if hasattr(config.transform, "arrays_to_header_rows"):
-                arrays_to_serialize = list(config.transform.arrays_to_header_rows)
+        if (
+            hasattr(config, "transform")
+            and config.transform is not None
+            and hasattr(config.transform, "arrays_to_header_rows")
+        ):
+            arrays_to_serialize = list(config.transform.arrays_to_header_rows)
     except (AttributeError, TypeError):
         pass
 
@@ -280,14 +283,15 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     return df
 
 
-def transform(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Invoke the target pipeline transform stage via the pipeline class."""
-
+def _load_pipeline() -> type["ChemblTargetPipeline"]:
     from .run import ChemblTargetPipeline
 
-    pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
-    return pipeline.transform(df)
+    return ChemblTargetPipeline
+
+
+PIPELINE, _STAGES = build_stage_functions(
+    _load_pipeline,
+    stages=("transform",),
+)
+
+transform = _STAGES["transform"]

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from typing import Any, Iterator, cast
+from collections.abc import Iterator, Mapping
+from typing import Any, cast
 
 import pytest
 
@@ -31,7 +31,11 @@ class _StubClient:
     def get(self, endpoint: str, *, params: Mapping[str, Any] | None = None) -> _StubResponse:
         self.calls.append((endpoint, params))
         payload = next(self._payloads)
-        url = endpoint if endpoint.startswith("http") else f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        url = (
+            endpoint
+            if endpoint.startswith("http")
+            else f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        )
         return _StubResponse(payload, url=url)
 
 
@@ -47,16 +51,18 @@ class _FailingClient(_StubClient):
 def test_paginator_iterates_multiple_pages() -> None:
     """Ensure paginator follows next links and preserves parameters."""
 
-    payloads = iter([
-        {
-            "page_meta": {"next": "https://example.org/chembl/api/data/activity.json?offset=2"},
-            "activities": [{"id": 1}, {"id": 2}],
-        },
-        {
-            "page_meta": {"next": None},
-            "activities": [{"id": 3}],
-        },
-    ])
+    payloads = iter(
+        [
+            {
+                "page_meta": {"next": "https://example.org/chembl/api/data/activity.json?offset=2"},
+                "activities": [{"id": 1}, {"id": 2}],
+            },
+            {
+                "page_meta": {"next": None},
+                "activities": [{"id": 3}],
+            },
+        ]
+    )
     client = _StubClient(payloads)
     session = RetryingSession(cast(UnifiedAPIClient, client))
     paginator = Paginator(session)
@@ -84,10 +90,15 @@ def test_paginator_iterates_multiple_pages() -> None:
 def test_paginator_respects_limit() -> None:
     """Ensure paginator stops after reaching the requested limit."""
 
-    payloads = iter([
-        {"page_meta": {"next": "/activity.json?offset=1"}, "activities": [{"id": 1}, {"id": 2}]},
-        {"page_meta": {"next": None}, "activities": [{"id": 3}]},
-    ])
+    payloads = iter(
+        [
+            {
+                "page_meta": {"next": "/activity.json?offset=1"},
+                "activities": [{"id": 1}, {"id": 2}],
+            },
+            {"page_meta": {"next": None}, "activities": [{"id": 3}]},
+        ]
+    )
     client = _StubClient(payloads)
     session = RetryingSession(cast(UnifiedAPIClient, client))
     paginator = Paginator(session)
@@ -108,4 +119,3 @@ def test_retrying_session_propagates_circuit_breaker() -> None:
 
     with pytest.raises(CircuitBreakerOpenError):
         session.get_payload("/activity.json")
-

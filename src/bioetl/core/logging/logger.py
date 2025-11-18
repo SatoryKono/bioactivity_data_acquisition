@@ -6,6 +6,7 @@ implementation intentionally favours determinism and explicit context
 binding so that logs can be consumed by observability pipelines as well
 as by golden tests.
 """
+
 from __future__ import annotations
 
 import logging

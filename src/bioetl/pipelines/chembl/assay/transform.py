@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize, serialize_array_fields
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 __all__ = [
     "header_rows_serialize",
@@ -87,7 +87,7 @@ def validate_assay_parameters_truv(
         return df
 
     # Collection of supported relation operators
-    STANDARD_RELATIONS = {"=", "<", "≤", ">", "≥", "~"}
+    standard_relations = {"=", "<", "≤", ">", "≥", "~"}
 
     errors: list[str] = []
     warnings: list[str] = []
@@ -98,10 +98,7 @@ def validate_assay_parameters_truv(
             continue
 
         try:
-            if isinstance(params_str, str):
-                params_raw = json.loads(params_str)
-            else:
-                params_raw = params_str
+            params_raw = json.loads(params_str) if isinstance(params_str, str) else params_str
         except (json.JSONDecodeError, TypeError) as exc:
             errors.append(
                 f"Row {idx}: Invalid JSON in {column}: {exc}",
@@ -207,10 +204,10 @@ def validate_assay_parameters_truv(
             relation: Any = param_dict.get("relation")
             if relation is not None and not (isinstance(relation, float) and pd.isna(relation)):
                 relation_str = str(relation).strip()
-                if relation_str and relation_str not in STANDARD_RELATIONS:
+                if relation_str and relation_str not in standard_relations:
                     warnings.append(
                         f"Row {idx}, param {param_idx}: Non-standard 'relation' value: {relation_str!r}. "
-                        f"Standard operators: {', '.join(sorted(STANDARD_RELATIONS))}.",
+                        f"Standard operators: {', '.join(sorted(standard_relations))}.",
                     )
 
     # Emit warnings
@@ -234,15 +231,15 @@ def validate_assay_parameters_truv(
     return df
 
 
-def transform(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Execute the concrete transform stage for assays."""
-
-    # Lazy import to avoid circular dependency during module import.
+def _load_pipeline() -> type["ChemblAssayPipeline"]:
     from .run import ChemblAssayPipeline
 
-    pipeline = ChemblAssayPipeline(config=config, run_id=run_id)
-    return pipeline.transform(df)
+    return ChemblAssayPipeline
+
+
+PIPELINE, _STAGES = build_stage_functions(
+    _load_pipeline,
+    stages=("transform",),
+)
+
+transform = _STAGES["transform"]

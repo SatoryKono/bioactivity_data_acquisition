@@ -30,14 +30,9 @@ _ALIAS_EXPORTS = {
     "TestItemPipeline": "TestItemChemblPipeline",
 }
 
-_lazy_mapping: dict[str, Any] = {
-    name: module for name, module in _LAZY_EXPORTS.items()
-}
+_lazy_mapping: dict[str, Any] = dict(_LAZY_EXPORTS.items())
 _lazy_mapping.update(
-    {
-        alias: (_LAZY_EXPORTS[target], target)
-        for alias, target in _ALIAS_EXPORTS.items()
-    }
+    {alias: (_LAZY_EXPORTS[target], target) for alias, target in _ALIAS_EXPORTS.items()}
 )
 
 _lazy_resolver = resolve_lazy_attr(globals(), _lazy_mapping, cache=True)
@@ -78,4 +73,3 @@ __all__ = [
     "WriteResult",
     "PipelineRunOptions",
 ]
-

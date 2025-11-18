@@ -25,5 +25,3 @@ RequestException = _RequestsRequestException
 HTTPError = _RequestsHTTPError
 Timeout = _RequestsTimeout
 ConnectionError = _RequestsConnectionError
-
-

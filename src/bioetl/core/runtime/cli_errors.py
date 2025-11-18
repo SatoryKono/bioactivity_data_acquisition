@@ -1,9 +1,11 @@
 """Shared CLI error codes and emission helpers."""
+
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping, MutableMapping, NoReturn, Protocol
+from typing import Any, NoReturn, Protocol
 
 import typer
 
@@ -128,5 +130,3 @@ def emit_tool_error(
         exit_code=exit_code,
         cause=cause,
     )
-
-

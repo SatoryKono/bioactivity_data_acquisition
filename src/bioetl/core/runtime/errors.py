@@ -7,4 +7,3 @@ class BioETLError(Exception):
     """Base class for BioETL domain errors."""
 
     pass
-

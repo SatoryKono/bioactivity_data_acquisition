@@ -34,4 +34,3 @@ def test_build_and_write_matrix(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert result.json_path.exists()
     data = json.loads(result.json_path.read_text(encoding="utf-8"))
     assert data[0]["doc_point"]
-

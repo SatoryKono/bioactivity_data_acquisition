@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-import pandas as pd
-
-from bioetl.config.models.models import PipelineConfig
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 from .run import ChemblTargetPipeline
 
 __all__ = ["validate"]
 
+PIPELINE, _STAGES = build_stage_functions(
+    ChemblTargetPipeline,
+    stages=("validate",),
+)
 
-def validate(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
-    return pipeline.validate(df)
-
+validate = _STAGES["validate"]

@@ -14,9 +14,7 @@ def _purge_modules(prefixes: Iterable[str]) -> None:
 
     for prefix in prefixes:
         to_delete = [
-            name
-            for name in sys.modules
-            if name == prefix or name.startswith(f"{prefix}.")
+            name for name in sys.modules if name == prefix or name.startswith(f"{prefix}.")
         ]
         for name in to_delete:
             sys.modules.pop(name, None)
@@ -43,4 +41,3 @@ def test_config_contracts_import_exposes_protocols() -> None:
     _purge_modules({"bioetl.core.config_contracts"})
     module = importlib.import_module("bioetl.core.config_contracts")
     assert hasattr(module, "PipelineConfigProtocol")
-

@@ -9,6 +9,7 @@ from typing import Any
 
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools import get_project_root
+
 from .signatures import signature_from_callable
 
 __all__ = [
@@ -78,9 +79,7 @@ def extract_pipeline_base_signatures() -> dict[str, Any]:
         if name.startswith("_"):
             continue
         if inspect.isfunction(attr) or inspect.ismethod(attr):
-            signatures.setdefault(
-                name, signature_from_callable(attr, include_abstract_flag=True)
-            )
+            signatures.setdefault(name, signature_from_callable(attr, include_abstract_flag=True))
 
     return signatures
 
@@ -152,7 +151,8 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
     pipeline_signatures = extract_pipeline_base_signatures()
     config_models = extract_config_models()
     cli_commands = extract_cli_commands()
-    log.info(LogEvents.CATALOG_EXTRACT_DONE,
+    log.info(
+        LogEvents.CATALOG_EXTRACT_DONE,
         pipeline_methods=len(pipeline_signatures),
         cli_commands=len(cli_commands),
     )
@@ -169,7 +169,8 @@ def catalog_code_symbols(artifacts_dir: Path | None = None) -> CodeCatalog:
     _write_json_atomic(json_path, code_signatures)
     _write_text_atomic(cli_path, "\n".join(cli_commands) + "\n")
 
-    log.info(LogEvents.CATALOG_WRITTEN,
+    log.info(
+        LogEvents.CATALOG_WRITTEN,
         json_path=str(json_path),
         cli_path=str(cli_path),
     )

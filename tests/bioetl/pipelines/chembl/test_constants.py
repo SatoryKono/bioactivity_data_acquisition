@@ -34,4 +34,3 @@ def test_document_must_have_subset_of_fields() -> None:
 def test_testitem_must_have_fields_include_nested_roots() -> None:
     nested_roots = {"molecule_properties", "molecule_structures", "molecule_hierarchy"}
     assert nested_roots.issubset(set(TESTITEM_MUST_HAVE_FIELDS))
-

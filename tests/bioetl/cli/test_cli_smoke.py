@@ -14,7 +14,7 @@ def _filter_debugger_warnings(text: str) -> str:
     lines = text.splitlines()
     filtered_lines = []
     skip_next = False
-    
+
     for line in lines:
         # Пропускаем строки с предупреждениями debugger'а
         # Предупреждения могут начинаться с временных меток (например, "0.02s - Debugger warning")
@@ -31,15 +31,15 @@ def _filter_debugger_warnings(text: str) -> str:
             ]
         ):
             continue
-        
+
         # Пропускаем пустые строки, которые идут сразу после предупреждений
         if not line.strip() and skip_next:
             skip_next = False
             continue
-        
+
         filtered_lines.append(line)
         skip_next = False
-    
+
     return "\n".join(filtered_lines)
 
 
@@ -63,15 +63,15 @@ def test_cli_help_subprocess() -> None:
         },
     )
     assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
-    
+
     # Безопасная обработка stdout (может быть None или пустым в некоторых окружениях)
     # В некоторых случаях вывод может быть в stderr, поэтому проверяем оба потока
     stdout = result.stdout or ""
     stderr = result.stderr or ""
-    
+
     # Объединяем stdout и stderr для проверки (как в других тестах проекта)
     output = stdout + stderr
-    
+
     # Если вывод пустой до фильтрации, это проблема с захватом subprocess
     assert output, (
         f"Both stdout and stderr are empty before filtering. "
@@ -80,10 +80,10 @@ def test_cli_help_subprocess() -> None:
         f"stderr length={len(stderr)}. "
         f"This may indicate a subprocess capture issue."
     )
-    
+
     # Фильтруем предупреждения отладчика
     filtered_output = _filter_debugger_warnings(output)
-    
+
     assert filtered_output, (
         f"Output is empty after filtering debugger warnings. "
         f"returncode={result.returncode}, "
@@ -98,7 +98,6 @@ def test_cli_help_subprocess() -> None:
         f"Expected 'activity_chembl' in filtered output. "
         f"Output preview ({preview_length} chars): {filtered_output[:preview_length]}"
     )
-
 
 
 @pytest.mark.integration
@@ -121,15 +120,15 @@ def test_cli_list_subprocess() -> None:
         },
     )
     assert result.returncode == 0, f"CLI failed with stderr: {result.stderr}"
-    
+
     # Безопасная обработка stdout (может быть None или пустым в некоторых окружениях)
     # В некоторых случаях вывод может быть в stderr, поэтому проверяем оба потока
     stdout = result.stdout or ""
     stderr = result.stderr or ""
-    
+
     # Объединяем stdout и stderr для проверки (как в других тестах проекта)
     output = stdout + stderr
-    
+
     # Если вывод пустой до фильтрации, это проблема с захватом subprocess
     assert output, (
         f"Both stdout and stderr are empty before filtering. "
@@ -138,10 +137,10 @@ def test_cli_list_subprocess() -> None:
         f"stderr length={len(stderr)}. "
         f"This may indicate a subprocess capture issue."
     )
-    
+
     # Фильтруем предупреждения отладчика
     filtered_output = _filter_debugger_warnings(output)
-    
+
     assert filtered_output, (
         f"Output is empty after filtering debugger warnings. "
         f"returncode={result.returncode}, "
@@ -156,4 +155,3 @@ def test_cli_list_subprocess() -> None:
         f"Expected 'activity_chembl' in filtered output. "
         f"Output preview ({preview_length} chars): {filtered_output[:preview_length]}"
     )
-

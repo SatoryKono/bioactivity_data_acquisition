@@ -22,4 +22,3 @@ __all__ = [
     "normalize_string_columns",
     "summarize_schema_errors",
 ]
-

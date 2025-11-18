@@ -7,8 +7,8 @@ from typing import Any
 
 import pytest
 
-from bioetl.devtools import cli_schema_guard as schema_guard
 from bioetl.config import loader
+from bioetl.devtools import cli_schema_guard as schema_guard
 
 
 class DummyLogger:
@@ -40,7 +40,9 @@ class DummyStage:
         return None
 
 
-def test_validate_config_success_and_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_validate_config_success_and_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     config_path = tmp_path / "pipeline.yaml"
     config_path.write_text("{}", encoding="utf-8")
 
@@ -129,14 +131,20 @@ def test_run_schema_guard_handles_missing_config(
 
 def test_validate_schema_registry_reports_mismatches(monkeypatch: pytest.MonkeyPatch) -> None:
     dummy_module = ModuleType("dummy.schema_module")
-    setattr(dummy_module, "SCHEMA_VERSION", "1.0")
+    dummy_module.SCHEMA_VERSION = "1.0"
     monkeypatch.setitem(sys.modules, "dummy.schema_module", dummy_module)
 
-    schema = SimpleNamespace(columns={"hash_row": object, "hash_business_key": object, "value": object})
-    entry_valid = SimpleNamespace(schema=schema, column_order=("hash_row", "hash_business_key", "value"), version="1.0")
+    schema = SimpleNamespace(
+        columns={"hash_row": object, "hash_business_key": object, "value": object}
+    )
+    entry_valid = SimpleNamespace(
+        schema=schema, column_order=("hash_row", "hash_business_key", "value"), version="1.0"
+    )
     entry_dup = SimpleNamespace(schema=schema, column_order=("hash_row", "hash_row"), version="1.0")
     schema_missing_hash = SimpleNamespace(columns={"hash_row": object, "value": object})
-    entry_missing = SimpleNamespace(schema=schema_missing_hash, column_order=("value",), version="2.0")
+    entry_missing = SimpleNamespace(
+        schema=schema_missing_hash, column_order=("value",), version="2.0"
+    )
 
     registry_mapping = {
         "dummy.schema_module.Schema": entry_valid,
@@ -182,13 +190,15 @@ def test_write_report_and_run_schema_guard(tmp_path: Path, monkeypatch: pytest.M
     monkeypatch.setattr(loader, "load_config", fake_load_config)
 
     schema = SimpleNamespace(columns={"hash_row": object, "hash_business_key": object})
-    entry = SimpleNamespace(schema=schema, column_order=("hash_row", "hash_business_key"), version="1.0")
+    entry = SimpleNamespace(
+        schema=schema, column_order=("hash_row", "hash_business_key"), version="1.0"
+    )
 
     module = ModuleType("dummy.schema.Module")
-    setattr(module, "SCHEMA_VERSION", "1.0")
+    module.SCHEMA_VERSION = "1.0"
     package = ModuleType("dummy")
     subpackage = ModuleType("dummy.schema")
-    setattr(subpackage, "Module", module)
+    subpackage.Module = module
     monkeypatch.setitem(sys.modules, "dummy", package)
     monkeypatch.setitem(sys.modules, "dummy.schema", subpackage)
     monkeypatch.setitem(sys.modules, "dummy.schema.Module", module)
@@ -207,4 +217,3 @@ def test_write_report_and_run_schema_guard(tmp_path: Path, monkeypatch: pytest.M
     assert report_path.exists()
     content = report_path.read_text(encoding="utf-8")
     assert "Schema Registry" in content
-

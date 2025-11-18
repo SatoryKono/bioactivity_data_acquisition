@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable, MutableMapping, Sequence
 from dataclasses import dataclass
-from typing import Callable, MutableMapping, Sequence
 
 import pandas as pd
 
@@ -120,10 +120,7 @@ class SchemaMigrationRegistry:
             return []
         graph = self._graph.get(schema_identifier)
         if not graph:
-            msg = (
-                f"No migrations registered for schema '{schema_identifier}' "
-                "and versions differ."
-            )
+            msg = f"No migrations registered for schema '{schema_identifier}' and versions differ."
             raise SchemaMigrationPathError(msg)
 
         queue = deque([(current_version, [])])
@@ -203,5 +200,3 @@ class SchemaMigrationRegistry:
 
 
 SCHEMA_MIGRATION_REGISTRY = SchemaMigrationRegistry()
-
-

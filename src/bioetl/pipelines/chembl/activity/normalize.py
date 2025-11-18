@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
-from typing import Any, Callable, TypeVar, cast
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from typing import Any, TypeVar, cast
 
 import numpy as np
 import pandas as pd
@@ -60,9 +60,7 @@ def _build_series_from_aliases(
 ) -> pd.Series:
     """Construct a normalized pandas Series for the requested compound record field."""
     aliases = _COMPOUND_FIELD_ALIASES.get(field_key, (field_key,))
-    normalized_values = [
-        normalizer(_extract_first_present(record, aliases)) for record in records
-    ]
+    normalized_values = [normalizer(_extract_first_present(record, aliases)) for record in records]
     return pd.Series(data=normalized_values, index=index, dtype=dtype)
 
 
@@ -134,7 +132,9 @@ def enrich_with_assay(
 
     # 1) Validate that the key column is available.
     if "assay_chembl_id" not in df_act.columns:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"])
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS, missing_columns=["assay_chembl_id"]
+        )
         return ASSAY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
 
     # 2) Collect unique valid identifiers (vectorized approach).
@@ -230,7 +230,8 @@ def enrich_with_assay(
         df_merged["assay_tax_id"], errors="coerce"
     ).astype("Int64")
 
-    log.info(LogEvents.ENRICHMENT_COMPLETED,
+    log.info(
+        LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=int(df_merged.shape[0]),
         records_matched=int(df_enrich.shape[0]),
     )
@@ -274,7 +275,8 @@ def enrich_with_compound_record(
 
     # Verify that required columns are present.
     if "molecule_chembl_id" not in df_act.columns:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=["molecule_chembl_id"],
         )
         return COMPOUND_RECORD_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
@@ -479,7 +481,8 @@ def enrich_with_compound_record(
     df_result["compound_key"] = df_result["compound_key"].astype("string")
     df_result["removed"] = df_result["removed"].astype("boolean")
 
-    log.info(LogEvents.ENRICHMENT_COMPLETED,
+    log.info(
+        LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         rows_with_doc_id=len(df_with_doc) if not df_with_doc.empty else 0,
         rows_without_doc_id=len(df_without_doc) if not df_without_doc.empty else 0,
@@ -528,7 +531,8 @@ def _enrich_by_pairs(
             page_limit=page_limit,
         )
     except Exception as exc:
-        log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_PAIRS,
+        log.warning(
+            LogEvents.ENRICHMENT_FETCH_ERROR_BY_PAIRS,
             pairs_count=len(pairs),
             error=str(exc),
             exc_info=True,
@@ -605,13 +609,12 @@ def _enrich_by_pairs(
     )
 
     pairs_found = int(
-        df_enrich[["molecule_chembl_id", "document_chembl_id"]]
-        .drop_duplicates()
-        .shape[0]
+        df_enrich[["molecule_chembl_id", "document_chembl_id"]].drop_duplicates().shape[0]
     )
     pairs_not_found = max(len(pairs) - pairs_found, 0)
 
-    log.info(LogEvents.ENRICHMENT_BY_PAIRS_COMPLETE,
+    log.info(
+        LogEvents.ENRICHMENT_BY_PAIRS_COMPLETE,
         pairs_requested=len(pairs),
         pairs_found=pairs_found,
         pairs_not_found=pairs_not_found,
@@ -619,7 +622,8 @@ def _enrich_by_pairs(
     )
 
     if pairs_not_found > 0:
-        log.warning(LogEvents.ENRICHMENT_BY_PAIRS_SOME_PAIRS_NOT_FOUND,
+        log.warning(
+            LogEvents.ENRICHMENT_BY_PAIRS_SOME_PAIRS_NOT_FOUND,
             pairs_not_found=pairs_not_found,
             pairs_total=len(pairs),
             hint="Verify that (molecule_chembl_id, document_chembl_id) pairs exist in the ChEMBL API.",
@@ -699,7 +703,8 @@ def _enrich_by_record_id(
     batch_size = int(cfg.get("batch_size", 100)) or 100
 
     # Fetch compound_record entries by record_id.
-    log.info(LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_RECORD_ID,
+    log.info(
+        LogEvents.ENRICHMENT_FETCHING_COMPOUND_RECORDS_BY_RECORD_ID,
         record_ids_count=len(record_ids),
     )
     compound_records_dict: dict[str, dict[str, Any]] = {}
@@ -726,7 +731,8 @@ def _enrich_by_record_id(
                 ):
                     all_records.append(dict(record))
             except Exception as exc:
-                log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
+                log.warning(
+                    LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
                     chunk_size=len(chunk),
                     error=str(exc),
                     exc_info=True,
@@ -745,7 +751,8 @@ def _enrich_by_record_id(
                     "compound_name": record.get("compound_name"),
                 }
     except Exception as exc:
-        log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
+        log.warning(
+            LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
             record_ids_count=len(record_ids),
             error=str(exc),
             exc_info=True,
@@ -847,7 +854,8 @@ def enrich_with_data_validity(
     required_cols = ["data_validity_comment"]
     missing_cols = [col for col in required_cols if col not in df_act.columns]
     if missing_cols:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
@@ -876,7 +884,9 @@ def enrich_with_data_validity(
     page_limit = cfg.get("page_limit", 1000)
 
     # Invoke client.fetch_data_validity_lookup.
-    log.info(LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY, comments_count=len(set(validity_comments)))
+    log.info(
+        LogEvents.ENRICHMENT_FETCHING_DATA_VALIDITY, comments_count=len(set(validity_comments))
+    )
     records_df = client.fetch_data_validity_lookup(
         comments=validity_comments,
         fields=list(fields),
@@ -902,7 +912,9 @@ def enrich_with_data_validity(
         .dropna(subset=["data_validity_comment"])
         .copy()
     )
-    df_enrich["data_validity_comment"] = df_enrich["data_validity_comment"].astype("string").str.strip()
+    df_enrich["data_validity_comment"] = (
+        df_enrich["data_validity_comment"].astype("string").str.strip()
+    )
     df_enrich = (
         df_enrich.drop_duplicates(subset=["data_validity_comment"], keep="first")
         .sort_values(by=["data_validity_comment"], kind="mergesort")
@@ -939,7 +951,8 @@ def enrich_with_data_validity(
     # Normalize column types.
     df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")
 
-    log.info(LogEvents.ENRICHMENT_COMPLETED,
+    log.info(
+        LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         records_matched=len(df_enrich),
     )

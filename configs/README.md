@@ -23,7 +23,7 @@ the following order:
    its own `extends`).
 4. `env/<BIOETL_ENV>/*.yaml`, if `BIOETL_ENV` is defined.
 5. CLI overrides (`--set key=value`).
-6. Environment variables with `BIOETL__`/`BIOACTIVITY__` prefixes.
+6. Environment variables with the `BIOETL__` prefix.
 
 Environment directories must exist when `BIOETL_ENV` is provided. Missing
 directories cause the loader to fail fast instead of silently skipping

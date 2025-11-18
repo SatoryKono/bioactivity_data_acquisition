@@ -14,6 +14,8 @@ __all__ = ["MAX_BYTES", "check_output_artifacts"]
 
 MAX_BYTES = 1_000_000
 IGNORED_NAMES = {".gitkeep"}
+
+
 def check_output_artifacts(
     max_bytes: int = MAX_BYTES,
     *,

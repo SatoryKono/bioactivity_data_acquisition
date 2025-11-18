@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
+from enum import Enum
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Protocol
 
 import pandas as pd
 
@@ -16,7 +18,6 @@ class WriteResult:
     qc_metrics: Path | None
     extras: dict[str, Path]
 
-
 class WriteArtifacts:
     dataset: Path
     metadata: Path | None
@@ -24,14 +25,12 @@ class WriteArtifacts:
     correlation_report: Path | None
     qc_metrics: Path | None
 
-
 class RunArtifacts:
     write: WriteArtifacts
     run_directory: Path
     manifest: Path | None
     log_file: Path
     extras: dict[str, Path]
-
 
 class RunResult:
     write_result: WriteResult
@@ -49,26 +48,32 @@ class RunResult:
 
     @property
     def dataset_path(self) -> Path: ...
-
     @property
     def records(self) -> int: ...
-
     @property
     def dataframe(self) -> pd.DataFrame: ...
 
+class PipelineExtractionMode(Enum):
+    AUTO: PipelineExtractionMode
+    BATCH: PipelineExtractionMode
+    FULL: PipelineExtractionMode
 
-class PipelineBase:
-    config: Any
-    run_id: str
-    pipeline_code: str
 
-    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
+class PipelineStagesProtocol(Protocol):
+    def prepare_run(self) -> None: ...
+
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = ...,
+        ids: Sequence[str] | None = ...,
+    ) -> pd.DataFrame: ...
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
 
-    def write(
+    def save_results(
         self,
         df: pd.DataFrame,
         output_path: Path,
@@ -78,6 +83,40 @@ class PipelineBase:
         include_qc_metrics: bool | None = ...,
     ) -> RunResult: ...
 
+    def finalize_run(self, result: RunResult | None) -> None: ...
+
+
+class PipelineBase(PipelineStagesProtocol):
+    config: Any
+    run_id: str
+    pipeline_code: str
+
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = ...,
+        ids: Sequence[str] | None = ...,
+    ) -> pd.DataFrame: ...
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = ...,
+        include_correlation: bool | None = ...,
+        include_qc_metrics: bool | None = ...,
+    ) -> RunResult: ...
+    def write(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = ...,
+        include_correlation: bool | None = ...,
+        include_qc_metrics: bool | None = ...,
+    ) -> RunResult: ...
     def run(
         self,
         output_path: Path,
@@ -87,25 +126,15 @@ class PipelineBase:
         include_qc_metrics: bool | None = ...,
         qc_reports: QCReportRuntimeOptions | None = ...,
         qc_thresholds: Mapping[str, float] | None = ...,
-        fail_on_qc_violation: bool | None = ...,
+        fail_on_qc_violation: bool = ..., 
         **kwargs: Any,
     ) -> RunResult: ...
 
-
 class ChemblActivityPipeline(PipelineBase): ...
-
-
 class ChemblAssayPipeline(PipelineBase): ...
-
-
 class ChemblDocumentPipeline(PipelineBase): ...
-
-
 class ChemblTargetPipeline(PipelineBase): ...
-
-
 class TestItemChemblPipeline(PipelineBase): ...
-
 
 ActivityPipeline = ChemblActivityPipeline
 AssayPipeline = ChemblAssayPipeline
@@ -132,4 +161,3 @@ __all__ = [
     "WriteArtifacts",
     "WriteResult",
 ]
-

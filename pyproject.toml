@@ -76,30 +76,63 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
-# На время рефакторинга проверяем каталоги с продуктивным кодом и тестами.
+target-version = "py310"
 src = [
-    "src/bioetl",
+    "src",
     "tests",
+    "scripts",
+]
+exclude = [
+    "build",
+    "dist",
+    "data",
+    "docs/site",
+    "htmlcov",
+    "tmp",
+    "typings",
+    ".venv",
+    "venv",
 ]
 
 [tool.ruff.lint]
 select = [
     "E",
     "F",
-    "I",
-    "N",
+]
+extend-select = [
+    "A",   # shadowing builtins
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "I",   # import sorting (cross-check with isort)
+    "N",   # pep-naming
+    "RET", # return statements
+    "S",   # security
+    "SIM", # simplifications
+    "TID", # tidy imports
+    "UP",  # pyupgrade
 ]
 ignore = [
     "E501",  # line too long, handled by formatter
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
 ]
+fixable = ["ALL"]
+unfixable = ["F401"]  # dead imports чаще требуют ручной оценки
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105"]
+"scripts/**" = ["S603", "S607"]  # CLI-скрипты могут запускать shell-команды
 
 [tool.ruff.lint.isort]
 known-first-party = [
     "bioetl",
 ]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
 
 [tool.mypy]
 python_version = "3.11"
@@ -232,6 +265,55 @@ combine_as_imports = true
 max-line-length = 100
 extend-ignore = ["E203", "W503", "B008", "C901"]
 extend-select = ["B", "C4"]
+
+[tool.pylint.main]
+py-version = "3.10"
+fail-under = 8.0
+ignore = [
+    "data",
+    "docs/site",
+    "build",
+    "dist",
+]
+ignore-paths = [
+    "^data/.*",
+    "^docs/site/.*",
+    "^build/.*",
+    "^dist/.*",
+]
+jobs = 0
+persistent = false
+suggestion-mode = true
+init-hook = "import sys; from pathlib import Path; sys.path.append(str(Path('src').resolve()))"
+
+[tool.pylint.basic]
+good-names = ["df", "id", "i", "j", "k", "x", "y"]
+extension-pkg-allow-list = ["pydantic"]
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-many-arguments",
+    "too-many-instance-attributes",
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "too-few-public-methods",
+]
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.similarities]
+ignore-comments = true
+ignore-docstrings = true
+min-similarity-lines = 10
+
+[tool.pylint.reports]
+output-format = "colorized"
+score = false
 
 [tool.pyright]
 pythonVersion = "3.10"

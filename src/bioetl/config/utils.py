@@ -7,6 +7,8 @@ from typing import Any
 
 from .helpers import coerce_bool
 
+__all__ = ["coerce_bool", "coerce_max_url_length"]
+
 
 def coerce_max_url_length(parameters: Mapping[str, Any] | None) -> int:
     """Normalize ``max_url_length`` from raw configuration parameters."""

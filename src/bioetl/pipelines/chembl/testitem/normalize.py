@@ -11,4 +11,3 @@ def normalize(df: pd.DataFrame) -> pd.DataFrame:
     """Return ``df`` unchanged; placeholder for future normalization logic."""
 
     return df
-

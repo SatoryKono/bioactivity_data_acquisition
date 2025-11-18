@@ -1,4 +1,5 @@
 """Common command options and pipeline command factory for BioETL CLI."""
+
 from __future__ import annotations
 
 import importlib
@@ -154,7 +155,7 @@ class PipelineCliCommand(CliCommandBase):
         try:
             cli_overrides = parse_set_overrides(override_values) if override_values else {}
         except ValueError as exc:
-            raise typer.BadParameter(str(exc))
+            raise typer.BadParameter(str(exc)) from exc
 
         options = PipelineCommandOptions(
             config_path=config,
@@ -265,6 +266,7 @@ class PipelineCliCommand(CliCommandBase):
             environment_loader=load_environment_settings,
         )
         return PipelineCommandRunner(config_factory=config_factory)
+
 
 def create_pipeline_command(
     pipeline_class: type[PipelineBase],

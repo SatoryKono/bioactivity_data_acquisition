@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
 from typing import Any, cast
@@ -16,10 +16,10 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
@@ -30,11 +30,19 @@ from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exporte
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core import UnifiedLogger
+from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.core.schema import IdentifierRule, StringRule
+from bioetl.core.schema.normalizers import IdentifierStats
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .transform import serialize_target_arrays
+
+_ARRAY_SOURCE_COLUMNS: tuple[str, ...] = (
+    "cross_references",
+    "target_components",
+    "target_component_synonyms",
+)
 
 
 def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str, str, str]:
@@ -60,12 +68,17 @@ def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str
     level_flag = 1 if level is None else 0
     return (level_flag, level_int, class_id, pref_name, canonical_json)
 
-class ChemblTargetPipeline(ChemblPipelineBase):
+
+class ChemblTargetPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
     actor = "target_chembl"
     id_column = "target_chembl_id"
     extract_event_name = "chembl_target.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED
+    id_chunk_size_cap = 100
+    id_max_batch_size = 200
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -75,29 +88,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
-        """Return the descriptor powering target extraction."""
-
-        def build_context(
-            pipeline: ChemblPipelineBase,
-            source_config: TargetSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
-
-            def extra_filters_factory(sc: TargetSourceConfig, _: ChemblPipelineBase) -> dict[str, Any]:
-                batch_size = getattr(sc, "batch_size", None)
-                return {"batch_size": batch_size} if batch_size else {}
-
-            return build_standard_chembl_context(
-                typed_pipeline,
-                "target",
-                source_config,
-                log,
-                entity_client_type=ChemblTargetClient,
-                release_resolver=lambda p, c, logger, _: p.fetch_chembl_release(c, logger),
-                extra_filters_factory=extra_filters_factory,
-            )
+    def descriptor_spec(self) -> ChemblDescriptorSpec["ChemblTargetPipeline"]:
+        """Return the declarative descriptor specification for targets."""
 
         def get_metadata(pipeline: ChemblPipelineBase) -> Mapping[str, Any]:
             return {"chembl_release": pipeline.chembl_release}
@@ -115,11 +107,34 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         ) -> Mapping[str, Any]:
             return {"limit": pipeline.config.cli.limit}
 
-        return ChemblExtractionDescriptor[ChemblPipelineBase](
+        def extra_filters_factory(
+            source_config: TargetSourceConfig,
+            _: ChemblPipelineBase,
+        ) -> dict[str, Any]:
+            batch_size = getattr(source_config, "batch_size", None)
+            return {"batch_size": batch_size} if batch_size else {}
+
+        def release_resolver(
+            pipeline: ChemblPipelineBase,
+            client: Any,
+            log: BoundLogger,
+            _: Any,
+        ) -> str | None:
+            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
+            return typed_pipeline.fetch_chembl_release(client, log)
+
+        context_spec = ChemblContextSpec(
+            entity_name="target",
+            entity_client_type=ChemblTargetClient,
+            release_resolver=release_resolver,
+            extra_filters_factory=extra_filters_factory,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_target",
             source_name="chembl",
             source_config_factory=TargetSourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="target_chembl_id",
             summary_event="chembl_target.extract_summary",
             sort_by=("target_chembl_id",),
@@ -128,135 +143,52 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract target records by a specific list of IDs using batch extraction.
+    def id_extraction_select_fields(
+        self,
+        source_config: Any,
+        typed_source_config: TargetSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> list[str] | None:
+        resolved = typed_source_config.parameters.select_fields
+        return self._merge_select_fields(resolved, descriptor.must_have_fields)
 
-        Parameters
-        ----------
-        ids:
-            Sequence of target_chembl_id values to extract.
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply identifier harmonization before the shared transform template."""
 
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted target records.
-        """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
+        log = self.logger_for(stage="transform")
+        harmonized = self._harmonize_identifier_columns(df, log)
+        array_columns = [column for column in _ARRAY_SOURCE_COLUMNS if column in harmonized.columns]
+        if array_columns:
+            self._array_source_cache = harmonized[array_columns].copy()
+        else:
+            self._array_source_cache = None
+        return harmonized
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "target",
-            source_name="chembl",
-            source_config=source_config,
-        )
-        if "chembl_target_http" not in self._registered_clients:
-            self.register_client("chembl_target_http", bundle.api_client)
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Run domain-specific normalization and enrichment for targets."""
 
-        chembl_client = bundle.chembl_client
-        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
+        log = self.logger_for(stage="transform")
+        working_df = df
+        cached_arrays: pd.DataFrame | None = getattr(self, "_array_source_cache", None)
+        if cached_arrays is not None and not cached_arrays.empty:
+            working_df = working_df.join(cached_arrays, how="left")
+        working_df = serialize_target_arrays(working_df, self.config)
+        self._array_source_cache = None
 
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_release=self.chembl_release,
-            )
-            return pd.DataFrame()
-
-        batch_size = source_config.batch_size
-        limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-
-        target_client = cast(ChemblTargetClient, bundle.entity_client)
-        if target_client is None:
-            msg = "Фабрика вернула пустой клиент для 'target'"
-            raise RuntimeError(msg)
-
-        def fetch_targets(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = target_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        chunk_size = min(100, batch_size) if isinstance(batch_size, int) else 100
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="target_chembl_id",
-            fetcher=fetch_targets,
-            select_fields=select_fields,
-            batch_size=batch_size,
-            chunk_size=chunk_size,
-            max_batch_size=200,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(select_fields) if select_fields else None,
-            },
-            chembl_release=self.chembl_release,
-        )
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
-        return dataframe
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw target data by normalizing fields and enriching with component/classification data."""
-
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("transform"))
-
-        df = df.copy()
-
-        df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-
-        if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
-            return df
-
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
-
-        # Normalize identifiers
-        df = self._normalize_identifiers(df, log)
-
-        # Serialize array fields (cross_references, target_components, target_component_synonyms)
-        df = serialize_target_arrays(df, self.config)
-
-        # Enrich with target_component data
         if not self.config.cli.dry_run:
-            df = self._enrich_target_components(df, log)
+            working_df = self._enrich_target_components(working_df, log)
+            working_df = self._enrich_protein_classifications(working_df, log)
 
-        # Enrich with protein_classification data
-        if not self.config.cli.dry_run:
-            df = self._enrich_protein_classifications(df, log)
+        return working_df
 
-        # Normalize string fields
-        df = self._normalize_string_fields(df, log)
+    def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure schema ordering and apply type normalization after enrichment."""
 
-        # Ensure all schema columns exist after enrichment
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-
-        # Normalize data types after ensuring columns (to fix types created as object)
-        df = self._normalize_data_types(df, self._output_schema, log)
-
-        df = self._order_schema_columns(df, self._output_column_order)
-
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
-        return df
+        log = self.logger_for(stage="transform")
+        ensured = self._ensure_schema_columns(df, self._output_column_order, log)
+        normalized = self._normalize_data_types(ensured, self._output_schema, log)
+        ordered = self._order_schema_columns(normalized, self._output_column_order)
+        return ordered
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -305,25 +237,28 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers with regex validation."""
-        rules = [
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
             IdentifierRule(
                 name="target_chembl",
                 columns=["target_chembl_id"],
                 pattern=r"^CHEMBL\d+$",
             ),
-        ]
+        )
 
-        normalized_df, stats = normalize_identifiers(df, rules)
-
+    def postprocess_identifier_columns(
+        self,
+        df: pd.DataFrame,
+        stats: IdentifierStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
         invalid_info = stats.per_column.get("target_chembl_id")
-        if invalid_info and invalid_info["invalid"] > 0:
-            log.warning(LogEvents.INVALID_TARGET_CHEMBL_ID,
+        if invalid_info and invalid_info.get("invalid", 0) > 0:
+            log.warning(
+                LogEvents.INVALID_TARGET_CHEMBL_ID,
                 count=invalid_info["invalid"],
             )
-
-        return normalized_df
+        return super().postprocess_identifier_columns(df, stats, log)
 
     def _enrich_target_components(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Enrich targets with component data from /target_component endpoint.
@@ -398,7 +333,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     deduped_components = sorted({component.strip() for component in components})
                     component_map[target_id] = deduped_components
             except Exception as exc:
-                log.warning(LogEvents.TARGET_COMPONENT_FETCH_ERROR,
+                log.warning(
+                    LogEvents.TARGET_COMPONENT_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -415,9 +351,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         # Add component_count column (only for missing values)
         if "component_count" in df.columns:
-            mask = target_membership & (
-                df["component_count"].isna() | (df["component_count"] == 0)
-            )
+            mask = target_membership & (df["component_count"].isna() | (df["component_count"] == 0))
             if mask.any():
                 df.loc[mask, "component_count"] = df.loc[mask, "target_chembl_id"].map(
                     lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
@@ -493,11 +427,15 @@ class ChemblTargetPipeline(ChemblPipelineBase):
             lambda x: self._is_target_in_set(x, target_ids_set)
         )
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
+        log.info(
+            LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich)
+        )
 
         # Get component_limit from config if available
         component_limit: int | None = None
-        if hasattr(source_config, "parameters") and hasattr(source_config.parameters, "component_limit"):
+        if hasattr(source_config, "parameters") and hasattr(
+            source_config.parameters, "component_limit"
+        ):
             component_limit = source_config.parameters.component_limit
 
         for target_id in target_ids_to_enrich:
@@ -551,7 +489,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             if protein_class_id is not None:
                                 protein_class_ids.add(str(protein_class_id))
                     except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_CLASS_FETCH_ERROR,
+                        log.debug(
+                            LogEvents.COMPONENT_CLASS_FETCH_ERROR,
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -605,7 +544,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                                             path_levels[i - 1] = str(level_value)
                                 break
                         except Exception as exc:
-                            log.debug(LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
+                            log.debug(
+                                LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 protein_class_id=protein_class_id,
                                 error=str(exc),
@@ -624,7 +564,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                             }
                             protein_classes.append(class_obj)
                     except Exception as exc:
-                        log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                        log.warning(
+                            LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                             target_chembl_id=target_id,
                             protein_class_id=protein_class_id,
                             error=str(exc),
@@ -663,7 +604,8 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                         classification_top_map[target_id] = top_class
 
             except Exception as exc:
-                log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                log.warning(
+                    LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -696,36 +638,22 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     else pd.NA
                 )
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
+        log.info(
+            LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
             enriched_list_count=len(classification_list_map),
             enriched_top_count=len(classification_top_map),
         )
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields by trimming whitespace."""
-        working_df = df.copy()
-
-        rules = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
             "pref_name": StringRule(),
             "target_type": StringRule(),
             "organism": StringRule(),
             "tax_id": StringRule(),
         }
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
-        if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-
-        return normalized_df
-
-    def _normalize_data_types(
-        self, df: pd.DataFrame, schema: Any | None, log: Any
-    ) -> pd.DataFrame:
+    def _normalize_data_types(self, df: pd.DataFrame, schema: Any | None, log: Any) -> pd.DataFrame:
         """Normalize data types to match schema expectations.
 
         Overrides base implementation to handle component_count and species_group_flag specially.

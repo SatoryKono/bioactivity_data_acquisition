@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 from pydantic import Field, PositiveInt
 
-from bioetl.config.models import (
-    CacheConfig,
-    DeterminismConfig,
-    DeterminismSortingConfig,
-    HTTPClientConfig,
-    HTTPConfig,
+from bioetl.config.models._proxy_utils import ProxyDefinition, build_section_proxies
+from bioetl.config.models.models import (
     PipelineCommonCompat,
     PipelineConfig,
     PipelineDomainConfig,
@@ -21,7 +18,13 @@ from bioetl.config.models import (
     SourceConfig,
     SourceParameters,
 )
-from bioetl.config.models._proxy_utils import ProxyDefinition, build_section_proxies
+from bioetl.config.models.policies import (
+    CacheConfig,
+    DeterminismConfig,
+    DeterminismSortingConfig,
+    HTTPClientConfig,
+    HTTPConfig,
+)
 
 
 def _make_pipeline_config(**overrides: Any) -> PipelineConfig:
@@ -129,9 +132,7 @@ def test_build_section_proxies_supports_nested_paths() -> None:
         def __init__(self) -> None:
             self.section = _Section()
 
-    proxies = build_section_proxies(
-        (ProxyDefinition(attr="value", path=("section", "value")),)
-    )
+    proxies = build_section_proxies((ProxyDefinition(attr="value", path=("section", "value")),))
 
     for attr, descriptor in proxies.items():
         setattr(_Container, attr, descriptor)
@@ -252,4 +253,3 @@ def test_specialized_source_config_builds_from_generic() -> None:
     assert isinstance(specialized_parameters, _DummySourceParameters)
     assert specialized_parameters.foo == 9
     assert specialized.batch_size == 10
-

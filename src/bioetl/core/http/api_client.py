@@ -6,7 +6,7 @@ import random
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Mapping, MutableMapping
+from collections.abc import Callable, Iterator, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -18,6 +18,7 @@ import requests as _requests
 from requests import Response
 from requests.exceptions import HTTPError, RequestException, Timeout
 
+from bioetl.base_classes import BaseApiClient
 from bioetl.config.models.http import CircuitBreakerConfig, HTTPClientConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
@@ -146,7 +147,8 @@ class CircuitBreaker:
                         self._state = "half-open"
                         self._half_open_calls = 0
                         if self._logger:
-                            self._logger.info(LogEvents.CIRCUIT_BREAKER_TRANSITION,
+                            self._logger.info(
+                                LogEvents.CIRCUIT_BREAKER_TRANSITION,
                                 state="half-open",
                                 name=self.name,
                                 elapsed=elapsed,
@@ -154,7 +156,8 @@ class CircuitBreaker:
                     else:
                         # Still in open state
                         if self._logger:
-                            self._logger.warning(LogEvents.CIRCUIT_BREAKER_BLOCKED,
+                            self._logger.warning(
+                                LogEvents.CIRCUIT_BREAKER_BLOCKED,
                                 state="open",
                                 name=self.name,
                                 elapsed=elapsed,
@@ -195,7 +198,8 @@ class CircuitBreaker:
                 self._last_failure_time = None
                 self._half_open_calls = 0
                 if self._logger:
-                    self._logger.info(LogEvents.CIRCUIT_BREAKER_TRANSITION,
+                    self._logger.info(
+                        LogEvents.CIRCUIT_BREAKER_TRANSITION,
                         state="closed",
                         name=self.name,
                         reason="successful_request",
@@ -215,7 +219,8 @@ class CircuitBreaker:
                 self._state = "open"
                 self._half_open_calls = 0
                 if self._logger:
-                    self._logger.warning(LogEvents.CIRCUIT_BREAKER_TRANSITION,
+                    self._logger.warning(
+                        LogEvents.CIRCUIT_BREAKER_TRANSITION,
                         state="open",
                         name=self.name,
                         reason="failure_in_half_open",
@@ -226,7 +231,8 @@ class CircuitBreaker:
                     # Too many failures, transition to open
                     self._state = "open"
                     if self._logger:
-                        self._logger.warning(LogEvents.CIRCUIT_BREAKER_TRANSITION,
+                        self._logger.warning(
+                            LogEvents.CIRCUIT_BREAKER_TRANSITION,
                             state="open",
                             name=self.name,
                             reason="threshold_exceeded",
@@ -248,10 +254,10 @@ class CircuitBreaker:
 
     def time_until_half_open(self) -> float | None:
         """Return the time in seconds until the circuit breaker transitions to half-open.
-        
+
         Returns None if the circuit breaker is not in open state or if it's already
         ready to transition to half-open.
-        
+
         Returns
         -------
         float | None:
@@ -302,7 +308,10 @@ def _deep_merge(
     return base
 
 
-class UnifiedAPIClient:
+_DEFAULT_BATCH_SIZE = 50
+
+
+class UnifiedAPIClient(BaseApiClient):
     """HTTP client providing retries, timeouts, and rate limiting."""
 
     def __init__(
@@ -353,12 +362,43 @@ class UnifiedAPIClient:
     def close(self) -> None:
         self._session.close()
 
+    def batch_get(
+        self,
+        endpoints: Sequence[str],
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        batch_size: int | None = None,
+    ) -> Iterator[Response]:
+        """Yield responses for ``endpoints`` using ``get`` calls in batches."""
+
+        size = batch_size or _DEFAULT_BATCH_SIZE
+        if size <= 0:
+            msg = "batch_size must be greater than zero"
+            raise ValueError(msg)
+        for start in range(0, len(endpoints), size):
+            for endpoint in endpoints[start : start + size]:
+                yield self.get(endpoint, params=params, headers=headers)
+
+    def search(
+        self,
+        endpoint: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        page_size: int | None = None,
+    ) -> Iterator[Any]:
+        """Generic paginated search helper (override per-source)."""
+
+        msg = "search is not implemented on the base UnifiedAPIClient"
+        raise NotImplementedError(msg)
+
     def circuit_breaker_time_until_half_open(self) -> float | None:
         """Return the time in seconds until the circuit breaker transitions to half-open.
-        
+
         Returns None if the circuit breaker is not in open state or if it's already
         ready to transition to half-open.
-        
+
         Returns
         -------
         float | None:
@@ -384,7 +424,8 @@ class UnifiedAPIClient:
             if self._max_url_length and len(full_url) > self._max_url_length:
                 override_headers = dict(headers or {})
                 override_headers.setdefault("X-HTTP-Method-Override", "GET")
-                self._logger.info(LogEvents.HTTP_REQUEST_METHOD_OVERRIDE,
+                self._logger.info(
+                    LogEvents.HTTP_REQUEST_METHOD_OVERRIDE,
                     endpoint=full_url,
                     url_length=len(full_url),
                     max_length=self._max_url_length,
@@ -422,7 +463,8 @@ class UnifiedAPIClient:
                 attempt += 1
                 wait_seconds = self._rate_limiter.acquire()
                 if wait_seconds:
-                    self._logger.debug(LogEvents.HTTP_RATE_LIMITER_WAIT,
+                    self._logger.debug(
+                        LogEvents.HTTP_RATE_LIMITER_WAIT,
                         wait_seconds=wait_seconds,
                         endpoint=url,
                         attempt=attempt,
@@ -442,7 +484,8 @@ class UnifiedAPIClient:
                 except RequestException as exc:
                     duration_ms = (time.perf_counter() - start) * 1000
                     last_error = exc
-                    self._logger.warning(LogEvents.HTTP_REQUEST_EXCEPTION,
+                    self._logger.warning(
+                        LogEvents.HTTP_REQUEST_EXCEPTION,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -459,7 +502,8 @@ class UnifiedAPIClient:
                 status_code = response.status_code
                 retry_after = _parse_retry_after(response.headers.get("Retry-After"))
                 if self._should_retry(status_code):
-                    self._logger.warning(LogEvents.HTTP_REQUEST_RETRY,
+                    self._logger.warning(
+                        LogEvents.HTTP_REQUEST_RETRY,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -475,8 +519,9 @@ class UnifiedAPIClient:
                     self._sleep(sleep_for)
                     continue
 
-                if 400 <= status_code:
-                    self._logger.error(LogEvents.HTTP_REQUEST_FAILED,
+                if status_code >= 400:
+                    self._logger.error(
+                        LogEvents.HTTP_REQUEST_FAILED,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -485,7 +530,8 @@ class UnifiedAPIClient:
                     )
                     response.raise_for_status()
                 else:
-                    self._logger.info(LogEvents.HTTP_REQUEST_COMPLETED,
+                    self._logger.info(
+                        LogEvents.HTTP_REQUEST_COMPLETED,
                         endpoint=url,
                         attempt=attempt,
                         duration_ms=duration_ms,
@@ -557,7 +603,8 @@ class UnifiedAPIClient:
         if not self.base_url:
             return endpoint
         resolved = urljoin(self.base_url + "/", endpoint.lstrip("/"))
-        self._logger.debug(LogEvents.HTTP_RESOLVE_URL,
+        self._logger.debug(
+            LogEvents.HTTP_RESOLVE_URL,
             endpoint=endpoint,
             base_url=self.base_url,
             resolved=resolved,

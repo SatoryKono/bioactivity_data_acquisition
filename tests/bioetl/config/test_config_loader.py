@@ -113,9 +113,9 @@ class TestConfigLoader:
         """Test collecting environment overrides with multiple prefixes."""
         env: dict[str, str] = {
             "BIOETL__KEY1": "value1",
-            "BIOACTIVITY__KEY2": "value2",
+            "CUSTOM__KEY2": "value2",
         }
-        result = _collect_env_overrides(env, prefixes=("BIOETL__", "BIOACTIVITY__"))
+        result = _collect_env_overrides(env, prefixes=("BIOETL__", "CUSTOM__"))
 
         assert "key1" in result
         assert "key2" in result

@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -37,7 +38,9 @@ def test_run_batched_extraction_deduplicates_and_sorts(dummy_pipeline: DummyChem
     ids = ["b", "a", "b", "", "c", "a"]
     batches: list[tuple[str, ...]] = []
 
-    def fetch(batch_ids: Sequence[str], context: BatchExtractionContext) -> Sequence[dict[str, Any]]:
+    def fetch(
+        batch_ids: Sequence[str], context: BatchExtractionContext
+    ) -> Sequence[dict[str, Any]]:
         batches.append(tuple(batch_ids))
         return [{"identifier": value} for value in batch_ids]
 
@@ -56,7 +59,7 @@ def test_run_batched_extraction_deduplicates_and_sorts(dummy_pipeline: DummyChem
     assert batches == [("a", "b"), ("c",)]
     assert stats.requested == 3
     assert stats.batches == 2
-    assert getattr(dummy_pipeline, "_batched_stats")["rows"] == 3
+    assert dummy_pipeline._batched_stats["rows"] == 3
 
     recorded_filters = dummy_pipeline._extract_metadata.get("filters")  # type: ignore[reportPrivateUsage]
     assert recorded_filters is not None
@@ -68,7 +71,9 @@ def test_run_batched_extraction_deduplicates_and_sorts(dummy_pipeline: DummyChem
 def test_run_batched_extraction_respects_limit(dummy_pipeline: DummyChemblPipeline) -> None:
     ids = ["x1", "x2", "x3"]
 
-    def fetch(batch_ids: Sequence[str], context: BatchExtractionContext) -> Sequence[dict[str, Any]]:
+    def fetch(
+        batch_ids: Sequence[str], context: BatchExtractionContext
+    ) -> Sequence[dict[str, Any]]:
         return [{"identifier": value} for value in batch_ids]
 
     dataframe, stats = dummy_pipeline.run_batched_extraction(
@@ -110,6 +115,6 @@ def test_run_batched_extraction_delegated_mode_updates_stats(
     assert stats.batches == 5
     assert stats.api_calls == 3
     assert stats.cache_hits == 2
-    stored = getattr(dummy_pipeline, "_batched_stats")
+    stored = dummy_pipeline._batched_stats
     assert stored["cache_hits"] == 2
     assert stored["extra_field"] == "value"

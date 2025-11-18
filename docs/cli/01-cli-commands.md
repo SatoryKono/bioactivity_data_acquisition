@@ -84,6 +84,7 @@ python -m bioetl.cli.cli_app activity_chembl \
 - `target_chembl` — ChEMBL target dimension pipeline.
 - `document_chembl` — ChEMBL document pipeline.
 - `testitem_chembl` — ChEMBL molecule/test item pipeline.
+- `run-chembl-all` — групповой запуск всех ChEMBL-пайплайнов с едиными флагами.
 
 ## Утилиты конфигурации
 
@@ -93,6 +94,35 @@ python -m bioetl.cli.cli_app activity_chembl \
   позволяет быстро проверить новые секции (`postprocess`, `fallbacks`) или
   влияние env-переменных. Полная справка в
   [`docs/cli/config-inspect.md`](config-inspect.md).
+
+## Групповые команды
+
+### `run-chembl-all`
+
+- **Signature**: `bioetl run-chembl-all --output-root PATH [OPTIONS]`
+- **Purpose**: последовательно запускает все ChEMBL-пайплайны, перечисленные в
+  `PIPELINE_REGISTRY`, и собирает артефакты в указанной директории. Команда
+  повторно использует тот же `Typer`-контекст, что и отдельные пайплайны, и
+  передаёт общие флаги (`--limit`, `--extended`, `--golden`, `--verbose`,
+  `--dry-run`).
+- **Options**:
+  - `--output-root, -o PATH` — обязательный путь, куда будут размещены
+    артефакты всех пайплайнов (`activity`, `assay`, `target`, `document`,
+    `testitem`). Для каждого пайплайна создаётся подпапка вида
+    `<output-root>/<pipeline_code>`.
+  - `--configs-dir PATH` — базовый каталог конфигураций (по умолчанию `configs`).
+    Используется для автопоиска YAML-файлов, ожидаемых конкретным пайплайном.
+  - `--limit INTEGER` — soft-ограничение количества строк в каждом пайплайне для
+    smoke-тестов.
+  - `--extended` — включает расширенные QC-артефакты (`quality_report`,
+    correlation report).
+  - `--golden PATH` — опциональный путь к golden-набору; проверка выполняется
+    после завершения каждого пайплайна.
+  - `--verbose / --dry-run` — передаются напрямую в каждый пайплайн, сохраняя
+    поведение одиночных команд.
+- **Output**: единый лог и набор подпапок с артефактами. Ошибка на любом
+  пайплайне прерывает дальнейший запуск, сохраняя уже сгенерированные результаты
+  для анализа.
 
 ## Planned commands
 

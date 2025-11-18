@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
-from typing import Any, Callable, Literal, TypeVar
+from collections.abc import Callable, Mapping, Sequence
+from typing import Any, Literal, TypeVar
 
 import pandas as pd
 
@@ -215,24 +215,22 @@ def build_qc_metrics_payload(
             payload["columns_with_missing"] = ""
 
         if metrics_bundle.units_distribution is not None:
-            payload["units_distribution"] = {
-                column: distributions
-                for column, distributions in sorted(
+            payload["units_distribution"] = dict(
+                sorted(
                     metrics_bundle.units_distribution.items(),
                     key=lambda item: item[0],
                 )
-            }
+            )
         else:
             payload["units_distribution"] = {}
 
         if metrics_bundle.relation_distribution is not None:
-            payload["relation_distribution"] = {
-                column: distributions
-                for column, distributions in sorted(
+            payload["relation_distribution"] = dict(
+                sorted(
                     metrics_bundle.relation_distribution.items(),
                     key=lambda item: item[0],
                 )
-            }
+            )
         else:
             payload["relation_distribution"] = {}
 

@@ -14,6 +14,7 @@ def _get_helpers_module() -> ModuleType | None:
 
     return sys.modules.get("bioetl.devtools.typer_helpers")
 
+
 __all__ = ["TyperModule", "_load_typer"]
 
 
@@ -37,7 +38,7 @@ def _sync_helper_cache(value: TyperModule | None) -> None:
     helpers_module = _get_helpers_module()
     if helpers_module is None:
         return
-    setattr(helpers_module, "_typer_module", value)
+    helpers_module._typer_module = value
 
 
 def _load_typer() -> TyperModule:
@@ -65,4 +66,3 @@ def _load_typer() -> TyperModule:
     _typer_module = cast(TyperModule, module)
     _sync_helper_cache(_typer_module)
     return _typer_module
-

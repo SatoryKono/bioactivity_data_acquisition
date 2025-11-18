@@ -94,7 +94,9 @@ def test_run_link_check_handles_timeout(tmp_path: Path, monkeypatch: pytest.Monk
     assert exit_code == 1
 
 
-def test_run_link_check_handles_nonzero_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_link_check_handles_nonzero_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(link_check, "UnifiedLogger", DummyUnifiedLogger)
     monkeypatch.setattr(link_check, "PROJECT_ROOT", tmp_path)
     artifacts = tmp_path / "artifacts"

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any, Callable, ClassVar, Mapping, NoReturn, TypeAlias
+from typing import Any, ClassVar, NoReturn, TypeAlias
 
 import typer
 from structlog.stdlib import BoundLogger
@@ -153,7 +154,7 @@ class CliCommandBase:
         """Terminate the command with the provided exit code."""
 
         exit_exc = typer.Exit(code=code)
-        setattr(exit_exc, "code", code)
+        exit_exc.code = code
         if cause is not None:
             raise exit_exc from cause
         raise exit_exc
@@ -168,4 +169,3 @@ class CliCommandBase:
             runner.invoke(*args, **kwargs)
 
         return _command
-

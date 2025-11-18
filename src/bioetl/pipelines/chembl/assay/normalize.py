@@ -95,7 +95,8 @@ def enrich_with_assay_classifications(
     if "assay_classifications" in df_assay.columns:
         invalid_mask = df_assay["assay_classifications"].map(_should_nullify_string_value)
         if bool(invalid_mask.any()):
-            log.warning(LogEvents.ASSAY_CLASSIFICATIONS_RESET_NON_STRING,
+            log.warning(
+                LogEvents.ASSAY_CLASSIFICATIONS_RESET_NON_STRING,
                 rows=int(invalid_mask.sum()),
             )
             df_assay.loc[invalid_mask, "assay_classifications"] = pd.NA
@@ -108,7 +109,8 @@ def enrich_with_assay_classifications(
     required_cols = ["assay_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_assay.columns]
     if missing_cols:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
@@ -150,7 +152,11 @@ def enrich_with_assay_classifications(
         )
     except HTTPError as exc:
         # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
-        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+        if (
+            hasattr(exc, "response")
+            and exc.response is not None
+            and exc.response.status_code == 404
+        ):
             log.warning(
                 "enrichment.external_api_404",
                 endpoint="assay_class_map",
@@ -173,9 +179,7 @@ def enrich_with_assay_classifications(
             if isinstance(mappings, Mapping):
                 entries: Iterable[Mapping[str, Any]] = [mappings]
             elif isinstance(mappings, Iterable):
-                entries = [
-                    entry for entry in mappings if isinstance(entry, Mapping)
-                ]
+                entries = [entry for entry in mappings if isinstance(entry, Mapping)]
             else:
                 entries = []
             for entry in entries:
@@ -213,7 +217,9 @@ def enrich_with_assay_classifications(
     # Step 2: fetch ASSAY_CLASSIFICATION by assay_class_id.
     classification_dict: dict[str, dict[str, Any]] = {}
     if all_class_ids:
-        log.info(LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS, class_ids_count=len(all_class_ids))
+        log.info(
+            LogEvents.ENRICHMENT_FETCHING_ASSAY_CLASSIFICATIONS, class_ids_count=len(all_class_ids)
+        )
         try:
             classification_df = client.fetch_assay_classifications_by_class_ids(
                 list(all_class_ids),
@@ -222,7 +228,11 @@ def enrich_with_assay_classifications(
             )
         except HTTPError as exc:
             # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
-            if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+            if (
+                hasattr(exc, "response")
+                and exc.response is not None
+                and exc.response.status_code == 404
+            ):
                 log.warning(
                     "enrichment.external_api_404",
                     endpoint="assay_classification",
@@ -248,7 +258,9 @@ def enrich_with_assay_classifications(
             normalized_classification = (
                 classification_df.copy()
                 .assign(
-                    assay_class_id=lambda frame: frame["assay_class_id"].astype("string").str.strip(),
+                    assay_class_id=lambda frame: frame["assay_class_id"]
+                    .astype("string")
+                    .str.strip(),
                 )
                 .dropna(subset=["assay_class_id"])
                 .drop_duplicates(subset=["assay_class_id"], keep="first")
@@ -328,7 +340,8 @@ def enrich_with_assay_classifications(
             df_assay.at[row_key, "assay_classifications"] = serialized
             df_assay.at[row_key, "assay_class_id"] = class_id_joined
 
-    log.info(LogEvents.ENRICHMENT_CLASSIFICATIONS_COMPLETE,
+    log.info(
+        LogEvents.ENRICHMENT_CLASSIFICATIONS_COMPLETE,
         assays_with_classifications=len(df_assay[df_assay["assay_classifications"].notna()]),
     )
     return ASSAY_CLASSIFICATION_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
@@ -382,7 +395,8 @@ def enrich_with_assay_parameters(
     if "assay_parameters" in df_assay.columns:
         invalid_mask = df_assay["assay_parameters"].map(_should_nullify_string_value)
         if bool(invalid_mask.any()):
-            log.warning(LogEvents.ASSAY_PARAMETERS_RESET_NON_STRING,
+            log.warning(
+                LogEvents.ASSAY_PARAMETERS_RESET_NON_STRING,
                 rows=int(invalid_mask.sum()),
             )
             df_assay.loc[invalid_mask, "assay_parameters"] = pd.NA
@@ -392,7 +406,8 @@ def enrich_with_assay_parameters(
     required_cols = ["assay_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_assay.columns]
     if missing_cols:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)
@@ -449,7 +464,11 @@ def enrich_with_assay_parameters(
         )
     except HTTPError as exc:
         # Handle 404 gracefully: endpoint may not be available in this ChEMBL release
-        if hasattr(exc, "response") and exc.response is not None and exc.response.status_code == 404:
+        if (
+            hasattr(exc, "response")
+            and exc.response is not None
+            and exc.response.status_code == 404
+        ):
             log.warning(
                 "enrichment.external_api_404",
                 endpoint="assay_parameter",
@@ -536,7 +555,8 @@ def enrich_with_assay_parameters(
                 ensure_ascii=False,
             )
 
-    log.info(LogEvents.ENRICHMENT_PARAMETERS_COMPLETE,
+    log.info(
+        LogEvents.ENRICHMENT_PARAMETERS_COMPLETE,
         assays_with_parameters=len(df_assay[df_assay["assay_parameters"].notna()]),
     )
     return ASSAY_PARAMETERS_ENRICHMENT_SCHEMA.validate(df_assay, lazy=True)

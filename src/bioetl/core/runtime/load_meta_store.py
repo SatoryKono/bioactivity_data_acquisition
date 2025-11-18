@@ -147,7 +147,8 @@ class LoadMetaStore:
             notes=notes,
         )
         self._active[load_meta_id] = record
-        self._logger.info(LogEvents.LOAD_META_BEGIN,
+        self._logger.info(
+            LogEvents.LOAD_META_BEGIN,
             load_meta_id=load_meta_id,
             source_system=source_system,
             request_base_url=base_url,
@@ -174,7 +175,8 @@ class LoadMetaStore:
         if records_fetched_delta is not None:
             record.records_fetched += records_fetched_delta
         record.request_finished_at = _utcnow()
-        self._logger.info(LogEvents.LOAD_META_PAGE,
+        self._logger.info(
+            LogEvents.LOAD_META_PAGE,
             load_meta_id=load_meta_id,
             pages=len(events),
         )
@@ -210,7 +212,8 @@ class LoadMetaStore:
         df = pd.DataFrame([payload], columns=COLUMN_ORDER)
         LoadMetaSchema.validate(df, lazy=True)
         self._write_dataframe(df, self._meta_dir / f"{load_meta_id}.parquet")
-        self._logger.info(LogEvents.LOAD_META_FINISH,
+        self._logger.info(
+            LogEvents.LOAD_META_FINISH,
             load_meta_id=load_meta_id,
             status=status,
             records_fetched=records_fetched,
@@ -242,6 +245,16 @@ class LoadMetaStore:
             try:
                 frame.to_parquet(temp_path, index=False)
                 os.replace(temp_path, path)
+            except ImportError as exc:  # pragma: no cover - optional dependency guard
+                if temp_path.exists():
+                    temp_path.unlink(missing_ok=True)
+                self._logger.warning(
+                    "load_meta_parquet_unavailable",
+                    path=str(path),
+                    dataset_format=self._dataset_format,
+                    error=str(exc),
+                )
+                return
             except Exception:  # pragma: no cover - cleanup branch
                 if temp_path.exists():
                     temp_path.unlink(missing_ok=True)
