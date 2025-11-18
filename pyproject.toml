@@ -180,7 +180,7 @@ module = "tests.*"
 ignore_errors = true
 
 [tool.pytest.ini_options]
-testpaths = ["tests/bioetl", "tests/golden"]
+testpaths = ["tests", "tests/bioetl", "tests/golden"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -204,6 +204,8 @@ addopts = [
     "--maxfail=5",
     "--disable-warnings",
 ]
+log_cli = true
+log_cli_level = "INFO"
 markers = [
     "unit: Unit tests",
     "integration: Integration tests",
@@ -358,3 +360,8 @@ reportUnknownVariableType = false
 include = ["src/bioetl/clients/chembl_iterator.py"]
 reportMissingImports = false
 reportUnknownVariableType = false
+
+[tool.vulture]
+paths = ["src/bioetl", "tests", "scripts"]
+exclude = ["tests/golden/**"]
+min_confidence = 80

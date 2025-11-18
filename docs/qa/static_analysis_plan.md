@@ -19,11 +19,14 @@
 ## 3. Команды запуска
 Упрощённые цели описаны в `Makefile`:
 - `make format` — выполняет `ruff check --fix`, затем `isort` и `black` для всего `src/tests/scripts`.
-- `make lint` — проверяет `ruff`, `isort --check-only`, `black --check`.
+- `make lint` — вызывает `ruff`, `isort --check-only`, `black --check`.
+- `make lint.ruff` — быстрый standalone прогон `ruff` без форматеров.
+- `make test` — запускает `pytest --maxfail=1 --disable-warnings -vv tests` и повторяет ключевые маркеры локально.
 - `make typecheck` — запускает `mypy` c `pyproject.toml`.
-- `make qa` — агрегирует `lint` + `typecheck` для локальных pre-flight проверок.
+- `make deadcode` — формирует отчёт Vulture (`src`, `tests`, `scripts`, min_confidence=80) без падения пайплайна.
+- `make qa` — объединяет `lint`, `test` и `typecheck`, чтобы локально повторить quality job из CI.
 
-Для CI используется workflow `.github/workflows/ci.yaml`, который устанавливает dev-зависимости и вызывает `pre-commit run --all-files` (включая `ruff`, `black`, `isort`, `flake8`, `mypy`), а затем `mypy` и `pytest --collect-only` в отдельных джобах.
+Для CI используется workflow `.github/workflows/ci.yaml`, который устанавливает dev-зависимости и вызывает `pre-commit run --all-files` (включая `ruff`, `black`, `isort`, `flake8`, `mypy`), а затем новый job `quality-suite` запускает `pytest` → `ruff` → `mypy` → `vulture` (последний шаг публикует отчёт и не валит сборку). Матрица `tests` продолжает собирать регрессии под Python 3.10/3.11.
 
 ## 4. Автоисправление и ручной разбор
 1. **Автоисправление** — всегда начинаем с `make format`. Ruff автоматически поправит мелкие ошибки (`I`, `UP`, `SIM`), isort отсортирует импорты, black приведёт стиль.
