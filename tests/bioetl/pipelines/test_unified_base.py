@@ -96,6 +96,34 @@ def test_iterate_pages_invokes_on_page(unified_pipeline: DummyUnifiedPipeline) -
     assert unified_pipeline.observed_pages[-1][0] == 1
 
 
+def test_stage_logger_records_duration_and_emits_events(
+    unified_pipeline: DummyUnifiedPipeline,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    logger = MagicMock()
+    unified_pipeline.logger_for = MagicMock(return_value=logger)  # type: ignore[assignment]
+
+    counter = iter([1.0, 1.25])
+
+    def fake_perf_counter() -> float:
+        return next(counter)
+
+    monkeypatch.setattr("bioetl.pipelines.mixins.time.perf_counter", fake_perf_counter)
+
+    with unified_pipeline.stage_logger("extract", rows=3) as log:
+        assert log is logger
+        log.info("custom_event")
+
+    assert "extract" in unified_pipeline._stage_durations_ms
+    assert unified_pipeline._stage_durations_ms["extract"] == pytest.approx(250.0)
+
+    unified_pipeline.logger_for.assert_called_once_with(stage="extract", component=None)
+    logger.info.assert_any_call("stage_started", rows=3)
+    logger.info.assert_any_call(
+        "stage_completed", duration_ms=pytest.approx(250.0), rows=3
+    )
+
+
 def test_run_batched_extraction_bridge(unified_pipeline: DummyUnifiedPipeline) -> None:
     ids = ["id-1", "id-2"]
 
@@ -118,6 +146,49 @@ def test_transform_pipeline_flow(unified_pipeline: DummyUnifiedPipeline) -> None
     transformed = unified_pipeline.transform(df)
     assert "note" in transformed.columns
     assert transformed.loc[0, "note"] == "ok"
+
+
+def test_transform_lifecycle_invokes_hooks_in_order(
+    pipeline_config_fixture,
+    run_id,
+) -> None:
+    class TrackingPipeline(DummyUnifiedPipeline):
+        def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+            super().__init__(*args, **kwargs)
+            self.hooks: list[str] = []
+
+        def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+            self.hooks.append("pre")
+            df = df.copy()
+            df["pre_marker"] = "seen"
+            return df
+
+        def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+            self.hooks.append("domain")
+            return super().domain_enrich(df)
+
+        def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+            self.hooks.append("post")
+            df = df.copy()
+            df["post_marker"] = "done"
+            return df
+
+    tracking_pipeline = TrackingPipeline(pipeline_config_fixture, run_id)
+
+    source_df = pd.DataFrame(
+        {
+            "identifier": ["alpha"],
+            "value": [42],
+            "note": [pd.NA],
+        }
+    )
+
+    result = tracking_pipeline.transform(source_df)
+
+    assert tracking_pipeline.hooks == ["pre", "domain", "post"]
+    assert "post_marker" in result.columns
+    assert result.loc[0, "post_marker"] == "done"
+    assert "pre_marker" not in source_df.columns
 
 
 def test_save_results_writes_dataset(
