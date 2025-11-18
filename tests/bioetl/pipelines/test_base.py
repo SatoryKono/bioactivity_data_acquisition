@@ -331,7 +331,9 @@ class TestPipelineBase:
         )
 
         # Use output_path from artifacts for write()
-        result = pipeline.write(sample_activity_data, artifacts.write.dataset.parent, extended=True)
+        result = pipeline.save_results(
+            sample_activity_data, artifacts.write.dataset.parent, extended=True
+        )
 
         assert_qc_artifact_set(
             result.write_result,
@@ -345,7 +347,7 @@ class TestPipelineBase:
         pipeline = TestPipeline(config=pipeline_config_fixture, run_id=run_id)
 
         with pytest.raises(TypeError, match="expects a pandas DataFrame"):
-            pipeline.write("invalid_payload", tmp_output_dir)  # type: ignore[arg-type]
+            pipeline.save_results("invalid_payload", tmp_output_dir)  # type: ignore[arg-type]
 
     def test_run_lifecycle(
         self, pipeline_config_fixture: PipelineConfig, run_id: str, tmp_output_dir: Path
@@ -502,7 +504,7 @@ class TestPipelineBase:
         # Directory should be created when writing to pipeline_directory
         # Use pipeline_directory directly as output_path
         output_file = pipeline.pipeline_directory / "test_output.csv"
-        result = pipeline.write(sample_activity_data, output_file, extended=True)
+        result = pipeline.save_results(sample_activity_data, output_file, extended=True)
         assert pipeline.pipeline_directory.exists()
         assert result.write_result.dataset.exists()
 

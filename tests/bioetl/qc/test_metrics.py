@@ -244,7 +244,7 @@ class TestQCMetrics:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[arg-type]
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result = pipeline.save_results(sample_activity_data, artifacts.run_directory)
 
         assert_qc_artifact_set(result.write_result)
 

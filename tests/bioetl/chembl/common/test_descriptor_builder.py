@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from types import SimpleNamespace
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -19,7 +20,10 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.config.target import TargetSourceConfig
 
 
-class _ProbePipeline(ChemblDescriptorBuilderMixin["_ProbePipeline"], ChemblPipelineBase):
+class _ProbePipeline(
+    ChemblDescriptorBuilderMixin["_ProbePipeline"],
+    ChemblPipelineBase,
+):  # noqa: UP037
     """Minimal pipeline harnessing the descriptor builder mixin for tests."""
 
     actor = "probe"
@@ -38,9 +42,9 @@ class _ProbePipeline(ChemblDescriptorBuilderMixin["_ProbePipeline"], ChemblPipel
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover - minimal stub
         return df
 
-    def descriptor_spec(self) -> ChemblDescriptorSpec["_ProbePipeline"]:
+    def descriptor_spec(self) -> ChemblDescriptorSpec[_ProbePipeline]:
         def summary_extra(
-            _: "_ProbePipeline",
+            _: _ProbePipeline,
             __: pd.DataFrame,
             ___: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -69,7 +73,7 @@ class _ProbePipeline(ChemblDescriptorBuilderMixin["_ProbePipeline"], ChemblPipel
 
     def _release_resolver(
         self,
-        _: "_ProbePipeline",
+        _: _ProbePipeline,
         __: Any,
         ___: BoundLogger,
         ____: Any | None,
@@ -79,7 +83,7 @@ class _ProbePipeline(ChemblDescriptorBuilderMixin["_ProbePipeline"], ChemblPipel
 
     def _after_build(
         self,
-        _: "_ProbePipeline",
+        _: _ProbePipeline,
         context: ChemblExtractionContext,
         source_config: TargetSourceConfig,
         __: BoundLogger,

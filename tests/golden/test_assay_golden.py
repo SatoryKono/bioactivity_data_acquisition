@@ -59,7 +59,7 @@ def test_assay_pipeline_golden_snapshot(
     frame = load_sample_assay_dataframe()
     transformed = pipeline.transform(frame)
     validated = pipeline.validate(transformed)
-    result = pipeline.write(validated, pipeline.pipeline_directory, extended=True)
+    result = pipeline.save_results(validated, pipeline.pipeline_directory, extended=True)
 
     produced_paths: dict[str, Path | None] = {
         "dataset": result.write_result.dataset,

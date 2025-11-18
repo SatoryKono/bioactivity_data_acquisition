@@ -10,7 +10,7 @@ import pandas as pd
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import WriteResult
 from bioetl.core.pipeline import RunResult
-from bioetl.pipelines.base import PipelineBase
+from bioetl.pipelines.base import PipelineBase, PipelineExtractionMode
 
 
 class _TemplateProbePipeline(PipelineBase):
@@ -23,9 +23,14 @@ class _TemplateProbePipeline(PipelineBase):
     def prepare_run(self) -> None:
         self._calls.append("prepare")
 
-    def extract(self) -> pd.DataFrame:
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
         self._calls.append("extract")
-        return pd.DataFrame({"value": [1]})
+        return super().extract(mode=mode, ids=ids)
 
     def extract_all(self) -> pd.DataFrame:
         return pd.DataFrame({"value": [1]})
@@ -41,7 +46,7 @@ class _TemplateProbePipeline(PipelineBase):
         self._calls.append("validate")
         return df
 
-    def write(
+    def save_results(
         self,
         df: pd.DataFrame,
         output_path: Path,

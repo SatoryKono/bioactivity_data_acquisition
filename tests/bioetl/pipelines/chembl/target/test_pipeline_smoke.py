@@ -93,7 +93,7 @@ def setup_mock_api_client(mock_targets: list[dict[str, object]]) -> MagicMock:
             if call_count["count"] <= len(responses):
                 return responses[call_count["count"] - 1]
             return mock_status_response  # Default for subsequent calls
-        elif "/target.json" in url:
+        if "/target.json" in url:
             # Return target data for paginate calls
             return mock_target_response
         # Default fallback

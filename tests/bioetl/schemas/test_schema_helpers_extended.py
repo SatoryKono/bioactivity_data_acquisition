@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib
 import sys
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -186,14 +187,16 @@ def test_split_identifier_errors() -> None:
         _split_identifier("pkg:")
 
 
-def test_required_vocab_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_required_vocab_ids(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     helper = importlib.import_module("bioetl.schemas.schema_vocabulary_helper")
     store = {"valid": {"ids": ["one", "two"], "status": ["active", "inactive"]}}
 
     def fake_load() -> dict[str, Any]:
         return store
 
-    monkeypatch.setenv(VOCAB_STORE_ENV_VAR, "/tmp/dictionaries")
+    monkeypatch.setenv(VOCAB_STORE_ENV_VAR, str(tmp_path / "dictionaries"))
     monkeypatch.setattr(helper, "load_vocab_store", lambda path: fake_load())
     refresh_vocab_store_cache()
     assert required_vocab_ids("valid") == {"one", "two"}

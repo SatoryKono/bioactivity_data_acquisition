@@ -10,14 +10,16 @@ from __future__ import annotations
 import hashlib
 import time
 import uuid
+import warnings
 from abc import ABC, abstractmethod
 from builtins import ConnectionError as BuiltinConnectionError
 from builtins import TimeoutError as BuiltinTimeoutError
 from collections.abc import Callable, Iterable, Mapping, Sequence, Sized
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from enum import Enum
 from pathlib import Path
-from typing import Any, TypeVar, cast
+from typing import Any, Protocol, TypeVar, cast, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -93,6 +95,44 @@ _NETWORK_ERROR_TYPES = (
 )
 
 
+class PipelineExtractionMode(str, Enum):
+    """Enumerate high level extraction flows supported by pipelines."""
+
+    AUTO = "auto"
+    BATCH = "batch"
+    FULL = "full"
+
+
+@runtime_checkable
+class PipelineStagesProtocol(Protocol):
+    """Minimal protocol describing the public lifecycle hooks."""
+
+    def prepare_run(self) -> None: ...
+
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+    ) -> pd.DataFrame: ...
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = False,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
+    ) -> RunResult: ...
+
+    def finalize_run(self, result: RunResult | None) -> None: ...
+
+
 @dataclass(frozen=True)
 class RunResult:
     """Final result of a pipeline execution.
@@ -148,7 +188,7 @@ class RunResult:
 T_qc = TypeVar("T_qc")
 
 
-class PipelineBase(ABC):
+class PipelineBase(ABC, PipelineStagesProtocol):
     """Shared orchestration helpers for ETL pipelines."""
 
     dataset_extension: str = "csv"
@@ -403,14 +443,29 @@ class PipelineBase(ABC):
         yield self.pipeline_directory / f"{stem}_meta.yaml"
         yield self.pipeline_directory / f"{stem}_run_manifest.{self.manifest_extension}"
 
-    @abstractmethod
-    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
-        """Subclasses fetch raw data and return domain-specific payloads.
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        """Dispatch between ID-based and full extraction modes."""
 
-        Subclasses should check for input_file in config.cli.input_file and
-        call extract_by_ids() if present, otherwise call extract_all().
-        """
-        # According to documentation, extract should return pd.DataFrame
+        normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
+
+        if mode is PipelineExtractionMode.BATCH:
+            if not normalized_ids:
+                msg = "batch extraction requires a non-empty sequence of ids"
+                raise PipelineError(msg)
+            return self.extract_by_ids(normalized_ids)
+
+        if mode is PipelineExtractionMode.FULL:
+            return self.extract_all()
+
+        if normalized_ids:
+            return self.extract_by_ids(normalized_ids)
+
+        return self.extract_all()
 
     @abstractmethod
     def extract_all(self) -> pd.DataFrame:
@@ -443,6 +498,17 @@ class PipelineBase(ABC):
     # ------------------------------------------------------------------
     # Optional hooks overridable by subclasses
     # ------------------------------------------------------------------
+
+    def prepare_run(self) -> None:
+        """Hook executed before the extract stage begins."""
+
+        return
+
+    def finalize_run(self, result: RunResult | None) -> None:
+        """Hook executed after the write stage completes."""
+
+        _ = result
+        return
 
     @property
     def qc_plan(self) -> QCPlan:
@@ -604,7 +670,7 @@ class PipelineBase(ABC):
     def close_resources(self) -> None:
         """Release additional resources during cleanup."""
 
-        return None
+        return
 
     def register_client(
         self,
@@ -624,7 +690,6 @@ class PipelineBase(ABC):
             # Wrap to ensure return type is None
             def wrapped() -> None:
                 client()
-                return None
 
             closer = wrapped
         else:
@@ -636,7 +701,6 @@ class PipelineBase(ABC):
             # Wrap to ensure return type is None
             def wrapped() -> None:
                 candidate()
-                return None
 
             closer = wrapped
 
@@ -794,6 +858,26 @@ class PipelineBase(ABC):
         )
 
         return ids
+
+    def _resolve_extract_invocation(self) -> tuple[PipelineExtractionMode, Sequence[str] | None]:
+        """Return the effective extract mode and optional identifier list."""
+
+        mode = PipelineExtractionMode.AUTO
+        ids: tuple[str, ...] | None = None
+
+        input_file = getattr(self.config.cli, "input_file", None)
+        if input_file:
+            id_column = self._get_id_column_name()
+            resolved_ids = self._read_input_ids(
+                id_column_name=id_column,
+                limit=getattr(self.config.cli, "limit", None),
+                sample=getattr(self.config.cli, "sample", None),
+            )
+            if resolved_ids:
+                ids = tuple(resolved_ids)
+                mode = PipelineExtractionMode.BATCH
+
+        return mode, ids
 
     def _get_id_column_name(self) -> str:
         """Return the ID column name based on pipeline type.
@@ -1465,6 +1549,25 @@ class PipelineBase(ABC):
             finally:
                 self._registered_clients.pop(name, None)
 
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = False,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
+    ) -> RunResult:
+        """Persist the DataFrame and QC artifacts using deterministic writers."""
+
+        return self._write_run(
+            df,
+            output_path,
+            extended=extended,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+        )
+
     def write(
         self,
         df: pd.DataFrame,
@@ -1474,26 +1577,31 @@ class PipelineBase(ABC):
         include_correlation: bool | None = None,
         include_qc_metrics: bool | None = None,
     ) -> RunResult:
-        """Write the DataFrame and all metadata artifacts to the output path.
+        """Backward compatible alias for :meth:`save_results`."""
 
-        This method writes the dataset, quality reports, metadata, and other
-        artifacts to the specified output path. According to documentation,
-        this method should return RunResult, not WriteResult.
+        warnings.warn(
+            "PipelineBase.write() is deprecated; use save_results() instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self._write_run(
+            df,
+            output_path,
+            extended=extended,
+            include_correlation=include_correlation,
+            include_qc_metrics=include_qc_metrics,
+        )
 
-        Parameters
-        ----------
-        df:
-            The DataFrame to write.
-        output_path:
-            The base output path for all artifacts.
-        extended:
-            Whether to include extended QC artifacts.
-
-        Returns
-        -------
-        RunResult:
-            All artifacts generated by the write operation.
-        """
+    def _write_run(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = False,
+        include_correlation: bool | None = None,
+        include_qc_metrics: bool | None = None,
+    ) -> RunResult:
+        """Internal helper implementing the deterministic write flow."""
         log = UnifiedLogger.get(__name__)
         if not isinstance(df, pd.DataFrame):  # pyright: ignore[reportUnnecessaryIsInstance]
             msg = f"write() expects a pandas DataFrame payload; received {type(df).__name__!s}"
@@ -1508,13 +1616,9 @@ class PipelineBase(ABC):
 
         # Run correlation report generation if enabled in the config or via extended mode.
         include_correlation_flag = (
-            bool(include_correlation)
-            if include_correlation is not None
-            else (effective_extended or correlation_default)
+            bool(include_correlation) or effective_extended or correlation_default
         )
-        include_qc_metrics_flag = (
-            bool(include_qc_metrics) if include_qc_metrics is not None else effective_extended
-        )
+        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
         include_metadata = bool(self.config.validation.schema_out)
         if effective_extended or self._extract_metadata:
             include_metadata = True
@@ -1663,21 +1767,38 @@ class PipelineBase(ABC):
 
     def run(
         self,
-        output_path: Path,
-        *args: object,
+        output_dir: Path,
+        *,
         extended: bool = False,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
         qc_reports: QCReportRuntimeOptions | None = None,
         qc_thresholds: Mapping[str, float] | None = None,
-        fail_on_qc_violation: bool | None = None,
-        **kwargs: object,
+        fail_on_qc_violation: bool = False,
     ) -> RunResult:
-        """
-        Orchestrates the execution of pipeline stages in strict order:
-        extract -> transform -> validate -> write.
+        """Execute the pipeline lifecycle and return collected artifacts.
 
-        This method is managed by the framework and SHOULD NOT be overridden.
+        Public contract:
+        - run(output_dir: Path, *, extended=False, include_correlation=False,
+              include_qc_metrics=False, qc_reports=None, qc_thresholds=None,
+              fail_on_qc_violation=False) -> RunResult
+
+        Этот метод — шаблон выполнения пайплайна. Дочерние классы должны
+        реализовать хуки: prepare_run, extract/extract_by_ids/extract_all,
+        transform, validate, save_results, finalize_run. Сигнатура run() не
+        должна меняться.
+
+        Parameters
+        ----------
+        output_dir:
+            The base output path for all artifacts.
+        extended:
+            Whether to include extended QC artifacts.
+
+        Returns
+        -------
+        RunResult:
+            All artifacts generated by the pipeline run.
         """
         bind_pipeline_context(
             run_id=self.run_id,
@@ -1693,8 +1814,8 @@ class PipelineBase(ABC):
         self._extract_metadata = {}
         self._qc_report_options = qc_reports
         self._qc_thresholds = dict(qc_thresholds or {})
-        if fail_on_qc_violation is not None:
-            self._qc_fail_on_threshold = bool(fail_on_qc_violation)
+        self._qc_fail_on_threshold = bool(fail_on_qc_violation)
+        extract_mode, extract_ids = self._resolve_extract_invocation()
 
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         configured_mode = "extended" if effective_extended else None
@@ -1704,22 +1825,25 @@ class PipelineBase(ABC):
         correlation_default = bool(getattr(correlation_config, "enabled", False))
         # Run correlation report generation if enabled in the config or via extended mode.
         include_correlation_flag = (
-            bool(include_correlation)
-            if include_correlation is not None
-            else (effective_extended or correlation_default)
+            bool(include_correlation) or effective_extended or correlation_default
         )
-        include_qc_metrics_flag = (
-            bool(include_qc_metrics) if include_qc_metrics is not None else effective_extended
-        )
+        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
 
         current_stage = "bootstrap"
         bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
         bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
         bootstrap_log.info(
-            LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_path)
+            LogEvents.STAGE_RUN_START,
+            mode=configured_mode,
+            output_path=str(output_dir),
+            extract_mode=extract_mode.value,
         )
 
+        result: RunResult | None = None
+        finalize_invoked = False
+
         try:
+            self.prepare_run()
             current_stage = "extract"
             with pipeline_stage(
                 current_stage,
@@ -1731,7 +1855,7 @@ class PipelineBase(ABC):
             ) as extract_log:
                 extract_log.info(LogEvents.STAGE_EXTRACT_START)
                 extract_start = time.perf_counter()
-                extracted = self.extract(*args, **kwargs)
+                extracted = self.extract(mode=extract_mode, ids=extract_ids)
                 duration = (time.perf_counter() - extract_start) * 1000.0
                 stage_durations_ms[current_stage] = duration
                 rows = self._safe_len(extracted)
@@ -1785,11 +1909,11 @@ class PipelineBase(ABC):
                 component=self._component_for_stage(current_stage),
                 logger_name=__name__,
             ) as write_log:
-                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_path))
+                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_dir))
                 write_start = time.perf_counter()
-                result = self.write(
+                result = self.save_results(
                     validated,
-                    output_path,
+                    output_dir,
                     extended=effective_extended,
                     include_correlation=include_correlation_flag,
                     include_qc_metrics=include_qc_metrics_flag,
@@ -1807,6 +1931,8 @@ class PipelineBase(ABC):
             bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
             bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
+            self.finalize_run(result)
+            finalize_invoked = True
             return result
 
         except PipelineError as exc:
@@ -1839,6 +1965,17 @@ class PipelineBase(ABC):
             raise
 
         finally:
+            if not finalize_invoked:
+                try:
+                    self.finalize_run(result)
+                except Exception as finalize_error:  # pragma: no cover - defensive finalize path
+                    finalize_log = self._make_pipeline_logger(
+                        stage="finalize", logger_name=__name__
+                    )
+                    finalize_log.warning(
+                        LogEvents.STAGE_CLEANUP_ERROR,
+                        error=str(finalize_error),
+                    )
             current_stage = "cleanup"
             with pipeline_stage(
                 current_stage,

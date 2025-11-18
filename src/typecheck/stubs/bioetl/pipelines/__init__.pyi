@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 import pandas as pd
 
@@ -52,14 +53,61 @@ class RunResult:
     @property
     def dataframe(self) -> pd.DataFrame: ...
 
-class PipelineBase:
+class PipelineExtractionMode(Enum):
+    AUTO: PipelineExtractionMode
+    BATCH: PipelineExtractionMode
+    FULL: PipelineExtractionMode
+
+
+class PipelineStagesProtocol(Protocol):
+    def prepare_run(self) -> None: ...
+
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = ...,
+        ids: Sequence[str] | None = ...,
+    ) -> pd.DataFrame: ...
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
+
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = ...,
+        include_correlation: bool | None = ...,
+        include_qc_metrics: bool | None = ...,
+    ) -> RunResult: ...
+
+    def finalize_run(self, result: RunResult | None) -> None: ...
+
+
+class PipelineBase(PipelineStagesProtocol):
     config: Any
     run_id: str
     pipeline_code: str
 
-    def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = ...,
+        ids: Sequence[str] | None = ...,
+    ) -> pd.DataFrame: ...
     def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
     def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
+    def save_results(
+        self,
+        df: pd.DataFrame,
+        output_path: Path,
+        *,
+        extended: bool = ...,
+        include_correlation: bool | None = ...,
+        include_qc_metrics: bool | None = ...,
+    ) -> RunResult: ...
     def write(
         self,
         df: pd.DataFrame,
@@ -78,7 +126,7 @@ class PipelineBase:
         include_qc_metrics: bool | None = ...,
         qc_reports: QCReportRuntimeOptions | None = ...,
         qc_thresholds: Mapping[str, float] | None = ...,
-        fail_on_qc_violation: bool | None = ...,
+        fail_on_qc_violation: bool = ..., 
         **kwargs: Any,
     ) -> RunResult: ...
 
