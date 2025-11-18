@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import pandas as pd
+from functools import partial
 
-from bioetl.config.models.models import PipelineConfig
+from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
 
 from .run import ChemblDocumentPipeline
 
 __all__ = ["transform"]
 
+PIPELINE = register_pipeline(ChemblDocumentPipeline)
 
-def transform(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Execute document-specific transformation logic."""
-
-    pipeline = ChemblDocumentPipeline(config=config, run_id=run_id)
-    return pipeline.transform(df)
+transform = partial(run_stage, "transform", PIPELINE)

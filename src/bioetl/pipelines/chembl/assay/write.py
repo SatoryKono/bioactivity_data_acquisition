@@ -2,27 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from functools import partial
 
-import pandas as pd
-
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.pipeline import RunResult
+from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
 
 from .run import ChemblAssayPipeline
 
 __all__ = ["write"]
 
+PIPELINE = register_pipeline(ChemblAssayPipeline)
 
-def write(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-    output_path: Path,
-    **kwargs: Any,
-) -> RunResult:
-    """Materialize deterministic assay artifacts."""
-
-    pipeline = ChemblAssayPipeline(config=config, run_id=run_id)
-    return pipeline.write(df, output_path, **kwargs)
+write = partial(run_stage, "write", PIPELINE)
