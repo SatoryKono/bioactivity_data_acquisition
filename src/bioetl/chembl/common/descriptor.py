@@ -31,21 +31,42 @@ from bioetl.core import APIClientFactory
 from bioetl.core.common import ChemblReleaseMixin
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.core.pipeline import PipelineBase
+from bioetl.core.pipeline import PipelineBase, PipelineExtractionMode
+from bioetl.core.pipeline.errors import PipelineError
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
-PipelineT = TypeVar("PipelineT", bound="ChemblPipelineBase", contravariant=True)
-FetcherCallable = Callable[[Sequence[str], "BatchExtractionContext"], Any]
-FetcherFactory = Callable[["ChemblExtractionContext", BoundLogger], FetcherCallable]
-FinalizeCallable = Callable[[pd.DataFrame, "BatchExtractionContext"], pd.DataFrame]
-FinalizeFactory = Callable[["ChemblExtractionContext", BoundLogger], FinalizeCallable]
-FinalizeContextCallable = Callable[["BatchExtractionContext"], None]
+PipelineT = TypeVar(
+    "PipelineT",
+    bound="ChemblPipelineBase",
+    contravariant=True,
+)  # noqa: UP037
+FetcherCallable = Callable[[Sequence[str], "BatchExtractionContext"], Any]  # noqa: UP037
+FetcherFactory = Callable[
+    ["ChemblExtractionContext", BoundLogger],
+    FetcherCallable,
+]  # noqa: UP037
+FinalizeCallable = Callable[
+    [pd.DataFrame, "BatchExtractionContext"],
+    pd.DataFrame,
+]  # noqa: UP037
+FinalizeFactory = Callable[
+    ["ChemblExtractionContext", BoundLogger],
+    FinalizeCallable,
+]  # noqa: UP037
+FinalizeContextCallable = Callable[["BatchExtractionContext"], None]  # noqa: UP037
 FinalizeContextFactory = Callable[
-    ["ChemblExtractionContext", BoundLogger], FinalizeContextCallable
-]
-DryRunHandler = Callable[["ChemblPipelineBase", "ChemblExtractionContext", BoundLogger], pd.DataFrame]
-SummaryFactory = Callable[["ChemblExtractionContext", "BatchExtractionStats"], Mapping[str, Any]]
+    ["ChemblExtractionContext", BoundLogger],
+    FinalizeContextCallable,
+]  # noqa: UP037
+DryRunHandler = Callable[
+    ["ChemblPipelineBase", "ChemblExtractionContext", BoundLogger],
+    pd.DataFrame,
+]  # noqa: UP037
+SummaryFactory = Callable[
+    ["ChemblExtractionContext", "BatchExtractionStats"],
+    Mapping[str, Any],
+]  # noqa: UP037
 
 
 @dataclass(slots=True)
@@ -64,11 +85,11 @@ class ChemblContextSpec(Generic[PipelineT]):
     page_size_resolver: Callable[[Any], int | None] | None = None
     pre_release_hook: Callable[[PipelineT, Any, Any], None] | None = None
     after_build: (
-        Callable[[PipelineT, "ChemblExtractionContext", Any, BoundLogger], "ChemblExtractionContext"]
+        Callable[[PipelineT, ChemblExtractionContext, Any, BoundLogger], ChemblExtractionContext]
         | None
     ) = None
     builder: (
-        Callable[[PipelineT, Any, BoundLogger], "ChemblExtractionContext"] | None
+        Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None
     ) = None
 
 
@@ -86,28 +107,28 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
     default_select_fields: Sequence[str] | None = None
     record_transform: (
         Callable[
-            [PipelineT, Mapping[str, Any], "ChemblExtractionContext"],
+            [PipelineT, Mapping[str, Any], ChemblExtractionContext],
             Mapping[str, Any],
         ]
         | None
     ) = None
     post_processors: Sequence[
-        Callable[[PipelineT, pd.DataFrame, "ChemblExtractionContext", BoundLogger], pd.DataFrame]
+        Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
     ] = ()
     sort_by: Sequence[str] | str | None = None
     empty_frame_factory: (
-        Callable[[PipelineT, "ChemblExtractionContext"], pd.DataFrame] | None
+        Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None
     ) = None
     dry_run_handler: (
         Callable[
-            [PipelineT, "ChemblExtractionContext", BoundLogger, float],
+            [PipelineT, ChemblExtractionContext, BoundLogger, float],
             pd.DataFrame,
         ]
         | None
     ) = None
     summary_extra: (
         Callable[
-            [PipelineT, pd.DataFrame, "ChemblExtractionContext"],
+            [PipelineT, pd.DataFrame, ChemblExtractionContext],
             Mapping[str, Any],
         ]
         | None
@@ -115,7 +136,10 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
     hard_page_size_cap: int | None = 25
 
 
-SelfDescriptorT = TypeVar("SelfDescriptorT", bound="ChemblDescriptorBuilderMixin[Any]")
+SelfDescriptorT = TypeVar(
+    "SelfDescriptorT",
+    bound="ChemblDescriptorBuilderMixin[Any]",
+)  # noqa: UP037
 
 
 @dataclass(slots=True)
@@ -790,19 +814,60 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """Update the cached API version used by the pipeline."""
         self._set_optional_string_value("_api_version", value, field_name="api_version")
 
-    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+        **legacy_kwargs: object,
+    ) -> pd.DataFrame:
         """Dispatch between batch and full extraction modes."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-
         event_name = self.extract_event_name or f"{self.pipeline_code}.extract_mode"
         id_column_name = self.id_column or self._get_id_column_name()
+        normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
+
+        if mode is PipelineExtractionMode.BATCH:
+            if not normalized_ids:
+                msg = "batch extraction requires non-empty ids"
+                raise PipelineError(msg)
+            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            log.info(
+                event_name,
+                mode="batch",
+                source=source,
+                ids_count=len(normalized_ids),
+            )
+            return self.extract_by_ids(normalized_ids)
+
+        if mode is PipelineExtractionMode.FULL:
+            log.info(event_name, mode="full")
+            return self.extract_all()
+
+        if normalized_ids:
+            source = "cli_input" if getattr(self.config.cli, "input_file", None) else "runtime"
+            log.info(
+                event_name,
+                mode="batch",
+                source=source,
+                ids_count=len(normalized_ids),
+            )
+            return self.extract_by_ids(normalized_ids)
 
         legacy_resolver: Callable[[BoundLogger], Sequence[str] | None] | None = None
+        if legacy_kwargs and not self.has_legacy_extract_support():
+            unexpected = ", ".join(sorted(legacy_kwargs))
+            msg = (
+                f"extract() received unsupported keyword arguments: {unexpected}. "
+                "Provide identifiers via --input-file."
+            )
+            raise TypeError(msg)
+
         if self.has_legacy_extract_support():
 
             def _legacy(bound_log: BoundLogger) -> Sequence[str] | None:
-                return self.resolve_legacy_extract_ids(bound_log, *args, **kwargs)
+                return self.resolve_legacy_extract_ids(bound_log, **legacy_kwargs)
 
             legacy_resolver = _legacy
 
@@ -1332,7 +1397,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             descriptor_empty_factory = descriptor.empty_frame_factory
             effective_empty_factory = empty_frame_factory
             if effective_empty_factory is None and descriptor_empty_factory is not None:
-                effective_empty_factory = lambda: descriptor_empty_factory(self, context)
+                def _descriptor_empty_factory() -> pd.DataFrame:
+                    return descriptor_empty_factory(self, context)
+
+                effective_empty_factory = _descriptor_empty_factory
 
             effective_fetcher = fetcher
             if effective_fetcher is None and fetcher_factory is not None:

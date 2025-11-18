@@ -57,7 +57,7 @@ def _run_script(script: str, *extra: str) -> subprocess.CompletedProcess[str]:
     env["NO_COLOR"] = "1"
     env["FORCE_COLOR"] = "0"
     env["TERM"] = "dumb"
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603
         [sys.executable, str(script_path), *extra],
         cwd=repo_root,
         capture_output=True,

@@ -36,7 +36,7 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result1 = pipeline.save_results(sample_activity_data, artifacts.run_directory)
 
         # Read CSV and check hash_row column
         df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
@@ -48,7 +48,7 @@ class TestDeterminismQC:
             # Run again
             pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
             artifacts2 = pipeline2.plan_run_artifacts(run_id)
-            result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
+            result2 = pipeline2.save_results(sample_activity_data, artifacts2.run_directory)
 
             df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
             hash2 = df2["hash_row"].iloc[0]
@@ -71,7 +71,7 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result1 = pipeline.save_results(sample_activity_data, artifacts.run_directory)
         df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
 
         if "hash_business_key" in df1.columns:
@@ -80,7 +80,7 @@ class TestDeterminismQC:
             # Run again
             pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
             artifacts2 = pipeline2.plan_run_artifacts(run_id)
-            result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
+            result2 = pipeline2.save_results(sample_activity_data, artifacts2.run_directory)
 
             df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
             hash2 = df2["hash_business_key"].iloc[0]
@@ -103,13 +103,13 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result1 = pipeline.save_results(sample_activity_data, artifacts.run_directory)
         df1: pd.DataFrame = pd.read_csv(result1.write_result.dataset)  # type: ignore[assignment]
 
         # Run again
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts2 = pipeline2.plan_run_artifacts(run_id)
-        result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
+        result2 = pipeline2.save_results(sample_activity_data, artifacts2.run_directory)
 
         df2: pd.DataFrame = pd.read_csv(result2.write_result.dataset)  # type: ignore[assignment]
 
@@ -131,14 +131,14 @@ class TestDeterminismQC:
         pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts = pipeline.plan_run_artifacts(run_id)
 
-        result1 = pipeline.write(sample_activity_data, artifacts.run_directory)
+        result1 = pipeline.save_results(sample_activity_data, artifacts.run_directory)
         content1 = result1.write_result.dataset.read_bytes()
         checksum1 = hashlib.sha256(content1).hexdigest()
 
         # Run again
         pipeline2 = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
         artifacts2 = pipeline2.plan_run_artifacts(run_id)
-        result2 = pipeline2.write(sample_activity_data, artifacts2.run_directory)
+        result2 = pipeline2.save_results(sample_activity_data, artifacts2.run_directory)
 
         content2 = result2.write_result.dataset.read_bytes()
         checksum2 = hashlib.sha256(content2).hexdigest()

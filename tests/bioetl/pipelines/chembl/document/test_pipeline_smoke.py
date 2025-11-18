@@ -120,9 +120,9 @@ def setup_mock_api_client(
             if call_count["count"] <= len(responses):
                 return responses[call_count["count"] - 1]
             return mock_status_response
-        elif "/document.json" in url:
+        if "/document.json" in url:
             return mock_document_response
-        elif "/document_term.json" in url:
+        if "/document_term.json" in url:
             return mock_document_term_response
         return mock_status_response
 

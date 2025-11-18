@@ -7,8 +7,8 @@ from re‑implementing boilerplate lifecycle hooks.
 
 from __future__ import annotations
 
-import time
 import json
+import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
@@ -24,13 +24,13 @@ from bioetl.chembl.common.descriptor import (
     FetcherFactory,
     FinalizeCallable,
     FinalizeContextCallable,
+    FinalizeContextFactory,
     FinalizeFactory,
 )
-from bioetl.core.http import UnifiedAPIClient
-from bioetl.core.io import WriteResult
-from bioetl.core.pipeline import RunResult
 from bioetl.chembl.common.normalize import normalize_identifiers
+from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
+from bioetl.core.pipeline import RunResult
 from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
@@ -544,7 +544,7 @@ class BatchIdExtractionMixin:
             msg = "id_extraction_summary_event must be defined"
             raise RuntimeError(msg)
 
-        plan = BatchIdExtractionPlan(
+        return BatchIdExtractionPlan(
             source_config=typed_source_config,
             summary_event=summary_event,
             dry_run_event=self.id_extraction_dry_run_event,
@@ -570,7 +570,6 @@ class BatchIdExtractionMixin:
             ),
             run_kwargs=run_kwargs,
         )
-        return plan
 
     def id_extraction_select_fields(
         self,
@@ -830,8 +829,8 @@ class IOArtifactsMixin:
 
     Contract
     --------
-    Requires ``write`` from :class:`bioetl.pipelines.base.PipelineBase`. The
-    mixin exposes ``save_results`` для всех ChEMBL-пайплайнов, чтобы они могли
+    Requires ``save_results`` from :class:`bioetl.pipelines.base.PipelineBase`.
+    The mixin exposes ``save_results`` для всех ChEMBL-пайплайнов, чтобы они могли
     сохранять артефакты (основной CSV, correlation report, QC метрики)
     детерминированно и в едином формате `RunResult`. Любые дополнительные опции
     (``extended``, ``include_correlation``, ``include_qc_metrics``) передаются
@@ -846,13 +845,13 @@ class IOArtifactsMixin:
         extended: bool = False,
         include_correlation: bool = False,
         include_qc_metrics: bool = False,
-    ) -> WriteResult:
-        """Persist the dataframe using :meth:`PipelineBase.write`."""
-        run_result: RunResult = super().write(
+    ) -> RunResult:
+        """Persist the dataframe using :meth:`PipelineBase.save_results`."""
+        run_result: RunResult = super().save_results(
             df,
             output_dir,
             extended=extended,
             include_correlation=include_correlation,
             include_qc_metrics=include_qc_metrics,
         )
-        return run_result.write_result
+        return run_result

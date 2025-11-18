@@ -10,13 +10,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from bioetl.core.pipeline import RunResult
+from bioetl.core.pipeline import PipelineExtractionMode, RunResult
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
 from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
-from bioetl.pipelines.unified_base import UnifiedPipelineBase
+from bioetl.pipelines.unified_base import ChemblPipelineContract, UnifiedPipelineBase
 
 
 class DummyUnifiedPipeline(UnifiedPipelineBase):
@@ -31,11 +31,17 @@ class DummyUnifiedPipeline(UnifiedPipelineBase):
     def build_descriptor(self):  # pragma: no cover - not used in tests
         raise NotImplementedError
 
-    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:
+    def extract(
+        self,
+        *,
+        mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
+        ids: Sequence[str] | None = None,
+    ) -> pd.DataFrame:
+        _ = (mode, ids)
         return self._extract_df.copy()
 
     def extract_all(self) -> pd.DataFrame:  # pragma: no cover - compatibility hook
-        return self.extract()
+        return self._extract_df.copy()
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         return pd.DataFrame({"identifier": list(ids), "value": list(range(len(ids)))})
@@ -201,6 +207,12 @@ def test_unified_pipeline_run_produces_artifacts(
 ) -> None:
     result = unified_pipeline.run(tmp_output_dir)
     assert result.write_result.dataset.exists()
+
+
+def test_unified_pipeline_satisfies_contract(
+    unified_pipeline: DummyUnifiedPipeline,
+) -> None:
+    assert isinstance(unified_pipeline, ChemblPipelineContract)
 
 
 def test_unified_pipeline_run_signature_matches_contract() -> None:

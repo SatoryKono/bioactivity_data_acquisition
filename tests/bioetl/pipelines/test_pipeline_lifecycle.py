@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
@@ -127,13 +128,10 @@ class TestPipelineLifecycle:
             pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
 
             # Should raise validation error or handle gracefully
-            try:
+            with suppress(Exception):
                 result = pipeline.run(tmp_output_dir)
                 # If it succeeds, validation should have cleaned invalid data
                 assert result.write_result.dataset.exists()
-            except Exception:
-                # Validation errors are acceptable
-                pass
 
     def test_pipeline_lifecycle_with_empty_data(
         self,

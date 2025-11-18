@@ -4,13 +4,15 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Any, Protocol, runtime_checkable
 
 from bioetl.chembl.common.descriptor import (
     ChemblDescriptorBuilderMixin,
+    ChemblDescriptorSpec,
     ChemblPipelineBase,
 )
 from bioetl.config.runtime import QCReportRuntimeOptions
-from bioetl.core.pipeline import RunResult
+from bioetl.core.pipeline import PipelineStagesProtocol, RunResult
 
 from .mixins import (
     BatchIdExtractionMixin,
@@ -25,6 +27,16 @@ from .mixins import (
 )
 
 
+@runtime_checkable
+class ChemblPipelineContract(PipelineStagesProtocol, Protocol):
+    """Protocol implemented by all ChEMBL pipelines."""
+
+    actor: str
+    id_column: str | None
+
+    def descriptor_spec(self) -> ChemblDescriptorSpec[Any]: ...
+
+
 class UnifiedPipelineBase(
     LoggingMixin,
     ReleaseHandshakeMixin,
@@ -37,6 +49,7 @@ class UnifiedPipelineBase(
     IOArtifactsMixin,
     ChemblDescriptorBuilderMixin,
     ChemblPipelineBase,
+    ChemblPipelineContract,
 ):
     """ChEMBL-focused pipeline base that wires mixins into the public contract.
 

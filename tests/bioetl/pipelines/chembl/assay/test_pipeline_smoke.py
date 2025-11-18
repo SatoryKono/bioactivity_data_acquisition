@@ -191,14 +191,14 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
             if call_count["count"] <= len(responses):
                 return responses[call_count["count"] - 1]
             return mock_status_response  # Default for subsequent calls
-        elif "/assay.json" in url:
+        if "/assay.json" in url:
             # Return assay data for paginate calls
             return mock_assay_response
-        elif "/assay_class_map.json" in url:
+        if "/assay_class_map.json" in url:
             return mock_class_map_response
-        elif "/assay_classification.json" in url:
+        if "/assay_classification.json" in url:
             return mock_classification_response
-        elif "/assay_parameter.json" in url:
+        if "/assay_parameter.json" in url:
             return mock_parameters_response
         # Default fallback
         return mock_assay_response
