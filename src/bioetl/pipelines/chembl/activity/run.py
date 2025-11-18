@@ -10,7 +10,7 @@ from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import pandas as pd
 from requests.exceptions import RequestException
@@ -22,7 +22,10 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
     FetcherCallable,
+    FetcherFactory,
     FinalizeCallable,
+    FinalizeContextCallable,
+    FinalizeContextFactory,
 )
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
 from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
@@ -41,6 +44,7 @@ from bioetl.core.schema import (
     normalize_string_columns,
 )
 from bioetl.core.utils import join_activity_with_molecule
+from bioetl.pipelines.mixins import BatchIdExtractionPlan
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -178,6 +182,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
     id_column = "activity_id"
     extract_event_name = "chembl_activity.extract_mode"
     legacy_extract_source = "deprecated_kwargs"
+    id_extraction_summary_event = LogEvents.CHEMBL_ACTIVITY_EXTRACT_BY_IDS_SUMMARY
 
     _ENRICHMENT_SCENARIOS: dict[str, ChemblEnrichmentScenario] = {
         scenario.name: scenario for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS
@@ -191,6 +196,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self._last_batch_extract_stats: dict[str, Any] | None = None
         self._required_vocab_ids: Callable[[str], Iterable[str]] = required_vocab_ids
         self._standard_types_cache: frozenset[str] | None = None
+        self._last_invalid_activity_ids: list[Any] | None = None
         self.configure_output_schema(get_out_schema(self.pipeline_code))
 
     def resolve_legacy_extract_ids(
@@ -215,39 +221,26 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         )
         raise TypeError(msg)
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract activity records by a specific list of IDs using batch extraction."""
-
-        descriptor = self.build_descriptor()
-        source_raw = self._resolve_source_config("chembl")
-        source_config = ActivitySourceConfig.from_source_config(source_raw)
-        select_fields = self._resolve_select_fields(
-            source_raw,
+    def id_extraction_select_fields(
+        self,
+        source_config: Any,
+        typed_source_config: ActivitySourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> list[str] | None:
+        resolved = self._resolve_select_fields(
+            source_config,
             default_fields=API_ACTIVITY_FIELDS,
         )
-        limit = self.config.cli.limit
-        invalid_ids: list[Any] = []
+        return self._merge_select_fields(resolved, descriptor.must_have_fields)
 
-        def normalize_activity_id(raw: Any) -> tuple[str | None, Any]:
-            if pd.isna(raw):
-                return None, None
-            try:
-                if isinstance(raw, str):
-                    candidate = raw.strip()
-                    if not candidate:
-                        return None, None
-                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
-                elif isinstance(raw, (int, float)):
-                    numeric_id = int(raw)
-                else:
-                    numeric_id = int(raw)
-            except (TypeError, ValueError):
-                invalid_ids.append(raw)
-                return None, None
-            return str(numeric_id), int(numeric_id)
-
+    def id_extraction_fetcher_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: ActivitySourceConfig,
+    ) -> FetcherFactory:
         def fetcher_factory(
-            extraction_context: ChemblExtractionContext, log: BoundLogger  # noqa: ARG001
+            extraction_context: ChemblExtractionContext,
+            log: BoundLogger,  # noqa: ARG001
         ) -> FetcherCallable:
             activity_iterator = cast(ChemblActivityClient, extraction_context.iterator)
 
@@ -287,67 +280,119 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
 
             return delegated_fetch
 
+        return fetcher_factory
+
+    def id_extraction_finalize_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: ActivitySourceConfig,
+    ) -> FinalizeFactory:
         def finalize_factory(
-            extraction_context: ChemblExtractionContext, log: BoundLogger
+            extraction_context: ChemblExtractionContext,
+            log: BoundLogger,
         ) -> FinalizeCallable:
             chembl_client = cast(ChemblClient, extraction_context.chembl_client)
 
             def finalize_dataframe(
-                dataframe: pd.DataFrame, context: BatchExtractionContext
+                dataframe: pd.DataFrame,
+                context: BatchExtractionContext,
             ) -> pd.DataFrame:
                 dataframe = self._ensure_comment_fields(dataframe, log)
-                dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
+                dataframe = self._extract_data_validity_descriptions(
+                    dataframe,
+                    chembl_client,
+                    log,
+                )
                 dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
                 self._log_validity_comments_metrics(dataframe, log)
                 return dataframe
 
             return finalize_dataframe
 
-        def empty_activity_frame() -> pd.DataFrame:
+        return finalize_factory
+
+    def id_extraction_finalize_context_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: ActivitySourceConfig,
+    ) -> FinalizeContextFactory:
+        def finalize_context_factory(
+            extraction_context: ChemblExtractionContext,
+            log: BoundLogger,  # noqa: ARG001
+        ) -> FinalizeContextCallable:
+            def finalize_context(fetch_context: BatchExtractionContext) -> None:
+                summary = fetch_context.extra.get("delegated_summary")
+                if isinstance(summary, Mapping):
+                    summary_dict = dict(summary)
+                    fetch_context.extra["stats_attribute_override"] = summary_dict
+                    self._last_batch_extract_stats = summary_dict
+                else:
+                    override = fetch_context.stats.as_dict()
+                    fetch_context.extra["stats_attribute_override"] = override
+                    self._last_batch_extract_stats = override
+
+            return finalize_context
+
+        return finalize_context_factory
+
+    def id_extraction_empty_frame_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: ActivitySourceConfig,
+    ) -> Callable[[], pd.DataFrame]:
+        def factory() -> pd.DataFrame:
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
-        def finalize_context(context: BatchExtractionContext) -> None:
-            summary = context.extra.get("delegated_summary")
-            if isinstance(summary, Mapping):
-                summary_dict = dict(summary)
-                context.extra["stats_attribute_override"] = summary_dict
-                self._last_batch_extract_stats = summary_dict
-            else:
-                override = context.stats.as_dict()
-                context.extra["stats_attribute_override"] = override
-                self._last_batch_extract_stats = override
+        return factory
 
-        metadata_filters = {
-            "select_fields": list(select_fields) if select_fields else None,
-        }
+    def id_extraction_stats_attribute(self) -> str | None:
+        return "_last_batch_extract_stats"
 
-        dataframe, _ = self.run_descriptor_extraction(
-            descriptor,
-            ids,
-            source_config=source_config,
-            summary_event=LogEvents.CHEMBL_ACTIVITY_EXTRACT_BY_IDS_SUMMARY,
-            fetcher_factory=fetcher_factory,
-            finalize_factory=finalize_factory,
-            finalize_context=finalize_context,
-            metadata_filters=metadata_filters,
-            batch_size=source_config.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            select_fields=select_fields,
-            id_normalizer=normalize_activity_id,
-            sort_key=lambda pair: int(pair[0]),
-            stats_attribute="_last_batch_extract_stats",
-            fetch_mode="delegated",
-            empty_frame_factory=empty_activity_frame,
-        )
+    def id_extraction_fetch_mode(self) -> Literal["default", "delegated"]:
+        return "delegated"
 
+    def id_extraction_id_normalizer(
+        self,
+    ) -> Callable[[Any], tuple[str | None, Any]]:
+        invalid_ids: list[Any] = []
+        self._last_invalid_activity_ids = invalid_ids
+
+        def normalize_activity_id(raw: Any) -> tuple[str | None, Any]:
+            if pd.isna(raw):
+                return None, None
+            try:
+                if isinstance(raw, str):
+                    candidate = raw.strip()
+                    if not candidate:
+                        return None, None
+                    numeric_id = int(float(candidate)) if "." in candidate else int(candidate)
+                elif isinstance(raw, (int, float)):
+                    numeric_id = int(raw)
+                else:
+                    numeric_id = int(raw)
+            except (TypeError, ValueError):
+                invalid_ids.append(raw)
+                return None, None
+            return str(numeric_id), int(numeric_id)
+
+        return normalize_activity_id
+
+    def id_extraction_sort_key(self) -> Callable[[tuple[str, Any]], Any]:
+        return lambda pair: int(pair[0])
+
+    def post_id_extraction(
+        self,
+        ids: Sequence[str],
+        dataframe: pd.DataFrame,
+        plan: BatchIdExtractionPlan,
+    ) -> None:
+        invalid_ids = self._last_invalid_activity_ids or []
         if invalid_ids:
             self.logger_for(stage="extract").warning(
                 LogEvents.CHEMBL_ACTIVITY_INVALID_ACTIVITY_IDS,
                 invalid_count=len(invalid_ids),
             )
-
-        return dataframe
+        self._last_invalid_activity_ids = None
 
     def _prepare_activity_iteration(
         self,
