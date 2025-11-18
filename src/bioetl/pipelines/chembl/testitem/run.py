@@ -1,9 +1,9 @@
 """TestItem pipeline implementation for ChEMBL."""
 
 from __future__ import annotations
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from datetime import datetime, timezone
-from typing import Any, cast
+from typing import Any, Callable, cast
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -39,6 +39,10 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
     actor = "testitem_chembl"
     id_column = "molecule_chembl_id"
     extract_event_name = "chembl_testitem.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED
+    id_chunk_size_cap = 25
+    id_max_batch_size = 25
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -196,42 +200,34 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             hard_page_size_cap=None,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract molecule records by a specific list of IDs using batch extraction."""
-
-        descriptor = self.build_descriptor()
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TestItemSourceConfig.from_source_config(source_raw)
-        page_size = min(source_config.page_size, 25)
-        limit = self.config.cli.limit
-        resolved_select_fields = source_config.parameters.select_fields
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields, TESTITEM_MUST_HAVE_FIELDS
-        )
+    def id_extraction_select_fields(
+        self,
+        source_config: Any,
+        typed_source_config: TestItemSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> list[str] | None:
+        resolved = typed_source_config.parameters.select_fields
+        merged = self._merge_select_fields(resolved, TESTITEM_MUST_HAVE_FIELDS)
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
+        log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged)
+        return merged
 
-        metadata_filters = {
-            "select_fields": list(merged_select_fields) if merged_select_fields else None,
-        }
+    def id_extraction_batch_size(
+        self,
+        typed_source_config: TestItemSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> int:
+        page_size = getattr(typed_source_config, "page_size", None)
+        if isinstance(page_size, int) and page_size > 0:
+            return min(page_size, 25)
+        return 25
 
-        dataframe, _ = self.run_descriptor_extraction(
-            descriptor,
-            ids,
-            source_config=source_config,
-            summary_event=LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
-            dry_run_event=LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
-            metadata_filters=metadata_filters,
-            batch_size=page_size,
-            chunk_size=min(page_size, 25),
-            max_batch_size=25,
-            limit=limit,
-            select_fields=merged_select_fields or None,
-            summary_extra={"limit": limit},
-            empty_frame_factory=pd.DataFrame,
-        )
-
-        return dataframe
+    def id_extraction_empty_frame_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: TestItemSourceConfig,
+    ) -> Callable[[], pd.DataFrame]:
+        return pd.DataFrame
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform raw molecule data by normalizing fields and extracting nested properties."""

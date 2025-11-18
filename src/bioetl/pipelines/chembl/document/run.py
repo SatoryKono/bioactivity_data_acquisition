@@ -17,7 +17,10 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblPipelineBase,
     FetcherCallable,
+    FetcherFactory,
     FinalizeContextCallable,
+    FinalizeContextFactory,
+    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import make_empty_frame_factory
 from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
@@ -43,6 +46,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
     actor = "document_chembl"
     id_column = "document_chembl_id"
     extract_event_name = "chembl_document.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -130,6 +134,38 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             summary_extra=summary_extra,
         )
 
+    def _build_document_context(
+        self,
+        *,
+        source_config: DocumentSourceConfig,
+        log: BoundLogger,
+    ) -> ChemblExtractionContext:
+        def select_resolver(
+            pipeline_obj: ChemblPipelineBase,
+            cfg: SourceConfig[Any],
+        ) -> Sequence[str] | None:
+            return pipeline_obj._resolve_select_fields(
+                cast(SourceConfig[Any], cast(Any, cfg)),
+                default_fields=API_DOCUMENT_FIELDS,
+            )
+
+        context = build_standard_chembl_context(
+            self,
+            "document",
+            source_config,
+            log,
+            select_fields_resolver=select_resolver,
+            client_registry_name="chembl_document_client",
+            page_size_resolver=lambda cfg: cfg.batch_size,
+        )
+        context.iterator = self._build_document_client(
+            chembl_client=context.chembl_client,
+            source_config=source_config,
+        )
+        return context
+
+    def id_extraction_stats_attribute(self) -> str | None:
+        return "_last_batch_extract_stats"
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract document records by batching explicit ID requests."""
 
@@ -146,8 +182,14 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         )
         limit = self.config.cli.limit
 
+    def id_extraction_fetcher_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: DocumentSourceConfig,
+    ) -> FetcherFactory:
         def fetcher_factory(
-            extraction_context: ChemblExtractionContext, log: BoundLogger  # noqa: ARG001
+            extraction_context: ChemblExtractionContext,
+            log: BoundLogger,  # noqa: ARG001
         ) -> FetcherCallable:
             chembl_client = cast(ChemblClient, extraction_context.chembl_client)
             document_client = cast(ChemblDocumentClient, extraction_context.iterator)
@@ -175,8 +217,16 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
             return fetch_documents
 
+        return fetcher_factory
+
+    def id_extraction_finalize_context_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: DocumentSourceConfig,
+    ) -> FinalizeContextFactory:
         def finalize_context_factory(
-            extraction_context: ChemblExtractionContext, log: BoundLogger  # noqa: ARG001
+            extraction_context: ChemblExtractionContext,
+            log: BoundLogger,  # noqa: ARG001
         ) -> FinalizeContextCallable:
             chembl_client = cast(ChemblClient, extraction_context.chembl_client)
 
@@ -199,26 +249,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
             return finalize_context
 
-        metadata_filters = (
-            {"select_fields": merged_select_fields} if merged_select_fields else None
-        )
-
-        dataframe, _ = self.run_descriptor_extraction(
-            descriptor,
-            ids,
-            source_config=source_config,
-            summary_event=LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY,
-            fetcher_factory=fetcher_factory,
-            finalize_context_factory=finalize_context_factory,
-            metadata_filters=metadata_filters,
-            batch_size=source_config.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            select_fields=merged_select_fields or None,
-            stats_attribute="_last_batch_extract_stats",
-        )
-
-        return dataframe
+        return finalize_context_factory
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         if df.empty:

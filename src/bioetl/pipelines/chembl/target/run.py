@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
 from typing import Any, cast
@@ -75,6 +75,10 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
     actor = "target_chembl"
     id_column = "target_chembl_id"
     extract_event_name = "chembl_target.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED
+    id_chunk_size_cap = 100
+    id_max_batch_size = 200
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -139,38 +143,14 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             summary_extra=summary_extra,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract target records by a specific list of IDs using batch extraction."""
-
-        descriptor = self.build_descriptor()
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
-        limit = self.config.cli.limit
-        batch_size = source_config.batch_size
-        chunk_size = (
-            min(100, batch_size) if isinstance(batch_size, int) else 100
-        )
-        select_fields = source_config.parameters.select_fields
-        metadata_filters = {
-            "select_fields": list(select_fields) if select_fields else None,
-        }
-
-        dataframe, _ = self.run_descriptor_extraction(
-            descriptor,
-            ids,
-            source_config=source_config,
-            summary_event=LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
-            dry_run_event=LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
-            metadata_filters=metadata_filters,
-            batch_size=batch_size,
-            chunk_size=chunk_size,
-            max_batch_size=200,
-            limit=limit,
-            select_fields=select_fields,
-            summary_extra={"limit": limit},
-        )
-
-        return dataframe
+    def id_extraction_select_fields(
+        self,
+        source_config: Any,
+        typed_source_config: TargetSourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> list[str] | None:
+        resolved = typed_source_config.parameters.select_fields
+        return self._merge_select_fields(resolved, descriptor.must_have_fields)
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply identifier harmonization before the shared transform template."""

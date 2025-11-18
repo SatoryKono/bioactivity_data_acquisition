@@ -13,6 +13,7 @@ from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core.pipeline import RunResult
 
 from .mixins import (
+    BatchIdExtractionMixin,
     IOArtifactsMixin,
     LoggingMixin,
     PaginatedExtractorMixin,
@@ -27,6 +28,7 @@ class UnifiedPipelineBase(
     ReleaseHandshakeMixin,
     PaginatedExtractorMixin,
     SchemaValidationMixin,
+    BatchIdExtractionMixin,
     TransformMixin,
     IOArtifactsMixin,
     ChemblDescriptorBuilderMixin,
