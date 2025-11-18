@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
 from typing import Any, cast
@@ -19,6 +19,7 @@ from bioetl.chembl.common.descriptor import (
     ChemblContextSpec,
     ChemblDescriptorSpec,
     ChemblExtractionContext,
+    ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
 from bioetl.chembl.common.handlers import (
