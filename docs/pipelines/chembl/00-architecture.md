@@ -68,6 +68,25 @@ class ChemblPipelineContract(Protocol):
 6. **Summary logging** — метод формирует полезную нагрузку (rows, duration,
    release, api_calls, extra metadata) и публикует её через BoundLogger.
 
+## Управление стадиями и тестовое покрытие
+
+- Все пайплайны реализуют `PipelineStagesProtocol`, поэтому базовый
+  `StageFactory` (`src/bioetl/pipelines/base.py`) строит план `extract → transform
+  → validate → write → cleanup`. Метод `create_stage_factory()` можно
+  переопределить и вернуть кастомный набор `PipelineStageCommand`, например,
+  чтобы выключить `transform` в dry-run. Юнит-тесты
+  `tests/pipelines/test_pipeline_commands.py` фиксируют поведение фабрики и
+  передачу CLI-флагов в `save_results`.
+- Для CLI-команд ChEMBL предусмотрен stage-runner
+  (`src/bioetl/pipelines/chembl/stage_runner.py`), позволяющий регистрировать
+  пайплайны по alias, строить частичные планы (`extract` отдельно от `write`) и
+  применять одинаковые стадии ко всем сущностям. Позитивные и негативные кейсы
+  задокументированы в `tests/bioetl/pipelines/chembl/test_stage_runner.py`.
+- Дополнительные smoke-тесты (`tests/bioetl/pipelines/test_unified_base.py`,
+  `tests/bioetl/pipelines/test_pipeline_lifecycle.py`) проверяют, что хуки
+  `prepare_run`/`finalize_run` вызываются корректно и что расширения не ломают
+  контракт `RunResult`.
+
 ## Работа с релизами ChEMBL
 
 - `ChemblPipelineBase.fetch_chembl_release()` получает статус из REST API и

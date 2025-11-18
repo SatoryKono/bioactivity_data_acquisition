@@ -383,7 +383,19 @@ T_qc = TypeVar("T_qc")
 
 
 class PipelineBase(ABC, PipelineStagesProtocol):
-    """Shared orchestration helpers for ETL pipelines."""
+    """Shared orchestration helpers for ETL pipelines.
+
+    The class implements :class:`PipelineStagesProtocol` and exposes the stage
+    orchestration contract consumed by :class:`StageFactory`.  Pipelines may
+    override :meth:`create_stage_factory` to inject custom
+    :class:`PipelineStageCommand` instances (for example to skip ``transform``
+    during dry-run scenarios) while keeping the rest of the lifecycle intact.
+    The behavior is exercised in ``tests/pipelines/test_pipeline_commands.py``
+    and ``tests/bioetl/pipelines/test_pipeline_lifecycle.py`` to guarantee that
+    hooks such as :meth:`prepare_run`/``finalize_run`` remain observable and that
+    CLI flags (``extended``, ``fail_on_qc_violation``) propagate to
+    :meth:`save_results`.
+    """
 
     dataset_extension: str = "csv"
     qc_extension: str = "csv"
