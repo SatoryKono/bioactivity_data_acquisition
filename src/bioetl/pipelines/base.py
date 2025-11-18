@@ -444,6 +444,12 @@ class PipelineBase(ABC):
     # Optional hooks overridable by subclasses
     # ------------------------------------------------------------------
 
+    def prepare_run(self) -> None:
+        """Hook executed before the extract stage begins."""
+
+    def finalize_run(self, result: RunResult | None) -> None:
+        """Hook executed after the write stage completes."""
+
     @property
     def qc_plan(self) -> QCPlan:
         """Return the QC plan executed for this pipeline."""
@@ -1728,7 +1734,11 @@ class PipelineBase(ABC):
         bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
         bootstrap_log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_dir))
 
+        result: RunResult | None = None
+        finalize_invoked = False
+
         try:
+            self.prepare_run()
             current_stage = "extract"
             with pipeline_stage(
                 current_stage,
@@ -1814,6 +1824,8 @@ class PipelineBase(ABC):
             bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
             bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
+            self.finalize_run(result)
+            finalize_invoked = True
             return result
 
         except PipelineError as exc:
@@ -1846,6 +1858,15 @@ class PipelineBase(ABC):
             raise
 
         finally:
+            if not finalize_invoked:
+                try:
+                    self.finalize_run(result)
+                except Exception as finalize_error:  # pragma: no cover - defensive finalize path
+                    finalize_log = self._make_pipeline_logger(stage="finalize", logger_name=__name__)
+                    finalize_log.warning(
+                        LogEvents.STAGE_CLEANUP_ERROR,
+                        error=str(finalize_error),
+                    )
             current_stage = "cleanup"
             with pipeline_stage(
                 current_stage,
