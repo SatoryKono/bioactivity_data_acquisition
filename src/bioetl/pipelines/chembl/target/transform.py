@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from functools import partial
 from typing import Any, cast
 
 import numpy as np
@@ -13,7 +12,7 @@ import pandas as pd
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
 from bioetl.core.utils.typechecks import is_dict
-from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 __all__ = [
     "extract_and_serialize_component_synonyms",
@@ -290,6 +289,9 @@ def _load_pipeline() -> type["ChemblTargetPipeline"]:
     return ChemblTargetPipeline
 
 
-PIPELINE = register_pipeline(_load_pipeline)
+PIPELINE, _STAGES = build_stage_functions(
+    _load_pipeline,
+    stages=("transform",),
+)
 
-transform = partial(run_stage, "transform", PIPELINE)
+transform = _STAGES["transform"]

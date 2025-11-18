@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json
-from functools import partial
 from typing import Any, cast
 
 import pandas as pd
 
 from bioetl.core.io import header_rows_serialize, serialize_array_fields
 from bioetl.core.logging import LogEvents, UnifiedLogger
-from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 __all__ = [
     "header_rows_serialize",
@@ -238,6 +237,9 @@ def _load_pipeline() -> type["ChemblAssayPipeline"]:
     return ChemblAssayPipeline
 
 
-PIPELINE = register_pipeline(_load_pipeline)
+PIPELINE, _STAGES = build_stage_functions(
+    _load_pipeline,
+    stages=("transform",),
+)
 
-transform = partial(run_stage, "transform", PIPELINE)
+transform = _STAGES["transform"]

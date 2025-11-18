@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from functools import partial
-
-from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
+from bioetl.pipelines.chembl.stage_runner import build_stage_functions
 
 from .run import ChemblActivityPipeline
 
 __all__ = ["transform"]
 
-PIPELINE = register_pipeline(ChemblActivityPipeline)
+PIPELINE, _STAGES = build_stage_functions(
+    ChemblActivityPipeline,
+    stages=("transform",),
+)
 
-transform = partial(run_stage, "transform", PIPELINE)
+transform = _STAGES["transform"]
