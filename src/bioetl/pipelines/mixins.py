@@ -424,7 +424,16 @@ class BatchIdExtractionPlan:
 
 
 class BatchIdExtractionMixin:
-    """Provide a shared ``extract_by_ids`` implementation for ChEMBL pipelines."""
+    """Provide a shared ``extract_by_ids`` implementation for ChEMBL pipelines.
+
+    Миксин инкапсулирует контракт ID-батчей: он строит
+    :class:`BatchIdExtractionPlan` на основе дескриптора, конфигурации источника
+    и CLI-флагов, после чего вызывает ``run_descriptor_extraction`` из
+    :class:`ChemblPipelineBase`. Конкретные пайплайны переопределяют только
+    `id_extraction_*`-хуки (batch size, лимиты, выбор полей, finalize-фабрики),
+    сохраняя единое логирование и Dry-run режим. Результаты автоматически
+    публикуются через ``record_extract_metadata`` и доступны в `meta.yaml`.
+    """
 
     id_extraction_summary_event: str | None = None
     id_extraction_dry_run_event: str | None = None
@@ -781,10 +790,11 @@ class TransformMixin:
     --------
     Pipelines are expected to expose ``_output_column_order`` and
     ``_normalize_and_enforce_schema`` (supplied by
-    :class:`bioetl.chembl.common.descriptor.ChemblPipelineBase`).  Hooks such as
-    ``pre_transform``, ``domain_enrich`` and ``post_transform`` can be
-    overridden to customise the lifecycle, while the mixin guarantees that the
-    schema normalisation and logging are executed consistently.
+    :class:`bioetl.chembl.common.descriptor.ChemblPipelineBase`) together with
+    ``stage_logger`` from :class:`LoggingMixin`. Hooks such as ``pre_transform``,
+    ``domain_enrich`` and ``post_transform`` can be overridden to customise the
+    lifecycle, while the mixin guarantees that schema enforcement, identifier
+    normalization and logging are executed consistently.
     """
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -819,9 +829,12 @@ class IOArtifactsMixin:
 
     Contract
     --------
-    Requires ``write`` from :class:`bioetl.pipelines.base.PipelineBase`.  The
-    mixin ensures that pipelines exposing ``save_results`` have a uniform
-    implementation that honours deterministic CSV emission and QC options.
+    Requires ``write`` from :class:`bioetl.pipelines.base.PipelineBase`. The
+    mixin exposes ``save_results`` для всех ChEMBL-пайплайнов, чтобы они могли
+    сохранять артефакты (основной CSV, correlation report, QC метрики)
+    детерминированно и в едином формате `RunResult`. Любые дополнительные опции
+    (``extended``, ``include_correlation``, ``include_qc_metrics``) передаются
+    напрямую в базовый класс, что делает CLI-флаги и unit-тесты переиспользуемыми.
     """
 
     def save_results(

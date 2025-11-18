@@ -38,13 +38,17 @@ class UnifiedPipelineBase(
     ChemblDescriptorBuilderMixin,
     ChemblPipelineBase,
 ):
-    """ChEMBL-focused pipeline base composing shared mixins and orchestration.
+    """ChEMBL-focused pipeline base that wires mixins into the public contract.
 
-    Класс объединяет логику логирования, подготовки артефактов ввода/вывода,
-    пагинации, Pandera-валидации и хуков трансформации. Он выступает единой
-    точкой входа для CLI и сторонних расширений: дочерние пайплайны описывают
-    только доменную специфику (descriptor, transform hooks, metadata), а
-    остальной жизненный цикл наследуется без переопределения.
+    Наследники получают единый жизненный цикл `extract → transform → validate →
+    write` без переопределения ``run``. Каждый подключённый mixin отвечает за
+    конкретный контракт: `LoggingMixin` — за структурированные логи стадий,
+    `ReleaseHandshakeMixin` — за handshake и запись release, `BatchIdExtractionMixin`
+    — за `extract_by_ids`, `TransformMixin` — за трансформационный конвейер, а
+    `IOArtifactsMixin` — за детерминированную запись артефактов. Дочерним
+    пайплайнам достаточно реализовать `build_descriptor` и при необходимости
+    переопределить отдельные хуки (`pre_transform`, `domain_enrich`,
+    `augment_metadata` и т. д.).
     """
 
     def run(

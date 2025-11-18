@@ -39,6 +39,13 @@ bioetl activity_chembl \
 python -m bioetl.cli.cli_app list
 bioetl list
 
+# запустить последовательно все ChEMBL-пайплайны в один шаг
+bioetl run-chembl-all \
+  --output-root ./data/output/chembl_batch \
+  --configs-dir ./configs \
+  --limit 100 \
+  --extended
+
 # быстро проверить итоговую конфигурацию
 bioetl config inspect \
   --config configs/pipelines/activity/activity_chembl.yaml \
@@ -46,20 +53,27 @@ bioetl config inspect \
 ```
 
 Обязательные флаги и параметры описаны в
-`python -m bioetl.cli.cli_app --help`. Подробности см. в
-[`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md) и руководстве по
-конфигурациям (включая описание `postprocess.correlation`):
+`python -m bioetl.cli.cli_app --help`. Подробности, включая групповую команду
+`run-chembl-all`, см. в [`docs/cli/01-cli-commands.md`](docs/cli/01-cli-commands.md)
+и руководстве по конфигурациям (включая описание `postprocess.correlation`):
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
 ## Архитектура пайплайнов и публичный API
 
-- Основные контракты (`PipelineBase`, `UnifiedPipelineBase`,
-  `ChemblPipelineBase`, mixin-слой) собраны в `src/bioetl/pipelines/` и
-  `src/bioetl/chembl/common/descriptor.py`. CLI обращается только к их
+- Основные контракты (`PipelineBase`, `ChemblPipelineBase`,
+  `UnifiedPipelineBase`) и стек миксинов расположены в
+  `src/bioetl/pipelines/` и `src/bioetl/chembl/common/descriptor.py`. В новой
+  схеме `UnifiedPipelineBase` собирает набор миксинов (`LoggingMixin`,
+  `ReleaseHandshakeMixin`, `PaginatedExtractorMixin`, `SchemaValidationMixin`,
+  `RecordNormalizationMixin`, `NestedSerializerMixin`,
+  `BatchIdExtractionMixin`, `TransformMixin`, `IOArtifactsMixin`) и тем самым
+  предоставляет один публичный контракт: дочерним пайплайнам достаточно
+  реализовать `build_descriptor`, переопределить нужные трансформационные хуки
+  (`pre_transform`, `domain_enrich`, `post_transform`, `transform`) и при
+  необходимости расширить `augment_metadata`. CLI обращается только к этим
   публичным методам, поэтому любые расширения необходимо реализовывать через
-  существующие хуки `transform`, `validate`, `augment_metadata` и
-  `run_descriptor_extraction`.
+  существующие хуки и `run_descriptor_extraction`.
 - Сценарии использования ChEMBL-пайплайнов (как запрашивать дескрипторы, как
   работают `resolve_chembl_release`, dry-run и общая статистика) описаны в
   [`docs/pipelines/chembl/00-architecture.md`](docs/pipelines/chembl/00-architecture.md).
