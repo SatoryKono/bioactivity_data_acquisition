@@ -16,10 +16,10 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
@@ -84,34 +84,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
-        """Return the descriptor powering target extraction."""
-
-        def build_context(
-            pipeline: ChemblPipelineBase,
-            source_config: TargetSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
-
-            def extra_filters_factory(
-                sc: TargetSourceConfig, _: ChemblPipelineBase
-            ) -> dict[str, Any]:
-                batch_size = getattr(sc, "batch_size", None)
-                return {"batch_size": batch_size} if batch_size else {}
-
-            return build_standard_chembl_context(
-                typed_pipeline,
-                "target",
-                source_config,
-                log,
-                entity_client_type=ChemblTargetClient,
-                release_resolver=lambda pipeline_obj,
-                client,
-                logger,
-                _: pipeline_obj.fetch_chembl_release(client, logger),
-                extra_filters_factory=extra_filters_factory,
-            )
+    def descriptor_spec(self) -> ChemblDescriptorSpec["ChemblTargetPipeline"]:
+        """Return the declarative descriptor specification for targets."""
 
         def get_metadata(pipeline: ChemblPipelineBase) -> Mapping[str, Any]:
             return {"chembl_release": pipeline.chembl_release}
@@ -129,11 +103,34 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         ) -> Mapping[str, Any]:
             return {"limit": pipeline.config.cli.limit}
 
-        return ChemblExtractionDescriptor[ChemblPipelineBase](
+        def extra_filters_factory(
+            source_config: TargetSourceConfig,
+            _: ChemblPipelineBase,
+        ) -> dict[str, Any]:
+            batch_size = getattr(source_config, "batch_size", None)
+            return {"batch_size": batch_size} if batch_size else {}
+
+        def release_resolver(
+            pipeline: ChemblPipelineBase,
+            client: Any,
+            log: BoundLogger,
+            _: Any,
+        ) -> str | None:
+            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
+            return typed_pipeline.fetch_chembl_release(client, log)
+
+        context_spec = ChemblContextSpec(
+            entity_name="target",
+            entity_client_type=ChemblTargetClient,
+            release_resolver=release_resolver,
+            extra_filters_factory=extra_filters_factory,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_target",
             source_name="chembl",
             source_config_factory=TargetSourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="target_chembl_id",
             summary_event="chembl_target.extract_summary",
             sort_by=("target_chembl_id",),

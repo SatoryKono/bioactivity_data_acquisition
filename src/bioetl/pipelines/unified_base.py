@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from pathlib import Path
 
-from bioetl.chembl.common.descriptor import ChemblPipelineBase
+from bioetl.chembl.common.descriptor import (
+    ChemblDescriptorBuilderMixin,
+    ChemblPipelineBase,
+)
 from bioetl.config.runtime import QCReportRuntimeOptions
 from bioetl.core.pipeline import RunResult
 
@@ -26,6 +29,7 @@ class UnifiedPipelineBase(
     SchemaValidationMixin,
     TransformMixin,
     IOArtifactsMixin,
+    ChemblDescriptorBuilderMixin,
     ChemblPipelineBase,
 ):
     """ChEMBL-focused pipeline base composing shared mixins and orchestration.

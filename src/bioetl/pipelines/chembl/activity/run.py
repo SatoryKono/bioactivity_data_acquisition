@@ -18,8 +18,9 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
     FetcherCallable,
     FinalizeCallable,
@@ -400,42 +401,12 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             self.register_client(client_name, bundle.api_client)
         return bundle
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
-        """Construct the descriptor driving the shared extraction template."""
-
-        def build_context(
-            pipeline: ChemblPipelineBase,
-            source_config: ActivitySourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            typed_pipeline = cast("ChemblActivityPipeline", pipeline)
-            bundle = typed_pipeline.build_chembl_entity_bundle(
-                "activity",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            chembl_client = bundle.chembl_client
-            typed_pipeline._set_chembl_release(
-                typed_pipeline.fetch_chembl_release(chembl_client, log)
-            )
-            activity_iterator = cast(ChemblActivityClient, bundle.entity_client)
-            if activity_iterator is None:
-                msg = "Фабрика вернула пустой клиент для 'activity'"
-                raise RuntimeError(msg)
-            select_fields = source_config.parameters.select_fields
-            page_size = getattr(source_config, "page_size", None)
-            return ChemblExtractionContext(
-                source_config,
-                activity_iterator,
-                chembl_client,
-                list(select_fields) if select_fields else None,
-                page_size,
-                typed_pipeline.chembl_release,
-            )
+    def descriptor_spec(self) -> ChemblDescriptorSpec["ChemblActivityPipeline"]:
+        """Declaratively describe the shared activity descriptor."""
 
         def empty_frame(
-            pipeline: ChemblPipelineBase,
-            _: ChemblExtractionContext,
+            _: ChemblPipelineBase,
+            __: ChemblExtractionContext,
         ) -> pd.DataFrame:
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
@@ -456,16 +427,21 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         def record_transform(
             pipeline: ChemblPipelineBase,
             payload: Mapping[str, Any],
-            context: ChemblExtractionContext,  # noqa: ARG001
+            _: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             typed_pipeline = cast("ChemblActivityPipeline", pipeline)
             return typed_pipeline._materialize_activity_record(payload)
 
-        return ChemblExtractionDescriptor[ChemblPipelineBase](
+        context_spec = ChemblContextSpec(
+            entity_name="activity",
+            entity_client_type=ChemblActivityClient,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_activity",
             source_name="chembl",
             source_config_factory=ActivitySourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="activity_id",
             summary_event="chembl_activity.extract_summary",
             must_have_fields=("activity_id",),

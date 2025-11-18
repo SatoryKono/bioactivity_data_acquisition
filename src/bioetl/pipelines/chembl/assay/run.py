@@ -12,11 +12,11 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
     FinalizeCallable,
-    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
@@ -131,10 +131,10 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(
+    def descriptor_spec(
         self: SelfChemblAssayPipeline,
-    ) -> ChemblExtractionDescriptor[SelfChemblAssayPipeline]:
-        """Return the descriptor powering the shared extraction template."""
+    ) -> ChemblDescriptorSpec[SelfChemblAssayPipeline]:
+        """Return the declarative descriptor specification."""
 
         def _require_assay_pipeline(pipeline: ChemblPipelineBase) -> ChemblAssayPipeline:
             if isinstance(pipeline, ChemblAssayPipeline):
@@ -142,72 +142,60 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
             msg = "ChemblAssayPipeline instance required"
             raise TypeError(msg)
 
-        def build_context(
+        def pre_release_hook(
             pipeline: SelfChemblAssayPipeline,
             source_config: AssaySourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            assay_pipeline = _require_assay_pipeline(pipeline)
-
-            def pre_release_hook(
-                p: SelfChemblAssayPipeline,
-                sc: AssaySourceConfig,
-                entity_client: Any,
-            ) -> None:
-                assay_client = cast(ChemblAssayClient, entity_client)
-                assay_pipeline.perform_handshake(
-                    assay_client,
-                    sc.parameters.handshake_endpoint,
-                    enabled=sc.parameters.handshake_enabled,
-                )
-
-            def release_resolver(
-                p: SelfChemblAssayPipeline,
-                chembl_client: Any,
-                log: BoundLogger,
-                entity_client: Any | None,
-            ) -> str | None:
-                if entity_client is None:
-                    return None
-                assay_client = cast(ChemblAssayClient, entity_client)
-                log.info(
-                    LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-                    chembl_release=assay_client.chembl_release,
-                    handshake_endpoint=source_config.parameters.handshake_endpoint,
-                    handshake_enabled=source_config.parameters.handshake_enabled,
-                )
-                return assay_client.chembl_release
-
-            def select_fields_resolver(
-                p: SelfChemblAssayPipeline,
-                sc: AssaySourceConfig,
-            ) -> Sequence[str] | None:
-                raw_source = p._resolve_source_config("chembl")
-                return p._resolve_select_fields(raw_source)
-
-            def extra_filters_factory(
-                sc: AssaySourceConfig, _: SelfChemblAssayPipeline
-            ) -> dict[str, Any]:
-                return {"max_url_length": sc.max_url_length}
-
-            context = build_standard_chembl_context(
-                assay_pipeline,
-                "assay",
-                source_config,
-                log,
-                entity_client_type=ChemblAssayClient,
-                release_resolver=release_resolver,
-                select_fields_resolver=select_fields_resolver,
-                extra_filters_factory=extra_filters_factory,
-                pre_release_hook=pre_release_hook,
+            entity_client: Any,
+        ) -> None:
+            assay_client = cast(ChemblAssayClient, entity_client)
+            pipeline.perform_handshake(
+                assay_client,
+                source_config.parameters.handshake_endpoint,
+                enabled=source_config.parameters.handshake_enabled,
+            )
+            log = pipeline.logger_for(stage="extract")
+            log.info(
+                LogEvents.CHEMBL_ASSAY_HANDSHAKE,
+                chembl_release=assay_client.chembl_release,
+                handshake_endpoint=source_config.parameters.handshake_endpoint,
+                handshake_enabled=source_config.parameters.handshake_enabled,
             )
 
+        def release_resolver(
+            pipeline: SelfChemblAssayPipeline,
+            chembl_client: Any,
+            log: BoundLogger,
+            entity_client: Any | None,
+        ) -> str | None:
+            if entity_client is None:
+                return None
+            assay_client = cast(ChemblAssayClient, entity_client)
+            return assay_client.chembl_release
+
+        def select_fields_resolver(
+            pipeline: SelfChemblAssayPipeline,
+            _: AssaySourceConfig,
+        ) -> Sequence[str] | None:
+            raw_source = pipeline._resolve_source_config("chembl")
+            return pipeline._resolve_select_fields(raw_source)
+
+        def extra_filters_factory(
+            source_config: AssaySourceConfig,
+            _: SelfChemblAssayPipeline,
+        ) -> dict[str, Any]:
+            return {"max_url_length": source_config.max_url_length}
+
+        def after_build(
+            pipeline: SelfChemblAssayPipeline,
+            context: ChemblExtractionContext,
+            _: AssaySourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
             log.debug(
                 LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
                 fields=context.select_fields,
                 fields_count=len(context.select_fields) if context.select_fields else 0,
             )
-
             return context
 
         empty_frame = make_empty_frame_factory("assay_chembl_id")
@@ -271,17 +259,26 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
             assay_pipeline = _require_assay_pipeline(pipeline)
-
             return {
                 "handshake_endpoint": context.source_config.parameters.handshake_endpoint,
                 "limit": assay_pipeline.config.cli.limit,
             }
 
-        return ChemblExtractionDescriptor[SelfChemblAssayPipeline](
+        context_spec = ChemblContextSpec(
+            entity_name="assay",
+            entity_client_type=ChemblAssayClient,
+            release_resolver=release_resolver,
+            select_fields_resolver=select_fields_resolver,
+            extra_filters_factory=extra_filters_factory,
+            pre_release_hook=pre_release_hook,
+            after_build=after_build,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_assay",
             source_name="chembl",
             source_config_factory=AssaySourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="assay_chembl_id",
             summary_event="chembl_assay.extract_summary",
             must_have_fields=ASSAY_MUST_HAVE_FIELDS,
