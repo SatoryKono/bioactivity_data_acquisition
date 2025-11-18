@@ -31,12 +31,19 @@ from bioetl.clients.client_exceptions import HTTPError
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core import UnifiedLogger
 from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .transform import serialize_target_arrays
+
+
+_ARRAY_SOURCE_COLUMNS: tuple[str, ...] = (
+    "cross_references",
+    "target_components",
+    "target_component_synonyms",
+)
 
 
 def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str, str, str]:
@@ -62,7 +69,7 @@ def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str
     level_flag = 1 if level is None else 0
     return (level_flag, level_int, class_id, pref_name, canonical_json)
 
-class ChemblTargetPipeline(ChemblPipelineBase):
+class ChemblTargetPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
     actor = "target_chembl"
@@ -143,122 +150,117 @@ class ChemblTargetPipeline(ChemblPipelineBase):
         pd.DataFrame:
             DataFrame containing extracted target records.
         """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
         stage_start = time.perf_counter()
+        with self.stage_logger("extract", rows=len(ids)) as log:
+            source_raw = self._resolve_source_config("chembl")
+            source_config = TargetSourceConfig.from_source_config(source_raw)
+            bundle = self.build_chembl_entity_bundle(
+                "target",
+                source_name="chembl",
+                source_config=source_config,
+            )
+            if "chembl_target_http" not in self._registered_clients:
+                self.register_client("chembl_target_http", bundle.api_client)
 
-        source_raw = self._resolve_source_config("chembl")
-        source_config = TargetSourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "target",
-            source_name="chembl",
-            source_config=source_config,
-        )
-        if "chembl_target_http" not in self._registered_clients:
-            self.register_client("chembl_target_http", bundle.api_client)
+            chembl_client = bundle.chembl_client
+            self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
-        chembl_client = bundle.chembl_client
-        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
+            if self.config.cli.dry_run:
+                duration_ms = (time.perf_counter() - stage_start) * 1000.0
+                log.info(
+                    LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
+                    dry_run=True,
+                    duration_ms=duration_ms,
+                    chembl_release=self.chembl_release,
+                )
+                return pd.DataFrame()
 
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
+            batch_size = source_config.batch_size
+            limit = self.config.cli.limit
+            select_fields = source_config.parameters.select_fields
+
+            target_client = cast(ChemblTargetClient, bundle.entity_client)
+            if target_client is None:
+                msg = "Фабрика вернула пустой клиент для 'target'"
+                raise RuntimeError(msg)
+
+            def fetch_targets(
+                batch_ids: Sequence[str],
+                context: BatchExtractionContext,
+            ) -> Iterable[Mapping[str, Any]]:
+                iterator = target_client.iterate_by_ids(
+                    batch_ids,
+                    select_fields=context.select_fields or None,
+                )
+                for item in iterator:
+                    yield dict(item)
+
+            chunk_size = min(100, batch_size) if isinstance(batch_size, int) else 100
+            dataframe, stats = self.run_batched_extraction(
+                ids,
+                id_column="target_chembl_id",
+                fetcher=fetch_targets,
+                select_fields=select_fields,
+                batch_size=batch_size,
+                chunk_size=chunk_size,
+                max_batch_size=200,
+                limit=limit,
+                metadata_filters={
+                    "select_fields": list(select_fields) if select_fields else None,
+                },
                 chembl_release=self.chembl_release,
             )
-            return pd.DataFrame()
 
-        batch_size = source_config.batch_size
-        limit = self.config.cli.limit
-        select_fields = source_config.parameters.select_fields
-
-        target_client = cast(ChemblTargetClient, bundle.entity_client)
-        if target_client is None:
-            msg = "Фабрика вернула пустой клиент для 'target'"
-            raise RuntimeError(msg)
-
-        def fetch_targets(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = target_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
+                rows=int(dataframe.shape[0]),
+                requested=len(ids),
+                duration_ms=duration_ms,
+                chembl_release=self.chembl_release,
+                limit=limit,
+                batches=stats.batches,
+                api_calls=stats.api_calls,
             )
-            for item in iterator:
-                yield dict(item)
+            return dataframe
 
-        chunk_size = min(100, batch_size) if isinstance(batch_size, int) else 100
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="target_chembl_id",
-            fetcher=fetch_targets,
-            select_fields=select_fields,
-            batch_size=batch_size,
-            chunk_size=chunk_size,
-            max_batch_size=200,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(select_fields) if select_fields else None,
-            },
-            chembl_release=self.chembl_release,
-        )
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply identifier harmonization before the shared transform template."""
 
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
-        return dataframe
+        log = self.logger_for(stage="transform")
+        harmonized = self._harmonize_identifier_columns(df, log)
+        array_columns = [column for column in _ARRAY_SOURCE_COLUMNS if column in harmonized.columns]
+        if array_columns:
+            self._array_source_cache = harmonized[array_columns].copy()
+        else:
+            self._array_source_cache = None
+        return harmonized
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw target data by normalizing fields and enriching with component/classification data."""
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Run domain-specific normalization and enrichment for targets."""
 
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("transform"))
+        log = self.logger_for(stage="transform")
+        working_df = df
+        cached_arrays: pd.DataFrame | None = getattr(self, "_array_source_cache", None)
+        if cached_arrays is not None and not cached_arrays.empty:
+            working_df = working_df.join(cached_arrays, how="left")
+        working_df = serialize_target_arrays(working_df, self.config)
+        self._array_source_cache = None
 
-        df = df.copy()
-
-        df = self._harmonize_identifier_columns(df, log)
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-
-        if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
-            return df
-
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
-
-        # Normalize identifiers
-        df = self._normalize_identifiers(df, log)
-
-        # Serialize array fields (cross_references, target_components, target_component_synonyms)
-        df = serialize_target_arrays(df, self.config)
-
-        # Enrich with target_component data
         if not self.config.cli.dry_run:
-            df = self._enrich_target_components(df, log)
+            working_df = self._enrich_target_components(working_df, log)
+            working_df = self._enrich_protein_classifications(working_df, log)
 
-        # Enrich with protein_classification data
-        if not self.config.cli.dry_run:
-            df = self._enrich_protein_classifications(df, log)
+        return working_df
 
-        # Normalize string fields
-        df = self._normalize_string_fields(df, log)
+    def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure schema ordering and apply type normalization after enrichment."""
 
-        # Ensure all schema columns exist after enrichment
-        df = self._ensure_schema_columns(df, self._output_column_order, log)
-
-        # Normalize data types after ensuring columns (to fix types created as object)
-        df = self._normalize_data_types(df, self._output_schema, log)
-
-        df = self._order_schema_columns(df, self._output_column_order)
-
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
-        return df
+        log = self.logger_for(stage="transform")
+        ensured = self._ensure_schema_columns(df, self._output_column_order, log)
+        normalized = self._normalize_data_types(ensured, self._output_schema, log)
+        ordered = self._order_schema_columns(normalized, self._output_column_order)
+        return ordered
 
     # ------------------------------------------------------------------
     # Internal helpers

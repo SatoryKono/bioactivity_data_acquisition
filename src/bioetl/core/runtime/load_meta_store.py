@@ -242,6 +242,16 @@ class LoadMetaStore:
             try:
                 frame.to_parquet(temp_path, index=False)
                 os.replace(temp_path, path)
+            except ImportError as exc:  # pragma: no cover - optional dependency guard
+                if temp_path.exists():
+                    temp_path.unlink(missing_ok=True)
+                self._logger.warning(
+                    "load_meta_parquet_unavailable",
+                    path=str(path),
+                    dataset_format=self._dataset_format,
+                    error=str(exc),
+                )
+                return
             except Exception:  # pragma: no cover - cleanup branch
                 if temp_path.exists():
                     temp_path.unlink(missing_ok=True)

@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Any, Iterator, cast
 
 import pandas as pd
-import pandera.errors
 from requests.exceptions import RequestException
 from structlog.stdlib import BoundLogger
 
@@ -31,16 +30,13 @@ from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config import ActivitySourceConfig
 from bioetl.config.models.determinism import DeterminismSortingConfig
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core import UnifiedLogger
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.pipeline import RunResult
 from bioetl.core.schema import (
     IdentifierRule,
     StringRule,
-    format_failure_cases,
     normalize_string_columns,
-    summarize_schema_errors,
 )
 from bioetl.core.utils import join_activity_with_molecule
 from bioetl.qc.plan import QCMetricsBundle
@@ -56,6 +52,7 @@ from .normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 
 def _apply_compound_record_enrichment(
@@ -172,7 +169,7 @@ _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS: tuple[ChemblEnrichmentScenario, ...] = (
 )
 
 
-class ChemblActivityPipeline(ChemblPipelineBase):
+class ChemblActivityPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting activity records from the ChEMBL API."""
 
     actor = "activity_chembl"
@@ -229,9 +226,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         pd.DataFrame:
             DataFrame containing extracted activity records.
         """
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
-
         (
             source_config,
             chembl_client,
@@ -294,15 +289,6 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             context.extra["delegated_summary"] = summary
             return records, summary
 
-        def finalize_dataframe(
-            dataframe: pd.DataFrame, context: BatchExtractionContext
-        ) -> pd.DataFrame:
-            dataframe = self._ensure_comment_fields(dataframe, log)
-            dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
-            dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
-            self._log_validity_comments_metrics(dataframe, log)
-            return dataframe
-
         def empty_activity_frame() -> pd.DataFrame:
             return pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
 
@@ -316,44 +302,57 @@ class ChemblActivityPipeline(ChemblPipelineBase):
                 context.extra["stats_attribute_override"] = context.stats.as_dict()
                 self._last_batch_extract_stats = context.stats.as_dict()
 
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="activity_id",
-            fetcher=delegated_fetch,
-            select_fields=select_fields,
-            batch_size=source_config.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={
-                "select_fields": list(select_fields) if select_fields else None,
-            },
-            chembl_release=self.chembl_release,
-            id_normalizer=normalize_activity_id,
-            sort_key=lambda pair: int(pair[0]),
-            finalize=finalize_dataframe,
-            finalize_context=finalize_context,
-            stats_attribute="_last_batch_extract_stats",
-            fetch_mode="delegated",
-            empty_frame_factory=empty_activity_frame,
-        )
+        with self.stage_logger("extract", rows=len(ids)) as log:
 
-        if invalid_ids:
-            log.warning(LogEvents.CHEMBL_ACTIVITY_INVALID_ACTIVITY_IDS,
-                invalid_count=len(invalid_ids),
+            def finalize_dataframe(
+                dataframe: pd.DataFrame, context: BatchExtractionContext
+            ) -> pd.DataFrame:
+                dataframe = self._ensure_comment_fields(dataframe, log)
+                dataframe = self._extract_data_validity_descriptions(dataframe, chembl_client, log)
+                dataframe = self._extract_assay_fields(dataframe, chembl_client, log)
+                self._log_validity_comments_metrics(dataframe, log)
+                return dataframe
+
+            dataframe, stats = self.run_batched_extraction(
+                ids,
+                id_column="activity_id",
+                fetcher=delegated_fetch,
+                select_fields=select_fields,
+                batch_size=source_config.batch_size,
+                max_batch_size=25,
+                limit=limit,
+                metadata_filters={
+                    "select_fields": list(select_fields) if select_fields else None,
+                },
+                chembl_release=self.chembl_release,
+                id_normalizer=normalize_activity_id,
+                sort_key=lambda pair: int(pair[0]),
+                finalize=finalize_dataframe,
+                finalize_context=finalize_context,
+                stats_attribute="_last_batch_extract_stats",
+                fetch_mode="delegated",
+                empty_frame_factory=empty_activity_frame,
             )
 
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        batch_stats = self._last_batch_extract_stats or {}
-        log.info(LogEvents.CHEMBL_ACTIVITY_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
-            batches=batch_stats.get("batches"),
-            api_calls=batch_stats.get("api_calls"),
-            cache_hits=batch_stats.get("cache_hits"),
-        )
-        return dataframe
+            if invalid_ids:
+                log.warning(
+                    LogEvents.CHEMBL_ACTIVITY_INVALID_ACTIVITY_IDS,
+                    invalid_count=len(invalid_ids),
+                )
+
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            batch_stats = self._last_batch_extract_stats or {}
+            log.info(
+                LogEvents.CHEMBL_ACTIVITY_EXTRACT_BY_IDS_SUMMARY,
+                rows=int(dataframe.shape[0]),
+                requested=len(ids),
+                duration_ms=duration_ms,
+                chembl_release=self.chembl_release,
+                batches=batch_stats.get("batches"),
+                api_calls=batch_stats.get("api_calls"),
+                cache_hits=batch_stats.get("cache_hits"),
+            )
+            return dataframe
 
     def _prepare_activity_iteration(
         self,
@@ -362,7 +361,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     ) -> tuple[ActivitySourceConfig, ChemblClient, ChemblActivityClient, list[str]]:
         """Construct reusable ChEMBL clients and iterator for activity extraction."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = self.logger_for(stage="extract")
 
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
@@ -571,7 +570,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
         """Iterate over IDs using the shared iterator while preserving cache semantics."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = self.logger_for(stage="extract", component="delegated_fetch")
         records: list[dict[str, Any]] = []
         success_count = 0
         fallback_count = 0
@@ -699,46 +698,32 @@ class ChemblActivityPipeline(ChemblPipelineBase):
 
         return records, summary
 
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw activity data by normalizing measurements, identifiers, and data types."""
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform")
+        return self._harmonize_identifier_columns(df, log)
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.transform")
-
-        # According to documentation, transform should accept df: pd.DataFrame
-        # df is already a pd.DataFrame, so we can use it directly
-        df = df.copy()
-
-        df = self._harmonize_identifier_columns(df, log)
-        df = self._normalize_and_enforce_schema(
-            df,
-            self._output_column_order,
-            log,
-            order_columns=False,
-        )
-
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform")
         if df.empty:
             log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
             return df
 
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
+        working_df = self._normalize_measurements(df, log)
+        working_df = self._normalize_nested_structures(working_df, log)
+        working_df = self._add_row_metadata(working_df, log)
+        working_df = self._normalize_data_types(working_df, self._output_schema, log)
 
-        df = self._normalize_measurements(df, log)
-        df = self._normalize_nested_structures(df, log)
-        df = self._add_row_metadata(df, log)
-        df = self._normalize_data_types(df, self._output_schema, log)
+        if "curated" in working_df.columns or "curated_by" in working_df.columns:
+            if "curated" not in working_df.columns:
+                working_df["curated"] = pd.NA
+            if "curated_by" in working_df.columns:
+                mask = working_df["curated"].isna()
+                working_df.loc[mask, "curated"] = working_df.loc[mask, "curated_by"].notna()
+            working_df["curated"] = working_df["curated"].astype("boolean")
 
-        # Recompute curated from curated_by when curated is empty.
-        if "curated" in df.columns or "curated_by" in df.columns:
-            if "curated" not in df.columns:
-                df["curated"] = pd.NA
-            if "curated_by" in df.columns:
-                mask = df["curated"].isna()
-                df.loc[mask, "curated"] = df.loc[mask, "curated_by"].notna()
-            df["curated"] = df["curated"].astype("boolean")
-
-        df = self._validate_foreign_keys(df, log)
-        df = self._normalize_and_enforce_schema(
-            df,
+        working_df = self._validate_foreign_keys(working_df, log)
+        working_df = self._normalize_and_enforce_schema(
+            working_df,
             self._output_column_order,
             log,
             normalize_identifiers=False,
@@ -746,16 +731,15 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             order_columns=False,
         )
 
-        df = self.execute_enrichment_stages(df)
+        working_df = self.execute_enrichment_stages(working_df)
+        working_df = self._finalize_identifier_columns(working_df, log)
+        return working_df
 
-        # Finalize identifier columns BEFORE ordering to ensure all required columns exist
-        df = self._finalize_identifier_columns(df, log)
-        df = self._order_schema_columns(df, self._output_column_order)
-        df = self._finalize_output_columns(df, log)
-        df = self._filter_invalid_required_fields(df, log)
-
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
-        return df
+    def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="post_transform")
+        ordered = self._order_schema_columns(df, self._output_column_order)
+        finalized = self._finalize_output_columns(ordered, log)
+        return self._filter_invalid_required_fields(finalized, log)
 
     def execute_enrichment_stages(
         self,
@@ -768,7 +752,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         if df.empty:
             return df
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+        log = self.logger_for(stage="enrich")
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
 
         if chembl_config is None:
@@ -813,10 +797,9 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         return df
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate payload against the registered output schema with detailed errors."""
+        """Apply pre-validation checks before delegating to the shared schema logic."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
-
+        log = self.logger_for(stage="validate")
         if df.empty:
             log.debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
             return df
@@ -825,33 +808,24 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             allowed_columns = set(self._output_column_order)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
-                log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
+                log.debug(
+                    LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
                     extras=extra_columns,
                 )
                 df = df.drop(columns=extra_columns)
 
-        log.info(LogEvents.STAGE_VALIDATE_START, rows=len(df))
-
-        # Ensure target_tax_id has correct nullable integer type before validation
         if "target_tax_id" in df.columns:
-            dtype_name: str = str(df["target_tax_id"].dtype.name)  # pyright: ignore[reportUnknownMemberType,reportUnknownArgumentType]
+            dtype_name: str = str(df["target_tax_id"].dtype.name)
             if dtype_name != "Int64":
-                # Convert to nullable Int64 if not already
-                numeric_series: pd.Series[Any] = pd.to_numeric(  # pyright: ignore[reportUnknownMemberType]
+                numeric_series: pd.Series[Any] = pd.to_numeric(
                     df["target_tax_id"], errors="coerce"
                 )
                 df["target_tax_id"] = numeric_series.astype("Int64")
 
-        # Pre-validation checks
         self._check_activity_id_uniqueness(df, log)
         self._check_foreign_key_integrity(df, log)
-
-        # Soft-enum validation for data_validity_comment.
         self._validate_data_validity_comment_soft_enum(df, log)
 
-        # Call base validation with error handling
-        # Temporarily disable coercion to preserve nullable Int64 types for target_tax_id
-        # Schema has coerce=False, but base.validate uses config.validation.coerce
         original_coerce = self.config.validation.coerce
         validation_override = (
             self.config.validation.model_copy(update={"coerce": False})
@@ -860,51 +834,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         )
 
         with self._temporary_config(validation=validation_override):
-            try:
-                validated = super().validate(df)
-                log.info(LogEvents.STAGE_VALIDATE_FINISH,
-                    rows=len(validated),
-                    schema=self.config.validation.schema_out,
-                    strict=self.config.validation.strict,
-                    coerce=original_coerce,  # Log original value for clarity
-                )
-                return validated
-            except pandera.errors.SchemaErrors as exc:
-                # Extract detailed error information
-                failure_cases_df: pd.DataFrame | None = None
-                if hasattr(exc, "failure_cases"):
-                    failure_cases_df = cast(pd.DataFrame, exc.failure_cases)
-                error_count = len(failure_cases_df) if failure_cases_df is not None else 0
-                error_summary = summarize_schema_errors(exc)
-
-                log.error(LogEvents.VALIDATION_FAILED,
-                    error_count=error_count,
-                    schema=self.config.validation.schema_out,
-                    strict=self.config.validation.strict,
-                    coerce=original_coerce,  # Log original value for clarity
-                    error_summary=error_summary,
-                    exc_info=True,
-                )
-
-                # Log detailed failure cases if available
-                if failure_cases_df is not None and not failure_cases_df.empty:
-                    failure_cases_summary = format_failure_cases(failure_cases_df)
-                    log.error(LogEvents.VALIDATION_FAILURE_CASES, failure_cases=failure_cases_summary)
-                    # Log individual errors with row index and activity_id as per documentation
-                    self._log_detailed_validation_errors(failure_cases_df, df, log)
-
-                msg = (
-                    f"Validation failed with {error_count} error(s) against schema "
-                    f"{self.config.validation.schema_out}: {error_summary}"
-                )
-                raise ValueError(msg) from exc
-            except Exception as exc:
-                log.error(LogEvents.VALIDATION_ERROR,
-                    error=str(exc),
-                    schema=self.config.validation.schema_out,
-                    exc_info=True,
-                )
-                raise
+            return super().validate(df)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -937,7 +867,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
     ) -> pd.DataFrame:
         """Extract activity records by delegating batching to ``ChemblActivityClient``."""
 
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+        log = self.logger_for(stage="extract")
         method_start = time.perf_counter()
         self._last_batch_extract_stats = None
 
@@ -1065,7 +995,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             )
             tmp_path.replace(cache_file)
         except Exception as exc:  # pragma: no cover - cache best-effort
-            log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
+            log = self.logger_for(stage="extract", component="cache")
             log.debug(LogEvents.CHEMBL_ACTIVITY_CACHE_STORE_FAILED, error=str(exc))
 
     def _cache_file_path(self, batch_ids: Sequence[str], release: str | None) -> Path:
@@ -1599,8 +1529,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         try:
             values = sorted(self._required_vocab_ids("data_validity_comment"))
         except RuntimeError as exc:
-            UnifiedLogger.get(__name__).bind(
-                component=f"{self.pipeline_code}.validation",
+            self.logger_for(stage="validate", component="validation").bind(
                 run_id=self.run_id,
             ).error(
                 "data_validity_comment_whitelist_unavailable",
@@ -1677,9 +1606,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         Also normalizes and stores activity_properties for serialization, validating TRUV format
         and deduplicating exact duplicates.
         """
-        log = UnifiedLogger.get(__name__).bind(
-            component=f"{self.pipeline_code}.extract_activity_properties"
-        )
+        log = self.logger_for(stage="extract", component="activity_properties")
         activity_id = record.get("activity_id")
 
         # Check presence of activity_properties (compatibility with ChEMBL < v24).
@@ -3104,10 +3031,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
         RunResult:
             All artifacts generated by the write operation.
         """
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.write")
-
-        # Bind actor to logs for all write operations
-        UnifiedLogger.bind(actor=self.actor)
+        log = self.logger_for(stage="write").bind(actor=self.actor)
 
         # Ensure sort configuration is set for activity pipeline
         # Use canonical identifier columns from schema: assay_chembl_id, testitem_chembl_id, activity_id
