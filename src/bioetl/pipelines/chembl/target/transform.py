@@ -3,16 +3,17 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from typing import Any, cast
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize
 from bioetl.core.utils.iterables import is_non_string_iterable
 from bioetl.core.utils.typechecks import is_dict
+from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
 
 __all__ = [
     "extract_and_serialize_component_synonyms",
@@ -283,14 +284,12 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     return df
 
 
-def transform(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Invoke the target pipeline transform stage via the pipeline class."""
-
+def _load_pipeline() -> type["ChemblTargetPipeline"]:
     from .run import ChemblTargetPipeline
 
-    pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
-    return pipeline.transform(df)
+    return ChemblTargetPipeline
+
+
+PIPELINE = register_pipeline(_load_pipeline)
+
+transform = partial(run_stage, "transform", PIPELINE)

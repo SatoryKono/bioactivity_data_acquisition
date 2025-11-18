@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
+from functools import partial
 from typing import Any, cast
 
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import header_rows_serialize, serialize_array_fields
 from bioetl.core.logging import LogEvents, UnifiedLogger
+from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
 
 __all__ = [
     "header_rows_serialize",
@@ -231,15 +232,12 @@ def validate_assay_parameters_truv(
     return df
 
 
-def transform(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-) -> pd.DataFrame:
-    """Execute the concrete transform stage for assays."""
-
-    # Lazy import to avoid circular dependency during module import.
+def _load_pipeline() -> type["ChemblAssayPipeline"]:
     from .run import ChemblAssayPipeline
 
-    pipeline = ChemblAssayPipeline(config=config, run_id=run_id)
-    return pipeline.transform(df)
+    return ChemblAssayPipeline
+
+
+PIPELINE = register_pipeline(_load_pipeline)
+
+transform = partial(run_stage, "transform", PIPELINE)

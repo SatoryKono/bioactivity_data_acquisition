@@ -2,27 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any
+from functools import partial
 
-import pandas as pd
-
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.pipeline import RunResult
+from bioetl.pipelines.chembl.stage_runner import register_pipeline, run_stage
 
 from .run import ChemblActivityPipeline
 
 __all__ = ["write"]
 
+PIPELINE = register_pipeline(ChemblActivityPipeline)
 
-def write(
-    config: PipelineConfig,
-    run_id: str,
-    df: pd.DataFrame,
-    output_path: Path,
-    **kwargs: Any,
-) -> RunResult:
-    """Materialize deterministic outputs for the activity pipeline."""
-
-    pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
-    return pipeline.write(df, output_path, **kwargs)
+write = partial(run_stage, "write", PIPELINE)
