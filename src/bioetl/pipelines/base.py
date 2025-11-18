@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any, Protocol, TypeVar, cast, runtime_checkable
+from typing import Any, ContextManager, Protocol, TypeVar, cast, runtime_checkable
 from zoneinfo import ZoneInfo
 
 import pandas as pd
@@ -190,6 +190,195 @@ class RunResult:
         return pd.DataFrame()
 
 
+@dataclass(frozen=True)
+class StageExecutionOptions:
+    """Options shared across pipeline stage commands."""
+
+    extended: bool = False
+    include_correlation: bool = False
+    include_qc_metrics: bool = False
+    qc_reports: QCReportRuntimeOptions | None = None
+    qc_thresholds: Mapping[str, float] | None = None
+    fail_on_qc_violation: bool = False
+    extract_mode: PipelineExtractionMode = PipelineExtractionMode.AUTO
+    extract_ids: Sequence[str] | None = None
+
+
+@dataclass
+class StageContext:
+    """Mutable runtime context shared between stage commands."""
+
+    pipeline: PipelineBase
+    output_dir: Path
+    options: StageExecutionOptions
+    stage_durations_ms: dict[str, float]
+    data: dict[str, Any] = field(default_factory=dict)
+    result: RunResult | None = None
+
+    def pipeline_stage(self, stage: str) -> ContextManager[BoundLogger]:
+        """Return structured logging context for ``stage``."""
+
+        return pipeline_stage(
+            stage,
+            pipeline=self.pipeline.pipeline_code,
+            run_id=self.pipeline.run_id,
+            dataset=self.pipeline.pipeline_code,
+            component=self.pipeline._component_for_stage(stage),
+            logger_name=__name__,
+        )
+
+    def set_payload(self, key: str, value: Any) -> None:
+        self.data[key] = value
+
+    def require_payload(self, key: str) -> Any:
+        if key not in self.data:
+            msg = f"Stage context missing payload '{key}'"
+            raise KeyError(msg)
+        return self.data[key]
+
+    def set_result(self, result: RunResult) -> None:
+        self.result = result
+
+
+class PipelineStageCommand(Protocol):
+    """Interface implemented by all pipeline stage commands."""
+
+    name: str
+
+    def should_run(self, options: StageExecutionOptions) -> bool: ...
+
+    def execute(self, context: StageContext) -> None: ...
+
+
+class BaseStageCommand(PipelineStageCommand):
+    """Convenience base class for default stage commands."""
+
+    def __init__(self, pipeline: PipelineBase, name: str) -> None:
+        self.pipeline = pipeline
+        self.name = name
+
+    def should_run(self, options: StageExecutionOptions) -> bool:
+        return True
+
+    def execute(self, context: StageContext) -> None:  # pragma: no cover - interface contract
+        raise NotImplementedError
+
+
+class StageFactory:
+    """Factory responsible for building the default stage plan."""
+
+    def __init__(self, pipeline: PipelineBase) -> None:
+        self.pipeline = pipeline
+
+    def build(self) -> list[PipelineStageCommand]:
+        return [
+            _ExtractStageCommand(self.pipeline),
+            _TransformStageCommand(self.pipeline),
+            _ValidateStageCommand(self.pipeline),
+            _WriteStageCommand(self.pipeline),
+            _CleanupStageCommand(self.pipeline),
+        ]
+
+
+_EXTRACT_PAYLOAD_KEY = "extract"
+_TRANSFORM_PAYLOAD_KEY = "transform"
+_VALIDATE_PAYLOAD_KEY = "validate"
+
+
+class _ExtractStageCommand(BaseStageCommand):
+    def __init__(self, pipeline: PipelineBase) -> None:
+        super().__init__(pipeline, "extract")
+
+    def execute(self, context: StageContext) -> None:
+        options = context.options
+        with context.pipeline_stage(self.name) as stage_log:
+            stage_log.info(LogEvents.STAGE_EXTRACT_START)
+            extracted = self.pipeline.extract(mode=options.extract_mode, ids=options.extract_ids)
+            rows = self.pipeline._safe_len(extracted)
+            stage_log.info(LogEvents.STAGE_EXTRACT_FINISH, rows=rows)
+        context.set_payload(_EXTRACT_PAYLOAD_KEY, extracted)
+
+
+class _TransformStageCommand(BaseStageCommand):
+    def __init__(self, pipeline: PipelineBase) -> None:
+        super().__init__(pipeline, "transform")
+
+    def execute(self, context: StageContext) -> None:
+        extracted = context.require_payload(_EXTRACT_PAYLOAD_KEY)
+        with context.pipeline_stage(self.name) as stage_log:
+            stage_log.info(LogEvents.STAGE_TRANSFORM_START)
+            transformed = self.pipeline.transform(extracted)
+            rows = self.pipeline._safe_len(transformed)
+            stage_log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=rows)
+        context.set_payload(_TRANSFORM_PAYLOAD_KEY, transformed)
+
+
+class _ValidateStageCommand(BaseStageCommand):
+    def __init__(self, pipeline: PipelineBase) -> None:
+        super().__init__(pipeline, "validate")
+
+    def execute(self, context: StageContext) -> None:
+        transformed = context.require_payload(_TRANSFORM_PAYLOAD_KEY)
+        payload = self.pipeline._apply_cli_sample(transformed)
+        with context.pipeline_stage(self.name) as stage_log:
+            stage_log.info(LogEvents.STAGE_VALIDATE_START)
+            validated = self.pipeline.validate(payload)
+            rows = self.pipeline._safe_len(validated)
+            stage_log.info(LogEvents.STAGE_VALIDATE_FINISH, rows=rows)
+        context.set_payload(_VALIDATE_PAYLOAD_KEY, validated)
+
+
+class _WriteStageCommand(BaseStageCommand):
+    def __init__(self, pipeline: PipelineBase) -> None:
+        super().__init__(pipeline, "write")
+
+    def execute(self, context: StageContext) -> None:
+        validated = context.require_payload(_VALIDATE_PAYLOAD_KEY)
+        options = context.options
+        config = self.pipeline.config
+        effective_extended = bool(options.extended or getattr(config.cli, "extended", False))
+        postprocess_config = getattr(config, "postprocess", None)
+        correlation_config = getattr(postprocess_config, "correlation", None)
+        correlation_default = bool(getattr(correlation_config, "enabled", False))
+        include_correlation_flag = (
+            bool(options.include_correlation) or effective_extended or correlation_default
+        )
+        include_qc_metrics_flag = bool(options.include_qc_metrics) or effective_extended
+        self.pipeline._qc_fail_on_threshold = bool(options.fail_on_qc_violation)
+        with context.pipeline_stage(self.name) as stage_log:
+            stage_log.info(LogEvents.STAGE_WRITE_START, output_path=str(context.output_dir))
+            result = self.pipeline.save_results(
+                validated,
+                context.output_dir,
+                extended=effective_extended,
+                include_correlation=include_correlation_flag,
+                include_qc_metrics=include_qc_metrics_flag,
+            )
+            stage_log.info(
+                LogEvents.STAGE_WRITE_FINISH,
+                dataset=str(result.write_result.dataset),
+            )
+        context.set_result(result)
+
+
+class _CleanupStageCommand(BaseStageCommand):
+    def __init__(self, pipeline: PipelineBase) -> None:
+        super().__init__(pipeline, "cleanup")
+
+    def execute(self, context: StageContext) -> None:
+        with context.pipeline_stage(self.name) as cleanup_log:
+            cleanup_log.info(LogEvents.STAGE_CLEANUP_START)
+            context.pipeline._cleanup_registered_clients()
+            try:
+                context.pipeline.close_resources()
+            except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
+                cleanup_log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
+            context.pipeline._qc_report_options = None
+            context.pipeline._qc_thresholds = {}
+            context.pipeline._qc_fail_on_threshold = False
+            cleanup_log.info(LogEvents.STAGE_CLEANUP_FINISH)
+
+
 T_qc = TypeVar("T_qc")
 
 
@@ -201,6 +390,7 @@ class PipelineBase(ABC, PipelineStagesProtocol):
     manifest_extension: str = "json"
     log_extension: str = "log"
     deterministic_folder_prefix: str = "_"
+    stage_factory_class = StageFactory
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         self.config = config
@@ -210,6 +400,7 @@ class PipelineBase(ABC, PipelineStagesProtocol):
         self.logs_root = self.output_root.parent / "logs"
         self.retention_runs = 5
         self.pipeline_directory = self._ensure_pipeline_directory()
+        self.stage_plan: tuple[PipelineStageCommand, ...] = tuple()
         self.logs_directory = self._ensure_logs_directory()
         self._stage_durations_ms: dict[str, float] = {}
         self._registered_clients: dict[str, Callable[[], None]] = {}
@@ -225,6 +416,11 @@ class PipelineBase(ABC, PipelineStagesProtocol):
         self._qc_report_options: QCReportRuntimeOptions | None = None
         self._qc_thresholds: dict[str, float] = {}
         self._qc_fail_on_threshold: bool = False
+
+    def create_stage_factory(self) -> StageFactory:
+        """Return the stage factory responsible for building ``stage_plan``."""
+
+        return self.stage_factory_class(self)
 
     def _ensure_pipeline_directory(self) -> Path:
         """Return the deterministic output folder path for the pipeline.
@@ -1819,27 +2015,37 @@ class PipelineBase(ABC, PipelineStagesProtocol):
         self._extract_metadata = {}
         self._qc_report_options = qc_reports
         self._qc_thresholds = dict(qc_thresholds or {})
-        self._qc_fail_on_threshold = bool(fail_on_qc_violation)
+
         extract_mode, extract_ids = self._resolve_extract_invocation()
-
-        effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
-        configured_mode = "extended" if effective_extended else None
-
-        postprocess_config = getattr(self.config, "postprocess", None)
-        correlation_config = getattr(postprocess_config, "correlation", None)
-        correlation_default = bool(getattr(correlation_config, "enabled", False))
-        # Run correlation report generation if enabled in the config or via extended mode.
-        include_correlation_flag = (
-            bool(include_correlation) or effective_extended or correlation_default
+        options = StageExecutionOptions(
+            extended=bool(extended),
+            include_correlation=bool(include_correlation),
+            include_qc_metrics=bool(include_qc_metrics),
+            qc_reports=qc_reports,
+            qc_thresholds=dict(qc_thresholds or {}),
+            fail_on_qc_violation=bool(fail_on_qc_violation),
+            extract_mode=extract_mode,
+            extract_ids=extract_ids,
         )
-        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
+        stage_context = StageContext(
+            pipeline=self,
+            output_dir=output_dir,
+            options=options,
+            stage_durations_ms=stage_durations_ms,
+        )
+
+        stage_factory = self.create_stage_factory()
+        self.stage_plan = tuple(stage_factory.build())
+        cleanup_commands = tuple(cmd for cmd in self.stage_plan if cmd.name == "cleanup")
+        execution_plan = tuple(cmd for cmd in self.stage_plan if cmd.name != "cleanup")
 
         current_stage = "bootstrap"
         bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
         bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
+        effective_mode = "extended" if (options.extended or getattr(self.config.cli, "extended", False)) else None
         bootstrap_log.info(
             LogEvents.STAGE_RUN_START,
-            mode=configured_mode,
+            mode=effective_mode,
             output_path=str(output_dir),
             extract_mode=extract_mode.value,
         )
@@ -1849,93 +2055,21 @@ class PipelineBase(ABC, PipelineStagesProtocol):
 
         try:
             self.prepare_run()
-            current_stage = "extract"
-            with pipeline_stage(
-                current_stage,
-                pipeline=self.pipeline_code,
-                run_id=self.run_id,
-                dataset=self.pipeline_code,
-                component=self._component_for_stage(current_stage),
-                logger_name=__name__,
-            ) as extract_log:
-                extract_log.info(LogEvents.STAGE_EXTRACT_START)
-                extract_start = time.perf_counter()
-                extracted = self.extract(mode=extract_mode, ids=extract_ids)
-                duration = (time.perf_counter() - extract_start) * 1000.0
+            for command in execution_plan:
+                if not command.should_run(stage_context.options):
+                    continue
+                current_stage = command.name
+                stage_start = time.perf_counter()
+                command.execute(stage_context)
+                duration = (time.perf_counter() - stage_start) * 1000.0
                 stage_durations_ms[current_stage] = duration
-                rows = self._safe_len(extracted)
-                extract_log.info(LogEvents.STAGE_EXTRACT_FINISH, duration_ms=duration, rows=rows)
-
-            current_stage = "transform"
-            with pipeline_stage(
-                current_stage,
-                pipeline=self.pipeline_code,
-                run_id=self.run_id,
-                dataset=self.pipeline_code,
-                component=self._component_for_stage(current_stage),
-                logger_name=__name__,
-            ) as transform_log:
-                transform_log.info(LogEvents.STAGE_TRANSFORM_START)
-                transform_start = time.perf_counter()
-                transformed = self.transform(extracted)
-                duration = (time.perf_counter() - transform_start) * 1000.0
-                stage_durations_ms[current_stage] = duration
-                rows = self._safe_len(transformed)
-                transform_log.info(
-                    LogEvents.STAGE_TRANSFORM_FINISH, duration_ms=duration, rows=rows
-                )
-
-            # transformed is always pd.DataFrame according to transform signature
-            prepared_for_validation = self._apply_cli_sample(transformed)
-
-            current_stage = "validate"
-            with pipeline_stage(
-                current_stage,
-                pipeline=self.pipeline_code,
-                run_id=self.run_id,
-                dataset=self.pipeline_code,
-                component=self._component_for_stage(current_stage),
-                logger_name=__name__,
-            ) as validate_log:
-                validate_log.info(LogEvents.STAGE_VALIDATE_START)
-                validate_start = time.perf_counter()
-                validated = self.validate(prepared_for_validation)
-                duration = (time.perf_counter() - validate_start) * 1000.0
-                stage_durations_ms[current_stage] = duration
-                rows = self._safe_len(validated)
-                validate_log.info(LogEvents.STAGE_VALIDATE_FINISH, duration_ms=duration, rows=rows)
-
-            current_stage = "write"
-            with pipeline_stage(
-                current_stage,
-                pipeline=self.pipeline_code,
-                run_id=self.run_id,
-                dataset=self.pipeline_code,
-                component=self._component_for_stage(current_stage),
-                logger_name=__name__,
-            ) as write_log:
-                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_dir))
-                write_start = time.perf_counter()
-                result = self.save_results(
-                    validated,
-                    output_dir,
-                    extended=effective_extended,
-                    include_correlation=include_correlation_flag,
-                    include_qc_metrics=include_qc_metrics_flag,
-                )
-                duration = (time.perf_counter() - write_start) * 1000.0
-                stage_durations_ms[current_stage] = duration
-                write_log.info(
-                    LogEvents.STAGE_WRITE_FINISH,
-                    duration_ms=duration,
-                    dataset=str(result.write_result.dataset),
-                )
 
             self.apply_retention_policy()
             current_stage = "bootstrap"
             bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
             bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
+            result = stage_context.result
             self.finalize_run(result)
             finalize_invoked = True
             return result
@@ -1972,7 +2106,7 @@ class PipelineBase(ABC, PipelineStagesProtocol):
         finally:
             if not finalize_invoked:
                 try:
-                    self.finalize_run(result)
+                    self.finalize_run(stage_context.result)
                 except Exception as finalize_error:  # pragma: no cover - defensive finalize path
                     finalize_log = self._make_pipeline_logger(
                         stage="finalize", logger_name=__name__
@@ -1981,25 +2115,14 @@ class PipelineBase(ABC, PipelineStagesProtocol):
                         LogEvents.STAGE_CLEANUP_ERROR,
                         error=str(finalize_error),
                     )
-            current_stage = "cleanup"
-            with pipeline_stage(
-                current_stage,
-                pipeline=self.pipeline_code,
-                run_id=self.run_id,
-                dataset=self.pipeline_code,
-                component=self._component_for_stage(current_stage),
-                logger_name=__name__,
-            ) as cleanup_log:
-                cleanup_log.info(LogEvents.STAGE_CLEANUP_START)
-                self._cleanup_registered_clients()
-                try:
-                    self.close_resources()
-                except Exception as cleanup_error:  # pragma: no cover - defensive cleanup path
-                    cleanup_log.warning(LogEvents.STAGE_CLEANUP_ERROR, error=str(cleanup_error))
-                self._qc_report_options = None
-                self._qc_thresholds = {}
-                self._qc_fail_on_threshold = False
-                cleanup_log.info(LogEvents.STAGE_CLEANUP_FINISH)
+            for command in cleanup_commands:
+                if not command.should_run(stage_context.options):
+                    continue
+                current_stage = command.name
+                cleanup_start = time.perf_counter()
+                command.execute(stage_context)
+                duration = (time.perf_counter() - cleanup_start) * 1000.0
+                stage_durations_ms[current_stage] = duration
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Validate ``df`` against the configured Pandera schema.
