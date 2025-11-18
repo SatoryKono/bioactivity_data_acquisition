@@ -10,6 +10,11 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.core.pipeline import RunResult
 
@@ -158,3 +163,16 @@ def test_unified_pipeline_run_signature_matches_contract() -> None:
     assert sig.parameters["qc_reports"].default is None
     assert sig.parameters["qc_thresholds"].default is None
     assert sig.parameters["fail_on_qc_violation"].default is False
+
+
+def test_all_chembl_pipelines_use_unified_base() -> None:
+    pipelines = [
+        ChemblActivityPipeline,
+        ChemblAssayPipeline,
+        ChemblDocumentPipeline,
+        ChemblTargetPipeline,
+        TestItemChemblPipeline,
+    ]
+
+    for pipeline_cls in pipelines:
+        assert issubclass(pipeline_cls, UnifiedPipelineBase)
