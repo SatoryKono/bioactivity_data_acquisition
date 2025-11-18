@@ -2,21 +2,64 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from functools import partial
 from types import MappingProxyType
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
-from structlog.stdlib import BoundLogger
+from structlog.stdlib import BoundLogger, get_logger
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.logging import LogEvents, get_pipeline_logger
 from bioetl.core.pipeline import PipelineBase
 
-__all__ = ["PIPELINE_REGISTRY", "register_pipeline", "run_stage"]
+__all__ = [
+    "PIPELINE_REGISTRY",
+    "PipelineStagesProtocol",
+    "StageContext",
+    "build_stage_functions",
+    "register_pipeline",
+    "run_stage",
+]
 
 StageCallable = Callable[..., Any]
 PipelineLoader = Callable[[], type[PipelineBase]]
+
+_DEFAULT_STAGE_SEQUENCE: tuple[str, ...] = (
+    "extract",
+    "extract_all",
+    "extract_by_ids",
+    "transform",
+    "validate",
+    "write",
+)
+_KNOWN_STAGE_NAMES: frozenset[str] = frozenset(_DEFAULT_STAGE_SEQUENCE)
+
+_LOG = get_logger(__name__)
+
+
+@runtime_checkable
+class PipelineStagesProtocol(Protocol):
+    """Protocol describing the minimal set of stage callables."""
+
+    def extract(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
+
+    def extract_all(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
+
+    def extract_by_ids(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
+
+    def transform(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
+
+    def validate(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
+
+    def write(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover - Protocol hook
+        ...
 
 
 class _PipelineResolver(Protocol):
@@ -50,6 +93,33 @@ class PipelineReference:
         if self._identifier is None:
             self._identifier = _pipeline_identifier(self.resolve())
         return self._identifier
+
+
+@dataclass(slots=True)
+class StageContext:
+    """Execution context shared between CLI and stage functions."""
+
+    config: PipelineConfig
+    run_id: str
+    pipeline_name: str | None = None
+    stage: str | None = None
+
+    def derive(self, *, stage: str | None = None) -> "StageContext":
+        """Return a new context updated with ``stage`` when provided."""
+
+        if stage is None or stage == self.stage:
+            return self
+        return StageContext(
+            config=self.config,
+            run_id=self.run_id,
+            pipeline_name=self.pipeline_name,
+            stage=stage,
+        )
+
+    def resolve_pipeline_name(self) -> str:
+        """Return the pipeline name, falling back to the config payload."""
+
+        return self.pipeline_name or self.config.pipeline.name
 
 
 def _pipeline_identifier(pipeline_cls: type[PipelineBase]) -> str:
@@ -92,6 +162,92 @@ def register_pipeline(
     raise TypeError(msg)
 
 
+def build_stage_functions(
+    pipeline_cls: type[PipelineBase] | PipelineLoader,
+    *,
+    stages: Iterable[str] | None = None,
+) -> tuple[PipelineReference, Mapping[str, StageCallable]]:
+    """Register ``pipeline_cls`` and return stage callables bound to ``run_stage``."""
+
+    stage_names = _normalize_stage_names(stages)
+
+    if isinstance(pipeline_cls, type):
+        _ensure_pipeline_compliance(pipeline_cls, stage_names)
+        pipeline_ref = register_pipeline(pipeline_cls)
+    elif callable(pipeline_cls):
+        def _loader(pipeline_loader: PipelineLoader = pipeline_cls) -> type[PipelineBase]:
+            pipeline_type = pipeline_loader()
+            _ensure_pipeline_compliance(pipeline_type, stage_names)
+            return pipeline_type
+
+        pipeline_ref = register_pipeline(_loader)
+    else:  # pragma: no cover - defensive guard
+        msg = "build_stage_functions expects a PipelineBase subclass or loader"
+        raise TypeError(msg)
+
+    stage_functions = {
+        stage: partial(run_stage, stage, pipeline_ref) for stage in stage_names
+    }
+    return pipeline_ref, MappingProxyType(stage_functions)
+
+
+def _normalize_stage_names(stages: Iterable[str] | None) -> tuple[str, ...]:
+    if stages is None:
+        return _DEFAULT_STAGE_SEQUENCE
+
+    if isinstance(stages, str):  # pragma: no cover - defensive guard
+        msg = "build_stage_functions.stages must be an iterable of stage names"
+        raise TypeError(msg)
+
+    normalized = tuple(dict.fromkeys(stage.strip() for stage in stages if stage))
+    if not normalized:
+        msg = "build_stage_functions.stages must include at least one stage name"
+        raise ValueError(msg)
+
+    unknown = [stage for stage in normalized if stage not in _KNOWN_STAGE_NAMES]
+    if unknown:
+        msg = f"Unsupported stage name(s): {', '.join(sorted(unknown))}"
+        raise ValueError(msg)
+
+    return normalized
+
+
+def _ensure_pipeline_compliance(
+    pipeline_cls: type[PipelineBase], stage_names: Sequence[str]
+) -> None:
+    identifier = _pipeline_identifier(pipeline_cls)
+    if not issubclass(pipeline_cls, PipelineStagesProtocol):  # type: ignore[arg-type]
+        msg = f"Pipeline '{identifier}' must implement PipelineStagesProtocol"
+        raise TypeError(msg)
+
+    available = _available_pipeline_stages(pipeline_cls)
+    missing = [stage for stage in stage_names if stage not in available]
+    if missing:
+        readable_available = ", ".join(available) or "none"
+        msg = (
+            f"Pipeline '{identifier}' is missing stage(s): {', '.join(missing)}. "
+            f"Available stages: {readable_available}"
+        )
+        raise AttributeError(msg)
+
+    _LOG.debug(
+        "pipeline_stage_inventory",
+        pipeline_class=_pipeline_identifier(pipeline_cls),
+        available_stages=available,
+    )
+
+
+def _available_pipeline_stages(
+    pipeline: PipelineBase | type[PipelineBase],
+) -> tuple[str, ...]:
+    available: list[str] = []
+    for stage in _DEFAULT_STAGE_SEQUENCE:
+        candidate = getattr(pipeline, stage, None)
+        if callable(candidate):
+            available.append(stage)
+    return tuple(available)
+
+
 _STAGE_EVENT_ALIASES: dict[str, str] = {
     "extract": "extract",
     "extract_all": "extract",
@@ -117,39 +273,70 @@ def _log_stage_event(log: BoundLogger, stage_alias: str, start: bool, **context:
     log.info(event, **context)
 
 
+def _coerce_stage_context(
+    stage: str,
+    context_or_config: StageContext | PipelineConfig,
+    run_id: str | None,
+) -> StageContext:
+    if isinstance(context_or_config, StageContext):
+        if run_id is not None:
+            msg = "run_stage received redundant run_id alongside StageContext"
+            raise TypeError(msg)
+        return context_or_config.derive(stage=stage)
+
+    if isinstance(context_or_config, PipelineConfig):
+        if not run_id:
+            msg = "run_stage requires run_id when a PipelineConfig is provided"
+            raise TypeError(msg)
+        return StageContext(config=context_or_config, run_id=run_id, stage=stage)
+
+    msg = "run_stage expects StageContext or PipelineConfig as the first argument"
+    raise TypeError(msg)
+
+
 def _resolve_stage_callable(pipeline: PipelineBase, stage: str) -> StageCallable:
     try:
         callable_candidate = getattr(pipeline, stage)
     except AttributeError as exc:  # pragma: no cover - defensive guard
-        msg = f"Pipeline '{pipeline.__class__.__name__}' does not implement stage '{stage}'"
+        available = _available_pipeline_stages(pipeline)
+        readable_available = ", ".join(available) or "none"
+        msg = (
+            f"Pipeline '{pipeline.__class__.__name__}' does not implement stage '{stage}'. "
+            f"Available stages: {readable_available}"
+        )
         raise AttributeError(msg) from exc
 
     if not callable(callable_candidate):  # pragma: no cover - defensive guard
         msg = f"Attribute '{stage}' on '{pipeline.__class__.__name__}' is not callable"
-        raise AttributeError(msg)
+        raise TypeError(msg)
     return callable_candidate
 
 
 def run_stage(
     stage: str,
     pipeline_ref: PipelineReference | type[PipelineBase],
-    config: PipelineConfig,
-    run_id: str,
+    context_or_config: StageContext | PipelineConfig,
+    run_id: str | None = None,
     *args: Any,
     **kwargs: Any,
 ) -> Any:
     """Instantiate ``pipeline_cls`` and execute ``stage`` with logging."""
 
+    stage_context = _coerce_stage_context(stage, context_or_config, run_id)
     pipeline_cls, identifier = _resolve_pipeline(pipeline_ref)
-    pipeline = pipeline_cls(config=config, run_id=run_id)
-    pipeline_name = config.pipeline.name
-    log = get_pipeline_logger(pipeline=pipeline_name, run_id=run_id, stage=stage)
+    pipeline = pipeline_cls(config=stage_context.config, run_id=stage_context.run_id)
+    pipeline_name = stage_context.resolve_pipeline_name()
+    stage_name = stage_context.stage or stage
+    log = get_pipeline_logger(pipeline=pipeline_name, run_id=stage_context.run_id, stage=stage_name)
+
+    available_stages = _available_pipeline_stages(pipeline)
 
     stage_alias = _STAGE_EVENT_ALIASES.get(stage, stage)
     context = {
         "pipeline": pipeline_name,
-        "stage": stage,
+        "stage": stage_name,
         "pipeline_class": identifier,
+        "available_stages": available_stages,
     }
 
     log.info(LogEvents.STAGE_RUN_START, **context)
