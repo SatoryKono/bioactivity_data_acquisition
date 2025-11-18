@@ -444,6 +444,12 @@ class PipelineBase(ABC):
     # Optional hooks overridable by subclasses
     # ------------------------------------------------------------------
 
+    def prepare_run(self) -> None:
+        """Hook executed before the extract stage begins."""
+
+    def finalize_run(self, result: RunResult | None) -> None:
+        """Hook executed after the write stage completes."""
+
     @property
     def qc_plan(self) -> QCPlan:
         """Return the QC plan executed for this pipeline."""
@@ -1513,16 +1519,8 @@ class PipelineBase(ABC):
         correlation_default = bool(getattr(correlation_config, "enabled", False))
 
         # Run correlation report generation if enabled in the config or via extended mode.
-        include_correlation_flag = (
-            bool(include_correlation)
-            if include_correlation is not None
-            else (effective_extended or correlation_default)
-        )
-        include_qc_metrics_flag = (
-            bool(include_qc_metrics)
-            if include_qc_metrics is not None
-            else effective_extended
-        )
+        include_correlation_flag = bool(include_correlation) or effective_extended or correlation_default
+        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
         include_metadata = bool(self.config.validation.schema_out)
         if effective_extended:
             include_metadata = True
@@ -1672,31 +1670,33 @@ class PipelineBase(ABC):
 
     def run(
         self,
-        output_path: Path,
-        *args: object,
+        output_dir: Path,
+        *,
         extended: bool = False,
-        include_correlation: bool | None = None,
-        include_qc_metrics: bool | None = None,
+        include_correlation: bool = False,
+        include_qc_metrics: bool = False,
         qc_reports: QCReportRuntimeOptions | None = None,
         qc_thresholds: Mapping[str, float] | None = None,
-        fail_on_qc_violation: bool | None = None,
-        **kwargs: object,
+        fail_on_qc_violation: bool = False,
     ) -> RunResult:
         """Execute the pipeline lifecycle and return collected artifacts.
 
-        According to documentation, this method should accept output_path as the
-        first positional argument after self.
+        Public contract:
+        - run(output_dir: Path, *, extended=False, include_correlation=False,
+              include_qc_metrics=False, qc_reports=None, qc_thresholds=None,
+              fail_on_qc_violation=False) -> RunResult
+
+        Этот метод — шаблон выполнения пайплайна. Дочерние классы должны
+        реализовать хуки: prepare_run, extract/extract_by_ids/extract_all,
+        transform, validate, save_results, finalize_run. Сигнатура run() не
+        должна меняться.
 
         Parameters
         ----------
-        output_path:
+        output_dir:
             The base output path for all artifacts.
         extended:
             Whether to include extended QC artifacts.
-        *args:
-            Additional positional arguments passed to extract().
-        **kwargs:
-            Additional keyword arguments passed to extract().
 
         Returns
         -------
@@ -1717,8 +1717,7 @@ class PipelineBase(ABC):
         self._extract_metadata = {}
         self._qc_report_options = qc_reports
         self._qc_thresholds = dict(qc_thresholds or {})
-        if fail_on_qc_violation is not None:
-            self._qc_fail_on_threshold = bool(fail_on_qc_violation)
+        self._qc_fail_on_threshold = bool(fail_on_qc_violation)
 
         effective_extended = bool(extended or getattr(self.config.cli, "extended", False))
         configured_mode = "extended" if effective_extended else None
@@ -1727,23 +1726,19 @@ class PipelineBase(ABC):
         correlation_config = getattr(postprocess_config, "correlation", None)
         correlation_default = bool(getattr(correlation_config, "enabled", False))
         # Run correlation report generation if enabled in the config or via extended mode.
-        include_correlation_flag = (
-            bool(include_correlation)
-            if include_correlation is not None
-            else (effective_extended or correlation_default)
-        )
-        include_qc_metrics_flag = (
-            bool(include_qc_metrics)
-            if include_qc_metrics is not None
-            else effective_extended
-        )
+        include_correlation_flag = bool(include_correlation) or effective_extended or correlation_default
+        include_qc_metrics_flag = bool(include_qc_metrics) or effective_extended
 
         current_stage = "bootstrap"
         bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
         bootstrap_log = self._make_pipeline_logger(stage=current_stage, logger_name=__name__)
-        bootstrap_log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_path))
+        bootstrap_log.info(LogEvents.STAGE_RUN_START, mode=configured_mode, output_path=str(output_dir))
+
+        result: RunResult | None = None
+        finalize_invoked = False
 
         try:
+            self.prepare_run()
             current_stage = "extract"
             with pipeline_stage(
                 current_stage,
@@ -1755,7 +1750,7 @@ class PipelineBase(ABC):
             ) as extract_log:
                 extract_log.info(LogEvents.STAGE_EXTRACT_START)
                 extract_start = time.perf_counter()
-                extracted = self.extract(*args, **kwargs)
+                extracted = self.extract()
                 duration = (time.perf_counter() - extract_start) * 1000.0
                 stage_durations_ms[current_stage] = duration
                 rows = self._safe_len(extracted)
@@ -1807,11 +1802,11 @@ class PipelineBase(ABC):
                 component=self._component_for_stage(current_stage),
                 logger_name=__name__,
             ) as write_log:
-                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_path))
+                write_log.info(LogEvents.STAGE_WRITE_START, output_path=str(output_dir))
                 write_start = time.perf_counter()
                 result = self.write(
                     validated,
-                    output_path,
+                    output_dir,
                     extended=effective_extended,
                     include_correlation=include_correlation_flag,
                     include_qc_metrics=include_qc_metrics_flag,
@@ -1829,6 +1824,8 @@ class PipelineBase(ABC):
             bind_pipeline_context(stage=current_stage, component=f"{self.pipeline_code}.pipeline")
             bootstrap_log.info(LogEvents.STAGE_RUN_FINISH, stage_durations_ms=stage_durations_ms)
 
+            self.finalize_run(result)
+            finalize_invoked = True
             return result
 
         except PipelineError as exc:
@@ -1861,6 +1858,15 @@ class PipelineBase(ABC):
             raise
 
         finally:
+            if not finalize_invoked:
+                try:
+                    self.finalize_run(result)
+                except Exception as finalize_error:  # pragma: no cover - defensive finalize path
+                    finalize_log = self._make_pipeline_logger(stage="finalize", logger_name=__name__)
+                    finalize_log.warning(
+                        LogEvents.STAGE_CLEANUP_ERROR,
+                        error=str(finalize_error),
+                    )
             current_stage = "cleanup"
             with pipeline_stage(
                 current_stage,
