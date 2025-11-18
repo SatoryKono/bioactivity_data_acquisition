@@ -605,6 +605,9 @@ class BatchExtractionContext:
 # Type checking uses Any for client parameters to avoid circular dependencies
 
 
+from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
+
+
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
@@ -655,6 +658,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema: DataFrameSchema | None = None
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
+        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None
 
     def configure_output_schema(
         self,
@@ -668,6 +672,13 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema = schema_entry.schema
         self._output_column_order = tuple(schema_entry.column_order)
         self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
+
+    def get_descriptor_strategy_factory(self) -> DescriptorStrategyFactory:
+        """Return (and lazily construct) the batching strategy factory."""
+
+        if self._descriptor_strategy_factory is None:
+            self._descriptor_strategy_factory = DescriptorStrategyFactory()
+        return self._descriptor_strategy_factory
 
     def resolve_output_schema_entry(self) -> SchemaRegistryEntry:
         """Return the schema registry entry associated with this pipeline.
@@ -1895,78 +1906,42 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         method_start = time.perf_counter()
 
-        normalizer: Callable[[Any], tuple[str | None, Any]]
-
-        if id_normalizer is not None:
-            normalizer = id_normalizer
-        else:
-
-            def _default_normalizer(raw: Any) -> tuple[str | None, Any]:
-                if raw is None:
-                    return None, None
-                candidate = str(raw).strip()
-                if not candidate:
-                    return None, None
-                return candidate, None
-
-            normalizer = _default_normalizer
-
-        canonical_pairs: list[tuple[str, Any]] = []
-        seen: set[str] = set()
-        for raw in ids:
-            canonical, metadata = normalizer(raw)
-            if canonical is None:
-                continue
-            if canonical in seen:
-                continue
-            seen.add(canonical)
-            canonical_pairs.append((canonical, metadata))
-
-        if sort_key:
-            canonical_pairs.sort(key=sort_key)
-        else:
-            canonical_pairs.sort(key=lambda pair: pair[0])
-
-        if limit is not None:
-            effective_limit = max(int(limit), 0)
-            canonical_pairs = canonical_pairs[:effective_limit]
-
-        unique_ids = [identifier for identifier, _ in canonical_pairs]
-        id_metadata_map = dict(canonical_pairs)
-
-        stats = BatchExtractionStats(requested=len(unique_ids))
-
-        if batch_size is None:
-            try:
-                source_config = self._resolve_source_config("chembl")
-                batch_size = self._resolve_batch_size(source_config)
-            except Exception:
-                batch_size = 25
-
-        effective_batch_size = max(int(batch_size or 1), 1)
-        if max_batch_size is not None:
-            effective_batch_size = min(effective_batch_size, int(max_batch_size))
-
-        if chunk_size is None:
-            effective_chunk_size = effective_batch_size
-        else:
-            effective_chunk_size = max(int(chunk_size), 1)
-            if max_batch_size is not None:
-                effective_chunk_size = min(effective_chunk_size, int(max_batch_size))
-
         merged_select_fields = self._merge_select_fields(select_fields, required_fields)
         select_fields_tuple: tuple[str, ...] = tuple(merged_select_fields or ())
 
+        strategy_factory = self.get_descriptor_strategy_factory()
+        plan = strategy_factory.build_plan(
+            pipeline=self,
+            ids=ids,
+            id_column=id_column,
+            select_fields=select_fields_tuple,
+            fetcher=fetcher,
+            fetch_mode=fetch_mode,
+            limit=limit,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            max_batch_size=max_batch_size,
+            id_normalizer=id_normalizer,
+            sort_key=sort_key,
+            transform_item=transform_item,
+            finalize=finalize,
+            finalize_context=finalize_context,
+            empty_frame_factory=empty_frame_factory,
+            stats_attribute=stats_attribute,
+            log=log,
+            started_at=method_start,
+        )
+
         extra_filter_payload: dict[str, Any] = {
-            "requested_ids": unique_ids,
-            "batch_size": effective_batch_size,
+            "requested_ids": list(plan.context.ids),
+            "batch_size": plan.context.batch_size,
         }
         if metadata_filters:
             extra_filter_payload.update(dict(metadata_filters))
-        filters_payload, compact_filters = build_filters_payload(
+        _filters_payload, compact_filters = build_filters_payload(
             mode="ids",
-            limit=limit,
-            page_size=effective_batch_size,
+            limit=plan.context.limit,
+            page_size=plan.context.batch_size,
             select_fields=merged_select_fields,
             extra_filters=extra_filter_payload,
         )
@@ -1977,133 +1952,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        context = BatchExtractionContext(
-            ids=tuple(unique_ids),
-            id_column=id_column,
-            select_fields=select_fields_tuple,
-            limit=int(limit) if limit is not None else None,
-            batch_size=effective_batch_size,
-            chunk_size=effective_chunk_size,
-            stats=stats,
-            log=log,
-            metadata={identifier: id_metadata_map.get(identifier) for identifier in unique_ids},
-        )
-        context.extra.setdefault("id_metadata", context.metadata)
-
-        records: list[dict[str, Any]] = []
-        delegated_summary: Mapping[str, Any] | None = None
-
-        try:
-            if not unique_ids:
-                dataframe = (
-                    empty_frame_factory()
-                    if empty_frame_factory is not None
-                    else pd.DataFrame({id_column: pd.Series(dtype="string")})
-                )
-                stats.rows = int(dataframe.shape[0])
-                stats.duration_ms = (time.perf_counter() - method_start) * 1000.0
-                return dataframe, stats
-
-            if fetch_mode == "delegated":
-                fetch_result = fetcher(tuple(unique_ids), context)
-                delegated_payload: Any | None = None
-                items_iter: Iterable[Mapping[str, Any]]
-                if isinstance(fetch_result, tuple) and fetch_result:
-                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result[0])
-                    if len(fetch_result) > 1:
-                        delegated_payload = fetch_result[1]
-                else:
-                    items_iter = cast(Iterable[Mapping[str, Any]], fetch_result)
-
-                for item in items_iter:
-                    record = dict(item)
-                    if transform_item is not None:
-                        record = dict(transform_item(record, context))
-                    records.append(record)
-
-                if isinstance(delegated_payload, BatchExtractionStats):
-                    stats.batches = delegated_payload.batches
-                    stats.api_calls = delegated_payload.api_calls
-                    stats.cache_hits = delegated_payload.cache_hits
-                    stats.set_extra(**delegated_payload.extra)
-                elif isinstance(delegated_payload, Mapping):
-                    delegated_summary = cast(Mapping[str, Any], delegated_payload)
-            else:
-                for start_idx in range(0, len(unique_ids), effective_chunk_size):
-                    batch_ids = tuple(unique_ids[start_idx : start_idx + effective_chunk_size])
-                    context.increment_batches()
-                    fetch_output = fetcher(batch_ids, context)
-                    batch_items_iter: Iterable[Mapping[str, Any]]
-                    if isinstance(fetch_output, tuple) and fetch_output:
-                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output[0])
-                        if len(fetch_output) > 1 and isinstance(fetch_output[1], Mapping):
-                            delegated_summary = cast(Mapping[str, Any], fetch_output[1])
-                    else:
-                        batch_items_iter = cast(Iterable[Mapping[str, Any]], fetch_output)
-
-                    for item in batch_items_iter:
-                        record = dict(item)
-                        if transform_item is not None:
-                            record = dict(transform_item(record, context))
-                        records.append(record)
-                        if limit is not None and len(records) >= int(limit):
-                            break
-                    if limit is not None and len(records) >= int(limit):
-                        break
-
-            if limit is not None and len(records) > int(limit):
-                records = records[: int(limit)]
-
-            dataframe = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]
-            if dataframe.empty:
-                dataframe = (
-                    empty_frame_factory()
-                    if empty_frame_factory is not None
-                    else pd.DataFrame({id_column: pd.Series(dtype="string")})
-                )
-            elif id_column in dataframe.columns:
-                dataframe = dataframe.sort_values(id_column).reset_index(drop=True)
-
-            if finalize is not None:
-                dataframe = finalize(dataframe, context)
-
-            duration_ms = (time.perf_counter() - method_start) * 1000.0
-            stats.rows = int(dataframe.shape[0])
-            stats.duration_ms = duration_ms
-
-            if delegated_summary is not None:
-                context.extra.setdefault("delegated_summary", dict(delegated_summary))
-                if "batches" in delegated_summary and isinstance(
-                    delegated_summary.get("batches"), int
-                ):
-                    stats.batches = int(delegated_summary["batches"])
-                if "api_calls" in delegated_summary and isinstance(
-                    delegated_summary.get("api_calls"), int
-                ):
-                    stats.api_calls = int(delegated_summary["api_calls"])
-                if "cache_hits" in delegated_summary and isinstance(
-                    delegated_summary.get("cache_hits"), int
-                ):
-                    stats.cache_hits = int(delegated_summary["cache_hits"])
-                extra_payload = {
-                    key: value
-                    for key, value in delegated_summary.items()
-                    if key not in {"batches", "api_calls", "cache_hits"}
-                }
-                if extra_payload:
-                    stats.set_extra(**extra_payload)
-
-            return dataframe, stats
-        finally:
-            if finalize_context is not None:
-                finalize_context(context)
-
-            if stats_attribute and hasattr(self, stats_attribute):
-                override = context.extra.get("stats_attribute_override")
-                if override is not None:
-                    setattr(self, stats_attribute, override)
-                else:
-                    setattr(self, stats_attribute, stats.as_dict())
+        return plan.execute()
 
     def extract_ids_paginated(
         self,
