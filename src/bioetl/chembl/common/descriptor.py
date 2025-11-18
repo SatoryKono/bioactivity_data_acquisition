@@ -1050,6 +1050,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Кортеж из результирующего DataFrame и агрегированной статистики,
             включающей количество батчей, вызовов API и т.д.
         """
+        """Execute descriptor-driven ID extraction with shared orchestration."""
 
         if not summary_event:
             msg = "summary_event must be provided"
@@ -1375,6 +1376,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Кортеж из версии релиза (если найдена) и дополнительных полей,
             которые попадут в финальные логи/manifest.
         """
+        """Resolve Chembl release and optional metadata for ID extractions."""
 
         if self.chembl_release:
             return self.chembl_release, {}
