@@ -66,51 +66,46 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401
         log: BoundLogger | None = None,
     ) -> str | None:
-        """Capture ChEMBL release and API version from status endpoint."""
+        """Capture ChEMBL release and API version from the status endpoint."""
 
-        if log is None:
-            bound_log: BoundLogger = UnifiedLogger.get(__name__).bind(
-                component=f"{self.pipeline_code}.extract"
-            )
-        else:
-            bound_log = log
-
+        bound_log = log or self.logger_for(stage="extract", component="status")
         request_timestamp = datetime.now(timezone.utc)
         release_value: str | None = None
         api_version: str | None = None
 
-        try:
-            status_payload: dict[str, Any] = {}
-            handshake_candidate = getattr(client, "handshake", None)
-            if callable(handshake_candidate):
-                status_payload = self._coerce_mapping(handshake_candidate("/status"))
-            else:
-                get_candidate = getattr(client, "get", None)
-                if callable(get_candidate):
-                    response = get_candidate("/status.json")
-                    json_candidate = getattr(response, "json", None)
-                    if callable(json_candidate):
-                        status_payload = self._coerce_mapping(json_candidate())
-
-            if status_payload:
-                release_value = self._extract_chembl_release(status_payload)
-                api_candidate = status_payload.get("api_version")
-                if isinstance(api_candidate, str) and api_candidate.strip():
-                    api_version = api_candidate
-                bound_log.info(LogEvents.CHEMBL_TESTITEM_STATUS,
-                    chembl_db_version=release_value,
-                    api_version=api_version,
+        status_payload: Mapping[str, Any] | None = None
+        for endpoint in ("/status", "/status.json"):
+            try:
+                status_payload = self.perform_handshake(client, endpoint)
+            except Exception as exc:  # noqa: BLE001
+                bound_log.warning(
+                    LogEvents.CHEMBL_TESTITEM_STATUS_FAILED,
+                    endpoint=endpoint,
+                    error=str(exc),
                 )
-        except Exception as exc:  # noqa: BLE001
-            bound_log.warning(LogEvents.CHEMBL_TESTITEM_STATUS_FAILED, error=str(exc))
-        finally:
-            self._set_chembl_db_version(release_value)
-            self._set_api_version(api_version)
-            self._set_chembl_release(release_value)
-            self.record_extract_metadata(
-                chembl_release=release_value,
-                requested_at_utc=request_timestamp,
+                continue
+            if status_payload:
+                break
+
+        if status_payload:
+            coerced_payload = self._coerce_mapping(status_payload)
+            release_value = self._extract_chembl_release(coerced_payload)
+            api_candidate = coerced_payload.get("api_version")
+            if isinstance(api_candidate, str) and api_candidate.strip():
+                api_version = api_candidate
+            bound_log.info(
+                LogEvents.CHEMBL_TESTITEM_STATUS,
+                chembl_db_version=release_value,
+                api_version=api_version,
             )
+
+        self._set_chembl_db_version(release_value)
+        self._set_api_version(api_version)
+        self._set_chembl_release(release_value)
+        self.record_extract_metadata(
+            chembl_release=release_value,
+            requested_at_utc=request_timestamp,
+        )
 
         return release_value
 

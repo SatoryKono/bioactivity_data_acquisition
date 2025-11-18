@@ -23,9 +23,13 @@ from bioetl.core.pipeline import RunResult
 class LoggingMixin:
     """Provide structured stage logging helpers.
 
-    Subclasses are expected to expose ``_make_pipeline_logger`` (via
-    :class:`bioetl.pipelines.base.PipelineBase`) and a
-    ``_stage_durations_ms`` dictionary for timing information.
+    Contract
+    --------
+    Concrete pipelines are expected to expose ``_make_pipeline_logger`` and
+    ``_stage_durations_ms`` attributes, both of which are initialised by
+    :class:`bioetl.pipelines.base.PipelineBase`.  The mixin exposes
+    :meth:`stage_logger` and :meth:`logger_for` so that downstream mixins can
+    rely on a consistent logging surface.
     """
 
     @contextmanager
@@ -63,8 +67,13 @@ class LoggingMixin:
 class ReleaseHandshakeMixin:
     """Provide handshake helpers against the ChEMBL status endpoint.
 
-    Pipelines inheriting this mixin must expose ``logger_for`` and
-    ``record_extract_metadata`` (provided by :class:`PipelineBase`).
+    Contract
+    --------
+    ``logger_for`` and ``record_extract_metadata`` are required and are
+    implemented by :class:`bioetl.pipelines.base.PipelineBase`.  Pipelines may
+    call :meth:`perform_handshake` with the desired endpoint; caching and
+    telemetry are handled by the mixin so the pipelines no longer need to wire
+    logging or metadata updates manually.
     """
 
     _handshake_cache: dict[str, tuple[float, Mapping[str, Any]]]
@@ -120,8 +129,12 @@ class ReleaseHandshakeMixin:
 class PaginatedExtractorMixin:
     """Utility helpers for paginated extractions.
 
-    Subclasses may optionally implement ``on_page`` to observe pagination
-    metadata.
+    Contract
+    --------
+    The mixin relies on :meth:`stage_logger` for telemetry and therefore should
+    be composed with :class:`LoggingMixin`.  Pipelines may optionally implement
+    ``on_page`` to observe pagination metadata (for example, to capture rate
+    limiting hints or diagnostics per page).
     """
 
     def iterate_pages(
@@ -169,8 +182,12 @@ class PaginatedExtractorMixin:
 class SchemaValidationMixin:
     """Wrapper around the base validation routine with logging hooks.
 
-    Requires ``config.validation`` and ``_resolve_schema_entry`` to be
-    available on the pipeline (both provided by :class:`PipelineBase`).
+    Contract
+    --------
+    ``config.validation`` and ``_resolve_schema_entry`` must be present on the
+    pipeline (both are provided by :class:`bioetl.pipelines.base.PipelineBase`).
+    The mixin defers the heavy lifting to :meth:`PipelineBase.validate` but adds
+    logging via :meth:`stage_logger`.
     """
 
     def load_validation_schema(self) -> Any:
@@ -197,10 +214,14 @@ class SchemaValidationMixin:
 class TransformMixin:
     """Provide a default transform lifecycle that normalises payloads.
 
-    Subclasses can override ``pre_transform``, ``domain_enrich`` and
-    ``post_transform`` to hook into the standard lifecycle.  The mixin
-    expects ``_normalize_and_enforce_schema`` to be implemented by the base
-    pipeline.
+    Contract
+    --------
+    Pipelines are expected to expose ``_output_column_order`` and
+    ``_normalize_and_enforce_schema`` (supplied by
+    :class:`bioetl.chembl.common.descriptor.ChemblPipelineBase`).  Hooks such as
+    ``pre_transform``, ``domain_enrich`` and ``post_transform`` can be
+    overridden to customise the lifecycle, while the mixin guarantees that the
+    schema normalisation and logging are executed consistently.
     """
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -233,7 +254,11 @@ class TransformMixin:
 class IOArtifactsMixin:
     """Bridge deterministic IO helpers with the pipeline run template.
 
-    Expects ``write`` to be provided by :class:`PipelineBase`.
+    Contract
+    --------
+    Requires ``write`` from :class:`bioetl.pipelines.base.PipelineBase`.  The
+    mixin ensures that pipelines exposing ``save_results`` have a uniform
+    implementation that honours deterministic CSV emission and QC options.
     """
 
     def save_results(
