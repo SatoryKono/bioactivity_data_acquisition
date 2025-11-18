@@ -434,6 +434,7 @@ class BatchIdExtractionMixin:
     сохраняя единое логирование и Dry-run режим. Результаты автоматически
     публикуются через ``record_extract_metadata`` и доступны в `meta.yaml`.
     """
+    """Provide a shared ``extract_by_ids`` implementation for ChEMBL pipelines."""
 
     id_extraction_summary_event: str | None = None
     id_extraction_dry_run_event: str | None = None
