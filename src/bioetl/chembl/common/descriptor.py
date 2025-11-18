@@ -49,6 +49,76 @@ SummaryFactory = Callable[["ChemblExtractionContext", "BatchExtractionStats"], M
 
 
 @dataclass(slots=True)
+class ChemblContextSpec(Generic[PipelineT]):
+    """Declarative configuration for building :class:`ChemblExtractionContext`."""
+
+    entity_name: str
+    entity_client_type: type[Any] | None = None
+    release_resolver: (
+        Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None
+    ) = None
+    select_fields_resolver: Callable[[PipelineT, Any], Sequence[str] | None] | None = None
+    extra_filters_factory: Callable[[Any, PipelineT], dict[str, Any]] | None = None
+    client_registry_name: str | Callable[[PipelineT], str | None] | None = None
+    chembl_release_override: str | Callable[[PipelineT], str | None] | None = None
+    page_size_resolver: Callable[[Any], int | None] | None = None
+    pre_release_hook: Callable[[PipelineT, Any, Any], None] | None = None
+    after_build: (
+        Callable[[PipelineT, "ChemblExtractionContext", Any, BoundLogger], "ChemblExtractionContext"]
+        | None
+    ) = None
+    builder: (
+        Callable[[PipelineT, Any, BoundLogger], "ChemblExtractionContext"] | None
+    ) = None
+
+
+@dataclass(slots=True)
+class ChemblDescriptorSpec(Generic[PipelineT]):
+    """Declarative descriptor schema consumed by :class:`ChemblDescriptorBuilderMixin`."""
+
+    name: str
+    source_name: str
+    source_config_factory: Callable[[SourceConfig[Any]], Any]
+    context: ChemblContextSpec[PipelineT]
+    id_column: str
+    summary_event: str
+    must_have_fields: Sequence[str] = ()
+    default_select_fields: Sequence[str] | None = None
+    record_transform: (
+        Callable[
+            [PipelineT, Mapping[str, Any], "ChemblExtractionContext"],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
+    post_processors: Sequence[
+        Callable[[PipelineT, pd.DataFrame, "ChemblExtractionContext", BoundLogger], pd.DataFrame]
+    ] = ()
+    sort_by: Sequence[str] | str | None = None
+    empty_frame_factory: (
+        Callable[[PipelineT, "ChemblExtractionContext"], pd.DataFrame] | None
+    ) = None
+    dry_run_handler: (
+        Callable[
+            [PipelineT, "ChemblExtractionContext", BoundLogger, float],
+            pd.DataFrame,
+        ]
+        | None
+    ) = None
+    summary_extra: (
+        Callable[
+            [PipelineT, pd.DataFrame, "ChemblExtractionContext"],
+            Mapping[str, Any],
+        ]
+        | None
+    ) = None
+    hard_page_size_cap: int | None = 25
+
+
+SelfDescriptorT = TypeVar("SelfDescriptorT", bound="ChemblDescriptorBuilderMixin[Any]")
+
+
+@dataclass(slots=True)
 class ChemblExtractionContext:
     """Holds runtime state for a descriptor-driven extraction run."""
 
@@ -243,6 +313,187 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
         ]
         | None
     ) = None
+
+
+class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
+    """Mixin providing declarative descriptor construction for Chembl pipelines."""
+
+    def descriptor_spec(self: SelfDescriptorT) -> ChemblDescriptorSpec[SelfDescriptorT]:
+        """Return the specification consumed by :meth:`build_descriptor`."""
+
+        msg = f"{type(self).__name__} must implement descriptor_spec()"
+        raise NotImplementedError(msg)
+
+    def build_descriptor(self: SelfDescriptorT) -> ChemblExtractionDescriptor[SelfDescriptorT]:
+        """Construct a descriptor instance based on :meth:`descriptor_spec`."""
+
+        spec = self.descriptor_spec()
+        build_context = self._build_context_callable(spec)
+        empty_frame_factory = spec.empty_frame_factory or self._default_empty_frame_factory(
+            spec.id_column
+        )
+
+        return ChemblExtractionDescriptor[SelfDescriptorT](
+            name=spec.name,
+            source_name=spec.source_name,
+            source_config_factory=spec.source_config_factory,
+            build_context=build_context,
+            id_column=spec.id_column,
+            summary_event=spec.summary_event,
+            must_have_fields=tuple(spec.must_have_fields),
+            default_select_fields=spec.default_select_fields,
+            record_transform=spec.record_transform,
+            post_processors=tuple(spec.post_processors),
+            sort_by=spec.sort_by,
+            empty_frame_factory=empty_frame_factory,
+            dry_run_handler=spec.dry_run_handler,
+            summary_extra=spec.summary_extra,
+            hard_page_size_cap=spec.hard_page_size_cap,
+        )
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _build_context_callable(
+        self: SelfDescriptorT,
+        spec: ChemblDescriptorSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]:
+        context_spec = spec.context
+
+        def build_context(
+            pipeline: ChemblPipelineBase,
+            source_config: Any,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+
+            if context_spec.builder is not None:
+                context = context_spec.builder(typed_pipeline, source_config, log)
+            else:
+                release_resolver = self._wrap_release_resolver(context_spec)
+                select_fields_resolver = self._wrap_select_fields_resolver(context_spec)
+                extra_filters_factory = self._wrap_extra_filters_factory(context_spec)
+                pre_release_hook = self._wrap_pre_release_hook(context_spec)
+                client_registry_name = self._resolve_context_value(
+                    context_spec.client_registry_name,
+                    typed_pipeline,
+                )
+                chembl_release_override = self._resolve_context_value(
+                    context_spec.chembl_release_override,
+                    typed_pipeline,
+                )
+
+                context = build_standard_chembl_context(
+                    typed_pipeline,
+                    context_spec.entity_name,
+                    source_config,
+                    log,
+                    entity_client_type=context_spec.entity_client_type,
+                    release_resolver=release_resolver,
+                    select_fields_resolver=select_fields_resolver,
+                    extra_filters_factory=extra_filters_factory,
+                    client_registry_name=client_registry_name,
+                    chembl_release_override=chembl_release_override,
+                    page_size_resolver=context_spec.page_size_resolver,
+                    pre_release_hook=pre_release_hook,
+                )
+
+            if context_spec.after_build is not None:
+                context = context_spec.after_build(
+                    typed_pipeline,
+                    context,
+                    source_config,
+                    log,
+                )
+
+            return context
+
+        return build_context
+
+    def _wrap_release_resolver(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None:
+        resolver = context_spec.release_resolver
+        if resolver is None:
+            return None
+
+        def wrapper(
+            pipeline: ChemblPipelineBase,
+            client: Any,
+            log: BoundLogger,
+            entity_client: Any | None,
+        ) -> str | None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return resolver(typed_pipeline, client, log, entity_client)
+
+        return wrapper
+
+    def _wrap_select_fields_resolver(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None:
+        resolver = context_spec.select_fields_resolver
+        if resolver is None:
+            return None
+
+        def wrapper(pipeline: ChemblPipelineBase, source_config: Any) -> Sequence[str] | None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return resolver(typed_pipeline, source_config)
+
+        return wrapper
+
+    def _wrap_extra_filters_factory(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None:
+        factory = context_spec.extra_filters_factory
+        if factory is None:
+            return None
+
+        def wrapper(source_config: Any, pipeline: ChemblPipelineBase) -> dict[str, Any]:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            return factory(source_config, typed_pipeline)
+
+        return wrapper
+
+    def _wrap_pre_release_hook(
+        self: SelfDescriptorT,
+        context_spec: ChemblContextSpec[SelfDescriptorT],
+    ) -> Callable[[ChemblPipelineBase, Any, Any], None] | None:
+        hook = context_spec.pre_release_hook
+        if hook is None:
+            return None
+
+        def wrapper(pipeline: ChemblPipelineBase, source_config: Any, entity_client: Any) -> None:
+            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            hook(typed_pipeline, source_config, entity_client)
+
+        return wrapper
+
+    @staticmethod
+    def _resolve_context_value(
+        candidate: str | Callable[[SelfDescriptorT], str | None] | None,
+        pipeline: SelfDescriptorT,
+    ) -> str | None:
+        if candidate is None:
+            return None
+        if callable(candidate):
+            return candidate(pipeline)
+        return candidate
+
+    @staticmethod
+    def _default_empty_frame_factory(
+        id_column: str,
+    ) -> Callable[[ChemblPipelineBase, ChemblExtractionContext], pd.DataFrame]:
+        def empty_frame(
+            _: ChemblPipelineBase,
+            __: ChemblExtractionContext,
+        ) -> pd.DataFrame:
+            return pd.DataFrame({id_column: pd.Series(dtype="string")})
+
+        return empty_frame
 
 
 @dataclass(slots=True)

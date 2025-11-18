@@ -10,10 +10,10 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
-    build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
@@ -121,37 +121,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
-        """Return the descriptor powering testitem extraction."""
-
-        def build_context(
-            pipeline: TestItemChemblPipeline,
-            source_config: TestItemSourceConfig,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            def extra_filters_factory(
-                _: TestItemSourceConfig, p: TestItemChemblPipeline
-            ) -> dict[str, Any]:
-                return {"api_version": p.api_version}
-
-            context = build_standard_chembl_context(
-                pipeline,
-                "testitem",
-                source_config,
-                log,
-                entity_client_type=ChemblTestitemClient,
-                release_resolver=lambda pipeline_obj,
-                client,
-                logger,
-                _: pipeline_obj._fetch_chembl_release(client, logger),
-                extra_filters_factory=extra_filters_factory,
-                chembl_release_override=pipeline.chembl_db_version,
-            )
-
-            select_fields = source_config.parameters.select_fields
-            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
-
-            return context
+    def descriptor_spec(self) -> ChemblDescriptorSpec["TestItemChemblPipeline"]:
+        """Return the declarative descriptor specification for test items."""
 
         def get_metadata(pipeline: TestItemChemblPipeline) -> Mapping[str, Any]:
             return {
@@ -176,11 +147,44 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
                 "limit": pipeline.config.cli.limit,
             }
 
-        descriptor = ChemblExtractionDescriptor["TestItemChemblPipeline"](
+        def after_build(
+            pipeline: TestItemChemblPipeline,
+            context: ChemblExtractionContext,
+            source_config: TestItemSourceConfig,
+            log: BoundLogger,
+        ) -> ChemblExtractionContext:
+            select_fields = source_config.parameters.select_fields
+            log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
+            return context
+
+        def release_resolver(
+            pipeline: TestItemChemblPipeline,
+            client: Any,
+            log: BoundLogger,
+            _: Any,
+        ) -> str | None:
+            return pipeline._fetch_chembl_release(client, log)
+
+        def extra_filters_factory(
+            _: TestItemSourceConfig,
+            pipeline: TestItemChemblPipeline,
+        ) -> dict[str, Any]:
+            return {"api_version": pipeline.api_version}
+
+        context_spec = ChemblContextSpec(
+            entity_name="testitem",
+            entity_client_type=ChemblTestitemClient,
+            release_resolver=release_resolver,
+            extra_filters_factory=extra_filters_factory,
+            chembl_release_override=lambda pipeline: pipeline.chembl_db_version,
+            after_build=after_build,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_testitem",
             source_name="chembl",
             source_config_factory=TestItemSourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="molecule_chembl_id",
             summary_event="chembl_testitem.extract_summary",
             must_have_fields=tuple(TESTITEM_MUST_HAVE_FIELDS),
@@ -191,7 +195,6 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             summary_extra=summary_extra,
             hard_page_size_cap=None,
         )
-        return cast("ChemblExtractionDescriptor[ChemblPipelineBase]", descriptor)
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract molecule records by a specific list of IDs using batch extraction."""
