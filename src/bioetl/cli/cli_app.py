@@ -1,11 +1,11 @@
-"""Main Typer application for BioETL CLI.
+"""Main Typer application for the BioETL CLI and batch helpers.
 
-Console entry points should target :func:`bioetl.cli.cli_app.run`.
-Legacy module :mod:`bioetl.cli.main` was removed; use this module exclusively.
-
-This module creates the Typer application, registers all pipeline commands
-from the static registry, and exposes utility helpers such as
-``bioetl config inspect``.
+Console entry points (``python -m bioetl.cli.cli_app`` и установленные
+скрипты ``bioetl``) используют функции из этого модуля. Здесь создаётся Typer
+приложение, материализуются `COMMAND_REGISTRY`/`PIPELINE_REGISTRY`,
+регистрируются как одиночные пайплайны, так и вспомогательные группы вроде
+``bioetl run-chembl-all`` и `bioetl config ...`. Модуль является единственной
+точкой входа для CLI после удаления ``bioetl.cli.main``.
 """
 
 from __future__ import annotations
