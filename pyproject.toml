@@ -100,18 +100,28 @@ select = [
     "F",
 ]
 extend-select = [
-    "B",
-    "C4",
-    "I",
-    "N",
-    "SIM",
-    "UP",
+    "A",   # shadowing builtins
+    "B",   # bugbear
+    "C4",  # comprehensions
+    "I",   # import sorting (cross-check with isort)
+    "N",   # pep-naming
+    "RET", # return statements
+    "S",   # security
+    "SIM", # simplifications
+    "TID", # tidy imports
+    "UP",  # pyupgrade
 ]
 ignore = [
     "E501",  # line too long, handled by formatter
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
 ]
+fixable = ["ALL"]
+unfixable = ["F401"]  # dead imports чаще требуют ручной оценки
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105"]
+"scripts/**" = ["S603", "S607"]  # CLI-скрипты могут запускать shell-команды
 
 [tool.ruff.lint.isort]
 known-first-party = [
