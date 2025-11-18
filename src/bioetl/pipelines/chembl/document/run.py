@@ -12,8 +12,9 @@ from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
+    ChemblContextSpec,
+    ChemblDescriptorSpec,
     ChemblExtractionContext,
-    ChemblExtractionDescriptor,
     ChemblPipelineBase,
     FetcherCallable,
     FetcherFactory,
@@ -21,6 +22,7 @@ from bioetl.chembl.common.descriptor import (
     FinalizeContextFactory,
     build_standard_chembl_context,
 )
+from bioetl.chembl.common.handlers import make_empty_frame_factory
 from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
@@ -51,10 +53,10 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         self._last_batch_extract_stats: dict[str, Any] | None = None
         self.configure_output_schema(get_out_schema(self.pipeline_code))
 
-    def build_descriptor(
+    def descriptor_spec(
         self: SelfChemblDocumentPipeline,
-    ) -> ChemblExtractionDescriptor[SelfChemblDocumentPipeline]:
-        """Return the descriptor powering the shared extraction routine."""
+    ) -> ChemblDescriptorSpec[SelfChemblDocumentPipeline]:
+        """Return the declarative descriptor specification for documents."""
 
         def _require_document_pipeline(
             pipeline: ChemblPipelineBase,
@@ -64,27 +66,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             msg = "ChemblDocumentPipeline instance required"
             raise TypeError(msg)
 
-        def build_context(
-            pipeline: SelfChemblDocumentPipeline,
-            source_config: Any,
-            log: BoundLogger,
-        ) -> ChemblExtractionContext:
-            document_pipeline = _require_document_pipeline(pipeline)
-            typed_source_config = (
-                source_config
-                if isinstance(source_config, DocumentSourceConfig)
-                else DocumentSourceConfig.from_source_config(cast(Any, source_config))
-            )
-            return document_pipeline._build_document_context(
-                source_config=typed_source_config,
-                log=log,
-            )
-
-        def empty_frame(
-            _: SelfChemblDocumentPipeline,
-            __: ChemblExtractionContext,
-        ) -> pd.DataFrame:
-            return pd.DataFrame({"document_chembl_id": pd.Series(dtype="string")})
+        empty_frame = make_empty_frame_factory("document_chembl_id")
 
         def record_transform(
             pipeline: SelfChemblDocumentPipeline,
@@ -95,11 +77,10 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             return document_pipeline._extract_nested_fields(dict(payload))
 
         def summary_extra(
-            pipeline: SelfChemblDocumentPipeline,
+            _: SelfChemblDocumentPipeline,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
-            _require_document_pipeline(pipeline)
             page_size = context.page_size or 0
             pages = 0
             if page_size > 0:
@@ -107,11 +88,42 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
                 pages = (total_rows + page_size - 1) // page_size
             return {"pages": pages}
 
-        return ChemblExtractionDescriptor[SelfChemblDocumentPipeline](
+        def select_fields_resolver(
+            pipeline: SelfChemblDocumentPipeline,
+            source_config: DocumentSourceConfig,
+        ) -> Sequence[str] | None:
+            return pipeline._resolve_select_fields(
+                cast(SourceConfig[Any], source_config),
+                default_fields=API_DOCUMENT_FIELDS,
+            )
+
+        def after_build(
+            pipeline: SelfChemblDocumentPipeline,
+            context: ChemblExtractionContext,
+            source_config: DocumentSourceConfig,
+            _: BoundLogger,
+        ) -> ChemblExtractionContext:
+            chembl_client = cast(ChemblClient, context.chembl_client)
+            context.iterator = pipeline._build_document_client(
+                chembl_client=chembl_client,
+                source_config=source_config,
+            )
+            return context
+
+        context_spec = ChemblContextSpec(
+            entity_name="document",
+            entity_client_type=ChemblDocumentClient,
+            select_fields_resolver=select_fields_resolver,
+            client_registry_name="chembl_document_client",
+            page_size_resolver=lambda cfg: cfg.batch_size,
+            after_build=after_build,
+        )
+
+        return ChemblDescriptorSpec(
             name="chembl_document",
             source_name="chembl",
             source_config_factory=DocumentSourceConfig.from_source_config,
-            build_context=build_context,
+            context=context_spec,
             id_column="document_chembl_id",
             summary_event="chembl_document.extract_summary",
             must_have_fields=DOCUMENT_MUST_HAVE_FIELDS,
@@ -154,6 +166,21 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
     def id_extraction_stats_attribute(self) -> str | None:
         return "_last_batch_extract_stats"
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
+        """Extract document records by batching explicit ID requests."""
+
+        descriptor = self.build_descriptor()
+        source_raw = self._resolve_source_config("chembl")
+        source_config = DocumentSourceConfig.from_source_config(source_raw)
+        resolved_select_fields = self._resolve_select_fields(
+            source_raw,
+            default_fields=list(API_DOCUMENT_FIELDS),
+        )
+        merged_select_fields = self._merge_select_fields(
+            resolved_select_fields,
+            DOCUMENT_MUST_HAVE_FIELDS,
+        )
+        limit = self.config.cli.limit
 
     def id_extraction_fetcher_factory(
         self,
