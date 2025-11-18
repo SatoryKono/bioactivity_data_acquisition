@@ -8,6 +8,7 @@ from re‑implementing boilerplate lifecycle hooks.
 from __future__ import annotations
 
 import time
+import json
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
@@ -28,6 +29,14 @@ from bioetl.chembl.common.descriptor import (
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.io import WriteResult
 from bioetl.core.pipeline import RunResult
+from bioetl.chembl.common.normalize import normalize_identifiers
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import (
+    IdentifierRule,
+    StringRule,
+    normalize_string_columns,
+)
+from bioetl.core.schema.normalizers import IdentifierStats, StringStats
 
 
 class LoggingMixin:
@@ -213,6 +222,187 @@ class SchemaValidationMixin:
         """Wrap ``PipelineBase.validate`` with stage logging."""
         with self.stage_logger("validate", rows=len(df)):
             return super().validate(df)
+
+
+class RecordNormalizationMixin:
+    """Provide reusable identifier and string normalization helpers."""
+
+    identifier_log_event: LogEvents | None = LogEvents.IDENTIFIERS_NORMALIZED
+    string_log_event: LogEvents | None = LogEvents.STRING_FIELDS_NORMALIZED
+
+    def identifier_rules(self) -> Sequence[IdentifierRule]:  # pragma: no cover - hook
+        return ()
+
+    def string_rules(self) -> Mapping[str, StringRule]:  # pragma: no cover - hook
+        return {}
+
+    def preprocess_identifier_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:  # pragma: no cover - optional hook
+        return df
+
+    def preprocess_string_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:  # pragma: no cover - optional hook
+        return df
+
+    def postprocess_identifier_columns(
+        self,
+        df: pd.DataFrame,
+        stats: IdentifierStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        if stats.has_changes and self.identifier_log_event is not None:
+            log.debug(
+                self.identifier_log_event,
+                normalized_count=stats.normalized,
+                invalid_count=stats.invalid,
+                columns=list(stats.per_column.keys()),
+            )
+        return df
+
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        if stats.has_changes and self.string_log_event is not None:
+            log.debug(
+                self.string_log_event,
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
+        return df
+
+    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        working_df = df.copy()
+        working_df = self.preprocess_identifier_columns(working_df, log)
+        rules = tuple(self.identifier_rules())
+        normalized_df, stats = normalize_identifiers(working_df, rules, copy=False)
+        return self.postprocess_identifier_columns(normalized_df, stats, log)
+
+    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        working_df = df.copy()
+        working_df = self.preprocess_string_columns(working_df, log)
+        rules = dict(self.string_rules())
+        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+        return self.postprocess_string_columns(normalized_df, stats, log)
+
+
+@dataclass(frozen=True)
+class NestedColumnSpec:
+    column: str
+    target_column: str | None = None
+    serializer: Callable[..., str | None] | None = None
+    pass_logger: bool = False
+    preserve_null_like: bool = True
+    empty_string_to_null: bool = False
+    drop_source_column: bool = False
+    failure_event: LogEvents = LogEvents.NESTED_SERIALIZATION_FAILED
+
+
+class NestedSerializerMixin:
+    """Serialize nested columns described by :class:`NestedColumnSpec`."""
+
+    nested_log_event: LogEvents | None = LogEvents.ARRAY_FIELDS_SERIALIZED
+
+    def nested_column_specs(self) -> Sequence[NestedColumnSpec]:  # pragma: no cover - hook
+        return ()
+
+    def preprocess_nested_columns(
+        self, df: pd.DataFrame, log: BoundLogger
+    ) -> pd.DataFrame:  # pragma: no cover - optional hook
+        return df
+
+    def _serialize_nested_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
+        specs = tuple(self.nested_column_specs())
+        if not specs:
+            return df
+
+        working_df = self.preprocess_nested_columns(df.copy(), log)
+        serialized_columns: list[str] = []
+
+        for spec in specs:
+            source_column = spec.column
+            if source_column not in working_df.columns:
+                continue
+
+            target_column = spec.target_column or source_column
+            original_series = working_df[source_column]
+
+            try:
+                na_mask = original_series.isna() if spec.preserve_null_like else None
+            except Exception:
+                na_mask = None
+
+            serialized_values: list[Any] = []
+            for index, value in original_series.items():
+                if na_mask is not None and bool(na_mask.loc[index]):
+                    serialized_values.append(pd.NA)
+                    continue
+                serialized_values.append(
+                    self._serialize_nested_value(spec, value, index, log)
+                )
+
+            working_df[target_column] = pd.Series(
+                serialized_values,
+                index=original_series.index,
+                dtype="object",
+            )
+
+            if spec.empty_string_to_null:
+                column_as_string = working_df[target_column].astype("string")
+                empty_mask = column_as_string.eq("")
+                if bool(empty_mask.any()):
+                    working_df.loc[empty_mask, target_column] = pd.NA
+
+            if spec.drop_source_column and target_column != source_column:
+                working_df = working_df.drop(columns=[source_column])
+
+            serialized_columns.append(target_column)
+
+        if serialized_columns and self.nested_log_event is not None:
+            log.debug(self.nested_log_event, columns=serialized_columns)
+
+        return working_df
+
+    def _serialize_nested_value(
+        self,
+        spec: NestedColumnSpec,
+        value: Any,
+        index: Any,
+        log: BoundLogger,
+    ) -> str | None:
+        if value is None:
+            return None
+
+        serializer = spec.serializer or self._default_nested_serializer
+
+        try:
+            if spec.pass_logger:
+                return serializer(value, log)
+            return serializer(value)
+        except Exception as exc:  # pragma: no cover
+            log.warning(
+                spec.failure_event,
+                column=spec.column,
+                index=index,
+                error=str(exc),
+            )
+            return None
+
+    @staticmethod
+    def _default_nested_serializer(value: Any) -> str | None:
+        if isinstance(value, str):
+            return value
+        if isinstance(value, Mapping):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        if isinstance(value, Sequence) and not isinstance(value, (bytes, str)):
+            return json.dumps(list(value), ensure_ascii=False, sort_keys=True)
+        if isinstance(value, (int, float, bool)):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        return None
 
 
 @dataclass(slots=True)

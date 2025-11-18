@@ -33,7 +33,8 @@ from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.core.schema import IdentifierRule, StringRule
+from bioetl.core.schema.normalizers import IdentifierStats
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .transform import serialize_target_arrays
@@ -237,26 +238,28 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers with regex validation."""
-        rules = [
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
             IdentifierRule(
                 name="target_chembl",
                 columns=["target_chembl_id"],
                 pattern=r"^CHEMBL\d+$",
             ),
-        ]
+        )
 
-        normalized_df, stats = normalize_identifiers(df, rules)
-
+    def postprocess_identifier_columns(
+        self,
+        df: pd.DataFrame,
+        stats: IdentifierStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
         invalid_info = stats.per_column.get("target_chembl_id")
-        if invalid_info and invalid_info["invalid"] > 0:
+        if invalid_info and invalid_info.get("invalid", 0) > 0:
             log.warning(
                 LogEvents.INVALID_TARGET_CHEMBL_ID,
                 count=invalid_info["invalid"],
             )
-
-        return normalized_df
+        return super().postprocess_identifier_columns(df, stats, log)
 
     def _enrich_target_components(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Enrich targets with component data from /target_component endpoint.
@@ -730,27 +733,13 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         )
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields by trimming whitespace."""
-        working_df = df.copy()
-
-        rules = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
             "pref_name": StringRule(),
             "target_type": StringRule(),
             "organism": StringRule(),
             "tax_id": StringRule(),
         }
-
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
-        if stats.has_changes:
-            log.debug(
-                LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-
-        return normalized_df
 
     def _normalize_data_types(self, df: pd.DataFrame, schema: Any | None, log: Any) -> pd.DataFrame:
         """Normalize data types to match schema expectations.
