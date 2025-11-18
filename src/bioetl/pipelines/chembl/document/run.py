@@ -16,7 +16,6 @@ from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
-from bioetl.core import UnifiedLogger
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, normalize_string_columns
 from bioetl.schemas.pipeline_contracts import get_out_schema
@@ -27,15 +26,17 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    build_standard_chembl_context,
 )
 from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from .normalize import enrich_with_document_terms
 
 SelfChemblDocumentPipeline = TypeVar(
     "SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline"
 )
 
-class ChemblDocumentPipeline(ChemblPipelineBase):
+class ChemblDocumentPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting document records from the ChEMBL API."""
 
     actor = "document_chembl"
@@ -71,32 +72,17 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
                 if isinstance(source_config, DocumentSourceConfig)
                 else DocumentSourceConfig.from_source_config(cast(Any, source_config))
             )
-
-            bundle = document_pipeline.build_chembl_entity_bundle(
-                "document",
-                source_name="chembl",
-                source_config=typed_source_config,
-            )
-            if "chembl_document_client" not in document_pipeline._registered_clients:
-                document_pipeline.register_client("chembl_document_client", bundle.api_client)
-            chembl_client = bundle.chembl_client
-            document_client = document_pipeline._build_document_client(
-                chembl_client=bundle.chembl_client,
-                source_config=typed_source_config,
-            )
-            document_pipeline._set_chembl_release(
-                document_pipeline.fetch_chembl_release(chembl_client, log)
-            )
-            select_fields = document_pipeline._resolve_select_fields(
-                cast(SourceConfig[Any], cast(Any, typed_source_config)),
-                default_fields=API_DOCUMENT_FIELDS,
+            select_resolver = (
+                lambda pipeline_obj, cfg: pipeline_obj._resolve_select_fields(  # type: ignore[arg-type]
+                    cast(SourceConfig[Any], cast(Any, cfg)),
+                    default_fields=API_DOCUMENT_FIELDS,
+                )
             )
 
-            context = ChemblExtractionContext(typed_source_config, document_client)
-            context.chembl_client = chembl_client
-            context.select_fields = tuple(select_fields) if select_fields else None
-            context.chembl_release = document_pipeline.chembl_release
-            return context
+            return document_pipeline._build_document_context(
+                source_config=typed_source_config,
+                log=log,
+            )
 
         def empty_frame(
             _: SelfChemblDocumentPipeline,
@@ -140,6 +126,32 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
             summary_extra=summary_extra,
         )
 
+    def _build_document_context(
+        self,
+        *,
+        source_config: DocumentSourceConfig,
+        log: BoundLogger,
+    ) -> ChemblExtractionContext:
+        select_resolver = lambda pipeline_obj, cfg: pipeline_obj._resolve_select_fields(  # type: ignore[arg-type]
+            cast(SourceConfig[Any], cast(Any, cfg)),
+            default_fields=API_DOCUMENT_FIELDS,
+        )
+
+        context = build_standard_chembl_context(
+            self,
+            "document",
+            source_config,
+            log,
+            select_fields_resolver=select_resolver,
+            client_registry_name="chembl_document_client",
+            page_size_resolver=lambda cfg: cfg.batch_size,
+        )
+        context.iterator = self._build_document_client(
+            chembl_client=context.chembl_client,
+            source_config=source_config,
+        )
+        return context
+
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract document records by a specific list of IDs using batch extraction.
 
@@ -153,187 +165,141 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         pd.DataFrame:
             DataFrame containing extracted document records.
         """
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.extract")
         stage_start = time.perf_counter()
-
-        source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "document",
-            source_name="chembl",
-            source_config=source_config,
-        )
-        if "chembl_document_client" not in self._registered_clients:
-            self.register_client("chembl_document_client", bundle.api_client)
-        chembl_client = bundle.chembl_client
-        document_client = self._build_document_client(
-            chembl_client=bundle.chembl_client,
-            source_config=source_config,
-        )
-
-        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
-
-        resolved_select_fields = self._resolve_select_fields(
-            source_raw, default_fields=list(API_DOCUMENT_FIELDS)
-        )
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields,
-            DOCUMENT_MUST_HAVE_FIELDS,
-        )
-
-        limit = self.config.cli.limit
-
-        def fetch_documents(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            if "original_paginate" not in context.extra:
-                original_paginate = chembl_client.paginate
-
-                def counted_paginate(*args: Any, **kwargs: Any) -> Any:
-                    context.increment_api_calls()
-                    return original_paginate(*args, **kwargs)
-
-                chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
-                context.extra["original_paginate"] = original_paginate
-
-            iterator = document_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
+        with self.stage_logger("extract", rows=len(ids)) as log:
+            source_raw = self._resolve_source_config("chembl")
+            source_config = DocumentSourceConfig.from_source_config(source_raw)
+            context = self._build_document_context(
+                source_config=source_config,
+                log=log,
             )
-            for item in iterator:
-                yield self._extract_nested_fields(dict(item))
 
-        def finalize_context(context: BatchExtractionContext) -> None:
-            original = context.extra.pop("original_paginate", None)
-            if original is not None:
-                chembl_client.paginate = original  # type: ignore[method-assign]
+            document_client = cast(ChemblDocumentClient, context.iterator)
+            chembl_client = context.chembl_client
 
-            api_calls_value = context.stats.api_calls if context.stats.api_calls is not None else 0
-            override = {
-                "batches": context.stats.batches,
-                "api_calls": api_calls_value,
-                "cache_hits": context.stats.cache_hits,
-            }
-            context.extra["stats_attribute_override"] = override
-
-        dataframe, stats = self.run_batched_extraction(
-            ids,
-            id_column="document_chembl_id",
-            fetcher=fetch_documents,
-            select_fields=merged_select_fields or None,
-            batch_size=document_client.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            metadata_filters={"select_fields": merged_select_fields} if merged_select_fields else None,
-            chembl_release=self.chembl_release,
-            finalize_context=finalize_context,
-            stats_attribute="_last_batch_extract_stats",
-        )
-
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_release=self.chembl_release,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-            cache_hits=stats.cache_hits,
-        )
-        return dataframe
-
-    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Transform raw document data by normalizing fields and identifiers."""
-
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.transform")
-
-        df = df.copy()
-
-        if df.empty:
-            log.debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
-            return df
-
-        log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
-
-        df = self._normalize_and_enforce_schema(
-            df,
-            self._output_column_order,
-            log,
-            order_columns=False,
-        )
-
-        # Normalize numeric fields
-        df = self._normalize_numeric_fields(df, log)
-
-        # Enrichment: document_term fields
-        if self._should_enrich_document_terms():
-            df = self._enrich_document_terms(df)
-
-        # Add system fields
-        df = self._add_system_fields(df, log)
-
-        # Deduplicate by document_chembl_id before validation
-        # Schema requires unique document_chembl_id, so we need to remove duplicates
-        # Use deterministic deduplication: sort by all columns, then keep first occurrence
-        if "document_chembl_id" in df.columns and df["document_chembl_id"].duplicated().any():
-            initial_count = len(df)
-            # Sort by all columns for deterministic deduplication
-            df = df.sort_values(by=list(df.columns)).drop_duplicates(
-                subset=["document_chembl_id"], keep="first"
+            resolved_select_fields = self._resolve_select_fields(
+                source_raw, default_fields=list(API_DOCUMENT_FIELDS)
             )
-            deduped_count = len(df)
-            if deduped_count < initial_count:
-                log.warning(LogEvents.DOCUMENT_DEDUPLICATION_APPLIED,
-                    initial_count=initial_count,
-                    deduped_count=deduped_count,
-                    removed_count=initial_count - deduped_count,
+            merged_select_fields = self._merge_select_fields(
+                resolved_select_fields,
+                DOCUMENT_MUST_HAVE_FIELDS,
+            )
+
+            limit = self.config.cli.limit
+
+            def fetch_documents(
+                batch_ids: Sequence[str],
+                fetch_context: BatchExtractionContext,
+            ) -> Iterable[Mapping[str, Any]]:
+                if "original_paginate" not in fetch_context.extra:
+                    original_paginate = chembl_client.paginate
+
+                    def counted_paginate(*args: Any, **kwargs: Any) -> Any:
+                        fetch_context.increment_api_calls()
+                        return original_paginate(*args, **kwargs)
+
+                    chembl_client.paginate = counted_paginate  # type: ignore[method-assign]
+                    fetch_context.extra["original_paginate"] = original_paginate
+
+                iterator = document_client.iterate_by_ids(
+                    batch_ids,
+                    select_fields=fetch_context.select_fields or None,
                 )
+                for item in iterator:
+                    yield self._extract_nested_fields(dict(item))
 
-        df = self._normalize_and_enforce_schema(
+            def finalize_context(fetch_context: BatchExtractionContext) -> None:
+                original = fetch_context.extra.pop("original_paginate", None)
+                if original is not None:
+                    chembl_client.paginate = original  # type: ignore[method-assign]
+
+                api_calls_value = (
+                    fetch_context.stats.api_calls if fetch_context.stats.api_calls is not None else 0
+                )
+                override = {
+                    "batches": fetch_context.stats.batches,
+                    "api_calls": api_calls_value,
+                    "cache_hits": fetch_context.stats.cache_hits,
+                }
+                fetch_context.extra["stats_attribute_override"] = override
+
+            dataframe, stats = self.run_batched_extraction(
+                ids,
+                id_column="document_chembl_id",
+                fetcher=fetch_documents,
+                select_fields=merged_select_fields or None,
+                batch_size=document_client.batch_size,
+                max_batch_size=25,
+                limit=limit,
+                metadata_filters={"select_fields": merged_select_fields}
+                if merged_select_fields
+                else None,
+                chembl_release=self.chembl_release,
+                finalize_context=finalize_context,
+                stats_attribute="_last_batch_extract_stats",
+            )
+
+            duration_ms = (time.perf_counter() - stage_start) * 1000.0
+            log.info(
+                LogEvents.CHEMBL_DOCUMENT_EXTRACT_BY_IDS_SUMMARY,
+                rows=int(dataframe.shape[0]),
+                requested=len(ids),
+                duration_ms=duration_ms,
+                chembl_release=self.chembl_release,
+                batches=stats.batches,
+                api_calls=stats.api_calls,
+                cache_hits=stats.cache_hits,
+            )
+            return dataframe
+
+    def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        if df.empty:
+            self.logger_for(stage="transform").debug(LogEvents.TRANSFORM_EMPTY_DATAFRAME)
+        return df
+
+    def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="document_enrich")
+        working_df = self._normalize_numeric_fields(df, log)
+
+        if self._should_enrich_document_terms():
+            working_df = self._enrich_document_terms(working_df)
+
+        working_df = self._add_system_fields(working_df, log)
+        working_df = self._deduplicate_documents(working_df, log)
+        return working_df
+
+    def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        log = self.logger_for(stage="transform", component="post_transform")
+        return self._normalize_and_enforce_schema(
             df,
             self._output_column_order,
             log,
             normalize_identifiers=False,
             normalize_strings=False,
             order_columns=True,
+            copy=False,
         )
 
-        log.info(LogEvents.STAGE_TRANSFORM_FINISH, rows=len(df))
-        return df
-
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Validate payload against the registered output schema with detailed errors."""
-
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.validate")
-
         if df.empty:
-            log.debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
+            self.logger_for(stage="validate").debug(LogEvents.VALIDATE_EMPTY_DATAFRAME)
             return df
 
         if self.config.validation.strict:
             allowed_columns = set(self._output_column_order)
             extra_columns = [column for column in df.columns if column not in allowed_columns]
             if extra_columns:
-                log.debug(LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
+                self.logger_for(stage="validate", component="schema_prune").debug(
+                    LogEvents.DROP_EXTRA_COLUMNS_BEFORE_VALIDATION,
                     extras=extra_columns,
                 )
                 df = df.drop(columns=extra_columns)
 
-        log.info(LogEvents.STAGE_VALIDATE_START, rows=len(df))
-
-        # Pre-validation checks
-        self._check_document_id_uniqueness(df, log)
-
-        # Call base validation
-        validated = super().validate(df)
-        log.info(LogEvents.STAGE_VALIDATE_FINISH,
-            rows=len(validated),
-            schema=self.config.validation.schema_out,
-            strict=self.config.validation.strict,
-            coerce=self.config.validation.coerce,
+        self._check_document_id_uniqueness(
+            df,
+            self.logger_for(stage="validate", component="document_checks"),
         )
-        return validated
+        return super().validate(df)
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -502,6 +468,27 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
         return df
 
+    def _deduplicate_documents(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
+        if df.empty or "document_chembl_id" not in df.columns:
+            return df
+        if not df["document_chembl_id"].duplicated().any():
+            return df
+
+        initial_count = len(df)
+        deduped_df = df.sort_values(by=list(df.columns)).drop_duplicates(
+            subset=["document_chembl_id"],
+            keep="first",
+        )
+        deduped_count = len(deduped_df)
+        if deduped_count < initial_count:
+            log.warning(
+                LogEvents.DOCUMENT_DEDUPLICATION_APPLIED,
+                initial_count=initial_count,
+                deduped_count=deduped_count,
+                removed_count=initial_count - deduped_count,
+            )
+        return deduped_df
+
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         specs = dict(super()._schema_column_specs())
         specs["source"] = {"default": "ChEMBL"}
@@ -544,7 +531,7 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
 
     def _enrich_document_terms(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply document_term enrichment to the DataFrame."""
-        log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
+        log = self.logger_for(stage="transform", component=f"{self.pipeline_code}.enrich")
 
         chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
         enrich_cfg = _extract_enrich_config(
@@ -594,3 +581,4 @@ class ChemblDocumentPipeline(ChemblPipelineBase):
         if max_url_length is not None:
             client_kwargs["max_url_length"] = max_url_length
         return ChemblDocumentClient(chembl_client, **client_kwargs)
+
