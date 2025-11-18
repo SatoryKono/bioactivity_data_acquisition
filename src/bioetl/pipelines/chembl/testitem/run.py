@@ -29,12 +29,13 @@ from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from .transform import transform as transform_testitem
 
 
-class TestItemChemblPipeline(ChemblPipelineBase):
+class TestItemChemblPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
 
     actor = "testitem_chembl"
