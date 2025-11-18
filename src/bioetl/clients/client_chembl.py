@@ -280,11 +280,12 @@ class ChemblClient:
             raise AttributeError(msg) from exc
 
         identifiers = tuple(ids)
-        return entity_client.fetch_by_ids(
+        result = entity_client.fetch_by_ids(
             identifiers,
             fields=fields,
             page_limit=page_limit,
         )
+        return result.frame
 
     # ------------------------------------------------------------------
     # Assay fetching
@@ -419,7 +420,7 @@ class ChemblClient:
             fields=fields,
             page_limit=page_limit,
             active_only=active_only,
-        )
+        ).frame
 
     # ------------------------------------------------------------------
     # Assay classification fetching

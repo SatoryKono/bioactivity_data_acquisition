@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, ClassVar, Protocol
+from collections.abc import Iterator
+from typing import Any, ClassVar, Mapping, Protocol, Sequence
 
 import pandas as pd
 
@@ -13,7 +13,28 @@ __all__ = [
     "ChemblEntityFetcherBase",
     "ChemblClientProtocol",
     "ChemblEntityClientProtocol",
+    "EntityFetchResult",
+    "FetchOptions",
 ]
+
+
+class FetchOptions:
+    select_fields: tuple[str, ...] | None
+    page_size: int | None
+    limit: int | None
+    params: Mapping[str, Any] | None
+    ids: tuple[str, ...] | None
+    page_limit: int | None
+    max_url_length: int | None
+    mode: str
+    def as_metadata(self) -> Mapping[str, Any]: ...
+
+
+class EntityFetchResult:
+    frame: pd.DataFrame
+    release: str | None
+    endpoint: str
+    paging: FetchOptions
 
 class ChemblClientProtocol(Protocol):
     def paginate(
@@ -32,14 +53,14 @@ class ChemblEntityClientProtocol(Protocol):
         fields: Sequence[str] | None = None,
         *,
         page_limit: int | None = None,
-    ) -> pd.DataFrame: ...
+    ) -> EntityFetchResult: ...
     def fetch_all(
         self,
         *,
         limit: int | None = None,
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
-    ) -> pd.DataFrame: ...
+    ) -> EntityFetchResult: ...
     def iterate_records(
         self,
         *,
@@ -88,6 +109,20 @@ class ChemblEntityFetcherBase(ChemblEntityClientProtocol):
         batch_size: int | None = ...,
         max_url_length: int | None = ...,
     ) -> None: ...
+    def fetch_by_ids_dataframe(
+        self,
+        ids: Sequence[str],
+        fields: Sequence[str] | None = None,
+        *,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame: ...
+    def fetch_all_dataframe(
+        self,
+        *,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> pd.DataFrame: ...
     def _validate_identifiers(self, ids: Sequence[str]) -> list[str]: ...
     def _chunk_identifiers(
         self,

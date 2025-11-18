@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
 
 from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
-from bioetl.clients.client_chembl_entity_base import ChemblEntityClientProtocol
+from bioetl.clients.client_chembl_entity_base import (
+    ChemblEntityClientProtocol,
+    EntityFetchResult,
+    FetchOptions,
+)
 from bioetl.core.http.api_client import UnifiedAPIClient
 
 
@@ -245,8 +250,13 @@ class TestChemblClient:
 
         client = ChemblClient(mock_api_client)
         entity = MagicMock(spec=ChemblEntityClientProtocol)
-        expected_result = object()
-        entity.fetch_by_ids.return_value = expected_result
+        expected_frame = pd.DataFrame({"id": [1]})
+        entity.fetch_by_ids.return_value = EntityFetchResult(
+            frame=expected_frame,
+            release="test",
+            endpoint="/assay.json",
+            paging=FetchOptions(),
+        )
 
         ids_iterable = (identifier for identifier in ["CHEMBL1", "CHEMBL2"])
         fields = ("field_a", "field_b")
@@ -266,7 +276,7 @@ class TestChemblClient:
             fields=fields,
             page_limit=page_limit,
         )
-        assert result is expected_result
+        assert result is expected_frame
 
     def test_fetch_assays_by_ids_delegates_to_helper(self, mock_api_client: MagicMock) -> None:
         """Entity-specific wrapper should delegate to the shared helper."""
