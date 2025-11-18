@@ -61,9 +61,7 @@ follow the `<NN>-<entity>-<source>-<topic>.md` convention (see
 `styleguide/00-naming-conventions.md#11-pipeline-documentation-file-naming`).
 
 - **ChEMBL pipelines** — activity, assay, document, target, and test item flows;
-  overview files live under `pipelines/*-chembl/00-*.md`. Базовый архитектурный
-  обзор и публичный API описаны в
-  [`pipelines/chembl/00-architecture.md`](pipelines/chembl/00-architecture.md).
+  overview files live under `pipelines/*-chembl/00-*.md`.
 - **Mapping and non-ChEMBL pipelines** — UniProt, IUPHAR, PubChem, and mapping
   pipelines, catalogued in the same directory structure.
 - **Document pipelines (PubMed, OpenAlex, Crossref, Semantic Scholar)** — marked
