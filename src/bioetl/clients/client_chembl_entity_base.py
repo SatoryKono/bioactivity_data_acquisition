@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
+from dataclasses import dataclass, field
 from typing import Any, ClassVar, Protocol, cast
 from urllib.parse import urlencode
+import warnings
 
 import pandas as pd
 
@@ -19,8 +21,53 @@ __all__ = [
     "ChemblEntityClientProtocol",
     "ChemblEntityConfigMixin",
     "ChemblEntityFetcherBase",
+    "EntityFetchResult",
+    "FetchOptions",
     "EntityConfig",
 ]
+
+
+@dataclass(slots=True)
+class FetchOptions:
+    """Normalized parameters describing a fetch request."""
+
+    select_fields: tuple[str, ...] | None = None
+    page_size: int | None = None
+    limit: int | None = None
+    params: Mapping[str, Any] | None = None
+    ids: tuple[str, ...] | None = None
+    page_limit: int | None = None
+    max_url_length: int | None = None
+    mode: str = "all"
+
+    def as_metadata(self) -> Mapping[str, Any]:
+        payload: dict[str, Any] = {}
+        if self.select_fields is not None:
+            payload["select_fields"] = list(self.select_fields)
+        if self.page_size is not None:
+            payload["page_size"] = self.page_size
+        if self.limit is not None:
+            payload["limit"] = self.limit
+        if self.page_limit is not None:
+            payload["page_limit"] = self.page_limit
+        if self.ids is not None:
+            payload["ids"] = list(self.ids)
+        if self.params is not None:
+            payload["params"] = dict(self.params)
+        if self.max_url_length is not None:
+            payload["max_url_length"] = self.max_url_length
+        payload["mode"] = self.mode
+        return payload
+
+
+@dataclass(slots=True)
+class EntityFetchResult:
+    """Container for entity fetch payloads accompanied by metadata."""
+
+    frame: pd.DataFrame
+    release: str | None
+    endpoint: str
+    paging: FetchOptions = field(default_factory=FetchOptions)
 
 
 class ChemblClientProtocol(Protocol):
@@ -47,7 +94,7 @@ class ChemblEntityClientProtocol(Protocol):
         fields: Sequence[str] | None = None,
         *,
         page_limit: int | None = None,
-    ) -> pd.DataFrame: ...
+    ) -> EntityFetchResult: ...
 
     def fetch_all(
         self,
@@ -55,7 +102,7 @@ class ChemblEntityClientProtocol(Protocol):
         limit: int | None = None,
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
-    ) -> pd.DataFrame: ...
+    ) -> EntityFetchResult: ...
 
     def iterate_records(
         self,
@@ -224,11 +271,20 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         fields: Sequence[str] | None = None,
         *,
         page_limit: int | None = None,
-    ) -> pd.DataFrame:
+    ) -> EntityFetchResult:
         identifiers = self._validate_identifiers(ids)
         if not identifiers:
             self._log.debug(f"{self._config.log_prefix}.fetch_by_ids.no_ids")
-            return self._empty_frame(fields)
+            empty_frame = self._empty_frame(fields)
+            options = FetchOptions(
+                select_fields=normalize_select_fields(fields),
+                page_size=self._resolve_page_size(None, None),
+                ids=tuple(identifiers),
+                page_limit=page_limit,
+                max_url_length=self._max_url_length,
+                mode="by_ids",
+            )
+            return self._build_fetch_result(empty_frame, options=options)
 
         projection = normalize_select_fields(fields)
         page_size = self._resolve_page_size(page_limit, None)
@@ -250,7 +306,15 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             ids_requested=len(identifiers),
             rows=len(frame),
         )
-        return frame
+        options = FetchOptions(
+            select_fields=projection,
+            page_size=page_size,
+            ids=tuple(identifiers),
+            page_limit=page_limit,
+            max_url_length=self._max_url_length,
+            mode="by_ids",
+        )
+        return self._build_fetch_result(frame, options=options)
 
     def fetch_all(
         self,
@@ -258,9 +322,14 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         limit: int | None = None,
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
-    ) -> pd.DataFrame:
+    ) -> EntityFetchResult:
         projection = normalize_select_fields(fields)
         effective_page_size = self._resolve_page_size(page_size, limit)
+        request_params = self._compose_params(
+            params=None,
+            fields=projection,
+            page_size=effective_page_size,
+        )
         records = list(
             self.iterate_records(
                 limit=limit,
@@ -274,7 +343,47 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             rows=len(frame),
             limit=limit,
         )
-        return frame
+        options = FetchOptions(
+            select_fields=projection,
+            page_size=effective_page_size,
+            limit=limit,
+            params=request_params,
+            max_url_length=self._max_url_length,
+            mode="all",
+        )
+        return self._build_fetch_result(frame, options=options)
+
+    def fetch_by_ids_dataframe(
+        self,
+        ids: Sequence[str],
+        fields: Sequence[str] | None = None,
+        *,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Deprecated shim returning only the payload frame."""
+
+        warnings.warn(
+            "fetch_by_ids_dataframe() is deprecated; use fetch_by_ids() and access .frame",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_by_ids(ids, fields=fields, page_limit=page_limit).frame
+
+    def fetch_all_dataframe(
+        self,
+        *,
+        limit: int | None = None,
+        fields: Sequence[str] | None = None,
+        page_size: int | None = None,
+    ) -> pd.DataFrame:
+        """Deprecated shim returning only the payload frame."""
+
+        warnings.warn(
+            "fetch_all_dataframe() is deprecated; use fetch_all() and access .frame",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return self.fetch_all(limit=limit, fields=fields, page_size=page_size).frame
 
     def iterate_all(
         self,
@@ -512,3 +621,16 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         if fields:
             payload["only"] = ",".join(fields)
         return payload
+
+    def _build_fetch_result(
+        self,
+        frame: pd.DataFrame,
+        *,
+        options: FetchOptions,
+    ) -> EntityFetchResult:
+        return EntityFetchResult(
+            frame=frame,
+            release=self.chembl_release,
+            endpoint=self._config.endpoint,
+            paging=options,
+        )

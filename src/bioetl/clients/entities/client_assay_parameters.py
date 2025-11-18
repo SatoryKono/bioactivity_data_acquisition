@@ -5,12 +5,11 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from typing import Any, ClassVar
 
-import pandas as pd
-
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.client_chembl_entity_base import (
     ChemblEntityConfigMixin,
     ChemblEntityFetcherBase,
+    EntityFetchResult,
 )
 
 __all__ = ["ChemblAssayParametersEntityClient"]
@@ -30,7 +29,7 @@ class ChemblAssayParametersEntityClient(ChemblEntityConfigMixin, ChemblEntityFet
         *,
         page_limit: int | None = None,
         active_only: bool = True,
-    ) -> pd.DataFrame:
+    ) -> EntityFetchResult:
         """Retrieve ``assay_parameters`` records by assay identifiers."""
         identifiers = tuple(ids)
         previous = getattr(self, "_active_only_current", self._ACTIVE_ONLY_DEFAULT)
