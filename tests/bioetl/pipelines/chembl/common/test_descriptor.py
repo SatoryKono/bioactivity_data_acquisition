@@ -7,12 +7,12 @@ from typing import Any
 
 import pandas as pd
 
-from bioetl.config.models.models import PipelineConfig
 from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
 )
+from bioetl.config.models.models import PipelineConfig
 
 
 @dataclass

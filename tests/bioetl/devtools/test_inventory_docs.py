@@ -59,4 +59,3 @@ def test_write_inventory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
     digest, recorded_path = hashes_lines[0].split(maxsplit=1)
     assert recorded_path == "docs/a.md"
     assert digest == hashlib.sha256(doc.read_bytes()).hexdigest()
-

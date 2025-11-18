@@ -53,14 +53,16 @@ class RetryingSession:
         try:
             return self._client.get(endpoint, params=params)
         except CircuitBreakerOpenError as exc:  # pragma: no cover - exercised via integration tests
-            self._log.warning(LogEvents.CLIENT_CIRCUIT_OPEN,
+            self._log.warning(
+                LogEvents.CLIENT_CIRCUIT_OPEN,
                 endpoint=endpoint,
                 http_client=self._client.name,
                 error=str(exc),
             )
             raise
         except RequestException as exc:
-            self._log.error(LogEvents.HTTP_REQUEST_FAILED,
+            self._log.error(
+                LogEvents.HTTP_REQUEST_FAILED,
                 endpoint=endpoint,
                 http_client=self._client.name,
                 error=str(exc),
@@ -77,4 +79,3 @@ class RetryingSession:
         raise RequestException(
             f"Expected mapping payload from {response.url!s}, received {type(payload).__name__}",
         )
-

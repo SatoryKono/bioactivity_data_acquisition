@@ -221,7 +221,8 @@ def write_matrix(artifacts_dir: Path | None = None) -> DocCodeMatrix:
     csv_tmp.replace(csv_path)
     json_tmp.replace(json_path)
 
-    log.info(LogEvents.DOC_CODE_MATRIX_WRITTEN,
+    log.info(
+        LogEvents.DOC_CODE_MATRIX_WRITTEN,
         rows=len(rows),
         csv=str(csv_path),
         json=str(json_path),

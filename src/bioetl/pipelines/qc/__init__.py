@@ -25,4 +25,3 @@ __all__ = [
 
 # Ensure legacy submodule path resolves.
 sys.modules[f"{__name__}.boundary_check"] = import_module("bioetl.qc.boundary_check")
-

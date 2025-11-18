@@ -47,9 +47,7 @@ def test_stage_logger_records_duration(monkeypatch: pytest.MonkeyPatch) -> None:
     assert "extract" in probe._stage_durations_ms
     assert probe._stage_durations_ms["extract"] == pytest.approx(250.0)
     probe._logger.info.assert_any_call("stage_started", rows=3)
-    probe._logger.info.assert_any_call(
-        "stage_completed", duration_ms=pytest.approx(250.0), rows=3
-    )
+    probe._logger.info.assert_any_call("stage_completed", duration_ms=pytest.approx(250.0), rows=3)
 
 
 def test_iterate_pages_invokes_on_page() -> None:

@@ -5,11 +5,11 @@ from __future__ import annotations
 import csv
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Literal, TextIO
+from typing import TYPE_CHECKING, Any, Literal, TextIO
 
 import pandas as pd
 import yaml
@@ -150,9 +150,7 @@ def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataF
                 hash_from_mapping(record, business_fields, algorithm=algorithm)
                 for record in business_records
             ]
-            result[business_column] = pd.Series(
-                business_hashes, index=result.index, dtype="string"
-            )
+            result[business_column] = pd.Series(business_hashes, index=result.index, dtype="string")
 
     return result
 
@@ -300,10 +298,7 @@ def write_frame_like(
 ) -> None:
     """Write optional QC artefacts respecting deterministic CSV settings."""
 
-    if isinstance(frame, pd.DataFrame):
-        dataset = frame
-    else:
-        dataset = pd.DataFrame([frame])
+    dataset = frame if isinstance(frame, pd.DataFrame) else pd.DataFrame([frame])
     write_dataset_atomic(dataset, path, config=config)
 
 
@@ -495,9 +490,7 @@ def plan_run_artifacts(
     dataset = run_directory / f"{stem}.{dataset_extension}"
     quality = run_directory / f"{stem}_quality_report.{qc_extension}"
     correlation = (
-        run_directory / f"{stem}_correlation_report.{qc_extension}"
-        if include_correlation
-        else None
+        run_directory / f"{stem}_correlation_report.{qc_extension}" if include_correlation else None
     )
     qc_metrics = run_directory / f"{stem}_qc.{qc_extension}" if include_qc_metrics else None
     metadata = run_directory / f"{stem}_meta.yaml" if include_metadata else None

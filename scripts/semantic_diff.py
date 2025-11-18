@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_semantic_diff as cli_semantic_diff_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_semantic_diff as cli_semantic_diff_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_semantic_diff_impl, "__all__", [])
 globals().update({symbol: getattr(cli_semantic_diff_impl, symbol) for symbol in _LOGIC_EXPORTS})
-run_semantic_diff = getattr(cli_semantic_diff_impl, "run_semantic_diff")
-__all__ = [* _LOGIC_EXPORTS, "run_semantic_diff", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_semantic_diff = cli_semantic_diff_impl.run_semantic_diff
+__all__ = [*_LOGIC_EXPORTS, "run_semantic_diff", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 

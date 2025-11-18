@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from typing import Iterable, Mapping
 
 VOCAB_METADATA_KEY = "vocabulary"
 
@@ -44,7 +44,7 @@ class SchemaVocabularyBinding:
         cls,
         column_name: str,
         metadata: Mapping[str, object] | None,
-    ) -> "SchemaVocabularyBinding | None":
+    ) -> SchemaVocabularyBinding | None:
         """Build a binding from column metadata when present."""
 
         if not metadata:
@@ -67,4 +67,3 @@ class SchemaVocabularyBinding:
             allowed_statuses=allowed_statuses,
             required=required,
         )
-

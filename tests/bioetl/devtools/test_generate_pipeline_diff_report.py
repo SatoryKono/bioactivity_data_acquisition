@@ -143,4 +143,3 @@ def test_format_blocks_handle_empty_inputs() -> None:
     assert gpdr._format_table([]) == ""
     assert gpdr._format_side_effects_block("beta", {}) == "beta: ∅"
     assert gpdr._format_exceptions_block("beta", []) == "beta: ∅"
-

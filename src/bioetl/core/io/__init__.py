@@ -56,4 +56,3 @@ __all__ = [
     "write_json_atomic",
     "write_yaml_atomic",
 ]
-

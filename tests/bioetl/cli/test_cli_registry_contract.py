@@ -21,5 +21,3 @@ def test_pipeline_registry_factories() -> None:
         else:
             assert isinstance(config.default_config_path, Path)
             assert config.default_config_path.as_posix() == spec.default_config
-
-

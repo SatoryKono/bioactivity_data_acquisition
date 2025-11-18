@@ -178,19 +178,20 @@ class TestDocumentPipelineSmoke:
         config.cli.input_file = None
 
         # Ensure enrichment is disabled
-        if config.chembl and config.chembl.get("document"):
-            if config.chembl["document"].get("enrich"):
-                if config.chembl["document"]["enrich"].get("document_term"):
-                    # Convert to dict to allow modification
-                    chembl_dict = dict(config.chembl) if config.chembl else {}
-                    document_dict = dict(chembl_dict.get("document", {}))
-                    enrich_dict = dict(document_dict.get("enrich", {}))
-                    document_term_dict = dict(enrich_dict.get("document_term", {}))
-                    document_term_dict["enabled"] = False
-                    enrich_dict["document_term"] = document_term_dict
-                    document_dict["enrich"] = enrich_dict
-                    chembl_dict["document"] = document_dict
-                    config.chembl = chembl_dict
+        document_cfg = config.chembl.get("document") if config.chembl else None
+        enrich_cfg = document_cfg.get("enrich") if document_cfg else None
+        document_term_cfg = enrich_cfg.get("document_term") if enrich_cfg else None
+        if document_term_cfg:
+            # Convert to dict to allow modification
+            chembl_dict = dict(config.chembl) if config.chembl else {}
+            document_dict = dict(chembl_dict.get("document", {}))
+            enrich_dict = dict(document_dict.get("enrich", {}))
+            document_term_dict = dict(enrich_dict.get("document_term", {}))
+            document_term_dict["enabled"] = False
+            enrich_dict["document_term"] = document_term_dict
+            document_dict["enrich"] = enrich_dict
+            chembl_dict["document"] = document_dict
+            config.chembl = chembl_dict
 
         mock_documents = create_mock_document_data(count=3)
 

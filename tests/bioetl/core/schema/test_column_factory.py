@@ -23,7 +23,13 @@ def test_string_id_helper_wraps_string_factory() -> None:
 @pytest.mark.parametrize(
     ("factory", "kwargs", "pattern", "nullable", "unique"),
     [
-        (SchemaColumnFactory.chembl_id, {}, SchemaColumnFactory.ID_PATTERNS["chembl_id"], True, False),
+        (
+            SchemaColumnFactory.chembl_id,
+            {},
+            SchemaColumnFactory.ID_PATTERNS["chembl_id"],
+            True,
+            False,
+        ),
         (
             SchemaColumnFactory.chembl_id,
             {"nullable": False, "unique": True},

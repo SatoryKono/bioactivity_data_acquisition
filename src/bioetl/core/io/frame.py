@@ -21,4 +21,3 @@ def ensure_columns(df: pd.DataFrame, columns: tuple[tuple[str, str], ...]) -> pd
             out[name] = Series(pd.NA, index=out.index, dtype=dtype)
 
     return out
-

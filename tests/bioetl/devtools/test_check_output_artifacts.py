@@ -46,7 +46,9 @@ def test_check_output_artifacts_reports_all_issues(
 
     facade = LoggerFacade()
     monkeypatch.setattr("bioetl.devtools.cli_check_output_artifacts.UnifiedLogger", facade)
-    monkeypatch.setattr("bioetl.devtools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
+    monkeypatch.setattr(
+        "bioetl.devtools.cli_check_output_artifacts.get_project_root", lambda: repo_root
+    )
     monkeypatch.setattr(
         "bioetl.devtools.cli_check_output_artifacts.git_ls",
         lambda *paths: [Path("data/output/tracked.csv"), Path("data/output/.gitkeep")],
@@ -74,7 +76,9 @@ def test_check_output_artifacts_passes_when_clean(
 
     facade = LoggerFacade()
     monkeypatch.setattr("bioetl.devtools.cli_check_output_artifacts.UnifiedLogger", facade)
-    monkeypatch.setattr("bioetl.devtools.cli_check_output_artifacts.get_project_root", lambda: repo_root)
+    monkeypatch.setattr(
+        "bioetl.devtools.cli_check_output_artifacts.get_project_root", lambda: repo_root
+    )
     monkeypatch.setattr("bioetl.devtools.cli_check_output_artifacts.git_ls", lambda *paths: [])
     monkeypatch.setattr(
         "bioetl.devtools.cli_check_output_artifacts.git_diff_cached",

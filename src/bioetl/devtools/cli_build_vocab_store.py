@@ -66,7 +66,7 @@ def build_vocab_store(
         raise VocabStoreError(f"No dictionaries found in {resolved_src}")
 
     chembl_release: str | None = None
-    dictionary_names = sorted(key for key in store.keys() if key != "meta")
+    dictionary_names = sorted(key for key in store if key != "meta")
     aggregated: dict[str, Any] = {}
 
     for name in dictionary_names:

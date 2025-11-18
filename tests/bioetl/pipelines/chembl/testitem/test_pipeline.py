@@ -17,7 +17,9 @@ class TestTestItemChemblPipeline:
 
     def test_init(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test TestItemChemblPipeline initialization."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
@@ -29,7 +31,9 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test fetching ChEMBL release from status endpoint."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         from bioetl.clients.client_chembl import ChemblClient
         from bioetl.core.logging import UnifiedLogger
@@ -53,7 +57,9 @@ class TestTestItemChemblPipeline:
         """Test that _flatten_nested_structures is no longer used (replaced by testitem_transform.transform)."""
         # This test verifies that flattening is now handled by testitem_transform.transform
         # The actual flattening tests are in test_testitem_flatten_and_serialize.py
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         # Verify that _flatten_nested_structures method no longer exists or is deprecated
         # The transform method now uses testitem_transform.transform instead
@@ -63,7 +69,9 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of ChEMBL identifiers and InChI keys."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -91,7 +99,9 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test normalization of string fields."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -115,7 +125,9 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test deduplication of molecules."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
 
         df = pd.DataFrame(
             {
@@ -139,7 +151,9 @@ class TestTestItemChemblPipeline:
         self, pipeline_config_fixture: PipelineConfig, run_id: str
     ) -> None:
         """Test transform with nested ChEMBL data."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 
@@ -173,7 +187,9 @@ class TestTestItemChemblPipeline:
 
     def test_augment_metadata(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test metadata augmentation with ChEMBL versions."""
-        pipeline = testitem_run.TestItemChemblPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
         pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
         pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
 

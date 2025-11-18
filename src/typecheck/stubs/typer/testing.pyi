@@ -10,10 +10,8 @@ class Result(Protocol):
     stdout: str
     stderr: str
 
-
 class CliRunner:
     def __init__(self, *, mix_stderr: bool = ...) -> None: ...
-
     def invoke(
         self,
         app: Any,
@@ -25,6 +23,4 @@ class CliRunner:
         catch_exceptions: bool = ...,
     ) -> Result: ...
 
-
 __all__ = ["CliRunner"]
-

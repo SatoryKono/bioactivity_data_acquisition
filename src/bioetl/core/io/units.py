@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import ClassVar
 
 import pandas as pd
 
@@ -27,9 +28,7 @@ class QCUnits:
 
         return cls._from_dataframe(
             df,
-            match=lambda column: any(
-                column.endswith(suffix) for suffix in cls.UNITS_SUFFIXES
-            ),
+            match=lambda column: any(column.endswith(suffix) for suffix in cls.UNITS_SUFFIXES),
         )
 
     @classmethod
@@ -38,9 +37,7 @@ class QCUnits:
 
         return cls._from_dataframe(
             df,
-            match=lambda column: any(
-                column.endswith(suffix) for suffix in cls.RELATION_SUFFIXES
-            ),
+            match=lambda column: any(column.endswith(suffix) for suffix in cls.RELATION_SUFFIXES),
         )
 
     @classmethod
@@ -78,4 +75,3 @@ class QCUnits:
 
 
 __all__ = ["QCUnits"]
-

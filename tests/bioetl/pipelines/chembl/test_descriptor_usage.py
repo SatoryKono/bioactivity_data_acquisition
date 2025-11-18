@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Type
-
 import pandas as pd
 import pytest
 
@@ -18,7 +16,7 @@ from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 
-PipelineType = Type[ChemblPipelineBase]
+PipelineType = type[ChemblPipelineBase]
 
 ALL_PIPELINES: tuple[PipelineType, ...] = (
     ChemblActivityPipeline,

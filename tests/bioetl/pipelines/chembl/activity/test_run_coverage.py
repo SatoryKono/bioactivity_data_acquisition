@@ -44,4 +44,3 @@ def _force_module_lines_execution(module_name: str) -> None:
 )
 def test_chembl_run_modules_lines_executed(module_name: str) -> None:
     _force_module_lines_execution(module_name)
-

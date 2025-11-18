@@ -147,4 +147,3 @@ def test_build_vocab_store_requires_chembl_release(
 
     with pytest.raises(build_vocab_store.VocabStoreError):
         build_vocab_store.build_vocab_store(src, target)
-

@@ -71,4 +71,3 @@ class TestReportMeta:
             "business_key_hash": self.business_key_hash,
             "status": self.status,
         }
-

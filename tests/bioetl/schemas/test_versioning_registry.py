@@ -70,4 +70,3 @@ def test_register_rejects_duplicate_edges() -> None:
     registry.register(_increment_migration(schema_id, "1.0.0", "1.1.0", delta=1))
     with pytest.raises(ValueError):
         registry.register(_increment_migration(schema_id, "1.0.0", "1.1.0", delta=2))
-

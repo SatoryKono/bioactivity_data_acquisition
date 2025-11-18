@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Mapping
+from collections.abc import Mapping
+from typing import Any, ClassVar
 
 from bioetl.clients.chembl_config import EntityConfig, get_entity_config
 from bioetl.clients.client_chembl_entity_base import (
-    ChemblClientProtocol,
     ChemblEntityConfigMixin,
     ChemblEntityFetcherBase,
 )
@@ -38,4 +38,3 @@ class ChemblAssayClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
 
         effective_endpoint = endpoint or self.DEFAULT_HANDSHAKE_ENDPOINT
         return super().handshake(endpoint=effective_endpoint, enabled=enabled)
-

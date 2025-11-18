@@ -3,12 +3,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from functools import partial
 from typing import Any
 
 import pandas as pd
 import pandera as pa
-from functools import partial
-
 from pandas import DatetimeTZDtype
 from pandera import Check, Column
 
@@ -68,6 +67,7 @@ BUSINESS_KEY_FIELDS: list[str] = [
 ]
 
 ROW_HASH_FIELDS: list[str] = list(BASE_COLUMNS)
+
 
 def _time_window_consistent(row: pd.Series, **_: Any) -> bool:
     start = row["request_started_at"]
@@ -142,7 +142,9 @@ _BASE_SCHEMA = create_schema(
     name="LoadMetaSchema",
     strict=True,
     column_order=COLUMN_ORDER,
-    checks=[Check(_time_window_consistent, axis=1, name="time_window_consistency", element_wise=False)],
+    checks=[
+        Check(_time_window_consistent, axis=1, name="time_window_consistency", element_wise=False)
+    ],
 )
 LoadMetaSchema = _BASE_SCHEMA
 

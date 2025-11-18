@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_catalog_code_symbols as cli_catalog_code_symbols_impl
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_EXTERNAL_API, CLI_ERROR_INTERNAL
 from bioetl.core.runtime.errors import BioETLError
+from bioetl.devtools import cli_catalog_code_symbols as cli_catalog_code_symbols_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_catalog_code_symbols_impl, "__all__", [])
 globals().update(
     {symbol: getattr(cli_catalog_code_symbols_impl, symbol) for symbol in _LOGIC_EXPORTS}
 )
-catalog_code_symbols = getattr(cli_catalog_code_symbols_impl, "catalog_code_symbols")
-__all__ = [* _LOGIC_EXPORTS, "catalog_code_symbols", "app", "cli_main", "run"]
+catalog_code_symbols = cli_catalog_code_symbols_impl.catalog_code_symbols
+__all__ = [*_LOGIC_EXPORTS, "catalog_code_symbols", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 
@@ -63,9 +64,7 @@ def cli_main(
             },
         )
 
-    typer.echo(
-        f"Catalog updated: {result.json_path.resolve()} and {result.cli_path.resolve()}"
-    )
+    typer.echo(f"Catalog updated: {result.json_path.resolve()} and {result.cli_path.resolve()}")
     CliCommandBase.exit(0)
 
 

@@ -21,4 +21,3 @@ __all__ = [
     "HTTP_URL_PATTERN",
     "resolve_row_hash_fields",
 ]
-

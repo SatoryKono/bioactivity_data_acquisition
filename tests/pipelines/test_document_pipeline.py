@@ -44,9 +44,7 @@ def test_descriptor_dry_run_for_document(
         dry_run_invoked["flag"] = True
         return pd.DataFrame({pipeline_obj.id_column: pd.Series(dtype="string")})
 
-    descriptor = ChemblExtractionDescriptor[
-        ChemblDocumentPipeline
-    ](  # type: ignore[type-arg]
+    descriptor = ChemblExtractionDescriptor[ChemblDocumentPipeline](  # type: ignore[type-arg]
         name="chembl_document",
         source_name="chembl",
         source_config_factory=lambda cfg: cfg,

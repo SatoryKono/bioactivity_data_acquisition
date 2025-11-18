@@ -46,26 +46,31 @@ def test_target_pipeline_golden_snapshot(
 ) -> None:
     """ChemblTargetPipeline output must match committed golden artefacts."""
 
-    pipeline_config_fixture.validation.schema_out = "bioetl.schemas.chembl_target_schema.TargetSchema"  # type: ignore[attr-defined]
+    pipeline_config_fixture.validation.schema_out = (
+        "bioetl.schemas.chembl_target_schema.TargetSchema"  # type: ignore[attr-defined]
+    )
     pipeline_config_fixture.determinism.sort.by = ["target_chembl_id"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.hashing.business_key_fields = ("target_chembl_id",)  # type: ignore[attr-defined]
-    
+
     # Limit components per target to speed up tests (optional, remove for full data)
     if hasattr(pipeline_config_fixture, "sources") and "chembl" in pipeline_config_fixture.sources:
         chembl_source = pipeline_config_fixture.sources["chembl"]
         # Update parameters through model_dump to ensure component_limit is preserved
-        params_dict = chembl_source.parameters.model_dump() if hasattr(chembl_source, "parameters") else {}
+        params_dict = (
+            chembl_source.parameters.model_dump() if hasattr(chembl_source, "parameters") else {}
+        )
         params_dict["component_limit"] = 2
         from bioetl.config.models.source import SourceParameters
+
         chembl_source.parameters = SourceParameters.from_mapping(params_dict)  # type: ignore[assignment]
 
     golden_run_id = "golden-target-v1"
     pipeline = ChemblTargetPipeline(config=pipeline_config_fixture, run_id=golden_run_id)  # type: ignore[arg-type]
-    
+
     # Mock HTTP client to avoid real API calls in golden tests
     frame = load_sample_target_dataframe()
-    
+
     # Create deterministic mock data for target_component endpoint
     # Return empty data to match existing golden files where uniprot_accessions is "[]"
     def create_mock_paginate(target_id: str) -> list[dict[str, Any]]:
@@ -73,9 +78,10 @@ def test_target_pipeline_golden_snapshot(
         # Return empty components to match golden file expectations
         # Golden file shows uniprot_accessions as "[]" for all targets
         return []
-    
+
     # Create mock chembl_client with paginate method
     mock_chembl_client = MagicMock()
+
     def paginate_side_effect(endpoint: str, **kwargs: Any) -> Any:
         """Mock paginate method that returns deterministic component data."""
         if endpoint == "/target_component.json":
@@ -86,17 +92,20 @@ def test_target_pipeline_golden_snapshot(
         # Return empty iterators for other endpoints to avoid HTTP calls
         # This ensures deterministic golden test results
         return iter([])
-    
+
     mock_chembl_client.paginate.side_effect = paginate_side_effect
-    mock_chembl_client.handshake.return_value = {"chembl_db_version": "36", "chembl_release": "ChEMBL_36"}
+    mock_chembl_client.handshake.return_value = {
+        "chembl_db_version": "36",
+        "chembl_release": "ChEMBL_36",
+    }
     mock_chembl_client.circuit_breaker_time_until_half_open.return_value = None
-    
+
     # Create mock bundle
     mock_bundle = Mock()
     mock_bundle.chembl_client = mock_chembl_client
     mock_bundle.api_client = Mock()
     mock_bundle.entity_client = Mock()
-    
+
     # Patch build_chembl_entity_bundle to return mock bundle
     with patch.object(
         pipeline,
@@ -150,9 +159,9 @@ def test_target_pipeline_golden_snapshot(
     golden_manifest = normalize_manifest_payload(load_json_dict(golden_paths["manifest"]))
     produced_manifest = _filter_manifest_artifacts(produced_manifest, ignore=("meta",))
     golden_manifest = _filter_manifest_artifacts(golden_manifest, ignore=("meta",))
-    assert (
-        canonical_json(produced_manifest) == canonical_json(golden_manifest)
-    ), "run manifest mismatch"
+    assert canonical_json(produced_manifest) == canonical_json(golden_manifest), (
+        "run manifest mismatch"
+    )
 
 
 def _require_path(path: Path | None, label: str) -> Path:
@@ -168,10 +177,9 @@ def _filter_manifest_artifacts(
     """Return manifest payload without the specified artifact names."""
 
     filtered = dict(payload)
-    artifacts = [
-        item for item in filtered.get("artifacts", []) if item.get("name") not in ignore
-    ]
-    filtered["artifacts"] = sorted(artifacts, key=lambda item: (item.get("name", ""), item.get("path", "")))
+    artifacts = [item for item in filtered.get("artifacts", []) if item.get("name") not in ignore]
+    filtered["artifacts"] = sorted(
+        artifacts, key=lambda item: (item.get("name", ""), item.get("path", ""))
+    )
     filtered["total_artifacts"] = len(filtered["artifacts"])
     return filtered
-

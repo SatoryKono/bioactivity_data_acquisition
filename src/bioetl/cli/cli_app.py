@@ -12,9 +12,10 @@ from __future__ import annotations
 
 import importlib
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Mapping as MappingType
 from pathlib import Path
-from typing import Any, Callable, Mapping as MappingType, cast
+from typing import Any, cast
 
 import yaml
 
@@ -67,9 +68,7 @@ def create_app(
     """Create and configure the Typer application with all registered commands."""
     registry = dict(command_registry or COMMAND_REGISTRY)
     specs: tuple[PipelineCommandSpec, ...] = tuple(pipeline_specs or PIPELINE_REGISTRY)
-    known_names: set[str] = {
-        name for spec in specs for name in (spec.code, *spec.aliases)
-    }
+    known_names: set[str] = {name for spec in specs for name in (spec.code, *spec.aliases)}
 
     warning_messages: list[str] = []
 
@@ -247,7 +246,9 @@ def create_app(
             cli_feedback.emit_kv(key, value, indent=2)
 
         effective_root = (
-            materialization_root if materialization_root is not None else Path("data/output") / pipeline
+            materialization_root
+            if materialization_root is not None
+            else Path("data/output") / pipeline
         )
         report_options = runtime_settings.reports_for(
             pipeline=pipeline,
@@ -335,17 +336,17 @@ def create_app(
         try:
             config_path = validate_config_path(config)
         except FileNotFoundError as exc:
-            raise typer.BadParameter(str(exc))
+            raise typer.BadParameter(str(exc)) from exc
 
         try:
             resolved_output_dir = validate_output_dir(output_dir)
         except OSError as exc:
-            raise typer.BadParameter(str(exc))
+            raise typer.BadParameter(str(exc)) from exc
 
         try:
             cli_overrides = parse_set_overrides(set_overrides) if set_overrides else {}
         except ValueError as exc:
-            raise typer.BadParameter(str(exc))
+            raise typer.BadParameter(str(exc)) from exc
 
         options = PipelineCommandOptions(
             config_path=config_path,
@@ -417,7 +418,7 @@ def create_app(
         try:
             serialized = _render_config_payload(payload, output_format)
         except ValueError as exc:
-            raise typer.BadParameter(str(exc))
+            raise typer.BadParameter(str(exc)) from exc
         typer.echo(serialized)
 
     registered_names: set[str] = set()
@@ -434,9 +435,7 @@ def create_app(
         command_name = spec.code
         build_config_func = registry.get(command_name)
         if build_config_func is None:
-            warning_message = (
-                f"Command '{command_name}' missing from registry definition"
-            )
+            warning_message = f"Command '{command_name}' missing from registry definition"
             warning_messages.append(warning_message)
             cli_feedback.emit_warning(warning_message)
             continue
@@ -475,9 +474,7 @@ def create_app(
                 continue
             alias_builder = registry.get(alias)
             if alias_builder is None:
-                warning_message = (
-                    f"Alias '{alias}' missing from registry definition"
-                )
+                warning_message = f"Alias '{alias}' missing from registry definition"
                 warning_messages.append(warning_message)
                 cli_feedback.emit_warning(warning_message)
                 continue
@@ -556,5 +553,3 @@ def run() -> None:
 
 if __name__ == "__main__":
     run()
-
-

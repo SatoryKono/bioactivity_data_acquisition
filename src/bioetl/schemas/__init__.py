@@ -18,8 +18,8 @@ from . import (
     chembl_testitem_schema,
 )
 from .common_schema import HASH_COLUMN_NAMES
-from .metadata_utils import metadata_dict, normalize_sequence
 from .legacy_schemas import register_legacy_schema_modules
+from .metadata_utils import metadata_dict, normalize_sequence
 from .versioning import (
     SCHEMA_MIGRATION_REGISTRY,
     SchemaMigration,
@@ -169,8 +169,7 @@ class SchemaDescriptor:
         duplicates = {column for column in order if order.count(column) > 1}
         if duplicates:
             msg = (
-                f"Schema '{self.identifier}' column order contains duplicates: "
-                f"{sorted(duplicates)}"
+                f"Schema '{self.identifier}' column order contains duplicates: {sorted(duplicates)}"
             )
             raise ValueError(msg)
 
@@ -241,9 +240,7 @@ class SchemaDescriptor:
                 )
                 raise ValueError(msg)
             if field_name not in self.column_order:
-                msg = (
-                    f"Schema '{self.identifier}' column_order missing business key field '{field_name}'."
-                )
+                msg = f"Schema '{self.identifier}' column_order missing business key field '{field_name}'."
                 raise ValueError(msg)
 
         for field_name in self.required_fields:
@@ -254,9 +251,7 @@ class SchemaDescriptor:
                 )
                 raise ValueError(msg)
             if field_name not in self.column_order:
-                msg = (
-                    f"Schema '{self.identifier}' column_order missing required field '{field_name}'."
-                )
+                msg = f"Schema '{self.identifier}' column_order missing required field '{field_name}'."
                 raise ValueError(msg)
 
         for field_name in self.row_hash_fields:
@@ -303,7 +298,7 @@ class SchemaDescriptor:
         description: str | None = None,
         dataset_type: str | None = None,
         extra_metadata: Mapping[str, object] | None = None,
-    ) -> "SchemaDescriptor":
+    ) -> SchemaDescriptor:
         """Build a descriptor from schema components and enforce metadata consistency."""
 
         if not isinstance(schema, pa.DataFrameSchema):
@@ -312,7 +307,9 @@ class SchemaDescriptor:
 
         metadata = metadata_dict(schema.metadata, extra_metadata)
 
-        resolved_name = name or str(metadata.get("name")) or schema.name or identifier.split(".")[-1]
+        resolved_name = (
+            name or str(metadata.get("name")) or schema.name or identifier.split(".")[-1]
+        )
         metadata["name"] = resolved_name
 
         metadata_version = metadata.get("version")
@@ -349,7 +346,9 @@ class SchemaDescriptor:
 
         resolved_bindings = _resolve_vocabulary_bindings(schema, metadata)
         if resolved_bindings:
-            metadata["vocabulary_bindings"] = [binding.to_metadata() for binding in resolved_bindings]
+            metadata["vocabulary_bindings"] = [
+                binding.to_metadata() for binding in resolved_bindings
+            ]
         elif "vocabulary_bindings" in metadata:
             metadata["vocabulary_bindings"] = []
 
@@ -435,9 +434,7 @@ def _resolve_column_order(
             metadata_sequence = tuple(metadata_order)  # type: ignore[arg-type]
             schema_columns = tuple(schema.columns.keys())
             if metadata_sequence != schema_columns:
-                msg = (
-                    f"Schema '{identifier}' metadata column_order does not match schema column order."
-                )
+                msg = f"Schema '{identifier}' metadata column_order does not match schema column order."
                 raise ValueError(msg)
             column_order = metadata_sequence  # type: ignore[assignment]
     if column_order is None:
@@ -449,10 +446,7 @@ def _resolve_column_order(
         raise ValueError(msg)
     missing_columns = [column for column in normalized if column not in schema.columns]
     if missing_columns:
-        msg = (
-            f"Schema '{identifier}' column order references missing columns: "
-            f"{missing_columns}"
-        )
+        msg = f"Schema '{identifier}' column order references missing columns: {missing_columns}"
         raise ValueError(msg)
     return normalized
 
@@ -521,9 +515,7 @@ class SchemaRegistry:
 
         metadata_order = metadata.get("column_order")
         if metadata_order is not None and tuple(metadata_order) != tuple(column_order):
-            msg = (
-                f"Schema '{descriptor.identifier}' metadata column_order does not match registered order."
-            )
+            msg = f"Schema '{descriptor.identifier}' metadata column_order does not match registered order."
             raise ValueError(msg)
 
         metadata_name = metadata.get("name")
@@ -535,9 +527,7 @@ class SchemaRegistry:
             raise ValueError(msg)
 
         hashed_columns_declared = [
-            name
-            for name in HASH_COLUMN_NAMES
-            if name in schema_columns or name in column_order
+            name for name in HASH_COLUMN_NAMES if name in schema_columns or name in column_order
         ]
         if descriptor.identifier.startswith("bioetl.") and not hashed_columns_declared:
             hashed_columns_declared = list(HASH_COLUMN_NAMES)
@@ -713,4 +703,3 @@ def get_schema(identifier: str, *, version: str | None = None) -> SchemaDescript
             actual_version=descriptor.version,
         )
     return descriptor
-

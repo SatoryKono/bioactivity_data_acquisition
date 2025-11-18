@@ -1,11 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
-import hashlib
-import yaml
 import pytest
+import yaml
 
 from bioetl.cli import _io
 

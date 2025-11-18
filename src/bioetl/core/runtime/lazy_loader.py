@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Container, Mapping, MutableMapping
 from importlib import import_module
-from typing import Any, Callable, Container, Mapping, MutableMapping
+from typing import Any
 
 LazyMappingValue = str | tuple[str, str]
 CachePolicy = bool | Container[str]

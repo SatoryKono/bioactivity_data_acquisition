@@ -32,9 +32,7 @@ class TargetSourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(
-        cls, params: Mapping[str, Any] | None
-    ) -> TargetSourceParameters:
+    def from_mapping(cls, params: Mapping[str, Any] | None) -> TargetSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters
@@ -64,9 +62,7 @@ class TargetSourceParameters(SourceParameters):
         )
 
 
-class TargetSourceConfig(
-    SourceConfig[TargetSourceParameters], BatchSizeLimitMixin
-):
+class TargetSourceConfig(SourceConfig[TargetSourceParameters], BatchSizeLimitMixin):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -82,4 +78,3 @@ class TargetSourceConfig(
     parameters_model = TargetSourceParameters
     batch_field: ClassVar[str | None] = "batch_size"
     default_batch_size: ClassVar[int | None] = 25
-

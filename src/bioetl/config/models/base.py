@@ -27,6 +27,7 @@ from .telemetry import TelemetryConfig
 from .transform import TransformConfig
 from .validation import ValidationConfig
 
+
 class PipelineMetadata(BaseModel):
     """Descriptive metadata for the pipeline itself."""
 
@@ -121,8 +122,7 @@ class PipelineConfig(BaseModel):
         if isinstance(payload, Mapping):
             return dict(payload)
         raise TypeError(
-            "Section payloads must be mappings or BaseModel instances; "
-            f"received {type(payload)!r}"
+            f"Section payloads must be mappings or BaseModel instances; received {type(payload)!r}"
         )
 
     @classmethod
@@ -149,7 +149,7 @@ class PipelineConfig(BaseModel):
         *,
         update: Mapping[str, Any] | None = None,
         deep: bool = False,
-    ) -> "PipelineConfig":
+    ) -> PipelineConfig:
         normalized_update = self._prepare_section_update(update) if update else None
         if not normalized_update:
             return super().model_copy(update=None, deep=deep)
@@ -168,7 +168,7 @@ class PipelineConfig(BaseModel):
             deep=deep,
         )
 
-    def apply_overrides(self, overrides: Mapping[str, Any] | None) -> "PipelineConfig":
+    def apply_overrides(self, overrides: Mapping[str, Any] | None) -> PipelineConfig:
         """Return a new config with section-aware overrides applied."""
 
         if not overrides:

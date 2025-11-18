@@ -31,9 +31,7 @@ class TestItemSourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(
-        cls, params: Mapping[str, Any] | None
-    ) -> TestItemSourceParameters:
+    def from_mapping(cls, params: Mapping[str, Any] | None) -> TestItemSourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters

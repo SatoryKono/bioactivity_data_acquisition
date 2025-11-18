@@ -13,10 +13,7 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblAssayClassificationEntityClient"]
 
 
-class ChemblAssayClassificationEntityClient(
-    ChemblEntityConfigMixin, ChemblEntityFetcherBase
-):
+class ChemblAssayClassificationEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
     """Client for retrieving ``assay_classification`` records from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay_classification")
-

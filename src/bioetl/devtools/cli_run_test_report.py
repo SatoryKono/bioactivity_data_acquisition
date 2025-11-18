@@ -6,17 +6,18 @@ import json
 import shutil
 import subprocess
 import sys
-from collections.abc import Iterable
-from typing import Any, Callable
+from collections.abc import Callable, Iterable
 from datetime import datetime, timezone
 from hashlib import blake2b
 from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from bioetl.cli._io import atomic_write_yaml
 from bioetl.core.logging import LogEvents, UnifiedLogger
 from bioetl.tools.test_report_artifacts import (
     TEST_REPORTS_ROOT,
+    TestReportArtifacts,
     TestReportMeta,
     build_timestamp_directory_name,
     resolve_artifact_paths,
@@ -104,7 +105,7 @@ def generate_test_report(
     logger_cls: type[UnifiedLogger] | None = None,
     datetime_module: type[datetime] | None = None,
     uuid4_fn: Callable[[], Any] | None = None,
-    resolve_artifacts_fn: Callable[[Path], "TestReportArtifacts"] | None = None,
+    resolve_artifacts_fn: Callable[[Path], TestReportArtifacts] | None = None,
     repo_root: Path | None = None,
     pipeline_version_fn: Callable[[], str] | None = None,
     git_commit_fn: Callable[[], str] | None = None,
@@ -164,7 +165,11 @@ def generate_test_report(
     ]
 
     log.info(LogEvents.RUNNING_PYTEST, command=pytest_cmd, cwd=str(repo_base))
-    result = runner.run(pytest_cmd, cwd=repo_base, check=False) if hasattr(runner, "run") else runner(pytest_cmd)
+    result = (
+        runner.run(pytest_cmd, cwd=repo_base, check=False)
+        if hasattr(runner, "run")
+        else runner(pytest_cmd)
+    )
 
     status = "passed" if result.returncode == 0 else "failed"
     logger_type.bind(stage="post-processing")
@@ -214,7 +219,8 @@ def generate_test_report(
         "summary": summary,
     }
 
-    log.info(LogEvents.WRITING_META,
+    log.info(
+        LogEvents.WRITING_META,
         meta_path=str(artifacts.meta_yaml),
         status=status,
         row_count=row_count,

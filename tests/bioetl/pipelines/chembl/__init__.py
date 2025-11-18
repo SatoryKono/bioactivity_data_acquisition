@@ -1,2 +1,1 @@
 """Chembl pipeline tests package."""
-

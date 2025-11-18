@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any
 
 import pandas as pd
 
@@ -46,4 +45,3 @@ def extract_by_ids(
 
     pipeline = _build_pipeline(config, run_id)
     return pipeline.extract_by_ids(ids)
-

@@ -59,7 +59,7 @@ def _canonical_record_id(value: Any) -> str:
 
 def join_activity_with_molecule(
     activity_ids: Sequence[str] | pd.DataFrame,
-    client: "ChemblClient",
+    client: ChemblClient,
     cfg: Mapping[str, Any],
 ) -> pd.DataFrame:
     """
@@ -121,7 +121,8 @@ def join_activity_with_molecule(
     if "activity_id" in df_result.columns:
         df_result = df_result.sort_values("activity_id").reset_index(drop=True)
 
-    log.info(LogEvents.JOIN_COMPLETED,
+    log.info(
+        LogEvents.JOIN_COMPLETED,
         rows=len(df_result),
         compound_records_matched=len(compound_records_dict),
         molecules_matched=len(molecules_dict),
@@ -131,7 +132,7 @@ def join_activity_with_molecule(
 
 def _fetch_activity_by_ids(
     activity_ids: Sequence[str],
-    client: "ChemblClient",
+    client: ChemblClient,
     cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
@@ -157,7 +158,8 @@ def _fetch_activity_by_ids(
         for record in activity_client.iterate_by_ids(unique_ids, select_fields=fields):
             all_records.append(dict(record))
     except Exception as exc:
-        log.warning(LogEvents.ACTIVITY_FETCH_ERROR,
+        log.warning(
+            LogEvents.ACTIVITY_FETCH_ERROR,
             ids_count=len(unique_ids),
             error=str(exc),
             exc_info=True,
@@ -173,7 +175,7 @@ def _fetch_activity_by_ids(
 
 def _fetch_compound_records_by_ids(
     record_ids: list[str],
-    client: "ChemblClient",
+    client: ChemblClient,
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
@@ -231,7 +233,8 @@ def _fetch_compound_records_by_ids(
                 collected_from_api += 1
 
         except Exception as exc:
-            log.warning(LogEvents.COMPOUND_RECORD_FETCH_ERROR,
+            log.warning(
+                LogEvents.COMPOUND_RECORD_FETCH_ERROR,
                 chunk_size=len(chunk),
                 error=str(exc),
                 exc_info=True,
@@ -248,7 +251,8 @@ def _fetch_compound_records_by_ids(
                 "compound_name": record.get("compound_name"),
             }
 
-    log.info(LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,
+    log.info(
+        LogEvents.COMPOUND_RECORD_FETCH_COMPLETE,
         ids_requested=len(unique_ids),
         records_fetched=len(all_records),
         records_deduped=len(result),
@@ -259,7 +263,8 @@ def _fetch_compound_records_by_ids(
         collected=collected_from_api,
     )
     if expected_total is not None and collected_from_api < expected_total:
-        log.warning(LogEvents.COMPOUND_RECORD_INCOMPLETE_PAGINATION,
+        log.warning(
+            LogEvents.COMPOUND_RECORD_INCOMPLETE_PAGINATION,
             collected=collected_from_api,
             total_count=expected_total,
             hint="Check paginate() and items_key='compound_records', and ensure limit<=1000.",
@@ -270,7 +275,7 @@ def _fetch_compound_records_by_ids(
 
 def _fetch_molecules_for_join(
     molecule_ids: list[str],
-    client: "ChemblClient",
+    client: ChemblClient,
     cfg: Mapping[str, Any],
     log: Any,
 ) -> dict[str, dict[str, Any]]:
@@ -361,9 +366,9 @@ def _perform_joins(
         df_act_normalized.loc[mask_na, "molecule_chembl_id"] = pd.NA
         if "molecule_chembl_id" in df_molecule.columns and not df_molecule.empty:
             df_molecule["molecule_chembl_id"] = df_molecule["molecule_chembl_id"].astype(str)
-            df_molecule.loc[
-                df_molecule["molecule_chembl_id"] == "nan", "molecule_chembl_id"
-            ] = pd.NA
+            df_molecule.loc[df_molecule["molecule_chembl_id"] == "nan", "molecule_chembl_id"] = (
+                pd.NA
+            )
 
     df_result = df_act_normalized.merge(
         df_compound,
@@ -393,21 +398,13 @@ def _perform_joins(
             df_result[col] = pd.NA
 
     if "molecule_key" in df_result.columns and "molecule_chembl_id" in df_result.columns:
-        molecule_key_series: pd.Series[Any] = df_result[
-            "molecule_key"
-        ]  # pyright: ignore[reportUnknownMemberType]
-        molecule_key_series = molecule_key_series.fillna(
-            df_result["molecule_chembl_id"]
-        )  # pyright: ignore[reportUnknownMemberType]
+        molecule_key_series: pd.Series[Any] = df_result["molecule_key"]  # pyright: ignore[reportUnknownMemberType]
+        molecule_key_series = molecule_key_series.fillna(df_result["molecule_chembl_id"])  # pyright: ignore[reportUnknownMemberType]
         df_result["molecule_key"] = molecule_key_series
 
     if "molecule_name" in df_result.columns and "molecule_key" in df_result.columns:
-        molecule_name_series: pd.Series[Any] = df_result[
-            "molecule_name"
-        ]  # pyright: ignore[reportUnknownMemberType]
-        molecule_name_series = molecule_name_series.fillna(
-            df_result["molecule_key"]
-        )  # pyright: ignore[reportUnknownMemberType]
+        molecule_name_series: pd.Series[Any] = df_result["molecule_name"]  # pyright: ignore[reportUnknownMemberType]
+        molecule_name_series = molecule_name_series.fillna(df_result["molecule_key"])  # pyright: ignore[reportUnknownMemberType]
         df_result["molecule_name"] = molecule_name_series
 
     available_output_cols = [col for col in output_columns if col in df_result.columns]
@@ -477,5 +474,3 @@ def _create_empty_result() -> pd.DataFrame:
             "compound_name",
         ]
     )
-
-

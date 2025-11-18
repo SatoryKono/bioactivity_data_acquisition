@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import sys
+from collections.abc import Callable, Iterator
 from types import ModuleType
-from typing import Callable, Iterator
 
 import pytest
 
@@ -28,7 +28,9 @@ def fake_module() -> Iterator[Callable[[str, dict[str, object]], ModuleType]]:
             sys.modules.pop(module_name, None)
 
 
-def test_resolve_lazy_attr_without_cache(fake_module: Callable[[str, dict[str, object]], ModuleType]) -> None:
+def test_resolve_lazy_attr_without_cache(
+    fake_module: Callable[[str, dict[str, object]], ModuleType],
+) -> None:
     module_name = "tests.runtime.lazy_loader.no_cache"
     sentinel = object()
     fake_module(module_name, {"Foo": sentinel})
@@ -40,7 +42,9 @@ def test_resolve_lazy_attr_without_cache(fake_module: Callable[[str, dict[str, o
     assert "Foo" not in namespace
 
 
-def test_resolve_lazy_attr_with_cache(fake_module: Callable[[str, dict[str, object]], ModuleType]) -> None:
+def test_resolve_lazy_attr_with_cache(
+    fake_module: Callable[[str, dict[str, object]], ModuleType],
+) -> None:
     module_name = "tests.runtime.lazy_loader.cache"
     sentinel = object()
     fake_module(module_name, {"Bar": sentinel})
@@ -53,7 +57,7 @@ def test_resolve_lazy_attr_with_cache(fake_module: Callable[[str, dict[str, obje
 
 
 def test_resolve_lazy_attr_with_alias_and_selective_cache(
-    fake_module: Callable[[str, dict[str, object]], ModuleType]
+    fake_module: Callable[[str, dict[str, object]], ModuleType],
 ) -> None:
     module_name = "tests.runtime.lazy_loader.alias"
     sentinel = object()
@@ -76,7 +80,9 @@ def test_resolve_lazy_attr_with_alias_and_selective_cache(
     assert "ByName" not in namespace
 
 
-def test_resolve_lazy_attr_unknown_name(fake_module: Callable[[str, dict[str, object]], ModuleType]) -> None:
+def test_resolve_lazy_attr_unknown_name(
+    fake_module: Callable[[str, dict[str, object]], ModuleType],
+) -> None:
     module_name = "tests.runtime.lazy_loader.unknown"
     fake_module(module_name, {"Foo": object()})
 

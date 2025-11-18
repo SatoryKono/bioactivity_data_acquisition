@@ -65,9 +65,7 @@ def test_core_public_exports_are_available() -> None:
         exported = getattr(core, symbol)
         module = import_module(module_name)
         module_value = getattr(module, symbol)
-        assert (
-            exported is module_value
-        ), f"{symbol} in bioetl.core differs from {module_name}"
+        assert exported is module_value, f"{symbol} in bioetl.core differs from {module_name}"
 
 
 @pytest.mark.unit
@@ -95,4 +93,3 @@ def test_core_public_exports_are_available() -> None:
 def test_removed_compat_modules_raise_import_error(module_name: str) -> None:
     with pytest.raises(ModuleNotFoundError):
         import_module(module_name)
-

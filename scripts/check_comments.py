@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_check_comments as cli_check_comments_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_check_comments as cli_check_comments_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_check_comments_impl, "__all__", [])
 globals().update({symbol: getattr(cli_check_comments_impl, symbol) for symbol in _LOGIC_EXPORTS})
-run_comment_check = getattr(cli_check_comments_impl, "run_comment_check")
-__all__ = [* _LOGIC_EXPORTS, "run_comment_check", "app", "cli_main", "run"]
+run_comment_check = cli_check_comments_impl.run_comment_check
+__all__ = [*_LOGIC_EXPORTS, "run_comment_check", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 

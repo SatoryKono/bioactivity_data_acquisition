@@ -54,7 +54,8 @@ def write_inventory(
     project_root = get_project_root()
     docs_files = files if files is not None else collect_markdown_files()
 
-    log.info(LogEvents.INVENTORY_COLLECTED,
+    log.info(
+        LogEvents.INVENTORY_COLLECTED,
         docs_root=str(project_root / "docs"),
         files=len(docs_files),
     )
@@ -78,7 +79,8 @@ def write_inventory(
     inventory_tmp.replace(inventory_path)
     hashes_tmp.replace(hashes_path)
 
-    log.info(LogEvents.INVENTORY_WRITTEN,
+    log.info(
+        LogEvents.INVENTORY_WRITTEN,
         inventory=str(inventory_path),
         hashes=str(hashes_path),
     )

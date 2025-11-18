@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
-from typing import Any, Mapping, MutableMapping
+from typing import Any
 
 from bioetl.clients.chembl_entity_registry import ChemblEntityDefinition, get_entity_definition
 from bioetl.clients.client_chembl import ChemblClient
@@ -14,6 +15,7 @@ from bioetl.core.http.client_factory import APIClientFactory
 from bioetl.core.logging import LogEvents, UnifiedLogger
 
 __all__ = ["ChemblClientBundle", "ChemblEntityClientFactory"]
+
 
 @dataclass(frozen=True, slots=True)
 class ChemblClientBundle:
@@ -201,7 +203,9 @@ class ChemblEntityClientFactory:
 
         chembl_kwargs = dict(chembl_client_kwargs or {})
         chembl_client = ChemblClient(http_client, **chembl_kwargs)
-        entity_client = self._build_entity_client(definition, chembl_client, resolved_source, options)
+        entity_client = self._build_entity_client(
+            definition, chembl_client, resolved_source, options
+        )
 
         self._log.debug(
             LogEvents.CLIENT_FACTORY_BUILD,
@@ -338,5 +342,3 @@ class ChemblEntityClientFactory:
         except Exception as exc:  # pragma: no cover - защитный блок
             msg = f"Не удалось создать клиент для сущности '{definition.name}'"
             raise RuntimeError(msg) from exc
-
-

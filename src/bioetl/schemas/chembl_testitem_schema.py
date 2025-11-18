@@ -113,9 +113,7 @@ TestItemSchema = create_schema(
         "molecule_structures__canonical_smiles": CF.string(),
         "molecule_structures__molfile": CF.string(),
         "molecule_structures__standard_inchi": CF.string(),
-        "molecule_structures__standard_inchi_key": CF.string(
-            length=(27, 27), unique=True
-        ),
+        "molecule_structures__standard_inchi_key": CF.string(length=(27, 27), unique=True),
         # Flattened from molecule_properties
         "molecule_properties__alogp": CF.float64(),
         "molecule_properties__aromatic_rings": CF.int64(pandas_nullable=True, ge=0),

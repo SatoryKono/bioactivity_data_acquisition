@@ -26,4 +26,3 @@ def write(
 
     pipeline = ChemblAssayPipeline(config=config, run_id=run_id)
     return pipeline.write(df, output_path, **kwargs)
-

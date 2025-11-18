@@ -130,4 +130,3 @@ def test_activity_properties_validator_rejects_partial_items() -> None:
     df = _frame({"activity_properties": invalid_properties})
     with pytest.raises(pandera.errors.SchemaErrors):
         ActivitySchema.validate(df, lazy=True)
-

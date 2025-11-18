@@ -144,14 +144,14 @@ def signature_from_docs(
             }
         )
 
-    for kw_arg, default in zip(function_node.args.kwonlyargs, function_node.args.kw_defaults):
+    for kw_arg, default in zip(
+        function_node.args.kwonlyargs, function_node.args.kw_defaults, strict=False
+    ):
         parameters.append(
             {
                 "name": kw_arg.arg,
                 "kind": "KEYWORD_ONLY",
-                "annotation": _annotation_from_ast(
-                    kw_arg.annotation, empty_value=empty_annotation
-                ),
+                "annotation": _annotation_from_ast(kw_arg.annotation, empty_value=empty_annotation),
                 "default": _default_from_ast(default),
             }
         )

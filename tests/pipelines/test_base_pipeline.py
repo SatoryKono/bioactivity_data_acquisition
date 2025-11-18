@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
 import pandas as pd
 
+from bioetl.config.models.models import PipelineConfig
 from bioetl.core.io import WriteResult
 from bioetl.core.pipeline import RunResult
 from bioetl.pipelines.base import PipelineBase
-from bioetl.config.models.models import PipelineConfig
 
 
 class _TemplateProbePipeline(PipelineBase):

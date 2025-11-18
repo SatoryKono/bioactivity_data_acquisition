@@ -7,8 +7,9 @@ delegate to this module when building QC artefacts.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from importlib import import_module
-from typing import Any, Mapping
+from typing import Any
 
 from .metrics import compute_correlation_matrix, compute_duplicate_stats, compute_missingness
 

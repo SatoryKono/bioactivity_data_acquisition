@@ -30,9 +30,7 @@ def extract_pipeline_base_methods() -> dict[str, Any]:
         if hasattr(PipelineBase, method_name):
             method = getattr(PipelineBase, method_name)
             if callable(method):
-                methods[method_name] = signature_from_callable(
-                    method, empty_annotation=None
-                )
+                methods[method_name] = signature_from_callable(method, empty_annotation=None)
     return methods
 
 
@@ -46,22 +44,22 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
     target_method_names = {"extract", "transform", "validate", "write", "run"}
 
     code_block_pattern = re.compile(r"```python(.*?)```", re.DOTALL)
-    
+
     # Собираем все определения класса PipelineBase из всех блоков
     all_class_definitions: list[dict[str, Any]] = []
-    
+
     for block in code_block_pattern.finditer(content):
         block_content = block.group(1)
         try:
             module = ast.parse(block_content)
         except SyntaxError:
             continue
-        
+
         for node in module.body:
             if isinstance(node, ast.ClassDef) and node.name == "PipelineBase":
                 class_methods: dict[str, Any] = {}
                 has_init = False
-                
+
                 for statement in node.body:
                     if isinstance(statement, ast.FunctionDef):
                         if statement.name == "__init__":
@@ -70,30 +68,29 @@ def extract_pipeline_base_from_docs() -> dict[str, Any]:
                             class_methods[statement.name] = signature_from_docs(
                                 statement, empty_annotation=None
                             )
-                
+
                 if class_methods:
-                    all_class_definitions.append({
-                        "methods": class_methods,
-                        "has_init": has_init,
-                        "method_count": len(class_methods),
-                    })
-    
+                    all_class_definitions.append(
+                        {
+                            "methods": class_methods,
+                            "has_init": has_init,
+                            "method_count": len(class_methods),
+                        }
+                    )
+
     # Выбираем наиболее полное определение:
     # 1. Приоритет: определение с __init__ (более полное)
     # 2. Если нет __init__, выбираем с наибольшим количеством методов
     if not all_class_definitions:
         return {"error": "PipelineBase definition not found in documentation"}
-    
+
     # Сначала ищем определение с __init__
-    preferred = next(
-        (defn for defn in all_class_definitions if defn["has_init"]),
-        None
-    )
-    
+    preferred = next((defn for defn in all_class_definitions if defn["has_init"]), None)
+
     # Если нет определения с __init__, выбираем с наибольшим количеством методов
     if preferred is None:
         preferred = max(all_class_definitions, key=lambda x: x["method_count"])
-    
+
     return preferred["methods"]
 
 
@@ -181,16 +178,12 @@ def extract_cli_flags_from_code() -> list[dict[str, Any]]:
                                     and default_value.func.value.id == "typer"
                                     and default_value.func.attr == "Option"
                                 ):
-                                    flag_info = _parse_typer_option(
-                                        default_value, arg.annotation
-                                    )
+                                    flag_info = _parse_typer_option(default_value, arg.annotation)
                                     if flag_info:
                                         flags.append(flag_info)
                         break
 
-        return flags if flags else [
-            {"error": "No CLI flags found in create_pipeline_command"}
-        ]
+        return flags if flags else [{"error": "No CLI flags found in create_pipeline_command"}]
     except Exception as exc:  # noqa: BLE001
         return [{"error": str(exc)}]
 
@@ -254,10 +247,7 @@ def _has_ellipsis(node: ast.AST) -> bool:
     """Check if AST node contains Ellipsis (...)."""
     if isinstance(node, ast.Constant) and node.value is ...:
         return True
-    for child in ast.iter_child_nodes(node):
-        if _has_ellipsis(child):
-            return True
-    return False
+    return any(_has_ellipsis(child) for child in ast.iter_child_nodes(node))
 
 
 def extract_cli_flags_from_docs() -> list[dict[str, Any]]:

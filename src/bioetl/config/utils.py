@@ -5,8 +5,6 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from .helpers import coerce_bool
-
 
 def coerce_max_url_length(parameters: Mapping[str, Any] | None) -> int:
     """Normalize ``max_url_length`` from raw configuration parameters."""

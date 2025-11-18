@@ -190,7 +190,8 @@ def run_schema_guard() -> tuple[dict[str, dict[str, Any]], list[str], Path]:
         if valid:
             log.info(LogEvents.CONFIG_VALID, pipeline=pipeline_name)
         else:
-            log.warning(LogEvents.CONFIG_INVALID,
+            log.warning(
+                LogEvents.CONFIG_INVALID,
                 pipeline=pipeline_name,
                 errors=len(results[pipeline_name]["errors"]),
             )

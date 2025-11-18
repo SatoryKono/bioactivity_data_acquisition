@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools.cli_qc_boundary import collect_cli_qc_boundary_report
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG
+from bioetl.devtools.cli_qc_boundary import collect_cli_qc_boundary_report
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 typer: Any = get_typer()
 

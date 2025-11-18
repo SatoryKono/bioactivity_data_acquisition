@@ -174,4 +174,3 @@ def build_pipeline_config(output_root: Path) -> PipelineConfig:
         "infrastructure": infrastructure_config.model_dump(),
     }
     return PipelineConfig.model_validate(payload)
-

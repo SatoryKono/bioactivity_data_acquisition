@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from threading import RLock
-from typing import Callable, Mapping, MutableMapping, Sequence
 
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -20,6 +20,7 @@ from bioetl.qc.metrics import (
     compute_missingness,
     detect_iqr_outliers,
 )
+
 
 class QCPlan(BaseModel):
     """Declarative description of QC steps to execute for a pipeline."""
@@ -37,7 +38,7 @@ class QCPlan(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     @model_validator(mode="after")
-    def _ensure_unique_custom_metrics(self) -> "QCPlan":
+    def _ensure_unique_custom_metrics(self) -> QCPlan:
         seen: set[str] = set()
         for name in self.custom_metrics:
             if name in seen:
@@ -165,9 +166,7 @@ class QCMetricsExecutor:
             else None
         )
         missingness = compute_missingness(df) if effective_plan.missingness else None
-        units_distribution = (
-            _QCUnits.for_units(df) if effective_plan.units_distribution else None
-        )
+        units_distribution = _QCUnits.for_units(df) if effective_plan.units_distribution else None
         relation_distribution = (
             _QCUnits.for_relation(df) if effective_plan.relation_distribution else None
         )
@@ -236,4 +235,3 @@ __all__ = [
     "QC_METRIC_REGISTRY",
     "register_qc_metric",
 ]
-

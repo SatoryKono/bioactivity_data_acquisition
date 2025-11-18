@@ -25,7 +25,7 @@ class _OfflineQuery:
 
     _rows: Sequence[Mapping[str, object]]
 
-    def only(self, field: str) -> "_OfflineQuery":
+    def only(self, field: str) -> _OfflineQuery:
         trimmed: list[Mapping[str, object]] = []
         for row in self._rows:
             trimmed.append({field: row.get(field)})
@@ -117,5 +117,3 @@ def _safe_int(value: object, default: int) -> int:
             except ValueError:
                 return default
     return default
-
-

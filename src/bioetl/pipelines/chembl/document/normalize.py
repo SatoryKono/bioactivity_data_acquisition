@@ -182,7 +182,8 @@ def enrich_with_document_terms(
     required_cols = ["document_chembl_id"]
     missing_cols = [col for col in required_cols if col not in df_docs.columns]
     if missing_cols:
-        log.warning(LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
+        log.warning(
+            LogEvents.ENRICHMENT_SKIPPED_MISSING_COLUMNS,
             missing_columns=missing_cols,
         )
         prepared_missing = _ensure_term_columns(df_docs)
@@ -234,7 +235,9 @@ def enrich_with_document_terms(
                 if "document_chembl_id" not in record:
                     record["document_chembl_id"] = doc_id
                 flattened_rows.append(record)
-        records_df = pd.DataFrame.from_records(flattened_rows, columns=list(set(fields + ["document_chembl_id"])))
+        records_df = pd.DataFrame.from_records(
+            flattened_rows, columns=list(set(fields + ["document_chembl_id"]))
+        )
 
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
@@ -243,7 +246,9 @@ def enrich_with_document_terms(
 
     records_df = records_df.copy()
     if "document_chembl_id" in records_df.columns:
-        records_df["document_chembl_id"] = records_df["document_chembl_id"].astype("string").str.strip()
+        records_df["document_chembl_id"] = (
+            records_df["document_chembl_id"].astype("string").str.strip()
+        )
 
     # Flatten DataFrame into rows for aggregate_terms.
     all_records = cast(Sequence[Mapping[str, Any]], records_df.to_dict(orient="records"))
@@ -277,7 +282,11 @@ def enrich_with_document_terms(
     for col in ["term", "weight"]:
         enrich_col = f"{col}_enrich"
         if enrich_col in df_result.columns:
-            base_series = df_result[col] if col in df_result.columns else pd.Series([pd.NA] * len(df_result), index=df_result.index, dtype="object")
+            base_series = (
+                df_result[col]
+                if col in df_result.columns
+                else pd.Series([pd.NA] * len(df_result), index=df_result.index, dtype="object")
+            )
             enrich_series = df_result[enrich_col]
             df_result[col] = base_series.where(pd.notna(base_series), enrich_series)
             df_result = df_result.drop(columns=[enrich_col])
@@ -302,7 +311,8 @@ def enrich_with_document_terms(
     df_result = df_result.reindex(original_index)
     df_result = _ensure_term_columns(df_result)
 
-    log.info(LogEvents.ENRICHMENT_COMPLETED,
+    log.info(
+        LogEvents.ENRICHMENT_COMPLETED,
         rows_enriched=df_result.shape[0],
         documents_with_terms=len(agg_result),
     )

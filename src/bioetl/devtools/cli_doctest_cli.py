@@ -126,7 +126,8 @@ def extract_cli_examples() -> list[CLIExample]:
     for file_path in _iter_markdown_files():
         content = file_path.read_text(encoding="utf-8")
         extracted = extract_bash_commands(content, file_path)
-        log.info(LogEvents.CLI_EXAMPLES_EXTRACTED,
+        log.info(
+            LogEvents.CLI_EXAMPLES_EXTRACTED,
             file=str(file_path.relative_to(PROJECT_ROOT)),
             count=len(extracted),
         )
@@ -228,7 +229,8 @@ def run_examples(examples: list[CLIExample] | None = None) -> tuple[list[CLIExam
                 stderr=stderr,
             )
         )
-        log.info(LogEvents.CLI_EXAMPLE_RESULT,
+        log.info(
+            LogEvents.CLI_EXAMPLE_RESULT,
             command=example.command,
             exit_code=exit_code,
             source=str(example.source_file.relative_to(PROJECT_ROOT)),

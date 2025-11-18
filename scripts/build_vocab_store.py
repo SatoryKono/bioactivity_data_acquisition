@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_build_vocab_store as cli_build_vocab_store_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_build_vocab_store as cli_build_vocab_store_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_build_vocab_store_impl, "__all__", [])
 globals().update({symbol: getattr(cli_build_vocab_store_impl, symbol) for symbol in _LOGIC_EXPORTS})
-build_vocab_store = getattr(cli_build_vocab_store_impl, "build_vocab_store")
-__all__ = [* _LOGIC_EXPORTS, "build_vocab_store", "app", "cli_main", "run"]
+build_vocab_store = cli_build_vocab_store_impl.build_vocab_store
+__all__ = [*_LOGIC_EXPORTS, "build_vocab_store", "app", "cli_main", "run"]
 
 typer: Any = get_typer()
 

@@ -18,4 +18,3 @@ def validate(
 ) -> pd.DataFrame:
     pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
     return pipeline.validate(df)
-

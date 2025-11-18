@@ -28,9 +28,7 @@ class ActivitySourceParameters(SourceParameters):
     )
 
     @classmethod
-    def from_mapping(
-        cls, params: Mapping[str, Any] | None = None
-    ) -> ActivitySourceParameters:
+    def from_mapping(cls, params: Mapping[str, Any] | None = None) -> ActivitySourceParameters:
         """Construct the parameters object from a raw mapping.
 
         Parameters

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from types import ModuleType
 from typing import Any
 
 from ._logic import LEGACY_TOOL_MAP, load_tool_module
@@ -24,4 +23,3 @@ def __dir__() -> list[str]:
     """Экспортировать атрибуты пакета и перечень поддерживаемых шорткатов."""
 
     return sorted(set(__all__ + list(LEGACY_TOOL_MAP.keys())))
-

@@ -56,7 +56,9 @@ def test_cli_command_base_propagates_typer_exit() -> None:
 
 
 @pytest.mark.unit
-def test_cli_command_base_emits_error_on_unexpected_exception(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cli_command_base_emits_error_on_unexpected_exception(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     recorded: dict[str, Any] = {}
 
     def fake_emit_error(
@@ -69,7 +71,13 @@ def test_cli_command_base_emits_error_on_unexpected_exception(monkeypatch: pytes
         **kwargs: Any,
     ) -> None:
         recorded.update(
-            {"template": template, "message": message, "logger": logger, "event": event, "context": context}
+            {
+                "template": template,
+                "message": message,
+                "logger": logger,
+                "event": event,
+                "context": context,
+            }
         )
 
     monkeypatch.setattr(CliCommandBase, "emit_error", staticmethod(fake_emit_error))
@@ -82,4 +90,3 @@ def test_cli_command_base_emits_error_on_unexpected_exception(monkeypatch: pytes
     assert exit_code == CliCommandBase.exit_code_error
     assert recorded["template"] == CLI_ERROR_INTERNAL
     assert "Unhandled CLI exception" in recorded["message"]
-

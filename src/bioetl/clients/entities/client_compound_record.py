@@ -295,4 +295,3 @@ def _record_id_sort_key(value: Any) -> tuple[int, str]:
             return (0, f"{numeric:020d}")
         return (1, normalized)
     return (2, "")
-

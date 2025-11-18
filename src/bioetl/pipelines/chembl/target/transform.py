@@ -41,6 +41,7 @@ def _collect_dicts(source: Any) -> list[JsonDict]:
 
     return result
 
+
 def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
     """Return a deterministically ordered copy of ``items``.
 
@@ -70,6 +71,7 @@ def _canonicalize_dicts(items: list[JsonDict]) -> list[JsonDict]:
         return json.dumps(entry, ensure_ascii=False, sort_keys=True)
 
     return sorted(normalized, key=_sort_key)
+
 
 def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     """Flatten nested target_components data into flat columns.
@@ -141,9 +143,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize target_component_synonyms
     if all_synonyms:
         canonical_synonyms = _canonicalize_dicts(all_synonyms)
-        result["target_component_synonyms__flat"] = header_rows_serialize(
-            canonical_synonyms
-        )
+        result["target_component_synonyms__flat"] = header_rows_serialize(canonical_synonyms)
 
     # Serialize target_components
     if comps:
@@ -152,7 +152,7 @@ def flatten_target_components(rec: dict[str, Any]) -> dict[str, Any]:
     # Serialize cross_references from top-level
     xrefs_raw: Any = rec.get("cross_references") or []
     xrefs: list[dict[str, Any]] = _collect_dicts(xrefs_raw)
-    xrefs = _canonicalize_dicts(xrefs)    
+    xrefs = _canonicalize_dicts(xrefs)
     if xrefs:
         result["cross_references__flat"] = header_rows_serialize(xrefs)
 
@@ -214,9 +214,12 @@ def serialize_target_arrays(df: pd.DataFrame, config: Any) -> pd.DataFrame:
     # Get arrays to serialize from config
     arrays_to_serialize: list[str] = []
     try:
-        if hasattr(config, "transform") and config.transform is not None:
-            if hasattr(config.transform, "arrays_to_header_rows"):
-                arrays_to_serialize = list(config.transform.arrays_to_header_rows)
+        if (
+            hasattr(config, "transform")
+            and config.transform is not None
+            and hasattr(config.transform, "arrays_to_header_rows")
+        ):
+            arrays_to_serialize = list(config.transform.arrays_to_header_rows)
     except (AttributeError, TypeError):
         pass
 

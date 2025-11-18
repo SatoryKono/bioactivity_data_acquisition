@@ -187,9 +187,7 @@ def get_ids(
         values = []
         for index, entry_raw in enumerate(ids_list):
             if not isinstance(entry_raw, str):
-                raise VocabStoreError(
-                    f"Dictionary '{name}' id at position {index} is not a string"
-                )
+                raise VocabStoreError(f"Dictionary '{name}' id at position {index} is not a string")
             normalized_id = entry_raw.strip()
             values.append({"id": normalized_id, "status": "active"})
     else:
@@ -228,4 +226,3 @@ __all__ = [
     "get_ids",
     "load_vocab_store",
 ]
-

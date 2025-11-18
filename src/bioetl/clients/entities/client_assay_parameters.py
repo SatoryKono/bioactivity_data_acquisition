@@ -16,9 +16,7 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblAssayParametersEntityClient"]
 
 
-class ChemblAssayParametersEntityClient(
-    ChemblEntityConfigMixin, ChemblEntityFetcherBase
-):
+class ChemblAssayParametersEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
     """Client for retrieving ``assay_parameters`` records from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay_parameters")
@@ -56,4 +54,3 @@ class ChemblAssayParametersEntityClient(
         if getattr(self, "_active_only_current", self._ACTIVE_ONLY_DEFAULT):
             params["active"] = "1"
         return params
-

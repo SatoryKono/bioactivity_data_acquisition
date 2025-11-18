@@ -42,8 +42,7 @@ class SupportsModelCopy(Protocol):
         self: _SupportsModelCopyT,
         *,
         update: Mapping[str, Any] | None = None,
-    ) -> _SupportsModelCopyT:
-        ...
+    ) -> _SupportsModelCopyT: ...
 
 
 @runtime_checkable
@@ -178,5 +177,3 @@ class PipelineConfigProtocol(SupportsModelCopy, Protocol):
     transform: PipelineTransformConfigProtocol
     sources: Mapping[str, SourceConfigProtocol]
     chembl: Mapping[str, Any] | None
-
-

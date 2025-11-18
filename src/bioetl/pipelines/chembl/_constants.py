@@ -75,9 +75,7 @@ API_DOCUMENT_FIELDS: tuple[str, ...] = (
     "authors",
 )
 
-ASSAY_MUST_HAVE_FIELDS: tuple[str, ...] = (
-    "assay_chembl_id",
-)
+ASSAY_MUST_HAVE_FIELDS: tuple[str, ...] = ("assay_chembl_id",)
 
 DOCUMENT_MUST_HAVE_FIELDS: tuple[str, ...] = (
     "document_chembl_id",
@@ -99,4 +97,3 @@ TESTITEM_MUST_HAVE_FIELDS: tuple[str, ...] = (
     "molecule_structures",
     "molecule_hierarchy",
 )
-
