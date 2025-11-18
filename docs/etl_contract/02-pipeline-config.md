@@ -16,12 +16,13 @@ flexible, reusable, and easy to manage.
 All configuration files are validated at runtime against a set of strongly-typed
 Pydantic models located in `src/bioetl/config/models/`. The models are organized
 into logical modules (base, http, cache, paths, determinism, validation,
-transform, postprocess, source, cli, fallbacks) and are all re-exported through
-`src/bioetl/config/models/__init__.py` for backward compatibility. These modules
-(especially `base.py`, which stitches together the full `PipelineConfig` model)
-form the canonical specification for what the YAML must contain, ensuring that
-all configurations are well-formed and contain all necessary parameters before
-the pipeline begins execution.
+transform, postprocess, source, cli, fallbacks) and are imported directly from
+`bioetl.config.models.models` and `bioetl.config.models.policies`. The legacy
+`__init__.py` shim has been removed entirely, so every import must reference the
+concrete module. These modules (especially `base.py`, which stitches together
+the full `PipelineConfig` model) form the canonical specification for what the
+YAML must contain, ensuring that all configurations are well-formed and contain
+all necessary parameters before the pipeline begins execution.
 
 ## Configuration Skeleton
 

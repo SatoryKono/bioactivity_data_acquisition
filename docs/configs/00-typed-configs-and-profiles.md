@@ -23,10 +23,10 @@ configuration system, based on the implementation in
 > `bioetl.config.models.models`
 > (структурные модели) и `bioetl.config.models.policies`
 > (policy-объекты: HTTP, детерминизм, логирование и т.д.).
-> Устаревший слой `bioetl.config.models` больше не экспортирует
-> классы — он остался только как пакет для вложенных модулей.
-> Если где-то ещё встречается `from bioetl.config.models import ...`,
-> обновите импорты на новые пути.
+> Устаревший слой `bioetl.config.models` (корневой пакет) больше не содержит
+> `__init__.py` и не выполняет реэкспортов, поэтому любые обращения вида
+> `from bioetl.config.models import ...` должны быть переписаны на прямые
+> импорты из конкретных модулей.
 
 Модели конфигурации организованы в модульную структуру:
 
@@ -53,9 +53,9 @@ configuration system, based on the implementation in
 - `src/bioetl/config/models/telemetry.py` - `TelemetryConfig`
 
 Исторические точки входа `bioetl.config.models` (пакет) и
-`bioetl/config/models.py` больше не реэкспортируют модели: пакет остался
-только как namespace для модулей `models.py`/`policies.py`. Любые импорты
-должны ссылаться напрямую на `bioetl.config.models.models`
+`bioetl/config/models.py` больше не реэкспортируют модели: каталог служит
+только namespace-слоем (PEP 420) для модулей `models.py`/`policies.py`.
+Любые импорты должны ссылаться напрямую на `bioetl.config.models.models`
 и/или `bioetl.config.models.policies`.
 
 ### 1.2 Pipeline-специфичные конфигурации
