@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import time
 from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, TypeVar, cast
 
@@ -16,6 +15,7 @@ from bioetl.chembl.common.descriptor import (
     ChemblExtractionContext,
     ChemblExtractionDescriptor,
     ChemblPipelineBase,
+    FinalizeCallable,
     build_standard_chembl_context,
 )
 from bioetl.chembl.common.handlers import (
@@ -296,74 +296,21 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
         """Extract assay records by batching explicit ID requests."""
 
-        stage_start = time.perf_counter()
-        with self.stage_logger("extract", rows=len(ids)) as log:
-            source_raw = self._resolve_source_config("chembl")
-            source_config = AssaySourceConfig.from_source_config(source_raw)
-            bundle = self.build_chembl_entity_bundle(
-                "assay",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            if "chembl_assay_http" not in self._registered_clients:
-                self.register_client("chembl_assay_http", bundle.api_client)
+        descriptor = self.build_descriptor()
+        source_raw = self._resolve_source_config("chembl")
+        source_config = AssaySourceConfig.from_source_config(source_raw)
+        resolved_select_fields = self._resolve_select_fields(source_raw)
+        merged_select_fields = self._merge_select_fields(
+            resolved_select_fields,
+            ASSAY_MUST_HAVE_FIELDS,
+        )
+        limit = self.config.cli.limit
 
-            assay_client = cast(ChemblAssayClient, bundle.entity_client)
-            if assay_client is None:
-                msg = "Фабрика вернула пустой клиент для 'assay'"
-                raise RuntimeError(msg)
-
-            handshake_endpoint = source_config.parameters.handshake_endpoint
-            handshake_enabled = source_config.parameters.handshake_enabled
-
-            self.perform_handshake(
-                assay_client,
-                handshake_endpoint,
-                enabled=handshake_enabled,
-            )
-            self._set_chembl_release(assay_client.chembl_release)
-            log.info(
-                LogEvents.CHEMBL_ASSAY_HANDSHAKE,
-                chembl_release=self.chembl_release,
-                handshake_endpoint=handshake_endpoint,
-                handshake_enabled=handshake_enabled,
-            )
-
-            if self.config.cli.dry_run:
-                log.info(
-                    LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
-                    dry_run=True,
-                    chembl_release=self.chembl_release,
-                )
-                return pd.DataFrame({self.id_column: pd.Series(dtype="string")})
-
-            limit = self.config.cli.limit
-            resolved_select_fields = self._resolve_select_fields(source_raw)
-            merged_select_fields = self._merge_select_fields(
-                resolved_select_fields,
-                ASSAY_MUST_HAVE_FIELDS,
-            )
-
-            log.debug(
-                LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
-                fields=merged_select_fields,
-                fields_count=len(merged_select_fields) if merged_select_fields else 0,
-            )
-
-            def fetch_assays(
-                batch_ids: Sequence[str],
-                context: BatchExtractionContext,
-            ) -> Iterable[Mapping[str, Any]]:
-                iterator = assay_client.iterate_by_ids(
-                    batch_ids,
-                    select_fields=context.select_fields or None,
-                )
-                for item in iterator:
-                    yield dict(item)
-
+        def finalize_factory(
+            extraction_context: ChemblExtractionContext, log: BoundLogger
+        ) -> FinalizeCallable:
             def finalize_dataframe(
-                dataframe: pd.DataFrame,
-                context: BatchExtractionContext,
+                dataframe: pd.DataFrame, context: BatchExtractionContext
             ) -> pd.DataFrame:
                 if dataframe.empty:
                     return dataframe
@@ -400,34 +347,33 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 )
                 return dataframe
 
-            dataframe, stats = self.run_batched_extraction(
-                ids,
-                id_column="assay_chembl_id",
-                fetcher=fetch_assays,
-                select_fields=merged_select_fields or None,
-                batch_size=assay_client.batch_size,
-                max_batch_size=25,
-                limit=limit,
-                metadata_filters={
-                    "select_fields": list(merged_select_fields) if merged_select_fields else None,
-                    "max_url_length": source_config.max_url_length,
-                },
-                chembl_release=self.chembl_release,
-                finalize=finalize_dataframe,
-            )
+            return finalize_dataframe
 
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY,
-                rows=int(dataframe.shape[0]),
-                requested=len(ids),
-                duration_ms=duration_ms,
-                chembl_release=self.chembl_release,
-                limit=limit,
-                batches=stats.batches,
-                api_calls=stats.api_calls,
-            )
-            return dataframe
+        def empty_assay_frame() -> pd.DataFrame:
+            return pd.DataFrame({self.id_column: pd.Series(dtype="string")})
+
+        metadata_filters = {
+            "select_fields": list(merged_select_fields) if merged_select_fields else None,
+            "max_url_length": source_config.max_url_length,
+        }
+
+        dataframe, _ = self.run_descriptor_extraction(
+            descriptor,
+            ids,
+            source_config=source_config,
+            summary_event=LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY,
+            dry_run_event=LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
+            finalize_factory=finalize_factory,
+            metadata_filters=metadata_filters,
+            batch_size=source_config.batch_size,
+            max_batch_size=25,
+            limit=limit,
+            select_fields=merged_select_fields or None,
+            summary_extra={"limit": limit},
+            empty_frame_factory=empty_assay_frame,
+        )
+
+        return dataframe
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         log = self.logger_for(stage="transform", component="pre_transform")
