@@ -26,7 +26,8 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, StringStats, normalize_string_columns
+from bioetl.core.schema import StringRule
+from bioetl.core.schema.normalizers import StringStats
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
@@ -346,70 +347,38 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers and InChI keys."""
-
-        if df.empty:
-            return df
-
-        working_df = df.copy()
-
-        inchi_key_col = (
-            "molecule_structures__standard_inchi_key"
-            if "molecule_structures__standard_inchi_key" in working_df.columns
-            else "standard_inchi_key"
-        )
-
-        rules: dict[str, StringRule] = {}
-        if "molecule_chembl_id" in working_df.columns:
-            rules["molecule_chembl_id"] = StringRule()
-        if inchi_key_col in working_df.columns:
-            rules[inchi_key_col] = StringRule(uppercase=True)
-
-        if rules:
-            normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-        else:
-            normalized_df = working_df
-            stats = StringStats()
-
-        if stats.has_changes:
-            log.debug(
-                LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-        else:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
-
-        return normalized_df
-
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields: trim, replace empty strings with NaN."""
-
-        if df.empty:
-            return df
-
-        working_df = df.copy()
-
-        rules = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
+            "molecule_chembl_id": StringRule(),
+            "molecule_structures__standard_inchi_key": StringRule(uppercase=True),
+            "standard_inchi_key": StringRule(uppercase=True),
             "pref_name": StringRule(),
             "molecule_type": StringRule(),
             "molecule_structures__canonical_smiles": StringRule(),
             "canonical_smiles": StringRule(),
         }
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
         if stats.has_changes:
+            log.debug(
+                LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
+                columns=list(stats.per_column.keys()),
+                rows_processed=stats.processed,
+            )
             log.debug(
                 LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
         else:
+            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED)
             log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED)
-
-        return normalized_df
+        return df
 
     def _schema_column_specs(self) -> Mapping[str, Mapping[str, Any]]:
         specs = dict(super()._schema_column_specs())

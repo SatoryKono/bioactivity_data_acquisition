@@ -7,7 +7,6 @@ from collections.abc import Iterable, Iterator, Mapping, Sequence
 from typing import Any, Callable, TypeVar, cast
 
 import pandas as pd
-from pandas import Series
 from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
@@ -22,12 +21,15 @@ from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
     make_empty_frame_factory,
 )
-from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.chembl.common.normalize import add_row_metadata
 from bioetl.clients.entities.client_assay import ChemblAssayClient
 from bioetl.config import AssaySourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.core.schema import IdentifierRule, StringRule
+from bioetl.core.schema.normalizers import StringStats
+from bioetl.core.io import header_rows_serialize
+from bioetl.pipelines.mixins import NestedColumnSpec
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
@@ -35,10 +37,7 @@ from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
 )
-from .transform import (
-    serialize_array_fields,
-    validate_assay_parameters_truv,
-)
+from .transform import validate_assay_parameters_truv
 
 SelfChemblAssayPipeline = TypeVar("SelfChemblAssayPipeline", bound="ChemblAssayPipeline")
 
@@ -377,7 +376,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         log = self.logger_for(stage="transform", component="assay_domain")
         working_df = self._enrich_with_related_data(df, log)
         working_df = self._normalize_nested_structures(working_df, log)
-        working_df = self._serialize_array_fields(working_df, log)
+        working_df = self._serialize_nested_columns(working_df, log)
         working_df = self._add_row_metadata(working_df, log)
         return self._normalize_data_types(working_df, self._output_schema, log)
 
@@ -396,28 +395,6 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
     # ------------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------------
-
-    def _serialize_array_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Serialize array-of-object fields to header+rows format."""
-        df = df.copy()
-
-        # Get arrays_to_header_rows from config
-        arrays_to_serialize: list[str] = list(self.config.transform.arrays_to_header_rows)
-
-        if arrays_to_serialize:
-            df_result: pd.DataFrame = serialize_array_fields(df, arrays_to_serialize)
-            for column in arrays_to_serialize:
-                if column in df_result.columns:
-                    column_as_string: Series = df_result[column].astype("string")
-                    filled_column: Series = column_as_string.copy()
-                    filled_column[column_as_string.isna()] = ""
-                    empty_mask: Series = filled_column.eq("")
-                    if bool(empty_mask.any()):
-                        df_result.loc[empty_mask, column] = pd.NA
-            df = df_result
-            log.debug(LogEvents.ARRAY_FIELDS_SERIALIZED, columns=arrays_to_serialize)
-
-        return df
 
     def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Harmonize identifier column names (e.g., assay_id -> assay_chembl_id)."""
@@ -443,10 +420,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
 
         return df
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize ChEMBL identifiers with regex validation."""
-
-        rules = [
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
             IdentifierRule(
                 name="chembl",
                 columns=[
@@ -458,33 +433,9 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 ],
                 pattern=r"^CHEMBL\d+$",
             ),
-        ]
+        )
 
-        normalized_df, stats = normalize_identifiers(df, rules)
-
-        if stats.has_changes:
-            log.debug(
-                LogEvents.IDENTIFIERS_NORMALIZED,
-                normalized_count=stats.normalized,
-                invalid_count=stats.invalid,
-                columns=list(stats.per_column.keys()),
-            )
-
-        return normalized_df
-
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields (assay_type, assay_category, assay_organism, curation_level).
-
-        Important: all fields are sourced directly from the API payload—no surrogate computations.
-        - assay_category: pulled from ASSAYS.ASSAY_CATEGORY (not assay_type or BAO).
-        - assay_strain: sourced from ASSAYS.ASSAY_STRAIN (not target/organism).
-        - src_assay_id: sourced from ASSAYS.SRC_ASSAY_ID (not alternative sources).
-        - assay_group: sourced from ASSAYS.ASSAY_GROUP.
-        - curation_level: taken from an explicit column when available, otherwise NULL.
-        """
-
-        working_df = df.copy()
-
+    def string_rules(self) -> Mapping[str, StringRule]:
         string_fields = [
             "assay_type",
             "assay_category",
@@ -494,27 +445,41 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
             "assay_group",
             "curation_level",
         ]
+        return {column: StringRule() for column in string_fields}
 
-        rules = {column: StringRule() for column in string_fields}
-
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
-        # Ensure curation_level defaults to NULL when absent in the payload.
-        if "curation_level" not in normalized_df.columns:
-            normalized_df["curation_level"] = pd.NA
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        if "curation_level" not in df.columns:
+            df["curation_level"] = pd.NA
             log.warning(
                 LogEvents.CURATION_LEVEL_MISSING,
                 message="curation_level not found in API response, setting to NULL",
             )
+        return super().postprocess_string_columns(df, stats, log)
 
-        if stats.has_changes:
-            log.debug(
-                LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
+    def nested_column_specs(self) -> Sequence[NestedColumnSpec]:
+        transform_cfg = getattr(self.config, "transform", None)
+        arrays_to_serialize = list(getattr(transform_cfg, "arrays_to_header_rows", ()))
+
+        if not arrays_to_serialize:
+            return ()
+
+        def _serialize(value: Any, _log: Any = None) -> str:
+            return header_rows_serialize(value)
+
+        return tuple(
+            NestedColumnSpec(
+                column=column,
+                serializer=_serialize,
+                preserve_null_like=True,
+                empty_string_to_null=True,
             )
-
-        return normalized_df
+            for column in arrays_to_serialize
+        )
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Process nested structures (assay_parameters, assay_classifications).
@@ -569,7 +534,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 )
 
         # Note: assay_parameters and assay_classifications are serialized in
-        # _serialize_array_fields() and preserved in the final schema.
+        # _serialize_nested_columns() and preserved in the final schema.
 
         return df
 

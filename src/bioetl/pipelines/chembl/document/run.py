@@ -30,7 +30,8 @@ from bioetl.config import DocumentSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, normalize_string_columns
+from bioetl.core.schema import StringRule
+from bioetl.core.schema.normalizers import StringStats
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
@@ -304,18 +305,11 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize identifier fields (DOI, PMID)."""
-        df = df.copy()
-
-        # Normalize DOI
+    def preprocess_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         if "doi" in df.columns:
             df["doi_clean"] = df["doi"].apply(self._normalize_doi)  # pyright: ignore[reportUnknownMemberType]
-
-        # Normalize PMID
         if "pubmed_id" in df.columns:
             df["pubmed_id"] = pd.to_numeric(df["pubmed_id"], errors="coerce").astype("Int64")  # pyright: ignore[reportUnknownMemberType]
-
         return df
 
     @staticmethod
@@ -337,33 +331,27 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             return doi
         return ""
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Normalize string fields (title, abstract, journal, authors)."""
-        working_df = df.copy()
-
-        rules = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
             "title": StringRule(max_length=1000),
             "abstract": StringRule(max_length=5000),
         }
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
+    def postprocess_string_columns(
+        self,
+        df: pd.DataFrame,
+        stats: StringStats,
+        log: BoundLogger,
+    ) -> pd.DataFrame:
+        result = super().postprocess_string_columns(df, stats, log)
 
-        if stats.has_changes:
-            log.debug(
-                LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-
-        # Normalize journal
-        if "journal" in normalized_df.columns:
-            journal_series: pd.Series[Any] = normalized_df["journal"]
-            normalized_df["journal"] = journal_series.map(
+        if "journal" in result.columns:
+            journal_series: pd.Series[Any] = result["journal"]
+            result["journal"] = journal_series.map(
                 lambda value: self._normalize_journal(value)
             )
 
-        # Normalize authors
-        if "authors" in normalized_df.columns:
+        if "authors" in result.columns:
 
             def _to_author_tuple(item: object) -> tuple[str, int] | None:
                 if not isinstance(item, tuple):
@@ -394,13 +382,13 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             def _author_count_from_tuple(data: tuple[str, int] | None) -> int:
                 return data[1] if data is not None else 0
 
-            authors_series: pd.Series[Any] = normalized_df["authors"]
+            authors_series: pd.Series[Any] = result["authors"]
             normalized_result = authors_series.apply(self._normalize_authors)
             normalized_tuples = normalized_result.apply(_to_author_tuple)
-            normalized_df["authors"] = normalized_tuples.apply(_author_name_from_tuple)
-            normalized_df["authors_count"] = normalized_tuples.apply(_author_count_from_tuple)
+            result["authors"] = normalized_tuples.apply(_author_name_from_tuple)
+            result["authors_count"] = normalized_tuples.apply(_author_count_from_tuple)
 
-        return normalized_df
+        return result
 
     @staticmethod
     def _normalize_journal(value: Any, max_len: int = 255) -> str:

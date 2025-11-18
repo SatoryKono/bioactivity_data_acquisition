@@ -29,7 +29,7 @@ from bioetl.chembl.common.descriptor import (
     FinalizeContextFactory,
 )
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
-from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.chembl.common.normalize import add_row_metadata
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_activity import ChemblActivityClient
@@ -39,13 +39,9 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.pipeline import RunResult
-from bioetl.core.schema import (
-    IdentifierRule,
-    StringRule,
-    normalize_string_columns,
-)
+from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.utils import join_activity_with_molecule
-from bioetl.pipelines.mixins import BatchIdExtractionPlan
+from bioetl.pipelines.mixins import BatchIdExtractionPlan, NestedColumnSpec
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -1931,10 +1927,8 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             specs[column] = {"dtype": "boolean", "default": pd.NA}
         return specs
 
-    def _normalize_identifiers(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
-        """Normalize ChEMBL and BAO identifiers with regex validation."""
-
-        rules = [
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
             IdentifierRule(
                 name="chembl",
                 columns=[
@@ -1951,19 +1945,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                 columns=["bao_endpoint", "bao_format"],
                 pattern=r"^BAO_\d{7}$",
             ),
-        ]
-
-        normalized_df, stats = normalize_identifiers(df, rules)
-
-        if stats.has_changes:
-            log.debug(
-                LogEvents.IDENTIFIERS_NORMALIZED,
-                normalized_count=stats.normalized,
-                invalid_count=stats.invalid,
-                columns=list(stats.per_column.keys()),
-            )
-
-        return normalized_df
+        )
 
     def _finalize_identifier_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Align identifier columns after normalization and drop aliases."""
@@ -2269,19 +2251,14 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
 
         return df
 
-    def _normalize_string_fields(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
-        """Normalize string fields: trim, empty string to null, title-case for organism."""
-
-        working_df = df.copy()
-
-        # Invariant check: data_validity_description populated when data_validity_comment is NA.
+    def preprocess_string_columns(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         if (
-            "data_validity_description" in working_df.columns
-            and "data_validity_comment" in working_df.columns
+            "data_validity_description" in df.columns
+            and "data_validity_comment" in df.columns
         ):
             invalid_mask = (
-                working_df["data_validity_description"].notna()
-                & working_df["data_validity_comment"].isna()
+                df["data_validity_description"].notna()
+                & df["data_validity_comment"].isna()
             )
             if invalid_mask.any():
                 invalid_count = int(invalid_mask.sum())
@@ -2290,8 +2267,10 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                     count=invalid_count,
                     message="data_validity_description is filled while data_validity_comment is NA",
                 )
+        return df
 
-        rules: dict[str, StringRule] = {
+    def string_rules(self) -> Mapping[str, StringRule]:
+        return {
             "canonical_smiles": StringRule(),
             "bao_label": StringRule(max_length=128),
             "target_organism": StringRule(title_case=True),
@@ -2311,62 +2290,24 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             "qudt_units": StringRule(),
         }
 
-        normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
-
-        if stats.has_changes:
-            log.debug(
-                LogEvents.STRING_FIELDS_NORMALIZED,
-                columns=list(stats.per_column.keys()),
-                rows_processed=stats.processed,
-            )
-
-        return normalized_df
+    def nested_column_specs(self) -> Sequence[NestedColumnSpec]:
+        return (
+            NestedColumnSpec(column="ligand_efficiency"),
+            NestedColumnSpec(
+                column="activity_properties",
+                serializer=self._serialize_activity_properties,
+                pass_logger=True,
+                failure_event=LogEvents.ACTIVITY_PROPERTIES_SERIALIZATION_FAILED,
+            ),
+        )
 
     def _normalize_nested_structures(self, df: pd.DataFrame, log: BoundLogger) -> pd.DataFrame:
         """Serialize nested structures (ligand_efficiency, activity_properties) to JSON strings."""
 
-        df = df.copy()
+        working_df = self._serialize_nested_columns(df, log)
 
-        nested_fields = ["ligand_efficiency", "activity_properties"]
-
-        for field in nested_fields:
-            if field not in df.columns:
-                continue
-            mask = df[field].notna()
-            if mask.any():
-                serialized: list[Any] = []
-                for idx, value in df.loc[mask, field].items():
-                    if field == "activity_properties":
-                        serialized_value = self._serialize_activity_properties(value, log)
-                        serialized.append(serialized_value)
-                        continue
-
-                    if isinstance(value, (Mapping, list)):
-                        try:
-                            serialized.append(json.dumps(value, ensure_ascii=False, sort_keys=True))
-                        except (TypeError, ValueError) as exc:
-                            log.warning(
-                                LogEvents.NESTED_SERIALIZATION_FAILED,
-                                field=field,
-                                index=idx,
-                                error=str(exc),
-                            )
-                            serialized.append(None)
-                    elif isinstance(value, str):
-                        try:
-                            json.loads(value)
-                            serialized.append(value)
-                        except (TypeError, ValueError):
-                            serialized.append(None)
-                    else:
-                        serialized.append(None)
-                df.loc[mask, field] = pd.Series(
-                    serialized, dtype="object", index=df.loc[mask, field].index
-                )
-
-        # Diagnostic logging for ligand_efficiency.
-        if "standard_value" in df.columns and "ligand_efficiency" in df.columns:
-            mask = df["standard_value"].notna() & df["ligand_efficiency"].isna()
+        if "standard_value" in working_df.columns and "ligand_efficiency" in working_df.columns:
+            mask = working_df["standard_value"].notna() & working_df["ligand_efficiency"].isna()
             if mask.any():
                 log.warning(
                     LogEvents.LIGAND_EFFICIENCY_MISSING_WITH_STANDARD_VALUE,
@@ -2374,7 +2315,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                     message="ligand_efficiency is empty while standard_value exists",
                 )
 
-        return df
+        return working_df
 
     def _serialize_activity_properties(
         self, value: Any, log: BoundLogger | None = None
