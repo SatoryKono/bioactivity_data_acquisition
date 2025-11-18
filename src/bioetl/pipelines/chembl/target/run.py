@@ -143,91 +143,37 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         )
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract target records by a specific list of IDs using batch extraction.
+        """Extract target records by a specific list of IDs using batch extraction."""
 
-        Parameters
-        ----------
-        ids:
-            Sequence of target_chembl_id values to extract.
+        descriptor = self.build_descriptor()
+        source_raw = self._resolve_source_config("chembl")
+        source_config = TargetSourceConfig.from_source_config(source_raw)
+        limit = self.config.cli.limit
+        batch_size = source_config.batch_size
+        chunk_size = (
+            min(100, batch_size) if isinstance(batch_size, int) else 100
+        )
+        select_fields = source_config.parameters.select_fields
+        metadata_filters = {
+            "select_fields": list(select_fields) if select_fields else None,
+        }
 
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted target records.
-        """
-        stage_start = time.perf_counter()
-        with self.stage_logger("extract", rows=len(ids)) as log:
-            source_raw = self._resolve_source_config("chembl")
-            source_config = TargetSourceConfig.from_source_config(source_raw)
-            bundle = self.build_chembl_entity_bundle(
-                "target",
-                source_name="chembl",
-                source_config=source_config,
-            )
-            if "chembl_target_http" not in self._registered_clients:
-                self.register_client("chembl_target_http", bundle.api_client)
+        dataframe, _ = self.run_descriptor_extraction(
+            descriptor,
+            ids,
+            source_config=source_config,
+            summary_event=LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
+            dry_run_event=LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
+            metadata_filters=metadata_filters,
+            batch_size=batch_size,
+            chunk_size=chunk_size,
+            max_batch_size=200,
+            limit=limit,
+            select_fields=select_fields,
+            summary_extra={"limit": limit},
+        )
 
-            chembl_client = bundle.chembl_client
-            self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
-
-            if self.config.cli.dry_run:
-                duration_ms = (time.perf_counter() - stage_start) * 1000.0
-                log.info(
-                    LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED,
-                    dry_run=True,
-                    duration_ms=duration_ms,
-                    chembl_release=self.chembl_release,
-                )
-                return pd.DataFrame()
-
-            batch_size = source_config.batch_size
-            limit = self.config.cli.limit
-            select_fields = source_config.parameters.select_fields
-
-            target_client = cast(ChemblTargetClient, bundle.entity_client)
-            if target_client is None:
-                msg = "Фабрика вернула пустой клиент для 'target'"
-                raise RuntimeError(msg)
-
-            def fetch_targets(
-                batch_ids: Sequence[str],
-                context: BatchExtractionContext,
-            ) -> Iterable[Mapping[str, Any]]:
-                iterator = target_client.iterate_by_ids(
-                    batch_ids,
-                    select_fields=context.select_fields or None,
-                )
-                for item in iterator:
-                    yield dict(item)
-
-            chunk_size = min(100, batch_size) if isinstance(batch_size, int) else 100
-            dataframe, stats = self.run_batched_extraction(
-                ids,
-                id_column="target_chembl_id",
-                fetcher=fetch_targets,
-                select_fields=select_fields,
-                batch_size=batch_size,
-                chunk_size=chunk_size,
-                max_batch_size=200,
-                limit=limit,
-                metadata_filters={
-                    "select_fields": list(select_fields) if select_fields else None,
-                },
-                chembl_release=self.chembl_release,
-            )
-
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                LogEvents.CHEMBL_TARGET_EXTRACT_BY_IDS_SUMMARY,
-                rows=int(dataframe.shape[0]),
-                requested=len(ids),
-                duration_ms=duration_ms,
-                chembl_release=self.chembl_release,
-                limit=limit,
-                batches=stats.batches,
-                api_calls=stats.api_calls,
-            )
-            return dataframe
+        return dataframe
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply identifier harmonization before the shared transform template."""
