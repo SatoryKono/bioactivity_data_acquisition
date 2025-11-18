@@ -28,14 +28,7 @@ class UnifiedPipelineBase(
     IOArtifactsMixin,
     ChemblPipelineBase,
 ):
-    """ChEMBL-focused pipeline base composing shared mixins and orchestration.
-
-    Класс объединяет логику логирования, подготовки артефактов ввода/вывода,
-    пагинации, Pandera-валидации и хуков трансформации. Он выступает единой
-    точкой входа для CLI и сторонних расширений: дочерние пайплайны описывают
-    только доменную специфику (descriptor, transform hooks, metadata), а
-    остальной жизненный цикл наследуется без переопределения.
-    """
+    """Base class that will be adopted by the refactored ChEMBL pipelines."""
 
     def run(
         self,
@@ -48,12 +41,6 @@ class UnifiedPipelineBase(
         qc_thresholds: Mapping[str, float] | None = None,
         fail_on_qc_violation: bool = False,
     ) -> RunResult:
-        """Execute the unified ETL flow with deterministic output artifacts.
-
-        Parameters mirror the public CLI flags и позволяют управлять
-        дополнительными отчётами (корреляции, QC метрики) без изменения
-        пользовательского контракта `PipelineBase.run`.
-        """
         return super().run(
             output_dir,
             extended=extended,

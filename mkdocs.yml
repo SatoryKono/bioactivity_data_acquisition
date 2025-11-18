@@ -11,8 +11,6 @@ theme:
     - content.code.copy
 nav:
   - Index: INDEX.md
-  - Architecture:
-      - Pipeline architecture: architecture.md
   - Configurations:
       - Typed configs and profiles: configs/00-typed-configs-and-profiles.md
       - Profiles: configs/01-config-profiles.md
@@ -25,7 +23,6 @@ nav:
       - Exit codes: cli/02-cli-exit-codes.md
   - Pipelines:
       - Catalog: pipelines/10-pipelines-catalog.md
-      - ChEMBL architecture: pipelines/chembl/00-architecture.md
       - Activity config: pipelines/chembl/activity/17-activity-chembl-config.md
       - Assay config: pipelines/chembl/assay/17-assay-chembl-config.md
       - Document config: pipelines/chembl/document/17-document-chembl-config.md
@@ -33,9 +30,6 @@ nav:
       - TestItem config: pipelines/chembl/testitem/17-testitem-chembl-config.md
   - Security:
       - Vault policy: security/00-vault-policy.md
-  - QA:
-      - Static analysis plan: qa/static_analysis_plan.md
-      - Documentation maintenance: qa/documentation_maintenance.md
 markdown_extensions:
   - admonition
   - tables

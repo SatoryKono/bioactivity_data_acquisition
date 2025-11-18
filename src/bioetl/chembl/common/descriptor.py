@@ -1000,56 +1000,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         empty_frame_factory: Callable[[], pd.DataFrame] | None = None,
         **batch_kwargs: Any,
     ) -> tuple[pd.DataFrame, BatchExtractionStats]:
-        """Execute descriptor-driven ID extraction with shared orchestration.
-
-        Parameters
-        ----------
-        descriptor
-            Экземпляр :class:`ChemblExtractionDescriptor`, описывающий сущность,
-            фабрики контекста и вспомогательные функции финализации.
-        ids
-            Набор идентификаторов для выборки. При ``None`` поведение определяется
-            дескриптором (например, полная выгрузка).
-        summary_event
-            Имя события структурированного логирования для финального summary.
-        source_config
-            Предварительно типизированный конфиг источника; если не указан, он
-            будет построен из ``descriptor.source_name``.
-        dry_run_event
-            Имя события, публикуемого при dry-run.
-        dry_run_handler
-            Пользовательский обработчик dry-run (например, генерация фиктивных
-            данных). Если не задан, используется фабрика пустого DataFrame.
-        fetcher / fetcher_factory
-            Итератор по данным или фабрика, получающая контекст дескриптора.
-        finalize / finalize_factory / finalize_context(...)
-            Хуки для постобработки батчей и формирования агрегированной
-            статистики.
-        summary_extra / summary_extra_factory
-            Дополнительные поля, включаемые в payload события summary.
-        metadata_filters
-            Фильтры, передаваемые в фабрику контекста/клиент. Используются для
-            ограничения полей ответа.
-        chembl_release_override
-            Позволяет переопределить релиз из конфигурации/handshake.
-        fetch_mode
-            Управляет режимом перебора (``"default"`` или ``"delegated"``).
-        stats_attribute
-            Имя атрибута, куда будет записан :class:`BatchExtractionStats`.
-        id_normalizer
-            Колбек для приведения идентификаторов перед вызовом fetcher.
-        empty_frame_factory
-            Колбек, который возвращает предзаполненный пустой DataFrame для
-            dry-run и случаев отсутствия данных.
-        batch_kwargs
-            Остальные параметры пробрасываются в :meth:`run_batched_extraction`.
-
-        Returns
-        -------
-        tuple[pd.DataFrame, BatchExtractionStats]
-            Кортеж из результирующего DataFrame и агрегированной статистики,
-            включающей количество батчей, вызовов API и т.д.
-        """
         """Execute descriptor-driven ID extraction with shared orchestration."""
 
         if not summary_event:
@@ -1365,17 +1315,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         log: BoundLogger,
         entity_client: Any | None = None,  # noqa: ARG002
     ) -> tuple[str | None, dict[str, Any]]:
-        """Resolve Chembl release number and metadata for the current run.
-
-        Subclasses may override this hook to provide additional metadata derived
-        from entity clients (например, `api_version` у test item пайплайна).
-
-        Returns
-        -------
-        tuple[str | None, dict[str, Any]]
-            Кортеж из версии релиза (если найдена) и дополнительных полей,
-            которые попадут в финальные логи/manifest.
-        """
         """Resolve Chembl release and optional metadata for ID extractions."""
 
         if self.chembl_release:
