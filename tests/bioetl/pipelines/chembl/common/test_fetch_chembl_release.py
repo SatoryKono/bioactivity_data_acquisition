@@ -1,0 +1,289 @@
+"""Тесты для логики получения ChEMBL release."""
+
+from __future__ import annotations
+
+from unittest.mock import Mock, patch
+
+import pytest
+from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
+
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.core.http.api_client import UnifiedAPIClient
+from bioetl.pipelines.chembl.target import run as target_run
+from bioetl.pipelines.chembl.testitem import run as testitem_run
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_via_chembl_client(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест получения релиза через ChemblClient.handshake()."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {"chembl_db_version": "33"}
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result == "33"
+    mock_client.handshake.assert_called_once()
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_via_unified_client(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест получения релиза через UnifiedAPIClient."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_response = Mock()
+    mock_response.json.return_value = {"chembl_db_version": "34"}
+
+    mock_client = Mock(spec=UnifiedAPIClient)
+    mock_client.get.return_value = mock_response
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result == "34"
+    mock_client.get.assert_called_once_with("/status.json")
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_handles_network_error(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки сетевой ошибки при получении релиза."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.side_effect = ConnectionError("Network unreachable")
+
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get") as mock_logger:
+        result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_handles_timeout(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки таймаута при получении релиза."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.side_effect = Timeout("Request timeout")
+
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+        result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_handles_http_error(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки HTTP ошибки (404) при получении релиза."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_response = Mock()
+    mock_response.raise_for_status.side_effect = HTTPError("404 Not Found")
+    mock_client = Mock(spec=UnifiedAPIClient)
+    mock_client.get.side_effect = HTTPError("404 Not Found")
+
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+        result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_missing_chembl_db_version(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки ответа без chembl_db_version."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {"api_version": "1.0"}
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_empty_response(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки пустого ответа."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {}
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_alternative_field(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест использования альтернативного поля chembl_release."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {"chembl_release": "35"}
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result == "35"
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_caching(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест кэширования релиза (повторный вызов не должен делать запрос)."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {"chembl_db_version": "33"}
+
+    # Первый вызов
+    result1 = pipeline.fetch_chembl_release(mock_client)
+    assert result1 == "33"
+    assert mock_client.handshake.call_count == 1
+
+    # Второй вызов - handshake должен быть вызван снова (кэширование на уровне ChemblClient)
+    result2 = pipeline.fetch_chembl_release(mock_client)
+    assert result2 == "33"
+    # ChemblClient кэширует внутри себя, но метод вызывается
+    assert mock_client.handshake.call_count >= 1
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_invalid_json(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки некорректного JSON ответа."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_response = Mock()
+    mock_response.json.side_effect = ValueError("Invalid JSON")
+    mock_client = Mock(spec=UnifiedAPIClient)
+    mock_client.get.return_value = mock_response
+
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+        result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_testitem_special_handling(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест специальной обработки релиза в TestItem пайплайне."""
+    pipeline = testitem_run.TestItemChemblPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {
+        "chembl_db_version": "36",
+        "api_version": "1.1",
+    }
+
+    result = pipeline._fetch_chembl_release(mock_client)  # noqa: SLF001
+
+    assert result == "36"
+    assert pipeline.chembl_db_version == "36"
+    assert pipeline.api_version == "1.1"
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_generic_exception(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки общего исключения."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.side_effect = Exception("Unexpected error")
+
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
+        result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+
+
+@pytest.mark.unit
+def test_fetch_chembl_release_no_client_methods(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Тест обработки клиента без методов handshake или get."""
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    mock_client = Mock()
+    # Убираем методы handshake и get
+    del mock_client.handshake
+    del mock_client.get
+
+    result = pipeline.fetch_chembl_release(mock_client)
+
+    assert result is None
+

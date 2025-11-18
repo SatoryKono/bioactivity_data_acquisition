@@ -114,8 +114,18 @@ def _apply_molecule_enrichment(
     log: BoundLogger,
 ) -> pd.DataFrame:
     """Join molecule metadata and coalesce preferred names."""
+    # Extract compound_record configuration for join_activity_with_molecule
+    from bioetl.chembl.common.enrich import _extract_enrich_config
+    chembl_config = pipeline.config.chembl
+    compound_record_cfg = _extract_enrich_config(
+        chembl_config,
+        ("activity", "enrich", "compound_record"),
+        log=log,
+    ) if chembl_config else {}
+    # Merge molecule config with compound_record config, giving priority to compound_record
+    merged_cfg = {**cfg, **compound_record_cfg}
 
-    df_join = join_activity_with_molecule(df, chembl_client, cfg)
+    df_join = join_activity_with_molecule(df, chembl_client, merged_cfg)
 
     if "molecule_name" in df_join.columns:
         if "molecule_pref_name" not in df.columns:
@@ -769,7 +779,7 @@ class ChemblActivityPipeline(ChemblPipelineBase):
             return df
 
         log = UnifiedLogger.get(__name__).bind(component=f"{self.pipeline_code}.enrich")
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        chembl_config = self.config.chembl
 
         if chembl_config is None:
             selected = stages or self._DEFAULT_ENRICHMENT_ORDER

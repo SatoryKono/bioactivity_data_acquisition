@@ -51,6 +51,9 @@ http:
       timeout: 60.0
       # Maximum number of calls allowed in half-open state before transitioning back to closed or open.
       half_open_max_calls: 1
+      # HTTP status codes that should not be counted as failures by the circuit breaker.
+      # 404 is expected for some ChEMBL endpoints (e.g., component_sequence for components without sequences).
+      ignore_status_codes: [404]
 
     # --- Default Headers ---
     # Headers to include in every request. Can be overridden at the source level.

@@ -13,6 +13,8 @@ from unittest.mock import MagicMock, patch
 import pandas as pd
 import pytest  # type: ignore[reportMissingImports]
 
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 from tests.support.factories import (
@@ -20,6 +22,9 @@ from tests.support.factories import (
     load_sample_activity_dataframe,
     load_test_json,
 )
+
+# Register ChEMBL fixtures as pytest plugin
+pytest_plugins = ["tests.support.chembl_fixtures"]
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = PROJECT_ROOT / "src"
@@ -181,6 +186,23 @@ def mock_chembl_api_client() -> MagicMock:
     mock_client.get.side_effect = [mock_status_response, mock_data_response]
 
     return mock_client
+
+
+@pytest.fixture  # type: ignore[misc]
+def mock_chembl_bundle(mock_chembl_api_client: MagicMock) -> ChemblClientBundle:
+    """Мок bundle для ChEMBL entity клиентов."""
+
+    bundle = MagicMock(spec=ChemblClientBundle)
+    bundle.chembl_client = MagicMock(spec=ChemblClient)
+    bundle.chembl_client.handshake.return_value = {"chembl_db_version": "33"}
+    bundle.api_client = mock_chembl_api_client
+    bundle.entity_client = MagicMock()
+    bundle.entity_name = "test_entity"
+    bundle.source_name = "chembl"
+    bundle.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+    bundle.entity_config = None
+    bundle.source_config = None
+    return bundle
 
 
 @pytest.fixture  # type: ignore[misc]

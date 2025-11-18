@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -338,3 +340,74 @@ class TestChemblTargetPipeline:
         # Data should not be overwritten
         assert result["protein_class_list"].iloc[0] == '[{"protein_class_id": "1"}]'
         assert result["protein_class_top"].iloc[0] == '{"protein_class_id": "1"}'
+
+    def test_extract_by_ids_invalid_ids(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test extract_by_ids with invalid IDs."""
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        chembl_client_mock = Mock()
+        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
+
+        mock_bundle = Mock()
+        mock_bundle.chembl_client = chembl_client_mock
+        mock_bundle.api_client = Mock()
+        mock_bundle.entity_client = Mock(spec=ChemblTargetClient)
+        mock_bundle.entity_client.iterate_by_ids.return_value = []  # No results for invalid IDs
+
+        with (
+            patch.object(
+                pipeline,
+                "build_chembl_entity_bundle",
+                return_value=mock_bundle,
+            ),
+            patch.object(
+                pipeline,
+                "fetch_chembl_release",
+                return_value="33",
+            ),
+        ):
+            result = pipeline.extract_by_ids(["INVALID", "NOT_CHEMBL"])  # type: ignore[misc]
+
+        # Should return empty DataFrame or DataFrame with NA for invalid IDs
+        assert result.empty or result["target_chembl_id"].isna().all()
+
+    def test_extract_by_ids_large_batch(
+        self, pipeline_config_fixture: PipelineConfig, run_id: str
+    ) -> None:
+        """Test extract_by_ids with large batch of IDs."""
+        pipeline = target_run.ChemblTargetPipeline(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+        chembl_client_mock = Mock()
+        chembl_client_mock.handshake.return_value = {"chembl_db_version": "33"}
+
+        # Create many IDs
+        many_ids = [f"CHEMBL{i}" for i in range(1, 101)]
+
+        def mock_iterate_by_ids(ids: Sequence[str], **kwargs: Any) -> Iterable[dict[str, Any]]:
+            return [{"target_chembl_id": id_val} for id_val in ids]
+
+        mock_bundle = Mock()
+        mock_bundle.chembl_client = chembl_client_mock
+        mock_bundle.api_client = Mock()
+        mock_bundle.entity_client = Mock(spec=ChemblTargetClient)
+        mock_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+
+        with (
+            patch.object(
+                pipeline,
+                "build_chembl_entity_bundle",
+                return_value=mock_bundle,
+            ),
+            patch.object(
+                pipeline,
+                "fetch_chembl_release",
+                return_value="33",
+            ),
+        ):
+            result = pipeline.extract_by_ids(many_ids)  # type: ignore[misc]
+
+        # Should process all IDs (or up to limit)
+        assert not result.empty
+        assert len(result) <= len(many_ids)

@@ -27,12 +27,10 @@ from bioetl.chembl.common.handlers import (
 )
 from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
-from bioetl.clients.client_exceptions import HTTPError
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
-from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
 
@@ -97,7 +95,7 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                 source_config,
                 log,
                 entity_client_type=ChemblTargetClient,
-                release_resolver=lambda p, c, l, _: p.fetch_chembl_release(c, l),
+                release_resolver=lambda p, c, logger, _: p.fetch_chembl_release(c, logger),
                 extra_filters_factory=extra_filters_factory,
             )
 
@@ -504,11 +502,11 @@ class ChemblTargetPipeline(ChemblPipelineBase):
 
         for target_id in target_ids_to_enrich:
             try:
-                # Step 1: Get target components
-                # Note: We don't pass limit to paginate() here because component_limit filters
-                # the results after processing, and we want to ensure deterministic results.
-                # The break statement below will stop iteration early when component_limit is reached.
-                component_ids: list[str] = []
+                # Step 1: Get target components and filter PROTEIN components
+                # Note: component_type is already available in target_component.json response
+                # No need to make separate requests to component_sequence.json (endpoint doesn't exist)
+                protein_component_ids: list[int] = []
+                component_count = 0
                 for item in chembl_client.paginate(
                     "/target_component.json",
                     params={"target_chembl_id": target_id},
@@ -516,106 +514,30 @@ class ChemblTargetPipeline(ChemblPipelineBase):
                     items_key="target_components",
                 ):
                     component_id = item.get("component_id")
+                    component_type = item.get("component_type")
+                    
                     if component_id is not None:
-                        component_ids.append(str(component_id))
-                        if component_limit is not None and len(component_ids) >= component_limit:
-                            break
-
-                if not component_ids:
-                    continue
-
-                # Step 2: Filter only PROTEIN components
-                protein_component_ids: list[str] = []
-                for component_id in component_ids:
-                    try:
-                        # Get component_sequence to check component_type
-                        for seq_item in chembl_client.paginate(
-                            "/component_sequence.json",
-                            params={"component_id": component_id},
-                            page_size=200,
-                            items_key="component_sequences",
-                        ):
-                            component_type = seq_item.get("component_type")
+                        try:
+                            component_id_int = int(component_id) if not isinstance(component_id, int) else component_id
+                            
+                            # Filter only PROTEIN components - component_type is already in the response
                             if (
                                 isinstance(component_type, str)
                                 and component_type.upper() == "PROTEIN"
                             ):
-                                protein_component_ids.append(component_id)
+                                protein_component_ids.append(component_id_int)
+                            
+                            component_count += 1
+                            if component_limit is not None and component_count >= component_limit:
                                 break
-                    except HTTPError as exc:
-                        # Handle 404 gracefully: some components may not have sequences
-                        # requests.exceptions.HTTPError always has a response attribute
-                        if exc.response is not None and exc.response.status_code == 404:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                                target_chembl_id=target_id,
-                                component_id=component_id,
-                                error=f"Component sequence not found (404): {component_id}",
-                            )
-                            # Skip this component - it doesn't have a sequence
+                        except (ValueError, TypeError):
+                            # Skip invalid component_id
                             continue
-                        # Re-raise other HTTP errors
-                        raise
-                    except CircuitBreakerOpenError as exc:
-                        # Wait for circuit breaker to transition to half-open, then retry once
-                        wait_time = chembl_client.circuit_breaker_time_until_half_open()
-                        if wait_time is not None and wait_time > 0:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                                target_chembl_id=target_id,
-                                component_id=component_id,
-                                error=str(exc),
-                                wait_time=wait_time,
-                            )
-                            time.sleep(min(wait_time + 1.0, 60.0))  # Wait with small buffer, max 60s
-                            try:
-                                # Retry once after waiting
-                                for seq_item in chembl_client.paginate(
-                                    "/component_sequence.json",
-                                    params={"component_id": component_id},
-                                    page_size=200,
-                                    items_key="component_sequences",
-                                ):
-                                    component_type = seq_item.get("component_type")
-                                    if (
-                                        isinstance(component_type, str)
-                                        and component_type.upper() == "PROTEIN"
-                                    ):
-                                        protein_component_ids.append(component_id)
-                                        break
-                            except HTTPError as retry_exc:
-                                # Handle 404 on retry as well
-                                # requests.exceptions.HTTPError always has a response attribute
-                                if retry_exc.response is not None and retry_exc.response.status_code == 404:
-                                    log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                                        target_chembl_id=target_id,
-                                        component_id=component_id,
-                                        error=f"Component sequence not found (404) on retry: {component_id}",
-                                    )
-                                    # Skip this component
-                                    continue
-                                raise
-                            except Exception as retry_exc:
-                                log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                                    target_chembl_id=target_id,
-                                    component_id=component_id,
-                                    error=str(retry_exc),
-                                )
-                        else:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                                target_chembl_id=target_id,
-                                component_id=component_id,
-                                error=str(exc),
-                            )
-                    except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
-                            target_chembl_id=target_id,
-                            component_id=component_id,
-                            error=str(exc),
-                        )
 
                 if not protein_component_ids:
                     continue
 
-                # Step 3: Get protein_class_id for each protein component
+                # Step 2: Get protein_class_id for each protein component
                 protein_class_ids: set[str] = set()
                 for component_id in protein_component_ids:
                     try:

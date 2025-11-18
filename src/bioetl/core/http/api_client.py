@@ -108,6 +108,7 @@ class CircuitBreaker:
         self._failure_threshold = int(config.failure_threshold)
         self._timeout = float(config.timeout)
         self._half_open_max_calls = int(config.half_open_max_calls)
+        self._ignore_status_codes = set(config.ignore_status_codes)
         self._failure_count = 0
         self._last_failure_time: float | None = None
         self._state: Literal["closed", "open", "half-open"] = "closed"
@@ -169,9 +170,20 @@ class CircuitBreaker:
             result = func()
             self._on_success()
             return result
-        except Exception:
+        except Exception as exc:
+            # Check if this is an HTTPError with a status code we should ignore
+            status_code = self._extract_status_code(exc)
+            if status_code is not None and status_code in self._ignore_status_codes:
+                # Don't count this as a failure - these are expected errors (e.g., 404 for missing resources)
+                raise
             self._on_failure()
             raise
+
+    def _extract_status_code(self, exc: Exception) -> int | None:
+        """Extract HTTP status code from an exception if it's an HTTPError."""
+        if isinstance(exc, HTTPError) and exc.response is not None:
+            return exc.response.status_code
+        return None
 
     def _on_success(self) -> None:
         """Handle successful request."""

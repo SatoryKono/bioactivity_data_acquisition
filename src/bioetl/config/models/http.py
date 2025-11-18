@@ -65,6 +65,10 @@ class CircuitBreakerConfig(BaseModel):
         default=1,
         description="Maximum number of calls allowed in half-open state before transitioning back to closed or open.",
     )
+    ignore_status_codes: tuple[StatusCode, ...] = Field(
+        default=(),
+        description="HTTP status codes that should not be counted as failures by the circuit breaker.",
+    )
 
 
 class HTTPClientConfig(BaseModel):
