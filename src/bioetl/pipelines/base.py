@@ -71,6 +71,18 @@ from bioetl.schemas import (
     SchemaVersionMismatchError,
     get_schema,
 )
+from bioetl.pipelines.validation import (
+    CoerceRetryStep,
+    FailOpenValidation,
+    MigrationStep,
+    SchemaResolutionStep,
+    SchemaValidationStep,
+    StrictValidation,
+    SummaryStep,
+    ValidationContext,
+    ValidationStep,
+    VocabularyValidationStep,
+)
 from bioetl.schemas.pipeline_contracts import get_business_key_fields as get_pipeline_business_keys
 from bioetl.vocab import get_vocabulary_service
 from bioetl.vocab.exceptions import VocabularyValidationError, VocabularyViolation
@@ -1994,220 +2006,36 @@ class PipelineBase(ABC, PipelineStagesProtocol):
 
         According to documentation, this method should accept df: pd.DataFrame.
         """
-        schema_identifier = self.config.validation.schema_out
         log = UnifiedLogger.get(__name__)
-        if not schema_identifier:
-            log.debug(LogEvents.VALIDATION_SKIPPED, reason="no_schema_configured")
-            self._validation_schema = None
-            self._validation_schema_version = None
-            self._validation_summary = None
-            return df
-
-        dataset_role = "primary"
-        expected_version = getattr(self.config.validation, "schema_out_version", None)
-        allow_migration = bool(getattr(self.config.validation, "allow_schema_migration", False))
-        schema_entry, migrations, source_version = self._resolve_schema_entry(
-            schema_identifier,
-            expected_version=expected_version,
-            dataset_role=dataset_role,
-            allow_migration=allow_migration,
-        )
-        migrations_applied = len(migrations)
-        migrated_from_version = source_version if migrations_applied else None
-        if migrations:
-            df = self._apply_schema_migrations(
-                df,
-                schema_identifier=schema_identifier,
-                dataset_role=dataset_role,
-                migrations=migrations,
-            )
-
-        schema: DataFrameSchema = schema_entry.schema
-        if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-            schema = cast(
-                DataFrameSchema,
-                cast(Any, schema).replace(
-                    strict=self.config.validation.strict,
-                    coerce=self.config.validation.coerce,
-                ),
-            )
-        else:
-            schema = self._clone_schema_with_options(
-                schema,
-                strict=self.config.validation.strict,
-                coerce=self.config.validation.coerce,
-            )
-        log.debug(
-            LogEvents.VALIDATION_SCHEMA_LOADED,
-            schema=schema_entry.identifier,
-            version=schema_entry.version,
-        )
-
         fail_open = (not getattr(self.config.cli, "fail_on_schema_drift", True)) or (
             not getattr(self.config.cli, "validate_columns", True)
         )
 
-        schema_valid = True
-        failure_count: int | None = None
-        error_summary: str | None = None
-        vocabulary_failures_details: list[dict[str, object]] = []
+        behavior = FailOpenValidation() if fail_open else StrictValidation()
+        context = ValidationContext(pipeline=self, df=df, log=log)
 
-        df_for_validation = ensure_hash_columns(df, config=self.config)
-        df_for_validation = self._ensure_schema_columns(
-            df_for_validation,
-            schema_entry.column_order,
-            log,
+        steps: tuple[ValidationStep, ...] = (
+            SchemaResolutionStep(),
+            MigrationStep(),
+            SchemaValidationStep(),
+            CoerceRetryStep(),
+            VocabularyValidationStep(),
+            SummaryStep(),
         )
-        df_for_validation = self._reorder_columns(
-            df_for_validation,
-            schema_entry.column_order,
-        )
-        df_for_validation = self._ensure_load_meta_ids(df_for_validation)
 
-        def _coerce_failures_only(error: pandera.errors.SchemaErrors) -> tuple[bool, list[str]]:
-            failure_cases_df = getattr(error, "failure_cases", None)
-            if not isinstance(failure_cases_df, pd.DataFrame) or failure_cases_df.empty:
-                return False, []
+        for step in steps:
+            result = step.run(context, behavior)
+            context.df = result.df
+            if not result.continue_steps:
+                break
 
-            checks_series = failure_cases_df.get("check")
-            if checks_series is None:
-                return False, []
+        if context.skip_remaining:
+            self._validation_schema = None
+            self._validation_schema_version = None
+            self._validation_summary = None
+            return context.df
 
-            checks_str = checks_series.astype(str)
-            if not bool(checks_str.str.startswith("coerce_dtype").all()):
-                return False, []
-
-            columns_series = failure_cases_df.get("column")
-            columns_list: list[str] = []
-            if columns_series is not None:
-                columns_list = columns_series.dropna().astype(str).unique().tolist()
-
-            return True, columns_list
-
-        try:
-            validated_candidate: Any = schema.validate(df_for_validation, lazy=True)
-            validated = self._reorder_columns(validated_candidate, schema_entry.column_order)
-        except pandera.errors.SchemaErrors as exc:
-            fallback_validated: pd.DataFrame | None = None
-            coerce_only = False
-            affected_columns: list[str] = []
-            fallback_schema: DataFrameSchema | None = None
-            if bool(self.config.validation.coerce):
-                coerce_only, affected_columns = _coerce_failures_only(exc)
-                fallback_schema = cast(
-                    DataFrameSchema,
-                    self._clone_schema_with_options(
-                        schema_entry.schema,
-                        strict=self.config.validation.strict,
-                        coerce=False,
-                    ),
-                )
-                try:
-                    retried_candidate: Any = fallback_schema.validate(df_for_validation, lazy=True)
-                except pandera.errors.SchemaErrors:
-                    fallback_validated = None
-                else:
-                    fallback_validated = self._reorder_columns(
-                        retried_candidate,
-                        schema_entry.column_order,
-                    )
-                    schema = fallback_schema
-                    log.debug(
-                        LogEvents.VALIDATION_RETRY_WITHOUT_COERCE,
-                        columns=affected_columns,
-                        rows=len(df_for_validation),
-                    )
-
-            if fallback_validated is not None:
-                validated = fallback_validated
-            elif coerce_only and fallback_schema is not None:
-                schema = fallback_schema
-                validated = df_for_validation
-                log.debug(
-                    LogEvents.VALIDATION_COERCE_ONLY_PASSTHROUGH,
-                    columns=affected_columns,
-                    rows=len(df_for_validation),
-                )
-            else:
-                if not fail_open:
-                    raise
-                summary = summarize_schema_errors(exc)
-                failure_cases_df = getattr(exc, "failure_cases", None)
-                failure_details: dict[str, Any] | None = None
-                if isinstance(failure_cases_df, pd.DataFrame) and not failure_cases_df.empty:
-                    failure_details = format_failure_cases(failure_cases_df)
-                    summary["failure_count"] = int(len(failure_cases_df))
-                log_payload: dict[str, Any] = {
-                    "schema": schema_entry.identifier,
-                    "version": schema_entry.version,
-                    **summary,
-                }
-                if failure_details:
-                    log_payload["failure_details"] = failure_details
-                log.warning(LogEvents.SCHEMA_VALIDATION_FAILED, **log_payload)
-                validated = df_for_validation
-                schema_valid = False
-                error_summary = summary.get("message")
-                failure_count = summary.get("failure_count")
-
-        vocabulary_violations = self._check_vocabulary_bindings(validated, schema_entry)
-        if vocabulary_violations:
-            if fail_open:
-                schema_valid = False
-                total_invalid = sum(violation.invalid_count for violation in vocabulary_violations)
-                failure_count = (failure_count or 0) + total_invalid
-                vocabulary_failures_details = [
-                    {
-                        "column": violation.column,
-                        "vocabulary_id": violation.vocabulary_id,
-                        "invalid_values": violation.invalid_values,
-                        "invalid_count": violation.invalid_count,
-                    }
-                    for violation in vocabulary_violations
-                ]
-                log.warning(
-                    LogEvents.SCHEMA_VALIDATION_FAILED,
-                    schema=schema_entry.identifier,
-                    version=schema_entry.version,
-                    reason="vocabulary_bindings",
-                    failure_count=total_invalid,
-                    violations=vocabulary_failures_details,
-                )
-                if error_summary is None:
-                    error_summary = "vocabulary binding violations"
-            else:
-                raise VocabularyValidationError(violations=vocabulary_violations)
-        self._validation_schema = schema_entry
-        self._validation_schema_version = schema_entry.version
-        self._validation_summary = {
-            "schema_identifier": schema_entry.identifier,
-            "schema_name": schema_entry.name,
-            "schema_version": schema_entry.version,
-            "column_order": list(schema_entry.column_order),
-            "strict": bool(self.config.validation.strict),
-            "coerce": bool(self.config.validation.coerce),
-            "row_count": int(len(validated)),
-            "schema_valid": schema_valid,
-            "expected_version": expected_version,
-            "migrated_from_version": migrated_from_version,
-            "migrations_applied": migrations_applied,
-        }
-        if error_summary is not None:
-            self._validation_summary["error"] = error_summary
-        if failure_count is not None:
-            self._validation_summary["failure_count"] = failure_count
-        if vocabulary_failures_details:
-            self._validation_summary["vocabulary_failures"] = vocabulary_failures_details
-
-        if schema_valid:
-            log.debug(
-                LogEvents.VALIDATION_COMPLETED,
-                schema=schema_entry.identifier,
-                version=schema_entry.version,
-                rows=len(validated),
-            )
-
-        return validated
+        return context.df
 
     def _check_vocabulary_bindings(
         self,
