@@ -1,8 +1,6 @@
 """TestItem pipeline implementation for ChEMBL."""
 
 from __future__ import annotations
-
-import time
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, cast
@@ -105,6 +103,20 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
 
         return release_value
 
+    def resolve_chembl_release(
+        self,
+        chembl_client: UnifiedAPIClient | Any,  # noqa: ANN401
+        log: BoundLogger,
+        entity_client: Any | None = None,  # noqa: ARG002
+    ) -> tuple[str | None, dict[str, Any]]:
+        release_value = self._fetch_chembl_release(chembl_client, log)
+        metadata: dict[str, Any] = {}
+        if self.chembl_db_version:
+            metadata["chembl_db_version"] = self.chembl_db_version
+        if self.api_version:
+            metadata["api_version"] = self.api_version
+        return release_value, metadata
+
     # ------------------------------------------------------------------
     # Pipeline stages
     # ------------------------------------------------------------------
@@ -182,95 +194,40 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         return cast("ChemblExtractionDescriptor[ChemblPipelineBase]", descriptor)
 
     def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract molecule records by a specific list of IDs using batch extraction.
+        """Extract molecule records by a specific list of IDs using batch extraction."""
 
-        Parameters
-        ----------
-        ids:
-            Sequence of molecule_chembl_id values to extract.
-
-        Returns
-        -------
-        pd.DataFrame:
-            DataFrame containing extracted molecule records.
-        """
-        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        stage_start = time.perf_counter()
-
+        descriptor = self.build_descriptor()
         source_raw = self._resolve_source_config("chembl")
         source_config = TestItemSourceConfig.from_source_config(source_raw)
-        bundle = self.build_chembl_entity_bundle(
-            "testitem",
-            source_name="chembl",
-            source_config=source_config,
-        )
-        if "chembl_testitem_http" not in self._registered_clients:
-            self.register_client("chembl_testitem_http", bundle.api_client)
-        chembl_client = bundle.chembl_client
-        self._fetch_chembl_release(chembl_client, log)
-
-        if self.config.cli.dry_run:
-            duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(
-                LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
-                dry_run=True,
-                duration_ms=duration_ms,
-                chembl_db_version=self.chembl_db_version,
-                api_version=self.api_version,
-            )
-            return pd.DataFrame()
-
         page_size = min(source_config.page_size, 25)
         limit = self.config.cli.limit
         resolved_select_fields = source_config.parameters.select_fields
         merged_select_fields = self._merge_select_fields(
             resolved_select_fields, TESTITEM_MUST_HAVE_FIELDS
         )
+        log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
         log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=merged_select_fields)
 
-        testitem_client = cast(ChemblTestitemClient, bundle.entity_client)
-        if testitem_client is None:
-            msg = "Фабрика вернула пустой клиент для 'testitem'"
-            raise RuntimeError(msg)
+        metadata_filters = {
+            "select_fields": list(merged_select_fields) if merged_select_fields else None,
+        }
 
-        def fetch_testitems(
-            batch_ids: Sequence[str],
-            context: BatchExtractionContext,
-        ) -> Iterable[Mapping[str, Any]]:
-            iterator = testitem_client.iterate_by_ids(
-                batch_ids,
-                select_fields=context.select_fields or None,
-            )
-            for item in iterator:
-                yield dict(item)
-
-        dataframe, stats = self.run_batched_extraction(
+        dataframe, _ = self.run_descriptor_extraction(
+            descriptor,
             ids,
-            id_column="molecule_chembl_id",
-            fetcher=fetch_testitems,
-            select_fields=merged_select_fields or None,
+            source_config=source_config,
+            summary_event=LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
+            dry_run_event=LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            metadata_filters=metadata_filters,
             batch_size=page_size,
             chunk_size=min(page_size, 25),
             max_batch_size=25,
             limit=limit,
-            metadata_filters={
-                "select_fields": list(merged_select_fields) if merged_select_fields else None,
-            },
-            chembl_release=self.chembl_release,
+            select_fields=merged_select_fields or None,
+            summary_extra={"limit": limit},
+            empty_frame_factory=pd.DataFrame,
         )
 
-        duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(
-            LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
-            rows=int(dataframe.shape[0]),
-            requested=len(ids),
-            duration_ms=duration_ms,
-            chembl_db_version=self.chembl_db_version,
-            api_version=self.api_version,
-            limit=limit,
-            batches=stats.batches,
-            api_calls=stats.api_calls,
-        )
         return dataframe
 
     def transform(self, df: pd.DataFrame) -> pd.DataFrame:
