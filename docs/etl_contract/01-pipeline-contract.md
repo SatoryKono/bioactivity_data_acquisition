@@ -19,6 +19,40 @@ implementing the business logic within the `extract` and `transform` stages,
 while the framework manages the `validate`, `write`, and `run` stages to
 guarantee consistency.
 
+## Public contract
+
+Every pipeline exposes a single public entrypoint, `run()`, whose signature is
+fixed by the framework:
+
+```python
+def run(
+    self,
+    output_dir: Path,
+    *,
+    extended: bool = False,
+    include_correlation: bool = False,
+    include_qc_metrics: bool = False,
+    qc_reports: QCReportRuntimeOptions | None = None,
+    qc_thresholds: Mapping[str, float] | None = None,
+    fail_on_qc_violation: bool = False,
+) -> RunResult:
+    ...
+```
+
+- `output_dir` — базовая директория для детерминированной материализации
+  датасета и артефактов.
+- `extended` — включает расширенный режим, добавляющий QC/корреляции по
+  умолчанию и дополнительные метаданные.
+- `include_correlation` и `include_qc_metrics` — явные флаги, позволяющие
+  оркестратору потребовать построение соответствующих отчётов.
+- `qc_reports`, `qc_thresholds`, `fail_on_qc_violation` — параметры, передающие
+  рантайм-конфигурацию подсистемы контроля качества.
+
+Наследники `PipelineBase` и `UnifiedPipelineBase` **не должны** менять эту
+сигнатуру: `run()` выполняет шаблон ``prepare_run -> extract -> transform ->
+validate -> save_results -> finalize_run`` и управляет логированием, таймерами,
+обработкой ошибок и очисткой ресурсов.
+
 ### Abstract Interface Definition
 
 Below is the abstract interface that every pipeline must implement. This

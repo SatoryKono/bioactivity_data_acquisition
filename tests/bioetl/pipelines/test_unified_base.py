@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 from typing import Sequence
 from unittest.mock import MagicMock
@@ -9,7 +10,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
+from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
+from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
+from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
+from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
+from bioetl.core.pipeline import RunResult
 
 
 class DummyUnifiedPipeline(UnifiedPipelineBase):
@@ -125,3 +132,47 @@ def test_unified_pipeline_run_produces_artifacts(
 ) -> None:
     result = unified_pipeline.run(tmp_output_dir)
     assert result.write_result.dataset.exists()
+
+
+def test_unified_pipeline_run_signature_matches_contract() -> None:
+    sig = inspect.signature(UnifiedPipelineBase.run)
+    assert sig.return_annotation in {RunResult, "RunResult"}
+
+    param_names = list(sig.parameters.keys())
+    assert param_names == [
+        "self",
+        "output_dir",
+        "extended",
+        "include_correlation",
+        "include_qc_metrics",
+        "qc_reports",
+        "qc_thresholds",
+        "fail_on_qc_violation",
+    ]
+
+    kwonly_params = [
+        sig.parameters[name]
+        for name in param_names[2:]
+    ]
+    for param in kwonly_params:
+        assert param.kind is inspect.Parameter.KEYWORD_ONLY
+
+    assert sig.parameters["extended"].default is False
+    assert sig.parameters["include_correlation"].default is False
+    assert sig.parameters["include_qc_metrics"].default is False
+    assert sig.parameters["qc_reports"].default is None
+    assert sig.parameters["qc_thresholds"].default is None
+    assert sig.parameters["fail_on_qc_violation"].default is False
+
+
+def test_all_chembl_pipelines_use_unified_base() -> None:
+    pipelines = [
+        ChemblActivityPipeline,
+        ChemblAssayPipeline,
+        ChemblDocumentPipeline,
+        ChemblTargetPipeline,
+        TestItemChemblPipeline,
+    ]
+
+    for pipeline_cls in pipelines:
+        assert issubclass(pipeline_cls, UnifiedPipelineBase)
