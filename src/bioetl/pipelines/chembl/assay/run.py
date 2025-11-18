@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from typing import Any, TypeVar, cast
+from typing import Any, Callable, TypeVar, cast
 
 import pandas as pd
 from pandas import Series
@@ -122,6 +122,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
     actor = "assay_chembl"
     id_column = "assay_chembl_id"
     extract_event_name = "chembl_assay.extract_mode"
+    id_extraction_summary_event = LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY
+    id_extraction_dry_run_event = LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
@@ -293,86 +295,72 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
             summary_extra=summary_extra,
         )
 
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract assay records by batching explicit ID requests."""
-
-        descriptor = self.build_descriptor()
-        source_raw = self._resolve_source_config("chembl")
-        source_config = AssaySourceConfig.from_source_config(source_raw)
-        resolved_select_fields = self._resolve_select_fields(source_raw)
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields,
-            ASSAY_MUST_HAVE_FIELDS,
+    def id_extraction_metadata_filters(
+        self,
+        select_fields: Sequence[str] | None,
+        typed_source_config: AssaySourceConfig,
+        descriptor: ChemblExtractionDescriptor[Any],
+    ) -> Mapping[str, Any] | None:
+        payload: dict[str, Any] = {}
+        base_filters = super().id_extraction_metadata_filters(
+            select_fields,
+            typed_source_config,
+            descriptor,
         )
-        limit = self.config.cli.limit
+        if base_filters:
+            payload.update(base_filters)
+        payload["max_url_length"] = typed_source_config.max_url_length
+        return payload
 
-        def finalize_factory(
-            extraction_context: ChemblExtractionContext, log: BoundLogger
-        ) -> FinalizeCallable:
-            def finalize_dataframe(
-                dataframe: pd.DataFrame, context: BatchExtractionContext
-            ) -> pd.DataFrame:
-                if dataframe.empty:
-                    return dataframe
-
-                for must_field in ("assay_category", "assay_group", "src_assay_id"):
-                    if must_field not in dataframe.columns or dataframe[must_field].isna().all():
-                        log.warning(
-                            LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
-                            field=must_field,
-                            note="Field not returned by API; check select_fields/only",
-                        )
-
-                if context.select_fields:
-                    expected_fields = set(context.select_fields)
-                    actual_fields = set(dataframe.columns)
-                    missing_in_response = sorted(expected_fields - actual_fields)
-                    if missing_in_response:
-                        log.warning(
-                            LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
-                            missing_fields=missing_in_response,
-                            requested_fields_count=len(context.select_fields),
-                            received_fields_count=len(actual_fields),
-                            chembl_release=self.chembl_release,
-                            message=(
-                                "Fields requested in select_fields but missing in API response: "
-                                f"{missing_in_response}"
-                            ),
-                        )
-
-                dataframe = self._check_missing_columns(
-                    dataframe,
-                    log,
-                    select_fields=list(context.select_fields) if context.select_fields else None,
-                )
-                return dataframe
-
-            return finalize_dataframe
-
-        def empty_assay_frame() -> pd.DataFrame:
+    def id_extraction_empty_frame_factory(
+        self,
+        descriptor: ChemblExtractionDescriptor[Any],
+        typed_source_config: AssaySourceConfig,
+    ) -> Callable[[], pd.DataFrame]:
+        def factory() -> pd.DataFrame:
             return pd.DataFrame({self.id_column: pd.Series(dtype="string")})
 
-        metadata_filters = {
-            "select_fields": list(merged_select_fields) if merged_select_fields else None,
-            "max_url_length": source_config.max_url_length,
-        }
+        return factory
 
-        dataframe, _ = self.run_descriptor_extraction(
-            descriptor,
-            ids,
-            source_config=source_config,
-            summary_event=LogEvents.CHEMBL_ASSAY_EXTRACT_BY_IDS_SUMMARY,
-            dry_run_event=LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
-            finalize_factory=finalize_factory,
-            metadata_filters=metadata_filters,
-            batch_size=source_config.batch_size,
-            max_batch_size=25,
-            limit=limit,
-            select_fields=merged_select_fields or None,
-            summary_extra={"limit": limit},
-            empty_frame_factory=empty_assay_frame,
+    def finalize_batch(
+        self,
+        dataframe: pd.DataFrame,
+        context: BatchExtractionContext,
+    ) -> pd.DataFrame:
+        if dataframe.empty:
+            return dataframe
+
+        log = context.log
+        for must_field in ("assay_category", "assay_group", "src_assay_id"):
+            if must_field not in dataframe.columns or dataframe[must_field].isna().all():
+                log.warning(
+                    LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
+                    field=must_field,
+                    note="Field not returned by API; check select_fields/only",
+                )
+
+        if context.select_fields:
+            expected_fields = set(context.select_fields)
+            actual_fields = set(dataframe.columns)
+            missing_in_response = sorted(expected_fields - actual_fields)
+            if missing_in_response:
+                log.warning(
+                    LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
+                    missing_fields=missing_in_response,
+                    requested_fields_count=len(context.select_fields),
+                    received_fields_count=len(actual_fields),
+                    chembl_release=self.chembl_release,
+                    message=(
+                        "Fields requested in select_fields but missing in API response: "
+                        f"{missing_in_response}"
+                    ),
+                )
+
+        dataframe = self._check_missing_columns(
+            dataframe,
+            log,
+            select_fields=list(context.select_fields) if context.select_fields else None,
         )
-
         return dataframe
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
