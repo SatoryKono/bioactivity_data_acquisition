@@ -2,7 +2,16 @@
 
 from bioetl.core.io import RunArtifacts, WriteArtifacts, WriteResult
 
-from .base import PipelineBase, PipelineExtractionMode, PipelineStagesProtocol, RunResult
+from .base import (
+    PipelineBase,
+    PipelineExtractionMode,
+    PipelineStageCommand,
+    PipelineStagesProtocol,
+    RunResult,
+    StageContext,
+    StageExecutionOptions,
+    StageFactory,
+)
 from .errors import (
     PipelineError,
     PipelineHTTPError,
@@ -14,11 +23,15 @@ from .errors import (
 __all__ = [
     "PipelineBase",
     "PipelineExtractionMode",
+    "PipelineStageCommand",
     "PipelineStagesProtocol",
     "PipelineError",
     "PipelineHTTPError",
     "PipelineNetworkError",
     "PipelineTimeoutError",
+    "StageContext",
+    "StageExecutionOptions",
+    "StageFactory",
     "RunArtifacts",
     "RunResult",
     "WriteArtifacts",
