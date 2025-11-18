@@ -19,4 +19,3 @@ __all__ = [
     "QCBoundaryReport",
     "collect_cli_qc_boundary_report",
 ]
-

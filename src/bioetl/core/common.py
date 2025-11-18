@@ -22,13 +22,9 @@ class ChemblReleaseMixin(ChemblOptionalStringValueMixin):
     def chembl_release(self) -> str | None:
         """Return the cached ChEMBL release identifier."""
 
-        return self._get_optional_string_value(
-            "_chembl_release", field_name="chembl_release"
-        )
+        return self._get_optional_string_value("_chembl_release", field_name="chembl_release")
 
     def _set_chembl_release(self, value: str | None) -> None:
         """Store a ChEMBL release identifier after normalisation."""
 
-        self._set_optional_string_value(
-            "_chembl_release", value, field_name="chembl_release"
-        )
+        self._set_optional_string_value("_chembl_release", value, field_name="chembl_release")

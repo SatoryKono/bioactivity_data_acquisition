@@ -203,4 +203,3 @@ PLACEHOLDER_PIPELINES: tuple[PipelineCommandSpec, ...] = (
 COMMAND_REGISTRY: dict[str, Callable[[], CommandConfig]] = _create_command_registry(
     PIPELINE_REGISTRY
 )
-

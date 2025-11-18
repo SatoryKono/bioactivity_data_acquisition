@@ -23,4 +23,3 @@ __all__ = [
     "vocab_ids",
     "vocab_store",
 ]
-

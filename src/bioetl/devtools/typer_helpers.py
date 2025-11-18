@@ -20,9 +20,13 @@ class TyperApp(Protocol):
 
     def __call__(self, *_args: Any, **_kwargs: Any) -> None: ...
 
-    def command(self, *_args: Any, **_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+    def command(
+        self, *_args: Any, **_kwargs: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
 
-    def callback(self, *_args: Any, **_kwargs: Any) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+    def callback(
+        self, *_args: Any, **_kwargs: Any
+    ) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
 
 
 def get_typer() -> Any:
@@ -66,5 +70,3 @@ def register_tool_app(
         run_app(app)
 
     return app, _run
-
-

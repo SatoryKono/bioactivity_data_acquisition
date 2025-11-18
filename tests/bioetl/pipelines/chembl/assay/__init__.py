@@ -1,2 +1,1 @@
 """Assay pipeline tests."""
-

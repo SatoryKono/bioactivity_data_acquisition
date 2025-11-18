@@ -50,16 +50,12 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
     @property
     def chembl_db_version(self) -> str | None:
         """Return the cached ChEMBL DB version captured during extraction."""
-        return self._get_optional_string_value(
-            "_chembl_db_version", field_name="chembl_db_version"
-        )
+        return self._get_optional_string_value("_chembl_db_version", field_name="chembl_db_version")
 
     def _set_chembl_db_version(self, value: str | None) -> None:
         """Update the cached ChEMBL DB version used by the pipeline."""
 
-        self._set_optional_string_value(
-            "_chembl_db_version", value, field_name="chembl_db_version"
-        )
+        self._set_optional_string_value("_chembl_db_version", value, field_name="chembl_db_version")
 
     def _fetch_chembl_release(
         self,
@@ -113,15 +109,17 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def build_descriptor(self) -> ChemblExtractionDescriptor["ChemblPipelineBase"]:
+    def build_descriptor(self) -> ChemblExtractionDescriptor[ChemblPipelineBase]:
         """Return the descriptor powering testitem extraction."""
 
         def build_context(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: TestItemChemblPipeline,
             source_config: TestItemSourceConfig,
             log: BoundLogger,
         ) -> ChemblExtractionContext:
-            def extra_filters_factory(_: TestItemSourceConfig, p: "TestItemChemblPipeline") -> dict[str, Any]:
+            def extra_filters_factory(
+                _: TestItemSourceConfig, p: TestItemChemblPipeline
+            ) -> dict[str, Any]:
                 return {"api_version": p.api_version}
 
             context = build_standard_chembl_context(
@@ -130,7 +128,10 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
                 source_config,
                 log,
                 entity_client_type=ChemblTestitemClient,
-                release_resolver=lambda p, c, l, _: p._fetch_chembl_release(c, l),
+                release_resolver=lambda pipeline_obj,
+                client,
+                logger,
+                _: pipeline_obj._fetch_chembl_release(client, logger),
                 extra_filters_factory=extra_filters_factory,
                 chembl_release_override=pipeline.chembl_db_version,
             )
@@ -140,7 +141,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
 
             return context
 
-        def get_metadata(pipeline: "TestItemChemblPipeline") -> Mapping[str, Any]:
+        def get_metadata(pipeline: TestItemChemblPipeline) -> Mapping[str, Any]:
             return {
                 "chembl_db_version": pipeline.chembl_db_version,
                 "api_version": pipeline.api_version,
@@ -153,7 +154,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         )
 
         def summary_extra(
-            pipeline: "TestItemChemblPipeline",
+            pipeline: TestItemChemblPipeline,
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -210,7 +211,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
 
         if self.config.cli.dry_run:
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
+            log.info(
+                LogEvents.CHEMBL_TESTITEM_EXTRACT_SKIPPED,
                 dry_run=True,
                 duration_ms=duration_ms,
                 chembl_db_version=self.chembl_db_version,
@@ -258,7 +260,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         )
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
-        log.info(LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
+        log.info(
+            LogEvents.CHEMBL_TESTITEM_EXTRACT_BY_IDS_SUMMARY,
             rows=int(dataframe.shape[0]),
             requested=len(ids),
             duration_ms=duration_ms,
@@ -414,7 +417,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             stats = StringStats()
 
         if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
+            log.debug(
+                LogEvents.NORMALIZE_IDENTIFIERS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -441,7 +445,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
+            log.debug(
+                LogEvents.NORMALIZE_STRING_FIELDS_COMPLETED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -666,7 +671,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         highly_empty_fields = {col: pct for col, pct in empty_percentages.items() if pct > 95.0}
 
         if highly_empty_fields:
-            log.warning(LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
+            log.warning(
+                LogEvents.HIGHLY_EMPTY_COLUMNS_DETECTED,
                 empty_fields=highly_empty_fields,
                 message=(
                     f"Fields with >95% empty values detected: {highly_empty_fields}. "
@@ -686,7 +692,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
 
         if extra_columns:
             df = df.drop(columns=list(extra_columns))
-            log.debug(LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
+            log.debug(
+                LogEvents.REMOVE_EXTRA_COLUMNS_COMPLETED,
                 removed_columns=list(extra_columns),
                 remaining_columns=list(df.columns),
             )
@@ -745,7 +752,8 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         rows_after = len(df)
         dropped = rows_before - rows_after
         if dropped > 0:
-            log.info(LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
+            log.info(
+                LogEvents.DEDUPLICATE_MOLECULES_COMPLETED,
                 rows_before=rows_before,
                 rows_after=rows_after,
                 dropped=dropped,

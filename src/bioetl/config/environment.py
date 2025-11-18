@@ -12,21 +12,22 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Mapping, MutableMapping
+from collections.abc import Iterable, MutableMapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .helpers import build_env_overrides, coerce_bool, resolve_directory
 
-
 _LOGGER = logging.getLogger(__name__)
 
 _VALID_ENVIRONMENTS: frozenset[str] = frozenset({"dev", "stage", "prod"})
 _ENV_LAYER_PATTERNS: tuple[str, ...] = ("*.yaml", "*.yml")
 ENV_ROOT_DIR = Path("configs/env")
+
+
 class _EnvOverrideSpec:
     """Internal spec describing mapping between short env vars and config paths."""
 
@@ -229,10 +230,7 @@ def _extract_plain_value(value: str | SecretStr | None) -> str | None:
     """Normalize env values (including SecretStr) into plain strings."""
     if value is None:
         return None
-    if isinstance(value, SecretStr):
-        plain = value.get_secret_value()
-    else:
-        plain = value
+    plain = value.get_secret_value() if isinstance(value, SecretStr) else value
     plain = plain.strip()
     return plain or None
 
@@ -256,4 +254,3 @@ __all__ = [
     "load_environment_settings",
     "resolve_env_layers",
 ]
-

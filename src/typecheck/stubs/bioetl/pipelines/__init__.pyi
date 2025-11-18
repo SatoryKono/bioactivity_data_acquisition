@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import pandas as pd
 
@@ -16,7 +17,6 @@ class WriteResult:
     qc_metrics: Path | None
     extras: dict[str, Path]
 
-
 class WriteArtifacts:
     dataset: Path
     metadata: Path | None
@@ -24,14 +24,12 @@ class WriteArtifacts:
     correlation_report: Path | None
     qc_metrics: Path | None
 
-
 class RunArtifacts:
     write: WriteArtifacts
     run_directory: Path
     manifest: Path | None
     log_file: Path
     extras: dict[str, Path]
-
 
 class RunResult:
     write_result: WriteResult
@@ -49,13 +47,10 @@ class RunResult:
 
     @property
     def dataset_path(self) -> Path: ...
-
     @property
     def records(self) -> int: ...
-
     @property
     def dataframe(self) -> pd.DataFrame: ...
-
 
 class PipelineBase:
     config: Any
@@ -63,11 +58,8 @@ class PipelineBase:
     pipeline_code: str
 
     def extract(self, *args: Any, **kwargs: Any) -> pd.DataFrame: ...
-
     def transform(self, df: pd.DataFrame) -> pd.DataFrame: ...
-
     def validate(self, df: pd.DataFrame) -> pd.DataFrame: ...
-
     def write(
         self,
         df: pd.DataFrame,
@@ -77,7 +69,6 @@ class PipelineBase:
         include_correlation: bool | None = ...,
         include_qc_metrics: bool | None = ...,
     ) -> RunResult: ...
-
     def run(
         self,
         output_path: Path,
@@ -91,21 +82,11 @@ class PipelineBase:
         **kwargs: Any,
     ) -> RunResult: ...
 
-
 class ChemblActivityPipeline(PipelineBase): ...
-
-
 class ChemblAssayPipeline(PipelineBase): ...
-
-
 class ChemblDocumentPipeline(PipelineBase): ...
-
-
 class ChemblTargetPipeline(PipelineBase): ...
-
-
 class TestItemChemblPipeline(PipelineBase): ...
-
 
 ActivityPipeline = ChemblActivityPipeline
 AssayPipeline = ChemblAssayPipeline
@@ -132,4 +113,3 @@ __all__ = [
     "WriteArtifacts",
     "WriteResult",
 ]
-

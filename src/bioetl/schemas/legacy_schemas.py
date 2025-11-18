@@ -23,4 +23,3 @@ def register_legacy_schema_modules() -> None:
 
 
 __all__ = ["LEGACY_MODULE_ALIASES", "register_legacy_schema_modules"]
-

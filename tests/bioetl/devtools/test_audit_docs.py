@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import csv
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import pytest
 
@@ -59,7 +60,9 @@ def test_extract_markdown_links_and_check(tmp_path: Path) -> None:
     assert not exists
 
 
-def test_audit_broken_links_and_find_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_audit_broken_links_and_find_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     docs_dir = tmp_path / "docs"
     docs_dir.mkdir()
     valid = docs_dir / "file.md"
@@ -120,4 +123,3 @@ def test_run_audit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     audit_docs.run_audit(artifacts_dir=artifacts)
     assert (artifacts / "GAPS_TABLE.csv").exists()
     assert (artifacts / "LINKCHECK.md").exists()
-

@@ -53,5 +53,3 @@ class PipelineInfrastructureConfig(BaseModel):
     cli: CLIConfig = Field(
         default_factory=CLIConfig, description="CLI flags and overrides exposed to operators."
     )
-
-

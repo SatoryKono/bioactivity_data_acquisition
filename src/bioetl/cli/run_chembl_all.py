@@ -200,7 +200,9 @@ def _run_single_pipeline(
         )
 
 
-def _aggregate_results(results: list[PipelineRunResult], run_id: str, start_time: datetime) -> AggregatedResults:
+def _aggregate_results(
+    results: list[PipelineRunResult], run_id: str, start_time: datetime
+) -> AggregatedResults:
     """Агрегировать результаты всех пайплайнов."""
     end_time = datetime.now(timezone.utc)
     total_duration_ms = sum(r.duration_ms for r in results)
@@ -302,7 +304,9 @@ def _write_qc_json(aggregated: AggregatedResults, output_root: Path) -> Path:
     qc_data: dict[str, Any] = {
         "run_id": aggregated.run_id,
         "start_time": aggregated.start_time.isoformat().replace("+00:00", "Z"),
-        "end_time": aggregated.end_time.isoformat().replace("+00:00", "Z") if aggregated.end_time else None,
+        "end_time": aggregated.end_time.isoformat().replace("+00:00", "Z")
+        if aggregated.end_time
+        else None,
         "total_duration_ms": aggregated.total_duration_ms,
         "summary": aggregated.summary,
         "pipeline_qc_metrics": {},
@@ -444,7 +448,9 @@ def run_chembl_all_command(
             default_config = configs_dir / "pipelines" / entity_name / f"{pipeline_name}.yaml"
             if not default_config.exists():
                 # Пробуем альтернативный путь
-                default_config = configs_dir / "pipelines" / entity_name / f"{entity_name}_chembl.yaml"
+                default_config = (
+                    configs_dir / "pipelines" / entity_name / f"{entity_name}_chembl.yaml"
+                )
 
         # Output dir для каждого пайплайна
         entity_name = pipeline_name.split("_")[0]
@@ -492,7 +498,9 @@ def run_chembl_all_command(
 
     # Выводим итоги
     typer.echo("\n[OK] ChEMBL All Pipelines Run Complete")
-    typer.echo(f"   Successful: {aggregated.summary['successful']}/{aggregated.summary['total_pipelines']}")
+    typer.echo(
+        f"   Successful: {aggregated.summary['successful']}/{aggregated.summary['total_pipelines']}"
+    )
     typer.echo(f"   Total Rows: {aggregated.summary['total_rows']:,}")
     typer.echo(f"   Summary Report: {summary_report}")
     typer.echo(f"   QC JSON: {qc_json}")
@@ -504,4 +512,3 @@ def run_chembl_all_command(
 
     typer.echo("\n[OK] All pipelines completed successfully")
     raise typer.Exit(code=0)
-

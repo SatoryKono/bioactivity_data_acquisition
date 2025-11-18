@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 __all__ = ["PipelineConfig", "load_config", "BaseApiClient", "IParser", "INormalizer"]
 
 if TYPE_CHECKING:
-    from bioetl.base_classes import BaseApiClient, IParser, INormalizer
+    from bioetl.base_classes import BaseApiClient, INormalizer, IParser
     from bioetl.config import PipelineConfig, load_config
 
 _EXPORTS: dict[str, tuple[str, str]] = {

@@ -297,7 +297,8 @@ def run_audit(artifacts_dir: Path | None = None) -> None:
         log = UnifiedLogger.get(__name__)
         broken_links = audit_broken_links()
         lychee_missing = find_lychee_missing()
-        log.info(LogEvents.LINK_AUDIT_COMPLETED,
+        log.info(
+            LogEvents.LINK_AUDIT_COMPLETED,
             broken_count=len(broken_links),
             lychee_missing_count=len(lychee_missing),
         )

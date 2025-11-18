@@ -34,4 +34,3 @@ def test_build_filters_payload_compacts_none_values() -> None:
     assert payload["mode"] == "all"
     assert compact["batch_size"] == 25
     assert compact["requested_ids"] == ["A", "B"]
-

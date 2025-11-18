@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from typing import Any, Callable, Mapping
+from typing import Any
 
 from bioetl.cli._io import atomic_write_yaml
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_run_test_report as cli_run_test_report_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_run_test_report as cli_run_test_report_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 TEST_REPORTS_ROOT = cli_run_test_report_impl.TEST_REPORTS_ROOT
 _blake2_digest = cli_run_test_report_impl._blake2_digest
@@ -24,6 +25,8 @@ def _write_yaml_atomic(path: Path, payload: Mapping[str, object]) -> None:
     """Compatibility wrapper delegating to the shared atomic YAML helper."""
 
     atomic_write_yaml(payload, path)
+
+
 resolve_artifact_paths = cli_run_test_report_impl.resolve_artifact_paths
 build_timestamp_directory_name = cli_run_test_report_impl.build_timestamp_directory_name
 datetime = cli_run_test_report_impl.datetime
@@ -48,6 +51,7 @@ def generate_test_report(output_root: Path | None = None) -> int:
         git_commit_fn=_read_git_commit,
         config_hash_fn=_compute_config_hash,
     )
+
 
 __all__ = (
     "TEST_REPORTS_ROOT",

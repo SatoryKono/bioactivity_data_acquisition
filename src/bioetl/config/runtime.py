@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -68,9 +69,13 @@ class QCReportsConfig(BaseModel):
         """Return resolved report options for ``pipeline``."""
 
         override = self.pipelines.get(pipeline)
-        directory_template = override.directory if override and override.directory else self.directory
+        directory_template = (
+            override.directory if override and override.directory else self.directory
+        )
         quality_template = (
-            override.quality_template if override and override.quality_template else self.quality_template
+            override.quality_template
+            if override and override.quality_template
+            else self.quality_template
         )
         correlation_template = (
             override.correlation_template
@@ -78,7 +83,9 @@ class QCReportsConfig(BaseModel):
             else self.correlation_template
         )
         metrics_template = (
-            override.metrics_template if override and override.metrics_template else self.metrics_template
+            override.metrics_template
+            if override and override.metrics_template
+            else self.metrics_template
         )
 
         mapping = {
@@ -212,7 +219,7 @@ class Config(BaseModel):
     qc: QCConfig = Field(default_factory=QCConfig)
 
     @classmethod
-    def load(cls, path: str | Path | None = None) -> "Config":
+    def load(cls, path: str | Path | None = None) -> Config:
         """Load configuration from ``path`` (defaults to ``configs/default.yml``)."""
 
         config_path = Path(path or DEFAULT_CONFIG_PATH)
@@ -242,4 +249,3 @@ __all__ = [
     "QCReportsConfig",
     "QCThresholdValues",
 ]
-

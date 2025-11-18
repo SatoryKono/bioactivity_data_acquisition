@@ -46,7 +46,9 @@ def create_schema(
         if missing_columns:
             msg = f"column_order references missing columns: {missing_columns}"
             raise ValueError(msg)
-        duplicate_columns = {column for column in normalized_order if normalized_order.count(column) > 1}
+        duplicate_columns = {
+            column for column in normalized_order if normalized_order.count(column) > 1
+        }
         if duplicate_columns:
             msg = f"column_order contains duplicates: {sorted(duplicate_columns)}"
             raise ValueError(msg)

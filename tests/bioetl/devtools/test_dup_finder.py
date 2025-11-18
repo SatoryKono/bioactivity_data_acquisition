@@ -97,8 +97,7 @@ def compute_ratio(elements):
     }
     near_duplicates = dup_finder._build_near_duplicates(units)
     assert any(
-        pair.unit_a.symbol == "compute_average"
-        and pair.unit_b.symbol == "compute_ratio"
+        pair.unit_a.symbol == "compute_average" and pair.unit_b.symbol == "compute_ratio"
         for pair in near_duplicates
     )
 
@@ -153,7 +152,9 @@ def invalid():
     assert errors and "expected ':'" in errors[0].message
 
 
-def test_render_to_stdout_outputs_markdown_and_csv(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_render_to_stdout_outputs_markdown_and_csv(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     module_path = tmp_path / "src" / "pkg" / "report.py"
     _write_module(
         module_path,
@@ -227,10 +228,21 @@ def test_classify_role_variants() -> None:
     assert dup_finder._classify_role(Path("bioetl/cli/main.py"), "command") == "cli"
     assert dup_finder._classify_role(Path("bioetl/utils/logger.py"), "log_event") == "log"
     assert dup_finder._classify_role(Path("bioetl/pipelines/foo/run.py"), "process") == "run"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "extract_dataset") == "extract"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "transform_dataset") == "transform"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "validate_dataset") == "validate"
-    assert dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "write_output") == "write"
+    assert (
+        dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "extract_dataset")
+        == "extract"
+    )
+    assert (
+        dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "transform_dataset")
+        == "transform"
+    )
+    assert (
+        dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "validate_dataset")
+        == "validate"
+    )
+    assert (
+        dup_finder._classify_role(Path("bioetl/pipelines/foo/module.py"), "write_output") == "write"
+    )
     assert dup_finder._classify_role(Path("bioetl/utils/misc.py"), "helper") == "util"
 
 
@@ -282,36 +294,38 @@ def test_write_markdown_with_clusters_and_pairs(tmp_path: Path) -> None:
     assert "foo_copy" in content
 
 
-def test_render_to_stdout_with_clusters_and_pairs(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+def test_render_to_stdout_with_clusters_and_pairs(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
     unit_a = dup_finder.CodeUnit(
-       symbol="Logger.log_event",
-       kind="method",
-       role="log",
-       path=tmp_path / "src" / "pkg" / "module.py",
-       rel_path=Path("src/pkg/module.py"),
-       start_line=10,
-       end_line=12,
-       norm_src="def log_event():\n    return True",
-       norm_loc=2,
-       ast_hash="abc123",
-       tokens=("def", "log_event"),
-       token_multiset=dup_finder.Counter({"def": 1, "log_event": 1}),
-       snippet="def log_event():\n    return True",
+        symbol="Logger.log_event",
+        kind="method",
+        role="log",
+        path=tmp_path / "src" / "pkg" / "module.py",
+        rel_path=Path("src/pkg/module.py"),
+        start_line=10,
+        end_line=12,
+        norm_src="def log_event():\n    return True",
+        norm_loc=2,
+        ast_hash="abc123",
+        tokens=("def", "log_event"),
+        token_multiset=dup_finder.Counter({"def": 1, "log_event": 1}),
+        snippet="def log_event():\n    return True",
     )
     unit_b = dup_finder.CodeUnit(
-       symbol="Logger.log_event_copy",
-       kind="method",
-       role="log",
-       path=tmp_path / "src" / "pkg" / "module_copy.py",
-       rel_path=Path("src/pkg/module_copy.py"),
-       start_line=5,
-       end_line=7,
-       norm_src="def log_event_copy():\n    value = 1\n    return value",
-       norm_loc=3,
-       ast_hash="def456",
-       tokens=("def", "log_event_copy"),
-       token_multiset=dup_finder.Counter({"def": 1, "log_event_copy": 1}),
-       snippet="def log_event_copy():\n    return True",
+        symbol="Logger.log_event_copy",
+        kind="method",
+        role="log",
+        path=tmp_path / "src" / "pkg" / "module_copy.py",
+        rel_path=Path("src/pkg/module_copy.py"),
+        start_line=5,
+        end_line=7,
+        norm_src="def log_event_copy():\n    value = 1\n    return value",
+        norm_loc=3,
+        ast_hash="def456",
+        tokens=("def", "log_event_copy"),
+        token_multiset=dup_finder.Counter({"def": 1, "log_event_copy": 1}),
+        snippet="def log_event_copy():\n    return True",
     )
     cluster = dup_finder.DuplicateCluster(ast_hash="cluster123", members=(unit_a, unit_a))
     pair = dup_finder.NearDuplicatePair(
@@ -349,7 +363,9 @@ async def top_level():
     assert kinds == {"class", "method", "func"}
 
 
-def test_collect_python_files_permission_error(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_collect_python_files_permission_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     src_dir = tmp_path / "src"
     (src_dir / "pkg").mkdir(parents=True)
 
@@ -377,4 +393,3 @@ def test_parse_code_units_reports_os_error(tmp_path: Path, monkeypatch: pytest.M
     units, errors = dup_finder._parse_code_units(file_path, tmp_path)
     assert not units
     assert errors and errors[0].message == "boom"
-

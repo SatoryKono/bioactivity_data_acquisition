@@ -1,2 +1,1 @@
 """Document pipeline tests."""
-

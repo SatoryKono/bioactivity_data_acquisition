@@ -85,4 +85,3 @@ def test_qc_plan_custom_metric_registration() -> None:
         assert payload["custom_metrics"]["custom_ratio"]["total"] == 3
     finally:
         QC_METRIC_REGISTRY.unregister(metric_name)
-

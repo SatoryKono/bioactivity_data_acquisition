@@ -55,7 +55,7 @@ def _install_dummy_pipeline_base(monkeypatch: pytest.MonkeyPatch) -> None:
         def run(self, path: Path, extended: bool = False) -> str:
             return str(path)
 
-    setattr(module, "PipelineBase", DummyPipelineBase)
+    module.PipelineBase = DummyPipelineBase
     monkeypatch.setitem(sys.modules, "bioetl.core.pipeline", module)
 
 
@@ -75,12 +75,12 @@ def _install_dummy_config_models(monkeypatch: pytest.MonkeyPatch) -> None:
         }
 
     models_module = ModuleType("bioetl.config.models.models")
-    setattr(models_module, "PipelineConfig", DummyModel)
-    setattr(models_module, "PipelineMetadata", DummyModel)
+    models_module.PipelineConfig = DummyModel
+    models_module.PipelineMetadata = DummyModel
     monkeypatch.setitem(sys.modules, "bioetl.config.models.models", models_module)
 
     policies_module = ModuleType("bioetl.config.models.policies")
-    setattr(policies_module, "DeterminismConfig", DummyModel)
+    policies_module.DeterminismConfig = DummyModel
     monkeypatch.setitem(sys.modules, "bioetl.config.models.policies", policies_module)
 
 
@@ -202,4 +202,3 @@ def create_pipeline_command(pipeline_class, command_config):
     assert report_path.exists()
     payload = json.loads(report_path.read_text(encoding="utf-8"))
     assert "methods" in payload
-

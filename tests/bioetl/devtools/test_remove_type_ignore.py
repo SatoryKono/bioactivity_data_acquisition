@@ -71,7 +71,9 @@ def test_type_ignore_pattern_matches_variants() -> None:
         assert TYPE_IGNORE_PATTERN.search(f"foo {sample}") is not None
 
 
-def test_remove_type_ignore_counts_and_logs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_remove_type_ignore_counts_and_logs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     repo_root = tmp_path / "repository"
     package_dir = repo_root / "pkg"
     package_dir.mkdir(parents=True)
@@ -84,12 +86,15 @@ def test_remove_type_ignore_counts_and_logs(tmp_path: Path, monkeypatch: pytest.
     dummy_unified_logger = DummyUnifiedLogger()
     dummy_unified_logger.logger = dummy_logger
 
-    monkeypatch.setattr("bioetl.devtools.cli_remove_type_ignore.UnifiedLogger", dummy_unified_logger)
-    monkeypatch.setattr("bioetl.devtools.cli_remove_type_ignore.get_project_root", lambda: repo_root)
+    monkeypatch.setattr(
+        "bioetl.devtools.cli_remove_type_ignore.UnifiedLogger", dummy_unified_logger
+    )
+    monkeypatch.setattr(
+        "bioetl.devtools.cli_remove_type_ignore.get_project_root", lambda: repo_root
+    )
 
     removed = remove_type_ignore()
 
     assert removed == 1
     assert "type: ignore" not in sample.read_text(encoding="utf-8")
     assert dummy_logger.records[-1][0] == "info"
-

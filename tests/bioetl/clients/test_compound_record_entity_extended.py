@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Iterator, Mapping, cast
+from collections.abc import Iterator, Mapping
+from typing import Any, cast
 
 import pytest
 
@@ -87,16 +88,52 @@ def test_fetch_by_pairs_filters_invalid_pairs(monkeypatch: pytest.MonkeyPatch) -
 def test_fetch_by_pairs_chunking_and_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
     responses: dict[tuple[str, tuple[str, ...]], list[dict[str, Any]]] = {
         ("D1", ("M1",)): [
-            {"molecule_chembl_id": "M1", "document_chembl_id": "D1", "curated": False, "removed": False, "record_id": "3"},
-            {"molecule_chembl_id": "M1", "document_chembl_id": "D1", "curated": True, "removed": False, "record_id": "2"},
+            {
+                "molecule_chembl_id": "M1",
+                "document_chembl_id": "D1",
+                "curated": False,
+                "removed": False,
+                "record_id": "3",
+            },
+            {
+                "molecule_chembl_id": "M1",
+                "document_chembl_id": "D1",
+                "curated": True,
+                "removed": False,
+                "record_id": "2",
+            },
         ],
         ("D1", ("M2",)): [
-            {"molecule_chembl_id": "M2", "document_chembl_id": "D1", "curated": False, "removed": True, "record_id": "7"},
-            {"molecule_chembl_id": "M2", "document_chembl_id": "D1", "curated": False, "removed": False, "record_id": "5"},
+            {
+                "molecule_chembl_id": "M2",
+                "document_chembl_id": "D1",
+                "curated": False,
+                "removed": True,
+                "record_id": "7",
+            },
+            {
+                "molecule_chembl_id": "M2",
+                "document_chembl_id": "D1",
+                "curated": False,
+                "removed": False,
+                "record_id": "5",
+            },
         ],
         ("D1", ("M3",)): [
-            {"molecule_chembl_id": "M3", "document_chembl_id": "D1", "curated": False, "removed": False, "record_id": "9"},
-            {"molecule_chembl_id": "M3", "document_chembl_id": "D1", "curated": False, "removed": False, "record_id": "4"},
+            {
+                "molecule_chembl_id": "M3",
+                "document_chembl_id": "D1",
+                "curated": False,
+                "removed": False,
+                "record_id": "9",
+            },
+            {
+                "molecule_chembl_id": "M3",
+                "document_chembl_id": "D1",
+                "curated": False,
+                "removed": False,
+                "record_id": "4",
+            },
         ],
     }
     chembl_client = RecordingChemblClient(responses, fail_on={"D2"})
@@ -114,7 +151,9 @@ def test_fetch_by_pairs_chunking_and_dedup(monkeypatch: pytest.MonkeyPatch) -> N
     )
 
     def _lookup_record(molecule: str, document: str) -> dict[str, Any]:
-        mask = (result["molecule_chembl_id"] == molecule) & (result["document_chembl_id"] == document)
+        mask = (result["molecule_chembl_id"] == molecule) & (
+            result["document_chembl_id"] == document
+        )
         matched = result.loc[mask]
         assert len(matched) == 1
         return cast(dict[str, Any], matched.iloc[0].to_dict())
@@ -145,10 +184,26 @@ def test_fetch_by_pairs_invalid_chunk_size() -> None:
 @pytest.mark.parametrize(
     ("existing", "new", "expected_record_id"),
     [
-        ({"curated": False, "removed": False, "record_id": "10"}, {"curated": True, "removed": False, "record_id": "9"}, "9"),
-        ({"curated": True, "removed": False, "record_id": "8"}, {"curated": False, "removed": False, "record_id": "6"}, "8"),
-        ({"curated": False, "removed": False, "record_id": "10"}, {"curated": False, "removed": True, "record_id": "5"}, "10"),
-        ({"curated": False, "removed": False, "record_id": "12"}, {"curated": False, "removed": False, "record_id": "4"}, "4"),
+        (
+            {"curated": False, "removed": False, "record_id": "10"},
+            {"curated": True, "removed": False, "record_id": "9"},
+            "9",
+        ),
+        (
+            {"curated": True, "removed": False, "record_id": "8"},
+            {"curated": False, "removed": False, "record_id": "6"},
+            "8",
+        ),
+        (
+            {"curated": False, "removed": False, "record_id": "10"},
+            {"curated": False, "removed": True, "record_id": "5"},
+            "10",
+        ),
+        (
+            {"curated": False, "removed": False, "record_id": "12"},
+            {"curated": False, "removed": False, "record_id": "4"},
+            "4",
+        ),
     ],
 )
 def test_compound_record_dedup_priority(
@@ -234,4 +289,3 @@ def test_testitem_client_configuration(monkeypatch: pytest.MonkeyPatch) -> None:
     assert config.filter_param == "molecule_chembl_id__in"
     assert captured["batch_size"] == 11
     assert captured["max_url_length"] is None
-

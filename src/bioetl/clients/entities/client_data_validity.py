@@ -13,10 +13,7 @@ from bioetl.clients.client_chembl_entity_base import (
 __all__ = ["ChemblDataValidityEntityClient"]
 
 
-class ChemblDataValidityEntityClient(
-    ChemblEntityConfigMixin, ChemblEntityFetcherBase
-):
+class ChemblDataValidityEntityClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
     """Client for retrieving ``data_validity_lookup`` records from the ChEMBL API."""
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("data_validity_lookup")
-

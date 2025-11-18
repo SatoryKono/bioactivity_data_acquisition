@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Mapping
 
 from bioetl.schemas import SchemaRegistryEntry, get_schema
 from bioetl.schemas.metadata_utils import metadata_dict, normalize_sequence
@@ -129,4 +129,3 @@ def get_column_order(pipeline_code: str) -> tuple[str, ...]:
 
     contract = get_pipeline_contract(pipeline_code)
     return resolve_contract_sequence(contract, "column_order", "column_order")
-

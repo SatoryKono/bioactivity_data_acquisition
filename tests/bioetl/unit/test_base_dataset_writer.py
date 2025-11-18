@@ -21,7 +21,9 @@ def _build_run_artifacts(dataset_path: Path) -> RunArtifacts:
     )
 
 
-def test_writer_delegates_to_write_dataset_atomic(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_writer_delegates_to_write_dataset_atomic(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     dataset_path = tmp_path / "dataset.csv"
     artifacts = _build_run_artifacts(dataset_path)
     config = object()

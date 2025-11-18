@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 
+from bioetl.core.pipeline import RunResult
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
 from bioetl.pipelines.chembl.document.run import ChemblDocumentPipeline
 from bioetl.pipelines.chembl.target.run import ChemblTargetPipeline
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
-from bioetl.core.pipeline import RunResult
 
 
 class DummyUnifiedPipeline(UnifiedPipelineBase):
@@ -119,9 +119,7 @@ def test_stage_logger_records_duration_and_emits_events(
 
     unified_pipeline.logger_for.assert_called_once_with(stage="extract", component=None)
     logger.info.assert_any_call("stage_started", rows=3)
-    logger.info.assert_any_call(
-        "stage_completed", duration_ms=pytest.approx(250.0), rows=3
-    )
+    logger.info.assert_any_call("stage_completed", duration_ms=pytest.approx(250.0), rows=3)
 
 
 def test_run_batched_extraction_bridge(unified_pipeline: DummyUnifiedPipeline) -> None:
@@ -221,10 +219,7 @@ def test_unified_pipeline_run_signature_matches_contract() -> None:
         "fail_on_qc_violation",
     ]
 
-    kwonly_params = [
-        sig.parameters[name]
-        for name in param_names[2:]
-    ]
+    kwonly_params = [sig.parameters[name] for name in param_names[2:]]
     for param in kwonly_params:
         assert param.kind is inspect.Parameter.KEYWORD_ONLY
 

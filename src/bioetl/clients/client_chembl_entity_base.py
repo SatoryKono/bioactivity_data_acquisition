@@ -33,11 +33,9 @@ class ChemblClientProtocol(Protocol):
         params: Mapping[str, Any] | None = None,
         page_size: int = 200,
         items_key: str | None = None,
-    ) -> Iterator[Mapping[str, Any]]:
-        ...
+    ) -> Iterator[Mapping[str, Any]]: ...
 
-    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]:
-        ...
+    def handshake(self, endpoint: str | None = None) -> Mapping[str, Any]: ...
 
 
 class ChemblEntityClientProtocol(Protocol):
@@ -49,8 +47,7 @@ class ChemblEntityClientProtocol(Protocol):
         fields: Sequence[str] | None = None,
         *,
         page_limit: int | None = None,
-    ) -> pd.DataFrame:
-        ...
+    ) -> pd.DataFrame: ...
 
     def fetch_all(
         self,
@@ -58,8 +55,7 @@ class ChemblEntityClientProtocol(Protocol):
         limit: int | None = None,
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
-    ) -> pd.DataFrame:
-        ...
+    ) -> pd.DataFrame: ...
 
     def iterate_records(
         self,
@@ -68,8 +64,7 @@ class ChemblEntityClientProtocol(Protocol):
         limit: int | None = None,
         fields: Sequence[str] | None = None,
         page_size: int | None = None,
-    ) -> Iterator[Mapping[str, Any]]:
-        ...
+    ) -> Iterator[Mapping[str, Any]]: ...
 
 
 class ChemblEntityConfigMixin:
@@ -104,9 +99,7 @@ class ChemblEntityConfigMixin:
         resolved_max_url_length = max_url_length
         if resolved_max_url_length is None:
             resolved_max_url_length = self.DEFAULT_MAX_URL_LENGTH
-        resolved_max_url_length = self._normalize_max_url_length(
-            resolved_max_url_length
-        )
+        resolved_max_url_length = self._normalize_max_url_length(resolved_max_url_length)
 
         if self.REQUIRE_MAX_URL_LENGTH and resolved_max_url_length is None:
             msg = "max_url_length обязателен для данного клиента"
@@ -139,7 +132,7 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     @classmethod
     def _init_from_entity_config(
         cls,
-        instance: "ChemblEntityFetcherBase",
+        instance: ChemblEntityFetcherBase,
         chembl_client: ChemblClientProtocol,
         *,
         entity_config: EntityConfig,
@@ -292,14 +285,15 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
     ) -> Iterator[Mapping[str, Any]]:
         projection = normalize_select_fields(select_fields)
         effective_page_size = self._resolve_page_size(page_size, limit)
-        yielded = 0
-        for record in self.iterate_records(
-            limit=limit,
-            fields=projection,
-            page_size=effective_page_size,
+        for yielded, record in enumerate(
+            self.iterate_records(
+                limit=limit,
+                fields=projection,
+                page_size=effective_page_size,
+            ),
+            start=1,
         ):
             yield record
-            yielded += 1
             if limit is not None and yielded >= limit:
                 break
 
@@ -337,15 +331,16 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
             fields=fields,
             page_size=resolved_page_size,
         )
-        yielded = 0
-        for record in self._chembl_client.paginate(
-            self._config.endpoint,
-            params=request_params,
-            page_size=resolved_page_size,
-            items_key=self._config.items_key,
+        for yielded, record in enumerate(
+            self._chembl_client.paginate(
+                self._config.endpoint,
+                params=request_params,
+                page_size=resolved_page_size,
+                items_key=self._config.items_key,
+            ),
+            start=1,
         ):
             yield dict(record)
-            yielded += 1
             if limit is not None and yielded >= limit:
                 break
 
@@ -447,7 +442,9 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         requested: int | None,
         limit: int | None,
     ) -> int:
-        candidate = requested or self._config.max_page_size or self._batch_size or self._DEFAULT_PAGE_SIZE
+        candidate = (
+            requested or self._config.max_page_size or self._batch_size or self._DEFAULT_PAGE_SIZE
+        )
         if candidate <= 0:
             candidate = self._DEFAULT_PAGE_SIZE
         if limit is not None:
@@ -469,9 +466,7 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         ordered_columns = self._resolve_column_order(frame.columns.tolist(), fields)
         frame = frame.reindex(columns=ordered_columns)
         if self._config.ordering:
-            sort_columns = [
-                column for column in self._config.ordering if column in frame.columns
-            ]
+            sort_columns = [column for column in self._config.ordering if column in frame.columns]
             if sort_columns:
                 frame = frame.sort_values(by=sort_columns, kind="mergesort")
         return frame.reset_index(drop=True)
@@ -517,4 +512,3 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
         if fields:
             payload["only"] = ",".join(fields)
         return payload
- 

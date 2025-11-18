@@ -79,7 +79,7 @@ class ChemblClient:
         self,
         client: UnifiedAPIClient,
         *,
-        load_meta_store: "LoadMetaStore | None" = None,
+        load_meta_store: LoadMetaStore | None = None,
         job_id: str | None = None,
         operator: str | None = None,
     ) -> None:
@@ -106,10 +106,10 @@ class ChemblClient:
 
     def circuit_breaker_time_until_half_open(self) -> float | None:
         """Return the time in seconds until the circuit breaker transitions to half-open.
-        
+
         Returns None if the circuit breaker is not in open state or if it's already
         ready to transition to half-open.
-        
+
         Returns
         -------
         float | None:
@@ -136,7 +136,8 @@ class ChemblClient:
                 response = self._client.get(resolved_endpoint)
                 payload = response.json()
             except (ConnectionError, Timeout, HTTPError, RequestException) as exc:
-                self._log.error(LogEvents.HTTP_REQUEST_FAILED,
+                self._log.error(
+                    LogEvents.HTTP_REQUEST_FAILED,
                     endpoint=resolved_endpoint,
                     error=str(exc),
                 )
@@ -148,7 +149,8 @@ class ChemblClient:
                 self._chembl_release = release
             if isinstance(api_version, str):
                 self._api_version = api_version
-            self._log.info(LogEvents.CHEMBL_HANDSHAKE,
+            self._log.info(
+                LogEvents.CHEMBL_HANDSHAKE,
                 endpoint=resolved_endpoint,
                 chembl_release=self._chembl_release,
                 api_version=self._api_version,
@@ -241,7 +243,7 @@ class ChemblClient:
     def _record_pagination_snapshot(
         self,
         page: PageResult,
-        store: "LoadMetaStore | None",
+        store: LoadMetaStore | None,
         load_meta_id: str | None,
     ) -> None:
         if load_meta_id is None or store is None:

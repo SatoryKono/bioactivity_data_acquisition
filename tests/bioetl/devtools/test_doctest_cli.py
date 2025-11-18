@@ -117,7 +117,9 @@ def test_run_examples_captures_failures(tmp_path: Path, monkeypatch: pytest.Monk
     assert "boom" in report_text
 
 
-def test_iter_markdown_files_filters_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_iter_markdown_files_filters_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     docs_root = tmp_path / "docs"
     activity_dir = docs_root / "pipelines" / "activity-chembl"
     activity_dir.mkdir(parents=True)
@@ -144,7 +146,9 @@ def test_run_command_handles_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         doctest_cli.subprocess,
         "run",
-        lambda *args, **kwargs: (_ for _ in ()).throw(subprocess.TimeoutExpired(cmd="cmd", timeout=1)),
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired(cmd="cmd", timeout=1)
+        ),
     )
     exit_code, stdout, stderr = doctest_cli._run_command("bioetl.cli.cli_app --help")
     assert exit_code == -1
@@ -173,7 +177,9 @@ def test_extract_bash_commands_skips_other_languages() -> None:
     assert not doctest_cli.extract_bash_commands(content, Path("docs.md"))
 
 
-def test_run_examples_truncates_long_command(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_examples_truncates_long_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
     monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(doctest_cli, "ARTIFACTS_DIR", tmp_path / "artifacts")
@@ -195,7 +201,9 @@ def test_run_examples_truncates_long_command(tmp_path: Path, monkeypatch: pytest
     assert "`python -m bioetl.cli.cli_app activity_chembl --config" in table
 
 
-def test_extract_cli_examples_handles_missing_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_extract_cli_examples_handles_missing_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setattr(doctest_cli, "UnifiedLogger", DummyUnifiedLogger)
     monkeypatch.setattr(doctest_cli, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(doctest_cli, "DOCS_ROOT", tmp_path / "docs")

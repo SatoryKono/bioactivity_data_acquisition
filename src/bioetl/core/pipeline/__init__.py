@@ -23,4 +23,3 @@ __all__ = [
     "WriteResult",
     "map_client_exc",
 ]
-

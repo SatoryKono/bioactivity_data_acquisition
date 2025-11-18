@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Mapping
 from pathlib import Path, PureWindowsPath
-from typing import Any, Mapping
+from typing import Any
 
 import yaml
 
@@ -66,4 +67,3 @@ def canonical_json(payload: Mapping[str, Any]) -> str:
     """Serialize payload to canonical JSON string."""
 
     return json.dumps(payload, sort_keys=True, separators=(",", ":"))
-

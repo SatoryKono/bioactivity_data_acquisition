@@ -51,7 +51,7 @@ def header_rows_serialize(items: Any) -> str:
     first_item = typed_items[0]
     if isinstance(first_item, Mapping):
         first_mapping = cast(Mapping[str, Any], first_item)
-        for raw_key in first_mapping.keys():
+        for raw_key in first_mapping:
             key = str(raw_key)
             if key not in seen_set:
                 ordered_keys.append(key)
@@ -61,7 +61,7 @@ def header_rows_serialize(items: Any) -> str:
     for item in typed_items[1:]:
         if isinstance(item, Mapping):
             mapping_item = cast(Mapping[str, Any], item)
-            for raw_key in mapping_item.keys():
+            for raw_key in mapping_item:
                 key = str(raw_key)
                 if key not in seen_set:
                     remaining_keys.add(key)

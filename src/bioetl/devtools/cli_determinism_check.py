@@ -205,7 +205,11 @@ def run_determinism_check(
 
             if exit_code1 != 0:
                 error_message = f"Run 1 failed with exit code {exit_code1}: {stderr1[:200]}"
-                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=1, error=error_message
+                log.warning(
+                    LogEvents.PIPELINE_RUN_FAILED,
+                    pipeline=pipeline_name,
+                    attempt=1,
+                    error=error_message,
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -226,7 +230,11 @@ def run_determinism_check(
 
             if exit_code2 != 0:
                 error_message = f"Run 2 failed with exit code {exit_code2}: {stderr2[:200]}"
-                log.warning(LogEvents.PIPELINE_RUN_FAILED, pipeline=pipeline_name, attempt=2, error=error_message
+                log.warning(
+                    LogEvents.PIPELINE_RUN_FAILED,
+                    pipeline=pipeline_name,
+                    attempt=2,
+                    error=error_message,
                 )
                 results[pipeline_name] = DeterminismRunResult(
                     pipeline_name=pipeline_name,
@@ -246,9 +254,12 @@ def run_determinism_check(
             are_identical, differences = compare_logs(logs1, logs2)
 
             if are_identical:
-                log.info(LogEvents.PIPELINE_DETERMINISTIC, pipeline=pipeline_name, log_count=len(logs1))
+                log.info(
+                    LogEvents.PIPELINE_DETERMINISTIC, pipeline=pipeline_name, log_count=len(logs1)
+                )
             else:
-                log.warning(LogEvents.PIPELINE_NOT_DETERMINISTIC,
+                log.warning(
+                    LogEvents.PIPELINE_NOT_DETERMINISTIC,
                     pipeline=pipeline_name,
                     differences=len(differences),
                 )

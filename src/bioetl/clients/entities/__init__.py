@@ -29,4 +29,3 @@ __all__: list[str] = [
     "ChemblAssayClassificationEntityClient",
     "ChemblCompoundRecordEntityClient",
 ]
-

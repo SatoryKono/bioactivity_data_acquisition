@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Mapping
-
+from collections.abc import Mapping
+from typing import Any
 from unittest.mock import Mock
 
 import pytest
@@ -20,7 +20,11 @@ from bioetl.chembl.common.enrich import (
     [
         (None, ("activity", "enrich", "assay", "enabled"), False),
         ({"activity": {"enrich": None}}, ("activity", "enrich", "assay", "enabled"), False),
-        ({"activity": {"enrich": {"assay": {"enabled": True}}}}, ("activity", "enrich", "assay", "enabled"), True),
+        (
+            {"activity": {"enrich": {"assay": {"enabled": True}}}},
+            ("activity", "enrich", "assay", "enabled"),
+            True,
+        ),
     ],
 )
 def test_enrich_flag_handles_optional_config(

@@ -6,8 +6,8 @@ This module re-exports the supported surface area from the reorganised
 
 from __future__ import annotations
 
-from importlib import import_module
 import warnings
+from importlib import import_module
 
 from .common import ChemblReleaseMixin
 from .http import (

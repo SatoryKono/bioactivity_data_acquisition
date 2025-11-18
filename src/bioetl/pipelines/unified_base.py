@@ -58,4 +58,3 @@ class UnifiedPipelineBase(
 
     def finalize_run(self, result: RunResult | None) -> None:  # pragma: no cover
         """Hook invoked after the write stage completes."""
-

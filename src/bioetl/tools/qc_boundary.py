@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import ast
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
 
 __all__ = [
     "QC_MODULE_PREFIX",
@@ -114,10 +114,7 @@ def _discover_modules(*, root: Path, package: str) -> dict[str, ModuleRecord]:
             is_package = False
 
         module_suffix = ".".join(parts)
-        if module_suffix:
-            module_name = f"{package}.{module_suffix}"
-        else:
-            module_name = package
+        module_name = f"{package}.{module_suffix}" if module_suffix else package
 
         module_records[module_name] = ModuleRecord(
             path=path,
@@ -128,7 +125,9 @@ def _discover_modules(*, root: Path, package: str) -> dict[str, ModuleRecord]:
     return module_records
 
 
-def _analyze_module(record: ModuleRecord, module_records: dict[str, ModuleRecord]) -> ModuleAnalysis:
+def _analyze_module(
+    record: ModuleRecord, module_records: dict[str, ModuleRecord]
+) -> ModuleAnalysis:
     """Разобрать AST модуля и извлечь прямые ссылки на QC и зависимости внутри CLI."""
 
     source = record.path.read_text(encoding="utf-8")
@@ -267,5 +266,3 @@ def _normalize_qc_name(module_name: str) -> str:
         normalized_suffix = suffix_parts[0]
         return ".".join((*prefix_parts, normalized_suffix))
     return ".".join(prefix_parts)
-
-

@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Protocol, cast
 
 from bioetl.cli._io import atomic_write_yaml, hash_file
-
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.http.client_factory import for_tool
 from bioetl.core.logging import LogEvents, UnifiedLogger
@@ -33,21 +32,19 @@ PIPELINE_VERSION = "0.1.0"
 
 
 class _QueryProtocol(Protocol):
-    def only(self, field: str) -> "_QueryProtocol":
-        ...
+    def only(self, field: str) -> _QueryProtocol: ...
 
-    def __iter__(self) -> Iterator[Mapping[str, object]]:
-        ...
+    def __iter__(self) -> Iterator[Mapping[str, object]]: ...
 
 
 class _ResourceProtocol(Protocol):
-    def filter(self, **filters: Any) -> _QueryProtocol:
-        ...
+    def filter(self, **filters: Any) -> _QueryProtocol: ...
 
 
 @dataclass(frozen=True)
 class FieldSpec:
     """Describe a dictionary entry and its corresponding API resource field."""
+
     dictionary: str
     resource: str
     field: str
@@ -63,7 +60,7 @@ class _ChemblQueryAdapter:
     def __init__(self, records: Sequence[Mapping[str, object]]) -> None:
         self._records = [dict(record) for record in records]
 
-    def only(self, field: str) -> "_ChemblQueryAdapter":
+    def only(self, field: str) -> _ChemblQueryAdapter:
         trimmed = []
         for row in self._records:
             trimmed.append({field: row.get(field)})
@@ -363,6 +360,7 @@ def _extract_release(store: Mapping[str, object]) -> str | None:
 @dataclass(frozen=True)
 class VocabAuditResult:
     """Result bundle containing audit rows and artifact paths."""
+
     rows: tuple[dict[str, Any], ...]
     output: Path
     meta: Path
@@ -391,7 +389,8 @@ def audit_vocabularies(
             continue
         block = vocab_store.get(spec.dictionary)
         if not isinstance(block, Mapping):
-            log.warning(LogEvents.DICTIONARY_MISSING,
+            log.warning(
+                LogEvents.DICTIONARY_MISSING,
                 dictionary=spec.dictionary,
                 store=str(resolved_store),
             )
@@ -451,7 +450,8 @@ def audit_vocabularies(
 
     atomic_write_yaml(meta_payload, meta_path, sort_keys=True)
 
-    log.info(LogEvents.VOCAB_AUDIT_COMPLETED,
+    log.info(
+        LogEvents.VOCAB_AUDIT_COMPLETED,
         rows=len(audit_rows),
         output=str(output_path),
         meta=str(meta_path),

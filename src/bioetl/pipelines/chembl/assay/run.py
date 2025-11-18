@@ -11,13 +11,6 @@ import pandas as pd
 from pandas import Series
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.entities.client_assay import ChemblAssayClient
-from bioetl.config import AssaySourceConfig
-from bioetl.config.models.models import PipelineConfig
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
-
-from .._constants import ASSAY_MUST_HAVE_FIELDS
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -25,12 +18,19 @@ from bioetl.chembl.common.descriptor import (
     ChemblPipelineBase,
     build_standard_chembl_context,
 )
-from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
     make_empty_frame_factory,
 )
 from bioetl.chembl.common.normalize import add_row_metadata, normalize_identifiers
+from bioetl.clients.entities.client_assay import ChemblAssayClient
+from bioetl.config import AssaySourceConfig
+from bioetl.config.models.models import PipelineConfig
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import IdentifierRule, StringRule, normalize_string_columns
+from bioetl.pipelines.unified_base import UnifiedPipelineBase
+
+from .._constants import ASSAY_MUST_HAVE_FIELDS
 from .normalize import (
     enrich_with_assay_classifications,
     enrich_with_assay_parameters,
@@ -115,6 +115,7 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
 
     return identifiers
 
+
 class ChemblAssayPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
@@ -169,7 +170,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 if entity_client is None:
                     return None
                 assay_client = cast(ChemblAssayClient, entity_client)
-                log.info(LogEvents.CHEMBL_ASSAY_HANDSHAKE,
+                log.info(
+                    LogEvents.CHEMBL_ASSAY_HANDSHAKE,
                     chembl_release=assay_client.chembl_release,
                     handshake_endpoint=source_config.parameters.handshake_endpoint,
                     handshake_enabled=source_config.parameters.handshake_enabled,
@@ -183,7 +185,9 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 raw_source = p._resolve_source_config("chembl")
                 return p._resolve_select_fields(raw_source)
 
-            def extra_filters_factory(sc: AssaySourceConfig, _: SelfChemblAssayPipeline) -> dict[str, Any]:
+            def extra_filters_factory(
+                sc: AssaySourceConfig, _: SelfChemblAssayPipeline
+            ) -> dict[str, Any]:
                 return {"max_url_length": sc.max_url_length}
 
             context = build_standard_chembl_context(
@@ -198,7 +202,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 pre_release_hook=pre_release_hook,
             )
 
-            log.debug(LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
+            log.debug(
+                LogEvents.CHEMBL_ASSAY_SELECT_FIELDS,
                 fields=context.select_fields,
                 fields_count=len(context.select_fields) if context.select_fields else 0,
             )
@@ -220,7 +225,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
 
             for must_field in ("assay_category", "assay_group", "src_assay_id"):
                 if must_field not in df.columns or df[must_field].isna().all():
-                    log.warning(LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
+                    log.warning(
+                        LogEvents.CHEMBL_ASSAY_MISSING_REQUIRED_FIELD,
                         field=must_field,
                         note="Field not returned by API; check select_fields/only",
                     )
@@ -231,7 +237,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 actual_fields = set(df.columns)
                 missing_in_response = sorted(expected_fields - actual_fields)
                 if missing_in_response:
-                    log.warning(LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
+                    log.warning(
+                        LogEvents.ASSAY_MISSING_FIELDS_IN_API_RESPONSE,
                         missing_fields=missing_in_response,
                         requested_fields_count=len(select_fields),
                         received_fields_count=len(actual_fields),
@@ -389,9 +396,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 dataframe = self._check_missing_columns(
                     dataframe,
                     log,
-                    select_fields=list(context.select_fields)
-                    if context.select_fields
-                    else None,
+                    select_fields=list(context.select_fields) if context.select_fields else None,
                 )
                 return dataframe
 
@@ -404,9 +409,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 max_batch_size=25,
                 limit=limit,
                 metadata_filters={
-                    "select_fields": list(merged_select_fields)
-                    if merged_select_fields
-                    else None,
+                    "select_fields": list(merged_select_fields) if merged_select_fields else None,
                     "max_url_length": source_config.max_url_length,
                 },
                 chembl_release=self.chembl_release,
@@ -529,7 +532,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         normalized_df, stats = normalize_identifiers(df, rules)
 
         if stats.has_changes:
-            log.debug(LogEvents.IDENTIFIERS_NORMALIZED,
+            log.debug(
+                LogEvents.IDENTIFIERS_NORMALIZED,
                 normalized_count=stats.normalized,
                 invalid_count=stats.invalid,
                 columns=list(stats.per_column.keys()),
@@ -567,12 +571,14 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         # Ensure curation_level defaults to NULL when absent in the payload.
         if "curation_level" not in normalized_df.columns:
             normalized_df["curation_level"] = pd.NA
-            log.warning(LogEvents.CURATION_LEVEL_MISSING,
+            log.warning(
+                LogEvents.CURATION_LEVEL_MISSING,
                 message="curation_level not found in API response, setting to NULL",
             )
 
         if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
+            log.debug(
+                LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -626,7 +632,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                     updated_rows += 1
 
             if updated_rows > 0:
-                log.debug(LogEvents.ASSAY_CLASS_ID_EXTRACTED_FROM_CLASSIFICATIONS,
+                log.debug(
+                    LogEvents.ASSAY_CLASS_ID_EXTRACTED_FROM_CLASSIFICATIONS,
                     rows_updated=updated_rows,
                 )
 
@@ -729,13 +736,15 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
-                    log.warning(LogEvents.MISSING_FIELD_NOT_REQUESTED,
+                    log.warning(
+                        LogEvents.MISSING_FIELD_NOT_REQUESTED,
                         column=column,
                         chembl_release=self.chembl_release,
                         message=f"Field {column} not found in API response and was not requested in select_fields",
                     )
                 else:
-                    log.warning(LogEvents.MISSING_FIELD_IN_RESPONSE,
+                    log.warning(
+                        LogEvents.MISSING_FIELD_IN_RESPONSE,
                         column=column,
                         chembl_release=self.chembl_release,
                         message=f"Field {column} was requested but not found in API response",
@@ -752,14 +761,16 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 # Track whether the column was requested via select_fields.
                 if select_fields is not None and column not in select_fields_set:
                     missing_in_select_fields.append(column)
-                    log.warning(LogEvents.MISSING_COLUMN_NOT_REQUESTED,
+                    log.warning(
+                        LogEvents.MISSING_COLUMN_NOT_REQUESTED,
                         column=column,
                         version_introduced=version,
                         chembl_release=self.chembl_release,
                         message=f"Column {column} not found in API response and was not requested in select_fields, setting to NULL",
                     )
                 else:
-                    log.warning(LogEvents.MISSING_OPTIONAL_COLUMN,
+                    log.warning(
+                        LogEvents.MISSING_OPTIONAL_COLUMN,
                         column=column,
                         version_introduced=version,
                         chembl_release=self.chembl_release,
@@ -767,7 +778,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                     )
 
         if missing_in_response or missing_columns:
-            log.debug(LogEvents.MISSING_COLUMNS_HANDLED,
+            log.debug(
+                LogEvents.MISSING_COLUMNS_HANDLED,
                 missing_in_response=missing_in_response if missing_in_response else None,
                 missing_columns=missing_columns if missing_columns else None,
                 missing_in_select_fields=sorted(missing_in_select_fields)
@@ -787,7 +799,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         try:
             source_raw = self._resolve_source_config("chembl")
         except KeyError as exc:
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
                 source="chembl",
                 message="Skipping enrichment: source configuration not available",
                 error=str(exc),
@@ -804,22 +817,30 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         # Retrieve enrichment configuration from config.chembl.assay.enrich.
         chembl_config = getattr(self.config, "chembl", None)
         if chembl_config is None:
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config not found"
+            )
             return df
 
         if not isinstance(chembl_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG, message="ChEMBL config is not a Mapping"
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG,
+                message="ChEMBL config is not a Mapping",
             )
             return df
 
         assay_config = cast(Mapping[str, Any], chembl_config).get("assay")
         if not isinstance(assay_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_ASSAY_CONFIG, message="Assay config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_ASSAY_CONFIG, message="Assay config not found"
+            )
             return df
 
         enrich_config = cast(Mapping[str, Any], assay_config).get("enrich")
         if not isinstance(enrich_config, Mapping):
-            log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG, message="Enrich config not found")
+            log.debug(
+                LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG, message="Enrich config not found"
+            )
             return df
 
         # Enrich with classification data.
@@ -837,13 +858,15 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 filled_count = int(df["assay_class_id"].notna().sum())
                 total_count = len(df)
                 if filled_count == 0:
-                    log.warning(LogEvents.ASSAY_CLASS_ID_EMPTY_AFTER_ENRICHMENT,
+                    log.warning(
+                        LogEvents.ASSAY_CLASS_ID_EMPTY_AFTER_ENRICHMENT,
                         total_assays=total_count,
                         filled_count=0,
                         message="assay_class_id is empty after enrichment. Check if ASSAY_CLASS_MAP contains data for these assays.",
                     )
                 else:
-                    log.debug(LogEvents.ASSAY_CLASS_ID_ENRICHMENT_STATS,
+                    log.debug(
+                        LogEvents.ASSAY_CLASS_ID_ENRICHMENT_STATS,
                         total_assays=total_count,
                         filled_count=filled_count,
                         empty_count=total_count - filled_count,
@@ -854,7 +877,8 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                     message="assay_class_id column is missing after enrichment",
                 )
         else:
-            log.warning(LogEvents.ENRICHMENT_CLASSIFICATIONS_DISABLED,
+            log.warning(
+                LogEvents.ENRICHMENT_CLASSIFICATIONS_DISABLED,
                 message="Enrichment for classifications is not configured. assay_class_id will remain NULL.",
             )
 

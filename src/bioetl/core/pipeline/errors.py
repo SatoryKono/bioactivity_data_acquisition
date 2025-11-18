@@ -16,6 +16,7 @@ __all__ = [
     "map_client_exc",
 ]
 
+
 class PipelineError(Exception):
     """Base exception for pipeline failures."""
 
@@ -64,4 +65,3 @@ def map_client_exc(exc: Exception) -> PipelineError:
     mapped = PipelineError(str(exc))
     mapped.__cause__ = exc
     return mapped
-

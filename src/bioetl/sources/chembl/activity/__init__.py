@@ -1,6 +1,6 @@
 """Chembl Activity source components."""
 
-from .parser import ChemblActivityParser
 from .normalizer import ChemblActivityNormalizer
+from .parser import ChemblActivityParser
 
 __all__ = ["ChemblActivityParser", "ChemblActivityNormalizer"]

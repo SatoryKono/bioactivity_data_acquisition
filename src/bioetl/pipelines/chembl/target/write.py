@@ -24,4 +24,3 @@ def write(
 ) -> RunResult:
     pipeline = ChemblTargetPipeline(config=config, run_id=run_id)
     return pipeline.write(df, output_path, **kwargs)
-

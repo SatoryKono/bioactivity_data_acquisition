@@ -11,16 +11,6 @@ from typing import Any, TypeVar, cast
 import pandas as pd
 from structlog.stdlib import BoundLogger
 
-from bioetl.clients.client_chembl import ChemblClient
-from bioetl.clients.entities.client_document import ChemblDocumentClient
-from bioetl.config import DocumentSourceConfig
-from bioetl.config.models.models import PipelineConfig
-from bioetl.config.models.source import SourceConfig
-from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule, normalize_string_columns
-from bioetl.schemas.pipeline_contracts import get_out_schema
-
-from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
 from bioetl.chembl.common.descriptor import (
     BatchExtractionContext,
     ChemblExtractionContext,
@@ -29,12 +19,21 @@ from bioetl.chembl.common.descriptor import (
     build_standard_chembl_context,
 )
 from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
+from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.entities.client_document import ChemblDocumentClient
+from bioetl.config import DocumentSourceConfig
+from bioetl.config.models.models import PipelineConfig
+from bioetl.config.models.source import SourceConfig
+from bioetl.core.logging import LogEvents
+from bioetl.core.schema import StringRule, normalize_string_columns
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
+from bioetl.schemas.pipeline_contracts import get_out_schema
+
+from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
 from .normalize import enrich_with_document_terms
 
-SelfChemblDocumentPipeline = TypeVar(
-    "SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline"
-)
+SelfChemblDocumentPipeline = TypeVar("SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline")
+
 
 class ChemblDocumentPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting document records from the ChEMBL API."""
@@ -72,13 +71,6 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
                 if isinstance(source_config, DocumentSourceConfig)
                 else DocumentSourceConfig.from_source_config(cast(Any, source_config))
             )
-            select_resolver = (
-                lambda pipeline_obj, cfg: pipeline_obj._resolve_select_fields(  # type: ignore[arg-type]
-                    cast(SourceConfig[Any], cast(Any, cfg)),
-                    default_fields=API_DOCUMENT_FIELDS,
-                )
-            )
-
             return document_pipeline._build_document_context(
                 source_config=typed_source_config,
                 log=log,
@@ -132,10 +124,14 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         source_config: DocumentSourceConfig,
         log: BoundLogger,
     ) -> ChemblExtractionContext:
-        select_resolver = lambda pipeline_obj, cfg: pipeline_obj._resolve_select_fields(  # type: ignore[arg-type]
-            cast(SourceConfig[Any], cast(Any, cfg)),
-            default_fields=API_DOCUMENT_FIELDS,
-        )
+        def select_resolver(
+            pipeline_obj: ChemblPipelineBase,
+            cfg: SourceConfig[Any],
+        ) -> Sequence[str] | None:
+            return pipeline_obj._resolve_select_fields(
+                cast(SourceConfig[Any], cast(Any, cfg)),
+                default_fields=API_DOCUMENT_FIELDS,
+            )
 
         context = build_standard_chembl_context(
             self,
@@ -214,7 +210,9 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
                     chembl_client.paginate = original  # type: ignore[method-assign]
 
                 api_calls_value = (
-                    fetch_context.stats.api_calls if fetch_context.stats.api_calls is not None else 0
+                    fetch_context.stats.api_calls
+                    if fetch_context.stats.api_calls is not None
+                    else 0
                 )
                 override = {
                     "batches": fetch_context.stats.batches,
@@ -350,7 +348,8 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
+            log.debug(
+                LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
@@ -364,6 +363,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
         # Normalize authors
         if "authors" in normalized_df.columns:
+
             def _to_author_tuple(item: object) -> tuple[str, int] | None:
                 if not isinstance(item, tuple):
                     return None
@@ -430,6 +430,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
         # Normalize year
         if "year" in df.columns:
+
             def _coerce_year(value: object) -> int | None:
                 if value is None or value is pd.NA:
                     return None
@@ -516,7 +517,8 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             duplicate_ids = (
                 df[df["document_chembl_id"].duplicated()]["document_chembl_id"].unique().tolist()
             )
-            log.warning(LogEvents.DOCUMENT_ID_DUPLICATES,
+            log.warning(
+                LogEvents.DOCUMENT_ID_DUPLICATES,
                 duplicate_count=duplicates.sum(),
                 duplicate_ids=duplicate_ids[:10],  # Limit to first 10
             )
@@ -581,4 +583,3 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         if max_url_length is not None:
             client_kwargs["max_url_length"] = max_url_length
         return ChemblDocumentClient(chembl_client, **client_kwargs)
-

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import inspect
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -24,12 +25,12 @@ from bioetl.clients.entities.client_assay_classification import (
     ChemblAssayClassificationEntityClient,
 )
 from bioetl.clients.entities.client_assay_parameters import ChemblAssayParametersEntityClient
+from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.clients.entities.client_document_term import ChemblDocumentTermEntityClient
 from bioetl.clients.entities.client_molecule import ChemblMoleculeEntityClient
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
-from bioetl.clients.entities.client_data_validity import ChemblDataValidityEntityClient
 from bioetl.config.models.source import SourceConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 
@@ -483,5 +484,3 @@ class TestEntityConfigUsage:
         assert captured["config"] is client_cls.ENTITY_CONFIG
         assert captured["batch_size"] == 10
         assert captured["max_url_length"] == 512
-
-

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_doctest_cli as cli_doctest_cli_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_doctest_cli as cli_doctest_cli_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 CLIExample = cli_doctest_cli_impl.CLIExample
 extract_cli_examples = cli_doctest_cli_impl.extract_cli_examples
@@ -67,8 +68,7 @@ def cli_main() -> None:
         )
 
     typer.echo(
-        f"All {len(results)} CLI examples completed successfully. "
-        f"Report: {report_path.resolve()}"
+        f"All {len(results)} CLI examples completed successfully. Report: {report_path.resolve()}"
     )
     CliCommandBase.exit(0)
 

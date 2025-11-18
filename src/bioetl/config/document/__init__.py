@@ -56,9 +56,7 @@ class DocumentSourceParameters(SourceParameters):
         return cls.model_validate(payload)
 
 
-class DocumentSourceConfig(
-    BatchSizeLimitMixin, SourceConfig[DocumentSourceParameters]
-):
+class DocumentSourceConfig(BatchSizeLimitMixin, SourceConfig[DocumentSourceParameters]):
     """Pipeline-specific view over the generic :class:`SourceConfig`."""
 
     enabled: bool = Field(default=True)
@@ -74,4 +72,3 @@ class DocumentSourceConfig(
     parameters_model = DocumentSourceParameters
     batch_field = "batch_size"
     default_batch_size = 25
-

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_check_output_artifacts as cli_check_output_artifacts_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_check_output_artifacts as cli_check_output_artifacts_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_check_output_artifacts_impl, "__all__", [])
 globals().update(
@@ -17,6 +18,8 @@ UnifiedLogger = cli_check_output_artifacts_impl.UnifiedLogger
 get_project_root = cli_check_output_artifacts_impl.get_project_root
 git_ls = cli_check_output_artifacts_impl.git_ls
 git_diff_cached = cli_check_output_artifacts_impl.git_diff_cached
+typer: Any = get_typer()
+MAX_BYTES = cli_check_output_artifacts_impl.MAX_BYTES
 
 
 def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
@@ -29,8 +32,10 @@ def check_output_artifacts(max_bytes: int = MAX_BYTES) -> list[str]:
         get_root_fn=get_project_root,
         logger_cls=UnifiedLogger,
     )
+
+
 __all__ = [
-    * _LOGIC_EXPORTS,
+    *_LOGIC_EXPORTS,
     "check_output_artifacts",
     "UnifiedLogger",
     "get_project_root",
@@ -40,9 +45,6 @@ __all__ = [
     "cli_main",
     "run",
 ]  # pyright: ignore[reportUnsupportedDunderAll]
-
-typer: Any = get_typer()
-MAX_BYTES = cli_check_output_artifacts_impl.MAX_BYTES
 
 
 def cli_main(

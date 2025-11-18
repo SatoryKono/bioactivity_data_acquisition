@@ -121,9 +121,7 @@ class TestTargetPipelineSmoke:
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch(
-            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample (limit to 5 records)
@@ -135,9 +133,9 @@ class TestTargetPipelineSmoke:
         # Check that serialized array fields are present
         assert "cross_references__flat" in df.columns, "cross_references__flat missing"
         assert "target_components__flat" in df.columns, "target_components__flat missing"
-        assert (
-            "target_component_synonyms__flat" in df.columns
-        ), "target_component_synonyms__flat missing"
+        assert "target_component_synonyms__flat" in df.columns, (
+            "target_component_synonyms__flat missing"
+        )
 
         # Check that array fields are strings (not lists)
         for col in [
@@ -151,9 +149,9 @@ class TestTargetPipelineSmoke:
                     assert isinstance(value, str), f"{col} should be string, got {type(value)}"
                     # Check pattern: header+rows format (header/row1/row2/...) or empty string
                     if value:
-                        assert re.match(
-                            r"^[^/]+(/.+)?$", value
-                        ), f"{col} should match header+rows pattern, got: {value[:100]}"
+                        assert re.match(r"^[^/]+(/.+)?$", value), (
+                            f"{col} should match header+rows pattern, got: {value[:100]}"
+                        )
 
     def test_target_pipeline_has_all_required_fields(self, tmp_path: Path) -> None:
         """Test that target pipeline extracts all required scalar fields."""
@@ -169,9 +167,7 @@ class TestTargetPipelineSmoke:
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch(
-            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -217,9 +213,7 @@ class TestTargetPipelineSmoke:
         # Mock API client factory
         mock_targets = create_mock_target_data(count=5)
         mock_client = setup_mock_api_client(mock_targets)
-        with patch(
-            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             # Extract a small sample
@@ -235,9 +229,9 @@ class TestTargetPipelineSmoke:
                 if value:  # Non-empty values
                     # Should have format: header/row1/row2/...
                     parts = value.split("/")
-                    assert (
-                        len(parts) >= 2
-                    ), f"cross_references should have header+rows, got: {value[:100]}"
+                    assert len(parts) >= 2, (
+                        f"cross_references should have header+rows, got: {value[:100]}"
+                    )
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
                     # Check that header contains expected keys
@@ -249,9 +243,9 @@ class TestTargetPipelineSmoke:
             for value in components:
                 if value:  # Non-empty values
                     parts = value.split("/")
-                    assert (
-                        len(parts) >= 2
-                    ), f"target_components should have header+rows, got: {value[:100]}"
+                    assert len(parts) >= 2, (
+                        f"target_components should have header+rows, got: {value[:100]}"
+                    )
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
 
@@ -261,9 +255,9 @@ class TestTargetPipelineSmoke:
             for value in synonyms:
                 if value:  # Non-empty values
                     parts = value.split("/")
-                    assert (
-                        len(parts) >= 2
-                    ), f"target_component_synonyms should have header+rows, got: {value[:100]}"
+                    assert len(parts) >= 2, (
+                        f"target_component_synonyms should have header+rows, got: {value[:100]}"
+                    )
                     header = parts[0]
                     assert "|" in header, f"Header should contain |, got: {header}"
                     # Check that header contains expected keys
@@ -295,9 +289,7 @@ class TestTargetPipelineSmoke:
         ]
 
         mock_client = setup_mock_api_client(mock_targets)
-        with patch(
-            "bioetl.core.APIClientFactory.for_source", return_value=mock_client
-        ):
+        with patch("bioetl.core.APIClientFactory.for_source", return_value=mock_client):
             pipeline = ChemblTargetPipeline(config, run_id="test_run")
 
             config.cli.limit = 1

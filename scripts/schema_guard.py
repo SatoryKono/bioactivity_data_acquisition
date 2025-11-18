@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_schema_guard as cli_schema_guard_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_CONFIG, CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_schema_guard as cli_schema_guard_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_schema_guard_impl, "__all__", [])
 globals().update({symbol: getattr(cli_schema_guard_impl, symbol) for symbol in _LOGIC_EXPORTS})
-run_schema_guard = getattr(cli_schema_guard_impl, "run_schema_guard")
-__all__ = [* _LOGIC_EXPORTS, "run_schema_guard", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
+run_schema_guard = cli_schema_guard_impl.run_schema_guard
+__all__ = [*_LOGIC_EXPORTS, "run_schema_guard", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
 
 typer: Any = get_typer()
 
@@ -35,9 +36,7 @@ def cli_main() -> None:
             cause=exc,
         )
 
-    invalid_configs = [
-        name for name, payload in results.items() if not payload.get("valid", False)
-    ]
+    invalid_configs = [name for name, payload in results.items() if not payload.get("valid", False)]
 
     if invalid_configs or registry_errors:
         typer.secho(

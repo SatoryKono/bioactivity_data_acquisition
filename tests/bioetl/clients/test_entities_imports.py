@@ -43,4 +43,3 @@ def test_entity_import_smoke(module_name: str, symbol: str) -> None:
 
     assert exported is not None, f"{symbol} missing in {module_name}"
     assert getattr(exported, "__module__", module_name) == module_name
-

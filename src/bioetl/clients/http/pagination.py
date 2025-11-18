@@ -89,8 +89,7 @@ class Paginator:
                     # Only override if page_size is specified and limit exists in URL
                     query_params = parse_qs(parsed.query, keep_blank_values=True)
                     has_limit_in_url = (
-                        self._limit_param_name
-                        and self._limit_param_name in query_params
+                        self._limit_param_name and self._limit_param_name in query_params
                     )
                     needs_limit_override = (
                         has_limit_in_url
@@ -98,10 +97,12 @@ class Paginator:
                         and page_size is not None
                         and page_size > 0
                     )
-                    
+
                     if needs_limit_override:
                         # Extract and update params from URL to override limit
-                        extracted_params = self._extract_and_update_params_from_url(next_endpoint, page_size)
+                        extracted_params = self._extract_and_update_params_from_url(
+                            next_endpoint, page_size
+                        )
                         if extracted_params is not None:
                             pending_params = extracted_params
                             self._log.debug(
@@ -337,4 +338,3 @@ class Paginator:
             params[self._limit_param_name] = page_size
 
         return params if params else None
-

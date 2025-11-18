@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any
 
 import pytest
 
@@ -103,7 +104,9 @@ def test_audit_vocabularies(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
 
     output = tmp_path / "out.csv"
     meta = tmp_path / "meta.yaml"
-    result = vocab_audit.audit_vocabularies(store=tmp_path, output=output, meta=meta, pages=1, page_size=5)
+    result = vocab_audit.audit_vocabularies(
+        store=tmp_path, output=output, meta=meta, pages=1, page_size=5
+    )
     assert result.output.exists()
     assert result.meta.exists()
     csv_content = result.output.read_text(encoding="utf-8")

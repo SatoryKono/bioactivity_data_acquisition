@@ -8,8 +8,8 @@ from re‑implementing boilerplate lifecycle hooks.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager, suppress
 from typing import Any
 
 import pandas as pd
@@ -88,14 +88,10 @@ class ReleaseHandshakeMixin:
     ) -> Mapping[str, Any]:
         """Fetch and cache the ChEMBL status payload for the endpoint."""
         if not enabled:
-            self.logger_for(stage="handshake").info(
-                "handshake_skipped", endpoint=endpoint
-            )
+            self.logger_for(stage="handshake").info("handshake_skipped", endpoint=endpoint)
             return {}
 
-        cache: dict[str, tuple[float, Mapping[str, Any]]] = getattr(
-            self, "_handshake_cache", {}
-        )
+        cache: dict[str, tuple[float, Mapping[str, Any]]] = getattr(self, "_handshake_cache", {})
         now = time.monotonic()
         cached = cache.get(endpoint)
         if cached and cached[0] > now:
@@ -165,10 +161,8 @@ class PaginatedExtractorMixin:
                 )
                 yield page_index, items
                 if hasattr(self, "on_page"):
-                    try:
+                    with suppress(AttributeError):
                         self.on_page(page_index, payload.get("page_meta", {}))
-                    except AttributeError:
-                        pass
             next_endpoint = payload.get("page_meta", {}).get("next")
             page_index += 1
             if not items:
@@ -279,4 +273,3 @@ class IOArtifactsMixin:
             include_qc_metrics=include_qc_metrics,
         )
         return run_result.write_result
-

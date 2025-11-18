@@ -38,7 +38,6 @@ from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .transform import serialize_target_arrays
 
-
 _ARRAY_SOURCE_COLUMNS: tuple[str, ...] = (
     "cross_references",
     "target_components",
@@ -69,6 +68,7 @@ def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str
     level_flag = 1 if level is None else 0
     return (level_flag, level_int, class_id, pref_name, canonical_json)
 
+
 class ChemblTargetPipeline(UnifiedPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
@@ -94,7 +94,9 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         ) -> ChemblExtractionContext:
             typed_pipeline = cast("ChemblTargetPipeline", pipeline)
 
-            def extra_filters_factory(sc: TargetSourceConfig, _: ChemblPipelineBase) -> dict[str, Any]:
+            def extra_filters_factory(
+                sc: TargetSourceConfig, _: ChemblPipelineBase
+            ) -> dict[str, Any]:
                 batch_size = getattr(sc, "batch_size", None)
                 return {"batch_size": batch_size} if batch_size else {}
 
@@ -104,7 +106,10 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                 source_config,
                 log,
                 entity_client_type=ChemblTargetClient,
-                release_resolver=lambda p, c, l, _: p.fetch_chembl_release(c, l),
+                release_resolver=lambda pipeline_obj,
+                client,
+                logger,
+                _: pipeline_obj.fetch_chembl_release(client, logger),
                 extra_filters_factory=extra_filters_factory,
             )
 
@@ -323,7 +328,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
         invalid_info = stats.per_column.get("target_chembl_id")
         if invalid_info and invalid_info["invalid"] > 0:
-            log.warning(LogEvents.INVALID_TARGET_CHEMBL_ID,
+            log.warning(
+                LogEvents.INVALID_TARGET_CHEMBL_ID,
                 count=invalid_info["invalid"],
             )
 
@@ -402,7 +408,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                     deduped_components = sorted({component.strip() for component in components})
                     component_map[target_id] = deduped_components
             except Exception as exc:
-                log.warning(LogEvents.TARGET_COMPONENT_FETCH_ERROR,
+                log.warning(
+                    LogEvents.TARGET_COMPONENT_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -419,9 +426,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
         # Add component_count column (only for missing values)
         if "component_count" in df.columns:
-            mask = target_membership & (
-                df["component_count"].isna() | (df["component_count"] == 0)
-            )
+            mask = target_membership & (df["component_count"].isna() | (df["component_count"] == 0))
             if mask.any():
                 df.loc[mask, "component_count"] = df.loc[mask, "target_chembl_id"].map(
                     lambda x: len(component_map.get(str(x), [])) if pd.notna(x) else pd.NA
@@ -497,11 +502,15 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             lambda x: self._is_target_in_set(x, target_ids_set)
         )
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich))
+        log.info(
+            LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich)
+        )
 
         # Get component_limit from config if available
         component_limit: int | None = None
-        if hasattr(source_config, "parameters") and hasattr(source_config.parameters, "component_limit"):
+        if hasattr(source_config, "parameters") and hasattr(
+            source_config.parameters, "component_limit"
+        ):
             component_limit = source_config.parameters.component_limit
 
         for target_id in target_ids_to_enrich:
@@ -548,7 +557,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                         # Handle 404 gracefully: some components may not have sequences
                         # requests.exceptions.HTTPError always has a response attribute
                         if exc.response is not None and exc.response.status_code == 404:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                            log.debug(
+                                LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 component_id=component_id,
                                 error=f"Component sequence not found (404): {component_id}",
@@ -561,13 +571,16 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                         # Wait for circuit breaker to transition to half-open, then retry once
                         wait_time = chembl_client.circuit_breaker_time_until_half_open()
                         if wait_time is not None and wait_time > 0:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                            log.debug(
+                                LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 component_id=component_id,
                                 error=str(exc),
                                 wait_time=wait_time,
                             )
-                            time.sleep(min(wait_time + 1.0, 60.0))  # Wait with small buffer, max 60s
+                            time.sleep(
+                                min(wait_time + 1.0, 60.0)
+                            )  # Wait with small buffer, max 60s
                             try:
                                 # Retry once after waiting
                                 for seq_item in chembl_client.paginate(
@@ -586,8 +599,12 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                             except HTTPError as retry_exc:
                                 # Handle 404 on retry as well
                                 # requests.exceptions.HTTPError always has a response attribute
-                                if retry_exc.response is not None and retry_exc.response.status_code == 404:
-                                    log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                if (
+                                    retry_exc.response is not None
+                                    and retry_exc.response.status_code == 404
+                                ):
+                                    log.debug(
+                                        LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                         target_chembl_id=target_id,
                                         component_id=component_id,
                                         error=f"Component sequence not found (404) on retry: {component_id}",
@@ -596,19 +613,22 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                                     continue
                                 raise
                             except Exception as retry_exc:
-                                log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                                log.debug(
+                                    LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                     target_chembl_id=target_id,
                                     component_id=component_id,
                                     error=str(retry_exc),
                                 )
                         else:
-                            log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                            log.debug(
+                                LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 component_id=component_id,
                                 error=str(exc),
                             )
                     except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
+                        log.debug(
+                            LogEvents.COMPONENT_SEQUENCE_FETCH_ERROR,
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -631,7 +651,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                             if protein_class_id is not None:
                                 protein_class_ids.add(str(protein_class_id))
                     except Exception as exc:
-                        log.debug(LogEvents.COMPONENT_CLASS_FETCH_ERROR,
+                        log.debug(
+                            LogEvents.COMPONENT_CLASS_FETCH_ERROR,
                             target_chembl_id=target_id,
                             component_id=component_id,
                             error=str(exc),
@@ -685,7 +706,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                                             path_levels[i - 1] = str(level_value)
                                 break
                         except Exception as exc:
-                            log.debug(LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
+                            log.debug(
+                                LogEvents.PROTEIN_FAMILY_CLASSIFICATION_FETCH_ERROR,
                                 target_chembl_id=target_id,
                                 protein_class_id=protein_class_id,
                                 error=str(exc),
@@ -704,7 +726,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                             }
                             protein_classes.append(class_obj)
                     except Exception as exc:
-                        log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                        log.warning(
+                            LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                             target_chembl_id=target_id,
                             protein_class_id=protein_class_id,
                             error=str(exc),
@@ -743,7 +766,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                         classification_top_map[target_id] = top_class
 
             except Exception as exc:
-                log.warning(LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
+                log.warning(
+                    LogEvents.PROTEIN_CLASSIFICATION_FETCH_ERROR,
                     target_chembl_id=target_id,
                     error=str(exc),
                 )
@@ -776,7 +800,8 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
                     else pd.NA
                 )
 
-        log.info(LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
+        log.info(
+            LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_COMPLETE,
             enriched_list_count=len(classification_list_map),
             enriched_top_count=len(classification_top_map),
         )
@@ -796,16 +821,15 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         normalized_df, stats = normalize_string_columns(working_df, rules, copy=False)
 
         if stats.has_changes:
-            log.debug(LogEvents.STRING_FIELDS_NORMALIZED,
+            log.debug(
+                LogEvents.STRING_FIELDS_NORMALIZED,
                 columns=list(stats.per_column.keys()),
                 rows_processed=stats.processed,
             )
 
         return normalized_df
 
-    def _normalize_data_types(
-        self, df: pd.DataFrame, schema: Any | None, log: Any
-    ) -> pd.DataFrame:
+    def _normalize_data_types(self, df: pd.DataFrame, schema: Any | None, log: Any) -> pd.DataFrame:
         """Normalize data types to match schema expectations.
 
         Overrides base implementation to handle component_count and species_group_flag specially.

@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
-from bioetl.devtools import cli_inventory_docs as cli_inventory_docs_impl
 from bioetl.core.runtime.cli_base import CliCommandBase
 from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+from bioetl.devtools import cli_inventory_docs as cli_inventory_docs_impl
+from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
 
 _LOGIC_EXPORTS = getattr(cli_inventory_docs_impl, "__all__", [])
 globals().update({symbol: getattr(cli_inventory_docs_impl, symbol) for symbol in _LOGIC_EXPORTS})
-InventoryResult = getattr(cli_inventory_docs_impl, "InventoryResult")
-write_inventory = getattr(cli_inventory_docs_impl, "write_inventory")
+InventoryResult = cli_inventory_docs_impl.InventoryResult
+write_inventory = cli_inventory_docs_impl.write_inventory
 __all__ = [
-    * _LOGIC_EXPORTS,
+    *_LOGIC_EXPORTS,
     "InventoryResult",
     "write_inventory",
     "app",

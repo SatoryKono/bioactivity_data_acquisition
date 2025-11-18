@@ -20,4 +20,3 @@ def validate(
 
     pipeline = ChemblActivityPipeline(config=config, run_id=run_id)
     return pipeline.validate(df)
-

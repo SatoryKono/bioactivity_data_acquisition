@@ -31,4 +31,3 @@ def test_resolve_max_url_length_rejects_non_positive() -> None:
 
     with pytest.raises(ValueError, match="max_url_length должен быть ≥ 1"):
         _resolve_max_url_length(None, {"max_url_length": 0})
-

@@ -79,9 +79,7 @@ def required_vocab_ids(
         raise RuntimeError(message) from exc
 
     if not values:
-        message = (
-            f"Vocabulary '{name}' is empty. Update dictionary definitions before continuing."
-        )
+        message = f"Vocabulary '{name}' is empty. Update dictionary definitions before continuing."
         raise RuntimeError(message)
     return values
 
@@ -118,4 +116,3 @@ def get_vocabulary_service() -> VocabularyService:
     """Return the singleton vocabulary service."""
 
     return VocabularyService()
-

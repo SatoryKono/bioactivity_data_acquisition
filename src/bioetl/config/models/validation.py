@@ -42,7 +42,7 @@ class ValidationConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _validate_version_contract(self) -> "ValidationConfig":
+    def _validate_version_contract(self) -> ValidationConfig:
         if self.schema_in_version and not self.schema_in:
             msg = "validation.schema_in_version requires validation.schema_in to be set"
             raise ValueError(msg)
@@ -50,6 +50,8 @@ class ValidationConfig(BaseModel):
             msg = "validation.schema_out_version requires validation.schema_out to be set"
             raise ValueError(msg)
         if self.allow_schema_migration and not self.max_schema_migration_hops:
-            msg = "validation.max_schema_migration_hops must be positive when migrations are allowed"
+            msg = (
+                "validation.max_schema_migration_hops must be positive when migrations are allowed"
+            )
             raise ValueError(msg)
         return self

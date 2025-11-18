@@ -29,7 +29,9 @@ class DummyUnifiedLogger:
         return DummyUnifiedLogger._captured
 
 
-def test_run_comment_check_raises_not_implemented(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_run_comment_check_raises_not_implemented(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     monkeypatch.setattr(check_comments, "UnifiedLogger", DummyUnifiedLogger)
     monkeypatch.setattr(check_comments, "get_project_root", lambda: tmp_path)
 
@@ -40,4 +42,3 @@ def test_run_comment_check_raises_not_implemented(monkeypatch: pytest.MonkeyPatc
     event, payload = DummyUnifiedLogger._captured.records[0]
     assert event == check_comments.LogEvents.COMMENT_CHECK_NOT_IMPLEMENTED
     assert payload["root"] == str(tmp_path)
-

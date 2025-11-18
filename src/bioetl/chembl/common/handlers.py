@@ -41,6 +41,7 @@ def make_empty_frame_factory(
     >>> df = empty_frame(pipeline, context)
     >>> assert df.columns.tolist() == ["target_chembl_id"]
     """
+
     def empty_frame(
         _: PipelineT,
         __: ChemblExtractionContext,
@@ -75,6 +76,7 @@ def make_dry_run_handler(
     >>> handler = make_dry_run_handler(LogEvents.CHEMBL_TARGET_EXTRACT_SKIPPED, get_metadata)
     >>> df = handler(pipeline, context, log, stage_start)
     """
+
     def dry_run_handler(
         pipeline: PipelineT,
         _: ChemblExtractionContext,
@@ -92,4 +94,3 @@ def make_dry_run_handler(
         return pd.DataFrame()
 
     return dry_run_handler
-

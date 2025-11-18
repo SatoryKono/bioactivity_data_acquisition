@@ -82,7 +82,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
     # ------------------------------------------------------------------ #
 
     @classmethod
-    def from_source_config(cls: type[SelfSourceConfigT], config: "SourceConfig[Any]") -> SelfSourceConfigT:
+    def from_source_config(
+        cls: type[SelfSourceConfigT], config: SourceConfig[Any]
+    ) -> SelfSourceConfigT:
         """Build a specialized configuration object from a generic instance."""
 
         if isinstance(config, cls):
@@ -99,7 +101,9 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
                 return cast(ParametersT, SourceParameters())
             if isinstance(params, SourceParameters):
                 return cast(ParametersT, params)
-            return cast(ParametersT, SourceParameters(**SourceParameters._normalize_mapping(params)))
+            return cast(
+                ParametersT, SourceParameters(**SourceParameters._normalize_mapping(params))
+            )
         if params is None:
             return cast(ParametersT, model())
         if isinstance(params, model):
@@ -121,7 +125,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
     def _build_payload(
         cls,
         *,
-        config: "SourceConfig[Any]",
+        config: SourceConfig[Any],
         parameters: Any,
     ) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -145,7 +149,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
     def _resolve_batch_value(
         cls,
         *,
-        config: "SourceConfig[Any]",
+        config: SourceConfig[Any],
         parameters: Any,  # noqa: ARG003 - hook for subclass overrides
     ) -> int | None:
         if config.batch_size is not None:
@@ -219,7 +223,7 @@ class SourceConfig(BaseModel, Generic[ParametersT]):
 
 
 def enforce_positive_int_cap(
-    config: "SourceConfig[Any]",
+    config: SourceConfig[Any],
     *,
     field: str,
     cap: int,

@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import Any
 
 import pandas as pd
 
@@ -88,4 +89,3 @@ def assert_qc_artifact_set(
 
 def _assert_path_exists(path: Path, label: str) -> None:
     assert path.exists(), f"{label} path does not exist: {path}"
-

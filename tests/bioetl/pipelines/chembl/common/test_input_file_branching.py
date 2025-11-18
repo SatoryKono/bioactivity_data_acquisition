@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Type
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
+from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.activity import run as activity_run
 from bioetl.pipelines.chembl.assay import run as assay_run
-from bioetl.chembl.common import ChemblPipelineBase
 from bioetl.pipelines.chembl.document import run as document_run
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
@@ -29,7 +28,7 @@ from bioetl.pipelines.chembl.testitem import run as testitem_run
     ],
 )
 def test_extract_uses_shared_input_file_helper(
-    pipeline_cls: Type[ChemblPipelineBase],
+    pipeline_cls: type[ChemblPipelineBase],
     pipeline_name: str,
     event_name: str,
     pipeline_config_fixture: PipelineConfig,

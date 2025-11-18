@@ -88,4 +88,3 @@ def build_filters_payload(
 
     compact = {key: value for key, value in payload.items() if value is not None}
     return payload, compact
-

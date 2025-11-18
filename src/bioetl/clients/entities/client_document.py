@@ -18,4 +18,3 @@ class ChemblDocumentClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("document")
     DEFAULT_BATCH_SIZE: ClassVar[int] = 25
-
