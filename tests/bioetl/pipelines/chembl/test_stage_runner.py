@@ -25,7 +25,7 @@ class _StubPipeline(PipelineBase):
             "args": args,
             "kwargs": kwargs,
             "run_id": self.run_id,
-            "pipeline": self.config.pipeline.name,
+            "pipeline": self.pipeline_code,
         }
 
     def extract(self, *args: object, **kwargs: object) -> dict[str, object]:
@@ -75,4 +75,4 @@ def test_stage_function_rejects_redundant_run_id(pipeline_config_fixture) -> Non
     context = StageContext(config=pipeline_config_fixture, run_id="ctx")
 
     with pytest.raises(TypeError):
-        stages["extract"](context, "duplicate-run-id")
+        stages["extract"](context, run_id="duplicate-run-id")

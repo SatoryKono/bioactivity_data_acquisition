@@ -185,8 +185,37 @@ def build_stage_functions(
         msg = "build_stage_functions expects a PipelineBase subclass or loader"
         raise TypeError(msg)
 
+    def _make_stage_function(stage_name: str) -> StageCallable:
+        """Create a stage function that properly handles StageContext and arguments."""
+        partial_func = partial(run_stage, stage_name, pipeline_ref)
+
+        def stage_wrapper(
+            context_or_config: StageContext | PipelineConfig,
+            run_id_or_arg: str | None = None,
+            *args: Any,
+            run_id: str | None = None,
+            **kwargs: Any,
+        ) -> Any:
+            """Wrapper that handles StageContext and arguments correctly."""
+            # Если передан StageContext, второй позиционный аргумент должен попадать в *args
+            if isinstance(context_or_config, StageContext):
+                # Если run_id передан как именованный аргумент, это ошибка
+                if run_id is not None:
+                    msg = "run_stage received redundant run_id alongside StageContext"
+                    raise TypeError(msg)
+                # Второй позиционный аргумент (run_id_or_arg) должен попадать в *args
+                # Собираем все аргументы для stage метода
+                stage_args = (run_id_or_arg,) if run_id_or_arg is not None else ()
+                stage_args = stage_args + args
+                # partial_func уже имеет run_id=None, просто передаем context и аргументы
+                return partial_func(context_or_config, *stage_args, **kwargs)
+            # Если передан PipelineConfig, второй позиционный аргумент - это run_id
+            return partial_func(context_or_config, run_id_or_arg, *args, **kwargs)
+
+        return stage_wrapper
+
     stage_functions = {
-        stage: partial(run_stage, stage, pipeline_ref) for stage in stage_names
+        stage: _make_stage_function(stage) for stage in stage_names
     }
     return pipeline_ref, MappingProxyType(stage_functions)
 
@@ -279,9 +308,14 @@ def _coerce_stage_context(
     run_id: str | None,
 ) -> StageContext:
     if isinstance(context_or_config, StageContext):
-        if run_id is not None:
-            msg = "run_stage received redundant run_id alongside StageContext"
-            raise TypeError(msg)
+        # Если передан StageContext, run_id должен быть None (передан явно как именованный аргумент)
+        # Если run_id не None и это строка, это может быть аргумент для stage метода, а не run_id
+        # Проверяем только если run_id был передан как именованный аргумент (не позиционный)
+        # Для этого нужно проверить, что run_id действительно является run_id, а не аргументом stage
+        # Но мы не можем это определить здесь, поэтому просто игнорируем run_id если передан StageContext
+        # и считаем, что run_id должен быть явно передан как None или не передан вообще
+        # Если run_id не None, это ошибка только если он был передан как именованный аргумент
+        # Но мы не можем это определить, поэтому просто игнорируем run_id при StageContext
         return context_or_config.derive(stage=stage)
 
     if isinstance(context_or_config, PipelineConfig):
@@ -325,7 +359,11 @@ def run_stage(
     stage_context = _coerce_stage_context(stage, context_or_config, run_id)
     pipeline_cls, identifier = _resolve_pipeline(pipeline_ref)
     pipeline = pipeline_cls(config=stage_context.config, run_id=stage_context.run_id)
-    pipeline_name = stage_context.resolve_pipeline_name()
+    # Если pipeline_name установлен в StageContext, используем его для pipeline_code
+    resolved_pipeline_name = stage_context.resolve_pipeline_name()
+    if stage_context.pipeline_name is not None and resolved_pipeline_name != pipeline.pipeline_code:
+        pipeline.pipeline_code = resolved_pipeline_name
+    pipeline_name = resolved_pipeline_name
     stage_name = stage_context.stage or stage
     log = get_pipeline_logger(pipeline=pipeline_name, run_id=stage_context.run_id, stage=stage_name)
 

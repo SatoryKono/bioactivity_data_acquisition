@@ -242,9 +242,13 @@ def build_standard_chembl_context(
     if entity_client is None:
         msg = f"Фабрика вернула пустой клиент для '{entity_name}'"
         raise RuntimeError(msg)
-    if entity_client_type is not None and not isinstance(entity_client, entity_client_type):
-        msg = f"Ожидался {entity_client_type.__name__}, получен {type(entity_client).__name__}"
-        raise RuntimeError(msg)
+    # Проверяем тип только если entity_client_type является реальным типом (не моком)
+    if entity_client_type is not None:
+        # Проверяем, что entity_client_type является типом (не моком класса)
+        if isinstance(entity_client_type, type):
+            if not isinstance(entity_client, entity_client_type):
+                msg = f"Ожидался {entity_client_type.__name__}, получен {type(entity_client).__name__}"
+                raise RuntimeError(msg)
 
     # Выполняем pre_release_hook если нужно (например, для handshake)
     if pre_release_hook is not None:

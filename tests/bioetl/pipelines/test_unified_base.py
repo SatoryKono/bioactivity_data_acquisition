@@ -199,7 +199,7 @@ def test_save_results_writes_dataset(
     unified_pipeline: DummyUnifiedPipeline, tmp_path: Path
 ) -> None:
     result = unified_pipeline.save_results(pd.DataFrame(), tmp_path)
-    assert result.dataset.exists()
+    assert result.write_result.dataset.exists()
 
 
 def test_unified_pipeline_run_produces_artifacts(

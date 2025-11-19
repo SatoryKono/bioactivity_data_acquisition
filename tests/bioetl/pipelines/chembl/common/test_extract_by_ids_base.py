@@ -76,7 +76,8 @@ def test_extract_by_ids_happy_path(
         ) -> Iterable[dict[str, object]]:
             return cast(Iterable[dict[str, object]], iter([{id_column: id_val} for id_val in ids]))
 
-        mock_document_client = Mock()
+        # Создаем мок document_client с правильной спецификацией
+        mock_document_client = Mock(spec=ChemblDocumentClient)
         mock_document_client.iterate_by_ids = mock_iterate_by_ids_doc
         mock_document_client.batch_size = 20
 
@@ -112,6 +113,13 @@ def test_extract_by_ids_empty_list(
 ) -> None:
     """Тест обработки пустого списка ID."""
     pipeline = pipeline_cls(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
+
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = lambda ids, select_fields=None: iter([])
+        mock_chembl_bundle.entity_client = mock_entity_client
 
     # Для Document pipeline нужно мокировать _build_document_client
     if pipeline_cls == document_run.ChemblDocumentPipeline:
@@ -285,6 +293,12 @@ def test_extract_by_ids_dry_run(
     pipeline_config_fixture.cli.dry_run = True  # type: ignore[attr-defined]
     pipeline = pipeline_cls(config=pipeline_config_fixture, run_id=run_id)  # type: ignore[reportAbstractUsage]
 
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_chembl_bundle.entity_client = mock_entity_client
+
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
         with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
             result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
@@ -318,7 +332,14 @@ def test_extract_by_ids_respects_limit(
     ) -> Sequence[dict[str, object]]:
         return [{id_column: id_val} for id_val in ids]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+        mock_chembl_bundle.entity_client = mock_entity_client
+    else:
+        mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
         with patch.object(pipeline, "fetch_chembl_release", return_value="33"):

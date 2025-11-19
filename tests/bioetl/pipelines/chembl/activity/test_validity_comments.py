@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pandas as pd
 import pytest  # type: ignore[import-not-found]
 
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle
+from bioetl.clients.entities.client_activity import ChemblActivityClient
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
@@ -349,7 +350,8 @@ class TestValidityCommentsOnlyFields:
         http_client_stub = MagicMock(spec=UnifiedAPIClient)
         chembl_client_stub = MagicMock()
         chembl_client_stub.handshake.return_value = {"chembl_db_version": "test-release"}
-        iterator_stub = MagicMock()
+        # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+        iterator_stub = Mock(spec=ChemblActivityClient)
         iterator_stub.iterate_all.return_value = [
             {
                 "activity_id": 1,
