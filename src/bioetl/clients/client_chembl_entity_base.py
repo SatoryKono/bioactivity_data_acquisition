@@ -446,6 +446,7 @@ class ChemblEntityFetcherBase(ChemblReleaseMixin, ChemblEntityClientProtocol):
                 params=request_params,
                 page_size=resolved_page_size,
                 items_key=self._config.items_key,
+                limit=limit,
             ),
             start=1,
         ):
