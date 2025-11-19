@@ -1,7 +1,7 @@
 """TestItem pipeline implementation for ChEMBL."""
 
 from __future__ import annotations
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any, Callable, cast
 
@@ -26,7 +26,7 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core import UnifiedLogger
 from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
-from bioetl.core.schema import StringRule
+from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.schema.normalizers import StringStats
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
@@ -357,6 +357,23 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             "molecule_structures__canonical_smiles": StringRule(),
             "canonical_smiles": StringRule(),
         }
+
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
+            IdentifierRule(
+                name="chembl_molecule",
+                columns=["molecule_chembl_id"],
+                pattern=r"^CHEMBL\d+$",
+            ),
+            IdentifierRule(
+                name="standard_inchi_key",
+                columns=[
+                    "molecule_structures__standard_inchi_key",
+                    "standard_inchi_key",
+                ],
+                pattern=r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$",
+            ),
+        )
 
     def postprocess_string_columns(
         self,

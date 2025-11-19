@@ -6,6 +6,10 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from _cli_bootstrap import configure_path
+
+configure_path()
+
 from bioetl.clients.client_exceptions import HTTPError, Timeout
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.core.runtime.cli_base import CliCommandBase
