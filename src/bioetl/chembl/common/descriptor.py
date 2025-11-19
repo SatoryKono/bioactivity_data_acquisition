@@ -1728,10 +1728,30 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         """Resolve Chembl release and optional metadata for ID extractions."""
 
-        if self.chembl_release:
-            return self.chembl_release, {}
-        release_value = self.fetch_chembl_release(chembl_client, log)
-        return release_value, {}
+        metadata: dict[str, Any] = {}
+
+        chembl_db_version = getattr(self, "chembl_db_version", None)
+        if chembl_db_version:
+            metadata["chembl_db_version"] = chembl_db_version
+
+        api_version = self.api_version
+        if api_version:
+            metadata["api_version"] = api_version
+
+        cached_release = self.chembl_release
+        if cached_release:
+            return cached_release, metadata
+
+        try:
+            release_value = self.fetch_chembl_release(chembl_client, log)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+            return None, {}
+
+        if release_value is not None and self.chembl_release != release_value:
+            self._set_chembl_release(release_value)
+
+        return release_value, metadata
 
     def _fetch_chembl_release(
         self,
