@@ -15,6 +15,7 @@ from bioetl.chembl.common.descriptor import (
     ChemblContextSpec,
     ChemblDescriptorSpec,
     ChemblExtractionContext,
+    ChemblExtractionDescriptor,
     ChemblPipelineBase,
     FetcherCallable,
     FetcherFactory,
@@ -159,6 +160,8 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             client_registry_name="chembl_document_client",
             page_size_resolver=lambda cfg: cfg.batch_size,
         )
+        if context.chembl_client is None:
+            raise RuntimeError("chembl_client is None in _build_document_context")
         context.iterator = self._build_document_client(
             chembl_client=context.chembl_client,
             source_config=source_config,
@@ -167,21 +170,6 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
     def id_extraction_stats_attribute(self) -> str | None:
         return "_last_batch_extract_stats"
-    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:
-        """Extract document records by batching explicit ID requests."""
-
-        descriptor = self.build_descriptor()
-        source_raw = self._resolve_source_config("chembl")
-        source_config = DocumentSourceConfig.from_source_config(source_raw)
-        resolved_select_fields = self._resolve_select_fields(
-            source_raw,
-            default_fields=list(API_DOCUMENT_FIELDS),
-        )
-        merged_select_fields = self._merge_select_fields(
-            resolved_select_fields,
-            DOCUMENT_MUST_HAVE_FIELDS,
-        )
-        limit = self.config.cli.limit
 
     def id_extraction_fetcher_factory(
         self,
@@ -514,7 +502,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
 
     def _should_enrich_document_terms(self) -> bool:
         """Return True when document_term enrichment is enabled in the config."""
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        chembl_config = self.config.chembl
         return enrich_flag(
             chembl_config,
             ("document", "enrich", "document_term", "enabled"),
@@ -524,7 +512,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         """Apply document_term enrichment to the DataFrame."""
         log = self.logger_for(stage="transform", component=f"{self.pipeline_code}.enrich")
 
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        chembl_config = self.config.chembl
         enrich_cfg = _extract_enrich_config(
             chembl_config,
             ("document", "enrich", "document_term"),
