@@ -7,12 +7,13 @@ and data extraction utilities.
 
 from __future__ import annotations
 
+
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Generic, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -138,7 +139,7 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
 
 SelfDescriptorT = TypeVar(
     "SelfDescriptorT",
-    bound="ChemblDescriptorBuilderMixin[Any]",
+    bound="ChemblPipelineBase",
 )  # noqa: UP037
 
 
@@ -339,16 +340,16 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
     ) = None
 
 
-class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
+class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]
     """Mixin providing declarative descriptor construction for Chembl pipelines."""
 
-    def descriptor_spec(self: SelfDescriptorT) -> ChemblDescriptorSpec[SelfDescriptorT]:
+    def descriptor_spec(self: SelfDescriptorT) -> ChemblDescriptorSpec[SelfDescriptorT]:  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
         """Return the specification consumed by :meth:`build_descriptor`."""
 
         msg = f"{type(self).__name__} must implement descriptor_spec()"
         raise NotImplementedError(msg)
 
-    def build_descriptor(self: SelfDescriptorT) -> ChemblExtractionDescriptor[SelfDescriptorT]:
+    def build_descriptor(self: SelfDescriptorT) -> ChemblExtractionDescriptor[SelfDescriptorT]:  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
         """Construct a descriptor instance based on :meth:`descriptor_spec`."""
 
         spec = self.descriptor_spec()
@@ -357,11 +358,11 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
             spec.id_column
         )
 
-        return ChemblExtractionDescriptor[SelfDescriptorT](
+        return ChemblExtractionDescriptor[SelfDescriptorT](  # pyright: ignore[reportInvalidTypeArguments, reportArgumentType]; type: ignore[type-arg, arg-type]
             name=spec.name,
             source_name=spec.source_name,
             source_config_factory=spec.source_config_factory,
-            build_context=build_context,
+            build_context=build_context,  # pyright: ignore[reportArgumentType]
             id_column=spec.id_column,
             summary_event=spec.summary_event,
             must_have_fields=tuple(spec.must_have_fields),
@@ -369,7 +370,7 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
             record_transform=spec.record_transform,
             post_processors=tuple(spec.post_processors),
             sort_by=spec.sort_by,
-            empty_frame_factory=empty_frame_factory,
+            empty_frame_factory=empty_frame_factory,  # pyright: ignore[reportArgumentType]
             dry_run_handler=spec.dry_run_handler,
             summary_extra=spec.summary_extra,
             hard_page_size_cap=spec.hard_page_size_cap,
@@ -381,7 +382,7 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
 
     def _build_context_callable(
         self: SelfDescriptorT,
-        spec: ChemblDescriptorSpec[SelfDescriptorT],
+        spec: ChemblDescriptorSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]:
         context_spec = spec.context
 
@@ -409,7 +410,7 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
                 )
 
                 context = build_standard_chembl_context(
-                    typed_pipeline,
+                    cast(ChemblPipelineBase, typed_pipeline),
                     context_spec.entity_name,
                     source_config,
                     log,
@@ -437,7 +438,7 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
 
     def _wrap_release_resolver(
         self: SelfDescriptorT,
-        context_spec: ChemblContextSpec[SelfDescriptorT],
+        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None:
         resolver = context_spec.release_resolver
         if resolver is None:
@@ -449,49 +450,49 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):
             log: BoundLogger,
             entity_client: Any | None,
         ) -> str | None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
             return resolver(typed_pipeline, client, log, entity_client)
 
         return wrapper
 
     def _wrap_select_fields_resolver(
         self: SelfDescriptorT,
-        context_spec: ChemblContextSpec[SelfDescriptorT],
+        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None:
         resolver = context_spec.select_fields_resolver
         if resolver is None:
             return None
 
         def wrapper(pipeline: ChemblPipelineBase, source_config: Any) -> Sequence[str] | None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
             return resolver(typed_pipeline, source_config)
 
         return wrapper
 
     def _wrap_extra_filters_factory(
         self: SelfDescriptorT,
-        context_spec: ChemblContextSpec[SelfDescriptorT],
+        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None:
         factory = context_spec.extra_filters_factory
         if factory is None:
             return None
 
         def wrapper(source_config: Any, pipeline: ChemblPipelineBase) -> dict[str, Any]:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
             return factory(source_config, typed_pipeline)
 
         return wrapper
 
     def _wrap_pre_release_hook(
         self: SelfDescriptorT,
-        context_spec: ChemblContextSpec[SelfDescriptorT],
+        context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any, Any], None] | None:
         hook = context_spec.pre_release_hook
         if hook is None:
             return None
 
         def wrapper(pipeline: ChemblPipelineBase, source_config: Any, entity_client: Any) -> None:
-            typed_pipeline = cast(SelfDescriptorT, pipeline)
+            typed_pipeline = cast(SelfDescriptorT, pipeline)  # pyright: ignore[reportInvalidTypeArguments]
             hook(typed_pipeline, source_config, entity_client)
 
         return wrapper
@@ -604,10 +605,6 @@ class BatchExtractionContext:
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
 
-
-from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
-
-
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
 
@@ -658,7 +655,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema: DataFrameSchema | None = None
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
-        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None
+        if TYPE_CHECKING:
+            from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
+        else:
+            DescriptorStrategyFactory = Any  # type: ignore[assignment, misc, unused-ignore]  # noqa: N806
+
+        self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None  # pyright: ignore[reportInvalidTypeArguments]
 
     def configure_output_schema(
         self,
@@ -673,10 +675,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_column_order = tuple(schema_entry.column_order)
         self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
 
-    def get_descriptor_strategy_factory(self) -> DescriptorStrategyFactory:
+    def get_descriptor_strategy_factory(self) -> Any:
         """Return (and lazily construct) the batching strategy factory."""
 
         if self._descriptor_strategy_factory is None:
+            from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
+
             self._descriptor_strategy_factory = DescriptorStrategyFactory()
         return self._descriptor_strategy_factory
 
@@ -1387,6 +1391,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         stage_start = time.perf_counter()
         rows_hint = len(canonical_ids)
         stage_logger = getattr(self, "stage_logger", None)
+        logger_cm: Any
         if callable(stage_logger):
             logger_cm = stage_logger("extract", rows=rows_hint)
         else:
@@ -1427,7 +1432,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     batch_ids: Sequence[str],
                     batch_context: BatchExtractionContext,
                 ) -> Iterable[Mapping[str, Any]]:
-                    iterator = iterate_candidate(
+                    iterator: Any = iterate_candidate(
                         batch_ids,
                         select_fields=batch_context.select_fields or None,
                     )
@@ -1911,7 +1916,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         strategy_factory = self.get_descriptor_strategy_factory()
         plan = strategy_factory.build_plan(
-            pipeline=self,
+            pipeline=cast(PipelineBase, self),
             ids=ids,
             id_column=id_column,
             select_fields=select_fields_tuple,
@@ -1952,7 +1957,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             requested_at_utc=datetime.now(timezone.utc),
         )
 
-        return plan.execute()
+        result = plan.execute()  # pyright: ignore[reportGeneralTypeIssues]
+        return cast(tuple[pd.DataFrame, BatchExtractionStats], result)
 
     def extract_ids_paginated(
         self,

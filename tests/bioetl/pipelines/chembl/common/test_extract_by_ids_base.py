@@ -8,10 +8,27 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from bioetl.clients.entities.client_assay import ChemblAssayClient
+from bioetl.clients.entities.client_document import ChemblDocumentClient
+from bioetl.clients.entities.client_target import ChemblTargetClient
+from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.pipelines.chembl.assay import run as assay_run
 from bioetl.pipelines.chembl.document import run as document_run
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
+
+
+def _get_entity_client_type(pipeline_cls: type) -> type | None:
+    """Возвращает тип entity_client для данного pipeline класса."""
+    if pipeline_cls == target_run.ChemblTargetPipeline:
+        return ChemblTargetClient
+    if pipeline_cls == assay_run.ChemblAssayPipeline:
+        return ChemblAssayClient
+    if pipeline_cls == document_run.ChemblDocumentPipeline:
+        return ChemblDocumentClient
+    if pipeline_cls == testitem_run.TestItemChemblPipeline:
+        return ChemblTestitemClient
+    return None
 
 
 @pytest.mark.parametrize(
@@ -42,7 +59,14 @@ def test_extract_by_ids_happy_path(
     ) -> Sequence[dict[str, object]]:
         return [{id_column: id_val} for id_val in ids]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+        mock_chembl_bundle.entity_client = mock_entity_client
+    else:
+        mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
     # Для Document pipeline нужно мокировать _build_document_client
     if pipeline_cls == document_run.ChemblDocumentPipeline:
@@ -132,7 +156,14 @@ def test_extract_by_ids_single_id(
     ) -> Sequence[dict[str, object]]:
         return [{id_column: ids[0]}]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+        mock_chembl_bundle.entity_client = mock_entity_client
+    else:
+        mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
         with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
@@ -170,7 +201,14 @@ def test_extract_by_ids_duplicates(
         unique_ids = list(dict.fromkeys(ids))
         return [{id_column: id_val} for id_val in unique_ids]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+        mock_chembl_bundle.entity_client = mock_entity_client
+    else:
+        mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
         with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
@@ -209,7 +247,14 @@ def test_extract_by_ids_with_whitespace(
         normalized = [id_val.strip() for id_val in ids]
         return [{id_column: id_val} for id_val in normalized]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    client_type = _get_entity_client_type(pipeline_cls)
+    if client_type is not None:
+        mock_entity_client = Mock(spec=client_type)
+        mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+        mock_chembl_bundle.entity_client = mock_entity_client
+    else:
+        mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
         with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
@@ -284,16 +329,17 @@ def test_extract_by_ids_respects_limit(
 
 
 @pytest.mark.parametrize(
-    ("pipeline_cls", "id_column"),
+    ("pipeline_cls", "id_column", "client_type"),
     [
-        (target_run.ChemblTargetPipeline, "target_chembl_id"),
-        (assay_run.ChemblAssayPipeline, "assay_chembl_id"),
+        (target_run.ChemblTargetPipeline, "target_chembl_id", ChemblTargetClient),
+        (assay_run.ChemblAssayPipeline, "assay_chembl_id", ChemblAssayClient),
     ],
 )
 @pytest.mark.unit
 def test_extract_by_ids_batch_processing(
     pipeline_cls: type,
     id_column: str,
+    client_type: type,
     pipeline_config_fixture,
     run_id: str,
     mock_chembl_bundle,
@@ -318,7 +364,10 @@ def test_extract_by_ids_batch_processing(
         batches_called.append(tuple(ids))
         return [{id_column: id_val} for id_val in ids]
 
-    mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
+    # Создаем мок entity_client с правильной спецификацией для прохождения проверки isinstance
+    mock_entity_client = Mock(spec=client_type)
+    mock_entity_client.iterate_by_ids = mock_iterate_by_ids
+    mock_chembl_bundle.entity_client = mock_entity_client
 
     # Мокируем source_config.batch_size после создания пайплайна
     with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
@@ -336,7 +385,7 @@ def test_extract_by_ids_batch_processing(
                     typed_config = TargetSourceConfig.from_source_config(config)
                     typed_config.batch_size = 2
                     return typed_config
-                elif pipeline_cls == assay_run.ChemblAssayPipeline:
+                if pipeline_cls == assay_run.ChemblAssayPipeline:
                     typed_config = AssaySourceConfig.from_source_config(config)
                     typed_config.batch_size = 2
                     return typed_config

@@ -89,7 +89,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
     # Pipeline stages
     # ------------------------------------------------------------------
 
-    def descriptor_spec(self) -> ChemblDescriptorSpec["ChemblTargetPipeline"]:
+    def descriptor_spec(self) -> ChemblDescriptorSpec[ChemblTargetPipeline]:
         """Return the declarative descriptor specification for targets."""
 
         def get_metadata(pipeline: ChemblPipelineBase) -> Mapping[str, Any]:
