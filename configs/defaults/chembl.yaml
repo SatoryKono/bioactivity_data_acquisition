@@ -5,7 +5,7 @@
 # Pipeline-specific configs can override batch_size and select_fields.
 #
 chembl:
-  status_endpoint: "/status.json"
+  status_endpoint: "/status"
 
 sources:
   chembl:

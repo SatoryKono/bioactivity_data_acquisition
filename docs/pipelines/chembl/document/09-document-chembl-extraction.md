@@ -143,9 +143,11 @@ curl -sS "<https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_i
 
 ```bash
 
-curl -sS "<https://www.ebi.ac.uk/chembl/api/data/status.json>"
+curl -sS "<https://www.ebi.ac.uk/chembl/api/data/status>"
 
 ```
+
+> Endpoint возвращает JSON при указании заголовка `Accept: application/json`.
 
 **Использование релиза:**
 
