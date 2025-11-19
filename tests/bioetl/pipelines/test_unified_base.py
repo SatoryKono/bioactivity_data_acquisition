@@ -22,6 +22,9 @@ from bioetl.pipelines.unified_base import ChemblPipelineContract, UnifiedPipelin
 class DummyUnifiedPipeline(UnifiedPipelineBase):
     """Minimal pipeline implementation for exercising the mixins."""
 
+    actor = "dummy_unified"
+    id_column = "identifier"
+
     def __init__(self, *args, **kwargs) -> None:  # type: ignore[no-untyped-def]
         super().__init__(*args, **kwargs)
         self._output_column_order = ("identifier", "value", "note")
@@ -36,6 +39,7 @@ class DummyUnifiedPipeline(UnifiedPipelineBase):
         *,
         mode: PipelineExtractionMode = PipelineExtractionMode.AUTO,
         ids: Sequence[str] | None = None,
+        **legacy_kwargs: object,
     ) -> pd.DataFrame:
         _ = (mode, ids)
         return self._extract_df.copy()
@@ -114,7 +118,7 @@ def test_stage_logger_records_duration_and_emits_events(
     def fake_perf_counter() -> float:
         return next(counter)
 
-    monkeypatch.setattr("bioetl.pipelines.mixins.time.perf_counter", fake_perf_counter)
+    monkeypatch.setattr("time.perf_counter", fake_perf_counter)  # type: ignore[arg-type]
 
     with unified_pipeline.stage_logger("extract", rows=3) as log:
         assert log is logger
@@ -157,6 +161,8 @@ def test_transform_lifecycle_invokes_hooks_in_order(
     run_id,
 ) -> None:
     class TrackingPipeline(DummyUnifiedPipeline):
+        actor = "tracking_pipeline"
+
         def __init__(self, *args, **kwargs):  # type: ignore[no-untyped-def]
             super().__init__(*args, **kwargs)
             self.hooks: list[str] = []
