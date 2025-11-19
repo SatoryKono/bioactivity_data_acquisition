@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 __all__ = ["ChemblClient", "_resolve_status_endpoint"]
 
-_DEFAULT_STATUS_ENDPOINT = "/status.json"
+_DEFAULT_STATUS_ENDPOINT = "/status"
 _CHEMBL_DEFAULTS_PATH = Path(__file__).resolve().parents[3] / "configs" / "defaults" / "chembl.yaml"
 
 
@@ -126,7 +126,7 @@ class ChemblClient:
 
         If ``endpoint`` is ``None``, the value is resolved from
         ``chembl.status_endpoint`` (with backwards compatibility for legacy
-        ``clients.chembl.status_endpoint``; fallback ``"/status.json"``). The
+        ``clients.chembl.status_endpoint``; fallback ``"/status"``). The
         effective endpoint is used verbatim; no path normalization is applied.
         """
 

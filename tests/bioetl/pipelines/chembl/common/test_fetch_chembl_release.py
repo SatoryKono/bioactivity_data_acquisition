@@ -8,7 +8,7 @@ import pytest
 from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
 
 from bioetl.chembl.common.descriptor import ChemblExtractionContext
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.target import run as target_run
 from bioetl.pipelines.chembl.testitem import run as testitem_run
@@ -54,7 +54,7 @@ def test_fetch_chembl_release_via_unified_client(
     result = pipeline.fetch_chembl_release(mock_client)
 
     assert result == "34"
-    mock_client.get.assert_called_once_with("/status.json")
+    mock_client.get.assert_called_once_with(_resolve_status_endpoint())
 
 
 @pytest.mark.unit

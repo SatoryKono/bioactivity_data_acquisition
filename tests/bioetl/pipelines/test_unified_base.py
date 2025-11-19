@@ -67,8 +67,8 @@ def test_perform_handshake_caches_result(unified_pipeline: DummyUnifiedPipeline)
     client = MagicMock()
     client.handshake.return_value = {"chembl_release": "33", "api_version": "1"}
 
-    first = unified_pipeline.perform_handshake(client, "/status.json")
-    second = unified_pipeline.perform_handshake(client, "/status.json")
+    first = unified_pipeline.perform_handshake(client, "/status")
+    second = unified_pipeline.perform_handshake(client, "/status")
 
     assert first == second
     client.handshake.assert_called_once()

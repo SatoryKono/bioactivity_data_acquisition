@@ -1770,9 +1770,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         get_candidate = getattr(client, "get", None)
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
+            try:
+                from bioetl.clients.client_chembl import _resolve_status_endpoint
+            except ImportError:  # pragma: no cover - defensive fallback
+                status_endpoint = "/status"
+            else:
+                status_endpoint = _resolve_status_endpoint()
             request_timestamp = datetime.now(timezone.utc)
             try:
-                response = client_get("/status.json")
+                response = client_get(status_endpoint)
                 json_candidate = getattr(response, "json", None)
                 if callable(json_candidate):
                     status_payload_raw = json_candidate()
