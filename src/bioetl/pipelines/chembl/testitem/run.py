@@ -28,13 +28,14 @@ from bioetl.core.http import UnifiedAPIClient
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.schema.normalizers import StringStats
+from bioetl.pipelines.mixins import FlattenNestedMixin, FlattenSpec
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import TESTITEM_MUST_HAVE_FIELDS
 from .transform import transform as transform_testitem
 
 
-class TestItemChemblPipeline(UnifiedPipelineBase):
+class TestItemChemblPipeline(FlattenNestedMixin, UnifiedPipelineBase):
     """ETL pipeline extracting molecule records from the ChEMBL API."""
 
     actor = "testitem_chembl"
@@ -239,6 +240,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         log.info(LogEvents.STAGE_TRANSFORM_START, rows=len(df))
 
         # Apply transform module: flatten nested objects and serialize arrays
+        df = self._flatten_nested_structures(df, log)
         df = transform_testitem(df, self.config)
 
         df = self._normalize_and_enforce_schema(
@@ -301,48 +303,31 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             enriched["api_version"] = api_version
         return enriched
 
-    # ------------------------------------------------------------------
-    # Internal helpers
-    # ------------------------------------------------------------------
+    def nested_flatten_specs(self) -> Sequence[FlattenSpec]:
+        property_columns = [
+            "full_mwt",
+            "mw_freebase",
+            "alogp",
+            "hbd",
+            "hba",
+            "psa",
+            "aromatic_rings",
+            "rtb",
+            "num_ro5_violations",
+        ]
 
-    def _flatten_nested_structures(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
-        """Flatten nested molecule_structures and molecule_properties into flat columns."""
-
-        if df.empty:
-            return df
-
-        # Flatten molecule_structures
-        if "molecule_structures" in df.columns:
-            structures_df = pd.json_normalize(  # pyright: ignore[reportUnknownMemberType]
-                df["molecule_structures"].tolist(),
-            )
-            if "canonical_smiles" in structures_df.columns:
-                df["canonical_smiles"] = structures_df["canonical_smiles"]
-            if "standard_inchi_key" in structures_df.columns:
-                df["standard_inchi_key"] = structures_df["standard_inchi_key"]
-
-        # Flatten molecule_properties
-        if "molecule_properties" in df.columns:
-            properties_df = pd.json_normalize(  # pyright: ignore[reportUnknownMemberType]
-                df["molecule_properties"].tolist(),
-            )
-            property_columns = [
-                "full_mwt",
-                "mw_freebase",
-                "alogp",
-                "hbd",
-                "hba",
-                "psa",
-                "aromatic_rings",
-                "rtb",
-                "num_ro5_violations",
-            ]
-            for col in property_columns:
-                if col in properties_df.columns:
-                    df[col] = properties_df[col]
-
-        log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
-        return df
+        return (
+            FlattenSpec(
+                "molecule_structures",
+                cols=("canonical_smiles", "standard_inchi_key"),
+                prefix="",
+            ),
+            FlattenSpec(
+                "molecule_properties",
+                cols=tuple(property_columns),
+                prefix="",
+            ),
+        )
 
     def identifier_rules(self) -> Sequence[IdentifierRule]:
         """Return identifier normalization rules for molecule identifiers."""
