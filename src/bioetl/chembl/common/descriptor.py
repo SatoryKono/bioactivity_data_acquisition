@@ -164,7 +164,7 @@ class ChemblExtractionContext:
     iterate_all_kwargs: dict[str, Any] = field(default_factory=dict)
     stats: dict[str, Any] = field(default_factory=dict)
     release_resolver: (
-        Callable[["ChemblPipelineBase", Any, BoundLogger, Any | None], str | None] | None
+        Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None
     ) = None
 
 
