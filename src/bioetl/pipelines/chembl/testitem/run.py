@@ -373,6 +373,23 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             "canonical_smiles": StringRule(),
         }
 
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        return (
+            IdentifierRule(
+                name="chembl_molecule",
+                columns=["molecule_chembl_id"],
+                pattern=r"^CHEMBL\d+$",
+            ),
+            IdentifierRule(
+                name="standard_inchi_key",
+                columns=[
+                    "molecule_structures__standard_inchi_key",
+                    "standard_inchi_key",
+                ],
+                pattern=r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$",
+            ),
+        )
+
     def postprocess_string_columns(
         self,
         df: pd.DataFrame,
