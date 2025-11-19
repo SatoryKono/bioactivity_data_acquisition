@@ -176,6 +176,7 @@ artifacts/
 *.tar
 *.tar.gz
 *.tar.xz
+tests/golden/**/manifest/
 
 # Logs and runtime traces
 logs/
