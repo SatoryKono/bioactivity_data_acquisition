@@ -5,7 +5,13 @@ from __future__ import annotations
 from unittest.mock import Mock, patch
 
 import pytest
-from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
+from requests.exceptions import (
+    ConnectionError as RequestsConnectionError,
+)
+from requests.exceptions import (
+    HTTPError,
+    Timeout,
+)
 
 from bioetl.chembl.common.descriptor import ChemblExtractionContext
 from bioetl.clients.client_chembl import ChemblClient
@@ -69,9 +75,9 @@ def test_fetch_chembl_release_handles_network_error(
     )
 
     mock_client = Mock(spec=ChemblClient)
-    mock_client.handshake.side_effect = ConnectionError("Network unreachable")
+    mock_client.handshake.side_effect = RequestsConnectionError("Network unreachable")
 
-    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get") as mock_logger:
+    with patch("bioetl.chembl.common.descriptor.UnifiedLogger.get"):
         result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
@@ -329,7 +335,7 @@ def test_resolve_chembl_release_includes_optional_versions(
         run_id=run_id,
     )
 
-    setattr(pipeline, "chembl_db_version", "31")  # type: ignore[attr-defined]
+    pipeline.chembl_db_version = "31"  # type: ignore[attr-defined]
     pipeline._set_api_version("1.2")
 
     log = Mock()
@@ -358,7 +364,9 @@ def test_resolve_chembl_release_handles_fetch_exception(
     log = Mock()
     chembl_client = object()
 
-    with patch.object(pipeline, "fetch_chembl_release", side_effect=RuntimeError("boom")) as mock_fetch:
+    with patch.object(
+        pipeline, "fetch_chembl_release", side_effect=RuntimeError("boom")
+    ) as mock_fetch:
         release_value, metadata = pipeline.resolve_chembl_release(chembl_client, log)
 
     assert release_value is None
@@ -449,4 +457,3 @@ def test_publish_release_metadata_merges_values(
     assert payload["chembl_release"] == "42"
     assert payload["api_version"] == "1.1"
     assert payload["rows"] == 10
-
