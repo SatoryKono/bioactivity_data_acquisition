@@ -3,7 +3,7 @@
 from __future__ import annotations
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import datetime, timezone
-from typing import Any, Callable, cast
+from typing import Any, Callable
 
 import pandas as pd
 from structlog.stdlib import BoundLogger
@@ -47,7 +47,6 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
-        self._chembl_db_version: str | None = None
         self.initialize_output_schema()
 
     @property
@@ -99,10 +98,12 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
                 api_version=api_version,
             )
 
-        self._set_chembl_db_version(release_value)
         self._set_api_version(api_version)
         self._set_chembl_release(release_value)
-        self.update_chembl_release_metadata(chembl_db_version=release_value, api_version=api_version)
+        self.update_chembl_release_metadata(
+            chembl_db_version=self.chembl_release,
+            api_version=self.api_version,
+        )
         self.record_extract_metadata(
             chembl_release=release_value,
             requested_at_utc=request_timestamp,
@@ -117,8 +118,20 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         entity_client: Any | None = None,  # noqa: ARG002
     ) -> tuple[str | None, dict[str, Any]]:
         release_value = self._fetch_chembl_release(chembl_client, log)
-        metadata = self.chembl_release_metadata()
-        return release_value, metadata
+        return release_value, self.chembl_release_metadata()
+
+    def ensure_chembl_release(
+        self,
+        context: ChemblExtractionContext,
+        log: BoundLogger,
+    ) -> tuple[str | None, dict[str, Any]]:
+        release, metadata = super().ensure_chembl_release(context, log)
+        api_version = metadata.get("api_version") or self.api_version
+        if api_version:
+            existing = context.extra_filters.get("api_version")
+            if existing != api_version:
+                context.extra_filters["api_version"] = api_version
+        return release, metadata
 
     # ------------------------------------------------------------------
     # Pipeline stages
@@ -128,10 +141,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         """Return the declarative descriptor specification for test items."""
 
         def get_metadata(pipeline: TestItemChemblPipeline) -> Mapping[str, Any]:
-            return {
-                "chembl_db_version": pipeline.chembl_db_version,
-                "api_version": pipeline.api_version,
-            }
+            return pipeline.publish_release_metadata()
 
         empty_frame = make_empty_frame_factory("molecule_chembl_id")
         dry_run_handler = make_dry_run_handler(
@@ -144,11 +154,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             _: pd.DataFrame,
             __: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
-            return {
-                "chembl_db_version": pipeline.chembl_db_version,
-                "api_version": pipeline.api_version,
-                "limit": pipeline.config.cli.limit,
-            }
+            return pipeline.publish_release_metadata({"limit": pipeline.config.cli.limit})
 
         def after_build(
             pipeline: TestItemChemblPipeline,
@@ -160,26 +166,18 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
             log.debug(LogEvents.CHEMBL_TESTITEM_SELECT_FIELDS, fields=select_fields)
             return context
 
-        def release_resolver(
-            pipeline: TestItemChemblPipeline,
-            client: Any,
-            log: BoundLogger,
-            _: Any,
-        ) -> str | None:
-            return pipeline._fetch_chembl_release(client, log)
-
         def extra_filters_factory(
             _: TestItemSourceConfig,
             pipeline: TestItemChemblPipeline,
         ) -> dict[str, Any]:
-            return {"api_version": pipeline.api_version}
+            metadata = pipeline.chembl_release_metadata()
+            api_version = metadata.get("api_version") or pipeline.api_version
+            return {"api_version": api_version} if api_version else {}
 
         context_spec = ChemblContextSpec(
             entity_name="testitem",
             entity_client_type=ChemblTestitemClient,
-            release_resolver=release_resolver,
             extra_filters_factory=extra_filters_factory,
-            chembl_release_override=lambda pipeline: pipeline.chembl_db_version,
             after_build=after_build,
         )
 
@@ -263,8 +261,9 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         df = self._remove_extra_columns(df, log)
 
         # Add version fields
-        df["_chembl_db_version"] = self.chembl_db_version or ""
-        df["_api_version"] = self.api_version or ""
+        release_metadata = self.chembl_release_metadata()
+        df["_chembl_db_version"] = release_metadata.get("chembl_db_version") or ""
+        df["_api_version"] = release_metadata.get("api_version") or (self.api_version or "")
 
         # Deduplication
         df = self._deduplicate_molecules(df, log)
@@ -296,10 +295,13 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         """Enrich metadata with ChEMBL versions."""
 
         enriched = dict(super().augment_metadata(metadata, df))
-        if self.chembl_db_version:
-            enriched["chembl_db_version"] = self.chembl_db_version
-        if self.api_version:
-            enriched["api_version"] = self.api_version
+        release_metadata = self.chembl_release_metadata()
+        chembl_db_version = release_metadata.get("chembl_db_version")
+        if chembl_db_version:
+            enriched["chembl_db_version"] = chembl_db_version
+        api_version = release_metadata.get("api_version") or self.api_version
+        if api_version:
+            enriched["api_version"] = api_version
         return enriched
 
     # ------------------------------------------------------------------

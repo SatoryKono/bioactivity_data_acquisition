@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pandas as pd
 import pytest
 
+from bioetl.chembl.common.descriptor import ChemblExtractionContext
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.chembl.testitem import run as testitem_run
 
@@ -24,8 +25,8 @@ class TestTestItemChemblPipeline:
         assert pipeline.config == pipeline_config_fixture
         assert pipeline.run_id == run_id
         assert pipeline.actor == "testitem_chembl"
-        assert pipeline._chembl_db_version is None  # noqa: SLF001  # type: ignore[attr-defined]
         assert pipeline._api_version is None  # noqa: SLF001  # type: ignore[attr-defined]
+        assert pipeline.chembl_release_metadata() == {}
 
     def test_fetch_chembl_release(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -48,8 +49,65 @@ class TestTestItemChemblPipeline:
         result = pipeline._fetch_chembl_release(mock_client, log)  # noqa: SLF001  # type: ignore[arg-type,attr-defined]
 
         assert result == "31"
-        assert pipeline._chembl_db_version == "31"  # noqa: SLF001  # type: ignore[attr-defined]
-        assert pipeline._api_version == "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
+        assert pipeline.chembl_release == "31"
+        assert pipeline.api_version == "1.0.0"
+        assert pipeline.chembl_release_metadata() == {
+            "chembl_db_version": "31",
+            "api_version": "1.0.0",
+        }
+
+    def test_ensure_chembl_release_injects_api_version_filter(
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+    ) -> None:
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
+        from bioetl.core.logging import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        context = ChemblExtractionContext(
+            source_config=Mock(),
+            iterator=Mock(),
+            chembl_client=Mock(),
+        )
+        pipeline.resolve_chembl_release = Mock(  # type: ignore[attr-defined]
+            return_value=("31", {"api_version": "7.2.0"})
+        )
+
+        release, metadata = pipeline.ensure_chembl_release(context, log)
+
+        assert release == "31"
+        assert metadata["api_version"] == "7.2.0"
+        assert context.extra_filters["api_version"] == "7.2.0"
+
+    def test_ensure_chembl_release_reuses_cached_api_version(
+        self,
+        pipeline_config_fixture: PipelineConfig,
+        run_id: str,
+    ) -> None:
+        pipeline = testitem_run.TestItemChemblPipeline(
+            config=pipeline_config_fixture, run_id=run_id
+        )  # type: ignore[reportAbstractUsage]
+        from bioetl.core.logging import UnifiedLogger
+
+        log = UnifiedLogger.get(__name__)
+        context = ChemblExtractionContext(
+            source_config=Mock(),
+            iterator=Mock(),
+            chembl_client=Mock(),
+        )
+        pipeline.resolve_chembl_release = Mock(  # type: ignore[attr-defined]
+            return_value=("31", {})
+        )
+        pipeline._set_api_version("9.0.0")  # noqa: SLF001  # type: ignore[attr-defined]
+
+        release, metadata = pipeline.ensure_chembl_release(context, log)
+
+        assert release == "31"
+        assert metadata.get("api_version") == "9.0.0"
+        assert context.extra_filters["api_version"] == "9.0.0"
 
     def test_flatten_nested_structures_removed(
         self, pipeline_config_fixture: PipelineConfig, run_id: str
@@ -154,8 +212,7 @@ class TestTestItemChemblPipeline:
         pipeline = testitem_run.TestItemChemblPipeline(
             config=pipeline_config_fixture, run_id=run_id
         )  # type: ignore[reportAbstractUsage]
-        pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
-        pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
+        pipeline.update_chembl_release_metadata(chembl_db_version="31", api_version="1.0.0")
 
         df = pd.DataFrame(
             {
@@ -182,16 +239,15 @@ class TestTestItemChemblPipeline:
         assert "molecule_properties__alogp" in result.columns
         assert "_chembl_db_version" in result.columns
         assert "_api_version" in result.columns
-        assert result["_chembl_db_version"].iloc[0] == "31"  # noqa: SLF001  # type: ignore[attr-defined]
-        assert result["_api_version"].iloc[0] == "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
+        assert result["_chembl_db_version"].iloc[0] == "31"
+        assert result["_api_version"].iloc[0] == "1.0.0"
 
     def test_augment_metadata(self, pipeline_config_fixture: PipelineConfig, run_id: str) -> None:
         """Test metadata augmentation with ChEMBL versions."""
         pipeline = testitem_run.TestItemChemblPipeline(
             config=pipeline_config_fixture, run_id=run_id
         )  # type: ignore[reportAbstractUsage]
-        pipeline._chembl_db_version = "31"  # noqa: SLF001  # type: ignore[attr-defined]
-        pipeline._api_version = "1.0.0"  # noqa: SLF001  # type: ignore[attr-defined]
+        pipeline.update_chembl_release_metadata(chembl_db_version="31", api_version="1.0.0")
 
         metadata = {"pipeline_version": "0.1.0"}
         df = pd.DataFrame({"molecule_chembl_id": ["CHEMBL1"]})

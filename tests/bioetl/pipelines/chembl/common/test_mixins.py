@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -97,26 +98,32 @@ def test_pipeline_base_api_version_normalisation(
 
 
 @pytest.mark.unit
-def test_testitem_pipeline_db_version_normalisation(
+def test_testitem_pipeline_caches_release_metadata(
     pipeline_config_fixture: PipelineConfig, run_id: str
 ) -> None:
-    """TestItem pipeline should re-use the mixin for DB version caching."""
+    """TestItem pipeline should store release/api versions in shared metadata."""
 
     pipeline = testitem_run.TestItemChemblPipeline(
         config=pipeline_config_fixture,
         run_id=run_id,
     )  # type: ignore[reportAbstractUsage]
 
-    assert pipeline.chembl_db_version is None
+    from bioetl.clients.client_chembl import ChemblClient
+    from bioetl.core.logging import UnifiedLogger
 
-    pipeline._set_chembl_db_version("  34  ")  # noqa: SLF001
-    assert pipeline.chembl_db_version == "34"
+    mock_client = Mock(spec=ChemblClient)
+    mock_client.handshake.return_value = {
+        "chembl_db_version": "  34  ",
+        "api_version": "  1.2  ",
+    }
 
-    pipeline._set_chembl_db_version(35)  # noqa: SLF001
-    assert pipeline.chembl_db_version == "35"
+    log = UnifiedLogger.get(__name__)
+    release = pipeline._fetch_chembl_release(mock_client, log)  # noqa: SLF001  # type: ignore[arg-type,attr-defined]
 
-    pipeline._set_chembl_db_version("   ")  # noqa: SLF001
-    assert pipeline.chembl_db_version is None
-
-    pipeline._chembl_db_version = "  40 "  # type: ignore[attr-defined]  # noqa: SLF001
-    assert pipeline.chembl_db_version == "40"
+    assert release == "  34  "
+    assert pipeline.chembl_release == "34"
+    assert pipeline.api_version == "1.2"
+    assert pipeline.chembl_release_metadata() == {
+        "chembl_db_version": "34",
+        "api_version": "1.2",
+    }
