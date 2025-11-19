@@ -244,8 +244,12 @@ def test_fetch_chembl_release_testitem_special_handling(
     result = pipeline._fetch_chembl_release(mock_client)  # noqa: SLF001
 
     assert result == "36"
-    assert pipeline.chembl_db_version == "36"
+    assert pipeline.chembl_release == "36"
     assert pipeline.api_version == "1.1"
+    assert pipeline.chembl_release_metadata() == {
+        "chembl_db_version": "36",
+        "api_version": "1.1",
+    }
 
 
 @pytest.mark.unit
