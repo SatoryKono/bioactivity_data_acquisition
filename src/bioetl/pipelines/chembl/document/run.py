@@ -79,7 +79,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             return document_pipeline._extract_nested_fields(dict(payload))
 
         def summary_extra(
-            _: SelfChemblDocumentPipeline,
+            pipeline: SelfChemblDocumentPipeline,
             df: pd.DataFrame,
             context: ChemblExtractionContext,
         ) -> Mapping[str, Any]:
@@ -88,7 +88,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             if page_size > 0:
                 total_rows = int(df.shape[0])
                 pages = (total_rows + page_size - 1) // page_size
-            return {"pages": pages}
+            return pipeline.publish_release_metadata({"pages": pages})
 
         def select_fields_resolver(
             pipeline: SelfChemblDocumentPipeline,

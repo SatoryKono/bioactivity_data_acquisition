@@ -59,6 +59,17 @@ bioetl config inspect \
 [`docs/configs/00-typed-configs-and-profiles.md`](docs/configs/00-typed-configs-and-profiles.md),
 [`docs/configs/01-config-profiles.md`](docs/configs/01-config-profiles.md).
 
+## Тестовые задачи и команды запуска
+
+- Базовая стратегия тестирования и пороги покрытия:
+  [`docs/testing/00-testing-strategy.md`](docs/testing/00-testing-strategy.md).
+- Конкретные задачи, сформулированные для ревью/CI, с готовыми командами запуска:
+  [`docs/testing/01-task-matrix.md`](docs/testing/01-task-matrix.md).
+
+Используйте эти документы как чек-лист: выберите задачу, выполните команду и
+приложите ссылку на лог. Такой подход помогает соблюсти требования ревьюера
+«сформулировать задачи и дать ссылки на их запуск» и делает прогон повторяемым.
+
 ## Архитектура пайплайнов и публичный API
 
 - Основные контракты (`PipelineBase`, `ChemblPipelineBase`,
