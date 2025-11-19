@@ -215,6 +215,85 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             return False
         return normalized in target_ids_set
 
+    def _extract_component_ids_from_flat(
+        self, df: pd.DataFrame
+    ) -> dict[str, list[int]]:
+        """Extract component_id values from target_components__flat column.
+
+        Parses the header_rows format: "header1|header2|.../row1_col1|row1_col2|.../..."
+
+        Parameters
+        ----------
+        df:
+            DataFrame with target_chembl_id and target_components__flat columns.
+
+        Returns
+        -------
+        dict[str, list[int]]:
+            Mapping from target_chembl_id to list of component_id values.
+        """
+        result: dict[str, list[int]] = {}
+
+        if "target_components__flat" not in df.columns or "target_chembl_id" not in df.columns:
+            return result
+
+        for _, row in df.iterrows():
+            target_id = row.get("target_chembl_id")
+            components_flat = row.get("target_components__flat")
+
+            if pd.isna(target_id) or pd.isna(components_flat) or not components_flat:
+                continue
+
+            target_id_str = str(target_id).strip()
+            if not target_id_str:
+                continue
+
+            component_ids: list[int] = []
+
+            try:
+                # Parse header_rows format: "header1|header2|.../row1_col1|row1_col2|.../..."
+                parts = str(components_flat).split("/")
+                if len(parts) < 2:
+                    continue
+
+                headers = parts[0].split("|")
+                # Find component_id column index
+                component_id_idx = None
+                for idx, header in enumerate(headers):
+                    if header.strip() == "component_id":
+                        component_id_idx = idx
+                        break
+
+                if component_id_idx is None:
+                    continue
+
+                # Extract component_id from each row
+                for row_part in parts[1:]:
+                    if not row_part:
+                        continue
+                    row_values = row_part.split("|")
+                    if component_id_idx < len(row_values):
+                        component_id_str = row_values[component_id_idx].strip()
+                        # Unescape delimiters if needed
+                        component_id_str = component_id_str.replace("\\|", "|").replace("\\/", "/").replace("\\\\", "\\")
+                        if component_id_str:
+                            try:
+                                component_id_int = int(component_id_str)
+                                component_ids.append(component_id_int)
+                            except (ValueError, TypeError):
+                                continue
+
+            except Exception:  # noqa: S112
+                # Skip rows with parsing errors
+                # This is expected for malformed or missing data in target_components__flat
+                # Logging is not needed here as this is a data parsing issue, not a code error
+                continue
+
+            if component_ids:
+                result[target_id_str] = component_ids
+
+        return result
+
     def _harmonize_identifier_columns(self, df: pd.DataFrame, log: Any) -> pd.DataFrame:
         """Harmonize identifier column names."""
         df = df.copy()
@@ -313,18 +392,52 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
         log.info(LogEvents.ENRICH_TARGET_COMPONENTS_START, target_count=len(target_ids_to_enrich))
 
+        # Extract component_ids from already fetched target_components__flat
+        component_ids_map = self._extract_component_ids_from_flat(df)
+
         for target_id in target_ids_to_enrich:
             try:
                 components: list[str] = []
-                for item in chembl_client.paginate(
-                    "/target_component.json",
-                    params={"target_chembl_id": target_id},
-                    page_size=200,
-                    items_key="target_components",
-                ):
-                    accession = item.get("accession")
-                    if isinstance(accession, str) and accession.strip():
-                        components.append(accession.strip())
+                component_ids = component_ids_map.get(target_id, [])
+
+                if component_ids:
+                    # Use component_id from already fetched data
+                    for component_id in component_ids:
+                        try:
+                            for item in chembl_client.paginate(
+                                "/target_component.json",
+                                params={"component_id": component_id},
+                                page_size=200,
+                                items_key="target_components",
+                                limit=1,  # Should return only one component
+                            ):
+                                accession = item.get("accession")
+                                if isinstance(accession, str) and accession.strip():
+                                    components.append(accession.strip())
+                        except Exception as exc:
+                            log.debug(
+                                LogEvents.TARGET_COMPONENT_FETCH_ERROR,
+                                target_chembl_id=target_id,
+                                component_id=component_id,
+                                error=str(exc),
+                            )
+                else:
+                    # Fallback: if component_ids not available, use old method
+                    # This should rarely happen if target_components was fetched correctly
+                    log.debug(
+                        "component_ids_not_found_in_flat",
+                        target_chembl_id=target_id,
+                        message="Falling back to target_chembl_id query",
+                    )
+                    for item in chembl_client.paginate(
+                        "/target_component.json",
+                        params={"target_chembl_id": target_id},
+                        page_size=200,
+                        items_key="target_components",
+                    ):
+                        accession = item.get("accession")
+                        if isinstance(accession, str) and accession.strip():
+                            components.append(accession.strip())
 
                 if components:
                     deduped_components = sorted({component.strip() for component in components})
@@ -428,6 +541,9 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             LogEvents.ENRICH_PROTEIN_CLASSIFICATIONS_START, target_count=len(target_ids_to_enrich)
         )
 
+        # Extract component_ids from already fetched target_components__flat
+        component_ids_map = self._extract_component_ids_from_flat(df)
+
         # Get component_limit from config if available
         component_limit: int | None = None
         if hasattr(source_config, "parameters") and hasattr(
@@ -438,36 +554,80 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         for target_id in target_ids_to_enrich:
             try:
                 # Step 1: Get target components and filter PROTEIN components
-                # Note: component_type is already available in target_component.json response
-                # No need to make separate requests to component_sequence.json (endpoint doesn't exist)
+                # Use component_id from already fetched data instead of querying by target_chembl_id
                 protein_component_ids: list[int] = []
-                component_count = 0
-                for item in chembl_client.paginate(
-                    "/target_component.json",
-                    params={"target_chembl_id": target_id},
-                    page_size=200,
-                    items_key="target_components",
-                ):
-                    component_id = item.get("component_id")
-                    component_type = item.get("component_type")
-                    
-                    if component_id is not None:
+                component_ids = component_ids_map.get(target_id, [])
+
+                if component_ids:
+                    # Use component_id from already fetched data
+                    component_count = 0
+                    for component_id in component_ids:
                         try:
-                            component_id_int = int(component_id) if not isinstance(component_id, int) else component_id
-                            
-                            # Filter only PROTEIN components - component_type is already in the response
-                            if (
-                                isinstance(component_type, str)
-                                and component_type.upper() == "PROTEIN"
+                            # Query by component_id - returns only one component
+                            for item in chembl_client.paginate(
+                                "/target_component.json",
+                                params={"component_id": component_id},
+                                page_size=200,
+                                items_key="target_components",
+                                limit=1,  # Should return only one component
                             ):
-                                protein_component_ids.append(component_id_int)
-                            
-                            component_count += 1
-                            if component_limit is not None and component_count >= component_limit:
-                                break
-                        except (ValueError, TypeError):
-                            # Skip invalid component_id
-                            continue
+                                component_type = item.get("component_type")
+                                
+                                # Filter only PROTEIN components
+                                if (
+                                    isinstance(component_type, str)
+                                    and component_type.upper() == "PROTEIN"
+                                ):
+                                    protein_component_ids.append(component_id)
+                                
+                                component_count += 1
+                                if component_limit is not None and component_count >= component_limit:
+                                    break
+                        except Exception as exc:
+                            log.debug(
+                                LogEvents.COMPONENT_CLASS_FETCH_ERROR,
+                                target_chembl_id=target_id,
+                                component_id=component_id,
+                                error=str(exc),
+                            )
+                else:
+                    # Fallback: if component_ids not available, use old method
+                    # This should rarely happen if target_components was fetched correctly
+                    log.debug(
+                        "component_ids_not_found_in_flat",
+                        target_chembl_id=target_id,
+                        message="Falling back to target_chembl_id query for protein classifications",
+                    )
+                    component_count = 0
+                    for item in chembl_client.paginate(
+                        "/target_component.json",
+                        params={"target_chembl_id": target_id},
+                        page_size=200,
+                        items_key="target_components",
+                    ):
+                        component_id_raw: Any | None = item.get("component_id")
+                        component_type = item.get("component_type")
+                        
+                        if component_id_raw is not None:
+                            try:
+                                if isinstance(component_id_raw, int):
+                                    component_id_int: int = component_id_raw
+                                else:
+                                    component_id_int = int(component_id_raw)
+                                
+                                # Filter only PROTEIN components
+                                if (
+                                    isinstance(component_type, str)
+                                    and component_type.upper() == "PROTEIN"
+                                ):
+                                    protein_component_ids.append(component_id_int)
+                                
+                                component_count += 1
+                                if component_limit is not None and component_count >= component_limit:
+                                    break
+                            except (ValueError, TypeError):
+                                # Skip invalid component_id
+                                continue
 
                 if not protein_component_ids:
                     continue

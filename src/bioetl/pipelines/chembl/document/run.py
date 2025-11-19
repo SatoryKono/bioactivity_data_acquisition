@@ -23,8 +23,8 @@ from bioetl.chembl.common.descriptor import (
     FinalizeContextFactory,
     build_standard_chembl_context,
 )
-from bioetl.chembl.common.handlers import make_empty_frame_factory
 from bioetl.chembl.common.enrich import _extract_enrich_config, enrich_flag
+from bioetl.chembl.common.handlers import make_empty_frame_factory
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.clients.entities.client_document import ChemblDocumentClient
 from bioetl.config import DocumentSourceConfig
@@ -33,11 +33,10 @@ from bioetl.config.models.source import SourceConfig
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import StringRule
 from bioetl.core.schema.normalizers import StringStats
+from bioetl.pipelines.chembl._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
+from bioetl.pipelines.chembl.document.normalize import enrich_with_document_terms
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.schemas.pipeline_contracts import get_out_schema
-
-from .._constants import API_DOCUMENT_FIELDS, DOCUMENT_MUST_HAVE_FIELDS
-from .normalize import enrich_with_document_terms
 
 SelfChemblDocumentPipeline = TypeVar("SelfChemblDocumentPipeline", bound="ChemblDocumentPipeline")
 
@@ -253,8 +252,7 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             working_df = self._enrich_document_terms(working_df)
 
         working_df = self._add_system_fields(working_df, log)
-        working_df = self._deduplicate_documents(working_df, log)
-        return working_df
+        return self._deduplicate_documents(working_df, log)
 
     def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         log = self.logger_for(stage="transform", component="post_transform")
