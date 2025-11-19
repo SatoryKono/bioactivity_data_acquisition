@@ -112,7 +112,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             batch_size = getattr(source_config, "batch_size", None)
             return {"batch_size": batch_size} if batch_size else {}
 
-        context_spec = ChemblContextSpec(
+        context_spec: ChemblContextSpec[ChemblTargetPipeline] = ChemblContextSpec(  # pyright: ignore[reportCallIssue]
             entity_name="target",
             entity_client_type=ChemblTargetClient,
             extra_filters_factory=extra_filters_factory,

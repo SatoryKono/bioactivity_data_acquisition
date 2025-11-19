@@ -31,8 +31,8 @@ from bioetl.clients.base import (
     merge_select_fields,
     normalize_select_fields,
 )
-from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
+from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
 from bioetl.core.common import ChemblReleaseMixin
@@ -82,9 +82,7 @@ class ChemblContextSpec(Generic[PipelineT]):
 
     entity_name: str
     entity_client_type: type[Any] | None = None
-    release_resolver: (
-        Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None
-    ) = None
+    release_resolver: Callable[[PipelineT, Any, BoundLogger, Any | None], str | None] | None = None
     select_fields_resolver: Callable[[PipelineT, Any], Sequence[str] | None] | None = None
     extra_filters_factory: Callable[[Any, PipelineT], dict[str, Any]] | None = None
     client_registry_name: str | Callable[[PipelineT], str | None] | None = None
@@ -95,9 +93,7 @@ class ChemblContextSpec(Generic[PipelineT]):
         Callable[[PipelineT, ChemblExtractionContext, Any, BoundLogger], ChemblExtractionContext]
         | None
     ) = None
-    builder: (
-        Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None
-    ) = None
+    builder: Callable[[PipelineT, Any, BoundLogger], ChemblExtractionContext] | None = None
 
 
 @dataclass(slots=True)
@@ -123,9 +119,7 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
         Callable[[PipelineT, pd.DataFrame, ChemblExtractionContext, BoundLogger], pd.DataFrame]
     ] = ()
     sort_by: Sequence[str] | str | None = None
-    empty_frame_factory: (
-        Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None
-    ) = None
+    empty_frame_factory: Callable[[PipelineT, ChemblExtractionContext], pd.DataFrame] | None = None
     dry_run_handler: (
         Callable[
             [PipelineT, ChemblExtractionContext, BoundLogger, float],
@@ -613,6 +607,7 @@ class BatchExtractionContext:
 
 # ChemblClient is dynamically loaded in __init__.py at runtime
 # Type checking uses Any for client parameters to avoid circular dependencies
+
 
 class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     """Base class for ChEMBL-based ETL pipelines.
@@ -1433,6 +1428,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             descriptor_empty_factory = descriptor.empty_frame_factory
             effective_empty_factory = empty_frame_factory
             if effective_empty_factory is None and descriptor_empty_factory is not None:
+
                 def _descriptor_empty_factory() -> pd.DataFrame:
                     return descriptor_empty_factory(self, context)
 
