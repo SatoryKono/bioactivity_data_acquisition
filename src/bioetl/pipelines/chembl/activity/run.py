@@ -50,7 +50,11 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.pipelines.mixins import BatchIdExtractionPlan, NestedColumnSpec
+from bioetl.pipelines.mixins import (
+    BatchIdExtractionPlan,
+    EnrichmentScenarioEngine,
+    NestedColumnSpec,
+)
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -207,6 +211,9 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self._standard_types_cache: frozenset[str] | None = None
         self._last_invalid_activity_ids: list[Any] | None = None
         self.configure_output_schema(get_out_schema(self.pipeline_code))
+        self.enrichment_engine = EnrichmentScenarioEngine()
+        for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS:
+            self.enrichment_engine.register(scenario)
 
     def resolve_legacy_extract_ids(
         self,
@@ -789,52 +796,8 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
     ) -> pd.DataFrame:
         """Execute registered enrichment stages in a deterministic order."""
 
-        if df.empty:
-            return df
-
-        log = self.logger_for(stage="enrich")
-        chembl_config = self.config.chembl
-
-        if chembl_config is None:
-            selected = stages or self._DEFAULT_ENRICHMENT_ORDER
-            log.debug(
-                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG,
-                stages=selected,
-                message="chembl domain configuration missing; enrichment skipped",
-            )
-            return df
-
         selected = tuple(stages) if stages is not None else self._DEFAULT_ENRICHMENT_ORDER
-
-        for stage_name in selected:
-            scenario = self._ENRICHMENT_SCENARIOS.get(stage_name)
-            if scenario is None:
-                log.debug(
-                    LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
-                    stage=stage_name,
-                    message="Enrichment scenario not registered",
-                )
-                continue
-
-            if not scenario.is_enabled(chembl_config):
-                log.debug(
-                    LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG,
-                    stage=stage_name,
-                    message="Scenario disabled in configuration",
-                )
-                continue
-
-            stage_log = log.bind(stage=scenario.name)
-            stage_log.info("enrichment_stage_start", rows=len(df))
-            enrich_cfg = scenario.extract_config(chembl_config, log=stage_log)
-            bundle = self._build_activity_enrichment_bundle(
-                scenario.entity_name,
-                client_name=scenario.client_name,
-            )
-            df = scenario.transform(self, df, bundle.chembl_client, enrich_cfg, stage_log)
-
-        log.debug(LogEvents.ENRICHMENT_STAGES_COMPLETED, stages=selected)
-        return df
+        return self.enrichment_engine.execute(self, df, selected=selected)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply pre-validation checks before delegating to the shared schema logic."""

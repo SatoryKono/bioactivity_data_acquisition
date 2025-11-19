@@ -37,6 +37,7 @@ from bioetl.core.schema import (
     normalize_string_columns,
 )
 from bioetl.core.schema.normalizers import IdentifierStats, StringStats
+from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
 
 
 class LoggingMixin:
