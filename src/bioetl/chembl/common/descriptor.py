@@ -13,7 +13,6 @@ and data extraction utilities.
 
 from __future__ import annotations
 
-
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
@@ -249,12 +248,13 @@ def build_standard_chembl_context(
         msg = f"Фабрика вернула пустой клиент для '{entity_name}'"
         raise RuntimeError(msg)
     # Проверяем тип только если entity_client_type является реальным типом (не моком)
-    if entity_client_type is not None:
-        # Проверяем, что entity_client_type является типом (не моком класса)
-        if isinstance(entity_client_type, type):
-            if not isinstance(entity_client, entity_client_type):
-                msg = f"Ожидался {entity_client_type.__name__}, получен {type(entity_client).__name__}"
-                raise RuntimeError(msg)
+    if (
+        entity_client_type is not None
+        and isinstance(entity_client_type, type)
+        and not isinstance(entity_client, entity_client_type)
+    ):
+        msg = f"Ожидался {entity_client_type.__name__}, получен {type(entity_client).__name__}"
+        raise RuntimeError(msg)
 
     # Выполняем pre_release_hook если нужно (например, для handshake)
     if pre_release_hook is not None:
@@ -395,8 +395,8 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _build_context_callable(  # pyright: ignore[reportGeneralTypeIssues]; type: ignore
-        self: SelfDescriptorT,
+    def _build_context_callable(  # type: ignore
+        self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
         spec: ChemblDescriptorSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
     ) -> Callable[[ChemblPipelineBase, Any, BoundLogger], ChemblExtractionContext]:
         context_spec = spec.context
@@ -451,8 +451,8 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
         return build_context
 
-    def _wrap_release_resolver(  # pyright: ignore[reportGeneralTypeIssues]; type: ignore
-        self: SelfDescriptorT,
+    def _wrap_release_resolver(  # type: ignore
+        self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
         context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore
     ) -> Callable[[ChemblPipelineBase, Any, BoundLogger, Any | None], str | None] | None:
         resolver = context_spec.release_resolver
@@ -470,8 +470,8 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
         return wrapper
 
-    def _wrap_select_fields_resolver(  # pyright: ignore[reportGeneralTypeIssues]; type: ignore
-        self: SelfDescriptorT,
+    def _wrap_select_fields_resolver(  # type: ignore
+        self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
         context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any], Sequence[str] | None] | None:
         resolver = context_spec.select_fields_resolver
@@ -484,8 +484,8 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
         return wrapper
 
-    def _wrap_extra_filters_factory(  # pyright: ignore[reportGeneralTypeIssues]; type: ignore
-        self: SelfDescriptorT,
+    def _wrap_extra_filters_factory(  # type: ignore
+        self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
         context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[Any, ChemblPipelineBase], dict[str, Any]] | None:
         factory = context_spec.extra_filters_factory
@@ -498,8 +498,8 @@ class ChemblDescriptorBuilderMixin(Generic[PipelineT]):  # pyright: ignore[repor
 
         return wrapper
 
-    def _wrap_pre_release_hook(  # pyright: ignore[reportGeneralTypeIssues]; type: ignore
-        self: SelfDescriptorT,
+    def _wrap_pre_release_hook(  # type: ignore
+        self: SelfDescriptorT,  # pyright: ignore[reportGeneralTypeIssues]
         context_spec: ChemblContextSpec[SelfDescriptorT],  # pyright: ignore[reportInvalidTypeArguments]; type: ignore[type-arg]
     ) -> Callable[[ChemblPipelineBase, Any, Any], None] | None:
         hook = context_spec.pre_release_hook

@@ -4,8 +4,7 @@ from __future__ import annotations
 
 import json
 import math
-import time
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from numbers import Integral, Real
 from typing import Any, cast
@@ -15,7 +14,6 @@ from pandas._libs import missing as libmissing
 from structlog.stdlib import BoundLogger
 
 from bioetl.chembl.common.descriptor import (
-    BatchExtractionContext,
     ChemblContextSpec,
     ChemblDescriptorSpec,
     ChemblExtractionContext,
@@ -26,12 +24,10 @@ from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
     make_empty_frame_factory,
 )
-from bioetl.chembl.common.normalize import normalize_identifiers
 from bioetl.clients.client_chembl import ChemblClient  # noqa: F401 - re-exported for tests
 from bioetl.clients.entities.client_target import ChemblTargetClient
 from bioetl.config import TargetSourceConfig
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.http import CircuitBreakerOpenError
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.schema.normalizers import IdentifierStats
@@ -83,6 +79,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
     def __init__(self, config: PipelineConfig, run_id: str) -> None:
         super().__init__(config, run_id)
+        self._array_source_cache: pd.DataFrame | None = None
         self.initialize_output_schema()
 
     # ------------------------------------------------------------------
@@ -188,8 +185,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         log = self.logger_for(stage="transform")
         ensured = self._ensure_schema_columns(df, self._output_column_order, log)
         normalized = self._normalize_data_types(ensured, self._output_schema, log)
-        ordered = self._order_schema_columns(normalized, self._output_column_order)
-        return ordered
+        return self._order_schema_columns(normalized, self._output_column_order)
 
     # ------------------------------------------------------------------
     # Internal helpers
