@@ -90,7 +90,7 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
         """Return the declarative descriptor specification for targets."""
 
         def get_metadata(pipeline: ChemblPipelineBase) -> Mapping[str, Any]:
-            return {"chembl_release": pipeline.chembl_release}
+            return pipeline.publish_release_metadata()
 
         empty_frame = make_empty_frame_factory("target_chembl_id")
         dry_run_handler = make_dry_run_handler(
@@ -112,19 +112,9 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
             batch_size = getattr(source_config, "batch_size", None)
             return {"batch_size": batch_size} if batch_size else {}
 
-        def release_resolver(
-            pipeline: ChemblPipelineBase,
-            client: Any,
-            log: BoundLogger,
-            _: Any,
-        ) -> str | None:
-            typed_pipeline = cast("ChemblTargetPipeline", pipeline)
-            return typed_pipeline.fetch_chembl_release(client, log)
-
         context_spec = ChemblContextSpec(
             entity_name="target",
             entity_client_type=ChemblTargetClient,
-            release_resolver=release_resolver,
             extra_filters_factory=extra_filters_factory,
         )
 
