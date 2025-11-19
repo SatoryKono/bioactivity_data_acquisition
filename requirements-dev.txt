@@ -1,4 +1,6 @@
-# Install the project in editable mode together with all development extras.
-# This ensures mandatory runtime dependencies such as pyarrow are available
-# when running the test-suite locally or in CI.
+# Ensure parquet support is present before installing the project itself.
+pyarrow>=14.0.1
+
+# Install the project in editable mode together with all development extras so
+# all runtime and tooling dependencies stay in sync with pyproject.toml.
 -e .[dev]
