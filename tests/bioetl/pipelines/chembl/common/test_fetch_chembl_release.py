@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 import pytest
 from requests.exceptions import ConnectionError, HTTPError, RequestException, Timeout
 
+from bioetl.chembl.common.descriptor import ChemblExtractionContext
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.http.api_client import UnifiedAPIClient
 from bioetl.pipelines.chembl.target import run as target_run
@@ -286,4 +287,162 @@ def test_fetch_chembl_release_no_client_methods(
     result = pipeline.fetch_chembl_release(mock_client)
 
     assert result is None
+
+
+@pytest.mark.unit
+def test_resolve_chembl_release_returns_release_and_metadata(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Высокоуровневый резолвер должен обновлять кеш и возвращать release."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    log = Mock()
+    chembl_client = object()
+
+    with patch.object(pipeline, "fetch_chembl_release", return_value="27") as mock_fetch:
+        release_value, metadata = pipeline.resolve_chembl_release(chembl_client, log)
+
+    assert release_value == "27"
+    assert metadata == {}
+    assert pipeline.chembl_release == "27"
+    mock_fetch.assert_called_once_with(chembl_client, log)
+
+
+@pytest.mark.unit
+def test_resolve_chembl_release_includes_optional_versions(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Метаданные должны включать chembl_db_version и api_version при наличии."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    setattr(pipeline, "chembl_db_version", "31")  # type: ignore[attr-defined]
+    pipeline._set_api_version("1.2")
+
+    log = Mock()
+    chembl_client = object()
+
+    with patch.object(pipeline, "fetch_chembl_release", return_value=None) as mock_fetch:
+        release_value, metadata = pipeline.resolve_chembl_release(chembl_client, log)
+
+    assert release_value is None
+    assert metadata == {"chembl_db_version": "31", "api_version": "1.2"}
+    mock_fetch.assert_called_once_with(chembl_client, log)
+
+
+@pytest.mark.unit
+def test_resolve_chembl_release_handles_fetch_exception(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """Исключения fetch должны логироваться и приводить к (None, {})."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    log = Mock()
+    chembl_client = object()
+
+    with patch.object(pipeline, "fetch_chembl_release", side_effect=RuntimeError("boom")) as mock_fetch:
+        release_value, metadata = pipeline.resolve_chembl_release(chembl_client, log)
+
+    assert release_value is None
+    assert metadata == {}
+    mock_fetch.assert_called_once_with(chembl_client, log)
+    log.warning.assert_called_once()
+
+
+@pytest.mark.unit
+def test_ensure_chembl_release_uses_context_resolver(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """ensure_chembl_release должен уважать release_resolver контекста."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    log = Mock()
+    resolver = Mock(return_value="55")
+    context = ChemblExtractionContext(
+        source_config=object(),
+        iterator=object(),
+        chembl_client=None,
+        release_resolver=resolver,
+    )
+
+    release_value, metadata = pipeline.ensure_chembl_release(context, log)
+
+    assert release_value == "55"
+    assert metadata == {}
+    assert pipeline.chembl_release == "55"
+    assert context.chembl_release == "55"
+    resolver.assert_called_once()
+
+
+@pytest.mark.unit
+def test_ensure_chembl_release_calls_resolve_when_missing(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """ensure_chembl_release использует resolve_chembl_release при отсутствии кэша."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    log = Mock()
+    chembl_client = object()
+    context = ChemblExtractionContext(
+        source_config=object(),
+        iterator=object(),
+        chembl_client=chembl_client,
+    )
+
+    with patch.object(
+        pipeline,
+        "resolve_chembl_release",
+        return_value=("27", {"chembl_db_version": "33"}),
+    ) as mock_resolve:
+        release_value, metadata = pipeline.ensure_chembl_release(context, log)
+
+    assert release_value == "27"
+    assert metadata == {"chembl_db_version": "33"}
+    assert context.chembl_release == "27"
+    assert pipeline.chembl_release == "27"
+    mock_resolve.assert_called_once_with(chembl_client, log, context.iterator)
+
+
+@pytest.mark.unit
+def test_publish_release_metadata_merges_values(
+    pipeline_config_fixture,
+    run_id: str,
+) -> None:
+    """publish_release_metadata добавляет chembl_release и метаданные."""
+
+    pipeline = target_run.ChemblTargetPipeline(
+        config=pipeline_config_fixture,
+        run_id=run_id,
+    )
+
+    pipeline.update_chembl_release_metadata(api_version="1.1")
+    payload = pipeline.publish_release_metadata({"rows": 10}, release="42")
+
+    assert payload["chembl_release"] == "42"
+    assert payload["api_version"] == "1.1"
+    assert payload["rows"] == 10
 
