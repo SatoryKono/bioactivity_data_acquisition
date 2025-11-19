@@ -276,6 +276,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                         "duration_ms": 0.0,
                         "success_rate": 0.0,
                     }
+                    summary = self.publish_release_metadata(summary)
                     context.extra["delegated_summary"] = summary
                     return [], summary
 
@@ -426,7 +427,6 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         if activity_iterator is None:
             msg = "Фабрика вернула пустой клиент для сущности 'activity'"
             raise RuntimeError(msg)
-        self._set_chembl_release(self.fetch_chembl_release(chembl_client, log))
 
         select_fields = self._resolve_select_fields(
             source_raw,
@@ -725,6 +725,8 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             "success_rate": success_rate,
         }
 
+        summary = self.publish_release_metadata(summary)
+
         return records, summary
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -918,6 +920,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                 "duration_ms": 0.0,
                 "success_rate": 0.0,
             }
+            summary = self.publish_release_metadata(summary)
             self._last_batch_extract_stats = summary
             log.info(LogEvents.CHEMBL_ACTIVITY_BATCH_SUMMARY, **summary)
             empty_frame = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
@@ -928,6 +931,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             activity_iterator,
             select_fields=select_fields,
         )
+        summary = self.publish_release_metadata(summary)
         duration_ms = (time.perf_counter() - method_start) * 1000.0
         summary["duration_ms"] = duration_ms
         self._last_batch_extract_stats = summary
