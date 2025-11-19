@@ -186,7 +186,7 @@ def setup_mock_api_client(mock_assays: list[dict[str, object]]) -> MagicMock:
 
     def get_side_effect(url: str, *args: object, **kwargs: object) -> MagicMock:
         call_count["count"] += 1
-        if "/status" in url or "/status.json" in url:
+        if "/status" in url:
             # Return status response for handshake calls
             if call_count["count"] <= len(responses):
                 return responses[call_count["count"] - 1]

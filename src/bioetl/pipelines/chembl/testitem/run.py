@@ -19,7 +19,7 @@ from bioetl.chembl.common.handlers import (
     make_dry_run_handler,
     make_empty_frame_factory,
 )
-from bioetl.clients.client_chembl import ChemblClient
+from bioetl.clients.client_chembl import ChemblClient, _resolve_status_endpoint
 from bioetl.clients.entities.client_testitem import ChemblTestitemClient
 from bioetl.config import TestItemSourceConfig
 from bioetl.config.models.models import PipelineConfig
@@ -72,19 +72,16 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         release_value: str | None = None
         api_version: str | None = None
 
-        status_payload: Mapping[str, Any] | None = None
-        for endpoint in ("/status", "/status.json"):
-            try:
-                status_payload = self.perform_handshake(client, endpoint)
-            except Exception as exc:  # noqa: BLE001
-                bound_log.warning(
-                    LogEvents.CHEMBL_TESTITEM_STATUS_FAILED,
-                    endpoint=endpoint,
-                    error=str(exc),
-                )
-                continue
-            if status_payload:
-                break
+        status_endpoint = _resolve_status_endpoint()
+        try:
+            status_payload = self.perform_handshake(client, status_endpoint)
+        except Exception as exc:  # noqa: BLE001
+            bound_log.warning(
+                LogEvents.CHEMBL_TESTITEM_STATUS_FAILED,
+                endpoint=status_endpoint,
+                error=str(exc),
+            )
+            status_payload = None
 
         if status_payload:
             coerced_payload = self._coerce_mapping(status_payload)

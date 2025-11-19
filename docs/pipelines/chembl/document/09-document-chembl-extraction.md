@@ -143,9 +143,12 @@ curl -sS "<https://www.ebi.ac.uk/chembl/api/data/document.json?document_chembl_i
 
 ```bash
 
-curl -sS "<https://www.ebi.ac.uk/chembl/api/data/status.json>"
+curl -sS -H "Accept: application/json" "<https://www.ebi.ac.uk/chembl/api/data/status>"
 
 ```
+
+Формат JSON договаривается через заголовок `Accept` (или query), поэтому в
+пути не требуется расширение `.json`.
 
 **Использование релиза:**
 

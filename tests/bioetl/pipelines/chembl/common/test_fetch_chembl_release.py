@@ -54,7 +54,7 @@ def test_fetch_chembl_release_via_unified_client(
     result = pipeline.fetch_chembl_release(mock_client)
 
     assert result == "34"
-    mock_client.get.assert_called_once_with("/status.json")
+    mock_client.get.assert_called_once_with("/status")
 
 
 @pytest.mark.unit

@@ -93,7 +93,7 @@ class TestChemblClient:
         }
         mock_api_client.get.return_value = mock_response
 
-        configured_endpoint = "/configured-status.json"
+        configured_endpoint = "/configured-status"
         monkeypatch.setattr(
             "bioetl.clients.client_chembl._resolve_status_endpoint",
             lambda: configured_endpoint,
