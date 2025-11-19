@@ -8,10 +8,10 @@ from functools import partial
 from types import MappingProxyType
 from typing import Any, Protocol, runtime_checkable
 
-from structlog.stdlib import BoundLogger, get_logger
+from structlog.stdlib import BoundLogger
 
 from bioetl.config.models.models import PipelineConfig
-from bioetl.core.logging import LogEvents, get_pipeline_logger
+from bioetl.core.logging import LogEvents, UnifiedLogger, get_pipeline_logger
 from bioetl.core.pipeline import PipelineBase
 
 __all__ = [
@@ -36,7 +36,7 @@ _DEFAULT_STAGE_SEQUENCE: tuple[str, ...] = (
 )
 _KNOWN_STAGE_NAMES: frozenset[str] = frozenset(_DEFAULT_STAGE_SEQUENCE)
 
-_LOG = get_logger(__name__)
+_LOG = UnifiedLogger.get(__name__)
 
 
 @runtime_checkable
@@ -67,9 +67,11 @@ class _PipelineResolver(Protocol):
 
     def resolve(self) -> type[PipelineBase]:  # pragma: no cover - structural protocol
         """Return the concrete pipeline class."""
+        ...
 
     def identifier(self) -> str:
         """Return the stable identifier for the pipeline class."""
+        ...
 
 
 @dataclass(slots=True)
@@ -87,12 +89,20 @@ class PipelineReference:
                 msg = "Pipeline loader must return a PipelineBase subclass"
                 raise TypeError(msg)
             self._pipeline_cls = pipeline_cls
-        return self._pipeline_cls
+        result = self._pipeline_cls
+        if result is None:
+            msg = "Pipeline loader must return a PipelineBase subclass"
+            raise TypeError(msg)
+        return result
 
     def identifier(self) -> str:
         if self._identifier is None:
             self._identifier = _pipeline_identifier(self.resolve())
-        return self._identifier
+        result = self._identifier
+        if result is None:
+            msg = "Pipeline identifier must be set"
+            raise ValueError(msg)
+        return result
 
 
 @dataclass(slots=True)
@@ -104,7 +114,7 @@ class StageContext:
     pipeline_name: str | None = None
     stage: str | None = None
 
-    def derive(self, *, stage: str | None = None) -> "StageContext":
+    def derive(self, *, stage: str | None = None) -> StageContext:
         """Return a new context updated with ``stage`` when provided."""
 
         if stage is None or stage == self.stage:
@@ -153,7 +163,12 @@ def register_pipeline(
             msg = f"Pipeline '{identifier}' is already registered"
             raise ValueError(msg)
         _PIPELINE_REGISTRY[identifier] = pipeline
-        return PipelineReference(loader=lambda pipeline_cls=pipeline: pipeline_cls, _identifier=identifier)
+        def _loader() -> type[PipelineBase]:
+            return pipeline
+        return PipelineReference(
+            loader=_loader,
+            _identifier=identifier,
+        )
 
     if callable(pipeline):
         return PipelineReference(loader=pipeline)
@@ -175,8 +190,12 @@ def build_stage_functions(
         _ensure_pipeline_compliance(pipeline_cls, stage_names)
         pipeline_ref = register_pipeline(pipeline_cls)
     elif callable(pipeline_cls):
-        def _loader(pipeline_loader: PipelineLoader = pipeline_cls) -> type[PipelineBase]:
-            pipeline_type = pipeline_loader()
+        def _loader(pipeline_loader: PipelineLoader | None = None) -> type[PipelineBase]:
+            loader = pipeline_loader if pipeline_loader is not None else pipeline_cls
+            if not callable(loader):
+                msg = "Pipeline loader must be callable"
+                raise TypeError(msg)
+            pipeline_type = loader()
             _ensure_pipeline_compliance(pipeline_type, stage_names)
             return pipeline_type
 
@@ -245,7 +264,7 @@ def _ensure_pipeline_compliance(
     pipeline_cls: type[PipelineBase], stage_names: Sequence[str]
 ) -> None:
     identifier = _pipeline_identifier(pipeline_cls)
-    if not issubclass(pipeline_cls, PipelineStagesProtocol):  # type: ignore[arg-type]
+    if not issubclass(pipeline_cls, PipelineStagesProtocol):
         msg = f"Pipeline '{identifier}' must implement PipelineStagesProtocol"
         raise TypeError(msg)
 
@@ -343,7 +362,7 @@ def _resolve_stage_callable(pipeline: PipelineBase, stage: str) -> StageCallable
     if not callable(callable_candidate):  # pragma: no cover - defensive guard
         msg = f"Attribute '{stage}' on '{pipeline.__class__.__name__}' is not callable"
         raise TypeError(msg)
-    return callable_candidate
+    return callable_candidate  # type: ignore[no-any-return]
 
 
 def run_stage(
