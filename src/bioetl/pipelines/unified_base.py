@@ -61,7 +61,11 @@ class UnifiedPipelineBase(
     `IOArtifactsMixin` — за детерминированную запись артефактов. Дочерним
     пайплайнам достаточно реализовать `build_descriptor` и при необходимости
     переопределить отдельные хуки (`pre_transform`, `domain_enrich`,
-    `augment_metadata` и т. д.).
+    `augment_metadata` и т. д.). Stage-runner (`bioetl.pipelines.chembl.stage_runner`)
+    использует этот базовый класс и `PipelineStagesProtocol`, чтобы собирать
+    частичные планы стадий; покрытие обеспечивается тестами в
+    ``tests/bioetl/pipelines/chembl/test_stage_runner.py`` и
+    ``tests/bioetl/pipelines/test_unified_base.py``.
     """
 
     def run(

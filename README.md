@@ -82,6 +82,38 @@ bioetl config inspect \
   [`docs/architecture.md`](docs/architecture.md). Там же приведены примеры
   наследования и ожидаемые точечные изменения при добавлении новых сущностей.
 
+### `PipelineStagesProtocol` и StageFactory
+
+- Базовый контракт стадий (`PipelineStagesProtocol`) описан в
+  `src/bioetl/pipelines/base.py`. Он фиксирует сигнатуры `extract`,
+  `transform`, `validate`, `save_results`, `prepare_run`/`finalize_run` и
+  используется всеми вспомогательными фабриками.
+- `StageFactory` (в том же модуле) строит детерминированный план стадий и
+  возвращает последовательность `PipelineStageCommand` (`extract → transform →
+  validate → write → cleanup`). План можно переопределить через
+  `PipelineBase.create_stage_factory`. Набор стадий покрыт тестами в
+  `tests/pipelines/test_pipeline_commands.py`, поэтому любые изменения требуют
+  синхронного обновления тестов.
+- Для ChEMBL-запусков дополнительная фабрика из
+  `src/bioetl/pipelines/chembl/stage_runner.py` позволяет регистрировать
+  пайплайны и строить частичные планы (например, только `extract`). Юнит-тесты
+  `tests/bioetl/pipelines/chembl/test_stage_runner.py` описывают ожидаемое
+  поведение и примеры расширений.
+
+### Стратегии батчинга и валидации
+
+- `BatchIdExtractionMixin` и `ChemblDescriptorBuilderMixin` собирают
+  `BatchIdExtractionPlan`, позволяющий задать `batch_size`, `chunk_size`,
+  фабрики fetcher’ов и `post_id_extraction`-хуки. План разделяет вычисление
+  ID-шардов и обработку результатов, поэтому можно легко переопределить только
+  стратегию извлечения без переписывания трансформаций.
+- `src/bioetl/pipelines/validation.py` реализует стратегии `StrictValidation`
+  (fail-fast) и `FailOpenValidation` (best-effort с записью нарушений в логи).
+  Выбор стратегии управляется через CLI (`--fail-on-qc-violation`) и
+  конфигурацию `validation.allow_schema_migration`. Обе стратегии проверяются в
+  `tests/pipelines/test_schema_versioning.py` и smoke-тестах конкретных
+  пайплайнов.
+
 ## Пример конфига пайплайна
 
 `bioetl` использует типизированные профили. Ниже сокращённый пример
@@ -269,8 +301,8 @@ bioetl document_chembl \
 выполните `pre-commit autoupdate`, затем повторно прогоните все проверки
 и зафиксируйте изменения в `.pre-commit-config.yaml`.
 
-При желании подключите [pre-commit.ci](https://pre-commit.ci/) для
-зеркалирования локальных проверок в PR.
+При желании подключите pre-commit.ci для зеркалирования локальных проверок в
+PR.
 
 ## Обнаружение утечек секретов
 

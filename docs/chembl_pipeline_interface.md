@@ -68,6 +68,22 @@
 | `TransformMixin` | Реализует стандартный `transform` как цепочку `pre_transform` → schema enforcement → `domain_enrich` → `post_transform`. |
 | `IOArtifactsMixin` | Связывает `save_results` с `PipelineBase.write`, сохраняя поддержку `extended`, correlation report и QC. |
 
+## `PipelineStagesProtocol` и фабрика стадий
+
+- Все ChEMBL-пайплайны реализуют `PipelineStagesProtocol` из
+  `src/bioetl/pipelines/base.py`. Контракт гарантирует, что `StageFactory`
+  построит детерминированный план стадий и вызовет
+  `prepare_run`/`finalize_run` вокруг `extract → transform → validate → write →
+  cleanup`.
+- `PipelineBase.create_stage_factory()` возвращает фабрику по умолчанию с пятью
+  `PipelineStageCommand`. При необходимости можно вернуть собственный класс,
+  добавляющий промежуточные шаги или отключающий стадию. Поведение покрыто в
+  `tests/pipelines/test_pipeline_commands.py`.
+- Для CLI-команд ChEMBL предназначен `src/bioetl/pipelines/chembl/stage_runner.py`:
+  он регистрирует пайплайны, проверяет контракт и умеет строить частичные планы
+  (`extract`+`transform`, `validate` отдельно и т.д.). Примеры использования и
+  негативные сценарии описаны в `tests/bioetl/pipelines/chembl/test_stage_runner.py`.
+
 ## Контракт извлечения
 
 1. Дочерние классы реализуют `build_descriptor`, возвращающий
@@ -96,6 +112,19 @@
   нормализацией и финальными проверками.
 - `SchemaValidationMixin.validate` оборачивает `PipelineBase.validate` в логгер
   стадии и загружает схему через `config.validation.schema_out`.
+
+## Стратегии батчинга и валидации
+
+- `BatchIdExtractionPlan` агрегирует настройки батчей (ID чанки, `batch_size`,
+  `chunk_size`, `select_fields`, фабрики fetcher’ов, `metadata_filters`,
+  `post_id_extraction`). Пайплайны могут переопределить конкретные методы
+  (`id_chunk_size_cap`, `id_extraction_postprocess`, `post_id_extraction`), не
+  меняя остальной стек.
+- Валидация управляется стратегиями из `src/bioetl/pipelines/validation.py`:
+  `StrictValidation` выбрасывает исключение при первом нарушении, а
+  `FailOpenValidation` логирует ошибки и продолжает выполнение, добавляя
+  диагностику в `RunResult`. Выбор стратегии зависит от CLI (`--fail-on-qc-violation`)
+  и `config.validation.allow_schema_migration`.
 
 ## Контракт метаданных и handshake
 

@@ -6,9 +6,15 @@ import pandas as pd
 import pytest
 from structlog.stdlib import BoundLogger
 
-from bioetl.chembl.common import BatchExtractionStats, ChemblPipelineBase
+from bioetl.chembl.common import (
+    BatchExtractionContext,
+    BatchExtractionStats,
+    ChemblPipelineBase,
+)
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.mixins.descriptor_builder import (
+    DefaultFetchStrategy,
+    DelegatedFetchStrategy,
     DescriptorStrategyFactory,
     SimpleNormalizationStrategy,
 )
@@ -61,9 +67,13 @@ def test_default_fetch_strategy_batches_records(
     bound_log: BoundLogger,
 ) -> None:
     batches: list[tuple[str, ...]] = []
+    contexts: list[BatchExtractionContext] = []
 
     def fetcher(batch: Sequence[str], context):  # type: ignore[no-untyped-def]
         batches.append(tuple(batch))
+        contexts.append(context)
+        assert isinstance(context, BatchExtractionContext)
+        assert context.batch_size == 2
         return [{"identifier": value} for value in batch]
 
     factory = DescriptorStrategyFactory()
@@ -89,6 +99,11 @@ def test_default_fetch_strategy_batches_records(
         started_at=0.0,
     )
 
+    assert isinstance(plan.fetch_strategy, DefaultFetchStrategy)
+    assert isinstance(plan.context, BatchExtractionContext)
+    assert plan.context.ids == ("a", "b", "c")
+    assert plan.context.chunk_size == 2
+
     dataframe, stats = plan.execute()
 
     assert batches == [("a", "b"), ("c",)]
@@ -96,6 +111,7 @@ def test_default_fetch_strategy_batches_records(
     assert stats.requested == 3
     assert stats.batches == 2
     assert strategy_pipeline._batched_stats["rows"] == 3  # type: ignore[index]
+    assert contexts and all(context is plan.context for context in contexts)
 
 
 def test_delegated_fetch_strategy_merges_stats(
@@ -134,6 +150,9 @@ def test_delegated_fetch_strategy_merges_stats(
         log=bound_log,
         started_at=0.0,
     )
+
+    assert isinstance(plan.fetch_strategy, DelegatedFetchStrategy)
+    assert plan.context.ids == ("a", "c")
 
     dataframe, stats = plan.execute()
 
