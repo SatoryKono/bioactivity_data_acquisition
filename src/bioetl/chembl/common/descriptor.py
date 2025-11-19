@@ -162,6 +162,9 @@ class ChemblExtractionContext:
     extra_filters: dict[str, Any] = field(default_factory=dict)
     iterate_all_kwargs: dict[str, Any] = field(default_factory=dict)
     stats: dict[str, Any] = field(default_factory=dict)
+    release_resolver: (
+        Callable[["ChemblPipelineBase", Any, BoundLogger, Any | None], str | None] | None
+    ) = None
 
 
 def build_standard_chembl_context(
@@ -198,8 +201,9 @@ def build_standard_chembl_context(
     entity_client_type
         Ожидаемый тип entity_client для проверки. Если None, проверка не выполняется.
     release_resolver
-        Функция для получения ChEMBL release. Принимает (pipeline, chembl_client, log, entity_client).
-        По умолчанию используется `pipeline.fetch_chembl_release(chembl_client, log)`.
+        Функция для получения ChEMBL release. Принимает (pipeline, chembl_client, log, entity_client)
+        и передается в контекст для отложенного вызова :meth:`ChemblPipelineBase.ensure_chembl_release`.
+        При ``None`` используется стандартный ``pipeline.resolve_chembl_release``.
     pre_release_hook
         Функция, вызываемая перед получением release (например, для handshake).
         Принимает (pipeline, source_config, entity_client).
@@ -213,7 +217,8 @@ def build_standard_chembl_context(
         Имя для регистрации HTTP-клиента. По умолчанию `f"chembl_{entity_name}_http"`.
     chembl_release_override
         Переопределение значения chembl_release в контексте (например, для testitem
-        используется chembl_db_version). Если None, используется значение из release_resolver.
+        используется chembl_db_version). Если None, release будет определен позднее через
+        :meth:`ChemblPipelineBase.ensure_chembl_release`.
     page_size_resolver
         Функция для получения page_size. По умолчанию используется
         `getattr(source_config, "page_size", None)`.
@@ -260,17 +265,6 @@ def build_standard_chembl_context(
     if pre_release_hook is not None:
         pre_release_hook(pipeline, source_config, entity_client)
 
-    # Получаем release
-    if release_resolver is not None:
-        release_value = release_resolver(pipeline, chembl_client, log, entity_client)
-        if release_value is not None:
-            pipeline._set_chembl_release(release_value)
-    else:
-        # Используем стандартный метод
-        release_value = pipeline.fetch_chembl_release(chembl_client, log)
-        if release_value is not None:
-            pipeline._set_chembl_release(release_value)
-
     # Получаем select_fields
     if select_fields_resolver is not None:
         select_fields = select_fields_resolver(pipeline, source_config)
@@ -293,9 +287,7 @@ def build_standard_chembl_context(
         extra_filters = {}
 
     # Определяем значение для chembl_release в контексте
-    context_release = (
-        chembl_release_override if chembl_release_override is not None else release_value
-    )
+    context_release = chembl_release_override
 
     # Создаем контекст
     return ChemblExtractionContext(
@@ -306,6 +298,7 @@ def build_standard_chembl_context(
         page_size,
         context_release,
         extra_filters=extra_filters,
+        release_resolver=release_resolver,
     )
 
 
@@ -670,6 +663,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         self._output_schema: DataFrameSchema | None = None
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
+        self._chembl_release_metadata: dict[str, Any] = {}
         if TYPE_CHECKING:
             from bioetl.pipelines.mixins.descriptor_builder import DescriptorStrategyFactory
         else:
@@ -843,6 +837,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
     def _set_api_version(self, value: str | None) -> None:
         """Update the cached API version used by the pipeline."""
         self._set_optional_string_value("_api_version", value, field_name="api_version")
+        self.update_chembl_release_metadata(api_version=value)
 
     def extract(
         self,
@@ -1202,6 +1197,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         context = descriptor.build_context(self, source_config, log)
         context.source_config = source_config
 
+        resolved_release, release_metadata = self.ensure_chembl_release(context, log)
+
         limit = self.config.cli.limit
 
         configured_select: Sequence[str] | None = context.select_fields
@@ -1239,9 +1236,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             mode="all",
         )
 
-        metadata_kwargs = dict(context.metadata)
+        metadata_kwargs = self.publish_release_metadata(
+            dict(context.metadata),
+            release=resolved_release,
+            metadata=release_metadata,
+        )
         self.record_extract_metadata(
-            chembl_release=context.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
             **metadata_kwargs,
@@ -1257,13 +1257,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             else:
                 dataframe = pd.DataFrame()
 
-            dry_run_summary: dict[str, Any] = {
-                "rows": int(dataframe.shape[0]),
-                "duration_ms": duration_ms,
-                "dry_run": True,
-            }
-            if context.chembl_release is not None:
-                dry_run_summary["chembl_release"] = context.chembl_release
+            dry_run_summary = self.publish_release_metadata(
+                {
+                    "rows": int(dataframe.shape[0]),
+                    "duration_ms": duration_ms,
+                    "dry_run": True,
+                },
+                release=resolved_release,
+                metadata=release_metadata,
+            )
             if descriptor.summary_extra is not None:
                 dry_run_summary.update(descriptor.summary_extra(self, dataframe, context))
             if context.stats:
@@ -1307,12 +1309,14 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         duration_ms = (time.perf_counter() - stage_start) * 1000.0
 
-        summary_payload: dict[str, Any] = {
-            "rows": int(dataframe.shape[0]),
-            "duration_ms": duration_ms,
-        }
-        if context.chembl_release is not None:
-            summary_payload["chembl_release"] = context.chembl_release
+        summary_payload = self.publish_release_metadata(
+            {
+                "rows": int(dataframe.shape[0]),
+                "duration_ms": duration_ms,
+            },
+            release=resolved_release,
+            metadata=release_metadata,
+        )
         if context.stats:
             summary_payload.update(context.stats)
         if descriptor.summary_extra is not None:
@@ -1464,24 +1468,12 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             if effective_finalize_context is None and finalize_context_factory is not None:
                 effective_finalize_context = finalize_context_factory(context, log)
 
-            resolved_release = context.chembl_release or self.chembl_release
-            release_metadata: dict[str, Any] = {}
-            chembl_client = context.chembl_client
-            if chembl_client is not None:
-                release_candidate, metadata = self.resolve_chembl_release(
-                    chembl_client,
-                    log,
-                    context.iterator,
-                )
-                if release_candidate is not None:
-                    resolved_release = release_candidate
-                if metadata:
-                    release_metadata.update(metadata)
+            resolved_release, release_metadata = self.ensure_chembl_release(context, log)
 
             if chembl_release_override is not None:
                 resolved_release = chembl_release_override
 
-            if resolved_release is not None:
+            if resolved_release is not None and self.chembl_release != resolved_release:
                 self._set_chembl_release(resolved_release)
 
             if self.config.cli.dry_run:
@@ -1492,15 +1484,15 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     dataframe = effective_empty_factory()
                 else:
                     dataframe = pd.DataFrame()
-                dry_run_payload: dict[str, Any] = {
-                    "dry_run": True,
-                    "requested": len(canonical_ids),
-                    "rows": int(dataframe.shape[0]),
-                }
-                if resolved_release is not None:
-                    dry_run_payload["chembl_release"] = resolved_release
-                if release_metadata:
-                    dry_run_payload.update(release_metadata)
+                dry_run_payload = self.publish_release_metadata(
+                    {
+                        "dry_run": True,
+                        "requested": len(canonical_ids),
+                        "rows": int(dataframe.shape[0]),
+                    },
+                    release=resolved_release,
+                    metadata=release_metadata,
+                )
                 if summary_extra:
                     dry_run_payload.update(summary_extra)
                 if dry_run_event:
@@ -1525,7 +1517,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             if id_normalizer is not None:
                 batch_args["id_normalizer"] = id_normalizer
             if resolved_release is not None:
-                batch_args["chembl_release"] = resolved_release
+                batch_args = self.publish_release_metadata(
+                    batch_args,
+                    release=resolved_release,
+                    include_metadata=False,
+                )
             batch_args["fetcher"] = effective_fetcher
 
             dataframe, stats = self.run_batched_extraction(
@@ -1535,21 +1531,21 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             )
 
             duration_ms = (time.perf_counter() - stage_start) * 1000.0
-            summary_payload: dict[str, Any] = {
-                "rows": int(dataframe.shape[0]),
-                "requested": len(canonical_ids),
-                "duration_ms": duration_ms,
-            }
-            if resolved_release is not None:
-                summary_payload["chembl_release"] = resolved_release
+            summary_payload = self.publish_release_metadata(
+                {
+                    "rows": int(dataframe.shape[0]),
+                    "requested": len(canonical_ids),
+                    "duration_ms": duration_ms,
+                },
+                release=resolved_release,
+                metadata=release_metadata,
+            )
             if stats.batches is not None:
                 summary_payload["batches"] = stats.batches
             if stats.api_calls is not None:
                 summary_payload["api_calls"] = stats.api_calls
             if stats.cache_hits is not None:
                 summary_payload["cache_hits"] = stats.cache_hits
-            if release_metadata:
-                summary_payload.update(release_metadata)
             if summary_extra:
                 summary_payload.update(summary_extra)
             if summary_extra_factory is not None:
@@ -1629,6 +1625,91 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             "job_id": self.run_id,
             "operator": self.pipeline_code,
         }
+
+    # ------------------------------------------------------------------
+    # Release metadata helpers
+    # ------------------------------------------------------------------
+
+    def chembl_release_metadata(self) -> dict[str, Any]:
+        """Return a snapshot of cached release metadata."""
+
+        return dict(self._chembl_release_metadata)
+
+    def update_chembl_release_metadata(self, **metadata: Any) -> None:
+        """Merge additional metadata into the cached release payload."""
+
+        if not metadata:
+            return
+
+        for key, value in metadata.items():
+            if value is None:
+                self._chembl_release_metadata.pop(key, None)
+                continue
+            self._chembl_release_metadata[key] = value
+
+    def publish_release_metadata(
+        self,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        release: str | None = None,
+        metadata: Mapping[str, Any] | None = None,
+        include_metadata: bool = True,
+    ) -> dict[str, Any]:
+        """Attach release/version info to a structured logging payload."""
+
+        merged: dict[str, Any] = dict(payload or {})
+        resolved_release = release or self.chembl_release
+        if resolved_release is not None:
+            merged["chembl_release"] = resolved_release
+
+        if include_metadata:
+            metadata_payload = self.chembl_release_metadata()
+            if metadata:
+                metadata_payload.update({k: v for k, v in metadata.items() if v is not None})
+            if metadata_payload:
+                merged.update(metadata_payload)
+
+        return merged
+
+    def ensure_chembl_release(
+        self,
+        context: ChemblExtractionContext,
+        log: BoundLogger,
+    ) -> tuple[str | None, dict[str, Any]]:
+        """Ensure the ChEMBL release is resolved and cached for the given context."""
+
+        resolved_release = context.chembl_release or self.chembl_release
+        resolver = context.release_resolver
+        chembl_client = context.chembl_client
+        entity_client = context.iterator
+
+        if resolved_release is None and callable(resolver):
+            try:
+                release_candidate = resolver(self, chembl_client, log, entity_client)
+            except Exception as exc:  # noqa: BLE001
+                log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
+            else:
+                if release_candidate:
+                    resolved_release = release_candidate
+
+        if resolved_release is None and chembl_client is not None:
+            release_candidate, metadata = self.resolve_chembl_release(
+                chembl_client,
+                log,
+                entity_client,
+            )
+            if release_candidate:
+                resolved_release = release_candidate
+            if metadata:
+                self.update_chembl_release_metadata(**metadata)
+
+        if resolved_release is not None:
+            if context.chembl_release != resolved_release:
+                context.chembl_release = resolved_release
+            if self.chembl_release != resolved_release:
+                self._set_chembl_release(resolved_release)
+
+        return resolved_release, self.chembl_release_metadata()
 
     # ------------------------------------------------------------------
     # ChEMBL release fetching
@@ -1728,7 +1809,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """
         """Resolve Chembl release and optional metadata for ID extractions."""
 
-        metadata: dict[str, Any] = {}
+        metadata: dict[str, Any] = self.chembl_release_metadata()
 
         chembl_db_version = getattr(self, "chembl_db_version", None)
         if chembl_db_version:
@@ -1747,6 +1828,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         except Exception as exc:  # noqa: BLE001
             log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
             return None, {}
+
+        if metadata:
+            self.update_chembl_release_metadata(**metadata)
+            metadata = self.chembl_release_metadata()
 
         if release_value is not None and self.chembl_release != release_value:
             self._set_chembl_release(release_value)
@@ -1986,10 +2071,14 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             extra_filters=extra_filter_payload,
         )
 
+        release_payload = self.publish_release_metadata(
+            {},
+            release=chembl_release or self.chembl_release,
+        )
         self.record_extract_metadata(
-            chembl_release=chembl_release or self.chembl_release,
             filters=compact_filters,
             requested_at_utc=datetime.now(timezone.utc),
+            **release_payload,
         )
 
         result = plan.execute()  # pyright: ignore[reportGeneralTypeIssues]

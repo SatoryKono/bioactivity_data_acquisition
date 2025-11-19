@@ -59,6 +59,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         """Update the cached ChEMBL DB version used by the pipeline."""
 
         self._set_optional_string_value("_chembl_db_version", value, field_name="chembl_db_version")
+        self.update_chembl_release_metadata(chembl_db_version=value)
 
     def _fetch_chembl_release(
         self,
@@ -101,6 +102,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         self._set_chembl_db_version(release_value)
         self._set_api_version(api_version)
         self._set_chembl_release(release_value)
+        self.update_chembl_release_metadata(chembl_db_version=release_value, api_version=api_version)
         self.record_extract_metadata(
             chembl_release=release_value,
             requested_at_utc=request_timestamp,
@@ -115,11 +117,7 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         entity_client: Any | None = None,  # noqa: ARG002
     ) -> tuple[str | None, dict[str, Any]]:
         release_value = self._fetch_chembl_release(chembl_client, log)
-        metadata: dict[str, Any] = {}
-        if self.chembl_db_version:
-            metadata["chembl_db_version"] = self.chembl_db_version
-        if self.api_version:
-            metadata["api_version"] = self.api_version
+        metadata = self.chembl_release_metadata()
         return release_value, metadata
 
     # ------------------------------------------------------------------
