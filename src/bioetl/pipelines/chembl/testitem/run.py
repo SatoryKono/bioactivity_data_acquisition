@@ -49,6 +49,17 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         super().__init__(config, run_id)
         self.initialize_output_schema()
 
+    @property
+    def chembl_db_version(self) -> str | None:
+        """Return the cached ChEMBL DB version captured during extraction."""
+        return self._get_optional_string_value("_chembl_db_version", field_name="chembl_db_version")
+
+    def _set_chembl_db_version(self, value: str | None) -> None:
+        """Update the cached ChEMBL DB version used by the pipeline."""
+
+        self._set_optional_string_value("_chembl_db_version", value, field_name="chembl_db_version")
+        self.update_chembl_release_metadata(chembl_db_version=value)
+
     def _fetch_chembl_release(
         self,
         client: UnifiedAPIClient | ChemblClient | Any,  # noqa: ANN401

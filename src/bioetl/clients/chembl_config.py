@@ -422,13 +422,26 @@ _PREDEFINED_CONFIGS: tuple[tuple[str, EntityConfig], ...] = (
         ),
     ),
     (
-        "assay_classification",
+        "assay_class",
         EntityConfig(
-            endpoint="/assay_classification.json",
+            endpoint="/assay_class.json",
             id_field="assay_class_id",
             filter_param="assay_class_id__in",
-            items_key="assay_classifications",
-            log_prefix="assay_classification",
+            items_key="assay_classes",
+            log_prefix="assay_class",
+            default_fields=("assay_class_id",),
+            chunk_size=100,
+        ),
+    ),
+    # Legacy alias for backward compatibility
+    (
+        "assay_classification",
+        EntityConfig(
+            endpoint="/assay_class.json",
+            id_field="assay_class_id",
+            filter_param="assay_class_id__in",
+            items_key="assay_classes",
+            log_prefix="assay_class",
             default_fields=("assay_class_id",),
             chunk_size=100,
         ),

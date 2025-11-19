@@ -384,7 +384,7 @@ class ChemblClient:
         )
 
     # ------------------------------------------------------------------
-    # Assay class map fetching
+    # Assay class map fetching (DEPRECATED)
     # ------------------------------------------------------------------
 
     def fetch_assay_class_map_by_assay_ids(
@@ -394,12 +394,22 @@ class ChemblClient:
         fields: Sequence[str] | None = None,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch ``assay_class_map`` entries by ``assay_chembl_id``."""
-        return self._fetch_entities(
-            "assay_class_map",
-            assay_ids,
-            fields=fields,
-            page_limit=page_limit,
+        """DEPRECATED: This endpoint does not exist in ChEMBL API.
+        
+        Use data from /assay.json response (assay_classifications field) instead.
+        This method will raise an error to prevent accidental usage.
+        """
+        import warnings
+        warnings.warn(
+            "fetch_assay_class_map_by_assay_ids is deprecated. "
+            "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
+            "Use data from /assay.json response (assay_classifications field) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        raise NotImplementedError(
+            "The /assay_class_map.json endpoint does not exist in ChEMBL API. "
+            "Use data from /assay.json response (assay_classifications field) instead."
         )
 
     # ------------------------------------------------------------------
@@ -423,8 +433,23 @@ class ChemblClient:
         ).frame
 
     # ------------------------------------------------------------------
-    # Assay classification fetching
+    # Assay class fetching
     # ------------------------------------------------------------------
+
+    def fetch_assay_classes_by_class_ids(
+        self,
+        class_ids: Iterable[str],
+        *,
+        fields: Sequence[str] | None = None,
+        page_limit: int | None = None,
+    ) -> pd.DataFrame:
+        """Fetch ``assay_class`` entries by ``assay_class_id`` from /assay_class.json."""
+        return self._fetch_entities(
+            "assay_class",
+            class_ids,
+            fields=fields,
+            page_limit=page_limit,
+        )
 
     def fetch_assay_classifications_by_class_ids(
         self,
@@ -433,9 +458,11 @@ class ChemblClient:
         fields: Sequence[str] | None = None,
         page_limit: int | None = None,
     ) -> pd.DataFrame:
-        """Fetch ``assay_classification`` entries by ``assay_class_id``."""
-        return self._fetch_entities(
-            "assay_classification",
+        """Fetch ``assay_class`` entries by ``assay_class_id`` from /assay_class.json.
+        
+        Legacy method name - now uses /assay_class.json endpoint.
+        """
+        return self.fetch_assay_classes_by_class_ids(
             class_ids,
             fields=fields,
             page_limit=page_limit,

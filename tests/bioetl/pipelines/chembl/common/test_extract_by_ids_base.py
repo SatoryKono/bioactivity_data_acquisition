@@ -81,14 +81,18 @@ def test_extract_by_ids_happy_path(
         mock_document_client.iterate_by_ids = mock_iterate_by_ids_doc
         mock_document_client.batch_size = 20
 
-        with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-            with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-                with patch.object(pipeline, "_build_document_client", return_value=mock_document_client):
-                    result = pipeline.extract_by_ids(sample_ids)  # type: ignore[misc]
+        with (
+            patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+            patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+            patch.object(pipeline, "_build_document_client", return_value=mock_document_client),
+        ):
+            result = pipeline.extract_by_ids(sample_ids)  # type: ignore[misc]
     else:
-        with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-            with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-                result = pipeline.extract_by_ids(sample_ids)  # type: ignore[misc]
+        with (
+            patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+            patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+        ):
+            result = pipeline.extract_by_ids(sample_ids)  # type: ignore[misc]
 
     assert not result.empty
     assert id_column in result.columns
@@ -127,14 +131,18 @@ def test_extract_by_ids_empty_list(
         mock_document_client.iterate_by_ids = lambda ids, select_fields=None: iter([])
         mock_document_client.batch_size = 20
 
-        with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-            with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-                with patch.object(pipeline, "_build_document_client", return_value=mock_document_client):
-                    result = pipeline.extract_by_ids([])  # type: ignore[misc]
+        with (
+            patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+            patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+            patch.object(pipeline, "_build_document_client", return_value=mock_document_client),
+        ):
+            result = pipeline.extract_by_ids([])  # type: ignore[misc]
     else:
-        with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-            with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-                result = pipeline.extract_by_ids([])  # type: ignore[misc]
+        with (
+            patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+            patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+        ):
+            result = pipeline.extract_by_ids([])  # type: ignore[misc]
 
     assert result.empty
 
@@ -173,9 +181,11 @@ def test_extract_by_ids_single_id(
     else:
         mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            result = pipeline.extract_by_ids(single_id)  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        result = pipeline.extract_by_ids(single_id)  # type: ignore[misc]
 
     assert not result.empty
     assert len(result) == 1
@@ -218,9 +228,11 @@ def test_extract_by_ids_duplicates(
     else:
         mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            result = pipeline.extract_by_ids(ids_with_duplicates)  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        result = pipeline.extract_by_ids(ids_with_duplicates)  # type: ignore[misc]
 
     # run_batched_extraction должен дедуплицировать
     assert not result.empty
@@ -264,14 +276,16 @@ def test_extract_by_ids_with_whitespace(
     else:
         mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            result = pipeline.extract_by_ids(ids_with_spaces)  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        result = pipeline.extract_by_ids(ids_with_spaces)  # type: ignore[misc]
 
     assert not result.empty
     # Проверяем, что ID нормализованы
     for id_val in result[id_column]:
-        assert not str(id_val).strip() != str(id_val), "ID должны быть нормализованы"
+        assert str(id_val).strip() == str(id_val), "ID должны быть нормализованы"
 
 
 @pytest.mark.parametrize(
@@ -299,9 +313,11 @@ def test_extract_by_ids_dry_run(
         mock_entity_client = Mock(spec=client_type)
         mock_chembl_bundle.entity_client = mock_entity_client
 
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        result = pipeline.extract_by_ids(["CHEMBL1", "CHEMBL2"])  # type: ignore[misc]
 
     assert result.empty
 
@@ -341,9 +357,11 @@ def test_extract_by_ids_respects_limit(
     else:
         mock_chembl_bundle.entity_client.iterate_by_ids = mock_iterate_by_ids
 
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            result = pipeline.extract_by_ids(many_ids)  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        result = pipeline.extract_by_ids(many_ids)  # type: ignore[misc]
 
     # Лимит должен быть соблюден
     assert len(result) <= 2
@@ -391,29 +409,31 @@ def test_extract_by_ids_batch_processing(
     mock_chembl_bundle.entity_client = mock_entity_client
 
     # Мокируем source_config.batch_size после создания пайплайна
-    with patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle):
-        with patch.object(pipeline, "fetch_chembl_release", return_value="33"):
-            # Патчим _resolve_source_config чтобы вернуть конфиг с batch_size=2
-            original_resolve = pipeline._resolve_source_config
-            
-            def mock_resolve_source_config(source_name: str):
-                config = original_resolve(source_name)
-                # Создаем новый конфиг с batch_size=2
-                from bioetl.config.assay import AssaySourceConfig
-                from bioetl.config.target import TargetSourceConfig
-                
-                if pipeline_cls == target_run.ChemblTargetPipeline:
-                    typed_config = TargetSourceConfig.from_source_config(config)
-                    typed_config.batch_size = 2
-                    return typed_config
-                if pipeline_cls == assay_run.ChemblAssayPipeline:
-                    typed_config = AssaySourceConfig.from_source_config(config)
-                    typed_config.batch_size = 2
-                    return typed_config
-                return config
-            
-            with patch.object(pipeline, "_resolve_source_config", side_effect=mock_resolve_source_config):
-                result = pipeline.extract_by_ids(many_ids)  # type: ignore[misc]
+    with (
+        patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_chembl_bundle),
+        patch.object(pipeline, "fetch_chembl_release", return_value="33"),
+    ):
+        # Патчим _resolve_source_config чтобы вернуть конфиг с batch_size=2
+        original_resolve = pipeline._resolve_source_config
+
+        def mock_resolve_source_config(source_name: str):
+            config = original_resolve(source_name)
+            # Создаем новый конфиг с batch_size=2
+            from bioetl.config.assay import AssaySourceConfig
+            from bioetl.config.target import TargetSourceConfig
+
+            if pipeline_cls == target_run.ChemblTargetPipeline:
+                typed_config = TargetSourceConfig.from_source_config(config)
+                typed_config.batch_size = 2
+                return typed_config
+            if pipeline_cls == assay_run.ChemblAssayPipeline:
+                typed_config = AssaySourceConfig.from_source_config(config)
+                typed_config.batch_size = 2
+                return typed_config
+            return config
+
+        with patch.object(pipeline, "_resolve_source_config", side_effect=mock_resolve_source_config):
+            result = pipeline.extract_by_ids(many_ids)  # type: ignore[misc]
 
     # Должно быть несколько батчей (5 ID / 2 на батч = минимум 3 батча)
     assert len(batches_called) > 1, f"Expected multiple batches, got {len(batches_called)}: {batches_called}"
