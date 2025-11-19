@@ -485,7 +485,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             typed_pipeline = cast("ChemblActivityPipeline", pipeline)
             return typed_pipeline._materialize_activity_record(payload)
 
-        context_spec = ChemblContextSpec(
+        context_spec: ChemblContextSpec[ChemblActivityPipeline] = ChemblContextSpec(
             entity_name="activity",
             entity_client_type=ChemblActivityClient,
         )
@@ -781,7 +781,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             return df
 
         log = self.logger_for(stage="enrich")
-        chembl_config = cast(Mapping[str, Any] | None, self.config.chembl)
+        chembl_config = self.config.chembl
 
         if chembl_config is None:
             selected = stages or self._DEFAULT_ENRICHMENT_ORDER
@@ -3022,7 +3022,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
     def save_results(
         self,
         df: pd.DataFrame,
-        output_path: Path,
+        output_dir: Path,
         *,
         extended: bool = False,
         include_correlation: bool | None = None,
@@ -3039,12 +3039,14 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         # If DataFrame is empty or missing columns, fall back to original sort config
         if df.empty or not all(key in df.columns for key in sort_keys):
             # Use original sort config if DataFrame is empty or missing required columns
+            correlation_val = include_correlation if include_correlation is not None else False
+            qc_metrics_val = include_qc_metrics if include_qc_metrics is not None else False
             return super().save_results(
                 df,
-                output_path,
+                output_dir,
                 extended=extended,
-                include_correlation=include_correlation,
-                include_qc_metrics=include_qc_metrics,
+                include_correlation=correlation_val,
+                include_qc_metrics=qc_metrics_val,
             )
 
         # Temporarily override sort config if not already set
@@ -3069,21 +3071,25 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             )
 
             with self._temporary_config(determinism=determinism_override):
+                correlation_val = include_correlation if include_correlation is not None else False
+                qc_metrics_val = include_qc_metrics if include_qc_metrics is not None else False
                 return super().save_results(
                     df,
-                    output_path,
+                    output_dir,
                     extended=extended,
-                    include_correlation=include_correlation,
-                    include_qc_metrics=include_qc_metrics,
+                    include_correlation=correlation_val,
+                    include_qc_metrics=qc_metrics_val,
                 )
 
         # If sort config already matches, proceed normally
+        correlation_val = include_correlation if include_correlation is not None else False
+        qc_metrics_val = include_qc_metrics if include_qc_metrics is not None else False
         return super().save_results(
             df,
-            output_path,
+            output_dir,
             extended=extended,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
+            include_correlation=correlation_val,
+            include_qc_metrics=qc_metrics_val,
         )
 
     def write(
@@ -3106,6 +3112,6 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             df,
             output_path,
             extended=extended,
-            include_correlation=include_correlation,
-            include_qc_metrics=include_qc_metrics,
+            include_correlation=include_correlation if include_correlation is not None else False,
+            include_qc_metrics=include_qc_metrics if include_qc_metrics is not None else False,
         )
