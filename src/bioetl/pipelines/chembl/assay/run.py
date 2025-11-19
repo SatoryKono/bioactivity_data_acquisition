@@ -29,7 +29,7 @@ from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.schema.normalizers import StringStats
 from bioetl.core.io import header_rows_serialize
-from bioetl.pipelines.mixins import NestedColumnSpec
+from bioetl.pipelines.mixins import FlattenNestedMixin, FlattenSpec, NestedColumnSpec
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .._constants import ASSAY_MUST_HAVE_FIELDS
@@ -115,7 +115,7 @@ def _extract_bao_ids_from_classifications(node: Any) -> list[str]:
     return identifiers
 
 
-class ChemblAssayPipeline(UnifiedPipelineBase):
+class ChemblAssayPipeline(FlattenNestedMixin, UnifiedPipelineBase):
     """ETL pipeline extracting assay records from the ChEMBL API."""
 
     actor = "assay_chembl"
@@ -365,6 +365,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         log = self.logger_for(stage="transform", component="pre_transform")
         working_df = df.copy()
         working_df = self._harmonize_identifier_columns(working_df, log)
+        working_df = self._flatten_nested_structures(working_df, log)
         working_df = self._ensure_schema_columns(
             working_df,
             self._output_column_order,
@@ -381,6 +382,9 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
         working_df = self._serialize_nested_columns(working_df, log)
         working_df = self._add_row_metadata(working_df, log)
         return self._normalize_data_types(working_df, self._output_schema, log)
+
+    def nested_flatten_specs(self) -> Sequence[FlattenSpec]:
+        return ()
 
     def post_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         log = self.logger_for(stage="transform", component="post_transform")

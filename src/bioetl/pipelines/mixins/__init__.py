@@ -38,6 +38,7 @@ from bioetl.core.schema import (
 )
 from bioetl.core.schema.normalizers import IdentifierStats, StringStats
 from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
+from bioetl.pipelines.mixins.flatten_nested import FlattenNestedMixin, FlattenSpec
 
 
 class LoggingMixin:
