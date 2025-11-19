@@ -161,6 +161,11 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
                 handshake_endpoint=source_config.parameters.handshake_endpoint,
                 handshake_enabled=source_config.parameters.handshake_enabled,
             )
+            if assay_client.chembl_release:
+                pipeline._set_chembl_release(assay_client.chembl_release)
+                pipeline.update_chembl_release_metadata(
+                    chembl_release_source="chembl_assay_client",
+                )
 
         def release_resolver(
             pipeline: SelfChemblAssayPipeline,
@@ -168,10 +173,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
             log: BoundLogger,
             entity_client: Any | None,
         ) -> str | None:
-            if entity_client is None:
-                return None
-            assay_client = cast(ChemblAssayClient, entity_client)
-            return assay_client.chembl_release
+            return pipeline.chembl_release
 
         def select_fields_resolver(
             pipeline: SelfChemblAssayPipeline,
@@ -247,7 +249,7 @@ class ChemblAssayPipeline(UnifiedPipelineBase):
 
         def get_metadata(pipeline: SelfChemblAssayPipeline) -> Mapping[str, Any]:
             assay_pipeline = _require_assay_pipeline(pipeline)
-            return {"chembl_release": assay_pipeline.chembl_release}
+            return assay_pipeline.publish_release_metadata()
 
         dry_run_handler = make_dry_run_handler(
             LogEvents.CHEMBL_ASSAY_EXTRACT_SKIPPED,
