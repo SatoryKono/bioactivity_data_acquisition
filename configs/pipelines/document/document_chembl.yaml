@@ -38,6 +38,7 @@ sources:
         - last_page
         - pubmed_id
         - authors
+        - document_term
 
 cli:
   input_file: data/input/document.csv

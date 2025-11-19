@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Any, cast
@@ -135,12 +136,16 @@ def enrich_with_document_terms(
 ) -> pd.DataFrame:
     """Enrich the document DataFrame with document_term fields.
 
+    Uses data from the main /document.json response (document_term field) instead of
+    making separate API calls to non-existent endpoints.
+
     Parameters
     ----------
     df_docs:
         Document DataFrame; must contain `document_chembl_id`.
+        Should already contain `document_term` field from the main API response.
     client:
-        ChemblClient used for ChEMBL API requests.
+        ChemblClient used for ChEMBL API requests (not used for fetching, kept for compatibility).
     cfg:
         Enrichment configuration from `config.chembl.document.enrich.document_term`.
 
@@ -189,55 +194,75 @@ def enrich_with_document_terms(
         prepared_missing = _ensure_term_columns(df_docs)
         return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared_missing, lazy=True)
 
-    # Collect unique document_chembl_id values, dropping NA.
-    doc_ids: list[str] = []
-    for _, row in df_docs.iterrows():
-        doc_id = row.get("document_chembl_id")
+    # Retrieve configuration.
+    fields = cfg.get("select_fields", ["document_chembl_id", "term", "weight"])
+    sort = cfg.get("sort", "weight_desc")
 
-        # Skip NaN/None values.
+    # Extract document_term data from the DataFrame (already in the response from /document.json)
+    df_docs = df_docs.copy()
+    
+    # Initialize document_term column if missing
+    if "document_term" not in df_docs.columns:
+        df_docs["document_term"] = pd.NA
+
+    # Process each document record to extract terms
+    all_term_records: list[dict[str, Any]] = []
+    
+    for idx, row in df_docs.iterrows():
+        doc_id = row.get("document_chembl_id")
         if pd.isna(doc_id) or doc_id is None:
             continue
 
-        # Convert to string.
-        doc_id_str = str(doc_id).strip()
+        # Get document_term from the DataFrame (already in the response from /document.json)
+        terms_raw = row.get("document_term")
 
-        if doc_id_str:
-            doc_ids.append(doc_id_str)
+        # Handle already serialized string (shouldn't happen, but handle gracefully)
+        if isinstance(terms_raw, str) and terms_raw.strip():
+            try:
+                parsed = json.loads(terms_raw)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, dict):
+                            item["document_chembl_id"] = doc_id
+                            all_term_records.append(item)
+                continue
+            except (json.JSONDecodeError, TypeError):
+                # Invalid JSON, skip
+                continue
 
-    if not doc_ids:
-        log.debug(LogEvents.ENRICHMENT_SKIPPED_NO_VALID_IDS)
-        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(df_docs, lazy=True)
+        # Handle None/NA/empty
+        if terms_raw is None or terms_raw is pd.NA or (isinstance(terms_raw, float) and pd.isna(terms_raw)):
+            continue
 
-    # Retrieve configuration.
-    fields = cfg.get("select_fields", ["document_chembl_id", "term", "weight"])
-    page_limit = cfg.get("page_limit", 1000)
-    sort = cfg.get("sort", "weight_desc")
+        # Parse if it's a list (from API response)
+        if isinstance(terms_raw, list):
+            for item in terms_raw:
+                if not isinstance(item, dict):
+                    continue
+                # Extract requested fields
+                term_record: dict[str, Any] = {"document_chembl_id": doc_id}
+                for field in fields:
+                    if field != "document_chembl_id":
+                        term_record[field] = item.get(field)
+                all_term_records.append(term_record)
+        elif isinstance(terms_raw, dict):
+            # Single term as dict
+            term_record = {"document_chembl_id": doc_id}
+            for field in fields:
+                if field != "document_chembl_id":
+                    term_record[field] = terms_raw.get(field)
+            all_term_records.append(term_record)
 
-    # Call client.fetch_document_terms_by_ids.
-    log.info(LogEvents.ENRICHMENT_FETCHING_TERMS, ids_count=len(set(doc_ids)))
-    records_df = client.fetch_document_terms_by_ids(
-        ids=doc_ids,
-        fields=list(fields),
-        page_limit=page_limit,
+    if not all_term_records:
+        log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
+        prepared = _ensure_term_columns(df_docs)
+        return DOCUMENT_TERMS_ENRICHMENT_SCHEMA.validate(prepared, lazy=True)
+
+    # Create DataFrame from extracted records
+    records_df = pd.DataFrame.from_records(
+        all_term_records,
+        columns=list(set(fields + ["document_chembl_id"])),
     )
-
-    if isinstance(records_df, Mapping):
-        flattened_rows: list[dict[str, Any]] = []
-        for doc_id, entries in records_df.items():
-            if isinstance(entries, Mapping):
-                payloads: Iterable[Mapping[str, Any]] = [entries]
-            elif isinstance(entries, Iterable):
-                payloads = [entry for entry in entries if isinstance(entry, Mapping)]
-            else:
-                payloads = []
-            for payload in payloads:
-                record: dict[str, Any] = dict(payload)
-                if "document_chembl_id" not in record:
-                    record["document_chembl_id"] = doc_id
-                flattened_rows.append(record)
-        records_df = pd.DataFrame.from_records(
-            flattened_rows, columns=list(set(fields + ["document_chembl_id"]))
-        )
 
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
