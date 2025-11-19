@@ -347,6 +347,21 @@ class TestItemChemblPipeline(UnifiedPipelineBase):
         log.debug(LogEvents.FLATTEN_NESTED_STRUCTURES_COMPLETED, columns=list(df.columns))
         return df
 
+    def identifier_rules(self) -> Sequence[IdentifierRule]:
+        """Return identifier normalization rules for molecule identifiers."""
+        return (
+            IdentifierRule(
+                name="molecule_chembl",
+                columns=["molecule_chembl_id"],
+                pattern=r"^CHEMBL\d+$",
+            ),
+            IdentifierRule(
+                name="standard_inchi_key",
+                columns=["molecule_structures__standard_inchi_key", "standard_inchi_key"],
+                pattern=r"^[A-Z]{14}-[A-Z]{10}-[A-Z]$",
+            ),
+        )
+
     def string_rules(self) -> Mapping[str, StringRule]:
         return {
             "molecule_chembl_id": StringRule(),

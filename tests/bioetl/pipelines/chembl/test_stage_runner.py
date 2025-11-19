@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+import pandas as pd
 import pytest
 
 from bioetl.core.pipeline import PipelineBase
@@ -28,22 +29,27 @@ class _StubPipeline(PipelineBase):
             "pipeline": self.pipeline_code,
         }
 
-    def extract(self, *args: object, **kwargs: object) -> dict[str, object]:
-        return self._result("extract", args, kwargs)
+    def extract(self, *args: object, **kwargs: object) -> pd.DataFrame:  # type: ignore[override]
+        result = self._result("extract", args, kwargs)
+        return pd.DataFrame([result])
 
-    def extract_all(self) -> dict[str, object]:
-        return self._result("extract_all", tuple(), {})
+    def extract_all(self) -> pd.DataFrame:  # type: ignore[override]
+        result = self._result("extract_all", (), {})
+        return pd.DataFrame([result])
 
-    def extract_by_ids(self, ids: Sequence[str]) -> dict[str, object]:  # pragma: no cover - exercised via protocol checks
-        return self._result("extract_by_ids", (tuple(ids),), {})
+    def extract_by_ids(self, ids: Sequence[str]) -> pd.DataFrame:  # type: ignore[override]  # pragma: no cover - exercised via protocol checks
+        result = self._result("extract_by_ids", (tuple(ids),), {})
+        return pd.DataFrame([result])
 
-    def transform(self, df: object) -> dict[str, object]:  # pragma: no cover - exercised via protocol checks
-        return self._result("transform", (df,), {})
+    def transform(self, df: object) -> pd.DataFrame:  # type: ignore[override]  # pragma: no cover - exercised via protocol checks
+        result = self._result("transform", (df,), {})
+        return pd.DataFrame([result])
 
 
 def test_stage_function_invocation_with_config(pipeline_config_fixture, run_id: str) -> None:
     _, stages = build_stage_functions(_StubPipeline, stages=("extract",))
-    result = stages["extract"](pipeline_config_fixture, run_id, "payload")
+    df_result = stages["extract"](pipeline_config_fixture, run_id, "payload")
+    result = df_result.iloc[0].to_dict()
 
     assert result["stage"] == "extract"
     assert result["run_id"] == run_id
@@ -58,7 +64,8 @@ def test_stage_function_accepts_stage_context(pipeline_config_fixture) -> None:
         pipeline_name="cli-stage",
     )
 
-    result = stages["extract"](context, "payload")
+    df_result = stages["extract"](context, "payload")
+    result = df_result.iloc[0].to_dict()
 
     assert result["run_id"] == "context-run"
     assert result["pipeline"] == "cli-stage"
