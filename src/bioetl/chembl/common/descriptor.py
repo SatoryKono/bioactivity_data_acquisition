@@ -31,6 +31,7 @@ from bioetl.clients.base import (
     merge_select_fields,
     normalize_select_fields,
 )
+from bioetl.clients.client_chembl import _resolve_status_endpoint
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.source import SourceConfig
 from bioetl.core import APIClientFactory
@@ -1771,8 +1772,9 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         if callable(get_candidate):
             client_get = cast(Callable[..., Any], get_candidate)
             request_timestamp = datetime.now(timezone.utc)
+            status_endpoint = _resolve_status_endpoint()
             try:
-                response = client_get("/status.json")
+                response = client_get(status_endpoint)
                 json_candidate = getattr(response, "json", None)
                 if callable(json_candidate):
                     status_payload_raw = json_candidate()

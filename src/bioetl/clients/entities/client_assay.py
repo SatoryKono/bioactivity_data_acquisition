@@ -19,7 +19,7 @@ class ChemblAssayClient(ChemblEntityConfigMixin, ChemblEntityFetcherBase):
 
     ENTITY_CONFIG: ClassVar[EntityConfig] = get_entity_config("assay")
     MAX_BATCH_SIZE: ClassVar[int] = 25
-    DEFAULT_HANDSHAKE_ENDPOINT: ClassVar[str] = "/status.json"
+    DEFAULT_HANDSHAKE_ENDPOINT: ClassVar[str] = "/status"
     REQUIRE_MAX_URL_LENGTH: ClassVar[bool] = True
     DEFAULT_BATCH_SIZE: ClassVar[int] = MAX_BATCH_SIZE
 
