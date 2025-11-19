@@ -21,7 +21,7 @@ class AssaySourceParameters(SourceParameters):
         description="Override for the ChEMBL API base URL when fetching assays.",
     )
     handshake_endpoint: str = Field(
-        default="/status.json",
+        default="/status",
         description="Endpoint used for dry-run handshake checks.",
     )
     handshake_enabled: bool = Field(
@@ -49,7 +49,7 @@ class AssaySourceParameters(SourceParameters):
         normalized = cls._normalize_mapping(params or {})
         return cls(
             base_url=normalized.get("base_url"),
-            handshake_endpoint=normalized.get("handshake_endpoint", "/status.json"),
+            handshake_endpoint=normalized.get("handshake_endpoint", "/status"),
             handshake_enabled=coerce_bool(normalized.get("handshake_enabled", True)),
         )
 

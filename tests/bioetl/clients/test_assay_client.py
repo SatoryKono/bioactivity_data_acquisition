@@ -86,18 +86,17 @@ class TestChemblAssayClient:
         result = client.handshake(enabled=True)
 
         # handshake method uses keyword arguments, default endpoint is "/status"
-        # But ChemblAssayClient uses "/status.json" as default endpoint
         # The actual call passes endpoint as positional argument to chembl_client.handshake
-        # Check that handshake was called with "/status.json" endpoint
+        # Check that handshake was called with "/status" endpoint
         assert handshake_mock.called
         call_args = handshake_mock.call_args
         assert call_args is not None
         # handshake is called with endpoint as positional argument
         # Check both args and kwargs
         if call_args.args:
-            assert call_args.args[0] == "/status.json"
+            assert call_args.args[0] == "/status"
         else:
-            assert call_args.kwargs.get("endpoint") == "/status.json"
+            assert call_args.kwargs.get("endpoint") == "/status"
         assert result["chembl_db_version"] == "33"
         assert client.chembl_release == "33"
 

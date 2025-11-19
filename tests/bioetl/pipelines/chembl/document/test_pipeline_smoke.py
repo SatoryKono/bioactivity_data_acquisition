@@ -116,7 +116,7 @@ def setup_mock_api_client(
 
     def get_side_effect(url: str, *args: object, **kwargs: object) -> MagicMock:
         call_count["count"] += 1
-        if "/status" in url or "/status.json" in url:
+        if "/status" in url:
             if call_count["count"] <= len(responses):
                 return responses[call_count["count"] - 1]
             return mock_status_response
