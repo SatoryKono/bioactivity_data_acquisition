@@ -53,7 +53,7 @@ def test_execute_enrichment_stages_runs_registered_scenario(
 ) -> None:
     """Registered scenarios should be executed when enabled in the config."""
 
-    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+    pipeline = ChemblActivityPipeline(pipeline_config_fixture, run_id)
     config_with_enrich = pipeline.config.model_copy(
         update={
             "domain": {
@@ -131,7 +131,7 @@ def test_execute_enrichment_stages_skips_disabled_scenario(
 ) -> None:
     """Disabled scenarios must not execute their transformation."""
 
-    pipeline = ChemblActivityPipeline(config=pipeline_config_fixture, run_id=run_id)
+    pipeline = ChemblActivityPipeline(pipeline_config_fixture, run_id)
     config_with_enrich = pipeline.config.model_copy(
         update={
             "domain": {

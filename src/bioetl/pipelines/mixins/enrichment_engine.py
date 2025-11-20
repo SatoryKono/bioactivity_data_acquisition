@@ -27,7 +27,12 @@ class EnrichmentScenarioEngine:
             return df
 
         log = pipeline.logger_for(stage="transform", component="enrich")
+        # Try config.chembl first, then config.domain.chembl
         chembl_config = getattr(pipeline.config, "chembl", None)
+        if chembl_config is None:
+            domain = getattr(pipeline.config, "domain", None)
+            if domain is not None:
+                chembl_config = getattr(domain, "chembl", None)
         order = selected or list(self._scenarios.keys())
 
         for name in order:

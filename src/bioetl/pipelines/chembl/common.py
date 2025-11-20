@@ -161,18 +161,3 @@ class BaseChemblPipeline(PipelineBase, NormalizationMixin, EnrichmentMixin, Vali
         normalized = self._normalize(records)
         enriched = self._enrich(normalized)
         return build_dataframe(enriched)
-
-    # --- Pipeline orchestration (legacy method for backward compatibility) ---
-    def run(self) -> pd.DataFrame:  # type: ignore[override]
-        """Legacy run method that returns DataFrame instead of RunResult."""
-        combined: list[pd.DataFrame] = []
-        for chunk in self.io.chunked_fetch(self._fetch_source()):
-            normalized = self._normalize(chunk)
-            enriched = self._enrich(normalized)
-            df = build_dataframe(enriched)
-            self._validate(df)
-            self._write(df)
-            combined.append(df)
-        if combined:
-            return pd.concat(combined, ignore_index=True)
-        return pd.DataFrame()

@@ -37,8 +37,5 @@ class ChemblAssayPipeline(BaseChemblPipeline):
         df.to_csv(output_path, index=False)
         return {"output_path": str(output_path), "rows": len(df)}
 
-    def run(self) -> pd.DataFrame:  # type: ignore[override]
-        return super().run()
-
 
 __all__ = ["ChemblAssayPipeline"]

@@ -96,43 +96,43 @@ cli:
             },
         }
 
+        # Load config
+        config = load_config(config_path)
+
+        # Run pipeline (this will call transform which includes enrichment)
+        from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+
+        pipeline = ChemblActivityPipeline(config, run_id="test_run")
+
+        # Mock extract method on the instance
+        pipeline.extract = lambda: sample_data  # type: ignore[method-assign]
+
         with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
-        ) as mock_extract:
-            mock_extract.return_value = sample_data
-            with patch(
-                "bioetl.clients.client_chembl.ChemblClient.fetch_compound_records_by_pairs"
-            ) as mock_fetch:
-                mock_fetch.return_value = mock_records
+            "bioetl.clients.client_chembl.ChemblClient.fetch_compound_records_by_pairs"
+        ) as mock_fetch:
+            mock_fetch.return_value = mock_records
 
-                # Load config
-                config = load_config(config_path)
+            df_extracted = pipeline.extract()
+            df_transformed = pipeline.transform(df_extracted)
 
-                # Run pipeline (this will call transform which includes enrichment)
-                from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+            # Check that enrichment columns are present
+            assert "compound_name" in df_transformed.columns
+            assert "compound_key" in df_transformed.columns
+            assert "curated" in df_transformed.columns
+            assert "removed" in df_transformed.columns
 
-                pipeline = ChemblActivityPipeline(config, run_id="test_run")
-                df_extracted = pipeline.extract()
-                df_transformed = pipeline.transform(df_extracted)
+            # Check that enrichment columns are present and have correct types
+            # Note: enrichment may not be applied if mock wasn't called correctly,
+            # but columns should still exist (added by _ensure_schema_columns)
+            assert "compound_name" in df_transformed.columns
+            assert "compound_key" in df_transformed.columns
+            assert "curated" in df_transformed.columns
+            assert "removed" in df_transformed.columns
 
-                # Check that enrichment columns are present
-                assert "compound_name" in df_transformed.columns
-                assert "compound_key" in df_transformed.columns
-                assert "curated" in df_transformed.columns
-                assert "removed" in df_transformed.columns
-
-                # Check that enrichment columns are present and have correct types
-                # Note: enrichment may not be applied if mock wasn't called correctly,
-                # but columns should still exist (added by _ensure_schema_columns)
-                assert "compound_name" in df_transformed.columns
-                assert "compound_key" in df_transformed.columns
-                assert "curated" in df_transformed.columns
-                assert "removed" in df_transformed.columns
-
-                # If enrichment was applied, check first row
-                first_row_compound = df_transformed.iloc[0]["compound_name"]
-                if not pd.isna(first_row_compound):
-                    assert first_row_compound == "Test Compound 1"
+            # If enrichment was applied, check first row
+            first_row_compound = df_transformed.iloc[0]["compound_name"]
+            if not pd.isna(first_row_compound):
+                assert first_row_compound == "Test Compound 1"
 
     def test_activity_pipeline_without_enrichment(
         self,
@@ -189,19 +189,17 @@ cli:
             }
         )
 
-        with patch(
-            "bioetl.pipelines.chembl.activity.run.ChemblActivityPipeline.extract"
-        ) as mock_extract:
-            mock_extract.return_value = sample_data
+        config = load_config(config_path)
+        from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
-            config = load_config(config_path)
-            from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
+        pipeline = ChemblActivityPipeline(config, run_id="test_run")
+        # Mock extract method on the instance
+        pipeline.extract = lambda: sample_data  # type: ignore[method-assign]
 
-            pipeline = ChemblActivityPipeline(config, run_id="test_run")
-            df_extracted = pipeline.extract()
-            df_transformed = pipeline.transform(df_extracted)
+        df_extracted = pipeline.extract()
+        df_transformed = pipeline.transform(df_extracted)
 
-            # Enrichment columns should still be present (added by _ensure_schema_columns)
-            # but filled with NA when enrichment is disabled
-            assert "compound_name" in df_transformed.columns
-            assert "curated" in df_transformed.columns
+        # Enrichment columns should still be present (added by _ensure_schema_columns)
+        # but filled with NA when enrichment is disabled
+        assert "compound_name" in df_transformed.columns
+        assert "curated" in df_transformed.columns
