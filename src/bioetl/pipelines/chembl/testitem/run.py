@@ -27,4 +27,8 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return super().run()
 
 
-__all__ = ["ChemblTestItemPipeline"]
+# Backward-compatible alias expected by tests and stage wrappers
+TestItemChemblPipeline = ChemblTestItemPipeline
+
+
+__all__ = ["ChemblTestItemPipeline", "TestItemChemblPipeline"]
