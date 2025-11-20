@@ -209,8 +209,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self._last_invalid_activity_ids: list[Any] | None = None
         self.configure_output_schema(get_out_schema(self.pipeline_code))
         self.enrichment_engine = EnrichmentScenarioEngine()
-        for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS:
-            self.enrichment_engine.register(scenario)
+        self._sync_enrichment_engine()
 
     def resolve_legacy_extract_ids(
         self,
@@ -796,8 +795,19 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
     ) -> pd.DataFrame:
         """Execute registered enrichment stages in a deterministic order."""
 
+        self._sync_enrichment_engine()
         selected = tuple(stages) if stages is not None else self._DEFAULT_ENRICHMENT_ORDER
         return self.enrichment_engine.execute(self, df, selected=selected)
+
+    def _sync_enrichment_engine(self) -> None:
+        """Ensure enrichment engine registrations reflect class-level scenario definitions."""
+
+        scenarios = getattr(self, "_ENRICHMENT_SCENARIOS", None)
+        if not isinstance(scenarios, Mapping):
+            return
+
+        for scenario in scenarios.values():
+            self.enrichment_engine.register(scenario)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply pre-validation checks before delegating to the shared schema logic."""

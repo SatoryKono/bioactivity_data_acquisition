@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -14,7 +15,7 @@ def _noop_transform(
     pipeline: ChemblActivityPipeline,
     df: pd.DataFrame,
     client: Any,
-    cfg: dict[str, Any],
+    cfg: Mapping[str, Any],
     log: Any,
 ) -> pd.DataFrame:
     """Return the input DataFrame unchanged (utility for tests)."""
@@ -68,10 +69,10 @@ def test_execute_enrichment_stages_runs_registered_scenario(
         _pipeline: ChemblActivityPipeline,
         df: pd.DataFrame,
         _client: Any,
-        cfg: dict[str, Any],
+        cfg: Mapping[str, Any],
         _log: Any,
     ) -> pd.DataFrame:
-        calls.append(cfg)
+        calls.append(dict(cfg))
         enriched = df.copy()
         enriched["dummy_marker"] = "ok"
         return enriched
@@ -146,7 +147,7 @@ def test_execute_enrichment_stages_skips_disabled_scenario(
         _pipeline: ChemblActivityPipeline,
         df: pd.DataFrame,
         _client: Any,
-        _cfg: dict[str, Any],
+        _cfg: Mapping[str, Any],
         _log: Any,
     ) -> pd.DataFrame:
         nonlocal called

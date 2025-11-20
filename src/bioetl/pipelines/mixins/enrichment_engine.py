@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any, cast
 
 import pandas as pd
 
 from bioetl.chembl.common.enrich import ChemblEnrichmentScenario
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
 
 
 class EnrichmentScenarioEngine:
@@ -38,11 +40,31 @@ class EnrichmentScenarioEngine:
                 continue
 
             conf = scenario.extract_config(chembl_config, log=log)
-            bundle = pipeline.build_chembl_entity_bundle(
-                scenario.entity_name,
-                source_name="chembl",
-                source_config=None,
-            )
+            bundle_builder = getattr(pipeline, "_build_activity_enrichment_bundle", None)
+
+            if callable(bundle_builder):
+                bundle = cast(
+                    ChemblClientBundle,
+                    bundle_builder(
+                        scenario.entity_name,
+                        client_name=scenario.client_name,
+                    ),
+                )
+            else:
+                bundle = pipeline.build_chembl_entity_bundle(
+                    scenario.entity_name,
+                    source_name="chembl",
+                    source_config=None,
+                )
+                register_client = getattr(pipeline, "register_client", None)
+                registered_clients = getattr(pipeline, "_registered_clients", None)
+                if (
+                    callable(register_client)
+                    and isinstance(registered_clients, dict)
+                    and scenario.client_name not in registered_clients
+                ):
+                    register_client(scenario.client_name, bundle.api_client)
+
             df = scenario.transform(
                 pipeline,
                 df,
