@@ -14,11 +14,13 @@ class ChemblActivityPipeline(BaseChemblPipeline):
 
     def __init__(
         self,
+        config: Any,
+        run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer=None,
     ) -> None:
-        super().__init__(source)
+        super().__init__(config, run_id, source, writer=writer)
         self.writer = writer
 
     def get_normalization_rules(self) -> Mapping[str, Any]:

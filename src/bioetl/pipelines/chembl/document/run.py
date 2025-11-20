@@ -14,8 +14,8 @@ class ChemblDocumentPipeline(BaseChemblPipeline):
 
     def __init__(
         self,
-        config=None,
-        run_id: str | None = None,
+        config: Any,
+        run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
         writer=None,

@@ -7,12 +7,13 @@ import pandas as pd
 
 from bioetl.clients.chembl_entity_factory import ChemblClientBundle, ChemblEntityClientFactory
 from bioetl.config.models.models import PipelineConfig
+from bioetl.pipelines.base import PipelineBase
 from .helpers import build_dataframe
 from .io import ChemblIO
 from .mixins import EnrichmentMixin, NormalizationMixin, ValidationMixin
 
 
-class BaseChemblPipeline(NormalizationMixin, EnrichmentMixin, ValidationMixin):
+class BaseChemblPipeline(PipelineBase, NormalizationMixin, EnrichmentMixin, ValidationMixin):
     """Базовый класс, инкапсулирующий повторяемый цикл fetch→normalize→enrich→validate→write."""
 
     entity_name: str = ""
@@ -20,15 +21,14 @@ class BaseChemblPipeline(NormalizationMixin, EnrichmentMixin, ValidationMixin):
 
     def __init__(
         self,
-        config: PipelineConfig | None = None,
-        run_id: str | None = None,
+        config: PipelineConfig,
+        run_id: str,
         source: Iterable[dict[str, Any]] | None = None,
         *,
         io: ChemblIO | None = None,
         writer=None,
     ) -> None:
-        self.config = config
-        self.run_id = run_id
+        super().__init__(config, run_id)
         self.io = io or ChemblIO()
         self._source = source
         self.writer = writer
@@ -138,8 +138,33 @@ class BaseChemblPipeline(NormalizationMixin, EnrichmentMixin, ValidationMixin):
 
         return build_dataframe(results)
 
-    # --- Pipeline orchestration ---
-    def run(self) -> pd.DataFrame:
+    # --- PipelineBase abstract methods implementation ---
+    def extract_all(self) -> pd.DataFrame:
+        """Extract all records from the source."""
+        if self._source is not None:
+            combined: list[pd.DataFrame] = []
+            for chunk in self.io.chunked_fetch(self._fetch_source()):
+                normalized = self._normalize(chunk)
+                enriched = self._enrich(normalized)
+                df = build_dataframe(enriched)
+                combined.append(df)
+            if combined:
+                return pd.concat(combined, ignore_index=True)
+        return pd.DataFrame()
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Transform raw DataFrame by applying normalization and enrichment."""
+        if df.empty:
+            return df
+        # Convert DataFrame to records for processing
+        records = df.to_dict("records")
+        normalized = self._normalize(records)
+        enriched = self._enrich(normalized)
+        return build_dataframe(enriched)
+
+    # --- Pipeline orchestration (legacy method for backward compatibility) ---
+    def run(self) -> pd.DataFrame:  # type: ignore[override]
+        """Legacy run method that returns DataFrame instead of RunResult."""
         combined: list[pd.DataFrame] = []
         for chunk in self.io.chunked_fetch(self._fetch_source()):
             normalized = self._normalize(chunk)
