@@ -94,13 +94,16 @@ class ChemblActivityPipeline(BaseChemblPipeline):
 
         # Явный config= имеет приоритет над позиционным аргументом для совместимости
         if config is not None:
+            # В config= пути объект трактуем как конфигурацию пайплайна, а не как source.
+            # Это гарантирует, что extract_all делегирует в descriptor-driven
+            # ChemblPipelineBase.run_extract_all, а не в legacy _source-путь.
             if run_id is None:
                 msg = "ChemblActivityPipeline requires run_id when initialised with config="
                 raise TypeError(msg)
-            config_or_source = config
-
-        # Основной продакшен-контракт: config_or_source — PipelineConfig
-        if isinstance(config_or_source, PipelineConfig):
+            effective_source = source
+            effective_run_id = run_id
+        elif isinstance(config_or_source, PipelineConfig):
+            # Основной продакшен-контракт: позиционный PipelineConfig.
             if run_id is None:
                 msg = "ChemblActivityPipeline requires run_id when initialised with PipelineConfig"
                 raise TypeError(msg)

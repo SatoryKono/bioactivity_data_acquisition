@@ -353,19 +353,9 @@ class CoerceRetryStep:
             context.schema_error = None
             return ValidationResult(df=context.df)
 
-        if coerce_only and fallback_schema is not None:
-            context.schema = fallback_schema
-            context.df = (
-                context.df_for_validation if context.df_for_validation is not None else context.df
-            )
-            context.schema_error = None
-            log.debug(
-                LogEvents.VALIDATION_COERCE_ONLY_PASSTHROUGH,
-                columns=affected_columns,
-                rows=len(context.df),
-            )
-            return ValidationResult(df=context.df)
-
+        # When fallback validation also fails, always delegate to the configured
+        # ValidationBehavior so that strict mode raises and fail-open records
+        # failures in the summary instead of silently passing through.
         behavior.handle_schema_errors(context, context.schema_error)
         context.schema_error = None
         return ValidationResult(df=context.df)
