@@ -9,9 +9,18 @@ from bioetl.pipelines.chembl.common import BaseChemblPipeline
 
 
 class ChemblTestItemPipeline(BaseChemblPipeline):
-    def __init__(self, source: Iterable[dict[str, Any]] | None = None, *, writer=None) -> None:
-        super().__init__(source)
-        self.writer = writer
+    entity_name = "testitem"
+    id_column = "molecule_chembl_id"
+
+    def __init__(
+        self,
+        config=None,
+        run_id: str | None = None,
+        source: Iterable[dict[str, Any]] | None = None,
+        *,
+        writer=None,
+    ) -> None:
+        super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
         return {"field_mappings": {"test_item_id": "test_item_id", "name": "name"}}
@@ -27,4 +36,8 @@ class ChemblTestItemPipeline(BaseChemblPipeline):
         return super().run()
 
 
-__all__ = ["ChemblTestItemPipeline"]
+# Backward-compatible alias expected by tests and stage wrappers
+TestItemChemblPipeline = ChemblTestItemPipeline
+
+
+__all__ = ["ChemblTestItemPipeline", "TestItemChemblPipeline"]
