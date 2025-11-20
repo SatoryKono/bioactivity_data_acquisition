@@ -17,7 +17,12 @@ from bioetl.schemas.chembl_activity_enrichment_schema import (
     DATA_VALIDITY_ENRICHMENT_SCHEMA,
 )
 
-__all__ = ["enrich_with_assay", "enrich_with_compound_record", "enrich_with_data_validity"]
+__all__ = [
+    "_COMPOUND_COLUMNS",
+    "enrich_with_assay",
+    "enrich_with_compound_record",
+    "enrich_with_data_validity",
+]
 
 
 _ensure_columns = ensure_columns
@@ -900,12 +905,19 @@ def enrich_with_data_validity(
             if isinstance(payload, Mapping):
                 record = dict(payload)
                 record.setdefault("data_validity_comment", comment_key)
+                # Ensure description field is preserved from payload
+                if "description" in payload:
+                    record["description"] = payload["description"]
                 hydrated_rows.append(record)
         records_df = pd.DataFrame.from_records(hydrated_rows)
 
     if records_df.empty:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         return DATA_VALIDITY_ENRICHMENT_SCHEMA.validate(df_act, lazy=True)
+
+    # Ensure description column exists, create empty if missing
+    if "description" not in records_df.columns:
+        records_df["description"] = pd.NA
 
     df_enrich = (
         records_df.loc[:, ["data_validity_comment", "description"]]
@@ -922,6 +934,13 @@ def enrich_with_data_validity(
         .reset_index(drop=True)
     )
 
+    # Normalize data_validity_comment in df_act for proper merge matching
+    df_act = df_act.copy()
+    if "data_validity_comment" in df_act.columns:
+        df_act["data_validity_comment"] = (
+            df_act["data_validity_comment"].astype("string").str.strip()
+        )
+
     # Left-join back to df_act on data_validity_comment while preserving row order via index.
     original_index = df_act.index.copy()
     df_result = df_act.merge(
@@ -935,18 +954,16 @@ def enrich_with_data_validity(
     if "data_validity_description" not in df_result.columns:
         df_result["data_validity_description"] = pd.NA
 
+    # Prefer enriched descriptions over placeholder column and drop helper column
+    enrich_column = "data_validity_description_enrich"
+    if enrich_column in df_result.columns:
+        df_result["data_validity_description"] = df_result[enrich_column].combine_first(
+            df_result["data_validity_description"]
+        )
+        df_result = df_result.drop(columns=[enrich_column])
+
     # Restore original order.
     df_result = df_result.reindex(original_index)
-
-    # Use the comment text when description is missing but comment is present.
-    comment_series = df_result["data_validity_comment"].astype("string")
-    description_series = df_result["data_validity_description"]
-    missing_description_mask = comment_series.notna() & (comment_series.str.strip() != "")
-    missing_description_mask &= description_series.isna()
-    if bool(missing_description_mask.any()):
-        df_result.loc[missing_description_mask, "data_validity_description"] = comment_series.loc[
-            missing_description_mask
-        ]
 
     # Normalize column types.
     df_result["data_validity_description"] = df_result["data_validity_description"].astype("string")

@@ -1,0 +1,105 @@
+columns:
+- document_chembl_id
+- doc_type
+- journal
+- journal_full_title
+- doi
+- src_id
+- title
+- abstract
+- doi_clean
+- pubmed_id
+- year
+- volume
+- issue
+- first_page
+- last_page
+- authors
+- authors_count
+- source
+- hash_business_key
+- hash_row
+- term
+- weight
+- load_meta_id
+config_version: 1
+dataset_path: C:\Users\Fedor\AppData\Local\Temp\pytest-of-Fedor\pytest-1297\test_document_pipeline_golden_0\output\activity_chembl_extended_20240101.csv
+generated_at_utc: '2025-11-20T19:39:37.629170Z'
+hash_policy_version: 1.0.0
+hashing:
+  algorithm: sha256
+  business_key_column: hash_business_key
+  business_key_fields:
+  - document_chembl_id
+  hash_business_key:
+    nullable: false
+    unique: 3
+  hash_row:
+    nullable: false
+    unique: 3
+  row_column: hash_row
+  row_fields: []
+  sample_hash_business_key: 4790e8a65d2fc14c005faf7a3eb0e935f1b814e35fff0bad5caa79f51e8eceaf
+  sample_hash_row: 3bf457e71abefd2191fb22787fff7dca782970640e697e3b129a799f13b706f5
+pipeline: activity_chembl
+pipeline_version: 1.0.0
+quality:
+  metrics:
+    business_key_fields:
+    - document_chembl_id
+    columns_with_missing: abstract, authors, authors_count, doc_type, doi, doi_clean,
+      first_page, issue, journal, journal_full_title, last_page, pubmed_id, src_id,
+      term, volume, weight, year
+    deduplicated_count: 3
+    duplicate_count: 0
+    duplicate_ratio: 0.0
+    iqr_outliers: {}
+    relation_distribution: {}
+    row_count: 3
+    total_missing_values: 51
+    units_distribution: {}
+row_count: 3
+run_id: golden-document-v1
+sorting:
+  ascending:
+  - true
+  by:
+  - document_chembl_id
+  na_position: last
+stage_durations_ms:
+  validate: 73.20189999882132
+validation:
+  coerce: true
+  column_order:
+  - document_chembl_id
+  - doc_type
+  - journal
+  - journal_full_title
+  - doi
+  - src_id
+  - title
+  - abstract
+  - doi_clean
+  - pubmed_id
+  - year
+  - volume
+  - issue
+  - first_page
+  - last_page
+  - authors
+  - authors_count
+  - source
+  - hash_business_key
+  - hash_row
+  - term
+  - weight
+  - load_meta_id
+  expected_version: null
+  migrated_from_version: null
+  migrations_applied: 0
+  row_count: 3
+  schema_identifier: bioetl.schemas.chembl_document_schema.DocumentSchema
+  schema_name: DocumentSchema_v1.1.0
+  schema_valid: true
+  schema_version: 1.1.0
+  strict: true

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-import pandera as pa
+import pandera.pandas as pa
 from pandera import Check, Column
 
 from bioetl.schemas._validators import (

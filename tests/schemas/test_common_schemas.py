@@ -73,3 +73,4 @@ def test_refresh_vocabulary_downloads(monkeypatch: pytest.MonkeyPatch, tmp_path:
     assert cache_file.read_bytes() == b"payload"
     assert cache_file.with_suffix(cache_file.suffix + ".etag").read_text(encoding="utf-8") == "fresh"
     assert captured_headers == {}
+

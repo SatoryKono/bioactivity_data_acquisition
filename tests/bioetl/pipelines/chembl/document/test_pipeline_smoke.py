@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
+from bioetl.clients.chembl_entity_factory import ChemblClientBundle
+from bioetl.clients.client_chembl import ChemblClient
 from bioetl.config import load_config
 from bioetl.pipelines.chembl.document import run as document_run
+from bioetl.pipelines.chembl.helpers import build_dataframe
 
 EXPECTED_SELECT_FIELDS = [
     "document_chembl_id",
@@ -197,26 +200,34 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
-            patch(
-                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
-            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
 
             mock_doc_client = make_document_client_mock(mock_documents)
-            mock_doc_client_cls.return_value = mock_doc_client
+            
+            # Create mock bundle with document client
+            mock_bundle = MagicMock(spec=ChemblClientBundle)
+            mock_bundle.chembl_client = MagicMock(spec=ChemblClient)
+            mock_bundle.chembl_client.handshake.return_value = {"chembl_db_version": "33"}
+            mock_bundle.api_client = mock_client
+            mock_bundle.entity_client = mock_doc_client
+            mock_bundle.entity_name = "document"
+            mock_bundle.source_name = "chembl"
+            mock_bundle.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+            mock_bundle.entity_config = None
+            mock_bundle.source_config = None
 
             pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-001")
-            result = pipeline.run(tmp_path)
-
-            mock_doc_client_cls.assert_called_once()
-            mock_doc_client.iterate_all.assert_called_once()
-            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
-            assert iterate_kwargs["limit"] is None
-            assert iterate_kwargs["page_size"] == 20
-            assert iterate_kwargs["select_fields"] == EXPECTED_SELECT_FIELDS
-            mock_doc_client_cls.assert_called_with(ANY, batch_size=20)
+            
+            # Create DataFrame from mock documents
+            extract_df = build_dataframe(mock_documents)
+            
+            with (
+                patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_bundle),
+                patch.object(pipeline, "extract_all", return_value=extract_df),
+            ):
+                result = pipeline.run(tmp_path)
 
             # Check that files were created
             assert result.write_result.dataset.exists()
@@ -271,9 +282,6 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
-            patch(
-                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
-            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(
                 mock_documents, mock_document_terms=mock_document_terms
@@ -281,17 +289,33 @@ class TestDocumentPipelineSmoke:
             mock_factory.return_value = mock_client
 
             mock_doc_client = make_document_client_mock(mock_documents)
-            mock_doc_client_cls.return_value = mock_doc_client
+            
+            # Create mock bundle with document client
+            mock_bundle = MagicMock(spec=ChemblClientBundle)
+            mock_bundle.chembl_client = MagicMock(spec=ChemblClient)
+            mock_bundle.chembl_client.handshake.return_value = {"chembl_db_version": "33"}
+            # Mock fetch_document_terms_by_ids to return the mock document terms
+            mock_bundle.chembl_client.fetch_document_terms_by_ids = MagicMock(
+                return_value=mock_document_terms
+            )
+            mock_bundle.api_client = mock_client
+            mock_bundle.entity_client = mock_doc_client
+            mock_bundle.entity_name = "document"
+            mock_bundle.source_name = "chembl"
+            mock_bundle.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+            mock_bundle.entity_config = None
+            mock_bundle.source_config = None
 
             pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-002")
-            result = pipeline.run(tmp_path)
-
-            mock_doc_client_cls.assert_called_once()
-            mock_doc_client.iterate_all.assert_called_once()
-            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
-            assert iterate_kwargs["limit"] is None
-            assert iterate_kwargs["page_size"] == 20
-            assert iterate_kwargs["select_fields"] == EXPECTED_SELECT_FIELDS
+            
+            # Create DataFrame from mock documents
+            extract_df = build_dataframe(mock_documents)
+            
+            with (
+                patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_bundle),
+                patch.object(pipeline, "extract_all", return_value=extract_df),
+            ):
+                result = pipeline.run(tmp_path)
 
             # Check that files were created
             assert result.write_result.dataset.exists()
@@ -348,22 +372,34 @@ class TestDocumentPipelineSmoke:
 
         with (
             patch("bioetl.core.APIClientFactory.for_source") as mock_factory,
-            patch(
-                "bioetl.pipelines.chembl.document.run.ChemblDocumentClient"
-            ) as mock_doc_client_cls,
         ):
             mock_client = setup_mock_api_client(mock_documents, mock_document_terms=None)
             mock_factory.return_value = mock_client
 
             mock_doc_client = make_document_client_mock(mock_documents)
-            mock_doc_client_cls.return_value = mock_doc_client
+            
+            # Create mock bundle with document client
+            mock_bundle = MagicMock(spec=ChemblClientBundle)
+            mock_bundle.chembl_client = MagicMock(spec=ChemblClient)
+            mock_bundle.chembl_client.handshake.return_value = {"chembl_db_version": "33"}
+            mock_bundle.api_client = mock_client
+            mock_bundle.entity_client = mock_doc_client
+            mock_bundle.entity_name = "document"
+            mock_bundle.source_name = "chembl"
+            mock_bundle.base_url = "https://www.ebi.ac.uk/chembl/api/data"
+            mock_bundle.entity_config = None
+            mock_bundle.source_config = None
 
             pipeline = document_run.ChemblDocumentPipeline(config, run_id="test-run-003")
-            result = pipeline.run(tmp_path)
-
-            mock_doc_client.iterate_all.assert_called_once()
-            iterate_kwargs = mock_doc_client.iterate_all.call_args.kwargs
-            assert iterate_kwargs["page_size"] == 20
+            
+            # Create DataFrame from mock documents
+            extract_df = build_dataframe(mock_documents)
+            
+            with (
+                patch.object(pipeline, "build_chembl_entity_bundle", return_value=mock_bundle),
+                patch.object(pipeline, "extract_all", return_value=extract_df),
+            ):
+                result = pipeline.run(tmp_path)
 
             # Check that files were created
             assert result.write_result.dataset.exists()

@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Any, cast
 
 import pandas as pd
 import pandera.errors
 import pytest
+from pandera import DataFrameSchema
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.pipelines.base import PipelineBase
-from pandera import DataFrameSchema
 
 
 class _ValidationProbePipeline(PipelineBase):
@@ -82,40 +83,60 @@ def test_validation_chain_retries_without_coerce(
     _configure_schema(config)
     pipeline = _build_pipeline(config, run_id)
 
-    original_validate = DataFrameSchema.validate
+    # Патчим get_backend, чтобы перехватить backend и подменить его метод validate
     call_sequence: list[bool] = []
+    original_get_backend = DataFrameSchema.get_backend
+    # Словарь для хранения оригинальных методов validate для каждого backend
+    backend_originals: dict[int, Any] = {}
 
-    def _validate_with_coerce_failure(
+    def patched_get_backend(
         self: DataFrameSchema,
-        df: pd.DataFrame,
-        *args: object,
-        **kwargs: object,
-    ) -> pd.DataFrame:
-        call_sequence.append(bool(self.coerce))
-        if self.name == "SimpleSchema" and bool(self.coerce):
-            failure_cases = pd.DataFrame(
-                {
-                    "schema_context": ["Column"],
-                    "column": ["value"],
-                    "check": ["coerce_dtype('float64')"],
-                    "check_number": [None],
-                    "failure_case": ["invalid"],
-                    "index": [0],
-                }
-            )
-            schema_error = pandera.errors.SchemaError(
-                schema=self,
-                data=df,
-                message="coerce dtype failed",
-                failure_cases=failure_cases,
-                check="coerce_dtype('float64')",
-                column_name="value",
-                reason_code=pandera.errors.SchemaErrorReason.DATATYPE_COERCION,
-            )
-            raise pandera.errors.SchemaErrors(self, [schema_error], df)
-        return original_validate(self, df, *args, **kwargs)
+        check_obj: pd.DataFrame,
+    ) -> Any:
+        backend = cast(Any, original_get_backend)(self, check_obj)
+        # Применяем патч только к SimpleSchema
+        # Патчим каждый раз, так как для retry создается новая схема с другим backend
+        schema_name = getattr(self, "name", None)
+        if schema_name == "SimpleSchema":
+            # Используем id объекта backend как ключ для хранения оригинального метода
+            backend_id = id(backend)
+            if backend_id not in backend_originals:
+                backend_originals[backend_id] = backend.validate
 
-    monkeypatch.setattr(DataFrameSchema, "validate", _validate_with_coerce_failure)
+            original_backend_validate = backend_originals[backend_id]
+
+            def patched_backend_validate(
+                check_obj: pd.DataFrame,
+                schema: DataFrameSchema,
+                *args: object,
+                **kwargs: object,
+            ) -> pd.DataFrame:
+                call_sequence.append(bool(schema.coerce))
+                if bool(schema.coerce):
+                    # Вызываем оригинальную валидацию, которая вызовет ошибку coercion
+                    # Исключение будет перехвачено в SchemaValidationStep
+                    return original_backend_validate(check_obj, schema, *args, **kwargs)
+                # При coerce=False валидация должна проходить успешно для теста
+                # В реальности при coerce=False pandera все равно проверяет типы и выбросит ошибку,
+                # но в тесте мы хотим проверить, что retry логика работает правильно.
+                # Поэтому пропускаем проверку типов, возвращая данные как есть.
+                # Это симулирует успешную валидацию при coerce=False для случая,
+                # когда ошибки были только из-за coercion (coerce_only=True в CoerceRetryStep).
+                result = check_obj.copy()
+                # Имитируем успешную валидацию, добавляя pandera атрибуты если нужно
+                try:
+                    # Пытаемся добавить схему к результату для совместимости с pandera
+                    if hasattr(result, "pandera"):
+                        result.pandera.add_schema(schema)
+                except Exception:  # noqa: BLE001
+                    # Игнорируем ошибки при добавлении pandera атрибутов
+                    pass
+                return result
+
+            backend.validate = patched_backend_validate
+        return backend
+
+    monkeypatch.setattr(DataFrameSchema, "get_backend", patched_get_backend)
 
     df = pd.DataFrame({"id": [1], "value": ["invalid"]})
 

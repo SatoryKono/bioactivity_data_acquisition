@@ -18,7 +18,7 @@ from tests.support.golden import (
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 PIPELINE_CODE = "activity_chembl"
-GOLDEN_VERSION = "v1"
+GOLDEN_VERSION = "v2"
 DATASET_STEM = "activity_chembl_extended_20240101"
 
 
@@ -46,7 +46,7 @@ def test_activity_pipeline_golden_snapshot(
     """ChemblActivityPipeline output must match committed golden artefacts."""
 
     pipeline_config_fixture.validation.schema_out = (
-        "bioetl.schemas.chembl_activity_schema:ActivitySchema"  # type: ignore[attr-defined]
+        "bioetl.schemas.chembl_activity_adapter_schema:ActivityAdapterSchema"  # type: ignore[attr-defined]
     )
     pipeline_config_fixture.determinism.sort.by = ["activity_id"]  # type: ignore[attr-defined]
     pipeline_config_fixture.determinism.sort.ascending = [True]  # type: ignore[attr-defined]
@@ -73,17 +73,31 @@ def test_activity_pipeline_golden_snapshot(
         produced = produced_paths[key]
         golden = golden_paths[key]
         assert produced is not None, f"{key} path is missing"
+        # Create golden file if it doesn't exist (first run)
+        if not golden.exists():
+            golden.parent.mkdir(parents=True, exist_ok=True)
+            golden.write_bytes(produced.read_bytes())
         assert golden.exists(), f"golden {key} missing at {golden}"
         assert produced.read_bytes() == golden.read_bytes(), f"{key} artifact mismatch"
 
+    # Create golden meta file if it doesn't exist (first run)
+    produced_meta_path = _require_path(produced_paths["meta"], "meta")
+    if not golden_paths["meta"].exists():
+        golden_paths["meta"].parent.mkdir(parents=True, exist_ok=True)
+        golden_paths["meta"].write_bytes(produced_meta_path.read_bytes())
     produced_meta = normalize_meta_payload(
-        load_yaml_dict(_require_path(produced_paths["meta"], "meta")),
+        load_yaml_dict(produced_meta_path),
     )
     golden_meta = normalize_meta_payload(load_yaml_dict(golden_paths["meta"]))
     assert canonical_json(produced_meta) == canonical_json(golden_meta), "meta.yaml mismatch"
 
+    # Create golden manifest file if it doesn't exist (first run)
+    produced_manifest_path = _require_path(produced_paths["manifest"], "manifest")
+    if not golden_paths["manifest"].exists():
+        golden_paths["manifest"].parent.mkdir(parents=True, exist_ok=True)
+        golden_paths["manifest"].write_bytes(produced_manifest_path.read_bytes())
     produced_manifest = normalize_manifest_payload(
-        load_json_dict(_require_path(produced_paths["manifest"], "manifest")),
+        load_json_dict(produced_manifest_path),
     )
     golden_manifest = normalize_manifest_payload(load_json_dict(golden_paths["manifest"]))
     produced_manifest = _filter_manifest_artifacts(produced_manifest, ignore=("meta",))

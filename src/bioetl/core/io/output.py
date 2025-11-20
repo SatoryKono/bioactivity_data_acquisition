@@ -90,6 +90,19 @@ class WriteResult:
 def ensure_hash_columns(df: pd.DataFrame, *, config: PipelineConfig) -> pd.DataFrame:
     """Return ``df`` with integrity hash columns populated."""
 
+    # Early return for empty DataFrame - no need to compute hashes
+    if df.empty:
+        result = df.copy()
+        hashing_config = config.determinism.hashing
+        row_column = hashing_config.row_hash_column
+        business_column = hashing_config.business_key_column
+        # Initialize hash columns with empty series if they don't exist
+        if row_column not in result.columns:
+            result[row_column] = pd.Series(dtype="string")
+        if business_column and business_column not in result.columns:
+            result[business_column] = pd.Series(dtype="string")
+        return result
+
     hashing_config = config.determinism.hashing
     exclude = set(hashing_config.exclude_fields)
     algorithm = hashing_config.algorithm

@@ -33,6 +33,11 @@ class EnrichmentScenarioEngine:
             domain = getattr(pipeline.config, "domain", None)
             if domain is not None:
                 chembl_config = getattr(domain, "chembl", None)
+        if chembl_config is not None:
+            if hasattr(chembl_config, "model_dump"):
+                chembl_config = chembl_config.model_dump()
+            elif hasattr(chembl_config, "dict"):
+                chembl_config = chembl_config.dict()
         order = selected or list(self._scenarios.keys())
 
         for name in order:

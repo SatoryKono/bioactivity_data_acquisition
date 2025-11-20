@@ -35,6 +35,10 @@ _PIPELINE_SCHEMA_CONTRACTS: Mapping[str, PipelineSchemaContract] = {
         pipeline_code="activity_chembl",
         schema_out="bioetl.schemas.chembl_activity_schema.ActivitySchema",
     ),
+    "chembl_assay": PipelineSchemaContract(
+        pipeline_code="chembl_assay",
+        schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema",
+    ),
     "assay_chembl": PipelineSchemaContract(
         pipeline_code="assay_chembl",
         schema_out="bioetl.schemas.chembl_assay_schema.AssaySchema",

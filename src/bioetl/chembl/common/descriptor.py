@@ -22,7 +22,6 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
-from pandera import DataFrameSchema
 from structlog.stdlib import BoundLogger
 from typing_extensions import Self
 
@@ -233,6 +232,9 @@ def build_standard_chembl_context(
         entity_name,
         source_name="chembl",
         source_config=source_config,
+        options=None,
+        chembl_client_kwargs=None,
+        fresh_http_client=False,
     )
 
     # Регистрируем HTTP-клиент
@@ -656,7 +658,11 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         )
         self._api_version: str | None = None
         self._output_schema_entry: SchemaRegistryEntry | None = None
-        self._output_schema: DataFrameSchema | None = None
+        # Use a broad type for _output_schema to accommodate both the
+        # deprecated ``pandera.DataFrameSchema`` shim and the
+        # ``pandera.api.pandas.DataFrameSchema`` implementation used by
+        # SchemaRegistryEntry.schema.
+        self._output_schema: Any | None = None
         self._output_column_order: tuple[str, ...] = ()
         self._output_schema_cache: dict[str, Any] = {}
         self._chembl_release_metadata: dict[str, Any] = {}
@@ -667,6 +673,13 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
 
         self._descriptor_strategy_factory: DescriptorStrategyFactory | None = None  # pyright: ignore[reportInvalidTypeArguments]
 
+        # Initialize output schema based on pipeline_code
+        from contextlib import suppress
+
+        with suppress(KeyError, AttributeError):
+            # If schema cannot be resolved (e.g., pipeline_code not set yet), defer initialization
+            self.initialize_output_schema()
+
     def configure_output_schema(
         self,
         schema_entry: SchemaRegistryEntry,
@@ -676,7 +689,7 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """Configure runtime caches bound to the pipeline output schema."""
 
         self._output_schema_entry = schema_entry
-        self._output_schema = schema_entry.schema
+        self._output_schema = cast(Any, schema_entry.schema)
         self._output_column_order = tuple(schema_entry.column_order)
         self._output_schema_cache = dict(extra_cache) if extra_cache is not None else {}
 
@@ -845,7 +858,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         """Dispatch between batch and full extraction modes."""
 
         log = UnifiedLogger.get(__name__).bind(component=self._component_for_stage("extract"))
-        event_name = self.extract_event_name or f"{self.pipeline_code}.extract_mode"
+        entity_raw = getattr(self, "entity_name", "") or ""
+        entity_key = str(entity_raw).strip().lower()
+        default_event = f"chembl_{entity_key}.extract_mode" if entity_key else f"{self.pipeline_code}.extract_mode"
+        event_name = self.extract_event_name or default_event
         id_column_name = self.id_column or self._get_id_column_name()
         normalized_ids: tuple[str, ...] = tuple(str(item) for item in ids) if ids else ()
 
@@ -1754,6 +1770,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     if isinstance(candidate, str):
                         release_value = candidate
                         log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
+                    # Extract and set api_version if present
+                    api_version_candidate = status_mapping.get("api_version")
+                    if api_version_candidate is not None:
+                        self._set_api_version(str(api_version_candidate))
             except Exception as exc:
                 log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
             finally:
@@ -1777,6 +1797,10 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
                     status_payload = self._coerce_mapping(status_payload_raw)
                     release_value = self._extract_chembl_release(status_payload)
                     log.info(LogEvents.CHEMBL_DESCRIPTOR_STATUS, chembl_release=release_value)
+                    # Extract and set api_version if present
+                    api_version_candidate = status_payload.get("api_version")
+                    if api_version_candidate is not None:
+                        self._set_api_version(str(api_version_candidate))
             except Exception as exc:
                 log.warning(LogEvents.CHEMBL_DESCRIPTOR_STATUS_FAILED, error=str(exc))
             finally:

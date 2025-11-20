@@ -18,7 +18,7 @@ from tests.support.golden import (
 from bioetl.pipelines.chembl.assay.run import ChemblAssayPipeline
 
 PIPELINE_CODE = "assay_chembl"
-GOLDEN_VERSION = "v1"
+GOLDEN_VERSION = "v2"
 DATASET_STEM = "assay_chembl_extended_20240101"
 
 

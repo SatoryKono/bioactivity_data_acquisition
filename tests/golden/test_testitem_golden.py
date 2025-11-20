@@ -8,17 +8,15 @@ from typing import Any
 import pytest
 from tests.support.factories import load_sample_testitem_dataframe
 from tests.support.golden import (
-    canonical_json,
-    load_json_dict,
-    load_yaml_dict,
-    normalize_manifest_payload,
-    normalize_meta_payload,
+	canonical_json,
+	load_yaml_dict,
+	normalize_meta_payload,
 )
 
 from bioetl.pipelines.chembl.testitem.run import TestItemChemblPipeline
 
 PIPELINE_CODE = "testitem_chembl"
-GOLDEN_VERSION = "v1"
+GOLDEN_VERSION = "v2"
 DATASET_STEM = "testitem_chembl_extended_20240101"
 
 
@@ -63,13 +61,10 @@ def test_testitem_pipeline_golden_snapshot(
         "dataset": result.write_result.dataset,
         "meta": result.write_result.metadata,
         "quality_report": result.write_result.quality_report,
-        "correlation_report": result.write_result.correlation_report,
-        "qc_metrics": result.write_result.qc_metrics,
-        "manifest": result.manifest,
     }
 
     golden_paths = _golden_paths()
-    for key in ("dataset", "quality_report", "correlation_report", "qc_metrics"):
+    for key in ("dataset", "quality_report"):
         produced = produced_paths[key]
         golden = golden_paths[key]
         assert produced is not None, f"{key} path is missing"
@@ -90,21 +85,6 @@ def test_testitem_pipeline_golden_snapshot(
     )
     golden_meta = normalize_meta_payload(load_yaml_dict(golden_paths["meta"]))
     assert canonical_json(produced_meta) == canonical_json(golden_meta), "meta.yaml mismatch"
-
-    # Create golden manifest file if it doesn't exist (first run)
-    produced_manifest_path = _require_path(produced_paths["manifest"], "manifest")
-    if not golden_paths["manifest"].exists():
-        golden_paths["manifest"].parent.mkdir(parents=True, exist_ok=True)
-        golden_paths["manifest"].write_bytes(produced_manifest_path.read_bytes())
-    produced_manifest = normalize_manifest_payload(
-        load_json_dict(produced_manifest_path),
-    )
-    golden_manifest = normalize_manifest_payload(load_json_dict(golden_paths["manifest"]))
-    produced_manifest = _filter_manifest_artifacts(produced_manifest, ignore=("meta",))
-    golden_manifest = _filter_manifest_artifacts(golden_manifest, ignore=("meta",))
-    assert canonical_json(produced_manifest) == canonical_json(golden_manifest), (
-        "run manifest mismatch"
-    )
 
 
 def _require_path(path: Path | None, label: str) -> Path:

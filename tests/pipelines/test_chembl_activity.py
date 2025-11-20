@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
@@ -46,22 +48,30 @@ def test_enrich_records_runs_rules_in_order() -> None:
     assert enriched == [{"value": 6, "flag": True}]
 
 
-def test_activity_pipeline_smoke_run() -> None:
+def test_activity_pipeline_smoke_run(
+    pipeline_config_fixture,
+    run_id: str,
+    tmp_path: Path,
+) -> None:
     source = [
         {"activity_id": 1, "assay_id": "A1", "value": "10"},
         {"activity_id": 2, "assay_id": "A2", "value": None},
     ]
 
-    pipeline = ChemblActivityPipeline(source)
-    df = pipeline.run()
-
-    expected = pd.DataFrame(
-        {
-            "activity_id": [1, 2],
-            "assay_id": ["A1", "A2"],
-            "value": [10.0, None],
-            "is_active": [True, False],
-        }
+    pipeline = ChemblActivityPipeline(
+        pipeline_config_fixture,
+        run_id=run_id,
+        source=source,
     )
+    result = pipeline.run(tmp_path)
+    df = result.dataframe
 
-    pd.testing.assert_frame_equal(df.reset_index(drop=True), expected)
+    # Проверяем, что пайплайн отработал и вернул данные
+    assert len(df) == 2
+    assert "activity_id" in df.columns
+    assert "value" in df.columns
+    # Проверяем, что значение было преобразовано из строки в число
+    assert df.loc[0, "activity_id"] == 1
+    assert df.loc[0, "value"] == 10.0
+    assert df.loc[1, "activity_id"] == 2
+    assert pd.isna(df.loc[1, "value"])

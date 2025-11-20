@@ -6,7 +6,7 @@ from collections.abc import Iterable, Mapping, MutableMapping, Sequence
 from dataclasses import dataclass, field
 from importlib import import_module
 
-import pandera as pa
+import pandera.pandas as pa
 
 from bioetl.core.schema.vocabulary_bindings import SchemaVocabularyBinding
 

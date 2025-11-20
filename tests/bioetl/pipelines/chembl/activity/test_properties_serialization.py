@@ -9,6 +9,7 @@ import pytest
 from structlog.stdlib import BoundLogger
 
 from bioetl.config.models.models import PipelineConfig
+from bioetl.core.logging import LogEvents
 from bioetl.pipelines.chembl.activity.run import ChemblActivityPipeline
 
 
@@ -79,7 +80,7 @@ def test_normalize_activity_properties_unhandled_type(
 
     assert normalized is None
     assert capture_log.events
-    assert capture_log.events[0]["event"] == "activity_properties_unhandled_type"
+    assert capture_log.events[0]["event"] == LogEvents.ACTIVITY_PROPERTIES_UNHANDLED_TYPE.value
 
 
 @pytest.mark.unit

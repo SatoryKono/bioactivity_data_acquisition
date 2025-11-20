@@ -7,7 +7,7 @@ from functools import partial
 from typing import Any
 
 import pandas as pd
-import pandera as pa
+import pandera.pandas as pa
 from pandas import DatetimeTZDtype
 from pandera import Check, Column
 

@@ -266,6 +266,8 @@ class TestEmptyFieldsAndArrays:
         mock_log = MagicMock()
         result = pipeline._normalize_nested_structures(df, mock_log)
 
+        # Check if the result is not NA before asserting
+        assert not pd.isna(result["assay_class_id"].iloc[0])
         assert result["assay_class_id"].iloc[0] == "BAO_0000015;BAO_0000016"
 
     def test_deduplicate_bao_ids(self) -> None:

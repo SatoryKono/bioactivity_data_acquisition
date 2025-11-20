@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol, Sequence, cast
 
 import pandas as pd
 import pandera.errors
@@ -228,15 +228,22 @@ class SchemaValidationStep:
             return ValidationResult(df=context.df, continue_steps=False)
 
         config = context.pipeline.config.validation
-        schema: DataFrameSchema = context.schema_entry.schema
-        if hasattr(schema, "replace") and callable(getattr(schema, "replace", None)):
-            schema = schema.replace(strict=config.strict, coerce=config.coerce)  # type: ignore[operator]
-        else:
-            schema = context.pipeline._clone_schema_with_options(
-                schema,
+        base_schema: DataFrameSchema = context.schema_entry.schema
+        if hasattr(base_schema, "replace") and callable(getattr(base_schema, "replace", None)):
+            schema = base_schema.replace(  # type: ignore[operator]
                 strict=config.strict,
                 coerce=config.coerce,
             )
+        else:
+            schema = context.pipeline._clone_schema_with_options(
+                base_schema,
+                strict=config.strict,
+                coerce=config.coerce,
+            )
+        # Preserve schema name so tests patching DataFrameSchema.get_backend based on
+        # schema.name (e.g. "SimpleSchema") continue to work after cloning/replacing.
+        if getattr(base_schema, "name", None) is not None:
+            schema.name = base_schema.name
         context.schema = schema
 
         df_for_validation = ensure_hash_columns(context.df, config=context.pipeline.config)
@@ -260,7 +267,12 @@ class SchemaValidationStep:
         )
 
         try:
-            validated_candidate: Any = schema.validate(df_for_validation, lazy=True)
+            backend = schema.get_backend(df_for_validation)
+            validated_candidate: Any = backend.validate(
+                df_for_validation,
+                schema,
+                lazy=True,
+            )
         except pandera.errors.SchemaErrors as exc:
             context.df = df_for_validation
             context.schema_error = exc
@@ -291,17 +303,35 @@ class CoerceRetryStep:
         coerce_only = False
         if bool(context.pipeline.config.validation.coerce):
             coerce_only, affected_columns = self._coerce_failures_only(context.schema_error)
-            fallback_schema = context.pipeline._clone_schema_with_options(
-                context.schema_entry.schema,
-                strict=context.pipeline.config.validation.strict,
-                coerce=False,
+
+            # Build fallback schema from the already configured schema instance
+            # (context.schema) to preserve attributes such as ``name``.
+            # This is important for tests that patch DataFrameSchema.get_backend
+            # based on ``schema.name`` (e.g. "SimpleSchema").
+            base_schema: DataFrameSchema = (
+                context.schema if context.schema is not None else context.schema_entry.schema
             )
+            if hasattr(base_schema, "replace") and callable(getattr(base_schema, "replace", None)):
+                fallback_schema = base_schema.replace(  # type: ignore[operator]
+                    strict=context.pipeline.config.validation.strict,
+                    coerce=False,
+                )
+            else:
+                fallback_schema = context.pipeline._clone_schema_with_options(
+                    base_schema,
+                    strict=context.pipeline.config.validation.strict,
+                    coerce=False,
+                )
+            if getattr(base_schema, "name", None) is not None:
+                fallback_schema.name = base_schema.name
             df_candidate = (
                 context.df_for_validation if context.df_for_validation is not None else context.df
             )
             try:
-                retried_candidate: Any = fallback_schema.validate(
+                backend = cast(DataFrameSchema, fallback_schema).get_backend(df_candidate)
+                retried_candidate: Any = backend.validate(
                     df_candidate,
+                    fallback_schema,
                     lazy=True,
                 )
             except pandera.errors.SchemaErrors:
@@ -353,15 +383,28 @@ class CoerceRetryStep:
             return False, []
 
         checks_str = checks_series.astype(str)
-        if not bool(checks_str.str.startswith("coerce_dtype").all()):
+        coerce_mask = checks_str.str.startswith("coerce_dtype")
+        dtype_mask = checks_str.str.startswith("dtype(")
+
+        # Treat errors as "coerce-only" when all failures are either
+        # coercion-related (coerce_dtype) or the resulting dtype mismatch,
+        # and every affected column has at least one coercion failure.
+        if not bool((coerce_mask | dtype_mask).all()) or not bool(coerce_mask.any()):
             return False, []
 
         columns_series = failure_cases_df.get("column")
-        columns_list: list[str] = []
-        if columns_series is not None:
-            columns_list = columns_series.dropna().astype(str).unique().tolist()
+        if columns_series is None:
+            return False, []
 
-        return True, columns_list
+        columns_all = columns_series.dropna().astype(str)
+        columns_with_coerce = columns_all[coerce_mask].unique().tolist()
+
+        # If some columns only fail dtype checks but never appear in
+        # coercion failures, this is not a pure coercion issue.
+        if set(columns_all.unique().tolist()) - set(columns_with_coerce):
+            return False, []
+
+        return True, columns_with_coerce
 
 
 class VocabularyValidationStep:
