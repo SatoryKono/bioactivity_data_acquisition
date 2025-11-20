@@ -20,13 +20,13 @@ from bioetl.core.utils.vocab_store import (
 from bioetl.core.utils.vocab_store import (
     load_vocab_store as _load_vocab_store,
 )
+from bioetl.schemas.common import default_schema_path
 
 VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
 
 
 def _default_vocab_path() -> Path:
-    # bioetl/vocab/service.py → bioetl (parents[2]) → src (parents[3]) → repo root
-    return Path(__file__).resolve().parents[3] / "configs" / "dictionaries"
+    return default_schema_path("dictionaries")
 
 
 def _resolve_vocab_path() -> Path:
