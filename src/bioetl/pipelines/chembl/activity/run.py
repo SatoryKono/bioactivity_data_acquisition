@@ -617,7 +617,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             chunk_records: dict[str, dict[str, Any]] = {}
 
             try:
-                cached_records = self._check_cache(chunk, self.chembl_release)
+                cached_records = self._check_cache(chunk, self.chembl_release, select_fields=select_fields)
                 if cached_records is not None:
                     from_cache = True
                     cache_hits += len(chunk)
@@ -637,7 +637,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                         if activity_value is None:
                             continue
                         chunk_records[str(activity_value)] = dict(item)
-                    self._store_cache(chunk, chunk_records, self.chembl_release)
+                    self._store_cache(chunk, chunk_records, self.chembl_release, select_fields=select_fields)
 
                 success_in_batch = 0
                 for key in chunk:
@@ -954,13 +954,15 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self,
         batch_ids: Sequence[str],
         release: str | None,
+        *,
+        select_fields: Sequence[str] | None = None,
     ) -> dict[str, dict[str, Any]] | None:
         cache_config = self.config.cache
         if not cache_config.enabled:
             return None
 
         normalized_ids = [str(identifier) for identifier in batch_ids]
-        cache_file = self._cache_file_path(normalized_ids, release)
+        cache_file = self._cache_file_path(normalized_ids, release, select_fields=select_fields)
         if not cache_file.exists():
             return None
 
@@ -998,13 +1000,15 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         batch_ids: Sequence[str],
         batch_data: Mapping[str, Mapping[str, Any]],
         release: str | None,
+        *,
+        select_fields: Sequence[str] | None = None,
     ) -> None:
         cache_config = self.config.cache
         if not cache_config.enabled or not batch_ids or not batch_data:
             return
 
         normalized_ids = [str(identifier) for identifier in batch_ids]
-        cache_file = self._cache_file_path(normalized_ids, release)
+        cache_file = self._cache_file_path(normalized_ids, release, select_fields=select_fields)
         normalized_set = set(normalized_ids)
         data_to_store = {key: batch_data[key] for key in normalized_set if key in batch_data}
         if not data_to_store:
@@ -1022,9 +1026,15 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             log = self.logger_for(stage="extract", component="cache")
             log.debug(LogEvents.CHEMBL_ACTIVITY_CACHE_STORE_FAILED, error=str(exc))
 
-    def _cache_file_path(self, batch_ids: Sequence[str], release: str | None) -> Path:
+    def _cache_file_path(
+        self,
+        batch_ids: Sequence[str],
+        release: str | None,
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> Path:
         directory = self._cache_directory(release)
-        cache_key = self._cache_key(batch_ids, release)
+        cache_key = self._cache_key(batch_ids, release, select_fields=select_fields)
         return directory / f"{cache_key}.json"
 
     def _cache_directory(self, release: str | None) -> Path:
@@ -1039,12 +1049,22 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             cache_root / directory_name / pipeline_component / release_component / version_component
         )
 
-    def _cache_key(self, batch_ids: Sequence[str], release: str | None) -> str:
+    def _cache_key(
+        self,
+        batch_ids: Sequence[str],
+        release: str | None,
+        *,
+        select_fields: Sequence[str] | None = None,
+    ) -> str:
+        normalized_fields = (
+            tuple(sorted(select_fields)) if select_fields else None
+        )
         payload = {
             "ids": list(batch_ids),
             "release": release or "unknown",
             "pipeline": self.pipeline_code,
             "pipeline_version": self.config.pipeline.version or "unknown",
+            "select_fields": normalized_fields,
         }
         raw = json.dumps(payload, sort_keys=True)
         return hashlib.sha256(raw.encode("utf-8")).hexdigest()

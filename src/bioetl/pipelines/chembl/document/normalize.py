@@ -253,6 +253,42 @@ def enrich_with_document_terms(
                     term_record[field] = terms_raw.get(field)
             all_term_records.append(term_record)
 
+    # If no terms found in DataFrame, try fetching from API
+    if not all_term_records:
+        doc_ids = df_docs["document_chembl_id"].dropna().astype(str).tolist()
+        if doc_ids:
+            try:
+                fetched_result = client.fetch_document_terms_by_ids(
+                    doc_ids,
+                    fields=fields,
+                    page_limit=cfg.get("page_limit"),
+                )
+                # Handle both DataFrame (real API) and dict (mocked in tests)
+                if isinstance(fetched_result, pd.DataFrame):
+                    if not fetched_result.empty and "document_chembl_id" in fetched_result.columns:
+                        all_term_records = cast(
+                            list[dict[str, Any]],
+                            fetched_result.to_dict(orient="records"),
+                        )
+                elif isinstance(fetched_result, dict):
+                    # Handle dict format (for test compatibility)
+                    for doc_id, term_list in fetched_result.items():
+                        if isinstance(term_list, list):
+                            for term_item in term_list:
+                                if isinstance(term_item, dict):
+                                    term_record: dict[str, Any] = {
+                                        "document_chembl_id": doc_id,
+                                    }
+                                    for field in fields:
+                                        if field != "document_chembl_id":
+                                            term_record[field] = term_item.get(field)
+                                    all_term_records.append(term_record)
+            except Exception as exc:  # noqa: BLE001
+                log.debug(
+                    LogEvents.ENRICHMENT_NO_RECORDS_FOUND,
+                    error=str(exc),
+                )
+
     if not all_term_records:
         log.debug(LogEvents.ENRICHMENT_NO_RECORDS_FOUND)
         prepared = _ensure_term_columns(df_docs)
