@@ -9,9 +9,18 @@ from bioetl.pipelines.chembl.common import BaseChemblPipeline
 
 
 class ChemblTargetPipeline(BaseChemblPipeline):
-    def __init__(self, source: Iterable[dict[str, Any]] | None = None, *, writer=None) -> None:
-        super().__init__(source)
-        self.writer = writer
+    entity_name = "target"
+    id_column = "target_chembl_id"
+
+    def __init__(
+        self,
+        config=None,
+        run_id: str | None = None,
+        source: Iterable[dict[str, Any]] | None = None,
+        *,
+        writer=None,
+    ) -> None:
+        super().__init__(config, run_id, source, writer=writer)
 
     def get_normalization_rules(self) -> Mapping[str, Any]:
         return {"field_mappings": {"target_id": "target_id", "pref_name": "pref_name"}}
