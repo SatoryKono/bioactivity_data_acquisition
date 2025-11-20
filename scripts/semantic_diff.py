@@ -2,21 +2,18 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from bioetl.core.runtime.cli_base import CliCommandBase
-from bioetl.core.runtime.cli_errors import CLI_ERROR_INTERNAL
+import typer
+
 from bioetl.devtools import cli_semantic_diff as cli_semantic_diff_impl
-from bioetl.devtools.typer_helpers import TyperApp, get_typer, register_tool_app
+from bioetl.cli.common import create_app, run_app
 
 _LOGIC_EXPORTS = getattr(cli_semantic_diff_impl, "__all__", [])
 globals().update({symbol: getattr(cli_semantic_diff_impl, symbol) for symbol in _LOGIC_EXPORTS})
 run_semantic_diff = cli_semantic_diff_impl.run_semantic_diff
 __all__ = [*_LOGIC_EXPORTS, "run_semantic_diff", "app", "cli_main", "run"]  # pyright: ignore[reportUnsupportedDunderAll]
-
-typer: Any = get_typer()
 
 
 def cli_main() -> None:
@@ -29,28 +26,22 @@ def cli_main() -> None:
     except typer.Exit:
         raise
     except Exception as exc:  # noqa: BLE001
-        CliCommandBase.emit_error(
-            template=CLI_ERROR_INTERNAL,
-            message=f"Semantic diff failed: {exc}",
-            context={
-                "command": "bioetl-semantic-diff",
-                "exception_type": exc.__class__.__name__,
-            },
-            cause=exc,
-        )
+        typer.echo(f"Semantic diff failed: {exc}", err=True)
+        raise
 
     typer.echo(f"Semantic diff report written to: {report_path.resolve()}")
-    CliCommandBase.exit(0)
+    raise typer.Exit(code=0)
 
 
-app: TyperApp
-run: Callable[[], None]
-app, run = register_tool_app(
-    name="bioetl-semantic-diff",
-    help_text="Compare documentation and code to produce a diff",
-    main_fn=cli_main,
-)
+app = create_app(name="bioetl-semantic-diff")
+app.callback(invoke_without_command=True)(cli_main)
+
+
+def run() -> int:
+    """Запустить CLI и вернуть exit code."""
+
+    return run_app(app)
 
 
 if __name__ == "__main__":
-    run()
+    raise SystemExit(run())
