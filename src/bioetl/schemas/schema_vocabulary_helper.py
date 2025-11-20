@@ -18,6 +18,7 @@ from bioetl.core.utils.vocab_store import (
 from bioetl.core.utils.vocab_store import (
     load_vocab_store as _core_load_vocab_store,
 )
+from bioetl.schemas.common import default_schema_path
 
 VOCAB_STORE_ENV_VAR = "VOCAB_STORE"
 load_vocab_store = _core_load_vocab_store
@@ -27,7 +28,7 @@ _get_ids = _core_get_ids
 def _default_vocab_path() -> Path:
     """Return the default dictionaries directory relative to the repo root."""
 
-    return Path(__file__).resolve().parents[3] / "configs" / "dictionaries"
+    return default_schema_path("dictionaries")
 
 
 def _resolve_vocab_path() -> Path:
