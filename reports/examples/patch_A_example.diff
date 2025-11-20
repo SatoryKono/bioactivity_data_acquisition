@@ -1,0 +1,9 @@
+--- src/bioetl/legacy/orphan_helper.py
++++ /dev/null
+@@ -1,6 +0,0 @@
+-"""Helper scheduled for removal."""
+-
+-
+-def orphan_helper():
+-    """Unused helper."""
+-    return "orphan"

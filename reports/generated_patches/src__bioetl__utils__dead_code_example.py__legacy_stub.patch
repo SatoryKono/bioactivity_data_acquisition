@@ -1,0 +1,11 @@
+--- src/bioetl/utils/dead_code_example.py
++++ src/bioetl/utils/dead_code_example.py
+@@ -7,5 +7,7 @@
+ 
+ 
+ def legacy_stub():
+-    """Функция-устаревший кандидат C."""
++    """Функция-устаревший кандидат C.
++
++    Marked by cleanup_dead_code: Placeholder for removed API."""
+     return "legacy placeholder"
