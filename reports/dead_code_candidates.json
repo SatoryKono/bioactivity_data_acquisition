@@ -1,0 +1,20 @@
+[
+  {
+    "object_name": "orphan_helper",
+    "file": "src/bioetl/legacy/orphan_helper.py",
+    "reason": "No usages after pipeline refactor",
+    "confidence": "high"
+  },
+  {
+    "object_name": "maybe_unused",
+    "file": "src/bioetl/utils/dead_code_example.py",
+    "reason": "Only referenced in legacy docs",
+    "confidence": "medium"
+  },
+  {
+    "object_name": "legacy_stub",
+    "file": "src/bioetl/utils/dead_code_example.py",
+    "reason": "Placeholder for removed API",
+    "confidence": "low"
+  }
+]

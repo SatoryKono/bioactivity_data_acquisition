@@ -1,0 +1,16 @@
+--- src/bioetl/utils/dead_code_example.py
++++ src/bioetl/utils/dead_code_example.py
+@@ -1,8 +1,12 @@
+ """Учебные примеры для скрипта очистки мёртвого кода."""
++from bioetl.utils.deprecation import deprecated
+ 
+ 
++@deprecated(reason="Only referenced in legacy docs")
+ def maybe_unused():
+-    """Функция-устаревший кандидат B."""
++    """Функция-устаревший кандидат B.
++
++    Deprecated: Only referenced in legacy docs."""
+     return "legacy"
+ 
+ 
