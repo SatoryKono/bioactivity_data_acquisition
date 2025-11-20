@@ -372,7 +372,12 @@ class TestAssayClassificationsEnrichment:
 
     def test_enrich_classifications_raises_non_404_errors(self) -> None:
         """Test that non-404 HTTP errors are re-raised."""
-        df = pd.DataFrame({"assay_chembl_id": ["CHEMBL1"]})
+        df = pd.DataFrame(
+            {
+                "assay_chembl_id": ["CHEMBL1"],
+                "assay_classifications": [[{"assay_class_id": "CLASS1"}]],
+            }
+        )
 
         mock_client = MagicMock(spec=ChemblClient)
         # Simulate 500 HTTPError
@@ -380,10 +385,9 @@ class TestAssayClassificationsEnrichment:
         mock_response.status_code = 500
         http_error = HTTPError("500 Internal Server Error")
         http_error.response = mock_response
-        mock_client.fetch_assay_class_map_by_assay_ids.side_effect = http_error
+        mock_client.fetch_assay_classifications_by_class_ids.side_effect = http_error
 
         cfg = {
-            "class_map_fields": ["assay_chembl_id", "assay_class_id"],
             "classification_fields": ["assay_class_id", "l1", "l2"],
             "page_limit": 1000,
         }

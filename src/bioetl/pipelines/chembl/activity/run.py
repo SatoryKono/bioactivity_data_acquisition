@@ -50,11 +50,8 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.pipelines.mixins import (
-    BatchIdExtractionPlan,
-    EnrichmentScenarioEngine,
-    NestedColumnSpec,
-)
+from bioetl.pipelines.mixins import BatchIdExtractionPlan, NestedColumnSpec
+from bioetl.pipelines.mixins.enrichment_engine import EnrichmentScenarioEngine
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -287,13 +284,18 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                     context.extra["delegated_summary"] = summary
                     return [], summary
 
-                records, summary = self._collect_records_by_ids(
+                dataframe, summary = self._collect_records_by_ids(
                     normalized_ids,
                     activity_iterator,
                     select_fields=context.select_fields or None,
                 )
                 context.extra["delegated_summary"] = summary
-                return records, summary
+                records_list = cast(
+                    list[dict[str, Any]],
+                    dataframe.to_dict(orient="records"),
+                )
+                summary_mapping = cast(Mapping[str, Any], summary)
+                return records_list, summary_mapping
 
             return delegated_fetch
 
@@ -417,8 +419,6 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         client_name: str = "chembl_activity_client",
     ) -> tuple[ActivitySourceConfig, ChemblClient, ChemblActivityClient, list[str]]:
         """Construct reusable ChEMBL clients and iterator for activity extraction."""
-
-        log = self.logger_for(stage="extract")
 
         source_raw = self._resolve_source_config("chembl")
         source_config = ActivitySourceConfig.from_source_config(source_raw)
@@ -611,7 +611,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             records: list[dict[str, Any]] = []
             batch_start = time.perf_counter()
             from_cache = False
-            chunk_records: dict[str, Mapping[str, Any]] = {}
+            chunk_records: dict[str, dict[str, Any]] = {}
 
             try:
                 cached_records = self._check_cache(batch_ids, self.chembl_release, select_fields=select_fields)

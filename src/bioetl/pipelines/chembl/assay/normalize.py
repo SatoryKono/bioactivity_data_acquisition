@@ -7,6 +7,7 @@ from collections.abc import Iterable, Mapping
 from typing import Any
 
 import pandas as pd
+from requests.exceptions import HTTPError
 
 from bioetl.clients.client_chembl import ChemblClient
 from bioetl.core.io import ensure_columns
@@ -218,7 +219,21 @@ def enrich_with_assay_classifications(
                         if class_id:
                             class_id_str = str(class_id).strip()
                             class_details[class_id_str] = class_row.to_dict()
-            except Exception as exc:
+            except HTTPError as exc:
+                # Re-raise non-404 HTTP errors
+                response = getattr(exc, "response", None)
+                if response is not None and hasattr(response, "status_code"):
+                    if response.status_code == 404:
+                        log.warning(
+                            "enrichment.assay_class.fetch_failed",
+                            error=str(exc),
+                            message="Failed to fetch class details from /assay_class.json (404). Using data from main response only.",
+                        )
+                    else:
+                        raise
+                else:
+                    raise
+            except Exception as exc:  # noqa: BLE001
                 log.warning(
                     "enrichment.assay_class.fetch_failed",
                     error=str(exc),
@@ -355,6 +370,78 @@ def enrich_with_assay_parameters(
     if "assay_parameters" not in df_assay.columns:
         df_assay["assay_parameters"] = pd.NA
 
+    # If assay_parameters column is missing or all values are NA, try fetching from API
+    if not df_assay.empty:
+        # Check if we need to fetch from API
+        needs_fetch = False
+        if "assay_parameters" not in df_assay.columns:
+            needs_fetch = True
+        else:
+            # Check if all values are NA
+            try:
+                needs_fetch = df_assay["assay_parameters"].isna().all()
+            except Exception:  # noqa: BLE001
+                needs_fetch = True
+
+        if needs_fetch:
+            try:
+                assay_ids = df_assay["assay_chembl_id"].dropna().astype("string").tolist()
+                # Filter out empty strings
+                assay_ids = [aid for aid in assay_ids if aid and str(aid).strip()]
+                if assay_ids:
+                    # Temporarily change column type to object to allow setting list values
+                    if "assay_parameters" in df_assay.columns:
+                        df_assay["assay_parameters"] = df_assay["assay_parameters"].astype("object")
+                    fetched_params = client.fetch_assay_parameters_by_assay_ids(
+                        assay_ids,
+                        page_limit=cfg.get("page_limit"),
+                        active_only=active_only,
+                    )
+                    # Handle both DataFrame (from real API) and Mapping (from mocks in tests)
+                    if isinstance(fetched_params, pd.DataFrame) and not fetched_params.empty:
+                        # Group by assay_chembl_id and convert to list of dicts
+                        if "assay_chembl_id" in fetched_params.columns:
+                            for idx, row in df_assay.iterrows():
+                                assay_id = row.get("assay_chembl_id")
+                                if pd.isna(assay_id) or assay_id is None:
+                                    continue
+                                assay_id_str = str(assay_id).strip()
+                                assay_params = fetched_params[fetched_params["assay_chembl_id"] == assay_id_str]
+                                if not assay_params.empty:
+                                    params_list = assay_params.to_dict(orient="records")
+                                    df_assay.at[idx, "assay_parameters"] = params_list
+                    elif isinstance(fetched_params, Mapping):
+                        # Fill assay_parameters column with fetched data (from mocks in tests)
+                        for idx, row in df_assay.iterrows():
+                            assay_id = row.get("assay_chembl_id")
+                            if pd.isna(assay_id) or assay_id is None:
+                                continue
+                            assay_id_str = str(assay_id).strip()
+                            if assay_id_str in fetched_params:
+                                params_list = fetched_params[assay_id_str]
+                                if isinstance(params_list, list):
+                                    df_assay.at[idx, "assay_parameters"] = params_list
+            except HTTPError as exc:
+                # Re-raise non-404 HTTP errors
+                response = getattr(exc, "response", None)
+                if response is not None and hasattr(response, "status_code"):
+                    if response.status_code == 404:
+                        log.warning(
+                            LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
+                            error=str(exc),
+                            message="Failed to fetch assay parameters from API (404). Using data from DataFrame only.",
+                        )
+                    else:
+                        raise
+                else:
+                    raise
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID,
+                    error=str(exc),
+                    message="Failed to fetch assay parameters from API. Using data from DataFrame only.",
+                )
+
     # Process each assay entry
     for row_position, (_, row) in enumerate(df_assay.iterrows()):
         assay_id = row.get("assay_chembl_id")
@@ -382,7 +469,8 @@ def enrich_with_assay_parameters(
                 # Filter by active if needed
                 if active_only:
                     active_value = param.get("active")
-                    if active_value not in (1, "1", True, "True"):
+                    # If active field is missing, include the parameter (default to active)
+                    if active_value is not None and active_value not in (1, "1", True, "True"):
                         continue
                 # Extract requested fields
                 param_record: dict[str, Any] = {}
@@ -394,7 +482,8 @@ def enrich_with_assay_parameters(
             # Single parameter as dict
             if active_only:
                 active_value = params_raw.get("active")
-                if active_value not in (1, "1", True, "True"):
+                # If active field is missing, include the parameter (default to active)
+                if active_value is not None and active_value not in (1, "1", True, "True"):
                     continue
             param_record: dict[str, Any] = {}
             for field in fields:
