@@ -31,6 +31,7 @@ from bioetl.config.models.models import PipelineConfig
 from bioetl.core.logging import LogEvents
 from bioetl.core.schema import IdentifierRule, StringRule
 from bioetl.core.schema.normalizers import IdentifierStats
+from bioetl.pipelines.mixins import FlattenNestedMixin, FlattenSpec
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 
 from .transform import serialize_target_arrays
@@ -66,7 +67,7 @@ def _protein_class_sort_key(class_obj: Mapping[str, Any]) -> tuple[int, int, str
     return (level_flag, level_int, class_id, pref_name, canonical_json)
 
 
-class ChemblTargetPipeline(UnifiedPipelineBase):
+class ChemblTargetPipeline(FlattenNestedMixin, UnifiedPipelineBase):
     """ETL pipeline extracting target records from the ChEMBL API."""
 
     actor = "target_chembl"
@@ -145,12 +146,16 @@ class ChemblTargetPipeline(UnifiedPipelineBase):
 
         log = self.logger_for(stage="transform")
         harmonized = self._harmonize_identifier_columns(df, log)
-        array_columns = [column for column in _ARRAY_SOURCE_COLUMNS if column in harmonized.columns]
+        flattened = self._flatten_nested_structures(harmonized, log)
+        array_columns = [column for column in _ARRAY_SOURCE_COLUMNS if column in flattened.columns]
         if array_columns:
-            self._array_source_cache = harmonized[array_columns].copy()
+            self._array_source_cache = flattened[array_columns].copy()
         else:
             self._array_source_cache = None
-        return harmonized
+        return flattened
+
+    def nested_flatten_specs(self) -> Sequence[FlattenSpec]:
+        return ()
 
     def domain_enrich(self, df: pd.DataFrame) -> pd.DataFrame:
         """Run domain-specific normalization and enrichment for targets."""

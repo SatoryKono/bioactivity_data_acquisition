@@ -13,6 +13,7 @@ import pytest
 from requests.exceptions import RequestException
 
 from bioetl.clients.entities.client_activity import ChemblActivityClient
+from bioetl.chembl.common.descriptor import BatchExtractionStats
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.http.api_client import CircuitBreakerOpenError
 from bioetl.pipelines.chembl.activity import run
@@ -30,6 +31,40 @@ def test_extract_rejects_activity_ids_kwarg(
 
     with pytest.raises(TypeError, match="--input-file"):
         pipeline.extract(activity_ids=["123", "456"])
+
+
+@pytest.mark.unit
+def test_collect_records_delegates_to_run_batched_extraction(
+    monkeypatch: pytest.MonkeyPatch, pipeline_config_fixture: PipelineConfig
+) -> None:
+    pipeline = run.ChemblActivityPipeline(config=pipeline_config_fixture, run_id="unit-test")
+
+    captured: dict[str, object] = {}
+
+    def fake_run_batched(*args: object, **kwargs: object) -> tuple[pd.DataFrame, BatchExtractionStats]:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        stats = BatchExtractionStats(requested=2)
+        stats.rows = 2
+        return pd.DataFrame(), stats
+
+    monkeypatch.setattr(pipeline, "run_batched_extraction", fake_run_batched)
+
+    class StubIterator:
+        def iterate_by_ids(self, *args: object, **kwargs: object) -> list[dict[str, object]]:
+            return []
+
+    dataframe, summary = pipeline._collect_records_by_ids(
+        [(1, "1"), (2, "2")],
+        StubIterator(),
+        select_fields=None,
+    )
+
+    assert captured["kwargs"] is not None
+    kwargs = captured["kwargs"]
+    assert kwargs["id_column"] == "activity_id"
+    assert dataframe.empty
+    assert summary["requested"] == 2
 
 
 @pytest.mark.unit
@@ -551,7 +586,7 @@ class TestChemblActivityPipelineTransformations:
         iterator_client = MagicMock()
 
         def paginate(
-            endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None
+            endpoint: str, *, params: Mapping[str, Any], page_size: int, items_key: str | None, **_: Any
         ) -> Any:
             values = params["activity_id__in"].split(",")
             payload = [{"activity_id": int(value), "standard_type": "IC50"} for value in values]

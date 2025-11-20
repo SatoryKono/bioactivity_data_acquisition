@@ -141,14 +141,26 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
         source_config: DocumentSourceConfig,
         log: BoundLogger,
     ) -> ChemblExtractionContext:
+        cleaned_select_fields = [
+            field
+            for field in (source_config.parameters.select_fields or [])
+            if field != "document_term"
+        ]
+        if cleaned_select_fields != list(source_config.parameters.select_fields or []):
+            source_config.parameters = source_config.parameters.model_copy(
+                update={"select_fields": cleaned_select_fields or None}
+            )
+
         def select_resolver(
             pipeline_obj: ChemblPipelineBase,
             cfg: SourceConfig[Any],
         ) -> Sequence[str] | None:
-            return pipeline_obj._resolve_select_fields(
+            resolved = pipeline_obj._resolve_select_fields(
                 cast(SourceConfig[Any], cast(Any, cfg)),
                 default_fields=API_DOCUMENT_FIELDS,
             )
+            resolved = [field for field in resolved or () if field != "document_term"]
+            return resolved
 
         context = build_standard_chembl_context(
             self,
@@ -159,6 +171,10 @@ class ChemblDocumentPipeline(UnifiedPipelineBase):
             client_registry_name="chembl_document_client",
             page_size_resolver=lambda cfg: cfg.batch_size,
         )
+        if context.select_fields:
+            context.select_fields = tuple(
+                field for field in context.select_fields if field != "document_term"
+            )
         if context.chembl_client is None:
             raise RuntimeError("chembl_client is None in _build_document_context")
         context.iterator = self._build_document_client(

@@ -50,7 +50,11 @@ from bioetl.pipelines.chembl.activity.normalize import (
     enrich_with_compound_record,
     enrich_with_data_validity,
 )
-from bioetl.pipelines.mixins import BatchIdExtractionPlan, NestedColumnSpec
+from bioetl.pipelines.mixins import (
+    BatchIdExtractionPlan,
+    EnrichmentScenarioEngine,
+    NestedColumnSpec,
+)
 from bioetl.pipelines.unified_base import UnifiedPipelineBase
 from bioetl.qc.plan import QCMetricsBundle
 from bioetl.qc.report import build_quality_report as build_default_quality_report
@@ -207,6 +211,9 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self._standard_types_cache: frozenset[str] | None = None
         self._last_invalid_activity_ids: list[Any] | None = None
         self.configure_output_schema(get_out_schema(self.pipeline_code))
+        self.enrichment_engine = EnrichmentScenarioEngine()
+        for scenario in _CHEMBL_ACTIVITY_ENRICHMENT_SCENARIOS:
+            self.enrichment_engine.register(scenario)
 
     def resolve_legacy_extract_ids(
         self,
@@ -592,42 +599,34 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         activity_iterator: ChemblActivityClient,
         *,
         select_fields: Sequence[str] | None,
-    ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        """Iterate over IDs using the shared iterator while preserving cache semantics."""
+    ) -> tuple[pd.DataFrame, dict[str, Any]]:
+        """Iterate over IDs using the shared batching helper."""
 
         log = self.logger_for(stage="extract", component="delegated_fetch")
-        records: list[dict[str, Any]] = []
-        success_count = 0
-        fallback_count = 0
-        error_count = 0
-        cache_hits = 0
-        api_calls = 0
-        total_batches = 0
-
         key_order = [key for _, key in normalized_ids]
         key_to_numeric = {key: numeric_id for numeric_id, key in normalized_ids}
+        select_tuple: tuple[str, ...] = tuple(select_fields or ())
 
-        for chunk in activity_iterator._chunk_identifiers(
-            key_order,
-            select_fields=select_fields,
-        ):
-            total_batches += 1
+        def fetcher(batch_ids: Sequence[str], ctx: BatchExtractionContext) -> list[dict[str, Any]]:
+            records: list[dict[str, Any]] = []
             batch_start = time.perf_counter()
             from_cache = False
-            chunk_records: dict[str, dict[str, Any]] = {}
+            chunk_records: dict[str, Mapping[str, Any]] = {}
 
             try:
-                cached_records = self._check_cache(chunk, self.chembl_release, select_fields=select_fields)
+                cached_records = self._check_cache(batch_ids, self.chembl_release, select_fields=select_fields)
                 if cached_records is not None:
                     from_cache = True
-                    cache_hits += len(chunk)
+                    hits = len(batch_ids)
+                    cache_value = ctx.stats.cache_hits or 0
+                    ctx.stats.cache_hits = cache_value + hits
                     chunk_records = cached_records
                 else:
-                    api_calls += 1
+                    ctx.increment_api_calls()
                     fetched_items = list(
                         activity_iterator.iterate_by_ids(
-                            chunk,
-                            select_fields=select_fields,
+                            batch_ids,
+                            select_fields=ctx.select_fields or None,
                         )
                     )
                     for item in fetched_items:
@@ -637,10 +636,10 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                         if activity_value is None:
                             continue
                         chunk_records[str(activity_value)] = dict(item)
-                    self._store_cache(chunk, chunk_records, self.chembl_release, select_fields=select_fields)
+                    self._store_cache(batch_ids, chunk_records, self.chembl_release, select_fields=select_fields)
 
                 success_in_batch = 0
-                for key in chunk:
+                for key in batch_ids:
                     numeric_id = key_to_numeric.get(key)
                     if numeric_id is None:
                         continue
@@ -651,83 +650,101 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
                             activity_id=numeric_id,
                         )
                         records.append(materialized)
-                        success_count += 1
+                        ctx.stats.extra["success"] = ctx.stats.extra.get("success", 0) + 1
                         success_in_batch += 1
                     else:
                         fallback_record = self._create_fallback_record(numeric_id)
                         records.append(fallback_record)
-                        fallback_count += 1
-                        error_count += 1
+                        ctx.stats.extra["fallback"] = ctx.stats.extra.get("fallback", 0) + 1
+                        ctx.stats.extra["errors"] = ctx.stats.extra.get("errors", 0) + 1
 
                 batch_duration_ms = (time.perf_counter() - batch_start) * 1000.0
                 log.debug(
                     LogEvents.CHEMBL_ACTIVITY_BATCH_PROCESSED,
-                    batch_size=len(chunk),
+                    batch_size=len(batch_ids),
                     from_cache=from_cache,
                     success_in_batch=success_in_batch,
-                    fallback_in_batch=len(chunk) - success_in_batch,
+                    fallback_in_batch=len(batch_ids) - success_in_batch,
                     duration_ms=batch_duration_ms,
                 )
             except CircuitBreakerOpenError as exc:
                 log.warning(
                     LogEvents.CHEMBL_ACTIVITY_BATCH_CIRCUIT_BREAKER,
-                    batch_size=len(chunk),
+                    batch_size=len(batch_ids),
                     error=str(exc),
                 )
-                for key in chunk:
+                for key in batch_ids:
                     numeric_id = key_to_numeric.get(key)
                     if numeric_id is None:
                         continue
                     records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
+                    ctx.stats.extra["fallback"] = ctx.stats.extra.get("fallback", 0) + 1
+                    ctx.stats.extra["errors"] = ctx.stats.extra.get("errors", 0) + 1
             except RequestException as exc:
                 log.error(
                     LogEvents.CHEMBL_ACTIVITY_BATCH_REQUEST_ERROR,
-                    batch_size=len(chunk),
+                    batch_size=len(batch_ids),
                     error=str(exc),
                 )
-                for key in chunk:
+                for key in batch_ids:
                     numeric_id = key_to_numeric.get(key)
                     if numeric_id is None:
                         continue
                     records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
+                    ctx.stats.extra["fallback"] = ctx.stats.extra.get("fallback", 0) + 1
+                    ctx.stats.extra["errors"] = ctx.stats.extra.get("errors", 0) + 1
             except Exception as exc:  # pragma: no cover - defensive path
                 log.error(
                     LogEvents.CHEMBL_ACTIVITY_BATCH_UNHANDLED_ERROR,
-                    batch_size=len(chunk),
+                    batch_size=len(batch_ids),
                     error=str(exc),
                     exc_info=True,
                 )
-                for key in chunk:
+                for key in batch_ids:
                     numeric_id = key_to_numeric.get(key)
                     if numeric_id is None:
                         continue
                     records.append(self._create_fallback_record(numeric_id, exc))
-                    fallback_count += 1
-                    error_count += 1
+                    ctx.stats.extra["fallback"] = ctx.stats.extra.get("fallback", 0) + 1
+                    ctx.stats.extra["errors"] = ctx.stats.extra.get("errors", 0) + 1
 
-        total_records = len(normalized_ids)
-        success_rate = (
-            float(success_count + fallback_count) / float(total_records) if total_records else 0.0
+            return records
+
+        def finalize_context(ctx: BatchExtractionContext) -> None:
+            success = ctx.stats.extra.get("success", 0)
+            fallback = ctx.stats.extra.get("fallback", 0)
+            errors = ctx.stats.extra.get("errors", 0)
+            total = len(normalized_ids)
+            success_rate = float(success + fallback) / float(total) if total else 0.0
+            if ctx.stats.cache_hits is None:
+                ctx.stats.cache_hits = 0
+            ctx.stats.set_extra(
+                total_activities=total,
+                success=success,
+                fallback=fallback,
+                errors=errors,
+                success_rate=success_rate,
+            )
+
+        dataframe, stats = self.run_batched_extraction(
+            key_order,
+            id_column="activity_id",
+            fetcher=fetcher,
+            select_fields=select_tuple,
+            batch_size=getattr(activity_iterator, "batch_size", None)
+            or self.id_max_batch_size
+            or 25,
+            chunk_size=getattr(activity_iterator, "batch_size", None)
+            or self.id_chunk_size_cap
+            or None,
+            chembl_release=self.chembl_release,
+            stats_attribute=self.id_extraction_stats_attribute(),
+            finalize_context=finalize_context,
         )
-        summary = {
-            "total_activities": total_records,
-            "success": success_count,
-            "fallback": fallback_count,
-            "errors": error_count,
-            "api_calls": api_calls,
-            "cache_hits": cache_hits,
-            "batches": total_batches,
-            "duration_ms": 0.0,
-            "success_rate": success_rate,
-        }
 
+        summary = stats.as_dict()
         summary = self.publish_release_metadata(summary)
-
-        return records, summary
+        return dataframe, summary
 
     def pre_transform(self, df: pd.DataFrame) -> pd.DataFrame:
         log = self.logger_for(stage="transform")
@@ -779,52 +796,8 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
     ) -> pd.DataFrame:
         """Execute registered enrichment stages in a deterministic order."""
 
-        if df.empty:
-            return df
-
-        log = self.logger_for(stage="enrich")
-        chembl_config = self.config.chembl
-
-        if chembl_config is None:
-            selected = stages or self._DEFAULT_ENRICHMENT_ORDER
-            log.debug(
-                LogEvents.ENRICHMENT_SKIPPED_NO_CHEMBL_CONFIG,
-                stages=selected,
-                message="chembl domain configuration missing; enrichment skipped",
-            )
-            return df
-
         selected = tuple(stages) if stages is not None else self._DEFAULT_ENRICHMENT_ORDER
-
-        for stage_name in selected:
-            scenario = self._ENRICHMENT_SCENARIOS.get(stage_name)
-            if scenario is None:
-                log.debug(
-                    LogEvents.ENRICHMENT_SKIPPED_MISSING_SOURCE,
-                    stage=stage_name,
-                    message="Enrichment scenario not registered",
-                )
-                continue
-
-            if not scenario.is_enabled(chembl_config):
-                log.debug(
-                    LogEvents.ENRICHMENT_SKIPPED_NO_ENRICH_CONFIG,
-                    stage=stage_name,
-                    message="Scenario disabled in configuration",
-                )
-                continue
-
-            stage_log = log.bind(stage=scenario.name)
-            stage_log.info("enrichment_stage_start", rows=len(df))
-            enrich_cfg = scenario.extract_config(chembl_config, log=stage_log)
-            bundle = self._build_activity_enrichment_bundle(
-                scenario.entity_name,
-                client_name=scenario.client_name,
-            )
-            df = scenario.transform(self, df, bundle.chembl_client, enrich_cfg, stage_log)
-
-        log.debug(LogEvents.ENRICHMENT_STAGES_COMPLETED, stages=selected)
-        return df
+        return self.enrichment_engine.execute(self, df, selected=selected)
 
     def validate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply pre-validation checks before delegating to the shared schema logic."""
@@ -926,7 +899,7 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
             empty_frame = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
             return self._ensure_comment_fields(empty_frame, log)
 
-        records, summary = self._collect_records_by_ids(
+        dataframe, summary = self._collect_records_by_ids(
             normalized_ids,
             activity_iterator,
             select_fields=select_fields,
@@ -937,11 +910,9 @@ class ChemblActivityPipeline(UnifiedPipelineBase):
         self._last_batch_extract_stats = summary
         log.info(LogEvents.CHEMBL_ACTIVITY_BATCH_SUMMARY, **summary)
 
-        result_df: pd.DataFrame = pd.DataFrame.from_records(records)  # pyright: ignore[reportUnknownMemberType]; type: ignore
+        result_df: pd.DataFrame = dataframe
         if result_df.empty:
             result_df = pd.DataFrame({"activity_id": pd.Series(dtype="Int64")})
-        elif "activity_id" in result_df.columns:
-            result_df = result_df.sort_values("activity_id").reset_index(drop=True)
 
         result_df = self._ensure_comment_fields(result_df, log)
         result_df = self._extract_data_validity_descriptions(result_df, chembl_client, log)

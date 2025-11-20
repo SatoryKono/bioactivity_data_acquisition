@@ -200,13 +200,36 @@ def enrich_with_document_terms(
 
     # Extract document_term data from the DataFrame (already in the response from /document.json)
     df_docs = df_docs.copy()
-    
+
+    # Process each document record to extract terms
+    all_term_records: list[dict[str, Any]] = []
+
     # Initialize document_term column if missing
     if "document_term" not in df_docs.columns:
         df_docs["document_term"] = pd.NA
 
-    # Process each document record to extract terms
-    all_term_records: list[dict[str, Any]] = []
+    if bool(df_docs["document_term"].isna().all()):
+        try:
+            fetched_terms = client.fetch_document_terms_by_ids(
+                df_docs["document_chembl_id"].dropna().astype("string").tolist(),
+                fields=fields,
+                page_limit=cfg.get("page_limit"),
+            )
+        except Exception as exc:  # pragma: no cover - defensive
+            log.warning(LogEvents.ENRICHMENT_FETCH_ERROR_BY_RECORD_ID, error=str(exc))
+            fetched_terms = pd.DataFrame()
+
+        if isinstance(fetched_terms, Mapping):
+            for doc_id, records in fetched_terms.items():
+                if not isinstance(records, list):
+                    continue
+                for record in records:
+                    if not isinstance(record, dict):
+                        continue
+                    all_term_records.append({"document_chembl_id": doc_id, **record})
+        elif hasattr(fetched_terms, "empty") and not fetched_terms.empty and "document_chembl_id" in fetched_terms.columns:
+            for record in fetched_terms.to_dict(orient="records"):
+                all_term_records.append(record)
     
     for idx, row in df_docs.iterrows():
         doc_id = row.get("document_chembl_id")

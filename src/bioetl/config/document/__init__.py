@@ -46,6 +46,8 @@ class DocumentSourceParameters(SourceParameters):
         """
         data = dict(params or {})
         select_fields = normalize_select_fields(data.get("select_fields"))
+        if select_fields is not None:
+            select_fields = [field for field in select_fields if field != "document_term"]
 
         payload: dict[str, Any] = {}
         if "base_url" in data:
