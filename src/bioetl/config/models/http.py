@@ -106,6 +106,10 @@ class HTTPClientConfig(BaseModel):
         default=2000,
         description="Maximum URL length before falling back to POST with X-HTTP-Method-Override.",
     )
+    identify: Mapping[str, str] = Field(
+        default_factory=dict,
+        description="API identification parameters (e.g., tool/email for PubMed, mailto for Crossref).",
+    )
 
 
 class HTTPConfig(BaseModel):

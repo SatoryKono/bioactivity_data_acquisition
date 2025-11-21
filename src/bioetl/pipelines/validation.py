@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from typing import Any, Protocol, cast
 
 import pandas as pd
@@ -365,32 +365,8 @@ class CoerceRetryStep:
             context.schema_error = None
             return ValidationResult(df=context.df)
 
-        # Guarded coerce-only passthrough:
-        # - only in strict mode (behavior.fail_open is False), so fail-open
-        #   callers still record failures via ValidationBehavior;
-        # - never for the SimpleSchema used in validation_chain strict tests,
-        #   where SchemaErrors must surface.
-        if coerce_only and fallback_schema is not None and not behavior.fail_open:
-            identifier = (
-                context.schema_entry.identifier if context.schema_entry is not None else None
-            )
-            if identifier != "tests.support.simple_schema.SimpleSchema":
-                context.schema = fallback_schema
-                context.df = (
-                    context.df_for_validation
-                    if context.df_for_validation is not None
-                    else context.df
-                )
-                context.schema_error = None
-                log.debug(
-                    LogEvents.VALIDATION_COERCE_ONLY_PASSTHROUGH,
-                    columns=affected_columns,
-                    rows=len(context.df),
-                )
-                return ValidationResult(df=context.df)
-
-        # Fallback: delegate to the configured ValidationBehavior so that strict
-        # mode raises and fail-open records failures in the summary.
+        # Delegate to the configured ValidationBehavior: strict mode raises and
+        # fail-open records failures in the summary.
         behavior.handle_schema_errors(context, context.schema_error)
         context.schema_error = None
         return ValidationResult(df=context.df)

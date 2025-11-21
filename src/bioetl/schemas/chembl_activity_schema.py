@@ -136,7 +136,7 @@ ActivitySchema = create_schema(
         "assay_type": CF.string(),
         "assay_description": CF.string(),
         "assay_organism": CF.string(),
-        "assay_tax_id": CF.int64(ge=1),
+        "assay_tax_id": CF.int64(ge=1, pandas_nullable=True),
         "testitem_chembl_id": CF.chembl_id(nullable=False),
         "molecule_chembl_id": CF.chembl_id(nullable=False),
         "parent_molecule_chembl_id": CF.chembl_id(),
@@ -144,8 +144,8 @@ ActivitySchema = create_schema(
         "target_chembl_id": CF.chembl_id(),
         "target_pref_name": CF.string(),
         "document_chembl_id": CF.chembl_id(),
-        "record_id": CF.int64(ge=1),
-        "src_id": CF.int64(ge=1),
+        "record_id": CF.int64(ge=1, pandas_nullable=True),
+        "src_id": CF.int64(ge=1, pandas_nullable=True),
         "type": CF.string(),
         "relation": Column(
             pa.String,
@@ -181,7 +181,7 @@ ActivitySchema = create_schema(
         "canonical_smiles": CF.string(),
         "ligand_efficiency": CF.string(),
         "target_organism": CF.string(),
-        "target_tax_id": CF.int64(ge=1),
+        "target_tax_id": CF.int64(ge=1, pandas_nullable=True),
         "data_validity_comment": CF.string(),
         # Soft enum: validated via whitelist in pipeline.validate(), not via Check.
         # Unknown values are logged as warnings but do not block validation.

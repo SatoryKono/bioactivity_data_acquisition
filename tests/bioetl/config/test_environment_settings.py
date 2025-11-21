@@ -17,11 +17,14 @@ from bioetl.config.environment import (
 
 
 @pytest.mark.unit
-def test_load_environment_settings_defaults(monkeypatch: MonkeyPatch) -> None:
+def test_load_environment_settings_defaults(monkeypatch: MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("BIOETL_ENV", raising=False)
     monkeypatch.delenv("PUBMED_TOOL", raising=False)
 
-    settings = load_environment_settings()
+    # Use empty env file to avoid loading .env from project root
+    empty_env = tmp_path / ".env.test"
+    empty_env.write_text("")
+    settings = load_environment_settings(env_file=empty_env)
 
     assert settings.bioetl_env is None
     assert settings.pubmed_tool is None
@@ -53,7 +56,7 @@ def test_apply_runtime_overrides_sets_nested_keys(monkeypatch: MonkeyPatch) -> N
         "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__TOOL": "bioetl-cli",
         "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__EMAIL": "contact@example.org",
         "BIOETL__SOURCES__PUBMED__HTTP__IDENTIFY__API_KEY": "secret-key",
-        "BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO": "owner@example.org",
+        "BIOETL__SOURCES__CROSSREF__HTTP__IDENTIFY__MAILTO": "owner@example.org",
         "BIOETL__SOURCES__SEMANTIC_SCHOLAR__HTTP__HEADERS__X-API-KEY": "semantic-secret",
         "BIOETL__SOURCES__IUPHAR__HTTP__HEADERS__X-API-KEY": "iuphar-secret",
     }
@@ -80,11 +83,10 @@ def test_apply_runtime_overrides_preserves_existing(monkeypatch: MonkeyPatch) ->
 
 @pytest.mark.unit
 def test_build_env_override_mapping_returns_nested() -> None:
-    settings = EnvironmentSettings.model_validate(
-        {
-            "pubmed_tool": "bioetl-cli",
-            "pubmed_email": "ops@example.org",
-        }
+    # Use model_construct to bypass .env loading
+    settings = EnvironmentSettings.model_construct(
+        pubmed_tool="bioetl-cli",
+        pubmed_email="ops@example.org",
     )
 
     overrides = build_env_override_mapping(settings)
@@ -117,4 +119,4 @@ def test_resolve_env_layers_none(tmp_path: Path) -> None:
 @pytest.mark.unit
 def test_resolve_env_layers_missing_directory(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        resolve_env_layers("prod", base=tmp_path)
+        resolve_env_layers("nonexistent", base=tmp_path)

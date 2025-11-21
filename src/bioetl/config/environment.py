@@ -57,8 +57,8 @@ _ENV_OVERRIDE_SPECS: tuple[_EnvOverrideSpec, ...] = (
     ),
     _EnvOverrideSpec(
         "crossref_mailto",
-        "BIOETL__SOURCES__CROSSREF__IDENTIFY__MAILTO",
-        ("sources", "crossref", "identify", "mailto"),
+        "BIOETL__SOURCES__CROSSREF__HTTP__IDENTIFY__MAILTO",
+        ("sources", "crossref", "http", "identify", "mailto"),
     ),
     _EnvOverrideSpec(
         "semantic_scholar_api_key",

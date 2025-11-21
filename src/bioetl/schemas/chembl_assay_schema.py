@@ -83,7 +83,7 @@ AssaySchema = base_abstract_schema.create_schema(
         "cell_chembl_id": CF.chembl_id(),
         "tissue_chembl_id": CF.chembl_id(),
         "assay_group": CF.string(),
-        "confidence_score": CF.int64(),
+        "confidence_score": CF.int64(pandas_nullable=True),
         "confidence_description": CF.string(),
         "variant_sequence": CF.string(),
         "assay_classifications": CF.string(),

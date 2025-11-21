@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, cast
+from typing import Any
 
 import pandas as pd
 import pandera.errors
@@ -83,60 +83,36 @@ def test_validation_chain_retries_without_coerce(
     _configure_schema(config)
     pipeline = _build_pipeline(config, run_id)
 
-    # Патчим get_backend, чтобы перехватить backend и подменить его метод validate
+    # Patch backend validation to track call sequence and simulate retry success
     call_sequence: list[bool] = []
-    original_get_backend = DataFrameSchema.get_backend
-    # Словарь для хранения оригинальных методов validate для каждого backend
-    backend_originals: dict[int, Any] = {}
 
-    def patched_get_backend(
-        self: DataFrameSchema,
+    # Import the actual backend class used internally by pandera
+    from pandera.backends.pandas.container import DataFrameSchemaBackend
+
+    original_backend_validate = DataFrameSchemaBackend.validate
+
+    def patched_backend_validate(
+        self: Any,
         check_obj: pd.DataFrame,
-    ) -> Any:
-        backend = cast(Any, original_get_backend)(self, check_obj)
-        # Применяем патч только к SimpleSchema
-        # Патчим каждый раз, так как для retry создается новая схема с другим backend
-        schema_name = getattr(self, "name", None)
+        schema: DataFrameSchema,
+        *args: object,
+        **kwargs: object,
+    ) -> pd.DataFrame:
+        schema_name = getattr(schema, "name", None)
         if schema_name == "SimpleSchema":
-            # Используем id объекта backend как ключ для хранения оригинального метода
-            backend_id = id(backend)
-            if backend_id not in backend_originals:
-                backend_originals[backend_id] = backend.validate
+            # Track call sequence for test assertions
+            coerce_value = bool(getattr(schema, "coerce", False))
+            call_sequence.append(coerce_value)
 
-            original_backend_validate = backend_originals[backend_id]
+            # If coerce=False, bypass validation and return data as-is
+            # This simulates successful validation when only coercion errors occurred
+            if not coerce_value:
+                return check_obj.copy()
 
-            def patched_backend_validate(
-                check_obj: pd.DataFrame,
-                schema: DataFrameSchema,
-                *args: object,
-                **kwargs: object,
-            ) -> pd.DataFrame:
-                call_sequence.append(bool(schema.coerce))
-                if bool(schema.coerce):
-                    # Вызываем оригинальную валидацию, которая вызовет ошибку coercion
-                    # Исключение будет перехвачено в SchemaValidationStep
-                    return original_backend_validate(check_obj, schema, *args, **kwargs)
-                # При coerce=False валидация должна проходить успешно для теста
-                # В реальности при coerce=False pandera все равно проверяет типы и выбросит ошибку,
-                # но в тесте мы хотим проверить, что retry логика работает правильно.
-                # Поэтому пропускаем проверку типов, возвращая данные как есть.
-                # Это симулирует успешную валидацию при coerce=False для случая,
-                # когда ошибки были только из-за coercion (coerce_only=True в CoerceRetryStep).
-                result = check_obj.copy()
-                # Имитируем успешную валидацию, добавляя pandera атрибуты если нужно
-                try:
-                    # Пытаемся добавить схему к результату для совместимости с pandera
-                    if hasattr(result, "pandera"):
-                        result.pandera.add_schema(schema)
-                except Exception:  # noqa: BLE001
-                    # Игнорируем ошибки при добавлении pandera атрибутов
-                    pass
-                return result
+        # If coerce=True or not SimpleSchema, invoke original validation
+        return original_backend_validate(self, check_obj, schema, *args, **kwargs)
 
-            backend.validate = patched_backend_validate
-        return backend
-
-    monkeypatch.setattr(DataFrameSchema, "get_backend", patched_get_backend)
+    monkeypatch.setattr(DataFrameSchemaBackend, "validate", patched_backend_validate)
 
     df = pd.DataFrame({"id": [1], "value": ["invalid"]})
 
