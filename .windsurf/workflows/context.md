@@ -54,10 +54,10 @@ BioETL - это унифицированная ETL система для изв�
 
 ## Команды
 
-- `/run_assay` - запуск assay pipeline
-- `/run_activity` - запуск activity pipeline
-- `/run_document` - запуск document pipeline
-- `/run_target` - запуск target pipeline
-- `/run_testitem` - запуск testitem pipeline
-- `/validate_columns` - валидация колонок
-- `/validate_all_columns` - валидация всех колонок
+- `/run-activity-chembl` - запуск ChEMBL activity пайплайна
+- `/run-assay-chembl` - запуск ChEMBL assay пайплайна
+- `/run-document-chembl` - запуск ChEMBL document пайплайна
+- `/run-target-chembl` - запуск ChEMBL target пайплайна
+- `/run-testitem-chembl` - запуск ChEMBL testitem пайплайна
+- `/run-chembl-all` - последовательный запуск всех ChEMBL пайплайнов и сбор общего отчёта
+- `/validate-config` - валидация YAML-конфигов и поиск неиспользуемых ключей
