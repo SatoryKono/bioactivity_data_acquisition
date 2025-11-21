@@ -36,6 +36,10 @@
 - CLI-слой очищен от dev-инструментов: `bioetl.cli.cli_app` регистрирует
   только пайплайновые команды и использует новый фасад
   `bioetl.core.runtime.cli_feedback` для унифицированного вывода.
+- Фасад `bioetl.core` помечает `ChemblReleaseMixin` и
+  `join_activity_with_molecule` как устаревшие shim-обёртки над
+  `bioetl.chembl.common.*`; при импорте из `bioetl.core` теперь
+  выдаётся `DeprecationWarning`.
 
 ### Удалено
 

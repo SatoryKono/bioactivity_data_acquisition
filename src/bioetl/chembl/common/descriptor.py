@@ -18,7 +18,7 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -45,9 +45,118 @@ from bioetl.core.pipeline.errors import PipelineError
 from bioetl.schemas import SchemaRegistryEntry
 from bioetl.schemas.pipeline_contracts import get_out_schema
 
+
+class ChemblDescriptorPipelineProtocol(Protocol):
+    """Minimal pipeline contract required by descriptor-driven extraction.
+
+    The protocol is intentionally small and focuses on the behaviour exercised by
+    descriptor builders and extraction helpers. Concrete implementations such as
+    :class:`ChemblPipelineBase` provide a superset of this API.
+    """
+
+    config: Any
+    pipeline_code: str
+    id_column: str | None
+
+    _registered_clients: dict[str, Any]
+
+    def build_chembl_entity_bundle(
+        self,
+        entity_name: str,
+        *,
+        source_name: str = "chembl",
+        source_config: SourceConfig[Any] | None = None,
+        options: Mapping[str, Any] | None = None,
+        chembl_client_kwargs: Mapping[str, Any] | None = None,
+        fresh_http_client: bool = False,
+    ) -> ChemblClientBundle: ...
+
+    def register_client(self, name: str, client: UnifiedAPIClient | Any) -> None: ...
+
+    # Methods required by descriptor-driven helpers. These mirror the
+    # corresponding methods on ``ChemblPipelineBase`` but are intentionally
+    # specified with broad ``Any`` types to avoid over-constraining callers.
+
+    def _resolve_source_config(self, name: str) -> SourceConfig[Any]: ...
+
+    def ensure_chembl_release(
+        self,
+        context: ChemblExtractionContext,
+        log: BoundLogger,
+    ) -> tuple[str | None, dict[str, Any]]: ...
+
+    def _resolve_batch_size(self, source_config: SourceConfig[Any]) -> int: ...
+
+    def _resolve_page_size(
+        self,
+        batch_size: int,
+        limit: int | None,
+        *,
+        hard_cap: int = 25,
+    ) -> int: ...
+
+    def _normalize_parameters(self, parameters: Any) -> dict[str, Any]: ...
+
+    def publish_release_metadata(
+        self,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        release: str | None,
+        metadata: Mapping[str, Any] | None = None,
+        include_metadata: bool = True,
+    ) -> dict[str, Any]: ...
+
+    def record_extract_metadata(
+        self,
+        *,
+        filters: Mapping[str, Any],
+        requested_at_utc: datetime,
+        **kwargs: Any,
+    ) -> None: ...
+
+    def _coerce_mapping(self, payload: Any) -> Mapping[str, Any]: ...
+
+    @property
+    def chembl_release(self) -> str | None: ...
+
+    def _set_chembl_release(self, value: str | None) -> None: ...
+
+    def run_batched_extraction(
+        self,
+        ids: Sequence[Any],
+        *,
+        id_column: str,
+        fetcher: Callable[[Sequence[str], BatchExtractionContext], Any],
+        select_fields: Sequence[str] | None = None,
+        required_fields: Sequence[str] | None = None,
+        limit: int | None = None,
+        batch_size: int | None = None,
+        chunk_size: int | None = None,
+        max_batch_size: int | None = 25,
+        metadata_filters: Mapping[str, Any] | None = None,
+        chembl_release: str | None = None,
+        id_normalizer: Callable[[Any], tuple[str | None, Any]] | None = None,
+        sort_key: Callable[[tuple[str, Any]], Any] | None = None,
+        transform_item: (
+            Callable[[Mapping[str, Any], BatchExtractionContext], Mapping[str, Any]]
+            | None
+        ) = None,
+        finalize: (
+            Callable[[pd.DataFrame, BatchExtractionContext], pd.DataFrame]
+            | None
+        ) = None,
+        finalize_context: (
+            Callable[[BatchExtractionContext], None] | None
+        ) = None,
+        empty_frame_factory: Callable[[], pd.DataFrame] | None = None,
+        stats_attribute: str | None = None,
+        fetch_mode: Literal["default", "delegated"] = "default",
+    ) -> tuple[pd.DataFrame, BatchExtractionStats]: ...
+
+
 PipelineT = TypeVar(
     "PipelineT",
-    bound="ChemblPipelineBase",
+    bound="ChemblDescriptorPipelineProtocol",
     contravariant=True,
 )  # noqa: UP037
 FetcherCallable = Callable[
@@ -73,7 +182,7 @@ FinalizeContextFactory = Callable[
     FinalizeContextCallable,
 ]  # noqa: UP037
 DryRunHandler = Callable[
-    ["ChemblPipelineBase", "ChemblExtractionContext", BoundLogger],
+    [ChemblDescriptorPipelineProtocol, "ChemblExtractionContext", BoundLogger],
     pd.DataFrame,
 ]  # noqa: UP037
 SummaryFactory = Callable[
@@ -163,7 +272,7 @@ class ChemblDescriptorSpec(Generic[PipelineT]):
 
 SelfDescriptorT = TypeVar(
     "SelfDescriptorT",
-    bound="ChemblPipelineBase",
+    bound=ChemblDescriptorPipelineProtocol,
 )  # noqa: UP037
 
 
@@ -349,8 +458,8 @@ class ChemblExtractionDescriptor(Generic[PipelineT]):
     ]
     id_column: str
     summary_event: str
-    must_have_fields: Sequence[str] = ()
-    default_select_fields: Sequence[str] | None = None
+    must_have_fields: tuple[str, ...] = ()
+    default_select_fields: tuple[str, ...] | None = None
     record_transform: (
         Callable[
             [PipelineT, Mapping[str, Any], ChemblExtractionContext],
@@ -413,6 +522,54 @@ class ChemblDescriptorBuilderMixin(
         """Construct a descriptor instance based on :meth:`descriptor_spec`."""
 
         spec = self.descriptor_spec()  # type: ignore[attr-defined]
+
+        must_have = tuple(spec.must_have_fields or ())
+
+        if not spec.id_column:
+            msg = f"Descriptor '{spec.name}' must define a non-empty id_column"
+            raise PipelineError(msg)
+
+        if must_have and spec.id_column not in must_have:
+            msg = (
+                f"Descriptor '{spec.name}' must include id_column "
+                f"'{spec.id_column}' in must_have_fields; got {must_have!r}"
+            )
+            raise PipelineError(msg)
+
+        default_select: tuple[str, ...] | None
+        if spec.default_select_fields is None:
+            default_select = None
+        else:
+            default_select = tuple(str(col) for col in spec.default_select_fields)
+            if not default_select:
+                msg = (
+                    f"Descriptor '{spec.name}' defines empty "
+                    "default_select_fields; leave it as None to disable "
+                    "defaults"
+                )
+                raise PipelineError(msg)
+
+        post_processors = tuple(spec.post_processors or ())
+
+        raw_sort_by = spec.sort_by
+        sort_by: tuple[str, ...] | None
+        if raw_sort_by is None:
+            sort_by = None
+        elif isinstance(raw_sort_by, Sequence) and not isinstance(
+            raw_sort_by, (str, bytes)
+        ):
+            sort_by = tuple(str(col) for col in raw_sort_by)
+        else:
+            sort_by = (str(raw_sort_by),)
+
+        hard_cap = spec.hard_page_size_cap
+        if hard_cap is not None and hard_cap <= 0:
+            msg = (
+                f"Descriptor '{spec.name}' has invalid hard_page_size_cap="
+                f"{hard_cap}; expected a positive integer or None."
+            )
+            raise PipelineError(msg)
+
         build_context = self._build_context_callable(spec)  # type: ignore[attr-defined]
         empty_frame_factory = (
             spec.empty_frame_factory
@@ -430,15 +587,15 @@ class ChemblDescriptorBuilderMixin(
             build_context=build_context,  # pyright: ignore[reportArgumentType]
             id_column=spec.id_column,
             summary_event=spec.summary_event,
-            must_have_fields=tuple(spec.must_have_fields),
-            default_select_fields=spec.default_select_fields,
+            must_have_fields=must_have,
+            default_select_fields=default_select,
             record_transform=spec.record_transform,
-            post_processors=tuple(spec.post_processors),
-            sort_by=spec.sort_by,
+            post_processors=post_processors,
+            sort_by=sort_by,
             empty_frame_factory=empty_frame_factory,  # pyright: ignore[reportArgumentType]
             dry_run_handler=spec.dry_run_handler,
             summary_extra=spec.summary_extra,
-            hard_page_size_cap=spec.hard_page_size_cap,
+            hard_page_size_cap=hard_cap,
         )
 
     # ------------------------------------------------------------------
@@ -1590,7 +1747,6 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
             Кортеж из результирующего DataFrame и агрегированной статистики,
             включающей количество батчей, вызовов API и т.д.
         """
-        """Execute descriptor-driven ID extraction with shared orchestration."""
 
         if not summary_event:
             msg = "summary_event must be provided"
@@ -1602,7 +1758,8 @@ class ChemblPipelineBase(ChemblReleaseMixin, PipelineBase):
         stage_logger = getattr(self, "stage_logger", None)
         logger_cm: Any
         if callable(stage_logger):
-            logger_cm = stage_logger("extract", rows=rows_hint)
+            stage_logger_cm = cast(Callable[..., Any], stage_logger)
+            logger_cm = stage_logger_cm("extract", rows=rows_hint)
         else:
             fallback_log = UnifiedLogger.get(__name__).bind(
                 component=f"{self.pipeline_code}.extract"

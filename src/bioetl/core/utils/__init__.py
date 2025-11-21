@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
+import warnings
 
 from bioetl.core.infra.iterables import is_non_string_iterable
 from bioetl.core.infra.typechecks import is_dict, is_list
@@ -36,6 +37,15 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name == "join_activity_with_molecule":
+        warnings.warn(
+            (
+                "'join_activity_with_molecule' is now provided via "
+                "'bioetl.chembl.common'. Importing it from 'bioetl.core.utils' "
+                "is deprecated and will be removed in a future release."
+            ),
+            DeprecationWarning,
+            stacklevel=2,
+        )
         from bioetl.chembl.common import join_activity_with_molecule as join_fn
 
         return join_fn

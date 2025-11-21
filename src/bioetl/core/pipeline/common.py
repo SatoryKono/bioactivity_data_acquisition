@@ -51,7 +51,10 @@ from bioetl.core.logging import (
     get_pipeline_logger,
     pipeline_stage,
 )
-from bioetl.core.runtime.load_meta_store import LoadMetaStore
+from bioetl.core.runtime.load_meta_backend import (
+    LoadMetaBackend,
+    LoadMetaStore,
+)
 from bioetl.core.schema import format_failure_cases, summarize_schema_errors
 from bioetl.utils import ensure_directory
 from bioetl.core.pipeline.errors import PipelineError, map_client_exc
@@ -469,9 +472,9 @@ class PipelineBaseCommon(ABC, PipelineStagesProtocol):
         load_meta_root = (
             self.output_root.parent / "load_meta" / self.pipeline_code
         )
-        self.load_meta_store = LoadMetaStore(
-            load_meta_root, dataset_format="parquet"
-        )
+        store = LoadMetaStore(load_meta_root, dataset_format="parquet")
+        self.load_meta_backend: LoadMetaBackend = store
+        self.load_meta_store = store
         self._qc_executor = QCMetricsExecutor()
         self._qc_report_options: QCReportRuntimeOptions | None = None
         self._qc_thresholds: dict[str, float] = {}

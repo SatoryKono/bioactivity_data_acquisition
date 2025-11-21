@@ -21,11 +21,66 @@ from bioetl.vocab.exceptions import (
 )
 
 
+class ValidationPipelineProtocol(Protocol):
+    config: Any
+    _validation_schema: SchemaRegistryEntry | None
+    _validation_schema_version: str | None
+    _validation_summary: dict[str, Any] | None
+
+    def _resolve_schema_entry(
+        self,
+        schema_identifier: str,
+        *,
+        expected_version: str | None,
+        dataset_role: str,
+        allow_migration: bool,
+    ) -> tuple[SchemaRegistryEntry, Sequence[SchemaMigration], str | None]: ...
+
+    def _apply_schema_migrations(
+        self,
+        df: pd.DataFrame,
+        *,
+        schema_identifier: str,
+        dataset_role: str,
+        migrations: Sequence[SchemaMigration],
+    ) -> pd.DataFrame: ...
+
+    def _clone_schema_with_options(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Any: ...
+
+    def _ensure_schema_columns(
+        self,
+        df: pd.DataFrame,
+        *args: Any,
+        **kwargs: Any,
+    ) -> pd.DataFrame: ...
+
+    def _reorder_columns(
+        self,
+        df: pd.DataFrame,
+        column_order: Sequence[str],
+    ) -> pd.DataFrame: ...
+
+    def _ensure_load_meta_ids(
+        self,
+        df: pd.DataFrame,
+    ) -> pd.DataFrame: ...
+
+    def _check_vocabulary_bindings(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> Sequence[VocabularyViolation]: ...
+
+
 @dataclass
 class ValidationContext:
     """Mutable context propagated through validation steps."""
 
-    pipeline: Any
+    pipeline: ValidationPipelineProtocol
     df: pd.DataFrame
     dataset_role: str = "primary"
     schema_entry: SchemaRegistryEntry | None = None

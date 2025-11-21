@@ -10,7 +10,6 @@ import warnings
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-from .common import ChemblReleaseMixin
 from .http import (
     APIClientFactory,
     CircuitBreaker,
@@ -72,12 +71,13 @@ from .schema import (
 from .utils import (
     clear_vocab_store_cache,
     get_ids,
-    join_activity_with_molecule,
     load_vocab_store,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - imports for static analyzers only
     from bioetl.base_classes import BaseApiClient, INormalizer, IParser
+    from bioetl.chembl.common import join_activity_with_molecule
+    from bioetl.chembl.common.release_tracker import ChemblReleaseMixin
 
 __all__ = [
     # Common
@@ -158,6 +158,25 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
 _lazy_resolver = resolve_lazy_attr(globals(), _LAZY_EXPORTS, cache=True)
 
 _DEPRECATED_EXPORTS: dict[str, tuple[str, str, str]] = {
+    "ChemblReleaseMixin": (
+        "bioetl.chembl.common.release_tracker",
+        "ChemblReleaseMixin",
+        (
+            "'ChemblReleaseMixin' is now provided via "
+            "'bioetl.chembl.common.release_tracker'. "
+            "Importing it from 'bioetl.core' is deprecated and will "
+            "be removed in a future release."
+        ),
+    ),
+    "join_activity_with_molecule": (
+        "bioetl.chembl.common",
+        "join_activity_with_molecule",
+        (
+            "'join_activity_with_molecule' is now provided via "
+            "'bioetl.chembl.common'. Importing it from 'bioetl.core' "
+            "is deprecated and will be removed in a future release."
+        ),
+    ),
     "BaseApiClient": (
         "bioetl.base_classes",
         "BaseApiClient",

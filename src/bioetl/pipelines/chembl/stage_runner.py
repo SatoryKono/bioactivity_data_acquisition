@@ -6,13 +6,14 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from functools import partial
 from types import MappingProxyType
-from typing import Any, Protocol, runtime_checkable
+from typing import Any, Protocol
 
 from structlog.stdlib import BoundLogger
 
 from bioetl.config.models.models import PipelineConfig
 from bioetl.core.logging import LogEvents, UnifiedLogger, get_pipeline_logger
 from bioetl.core.pipeline import PipelineBase
+from bioetl.core.pipeline.orchestration import PipelineStagesProtocol
 
 __all__ = [
     "PIPELINE_REGISTRY",
@@ -37,41 +38,6 @@ _DEFAULT_STAGE_SEQUENCE: tuple[str, ...] = (
 _KNOWN_STAGE_NAMES: frozenset[str] = frozenset(_DEFAULT_STAGE_SEQUENCE)
 
 _LOG = UnifiedLogger.get(__name__)
-
-
-@runtime_checkable
-class PipelineStagesProtocol(Protocol):
-    """Protocol describing the minimal set of stage callables."""
-
-    def extract(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
-
-    def extract_all(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
-
-    def extract_by_ids(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
-
-    def transform(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
-
-    def validate(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
-
-    def write(
-        self, *args: Any, **kwargs: Any
-    ) -> Any:  # pragma: no cover - Protocol hook
-        ...
 
 
 class _PipelineResolver(Protocol):
@@ -372,14 +338,15 @@ def _coerce_stage_context(
     run_id: str | None,
 ) -> StageContext:
     if isinstance(context_or_config, StageContext):
-        # Если передан StageContext, run_id должен быть None (передан явно как именованный аргумент)
-        # Если run_id не None и это строка, это может быть аргумент для stage метода, а не run_id
-        # Проверяем только если run_id был передан как именованный аргумент (не позиционный)
-        # Для этого нужно проверить, что run_id действительно является run_id, а не аргументом stage
-        # Но мы не можем это определить здесь, поэтому просто игнорируем run_id если передан StageContext
-        # и считаем, что run_id должен быть явно передан как None или не передан вообще
-        # Если run_id не None, это ошибка только если он был передан как именованный аргумент
-        # Но мы не можем это определить, поэтому просто игнорируем run_id при StageContext
+        # Если передан StageContext, run_id должен быть None
+        # (передан явно как именованный аргумент).
+        # Если run_id не None и это строка, это может быть аргументом
+        # для stage-метода, а не run_id.
+        # Проверяем только если run_id был передан как именованный аргумент
+        # (не позиционный). Мы не можем надёжно различить эти случаи здесь,
+        # поэтому просто игнорируем run_id, если передан StageContext, и
+        # считаем, что run_id должен быть явно передан как None или не
+        # передан вовсе.
         return context_or_config.derive(stage=stage)
 
     if isinstance(context_or_config, PipelineConfig):
